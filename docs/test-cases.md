@@ -1469,7 +1469,7 @@ Total.
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 - v1.71.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (14)
+### test_surface_parity.lua (15)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1485,6 +1485,7 @@ Total.
 - parity: the Lifecycle stand-in carries every member of the live latch
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
+- parity: the Perf stub carries every member the addon reads off NS.Perf
 
 ### test_disabled.lua (17)
 
@@ -1722,7 +1723,7 @@ Total.
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 31 |
-| test_surface_parity.lua | 14 |
+| test_surface_parity.lua | 15 |
 | test_disabled.lua | 17 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
@@ -1737,4 +1738,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1483** |
+| **Total** | **1484** |

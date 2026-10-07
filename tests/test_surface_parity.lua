@@ -285,3 +285,53 @@ test("parity: the Media seam publishes the same NS members on both paths", funct
   -- Members from: grep -nE '^\s*function NS\.[A-Za-z_]+|^\s*NS\.[A-Za-z_]+\s*=' core/MediaSetup.lua
   assertSeamParity("core/MediaSetup.lua", "MediaFont", "Media seam (NS members)")
 end)
+
+-- ── Perf ───────────────────────────────────────────────────────────────────────────────────────
+
+-- The members core/PerfSetup.lua's stub carries: the gate fields (`on`, `suspended`), the bucket
+-- order, the bracket sinks, the hold pair and the slash entry point. The live half is what
+-- `lib:New{...}` returned, which publishes far more (the panel, the record schema, the run state);
+-- the stub is obliged to carry only what the addon can reach, so this case compares these members
+-- and nothing else, and the derivation below is what keeps the list honest.
+local PERF_MEMBERS = {
+  "on", "suspended", "BUCKET_ORDER",
+  "Note", "Open", "Close", "Suspend", "Resume", "OnCommand",
+}
+
+test("parity: the Perf stub carries every member the addon reads off NS.Perf", function()
+  -- Members from: grep -rhoE 'Perf[.:][A-Za-z_]+' core modules settings | sort -u
+  -- The scan below is that grep over the TOC's own core/, modules/ and settings/ files, minus
+  -- core/PerfSetup.lua itself (the seam that BUILDS NS.Perf, not a reader of it). Every member it
+  -- finds must be in PERF_MEMBERS, so a new `Perf.X` read added to a module and forgotten in the
+  -- stub goes red here instead of raising on the library-absent path. An instance has no major to
+  -- name, so this is the two-table form over the listed members, both arms read off NS.Perf.
+  local listed = {}
+  for _, key in ipairs(PERF_MEMBERS) do listed[key] = true end
+  local reads, unlisted = {}, {}
+  for _, path in ipairs(Loader.tocFiles("LootHistory.toc")) do
+    path = path:gsub("\\", "/")
+    if path:match("^core/") or path:match("^modules/") or path:match("^settings/") then
+      if path ~= "core/PerfSetup.lua" and path:match("%.lua$") then
+        for key in Loader.readFile(path):gmatch("Perf[.:]([A-Za-z_]+)") do
+          -- `key ~= "lua"`: a comment citing libs/LibKa0s/Perf.lua is a file name, not a read.
+          reads[key] = true
+          if not listed[key] and key ~= "lua" then unlisted[#unlisted + 1] = key .. " (" .. path .. ")" end
+        end
+      end
+    end
+  end
+  assertTrue(reads.on and reads.Note and reads.OnCommand,
+    "the derivation found no Perf.on/Perf.Note/Perf.OnCommand read — the call sites changed shape "
+    .. "and this case is now asserting nothing")
+  assertTrue(#unlisted == 0, "the addon reads NS.Perf members the stub list does not name: "
+    .. table.concat(unlisted, ", "))
+
+  local live, degraded = {}, {}
+  for _, key in ipairs(PERF_MEMBERS) do
+    live[key], degraded[key] = NS.Perf[key], degradedNS.Perf[key]
+    assertTrue(live[key] ~= nil, "NS.Perf." .. key .. " is absent on the LIVE path — the library "
+      .. "dropped it and this list is stale")
+    assertTrue(degraded[key] ~= nil, "NS.Perf." .. key .. " is absent from core/PerfSetup.lua's stub")
+  end
+  T.assertSurfaceParity(live, degraded, "Perf stub vs live instance")
+end)
