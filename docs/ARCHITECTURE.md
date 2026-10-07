@@ -28,7 +28,7 @@ LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
 settings canvas with its tab strip and Master-controls composer, the settings schema runtime, the
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
-the flat dropdowns and the Timeline's line chart (vendored at v1.69.0, see `CLAUDE.md`). All libraries
+the flat dropdowns and the Timeline's line chart (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
 vendored **whole-folder**, because fourteen of its fifteen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
@@ -37,8 +37,8 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 
 ## Module map
 
-Fifty-two authored files load in the fixed order `LootHistory.toc` sets: vendored `libs/` →
-`locales/` → `core/` (Compat first) → `defaults/` → `modules/` → `settings/` (last). Ten
+The authored files load in the fixed order `LootHistory.toc` sets: vendored `libs/` →
+`locales/` → `core/` (Compat first) → `defaults/` → `modules/` → `settings/` (last). The
 `core/*Setup.lua` files and three in `settings/` (`OptionsSetup.lua`, `Schema.lua`, `Slash.lua`) are
 the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, the
 holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
@@ -285,9 +285,9 @@ and registered below.
 
 | Doc | Status | Trigger |
 |---|---|---|
-| `slash-dispatch.md` | Present | 20 verbs in `NS.COMMANDS` |
+| `slash-dispatch.md` | Present | The verbs in `NS.COMMANDS` |
 | `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
-| `compat-layer.md` | Present | 47 shims (`grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua`) of addon-specific shimming beyond LibKa0s |
+| `compat-layer.md` | Present | The shims `grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua` counts, addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Present | Every setting but the retention is per profile and a Profiles page ships (`settings/Profiles.lua`); the page says what a profile holds, what stays account-wide (the history and its retention, D6), the adopt path and the v9 and v10 moves |
 | `debug.md` | Present | The diagnostics report (`/lh diagnostics`, `debug-logging-§14`) is a debug surface of the addon's own, and every Ka0s addon ships it |

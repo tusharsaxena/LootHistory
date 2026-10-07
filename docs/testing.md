@@ -62,9 +62,9 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Forty-four suites (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
-authoritative count): thirty-nine files of this repo's own under `tests/`, and five the kit ships under
-`tests/_kit/`, each declared by the pair (basename, directory) as `testing-§9` prescribes.
+The suites are this repo's own files under `tests/` plus the ones the kit ships under `tests/_kit/`
+(the **Totals** in **[test-cases.md](test-cases.md)** carry the count, beside the full per-case
+inventory), each declared by the pair (basename, directory) as `testing-§9` prescribes.
 `tests/run.lua` fixes the load order, which is significant and commented there; this table groups by
 concern, and the repo gates that read the checkout rather than the loaded addon sit together at the
 foot of it:
