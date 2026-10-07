@@ -1222,7 +1222,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: LegendTip reads the test-mode store when it is on
 - Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
 
-### test_timelinetab.lua (31)
+### test_timelinetab.lua (35)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1252,6 +1252,10 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: the wider point spacing thins a 120-day series to fewer points
 - Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint
 - Timeline tab: the Warband's legend tooltip wears the Warband's series color
+- Timeline tab: a legend click under a resting cursor re-shows the entry's tooltip
+- Timeline tab: a repaint that rebinds the hovered legend entry re-shows the new holder's tooltip
+- Timeline tab: a repaint that leaves the hovered legend entry unbound hides its tooltip
+- Timeline tab: a repaint nobody hovers leaves the tooltip alone
 - Timeline tab: legend entries sit one even gap apart, the Total keeping its slot
 - Timeline tab: the Warband's legend entry takes the same gap as a character's
 - Timeline tab: a legend too wide for the pane wraps to a second row and the body makes room
@@ -1699,7 +1703,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 33 |
 | test_timeline.lua | 32 |
-| test_timelinetab.lua | 31 |
+| test_timelinetab.lua | 35 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
 | test_views.lua | 16 |
@@ -1723,4 +1727,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1473** |
+| **Total** | **1477** |

@@ -133,6 +133,10 @@ end
 -- ReleaseAll's per-bar hook: a parked bar must not keep the day it last showed.
 local function clearFlow(bar) bar.flow = nil end
 
+-- And the legend's: a parked entry must not keep the line it last named, so a hovered entry the
+-- rebuild leaves unbound reads as such (TL:RefreshLegendTip).
+local function clearLegend(e) e.key, e.label = nil, nil end
+
 -- A day's column is its own hover region: the frame spans the strip's full height and the day's
 -- width, so the gain bar, the loss bar and the gap between them all hover it, and it is pooled with
 -- the bars it holds. The strip sits below the chart, so this never meets the chart's crosshair.
@@ -153,7 +157,7 @@ local function makeLegendEntry(parent)
   f.fs:SetPoint("LEFT", 0, 0); f.fs:SetWidth(LEGEND_W - 4); f.fs:SetWordWrap(false); f.fs:SetJustifyH("LEFT")
   f:SetScript("OnClick", function(self2) TL:ToggleSeries(self2.key) end)
   f:SetScript("OnEnter", function(self2) TL:ShowLegendTip(self2) end)
-  f:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
+  f:SetScript("OnLeave", function() TL:HideLegendTip() end)
   return f
 end
 
@@ -289,9 +293,9 @@ function TL:Refresh()
     self.title:SetText(self.chart and "Turn on ledger tracking (Settings, Capture) to see the Timeline." or "")
     self.totalOnlyBtn:Hide()
     if self.chart then self.chart:Clear(); self.emptyMsg:Hide() end
-    NS.Pool.ReleaseAll(self.stripPool, clearFlow); NS.Pool.ReleaseAll(self.legendPool)
+    NS.Pool.ReleaseAll(self.stripPool, clearFlow); NS.Pool.ReleaseAll(self.legendPool, clearLegend)
     self.legendButtons = {}
-    self:HideFlowTip()
+    self:HideFlowTip(); self:HideLegendTip()
     return
   end
   self.model = TM.Build(self:Params(f))
@@ -390,7 +394,7 @@ end
 function TL:ShowFlowTip(bar)
   local h = self.model and TM.FlowLines(self.model, bar.flow)
   if not h then self:HideFlowTip(); return end
-  self.flowTipOwner = bar
+  self.flowTipOwner, self.legendTipOwner = bar, nil
   NS.Compat.ShowLinesTooltip(bar, h.title, h.rows, "ANCHOR_CURSOR")
 end
 
@@ -421,7 +425,7 @@ end
 -- its place when hidden; a hidden one is dimmed gray. Entries are as wide as their labels and one even
 -- gap apart, the Total keeping its slot (TM.LegendLayout); answers the number of rows they wrap to.
 function TL:RenderLegend()
-  NS.Pool.ReleaseAll(self.legendPool)
+  NS.Pool.ReleaseAll(self.legendPool, clearLegend)
   self.legendButtons = {}
   local s = self.model.series
   local order = { s[#s] }
@@ -445,18 +449,38 @@ function TL:RenderLegend()
     e:ClearAllPoints()
     e:SetPoint("TOPLEFT", self.legend, "TOPLEFT", pos[i].x, -(pos[i].row - 1) * LEGEND_H)
   end
+  self:RefreshLegendTip()
   return math.max(1, rows)
 end
 
 -- The entry's line in its own color, what that holder holds of the thing now, and the click hint
 -- (TM.LegendTip). Drawn by the amount-tooltip shim: a colored title, one label/value line, a gray hint.
 function TL:ShowLegendTip(btn)
+  if not btn.key then self:HideLegendTip(); return end
+  self.legendTipOwner, self.flowTipOwner = btn, nil
   local t = TM.LegendTip(self.model, btn.key)
   if not t then
     NS.Compat.ShowTextTooltip(btn, btn.label, "Click to hide/show", "ANCHOR_TOP")
     return
   end
   NS.Compat.ShowAmountTooltip(btn, t.title, t.color, t.label, t.value, t.hint, "ANCHOR_TOP")
+end
+
+function TL:HideLegendTip()
+  if not self.legendTipOwner then return end
+  self.legendTipOwner = nil
+  NS.Compat.HideTooltip()
+end
+
+-- A click or a live repaint under a resting cursor: the cursor never left the entry, so no OnEnter
+-- comes, and the pool may have handed that frame another line (the ranks follow the series order,
+-- which a filter or a new holder shifts). Re-shown for the line the entry names now; an entry the
+-- rebuild left unbound went back to the pool, and its tooltip goes with it. Only a tooltip the legend
+-- owns is touched, so this costs nothing on a repaint nobody is hovering.
+function TL:RefreshLegendTip()
+  local btn = self.legendTipOwner
+  if not btn then return end
+  if btn.key and btn:IsShown() then self:ShowLegendTip(btn) else self:HideLegendTip() end
 end
 
 -- ── the picker: this tab's half of the Search autocomplete ──
@@ -510,7 +534,8 @@ function TL:OnHover(i)
     return
   end
   local C = NS.Constants.TIMELINE
-  self.flowTipOwner = nil   -- the tooltip is the chart's now; a strip repaint must not take it back
+  -- the tooltip is the chart's now; a strip or legend repaint must not take it back
+  self.flowTipOwner, self.legendTipOwner = nil, nil
   GameTooltip:SetOwner(self.chart, "ANCHOR_CURSOR")
   GameTooltip:SetText(h.title, 1, 0.82, 0)
   for _, r in ipairs(h.rows) do

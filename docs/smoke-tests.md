@@ -1566,7 +1566,13 @@ sum of the lines charted; narrow Character to one character → it reads **Holdi
 characters)** with that character's gold. Pick a currency → counts with commas (`12,345`). With
 `/lh test` on, the holdings are the sample's. Look along the legend → the gap after **Warband** is
 the same as between two characters, the gap after **Total** is as before, and with **Timeline lines**
-at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Result:
+at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Then,
+with the cursor resting on a character's entry and not moving: click → the line hides, the entry
+dims and the tooltip stays up, re-drawn for that same character; click again → it shows and the
+tooltip is still that character's. Still resting on an entry, let a live repaint land (loot gold on
+that character, or narrow Character from the filter bar by keyboard) → the tooltip names whatever
+line the entry under the cursor names now, and goes away if the entry under the cursor is gone.
+Result:
 
 ## Degraded install
 
@@ -1820,5 +1826,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
 | TL-15 | New | New with the timeline ledger P8 (tooltips on the in/out strip); no result recorded |
-| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); no result recorded |
+| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); widened 2026-10-07 to the tooltip re-showing under a resting cursor after a click or a live repaint; no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |
