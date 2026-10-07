@@ -113,6 +113,9 @@ modules\Browser.lua
 # their siblings as file-scope locals at load; modules\Browser.lua must be above.
 modules\BrowserFilterBar.lua
 modules\BrowserTable.lua
+# LOAD-BEARING POSITION: binds modules\BrowserTable.lua's BrowserTable._columnByKey and
+# BrowserTable._groupColumn as file-scope locals at load; modules\BrowserTable.lua must be above.
+modules\BrowserTableGroup.lua
 modules\Export.lua
 modules\AnalyticsFormat.lua
 # LOAD-BEARING POSITION: binds Analytics.K, Analytics._fmt and the Analytics._* helpers as file-scope

@@ -1245,3 +1245,28 @@ test("BrowserTable: the Character column shows the row's holder", function()
     assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
   end)
 end)
+
+-- LH-08 (review F-002): the display-list layer (sort, group, the filter→sort→group pipeline) lives
+-- in modules/BrowserTableGroup.lua, which extends NS.BrowserTable and binds BrowserTable.lua's
+-- `_columnByKey` / `_groupColumn` seams at file load. So it must load DIRECTLY after its parent, and
+-- every member it moved must still be on NS.BrowserTable once the TOC has loaded.
+test("BrowserTable: BrowserTableGroup.lua loads directly after BrowserTable.lua, members intact", function()
+  local f = assert(io.open("LootHistory.toc", "r"))
+  local files = {}
+  for line in f:lines() do
+    line = line:gsub("\r$", "")
+    if line ~= "" and not line:find("^#") then files[#files + 1] = line end
+  end
+  f:close()
+  local at
+  for i, path in ipairs(files) do if path == "modules\\BrowserTable.lua" then at = i end end
+  assertTrue(at ~= nil, "the TOC loads modules\\BrowserTable.lua")
+  assertEqual(files[at + 1], "modules\\BrowserTableGroup.lua", "the group layer loads right after its parent")
+  local BT = NS.BrowserTable
+  for _, name in ipairs({ "SortRecords", "SetSort", "SetGroupBy", "ToggleCollapse", "GroupRecords",
+                          "CurrentRecords", "BuildDisplayList", "SetFilter", "OrderedFilteredRecords" }) do
+    assertEqual(type(BT[name]), "function", "NS.BrowserTable." .. name)
+  end
+  assertEqual(type(BT.collapsed), "table", "NS.BrowserTable.collapsed")
+  assertTrue(BT.groupBy ~= nil and BT.groupAsc ~= nil, "groupBy / groupAsc defaults are published")
+end)

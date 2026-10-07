@@ -60,7 +60,9 @@ load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; c
   Reconciler's `SCAN_STEPS` / `PLAN_STEPS` / `COMMIT_STEPS` at load); `modules/Analytics.lua` and
   `modules/AnalyticsCharts.lua` sit **below `modules/AnalyticsFormat.lua`** (they bind `Analytics.K`
   and its helpers at load); `modules/BrowserFilterBar.lua` sits **below `modules/Browser.lua`** (it
-  binds `B._applyFilter` and its siblings at load); `modules/HoldingsTab.lua` and
+  binds `B._applyFilter` and its siblings at load); `modules/BrowserTableGroup.lua` sits **directly
+  below `modules/BrowserTable.lua`** (it binds `BrowserTable._columnByKey` and
+  `BrowserTable._groupColumn` at load); `modules/HoldingsTab.lua` and
   `modules/Timeline.lua` sit **below `modules/Browser.lua`** (each calls `NS.Browser:RegisterTab` at
   load), and `modules/Timeline.lua` also **below `modules/TimelineModel.lua`** (`TM.TOTAL`).
 
@@ -110,7 +112,8 @@ nothing of a sibling at load. The rows below and
 | `modules/LedgerFormat.lua` | Pure display helpers for ledger rows: `Glyph` / `Color` per direction, `SignedQty`, `QtyText`, signed counts and money. No frames, no events. Loads above Browser. |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Direction/Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`). The LDB launcher and LibDBIcon minimap button are no longer here — see `core/LauncherSetup.lua`. Its ten dropdowns are **`LibKa0s-Widgets-1.0`**'s, through `core/WidgetsSetup.lua` — this file used to *be* the widget. The window is `HIGH` strata, deliberately below the shared popup's `FULLSCREEN_DIALOG`, so an open menu draws above it. Since LibKa0s v1.13.0 the popup intercepts nothing — it listens on `GLOBAL_MOUSE_DOWN` — so a click outside an open menu closes the menu **and** lands here on the same press. |
 | `modules/BrowserFilterBar.lua` | The shared filter bar, split out of `modules/Browser.lua`: `B:BuildFilterBar` (both rows of dropdowns, the search box, Save/Reset/Clear and Export), the static option sets and the bar button. Extends `NS.Browser`, binds its `B._` helpers at load, so it loads directly after `modules/Browser.lua`. |
-| `modules/BrowserTable.lua` | Virtualized pooled-row table: filter → group → sort → slice → bind pipeline; columns, sort, grouping, row interactions (link / blacklist / delete). `OrderedFilteredRecords` exposes the on-screen order for export. |
+| `modules/BrowserTable.lua` | Virtualized pooled-row table: the slice → bind half of the pipeline; columns, header arrows, row interactions (link / blacklist / delete), test mode. |
+| `modules/BrowserTableGroup.lua` | The table's display-list layer, split out of `modules/BrowserTable.lua`: filter → sort → group (`SortRecords`, `SetSort`, `SetGroupBy`, `ToggleCollapse`, `GroupRecords`, `BuildDisplayList`). `OrderedFilteredRecords` exposes the on-screen order for export. Extends `NS.BrowserTable`, binds its `BrowserTable._columnByKey` / `_groupColumn` seam at load, so it loads directly after `modules/BrowserTable.lua`. |
 | `modules/Export.lua` | Export modal (`NS.Export:Open`) at `DIALOG` strata, config-driven per invoking tab (`{ title, providers, csv }`): Data Set dropdown (All Data / Current View, a **`LibKa0s-Widgets-1.0`** dropdown through `core/WidgetsSetup.lua`); on an install with no library the modal **refuses to open**, decided by `NS.HasWidgets()` *before* the frame is created, so the refusal costs nothing and memoizes nothing; `CSV` serializes loot rows (History) and `InsightsCSV` a sectioned analytics dump (Insights); `WowheadLink` builder; the copy window is **`LibKa0s-Widgets-1.0`**'s `CopyWindow`, described (not built) here through `core/WidgetsSetup.lua`'s `NS.CopyWindow`. Called directly by the Browser; no bus message. |
 | `modules/Analytics.lua` | Insights tab, split by two dividers into a **LOOT** block (items-only stat/highlight cards + breakdowns: source, value, quality, item type, bound type, per-character companions, hour/weekday + per-day strips, top zones/items/value) and a **CURRENCY** block (Currency Collected, Currency by Type × Source, Currency by Character × Type, currency-per-day) shown only when the range has currency events — all from one `Database:Stats` pass, **scoped by Insights' own filter** on the shared bar (`Browser:CurrentFilter("Insights")`, per tab since P11, no range selector of its own). Owns the cards, refresh, layout, `BuildCharts`, the bus subscription and `LayoutCharts`; the pure half is `modules/AnalyticsFormat.lua` and the drawing half `modules/AnalyticsCharts.lua` (split three ways for `layout-§1`, issue #32). |
 | `modules/AnalyticsFormat.lua` | The Insights tab's pure half, loaded **before** `modules/Analytics.lua`: the layout constants (published as `Analytics.K`), the color tables and palettes (`Analytics._fmt`), and the formatting and segmenting helpers (`_truncate`, `_charStackSegments`, `_buildCharStackRows`, `_money`, `_tipText`, `_dayKeyList`, `_shortDay`, `_sortedByCount` and the color lookups). Builds no frame; both other Insights files bind what they need to file-scope locals at load. |
@@ -439,8 +442,10 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `modules/BrowserTable.lua` at 1296 lines
-(`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-06); the
+Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1436 lines,
+then `modules/Browser.lua` at 1416 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' |
+xargs wc -l`, 2026-10-07, after `modules/BrowserTable.lua` shed its display-list layer to
+`modules/BrowserTableGroup.lua`); the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---

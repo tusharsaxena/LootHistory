@@ -731,7 +731,7 @@ Total.
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 
-### test_browsertable.lua (80)
+### test_browsertable.lua (81)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -813,6 +813,7 @@ Total.
 - History row menu: Show in Timeline is disabled for a row that names no thing
 - History row menu: the existing four entries keep their order around the new one
 - BrowserTable: the Character column shows the row's holder
+- BrowserTable: BrowserTableGroup.lua loads directly after BrowserTable.lua, members intact
 
 ### test_export.lua (32)
 
@@ -1704,7 +1705,7 @@ Total.
 | test_database.lua | 83 |
 | test_stats.lua | 25 |
 | test_browser.lua | 95 |
-| test_browsertable.lua | 80 |
+| test_browsertable.lua | 81 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1742,4 +1743,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1488** |
+| **Total** | **1489** |
