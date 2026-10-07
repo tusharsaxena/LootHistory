@@ -1074,7 +1074,7 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (69)
+### test_analytics.lua (70)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -1139,6 +1139,7 @@ Total.
 - Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 - Analytics: the TOC loads Format, then Analytics, then Charts
+- AnalyticsCharts: publishes NS.Analytics idempotently, like every other Analytics* file
 - Analytics: the module's function surface is exactly the published one
 - Insights ledger: the caveat shows only for kept history with pre-ledger rows
 - Insights ledger: back-to-back rows share one peak and sort by total
@@ -1709,7 +1710,7 @@ Total.
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 69 |
+| test_analytics.lua | 70 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 33 |
 | test_timeline.lua | 32 |
@@ -1738,4 +1739,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1484** |
+| **Total** | **1485** |

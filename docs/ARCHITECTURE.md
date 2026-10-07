@@ -38,9 +38,10 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 ## Module map
 
 Load order is fixed in `LootHistory.toc`: vendored `libs/` → `locales/` → `core/` (Compat first) →
-`defaults/` → `modules/` (Attribution and Filters before Collector) → `settings/` (last). **Nine**
-LibKa0s seams sit inside `core/` and **three** in `settings/`. **Seven** TOC positions are
-load-bearing, each carrying a `LOAD-BEARING POSITION` comment in the TOC (toc-file-§5):
+`defaults/` → `modules/` → `settings/` (last). **Nine**
+LibKa0s seams sit inside `core/` and **three** in `settings/`. These TOC positions are
+load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
+`grep -c LOAD-BEARING LootHistory.toc`):
 
 - `core/ItemSetup.lua` and `core/MediaSetup.lua` sit **above `core/Constants.lua`**, which calls
   `NS.Item.QualityLabel` and reads `NS.MediaFont` (for `FONT_MONO`) at file load.
@@ -53,9 +54,19 @@ load-bearing, each carrying a `LOAD-BEARING POSITION` comment in the TOC (toc-fi
   `NS.Options.MasterControls` at file load (options-ui-§15).
 - `settings/Slash.lua` sits **below `settings/Schema.lua`**: the dispatcher is built at load with
   `commands = NS.COMMANDS`, which Schema assigns; above it, `:New` raises and `/lh` never registers.
+- `settings/Panel.lua` sits **below `settings/Schema.lua`**: it reads `NS.Schema.MASTER_GROUP` and
+  `NS.Schema.MasterAfterGroup` at file load.
+- In `modules/`: `modules/Escrow.lua` sits **below `modules/Reconciler.lua`** (it appends to the
+  Reconciler's `SCAN_STEPS` / `PLAN_STEPS` / `COMMIT_STEPS` at load); `modules/Analytics.lua` and
+  `modules/AnalyticsCharts.lua` sit **below `modules/AnalyticsFormat.lua`** (they bind `Analytics.K`
+  and its helpers at load); `modules/BrowserFilterBar.lua` sits **below `modules/Browser.lua`** (it
+  binds `B._applyFilter` and its siblings at load); `modules/HoldingsTab.lua` and
+  `modules/Timeline.lua` sit **below `modules/Browser.lua`** (each calls `NS.Browser:RegisterTab` at
+  load), and `modules/Timeline.lua` also **below `modules/TimelineModel.lua`** (`TM.TOTAL`).
 
-Every other position is **conventional**, and the TOC says so: `locales/`, the plain Core run and the
-Env, Lifecycle, Widgets, Pool and Launcher seams resolve nothing at load. The rows below and
+Every other position is **conventional**, and the TOC says so: `locales/`, the plain Core run, the
+Env, Lifecycle, Widgets, Pool and Launcher seams and every unannotated `modules/` file resolve
+nothing of a sibling at load. The rows below and
 [module-map.md](module-map.md) carry each one.
 
 | File | Role |

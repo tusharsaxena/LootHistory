@@ -464,6 +464,25 @@ test("Analytics: the TOC loads Format, then Analytics, then Charts", function()
   assertTrue(f < a and a < c, "AnalyticsFormat precedes Analytics, which precedes AnalyticsCharts")
 end)
 
+test("AnalyticsCharts: publishes NS.Analytics idempotently, like every other Analytics* file", function()
+  -- red under: `local Analytics = NS.Analytics` with no `NS.Analytics = NS.Analytics or {}` above
+  -- it -- loaded on a namespace no sibling has touched yet, the file indexes nil at its first read
+  -- (architecture-§3: every file that extends a module table publishes it idempotently).
+  local Loader = dofile("tests/_kit/loader.lua")
+  Loader.addonName = "LootHistory"
+  local mocks = dofile("tests/wow_mock.lua")()
+  -- The file still binds Analytics.K at load, so its position below modules/AnalyticsFormat.lua stays
+  -- LOAD-BEARING (the TOC says so); what this pins is that the table exists before that first read.
+  local ns = {}
+  local _, err = pcall(Loader.load, "modules/AnalyticsCharts.lua", ns, mocks)
+  assertTrue(type(ns.Analytics) == "table", "the file publishes NS.Analytics itself: " .. tostring(err))
+  assertFalse(tostring(err):find("local 'Analytics'", 1, true), "never indexes a nil NS.Analytics")
+  local preset = { K = {} }
+  local ns2 = { Analytics = preset }
+  pcall(Loader.load, "modules/AnalyticsCharts.lua", ns2, mocks)
+  assertTrue(ns2.Analytics == preset, "and keeps a table a sibling already published")
+end)
+
 test("Analytics: the module's function surface is exactly the published one", function()
   -- Pinned before modules/Analytics.lua was split three ways (LootHistory#32): every caller -- the
   -- Browser, the stand-down, this suite -- reaches the module through these names, so a split or a
