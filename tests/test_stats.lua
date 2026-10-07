@@ -435,3 +435,47 @@ test("Stats: holder-move pairs stay out of the legacy loot breakdowns", function
   -- The ledger still sees both halves of each move.
   assertEqual(s.ledger.reasonIn.WARBAND_DEPOSIT, 1); assertEqual(s.ledger.reasonOut.CURRENCY_TRANSFER, 1)
 end)
+
+-- LH-09 characterization: pinned on the unrefactored code before its CCN refactor. One pass over
+-- every per-row branch Stats and accumulateLedger have: legacy dir/kind defaults, a currency row's
+-- zero value, a row with no ts, gold in and out, a holder-only row, an OUT with no holder, a MOVE,
+-- and the IN half of a holder move (a ledger gain, never loot).
+test("Stats (characterization): ledger and legacy totals over every per-row branch", function()
+  local g = NS.db.global
+  local savedH, savedSince = g.history, g.ledgerSince
+  local W = NS.Constants.WARBAND_HOLDER
+  g.ledgerSince = T2
+  g.history = {
+    { ts = T1, char = "A-Realm", itemID = 10, itemName = "Sword", quantity = 2, vendorPrice = 5, source = "KILL" },
+    { char = "A-Realm", currencyID = 3008, itemName = "Valorstones", quantity = 7 },
+    { ts = T2, char = "B-Realm", kind = "GOLD", dir = "IN", quantity = 400, source = "LOOT" },
+    { ts = T2, holder = "B-Realm", kind = "GOLD", dir = "OUT", quantity = 150, source = "REPAIR" },
+    { ts = T2, kind = "ITEM", itemID = 11, dir = "OUT", quantity = 3, vendorPrice = 4, source = "SELL" },
+    { ts = T2, char = "A-Realm", kind = "ITEM", itemID = 12, dir = "MOVE", quantity = 1 },
+    { ts = T2, char = "A-Realm", holder = W, kind = "ITEM", itemID = 13, dir = "IN", quantity = 1,
+      vendorPrice = 50, source = "WARBAND_DEPOSIT" },
+  }
+  local s = NS.Database:Stats({})
+  g.history, g.ledgerSince = savedH, savedSince
+  local L = s.ledger
+  assertEqual(L.gainedCount, 4); assertEqual(L.lostCount, 2); assertEqual(L.movedCount, 1)
+  assertEqual(L.gainedValue, 10 + 0 + 400 + 50); assertEqual(L.lostValue, 150 + 12)
+  assertEqual(L.netValue, 298); assertEqual(L.netCount, 2)
+  assertEqual(L.goldIn, 400); assertEqual(L.goldOut, 150)
+  assertEqual(L.preLedgerRows, 1, "a row with no ts is never pre-ledger")
+  assertEqual(L.reasonIn.KILL, 1); assertEqual(L.reasonIn.OTHER, 1); assertEqual(L.reasonIn.LOOT, 1)
+  assertEqual(L.reasonIn.WARBAND_DEPOSIT, 1)
+  assertEqual(L.reasonOut.REPAIR, 1); assertEqual(L.reasonOut.SELL, 1)
+  assertEqual(L.valueReasonIn.KILL, 10); assertEqual(L.valueReasonIn.OTHER, 0)
+  assertEqual(L.valueReasonIn.LOOT, 400); assertEqual(L.valueReasonOut.SELL, 12)
+  assertEqual(L.charIn["A-Realm"], 10); assertEqual(L.charIn["B-Realm"], 400); assertEqual(L.charIn[W], 50)
+  assertEqual(L.charOut["B-Realm"], 150, "a holder-only row lands on its holder")
+  local outChars = 0
+  for _ in pairs(L.charOut) do outChars = outChars + 1 end
+  assertEqual(outChars, 1, "an OUT with no char or holder lands on no character")
+  assertEqual(L.kindIn.ITEM, 2); assertEqual(L.kindIn.CURRENCY, 1); assertEqual(L.kindIn.GOLD, 1)
+  assertEqual(L.kindOut.GOLD, 1); assertEqual(L.kindOut.ITEM, 1)
+  assertEqual(s.totals.records, 2, "only the legacy item and currency gains are loot")
+  assertEqual(s.totals.totalValue, 10); assertEqual(s.totals.totalQuantity, 9)
+  assertEqual(s.bySource.KILL, 1); assertEqual(s.bySource.WARBAND_DEPOSIT, nil)
+end)

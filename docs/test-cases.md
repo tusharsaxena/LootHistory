@@ -519,7 +519,7 @@ Total.
 - Escrow: gold from another player is a gain even while an alt's gold waits
 - Escrow: a money-only pass leaves the staged items for the item pass; both are ALT_MAIL losses
 
-### test_database.lua (83)
+### test_database.lua (85)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -604,8 +604,10 @@ Total.
 - Migrate v12->v13: a second run changes nothing
 - Migrate v12->v13: the touched day's in/out tallies are rebuilt from the rows; closes stay
 - Migrate v12->v13: a day the rollup no longer holds is not recreated
+- Migrate v12->v13 (characterization): pairIds are <ts>:m<queue index>, halves pair first-come
+- Database: QueryList clause type gates (characterization)
 
-### test_stats.lua (25)
+### test_stats.lua (26)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -632,6 +634,7 @@ Total.
 - Stats: preLedgerRows counts rows older than ledgerSince
 - Stats: a holder move is a loss and a gain under its own reason, per holder
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
+- Stats (characterization): ledger and legacy totals over every per-row branch
 
 ### test_browser.lua (96)
 
@@ -1703,8 +1706,8 @@ Total.
 | test_reconciler.lua | 7 |
 | test_reconciler_rows.lua | 31 |
 | test_escrow.lua | 14 |
-| test_database.lua | 83 |
-| test_stats.lua | 25 |
+| test_database.lua | 85 |
+| test_stats.lua | 26 |
 | test_browser.lua | 96 |
 | test_browsertable.lua | 81 |
 | test_export.lua | 32 |
@@ -1744,4 +1747,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1490** |
+| **Total** | **1493** |

@@ -1107,3 +1107,51 @@ test("Migrate v12->v13: a day the rollup no longer holds is not recreated", func
   assertEqual(a.dir, "OUT")
   assertEqual(next(daily), nil, "a pruned day stays pruned")
 end)
+
+-- ── LH-09 characterization: pinned on the unrefactored code before its CCN refactor ────────────
+-- These cases pin today's exact outputs over the branches convertHolderMoves and compileFilter
+-- have, so the refactor that brings them under CCN 15 is shown to change nothing.
+test("Migrate v12->v13 (characterization): pairIds are <ts>:m<queue index>, halves pair first-come", function()
+  local keep = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 1, { pairId = "x:1" })
+  local inside = moveRow("A-R", "ITEM", "A-R/bags", "A-R/bank", 2)
+  local out1 = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local out2 = moveRow("A-R", "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local in1 = moveRow(WB, "ITEM", "A-R/bags", WB .. "/tabs", 4)
+  local noTs = moveRow("A-R", "GOLD", "A-R/money", "B-R/mail", 9)
+  noTs.ts = nil
+  local daily = { [V13_DAY] = { ["A-R"] = { ["i:7"] = { c = 3 } }, [WB] = { ["i:7"] = { c = 4 } } } }
+  local n = runV13({ keep, inside, out1, out2, in1, noTs }, daily)
+  assertEqual(n, 5, "every inter-holder MOVE converts, a stored pairId or not")
+  assertEqual(keep.pairId, "x:1"); assertEqual(inside.pairId, nil); assertEqual(inside.dir, "MOVE")
+  assertEqual(out1.pairId, V13_T .. ":m1"); assertEqual(in1.pairId, V13_T .. ":m1")
+  assertEqual(out2.pairId, V13_T .. ":m2", "a half with no partner left takes its own queue index")
+  assertEqual(noTs.pairId, "nil:m4"); assertEqual(noTs.dir, "OUT"); assertEqual(noTs.source, "ALT_MAIL")
+  local d = daily[V13_DAY]
+  assertEqual(d["A-R"]["i:7"].o, 9, "both OUT halves and the kept one rebuild the character's loss")
+  assertEqual(d["A-R"]["i:7"].c, 3)
+  assertEqual(d[WB]["i:7"].i, 4)
+  assertEqual(d["A-R"]["g"], nil, "a row with no ts touches no day")
+end)
+
+test("Database: QueryList clause type gates (characterization)", function()
+  local rows = {
+    { itemID = 1, quality = 0, bound = "BOE", ts = 5, itemName = "Axe" },
+    { itemID = 2, quality = 3, ts = 9, itemName = "Bow" },
+    { itemID = 3, ts = 7, itemName = "Cap" },
+  }
+  local function ids(filter)
+    local t = {}
+    for _, r in ipairs(NS.Database:QueryList(rows, filter)) do t[#t + 1] = tostring(r.itemID) end
+    return table.concat(t, ",")
+  end
+  assertEqual(ids({ quality = "3", bound = "BOE", minQuality = "2", minQualityExempt = 1 }), "1,2,3",
+    "a clause of the wrong type is unfiltered")
+  assertEqual(ids({ quality = 0 }), "1,3", "the exact form reads a missing quality as 0")
+  assertEqual(ids({ quality = { [0] = true } }), "1", "the set form looks the raw nil up and misses")
+  assertEqual(ids({ minQuality = 1, minQualityExempt = "x" }), "2", "a non-table exempt list exempts nothing")
+  assertEqual(ids({ minQuality = 1, minQualityExempt = { [1] = true } }), "1,2")
+  assertEqual(ids({ bound = { NONE = true } }), "2,3", "an unbound row reads as NONE")
+  assertEqual(ids({ text = "AX" }), "1", "text is matched case-insensitively")
+  assertEqual(ids({ from = 7, to = 9 }), "2,3", "the ts window is inclusive")
+  assertEqual(ids({ dir = "OUT" }), "")
+end)
