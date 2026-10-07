@@ -205,23 +205,35 @@ end
 
 local function setPasses(set, v) return not set or next(set) == nil or (v ~= nil and set[v]) end
 
-function Holdings:Search(filter)
-  filter = filter or {}
-  local holderSet = (filter.char and next(filter.char)) and filter.char or nil
-  local text = filter.text and filter.text ~= "" and filter.text:lower() or nil
+-- Every thing key any holder in `store` holds, and the first last-seen link per item id.
+local function heldThings(store)
   local seen, links = {}, {}
-  for _, e in pairs(self:ActiveStore()) do
+  for _, e in pairs(store) do
     for id in pairs(e.items) do seen["i:" .. id] = true; links[id] = links[id] or e.links[id] end
     for id in pairs(e.currency) do seen["c:" .. id] = true end
     if e.money then seen.g = true end
   end
+  return seen, links
+end
+
+-- Whether a thing's display fields `d` pass the lowered search `text` (nil: no text) and the
+-- filter's quality, type and subtype sets.
+local function thingPasses(d, filter, text)
+  return (not text or d.name:lower():find(text, 1, true))
+    and setPasses(filter.quality, d.quality) and setPasses(filter.itemType, d.itemType)
+    and setPasses(filter.itemSubType, d.itemSubType)
+end
+
+function Holdings:Search(filter)
+  filter = filter or {}
+  local holderSet = (filter.char and next(filter.char)) and filter.char or nil
+  local text = filter.text and filter.text ~= "" and filter.text:lower() or nil
+  local seen, links = heldThings(self:ActiveStore())
   local out = {}
   for key in pairs(seen) do
     local kind, id = NS.Ledger.ParseThingKey(key)
     local d = describe(key, kind, id, links[id])
-    if (not text or d.name:lower():find(text, 1, true))
-      and setPasses(filter.quality, d.quality) and setPasses(filter.itemType, d.itemType)
-      and setPasses(filter.itemSubType, d.itemSubType) then
+    if thingPasses(d, filter, text) then
       local total, rows = self:Total(key, holderSet)
       if total ~= 0 then
         out[#out + 1] = { key = key, kind = kind, id = id, name = d.name, quality = d.quality,

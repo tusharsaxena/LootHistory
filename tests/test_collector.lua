@@ -813,3 +813,63 @@ voidcoreCase("Collector+Reconciler: a new currency not yet listed at chat time g
   assertEqual(#rows, 1)
   assertEqual(rows[1].currencyID, LISTED); assertEqual(rows[1].dir, "IN"); assertEqual(rows[1].claimed, nil)
 end)
+
+-- ── Characterization (LH-13): every currencyLine branch names itself in the debug log ─────────
+-- Pins the [Drop] reason of each guard in order, the direct-source (refund) path, the attributed
+-- path and the [Currency] line, so the guard ladder can be split without moving a single line.
+test("Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]", function()
+  local mocks, s, C = T.mocks, NS.db.profile.settings, NS.Compat
+  mocks.__now = 0
+  local savedInfo, savedListed = C.GetCurrencyInfoFromLink, C.ListedCurrencyID
+  local savedTrack = s.trackLedger
+  local gained = string.format(mocks.CURRENCY_GAINED_MULTIPLE, CURRENCY_LINK, 7)
+  local before = NS.Database:Count()
+  local ok, err = pcall(function()
+    local lines = withDebugSpy(function()
+      NS.State.debug = true
+      NS.db.profile.currencyBlacklist = {}
+      s.excludedSources, s.trackLedger = {}, true
+      NS.Collector:OnChatMsgCurrency(nil, "You receive nothing of note.")          -- not ours: silent
+      s.recordCurrency = false; NS.Collector:RefreshUpvalues()
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- recordCurrency-off
+      s.recordCurrency = true; NS.Collector:RefreshUpvalues()
+      C.GetCurrencyInfoFromLink = function() return nil end
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- unresolved-link
+      C.GetCurrencyInfoFromLink = savedInfo
+      C.ListedCurrencyID = function() return nil end
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- unlisted
+      s.trackLedger = false; NS.Collector:RefreshUpvalues()
+      NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- ledger off: kept
+      s.trackLedger = true; NS.Collector:RefreshUpvalues()
+      C.ListedCurrencyID = savedListed
+      NS.Filters:AddCurrencyBlacklist(3008); NS.Collector:RefreshUpvalues()
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- blacklist
+      NS.Filters:RemoveCurrencyBlacklist(3008)
+      s.excludedSources = { MPLUS = true }; NS.Collector:RefreshUpvalues()
+      NS.Attribution:Stamp("MPLUS", nil, "CERTAIN")
+      NS.Collector:OnChatMsgCurrency(nil, gained)                                  -- muted source
+      s.excludedSources = {}; NS.Collector:RefreshUpvalues()
+      NS.Attribution:Stamp("VENDOR", nil, "CERTAIN")
+      NS.Collector:OnChatMsgCurrency(nil, string.format(mocks.LOOT_ITEM_REFUND_MULTIPLE, CURRENCY_LINK, 3))
+    end)
+    local mine = {}
+    for _, l in ipairs(lines) do
+      if l:find("^%[Drop%]") or l:find("^%[Currency%]") then mine[#mine + 1] = l end
+    end
+    assertEqual(table.concat(mine, "\n"), table.concat({
+      "[Drop] currency line reason=recordCurrency-off",
+      "[Drop] currency line reason=unresolved-link",
+      "[Drop] currency line reason=unlisted",
+      "[Currency] Valorstones x7 id=3008 src=MPLUS conf=CERTAIN",
+      "[Drop] currency Valorstones id=3008 reason=blacklist",
+      "[Drop] currency Valorstones src=MPLUS reason=source",
+      "[Currency] Valorstones x3 id=3008 src=REFUND conf=CERTAIN",
+    }, "\n"))
+    assertEqual(NS.Database:Count(), before + 2, "only the ledger-off line and the refund record")
+  end)
+  C.GetCurrencyInfoFromLink, C.ListedCurrencyID = savedInfo, savedListed
+  s.trackLedger, s.excludedSources, s.recordCurrency = savedTrack, {}, true
+  NS.Collector:RefreshUpvalues()
+  if not ok then error(err, 0) end
+end)

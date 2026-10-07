@@ -268,7 +268,7 @@ Total.
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
 
-### test_holdings.lua (8)
+### test_holdings.lua (9)
 
 - Holdings: ApplyContainer replaces one column and keeps others
 - Holdings: unchanged container reports no change
@@ -278,6 +278,7 @@ Total.
 - Holdings: Holders lists characters then warband
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
+- Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
 
 ### test_rollup.lua (22)
 
@@ -412,7 +413,7 @@ Total.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (48)
+### test_collector.lua (49)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -462,6 +463,7 @@ Total.
 - Collector+Reconciler: a new listed currency already in the list records one claimed chat row
 - Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
+- Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
 ### test_reconciler.lua (8)
 
@@ -1307,7 +1309,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (10)
+### test_testdata.lua (12)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1319,6 +1321,8 @@ Total.
 - Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
+- TestData: the seeded sample stores are byte-identical to the pinned build
+- TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
 
 ### test_views.lua (16)
 
@@ -1714,13 +1718,13 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 66 |
 | test_scanner.lua | 5 |
-| test_holdings.lua | 8 |
+| test_holdings.lua | 9 |
 | test_rollup.lua | 22 |
 | test_attribution.lua | 37 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 48 |
+| test_collector.lua | 49 |
 | test_reconciler.lua | 8 |
 | test_reconciler_rows.lua | 31 |
 | test_escrow.lua | 21 |
@@ -1742,7 +1746,7 @@ Total.
 | test_timeline.lua | 34 |
 | test_timelinetab.lua | 35 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 10 |
+| test_testdata.lua | 12 |
 | test_views.lua | 16 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1765,4 +1769,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1511** |
+| **Total** | **1515** |

@@ -168,6 +168,20 @@ local function roll(rng, spec, final)
   return rng(math.max(2, spec[2] > 0 and spec[2] or math.floor(final / 5)))
 end
 
+-- One day's gain and loss: the random swing plus the sample rows' own flow `f` (nil: none). The gain
+-- draws before the loss -- the seeded stream depends on that order.
+local function dayMoves(rng, swing, final, f)
+  local gain = roll(rng, swing.gain, final) + (f and f.i or 0)
+  local loss = roll(rng, swing.loss, final) + (f and f.o or 0)
+  return gain, loss
+end
+
+local function bookDay(daily, day, holder, key, close, gain, loss)
+  daily[day] = daily[day] or {}
+  daily[day][holder] = daily[day][holder] or {}
+  daily[day][holder][key] = { c = close, i = (gain > 0) and gain or nil, o = (loss > 0) and loss or nil }
+end
+
 -- One series, newest day first: close(d-1) = close(d) - gained(d) + lost(d). A loss is raised when
 -- undoing a day would leave less than nothing, so no close is ever negative.
 local function walk(rng, daily, days, holder, key, final, flows)
@@ -175,16 +189,10 @@ local function walk(rng, daily, days, holder, key, final, flows)
   local close = final
   for i = #days, 1, -1 do
     local day = days[i]
-    local f = flows and flows[day]
-    local gain = roll(rng, swing.gain, final) + (f and f.i or 0)
-    local loss = roll(rng, swing.loss, final) + (f and f.o or 0)
+    local gain, loss = dayMoves(rng, swing, final, flows and flows[day])
     local before = close - gain + loss
     if before < 0 then loss, before = loss - before, 0 end
-    if gain > 0 or loss > 0 or i == 1 then
-      daily[day] = daily[day] or {}
-      daily[day][holder] = daily[day][holder] or {}
-      daily[day][holder][key] = { c = close, i = (gain > 0) and gain or nil, o = (loss > 0) and loss or nil }
-    end
+    if gain > 0 or loss > 0 or i == 1 then bookDay(daily, day, holder, key, close, gain, loss) end
     close = before
   end
 end
@@ -237,12 +245,8 @@ function TD.Publish(records)
   end
 end
 
---- The thing the Timeline opens on while the sample is up: "Everlight Crystal" when the sample holds
---- it, else the sample item with the most rollup days (ties to the lowest thing key). nil with no
---- sample published.
-function TD.DefaultTimelineThing()
-  local daily = NS.State.testDaily
-  if not daily then return nil end
+-- Sample item key -> how many days hold it (a day counts once however many holders hold it there).
+local function itemDays(daily)
   local days = {}
   for _, holders in pairs(daily) do
     local seen = {}
@@ -255,13 +259,32 @@ function TD.DefaultTimelineThing()
       end
     end
   end
+  return days
+end
+
+-- Everlight Crystal's key when `days` holds it, else nil.
+local function everlightKey(days)
   for idBase, name in ipairs(sample().itemNames) do
     local key = "i:" .. (sample().idBase + idBase)
     if name == "Everlight Crystal" and days[key] then return key end
   end
+end
+
+-- The key on the most days, ties to the lowest key; nil when `days` is empty.
+local function mostDays(days)
   local best
   for key, n in pairs(days) do
     if not best or n > days[best] or (n == days[best] and key < best) then best = key end
   end
   return best
+end
+
+--- The thing the Timeline opens on while the sample is up: "Everlight Crystal" when the sample holds
+--- it, else the sample item with the most rollup days (ties to the lowest thing key). nil with no
+--- sample published.
+function TD.DefaultTimelineThing()
+  local daily = NS.State.testDaily
+  if not daily then return nil end
+  local days = itemDays(daily)
+  return everlightKey(days) or mostDays(days)
 end
