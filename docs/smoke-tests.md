@@ -1329,7 +1329,7 @@ re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are record
 
 **LED-P2-01. Bank deposit and withdraw.** At a banker, deposit a stack from your bags, then withdraw
 half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
-row for the item, and the Holdings tab's bank column updates. Result: **FAIL** (owner, 2026-10-08): the deposit was one `⇄` row (9), but withdrawing 4 wrote a `▲ Gain +4`, Source **Other**, instead of a `⇄` Bank→Bags row. Cause: the split fired a bag event only, so the bank was never re-read (the −4 surfaced as `UNTRACKED` on the next visit). Fixed on `fix/2026-10-08-ledger-bank-withdraw` (a bag change at an open bank re-reads the bank and tabs); **re-run pending**.
+row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `⇄` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
 
 **LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
 `OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
