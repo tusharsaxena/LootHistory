@@ -108,6 +108,9 @@ modules\Escrow.lua
 modules\AuctionPrice.lua
 modules\Collector.lua
 modules\LedgerFormat.lua
+# LOAD-BEARING POSITION: publishes B._dataset, B._withAll, B._options and the Bound labels, which
+# modules\Browser.lua binds as file-scope locals at load; it must be above modules\Browser.lua.
+modules\BrowserWidgets.lua
 modules\Browser.lua
 # LOAD-BEARING POSITION: binds modules\Browser.lua's B._setToFilter, B._applyFilter, B._options and
 # their siblings as file-scope locals at load; modules\Browser.lua must be above.

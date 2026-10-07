@@ -1434,3 +1434,26 @@ test("Browser: Character Current shows the character's half of a warband move, W
     assertEqual(#NS.Database:Query({}), 2, "Character: All shows both halves")
   end)
 end)
+
+-- LH-18 (review F-002 / LH-R-02): the filter bar's dropdown-option kit (the seven option builders,
+-- `withAll`, the Bound labels and `dataset`) lives in modules/BrowserWidgets.lua, which publishes
+-- them on NS.Browser for modules/Browser.lua to bind as file-scope locals at load. So it must load
+-- DIRECTLY before Browser.lua, and every member it moved must still be on NS.Browser.
+test("Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact", function()
+  local files = {}
+  for line in assert(io.open("LootHistory.toc", "r")):lines() do
+    line = line:gsub("\r$", "")
+    if line ~= "" and not line:find("^#") then files[#files + 1] = line end
+  end
+  local at
+  for i, path in ipairs(files) do if path == "modules\\Browser.lua" then at = i end end
+  assertTrue(at ~= nil, "the TOC loads modules\\Browser.lua")
+  assertEqual(files[at - 1], "modules\\BrowserWidgets.lua", "the option kit loads right before Browser.lua")
+  for _, k in ipairs({ "source", "char", "itemType", "itemSubType", "zone", "quality", "bound" }) do
+    assertEqual(type(B._options[k]), "function", "NS.Browser._options." .. k)
+  end
+  assertEqual(type(B._withAll), "function", "NS.Browser._withAll")
+  assertEqual(type(B._dataset), "function", "NS.Browser._dataset")
+  assertEqual(#B._boundOrder, 5, "NS.Browser._boundOrder")
+  assertEqual(B._boundLabel.BOE, "Bind on Equip", "NS.Browser._boundLabel")
+end)

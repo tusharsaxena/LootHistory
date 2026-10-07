@@ -633,7 +633,7 @@ Total.
 - Stats: a holder move is a loss and a gain under its own reason, per holder
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 
-### test_browser.lua (95)
+### test_browser.lua (96)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -730,6 +730,7 @@ Total.
 - filter bar: the built bar fills the bar width at the base width and 300px wider
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
+- Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
 ### test_browsertable.lua (81)
 
@@ -1704,7 +1705,7 @@ Total.
 | test_escrow.lua | 14 |
 | test_database.lua | 83 |
 | test_stats.lua | 25 |
-| test_browser.lua | 95 |
+| test_browser.lua | 96 |
 | test_browsertable.lua | 81 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1743,4 +1744,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1489** |
+| **Total** | **1490** |

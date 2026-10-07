@@ -59,7 +59,9 @@ load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; c
 - In `modules/`: `modules/Escrow.lua` sits **below `modules/Reconciler.lua`** (it appends to the
   Reconciler's `SCAN_STEPS` / `PLAN_STEPS` / `COMMIT_STEPS` at load); `modules/Analytics.lua` and
   `modules/AnalyticsCharts.lua` sit **below `modules/AnalyticsFormat.lua`** (they bind `Analytics.K`
-  and its helpers at load); `modules/BrowserFilterBar.lua` sits **below `modules/Browser.lua`** (it
+  and its helpers at load); `modules/BrowserWidgets.lua` sits **directly above `modules/Browser.lua`**
+  (Browser binds its `B._dataset` and `B._options` builders at load);
+  `modules/BrowserFilterBar.lua` sits **below `modules/Browser.lua`** (it
   binds `B._applyFilter` and its siblings at load); `modules/BrowserTableGroup.lua` sits **directly
   below `modules/BrowserTable.lua`** (it binds `BrowserTable._columnByKey` and
   `BrowserTable._groupColumn` at load); `modules/HoldingsTab.lua` and
@@ -111,6 +113,7 @@ nothing of a sibling at load. The rows below and
 | `modules/Collector.lua` | `CHAT_MSG_LOOT` handler: self-filter, then the point-in-time gate (blacklist veto → normal quality/source/quest gate → whitelist rescue, recording a plain row with no marker of how it got in), `Consume`, an `AuctionPrice:GatherAll` call to stamp the record's `auctionPrice` map, `BuildRecord`, `Database:Add`. Also the **`CHAT_MSG_CURRENCY` handler** (`OnChatMsgCurrency`): a slimmer gate (`recordCurrency` master toggle → per-source mute → currency blacklist; no quality/quest/itemID checks) that writes a `Type=Currency` row. Caches hot-path upvalues (incl. the id lists, `recordCurrency`, `currencyBlacklist`). |
 | `modules/LedgerFormat.lua` | Pure display helpers for ledger rows: `Glyph` / `Color` per direction, `SignedQty`, `QtyText`, signed counts and money. No frames, no events. Loads above Browser. |
 | `modules/Browser.lua` | Window shell: frame/skin, tabs, the **shared singleton filter bar + footer** (multi-select Direction/Bound/Quality/Type/SubType/Source/Zone/Character, date, search) that drives BOTH the History table and the Insights charts (`CurrentFilter`), group-by, the **tab-aware `Export` button** (`OpenExport`). The LDB launcher and LibDBIcon minimap button are no longer here — see `core/LauncherSetup.lua`. Its ten dropdowns are **`LibKa0s-Widgets-1.0`**'s, through `core/WidgetsSetup.lua` — this file used to *be* the widget. The window is `HIGH` strata, deliberately below the shared popup's `FULLSCREEN_DIALOG`, so an open menu draws above it. Since LibKa0s v1.13.0 the popup intercepts nothing — it listens on `GLOBAL_MOUSE_DOWN` — so a click outside an open menu closes the menu **and** lands here on the same press. |
+| `modules/BrowserWidgets.lua` | The filter bar's dropdown-option kit, split out of `modules/Browser.lua`: `dataset`, `withAll`, the Bound labels and the seven option builders (`B._options`: source, char, type, subtype, zone, quality, bound). Reads no browser state and builds no frame. Extends `NS.Browser`; Browser binds the builders at load, so it loads directly above `modules/Browser.lua`. |
 | `modules/BrowserFilterBar.lua` | The shared filter bar, split out of `modules/Browser.lua`: `B:BuildFilterBar` (both rows of dropdowns, the search box, Save/Reset/Clear and Export), the static option sets and the bar button. Extends `NS.Browser`, binds its `B._` helpers at load, so it loads directly after `modules/Browser.lua`. |
 | `modules/BrowserTable.lua` | Virtualized pooled-row table: the slice → bind half of the pipeline; columns, header arrows, row interactions (link / blacklist / delete), test mode. |
 | `modules/BrowserTableGroup.lua` | The table's display-list layer, split out of `modules/BrowserTable.lua`: filter → sort → group (`SortRecords`, `SetSort`, `SetGroupBy`, `ToggleCollapse`, `GroupRecords`, `BuildDisplayList`). `OrderedFilteredRecords` exposes the on-screen order for export. Extends `NS.BrowserTable`, binds its `BrowserTable._columnByKey` / `_groupColumn` seam at load, so it loads directly after `modules/BrowserTable.lua`. |
@@ -442,10 +445,11 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1436 lines,
-then `modules/Browser.lua` at 1416 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' |
-xargs wc -l`, 2026-10-07, after `modules/BrowserTable.lua` shed its display-list layer to
-`modules/BrowserTableGroup.lua`); the
+Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
+then `modules/BrowserTable.lua` and `tests/test_browsertable.lua` at 1272 (`git ls-files '*.lua' |
+grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-07, after `modules/BrowserTable.lua`
+shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1231,
+its dropdown-option kit to `modules/BrowserWidgets.lua`); the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---
