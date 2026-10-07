@@ -32,6 +32,7 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 | Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [`20261007-215451`](20261007-215451/) | `15759e0` | clean | 1.4.0 | 0/0 | 118 | 1521/1/1522 | pass | 32937 | 4627 | 6.9 | 2.4 | 15 | 0 | **green** |
 | [`20260927-030334`](20260927-030334/) | `8e60c1f` | clean | 1.3.0 → 1.4.0 | 0/0 | 70 | 961/0/961 | skip | 18447 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260926-193103`](20260926-193103/) | `93e879d` | clean | 1.3.0 | 0/0 | 70 | 961/0/961 | skip | 18447 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
 | [`20260926-160249`](20260926-160249/) | `3ce80a7` | clean | 1.3.0 | 0/0 | 70 | 961/0/961 | skip | 18443 | 2519 | 6.3 | 2.1 | 15 | 0 | **green** |
@@ -50,19 +51,18 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 ## Test suite
 
-**961 cases** — 961 passed, 0 failed, 0 skipped. The generated inventory
-[`20260927-030334/test-cases.md`](20260927-030334/test-cases.md) is the authority on which cases existed at this run;
+**1522 cases** — 1521 passed, 0 failed, 1 skipped. The generated inventory
+[`20261007-215451/test-cases.md`](20261007-215451/test-cases.md) is the authority on which cases existed at this run;
 `docs/test-cases.md` is that same list at HEAD.
 
-The count has been **flat at 961 across the last 3 runs**. A suite that stopped growing while
-the addon did is a coverage gap, and it is the one thing the table above cannot show.
+Moved **961 → 1522** since the previous run.
 
-No case reported a `skip`, so passed and total agree and nothing in this row claims coverage
-that was not exercised.
+**1 case(s) reported a `skip`.** A skip is counted in the total and never in `passed`, and at
+the release gate it is NOT EVALUATED rather than passed (`automated-tests-§3`).
 
 ## Lint
 
-**0 warnings / 0 errors over 70 files** (`luacheck .`).
+**0 warnings / 0 errors over 118 files** (`luacheck .`).
 
 Read that figure with its scope attached: `.luacheckrc` excludes 5 path(s) from it — `libs/`, `docs/audits/`, `docs/reviews/`, `_dev/`, `tests/_kit/` —
 so nothing under them is in the count above. A `0/0` that never moves is partly a statement about
@@ -71,16 +71,19 @@ to whoever thinks to open `.luacheckrc`.
 
 ## Perf
 
-**This repo holds a ratified `performance-§12` no-combat-path exemption, so `perf` is a
-permanent `skip`** — the second of `automated-tests-§3`'s two sanctioned reasons, read by
-this runner from the `## Documented deviations` register in `docs/ARCHITECTURE.md`. The exemption, and the sweep behind it, are in
-`docs/performance.md`: this record carries no scenario table because the addon has no
-combat path for one to measure, not because the question was never asked.
+**0 scenarios** from `tests/perf.lua`; the measurements are in
+[`20261007-215451/perf.json`](20261007-215451/perf.json).
+
+This run's `tests/perf.lua` printed no scenario table this generator could read, so the
+names are in [`20261007-215451/perf.txt`](20261007-215451/perf.txt) rather than here.
+
+`perf` never fails a run and never blocks a commit — it is recorded, read and compared, not
+thresholded (`performance-§9`). It does gate the **tag** (`automated-tests-§3`).
 
 ## Complexity watch list
 
-Current as of [`20260927-030334`](20260927-030334/) — **this run's measurement, not its diff.** Max CCN **15** across 2519
-functions, **0** of them warned on; 6 file(s) in the 1000–1500 band and 0 over the 1500 cap
+Current as of [`20261007-215451`](20261007-215451/) — **this run's measurement, not its diff.** Max CCN **15** across 4627
+functions, **0** of them warned on; 10 file(s) in the 1000–1500 band and 0 over the 1500 cap
 (`layout-§1`).
 
 Every row below is generated from this run's own `lizard` output. **The `Disposition` column is
@@ -99,12 +102,16 @@ None.
 
 | Band | File | LOC | Disposition |
 |---|---|---|---|
-| 1000–1500 (on notice) | `modules/Analytics.lua` | 1200 | **Peel — already tracked as #32** ([the issue](https://github.com/tusharsaxena/LootHistory/issues/32), `state:triaged`, `severity:low`: split the chart renderers from the formatting and segmenting helpers). That issue is the owned home the six previous runs asked for, so this cell stops restating the plan and points at it. 1200 lines, up from 1178 at [`20260916-184506`](20260916-184506/) and unchanged since [`20260924-121347`](20260924-121347/) through this run: 932 NLOC over 80 functions in [`complexity.txt`](20260927-030334/complexity.txt), still 300 lines under the cap. Re-rule when #32 closes, or at 1300 lines if it has not. |
+| 1000–1500 (on notice) | `core/Database.lua` | 1258 | **Accepted (2026-10-07).** New in the band: the timeline ledger's v13 migration (`convertHolderMoves`), the ledger accumulators and `Stats` grew it to 1258 lines, 805 NLOC over 81 functions at this run ([`complexity.txt`](20261007-215451/complexity.txt)). `LH-09` brought its four functions above CCN 15 down to 12 or below with named helpers, so the size is breadth, not tangle. On notice, which is the compliant state under `layout-§1`. Re-check at 1400 lines; the seam then is the migration half (the file-scope steps from `migrateLog` through `NS:RunMigrations`, lines 16-424) into a file of its own. |
 | 1000–1500 (on notice) | `modules/Browser.lua` | 1231 | **Peeled (`LH-18`, 2026-10-07).** The 1400 re-check fired (1416 after the 2026-10-07 review, review F-002 / LH-R-02). The widget kit proper had already left: the dropdowns are `LibKa0s-Widgets-1.0`'s (through `core/WidgetsSetup.lua`) and the bar's construction is `modules/BrowserFilterBar.lua`. What remained of it, the dropdown-option kit — `qualityColor`, the Bound labels and order, `dataset`, `withAll` and the seven option builders (`B._options`) — moved verbatim to `modules/BrowserWidgets.lua` (209 lines), loaded directly before it. What remains is the window shell: frame, skin, tabs, per-tab views, the footer, master chrome and visibility. `LH-37` (`docs/audits/2026-08-05/02_DEVIATIONS.md`) stays the finding of record for its size; a file in the 1000–1500 band is the **compliant** state under `layout-§1`, so there is no deviation ID. Re-check at 1400 lines; the next seam is the per-tab view layer (`CaptureView` / `ApplyView` / `resolveInto` and the `live` park). |
-| 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1272 | **Peeled (`LH-08`, 2026-10-07).** The 1300 re-check fired (1476 at the 2026-10-07 review, 24 under the cap: review F-002), and the display-list layer — `SortRecords`, `SetSort`, `SetGroupBy`, `ToggleCollapse`, `GroupRecords` with `GROUP_OF` / `groupOf` / `GROUP_PREFIX`, `CurrentRecords`, `BuildDisplayList`, `SetFilter`, `OrderedFilteredRecords` — moved verbatim to `modules/BrowserTableGroup.lua` (227 lines), loaded directly after it. What remains is the column model, the pooled rows and header, the row menu and the test-mode dataset. Re-check at 1400 lines; the next seam is the test-mode dataset (`BuildTestData` and its `test*` helpers). |
-| 1000–1500 (on notice) | `settings/Panel.lua` | 1107 | **Accepted.** 1107 lines, up from 1062 at [`20260916-184506`](20260916-184506/) (the Filters tab's id lists, two to a line with the X on each entry, and the bus-message catalog) and unchanged since [`20260924-121347`](20260924-121347/); 561 NLOC over 48 functions at this run ([`complexity.txt`](20260927-030334/complexity.txt)), so well under half of it is code, because a settings page is mostly declarative layout. On notice, which is the compliant state under `layout-§1`, not a breach. Re-check at 1200, or the moment a fourth tab arrives. |
-| 1000–1500 (on notice) | `tests/test_schema.lua` | 1199 | **Accepted (2026-09-24).** New in the band: the schema suite grew with the `LibKa0s-Schema-1.0` handover, the retention-shortening confirm (`LH-04`) and the `minimap.shown` row (`LH-13`). Unchanged since it entered at [`20260924-121347`](20260924-121347/): 1199 lines, 880 NLOC over 103 functions at this run ([`complexity.txt`](20260927-030334/complexity.txt)). A test file has no runtime cost and its cases are already grouped by concern, so the split is mechanical when it is due. Re-check at 1300 lines, and peel by concern (row contract vs CLI) then, the way `test_slash_degraded.lua` came out of `test_slash.lua`. |
-| 1000–1500 (on notice) | `tests/test_slash.lua` | 1094 | **Accepted (2026-09-24).** New in the band, and already peeled once: `LH-16` moved the degraded-path cases into `tests/test_slash_degraded.lua` when it neared 1100. Unchanged since it entered at [`20260924-121347`](20260924-121347/): 1094 lines, 743 NLOC over 167 small functions at this run ([`complexity.txt`](20260927-030334/complexity.txt)), one per case. Re-check at 1300 lines, and split the next concern out then. |
+| 1000–1500 (on notice) | `modules/BrowserTable.lua` | 1302 | **Peeled (`LH-08`, 2026-10-07).** The 1300 re-check fired (1476 at the 2026-10-07 review, 24 under the cap: review F-002), and the display-list layer — `SortRecords`, `SetSort`, `SetGroupBy`, `ToggleCollapse`, `GroupRecords` with `GROUP_OF` / `groupOf` / `GROUP_PREFIX`, `CurrentRecords`, `BuildDisplayList`, `SetFilter`, `OrderedFilteredRecords` — moved verbatim to `modules/BrowserTableGroup.lua` (227 lines), loaded directly after it. What remains is the column model, the pooled rows and header, the row menu and the test-mode dataset. 1272 after the peel, 1302 at this run: `LH-14` split `holderMoves` and `SetTestMode` into named helpers (941 NLOC over 109 functions, [`complexity.txt`](20261007-215451/complexity.txt)). Re-check at 1400 lines; the next seam is the test-mode dataset (`BuildTestData` and its `test*` helpers). |
+| 1000–1500 (on notice) | `settings/Panel.lua` | 1134 | **Accepted.** 1134 lines at this run, up from 1107 at [`20260927-030334`](20260927-030334/); 576 NLOC over 59 functions ([`complexity.txt`](20261007-215451/complexity.txt)), so about half of it is code, because a settings page is mostly declarative layout. On notice, which is the compliant state under `layout-§1`, not a breach. Re-check at 1200, or the moment a fourth tab arrives. |
+| 1000–1500 (on notice) | `settings/Schema.lua` | 1133 | **Accepted (2026-10-07).** New in the band: 1133 lines, but 561 NLOC over 107 functions at an average CCN of 2.8 ([`complexity.txt`](20261007-215451/complexity.txt)). It is the schema row table, which is declarative data with one small getter or setter per row, so its length is the settings surface, not tangle. On notice, the compliant state under `layout-§1`. Re-check at 1300 lines; the seam then is the row table split by settings page. |
+| 1000–1500 (on notice) | `tests/test_browser.lua` | 1459 | **Peel next (2026-10-07).** New in the band and the largest authored file: 1459 lines, 41 under the cap, 1144 NLOC over 209 functions ([`complexity.txt`](20261007-215451/complexity.txt)). It already turned cases away: `LH-14` put its Character-option pins in `tests/test_widgets.lua` because adding them here would have crossed 1500. A test file has no runtime cost, but the next Browser change has no room, so it is peeled before it grows again. Seam: the timeline-ledger sections (P3 per-tab filters onward, from line 1020) into their own suite, the way `test_slash_degraded.lua` came out of `test_slash.lua`. Re-check at 1480 lines at the latest. |
+| 1000–1500 (on notice) | `tests/test_browsertable.lua` | 1392 | **Accepted (2026-10-07).** New in the band: 1392 lines, 1130 NLOC over 149 functions ([`complexity.txt`](20261007-215451/complexity.txt)), grown by `LH-14`'s characterization cases. Its cases are grouped by concern under section rules. Re-check at 1450 lines; the seam then is the Test mode section (from `-- ── Test mode`) into its own suite. |
+| 1000–1500 (on notice) | `tests/test_database.lua` | 1157 | **Accepted (2026-10-07).** New in the band: 1157 lines, 980 NLOC over 114 functions ([`complexity.txt`](20261007-215451/complexity.txt)), grown with the timeline ledger's migration and query cases and `LH-09`'s characterization pins. A test file has no runtime cost and its cases are grouped by concern. Re-check at 1300 lines, and peel the v13 migration cases into their own suite then. |
+| 1000–1500 (on notice) | `tests/test_schema.lua` | 1202 | **Accepted (2026-09-24).** The schema suite grew with the `LibKa0s-Schema-1.0` handover, the retention-shortening confirm (`LH-04`) and the `minimap.shown` row (`LH-13`). 1202 lines at this run, up from 1199 at [`20260927-030334`](20260927-030334/); 870 NLOC over 106 functions ([`complexity.txt`](20261007-215451/complexity.txt)). A test file has no runtime cost and its cases are already grouped by concern, so the split is mechanical when it is due. Re-check at 1300 lines, and peel by concern (row contract vs CLI) then, the way `test_slash_degraded.lua` came out of `test_slash.lua`. |
+| 1000–1500 (on notice) | `tests/test_slash.lua` | 1131 | **Accepted (2026-09-24).** Already peeled once: `LH-16` moved the degraded-path cases into `tests/test_slash_degraded.lua` when it neared 1100. 1131 lines at this run, up from 1094 at [`20260927-030334`](20260927-030334/); 785 NLOC over 174 small functions ([`complexity.txt`](20261007-215451/complexity.txt)), one per case. Re-check at 1300 lines, and split the next concern out then. |
 
 `lizard` counts every `and`/`or` short-circuit as a decision, so in Lua a run of
 `t.k = rec.k or D.k` defaulting lines scores high with no visible branching at all: a large CCN
