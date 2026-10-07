@@ -916,7 +916,7 @@ function B:SaveView()
   local p = NS.db.profile
   if type(p.savedViews) ~= "table" then p.savedViews = {} end
   p.savedViews[lastTab] = self:CaptureView()
-  print(("%s view saved as default."):format(lastTab))
+  NS.Format("%s view saved as default.", lastTab)
 end
 
 -- `silent` suppresses the chat line when called programmatically; the filter-bar Reset button
@@ -930,7 +930,7 @@ function B:ResetView(silent)
   end
   self:ApplyView(stockView(lastTab), testMode and "all" or "current")
   if not silent then
-    print(("%s view reset to stock defaults."):format(lastTab))
+    NS.Format("%s view reset to stock defaults.", lastTab)
   end
 end
 

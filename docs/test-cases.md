@@ -633,7 +633,7 @@ Total.
 - Stats: a holder move is a loss and a gain under its own reason, per holder
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 
-### test_browser.lua (94)
+### test_browser.lua (95)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -674,6 +674,7 @@ Total.
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
 - Browser.SaveView stores the tab's view; ClearFilters restores it; ResetView drops it for stock
+- Browser.SaveView and ResetView announce the tab once each, byte for byte
 - Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
@@ -1702,7 +1703,7 @@ Total.
 | test_escrow.lua | 14 |
 | test_database.lua | 83 |
 | test_stats.lua | 25 |
-| test_browser.lua | 94 |
+| test_browser.lua | 95 |
 | test_browsertable.lua | 80 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
@@ -1741,4 +1742,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1487** |
+| **Total** | **1488** |

@@ -436,6 +436,28 @@ test("Browser.SaveView stores the tab's view; ClearFilters restores it; ResetVie
   end)
 end)
 
+test("Browser.SaveView and ResetView announce the tab once each, byte for byte", function()
+  -- Pins the two chat lines across their move to the shared printer's format form (LH-A-12): the
+  -- text must not change, and a silent reset must print nothing.
+  local lines = {}
+  local cf = T.mocks.DEFAULT_CHAT_FRAME
+  local oldAdd = cf.AddMessage
+  cf.AddMessage = function(_, msg) lines[#lines + 1] = msg end
+  local ok, err = pcall(withFixture, FIXTURE, function()
+    B._dd = nil
+    B:SaveView()
+    B:ResetView(true)
+    B:SaveView()
+    B:ResetView()
+  end)
+  cf.AddMessage = oldAdd
+  if not ok then error(err, 0) end
+  assertEqual(#lines, 3, table.concat(lines, " | "))
+  assertEqual(lines[1], NS.PREFIX .. " History view saved as default.")
+  assertEqual(lines[2], NS.PREFIX .. " History view saved as default.")
+  assertEqual(lines[3], NS.PREFIX .. " History view reset to stock defaults.")
+end)
+
 test("Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it", function()
   local vals, label = {}, nil
   for _, o in ipairs(B._groupOptions) do

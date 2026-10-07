@@ -1095,7 +1095,7 @@ NS.COMMANDS = gateFeatureVerbs{
       if arg == "diagnostics" then return NS.DebugLog:RunDiagnostics() end
       if arg == "events" then
         local names = NS.RejectedEvents or {}
-        return print("rejected events: " .. (#names > 0 and table.concat(names, ", ") or "none"))
+        return NS.Format("rejected events: %s", #names > 0 and table.concat(names, ", ") or "none")
       end
       if not NS.DebugLog then return end
       if arg == "on" then NS.DebugLog:SetEnabled(true)
