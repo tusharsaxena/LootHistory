@@ -36,4 +36,6 @@ battery in [`automated-tests/`](../automated-tests/RESULTS.md).
 
 ## Captures
 
-None yet.
+| Stamp | Addon version | Label | What it measured | Bundle |
+|---|---|---|---|---|
+| 20261007-104651 | 1.4.0 | `2026-10-07 10:46` | Protection Paladin, five-player party in Murder Row; 48.6 s / 52.7 s arms; 0.014 ms of addon Lua per second of combat, 99.7% `spellCast`; frame-time delta +0.57 ms/frame, unresolved (pull-to-pull variance); `ledgerEvent` fired once, so in-combat ledger traffic was not exercised | [20261007-104651](20261007-104651/ANALYSIS.md) |
