@@ -25,6 +25,7 @@ free number in its theme.
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
 | HIST-1 to 35 | [History window](#history-window) | Window, table, dropdowns, saved view, character scope, row actions, marks, export, the one-line filter bar |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
+| AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
@@ -745,6 +746,20 @@ keep the same right margin as the left at every width, **Group** stays exactly o
 **Direction** over **Bound**, and **Save / Reset / Clear** over **Export**. Open a dropdown's menu,
 then drag the grip → the menu closes rather than hanging off a moved control. Result:
 
+**AC-1. Search autocomplete on every tab (P9).** On each of **History**, **Insights**, **Timeline**
+and **Holdings**, type a few letters of something you hold or looted into Search → a list opens
+directly under the box, exactly as wide as it, in the same gray border (the two outlines read as one),
+each name in its quality color, at most eight rows. History and Insights offer item and currency
+names from the rows the other filters show (the sample under `/lh test`), never Gold; Holdings
+offers what it lists, Gold included; Timeline offers things with **Gold** first when "gol" is typed.
+**Keys:** Down / Up move the highlight, Enter picks it, Esc closes the list and keeps what you typed,
+Tab picks the highlighted or first row, and focus never leaves the box. **Pick:** on History,
+Insights and Holdings, Search reads exactly the picked name and the view filters to it; on Timeline,
+the chart switches to the thing and Search keeps its name. **Close:** click a table row, the chart,
+or another tab while the list is open → the list closes (if a row click leaves it open, note it: the
+host then needs to clear focus on its own clicks). Drag the window grip wider and narrower with the
+list open → it stays under the box at the box's width. Result:
+
 ## Insights
 
 Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
@@ -1442,9 +1457,9 @@ the Total draw. Result:
 line's value and that day's Gained / Lost. Leaving the plot hides both. Hiding the window mid-hover
 leaves no tooltip behind. Result:
 
-**TL-4. Picker.** Type part of a potion's name in Search → suggestions appear (Gold first when "gol"
-is typed). Pick one → the chart switches and Search clears. `/reload` → the pick is remembered.
-Result:
+**TL-4. Picker.** Type part of a potion's name in Search → the Search autocomplete (AC-1) offers
+matching things (Gold first when "gol" is typed). Pick one → the chart switches and Search keeps the
+thing's name. `/reload` → the pick is remembered. Result:
 
 **TL-5. Ranges.** **Today** and **Last 7 days** show intraday steps after a vendor sale and a loot.
 **Last 30 days**, **Last 90 days**, **Last year** and **All** show daily points. History and Insights
@@ -1720,6 +1735,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
 | HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded; the Export/cluster bullet corrected by P6 (the bar now scales) |
 | FB-1 | New | New with the timeline ledger P6 (the filter bar fills the window and scales proportionally); no result recorded |
+| AC-1 | New | New with the timeline ledger P9 (the Search autocomplete on every tab, LibKa0s v1.70.0 `Autocomplete`); no result recorded |
 | INS-1 to INS-3 | § 7 | No result recorded |
 | INS-4 | § 7 coin glyphs | No result recorded; expectation corrected by SP-LH-03R (a fixed 10 px against the client's default of about 14 px, read beside the History price cells) |
 | INS-5 to INS-18 | § 7 | No result recorded |

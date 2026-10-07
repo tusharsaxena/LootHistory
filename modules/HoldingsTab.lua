@@ -571,7 +571,22 @@ function HT:Disable()
   self.__ev = nil
 end
 
+-- The Search box's suggestions on this tab (P9): the names Holdings:Search answers for the typed
+-- text under the tab's own filters (quality, type, subtype, character), so every name offered has a
+-- row here. Gold is a thing this tab lists, so it is offered too. A pick puts the name in Search.
+function HT.Suggest(text)
+  local f = NS.Browser:CurrentFilter()
+  f.text = (text or ""):match("^%s*(.-)%s*$")
+  local items = {}
+  for _, t in ipairs(NS.Holdings:Search(f)) do
+    items[#items + 1] = { text = t.name, value = t.key, color = NS.Browser._qualityColorOrNil(t.quality) }
+  end
+  return NS.Browser._rankSuggestions(items, text, NS.Browser._SUGGEST_MAX)
+end
+
 NS.Browser:RegisterTab{ name = "Holdings", order = 40,
+  suggest = function(text) return HT.Suggest(text) end,
+  pick = function(item) NS.Browser.PickName(item) end,
   -- Holdings are current state: no Date, Source, Bound or Zone applies (spec §8.2). Group is live,
   -- over this tab's own modes and its own value (P6; see HT.GROUPS).
   filters = { search = true, quality = true, type = true, subtype = true, char = true, group = true },

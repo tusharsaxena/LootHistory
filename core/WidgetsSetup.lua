@@ -85,6 +85,10 @@
 -- it. `W.LineChart` is checked as well as `W`, because a v1.68 copy of the Widgets major vendored by
 -- another addon can win the LibStub negotiation for the SHELL while this addon's chart file still
 -- attaches -- the paired guard refuses that pairing and leaves `LineChart` unset.
+--
+-- NS.MakeAutocomplete answers nil for the same reason, and the Search box simply stays a plain box:
+-- typing still filters every tab, there is just no suggestion list under it. `W.Autocomplete` is
+-- checked as well as `W`, for the same shell-negotiation reason as the chart.
 
 local _, NS = ...
 
@@ -218,4 +222,25 @@ end
 --- @return table|nil    LibKa0s's LINE_CHART table
 function NS.LineChartChrome()
     return (W and W.LineChart) and W.LINE_CHART or nil
+end
+
+--- One autocomplete list under a search EditBox, or nil when the library is absent.
+---
+--- The browser's shared Search box wears it on every tab (modules/BrowserFilterBar.lua): a list in
+--- the box's own gray skin, hung directly under it and as wide as it, so it follows the box through
+--- every FB-1 relayout with no handler of its own. What the rows say and what a pick does belong to
+--- the active tab (B:Suggest / B:PickSuggestion in modules/Browser.lua).
+---
+--- The caller's opts are COPIED, as NS.MakeLineChart's are.
+---
+--- NIL IS A REAL ANSWER: the box keeps filtering, it just offers no list.
+---
+--- @param editBox table  the EditBox to hang the list from (its scripts are hooked, never replaced)
+--- @param opts table     provider / onPick / maxRows (see LibKa0s docs/api/Widgets/version-12.1.4.2.1-docs.md)
+--- @return table|nil     the library's autocomplete handle
+function NS.MakeAutocomplete(editBox, opts)
+  if not (W and W.Autocomplete) then return nil end
+  local o = {}
+  for k, v in pairs(opts or {}) do o[k] = v end
+  return W.Autocomplete(editBox, o)
 end

@@ -6,9 +6,10 @@ local TL = NS.Timeline
 -- holder, an in/out bar strip under the plot, a legend and a hover tooltip. Every number comes from
 -- NS.TimelineModel.Build; this file paints it. The chart itself is LibKa0s's (NS.MakeLineChart).
 --
--- The THING is picked with the browser's shared Search box: typing offers matching things (what is
--- held now, plus anything the rollup has a day for), clicking one charts it, and the pick is
--- remembered in the saved view.
+-- The THING is picked with the browser's shared Search box: its autocomplete (P9, the same list
+-- every tab wears, modules/BrowserFilterBar.lua) offers matching things through this tab's
+-- `suggest` (what is held now, plus anything the rollup has a day for, Gold first), and a pick
+-- charts it, leaves the thing's name in Search and is remembered in the saved view.
 --
 -- Each line can be hidden (spec §8.1, P8): a legend entry is a button that toggles its line, and the
 -- header's "Total only" toggle hides every holder at once. The per-line hidden set is session-only and
@@ -17,7 +18,7 @@ local TL = NS.Timeline
 
 local TM = NS.TimelineModel
 local DAY = 86400
-local BAR_H, STRIP_H, LEGEND_H, ROW_H, SUGGEST_MAX, LEGEND_W, GAP = 22, 56, 16, 18, 8, 120, 6
+local BAR_H, STRIP_H, LEGEND_H, SUGGEST_MAX, LEGEND_W, GAP = 22, 56, 16, 8, 120, 6
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local TOTAL = TM.TOTAL
 local EMPTY_TEXT = "All lines hidden — click a legend entry to show it."
@@ -126,22 +127,6 @@ end
 
 -- ── pooled pieces ──
 
-local function makeSuggestRow(parent)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetHeight(ROW_H)
-  b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  b.fs:SetPoint("LEFT", 6, 0); b.fs:SetPoint("RIGHT", -6, 0); b.fs:SetJustifyH("LEFT")
-  local hl = b:CreateTexture(nil, "HIGHLIGHT")
-  hl:SetAllPoints(); hl:SetColorTexture(1, 0.82, 0, 0.15)
-  b:SetScript("OnClick", function(self2)
-    TL:SetThing(self2.key, true)
-    -- The pick is made; clearing Search closes the list and re-runs the shared filter once.
-    if NS.Browser._search then NS.Browser._search:SetText("") end
-    TL:Refresh()
-  end)
-  return b
-end
-
 -- ReleaseAll's per-bar hook: a parked bar must not keep the day it last showed.
 local function clearFlow(bar) bar.flow = nil end
 
@@ -219,14 +204,6 @@ local function buildHeader(self, pane)
   hint:SetPoint("LEFT", self.totalOnlyBtn, "RIGHT", 10, 0)
   hint:SetText("Type in Search to chart an item or currency.")
   self.bar = bar
-  local sug = CreateFrame("Frame", nil, pane, "BackdropTemplate")
-  sug:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -2); sug:SetWidth(320)
-  sug:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-  sug:SetBackdropColor(0.06, 0.06, 0.08, 0.98); sug:SetBackdropBorderColor(0.62, 0.5, 0.18, 1)
-  -- Above the chart, which is built after it: a raised strata, not a level read off the pane.
-  sug:SetFrameStrata("DIALOG")
-  sug:Hide()
-  self.suggest, self.suggestPool = sug, NS.Pool.New()
 end
 
 local function buildBody(self, pane)
@@ -292,7 +269,6 @@ end
 function TL:Refresh()
   if not self.pane then return end
   local f = NS.Browser:CurrentFilter()
-  self:RenderSuggestions(f.text)
   if not (self.chart and ledgerOn()) then
     self.model = nil
     self.title:SetText(self.chart and "Turn on ledger tracking (Settings, Capture) to see the Timeline." or "")
@@ -439,41 +415,43 @@ function TL:RenderLegend()
   end
 end
 
--- ── the picker ──
+-- ── the picker: this tab's half of the Search autocomplete ──
+-- The list itself is the browser's (NS.MakeAutocomplete on the shared Search box); this tab answers
+-- what it offers (TL.Suggest) and what a pick does (TL:Pick), through its tab spec.
 
 local function pickerThings(text)
   local out, seen = {}, {}
   for _, r in ipairs(NS.Holdings:Search({ text = text })) do
-    out[#out + 1] = { key = r.key, name = r.name, total = r.total }
+    out[#out + 1] = { key = r.key, name = r.name, total = r.total, quality = r.quality }
     seen[r.key] = true
   end
   for key in pairs(NS.Rollup and NS.Rollup:Keys() or {}) do
-    if not seen[key] then out[#out + 1] = { key = key, name = NS.Holdings:Describe(key).name, total = 0 } end
+    if not seen[key] then
+      local d = NS.Holdings:Describe(key)
+      out[#out + 1] = { key = key, name = d.name, total = 0, quality = d.quality }
+    end
   end
   return out
 end
 
-function TL:RenderSuggestions(text)
-  NS.Pool.ReleaseAll(self.suggestPool)
-  self.suggestions = {}
-  if not text or text == "" then self.suggest:Hide(); return end
-  self.suggestions = TM.Suggest(text, pickerThings(text), SUGGEST_MAX)
-  for i, th in ipairs(self.suggestions) do
-    local b = NS.Pool.Acquire(self.suggestPool, function() return makeSuggestRow(self.suggest) end)
-    b:ClearAllPoints()
-    b:SetPoint("TOPLEFT", self.suggest, "TOPLEFT", 1, -1 - (i - 1) * ROW_H)
-    b:SetPoint("RIGHT", self.suggest, "RIGHT", -1, 0)
-    b.key = th.key
-    b.fs:SetText(th.name)
-  end
-  self.suggest:SetHeight(#self.suggestions * ROW_H + 2)
-  self.suggest:SetShown(#self.suggestions > 0)
-end
-
-function TL:SuggestionKeys()
+--- The things matching `text`, as autocomplete rows: Gold first, then the biggest totals
+--- (TM.Suggest), each in its quality's color. `value` is the thing key a pick charts.
+function TL.Suggest(text)
+  local t = (text or ""):match("^%s*(.-)%s*$") or ""
+  if t == "" then return {} end
   local out = {}
-  for i, th in ipairs(self.suggestions or {}) do out[i] = th.key end
+  for i, th in ipairs(TM.Suggest(t, pickerThings(t), SUGGEST_MAX)) do
+    out[i] = { text = th.name, value = th.key, color = NS.Browser._qualityColorOrNil(th.quality) }
+  end
   return out
+end
+
+--- A pick charts the thing and leaves its name in Search. Setting the name re-applies the shared
+--- filter, which repaints this tab already; a name Search already held repaints here instead.
+function TL:Pick(item)
+  if not (item and item.value) then return end
+  self:SetThing(item.value, true)
+  if not NS.Browser:SetSearchText(item.text or "") then self:Refresh() end
 end
 
 -- ── hover ──
@@ -535,5 +513,7 @@ NS.Browser:RegisterTab{ name = "Timeline", order = 30,
   -- Character narrows the holders; nothing else describes it (spec §8.0).
   filters = { search = true, date = true, char = true },
   charSource = "holders",
+  suggest = function(text) return TL.Suggest(text) end,
+  pick = function(item) TL:Pick(item) end,
   build = function(pane) TL:Attach(pane) end,
   refresh = function() TL:Refresh() end }

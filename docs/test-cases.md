@@ -1235,6 +1235,23 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
 - Timeline tab: the chart's hover ending does not hide the strip's tooltip
 
+### test_autocomplete.lua (14)
+
+- Autocomplete: the seam answers a library handle on a real box, nil without one
+- Autocomplete: typing in Search opens the list directly under the box, as wide as it
+- Autocomplete: switching tabs closes the list
+- Autocomplete: History offers distinct item and currency names, prefix matches first, no Gold
+- Autocomplete: History rows carry their quality's color
+- Autocomplete: History's names follow the other filters, with the typed text set aside
+- Autocomplete: History reads the test-mode sample, not the live history
+- Autocomplete: a History pick puts exactly that name in Search and applies it
+- Autocomplete: Insights offers the same names and picks the same way
+- Autocomplete: Holdings offers what Holdings search finds, Gold included, and picks the name
+- Autocomplete: Timeline offers things, Gold first when it matches
+- Autocomplete: a Timeline pick charts the thing and keeps its name in Search
+- Autocomplete: the Timeline's own picker list is gone
+- Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
+
 ### test_testdata.lua (10)
 
 - TestData: the sample holdings and daily stores build deterministically
@@ -1643,6 +1660,7 @@ badge and any count quoted in the docs must agree with it.
 | test_holdingstab.lua | 32 |
 | test_timeline.lua | 26 |
 | test_timelinetab.lua | 24 |
+| test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
@@ -1664,4 +1682,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1422** |
+| **Total** | **1436** |

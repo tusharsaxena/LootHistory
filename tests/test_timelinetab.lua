@@ -94,13 +94,10 @@ case("Timeline tab: maxLines caps the holders drawn", function()
 end)
 
 case("Timeline tab: typing in Search offers matching things, Gold first", function()
+  -- The list is the shared Search autocomplete now (P9); tests/test_autocomplete.lua pins its pick.
   seed(); open()
-  NS.Browser._search:SetText("gol")
-  NS.Browser._search:__fire("OnTextChanged")
-  local keys = NS.Timeline:SuggestionKeys()
-  assertEqual(keys[1], "g")
-  NS.Browser._search:SetText(""); NS.Browser._search:__fire("OnTextChanged")
-  assertEqual(#NS.Timeline:SuggestionKeys(), 0, "no text, no suggestion list")
+  assertEqual(NS.Browser:Suggest("gol")[1].value, "g")
+  assertEqual(#NS.Browser:Suggest(""), 0, "no text, no suggestion list")
 end)
 
 case("Timeline tab: the pick is remembered in the saved view", function()
@@ -160,7 +157,7 @@ end)
 -- Smoke LED-9: the owner saw faint green text ("Cou...", "<Tr...") over the Holdings header and over
 -- History rows after visiting the Timeline. A Timeline region parented outside its pane would stay
 -- on screen once the pane hides, so the Timeline is built fresh under tests/region_trace.lua on a
--- traced pane, drawn (chart, strip, legend, open suggestion list), and then every region it made
+-- traced pane, drawn (chart, strip, legend), and then every region it made
 -- must read as hidden by the client's rule once History, and then Holdings, is the tab shown.
 local RT = dofile("tests/region_trace.lua")
 
@@ -180,7 +177,6 @@ case("Timeline tab: nothing it draws stays visible over History or Holdings (LED
       NS.Browser:SetCharSet(nil)
       NS.Browser:SelectTab("Timeline")
       TL:SetThing("g"); TL:Layout(640, 320)
-      TL:RenderSuggestions("gol")
     end)
     assertTrue(RT.ShownText(made) > 0, "the Timeline drew labels while it was the tab shown")
     for _, tab in ipairs({ "History", "Holdings" }) do

@@ -65,6 +65,82 @@ local DIR_OPTIONS = {
   { value = "MOVE", label = "Transfers" },
 }
 
+-- ── Search suggestions (P9) ──────────────────────────────────────────────────────────────────
+-- The rows the Search box's autocomplete offers on History and Insights, and the pick both share
+-- with Holdings. B:Suggest (modules/Browser.lua) routes the list to the active tab's spec.
+local SUGGEST_MAX = 8
+
+local function trimLower(text)
+  return ((text or ""):match("^%s*(.-)%s*$") or ""):lower()
+end
+
+local function qualityColor(q)
+  if q == nil or not (NS.Analytics and NS.Analytics._qualityColor) then return nil end
+  return NS.Analytics._qualityColor(q)
+end
+
+--- `items` ({ text, ... }) narrowed to the names containing `text`, names that START with it first,
+--- then alphabetical, at most `max`. Pure; shared by every tab's provider.
+function B._rankSuggestions(items, text, limit)
+  local t, out, prefix = trimLower(text), {}, {}
+  if t == "" then return out end
+  for _, it in ipairs(items) do
+    local at = it.text:lower():find(t, 1, true)
+    if at then prefix[it] = (at == 1); out[#out + 1] = it end
+  end
+  table.sort(out, function(a, b)
+    if prefix[a] ~= prefix[b] then return prefix[a] end
+    local la, lb = a.text:lower(), b.text:lower()
+    if la ~= lb then return la < lb end
+    return a.text < b.text
+  end)
+  for i = #out, (limit or SUGGEST_MAX) + 1, -1 do out[i] = nil end
+  return out
+end
+
+--- History's and Insights' suggestions: the distinct item and currency names among the rows the
+--- shared filter shows with the typed text set aside, from the ACTIVE dataset (the sample in test
+--- mode), each in its quality's color. Gold rows are not names a player searches for, so they are
+--- left out. A name is offered once, colored by the first row that carries it.
+function B.SuggestNames(text)
+  if trimLower(text) == "" then return {} end
+  local f = B:CurrentFilter()
+  f.text = nil
+  local seen, items = {}, {}
+  for _, r in ipairs(NS.Database:QueryList(NS.Database:ActiveHistory(), f)) do
+    local name = r.itemName
+    if name and name ~= "" and r.kind ~= "GOLD" and not seen[name] then
+      seen[name] = true
+      items[#items + 1] = { text = name, value = name, color = qualityColor(r.quality) }
+    end
+  end
+  return B._rankSuggestions(items, text, SUGGEST_MAX)
+end
+
+--- A name picked from History's, Insights' or Holdings' list: Search reads exactly that name and the
+--- filter applies.
+function B.PickName(item)
+  B:SetSearchText(item and item.text or "")
+end
+
+--- Put `text` in the Search box and apply it, as typing it would. Answers whether the filter text
+--- CHANGED (and so the shared filter re-applied and the active tab repainted). The client fires the
+--- box's OnTextChanged from SetText; when it did not (the headless kit, or no box on a degraded
+--- install) the filter is applied here instead, so it is applied exactly once either way.
+function B:SetSearchText(text)
+  text = text or ""
+  local want = (text ~= "") and text or nil
+  local before = self.activeFilter.text
+  if self._search then self._search:SetText(text) end
+  if self.activeFilter.text ~= want then
+    if self._onSearchText then self._onSearchText(text) else self.activeFilter.text = want; ApplyFilter() end
+  end
+  return before ~= want
+end
+
+B._qualityColorOrNil = qualityColor
+B._SUGGEST_MAX = SUGGEST_MAX
+
 -- Published for the headless suite (tests/test_browser.lua), beside the pure helpers
 -- modules/Browser.lua publishes.
 B._dateOptions  = DATE_OPTIONS
@@ -336,15 +412,24 @@ function B:BuildFilterBar(bar)
   local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   ph:SetPoint("LEFT", 6, 0)
   ph:SetText("Search items…")
-  search:SetScript("OnTextChanged", function(self2)
-    local t = self2:GetText()
+  local function onSearchText(t)
+    t = t or ""
     ph:SetShown(t == "")
     B.activeFilter.text = (t ~= "") and t or nil
     ApplyFilter()
-  end)
+  end
+  search:SetScript("OnTextChanged", function(self2) onSearchText(self2:GetText()) end)
   search:SetScript("OnEscapePressed", function(self2) self2:ClearFocus() end)
   search:SetScript("OnEnterPressed", function(self2) self2:ClearFocus() end)
-  self._search = search
+  self._search, self._onSearchText = search, onSearchText
+  -- The suggestion list under the box (P9), on every tab. AFTER the scripts above, because the
+  -- library HOOKS them: the box's own filter, Enter and Escape run first and keep running. nil on a
+  -- degraded install, where the box stays a plain filter box.
+  self._autocomplete = NS.MakeAutocomplete(search, {
+    maxRows  = SUGGEST_MAX,
+    provider = function(text) return B:Suggest(text) end,
+    onPick   = function(item) B:PickSuggestion(item) end,
+  })
 
   -- ── Row 2: column filters, left→right in the same order the columns appear in the table:
   --   Date · Bound · Quality · Type · SubType · Source · Zone · Character ──

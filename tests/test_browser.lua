@@ -1275,7 +1275,8 @@ end)
 -- state is put back afterwards.
 local function withMeasuredBar(fn)
   local saved = {}
-  local KEYS = { "_dd", "_search", "_exportBtn", "_ddWidths", "_bar", "_barCtl", "_barW" }
+  local KEYS = { "_dd", "_search", "_onSearchText", "_autocomplete", "_exportBtn", "_ddWidths", "_bar", "_barCtl",
+                 "_barW" }
   for _, k in ipairs(KEYS) do saved[k] = B[k] end
   local mocks = T.mocks
   local realCreateFrame = mocks.CreateFrame

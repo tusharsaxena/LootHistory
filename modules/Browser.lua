@@ -113,8 +113,9 @@ end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 -- A registry, not a hard-coded pair (timeline-ledger spec §8.0): each tab is a spec its owning
--- module registers -- { name, order, build(pane), refresh(), export(title), filters }. The filter
--- bar and footer are shared window chrome (EnsureFrame, issue #13); a pane holds only its view.
+-- module registers -- { name, order, build(pane), refresh(), export(title), filters, suggest(text),
+-- pick(item) }. The filter bar and footer are shared window chrome (EnsureFrame, issue #13); a pane
+-- holds only its view.
 local tabSpecs, tabOrder = {}, {}
 local lastTab = "History"   -- remembered within a session
 local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18   -- shared chrome heights; panes sit between
@@ -181,6 +182,9 @@ function B:ApplyTabFilters(name)
   for key, ctl in pairs(self._dd or {}) do setHonored(ctl, B._filterHonored(spec, key)) end
   setHonored(self._search, B._filterHonored(spec, "search"))
   setHonored(self._exportBtn, B._filterHonored(spec, "export"))
+  -- The Search box's suggestion list belongs to the tab that filled it: a switch closes it, and the
+  -- next keystroke asks the new tab (B:Suggest).
+  if self._autocomplete then self._autocomplete:Close() end
   self:SyncGroupControl()
   self:RefreshFilterOptions()
 end
@@ -204,6 +208,22 @@ function B:SyncGroupControl()
   dd:SetOptions(B._groupOptionsFor(spec))
   local mode = (spec and spec.group) and spec.group() or (NS.BrowserTable and NS.BrowserTable.groupBy)
   dd:SelectValue(mode or "none")
+end
+
+-- Search autocomplete (P9). The Search box's suggestion list (NS.MakeAutocomplete, built in
+-- modules/BrowserFilterBar.lua) is one widget for every tab; what it offers and what a pick does are
+-- the ACTIVE tab's, through its spec's optional `suggest(text)` (an array of { text, value, color })
+-- and `pick(item)`. A tab with no `suggest` offers nothing, and a tab whose Search is grayed offers
+-- nothing either -- its box takes no input, so a list could only be stale.
+function B:Suggest(text)
+  local spec = tabSpecs[lastTab]
+  if not (spec and spec.suggest and B._filterHonored(spec, "search")) then return nil end
+  return spec.suggest(text)
+end
+
+function B:PickSuggestion(item)
+  local spec = tabSpecs[lastTab]
+  if spec and spec.pick and item then spec.pick(item) end
 end
 
 -- Strip on first call, missing buttons, then every button placed by index (late tabs re-flow it).
@@ -863,10 +883,16 @@ function B:BuildTable(pane)
 end
 
 -- The built-in tabs. History's filter push stays ApplyFilter's unconditional half (the footer needs it).
+-- Both offer the item and currency names their rows hold, and a pick puts the name in Search
+-- (B.SuggestNames / B.PickName, modules/BrowserFilterBar.lua, which loads after this file).
 B:RegisterTab{ name = "History", order = 10,
+  suggest = function(text) return B.SuggestNames(text) end,
+  pick = function(item) B.PickName(item) end,
   build = function(pane) B:BuildTable(pane) end,
   refresh = function() if NS.BrowserTable and NS.BrowserTable.Refresh then NS.BrowserTable:Refresh(); B:RefreshFilterOptions() end end }
 B:RegisterTab{ name = "Insights", order = 20,
+  suggest = function(text) return B.SuggestNames(text) end,
+  pick = function(item) B.PickName(item) end,
   build = function(pane) if NS.Analytics and NS.Analytics.Attach then NS.Analytics:Attach(pane) end end,
   refresh = function() if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end end,
   export = function(title) NS.Export:Open({ title = title,   -- the analytics summary, same filter
@@ -1258,6 +1284,9 @@ end
 --- B:VisibilityAllows. This function only stops the subscriptions.
 function B:Disable()
   if not self._enabled then return end
+  -- Nothing to unregister for the suggestion list (it holds no event, message or OnUpdate), but an
+  -- open one goes, and its pending debounce with it.
+  if self._autocomplete then self._autocomplete:Close() end
   if B.__ev then
     B.__ev:UnregisterAllMessages()
     B.__ev:UnregisterAllEvents()
