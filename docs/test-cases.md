@@ -461,7 +461,7 @@ Total.
 - Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 
-### test_reconciler.lua (7)
+### test_reconciler.lua (8)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -470,6 +470,7 @@ Total.
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
+- Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 
 ### test_reconciler_rows.lua (31)
 
@@ -505,7 +506,7 @@ Total.
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
 - Reconciler: a deferred login with the banker open keeps its bags drift UNTRACKED
 
-### test_escrow.lua (14)
+### test_escrow.lua (21)
 
 - Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-origin are credited
 - Escrow: taking mail splits own-origin (MOVE) from outside gains (IN)
@@ -521,6 +522,13 @@ Total.
 - Escrow: a sale payout taken while an alt's gold waits stays AH_SOLD; the alt's gold is ALT_MAIL
 - Escrow: gold from another player is a gain even while an alt's gold waits
 - Escrow: a money-only pass leaves the staged items for the item pass; both are ALT_MAIL losses
+- Escrow: mail money taken with the mailbox closed is not drawn from mail (LH-11)
+- Escrow: a gold loss with mail money waiting is never drawn from mail (LH-11)
+- Escrow: two auctions of one item leave as one exit; a partial return leaves the rest (LH-11)
+- Escrow: one sale mail books every pending exit of the item as AH_SOLD (LH-11, LH-R-06)
+- Escrow: a second exit of the same item restarts the shared TTL clock (LH-11, LH-R-06)
+- Escrow: a genesis pass resolves no exit, even with a sale mail live (LH-11)
+- Escrow: a sale mail for another item leaves the exit pending (LH-11)
 
 ### test_database.lua (85)
 
@@ -1707,9 +1715,9 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 48 |
-| test_reconciler.lua | 7 |
+| test_reconciler.lua | 8 |
 | test_reconciler_rows.lua | 31 |
-| test_escrow.lua | 14 |
+| test_escrow.lua | 21 |
 | test_database.lua | 85 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
@@ -1751,4 +1759,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1497** |
+| **Total** | **1505** |

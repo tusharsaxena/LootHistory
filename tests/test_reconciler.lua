@@ -110,3 +110,66 @@ test("Reconciler: trackLedger off unregisters, on registers again", function()
   R():Disable()
   assertEqual(R().__ev, nil); assertEqual(R()._settings, nil)
 end)
+
+-- LH-11 characterization: what each capture event does to the dirty bits and the flush fuse, and
+-- which interaction / currency handler it reaches. Pinned before onEvent became a file-scope
+-- handler table; the readable gates on the mailbox and owned-auction events are pinned both ways.
+local function routeOf(event, readable, ...)
+  reset()
+  local r = R()
+  r.readable = readable or {}
+  r.pendingTransfer = nil
+  local fuses, calls = 0, {}
+  local savedAfter, savedInter, savedCur = NS.After, r.OnInteraction, r.OnCurrencyUpdate
+  NS.After = function() fuses = fuses + 1; return nil end
+  r.OnInteraction = function(_, shown, it) calls[#calls + 1] = "inter:" .. tostring(shown) .. ":" .. tostring(it) end
+  r.OnCurrencyUpdate = function(_, ...) calls[#calls + 1] = "cur:" .. table.concat({ tostring(select(1, ...)),
+    tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)) }, ",") end
+  local ok, err = pcall(r.OnEvent, r, event, ...)
+  NS.After, r.OnInteraction, r.OnCurrencyUpdate = savedAfter, savedInter, savedCur
+  assertTrue(ok, tostring(err))
+  local keys = {}
+  for k, v in pairs(r.dirty) do
+    if type(v) == "table" then
+      local sub = {}
+      for b in pairs(v) do sub[#sub + 1] = tostring(b) end
+      table.sort(sub)
+      keys[#keys + 1] = k .. "[" .. table.concat(sub, ",") .. "]"
+    else keys[#keys + 1] = k end
+  end
+  table.sort(keys)
+  local out = table.concat(keys, " ") .. " | fuse=" .. fuses .. " | " .. table.concat(calls, ";")
+  if r.pendingTransfer then out = out .. " | transfer" end
+  if r.readable.auctions then out = out .. " | auctions-readable" end
+  return out
+end
+
+test("Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)", function()
+  local C = NS.Constants
+  local cases = {
+    { "BAG_UPDATE", nil, { 0 }, "bags[0] | fuse=0 | " },
+    { "BAG_UPDATE", nil, { C.BANK_IDS[1] }, "bank | fuse=0 | " },
+    { "BAG_UPDATE", nil, { C.WARBAND_TAB_IDS[1] }, "tabs | fuse=0 | " },
+    { "BAG_UPDATE", nil, {}, "bags[] | fuse=0 | " },
+    { "BAG_UPDATE_DELAYED", nil, {}, " | fuse=1 | " },
+    { "PLAYER_EQUIPMENT_CHANGED", nil, {}, "equipped | fuse=1 | " },
+    { "PLAYER_MONEY", nil, {}, "money | fuse=1 | " },
+    { "ACCOUNT_MONEY", nil, {}, "warbandMoney | fuse=1 | " },
+    { "CURRENCY_DISPLAY_UPDATE", nil, { 7, "x", 3, 4, 5 }, " | fuse=0 | cur:7,3,4,5" },
+    { "CURRENCY_TRANSFER_LOG_UPDATE", nil, {}, "currencyDelta | fuse=1 |  | transfer" },
+    { "PLAYERBANKSLOTS_CHANGED", nil, {}, "bank | fuse=1 | " },
+    { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", nil, {}, "tabs | fuse=1 | " },
+    { "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", nil, { 17 }, " | fuse=0 | inter:true:17" },
+    { "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", nil, { 17 }, " | fuse=0 | inter:false:17" },
+    { "MAIL_INBOX_UPDATE", nil, {}, " | fuse=0 | " },
+    { "MAIL_INBOX_UPDATE", { mail = true }, {}, "mail | fuse=1 | " },
+    { "OWNED_AUCTIONS_UPDATED", nil, {}, " | fuse=0 | " },
+    { "OWNED_AUCTIONS_UPDATED", { auctionHouse = true }, {}, "auctions | fuse=1 |  | auctions-readable" },
+    { "SOME_UNKNOWN_EVENT", nil, { 1 }, " | fuse=0 | " },
+  }
+  for _, c in ipairs(cases) do
+    local a = c[3]
+    assertEqual(routeOf(c[1], c[2], a[1], a[2], a[3], a[4], a[5]), c[4], c[1])
+  end
+  reset()
+end)

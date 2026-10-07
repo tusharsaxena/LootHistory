@@ -92,13 +92,23 @@ end
 -- sale mail's payout is live (that gold is AH_SOLD), and not when the mail just taken names a
 -- sender who is not an own holder (another player's gold is a gain). A take the TakeInboxMoney
 -- hook never saw (no mailTaken) falls back to the mailMoney balance alone.
+-- The guards, in order: a gold gain, a mail money balance, a readable mailbox; then neither a live
+-- sale mail nor a just-taken mail from someone who is not an own holder.
+local function mailMoneyGain(self, net, esc)
+  if not (net and net.g and net.g > 0) then return false end
+  return esc ~= nil and (esc.mailMoney or 0) > 0 and self.readable.mail and true or false
+end
+
+local function mailMoneyMasked(clock)
+  local sold, taken = NS.State.soldMail, NS.State.mailTaken
+  if sold and sold.expires >= clock then return true end
+  return (taken and taken.expires >= clock and not taken.own) and true or false
+end
+
 local function planMailMoney(self, plan, me, clock)
   local net, e = plan.net[me], NS.Holdings:Get(me)
   local esc = e and e.escrow
-  if not (net and net.g and net.g > 0 and esc and (esc.mailMoney or 0) > 0 and self.readable.mail) then return end
-  local sold, taken = NS.State.soldMail, NS.State.mailTaken
-  if sold and sold.expires >= clock then return end
-  if taken and taken.expires >= clock and not taken.own then return end
+  if not mailMoneyGain(self, net, esc) or mailMoneyMasked(clock) then return end
   local q = math.min(net.g, esc.mailMoney)
   local alt = math.min(q, esc.mailMoneyAlt or 0)
   if alt > 0 then
@@ -130,6 +140,28 @@ local function itemName(e, id)
   return name
 end
 
+-- A live sale mail naming the item, or an exit older than EXIT_TTL.
+local function exitSold(e, id, x, saleName, now)
+  if saleName and saleName == itemName(e, id) then return true end
+  return (now - x.ts) >= Escrow.EXIT_TTL
+end
+
+-- A mail arrival of an exited item, up to the exit's count, is its return.
+local function planReturns(returns, esc, arrivals)
+  local arrived = arrivals and arrivals.mail or {}
+  for id, x in pairs(esc.exits) do
+    local back = math.min(arrived[id] or 0, x.n)
+    if back > 0 then returns[id] = back end
+  end
+end
+
+-- The item name a sale mail still inside its window names, or nil.
+local function liveSaleName(clock)
+  local sold = NS.State.soldMail
+  if sold and sold.expires >= clock then return sold.itemName end
+  return nil
+end
+
 -- Exits: a mail arrival of an exited item is its return; a sale mail naming it is its sale; an exit
 -- older than EXIT_TTL is booked as sold. Never on a genesis pass, which writes no rows: a sale
 -- resolved there would leave the exit gone and its OUT row never written.
@@ -138,21 +170,15 @@ local function planExits(self, plan, me, clock, now)
   if self.silent then return end
   local e = NS.Holdings:Get(me)
   local esc = e and e.escrow
-  local arrived = plan.arrivals[me] and plan.arrivals[me].mail or {}
-  if esc then
-    for id, x in pairs(esc.exits) do
-      local back = math.min(arrived[id] or 0, x.n)
-      if back > 0 then plan.returns[id] = back end
-    end
-    local sold = NS.State.soldMail
-    for id, x in pairs(esc.exits) do
-      local left = x.n - (plan.returns[id] or 0)
-      local byMail = sold and sold.expires >= clock and sold.itemName and sold.itemName == itemName(e, id)
-      if left > 0 and (byMail or (now - x.ts) >= Escrow.EXIT_TTL) then
-        plan.sold[id] = left
-        plan.extra[#plan.extra + 1] = { holder = me, key = L.ThingKey("ITEM", id), dir = "OUT",
-          reason = "AH_SOLD", qty = left }
-      end
+  if not esc then return end
+  planReturns(plan.returns, esc, plan.arrivals[me])
+  local saleName = liveSaleName(clock)
+  for id, x in pairs(esc.exits) do
+    local left = x.n - (plan.returns[id] or 0)
+    if left > 0 and exitSold(e, id, x, saleName, now) then
+      plan.sold[id] = left
+      plan.extra[#plan.extra + 1] = { holder = me, key = L.ThingKey("ITEM", id), dir = "OUT",
+        reason = "AH_SOLD", qty = left }
     end
   end
 end
@@ -205,23 +231,34 @@ local function commitMoves(plan)
   end
 end
 
-local function commitExits(plan, me, now)
-  local hasExits = next(plan.exits[me] or {}) ~= nil
-  local e = NS.Holdings:Get(me)
-  if not (e and (e.escrow or hasExits)) then return end
-  local esc = NS.Holdings:Escrow(me)
-  for id, n in pairs(plan.exits[me] or {}) do
+-- New exits join the item's pending one; the shared ts restarts (LH-R-06, a known limitation).
+local function addExits(esc, exits, now)
+  for id, n in pairs(exits) do
     local x = esc.exits[id] or { n = 0 }
     x.n, x.ts = x.n + n, now
     esc.exits[id] = x
   end
-  for id, back in pairs(plan.returns or {}) do
+end
+
+-- Returns become own-origin mail; returns and sales both draw the exit down, and a spent exit goes.
+local function resolveExits(esc, returns, sold)
+  for id, back in pairs(returns) do
     esc.mailOwn[id] = (esc.mailOwn[id] or 0) + back
     esc.exits[id].n = esc.exits[id].n - back
   end
-  for id, n in pairs(plan.sold or {}) do esc.exits[id].n = esc.exits[id].n - n end
+  for id, n in pairs(sold) do esc.exits[id].n = esc.exits[id].n - n end
   for id, x in pairs(esc.exits) do if x.n <= 0 then esc.exits[id] = nil end end
-  if next(plan.sold or {}) then NS.State.soldMail = nil end
+end
+
+local function commitExits(plan, me, now)
+  local exits = plan.exits[me] or {}
+  local e = NS.Holdings:Get(me)
+  if not (e and (e.escrow or next(exits) ~= nil)) then return end
+  local esc = NS.Holdings:Escrow(me)
+  addExits(esc, exits, now)
+  local sold = plan.sold or {}
+  resolveExits(esc, plan.returns or {}, sold)
+  if next(sold) then NS.State.soldMail = nil end
 end
 
 -- The staged send is used up only as far as it paired: a money-only pass (PLAYER_MONEY's fuse
