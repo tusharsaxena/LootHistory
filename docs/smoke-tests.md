@@ -1329,108 +1329,108 @@ re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are record
 
 **LED-P2-01. Bank deposit and withdraw.** At a banker, deposit a stack from your bags, then withdraw
 half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
-row for the item, and the Holdings tab's bank column updates. Result:
+row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `⇄` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
 
 **LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
 `OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
-deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result:
+deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-03. Vendor.** Sell a junk item, repair, buy one item, buy one back → item `OUT SELL` and
 gold `IN SELL` (about 1.5 s later), gold `OUT REPAIR`, gold `OUT BUY` with item `IN VENDOR` (the item
 row chat-claimed), and the buyback as gold `OUT BUY`. [`RepairAllItems` and `BuybackItem` are
-hookable globals on 12.x.] Result:
+hookable globals on 12.x.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-04. Loot.** Kill a mob that drops gold and two items, one of them gray → one claimed row per
 item and one claimed gold row, `source=KILL`. The gray item appears in History only after Quality →
 Poor is selected (the minimum-quality view floor). [`CHAT_MSG_MONEY` arrives as "You loot ..." built
-from `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT`.] Result:
+from `GOLD_AMOUNT` / `SILVER_AMOUNT` / `COPPER_AMOUNT`.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-05. Combat potions.** Drink 3 potions in one pull → no hitch during the pull; after combat
 exactly one `OUT CONSUME` row with quantity 3. A second pull within 60 s amends that row instead of
-adding a second. Result:
+adding a second. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `OUT ALT_MAIL` rows on the
 sender (Phase 7), and a gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail →
 `IN ALT_MAIL` rows on the alt, no `⇄` and no second loss.
 [`SendMail` is a post-hook and `GetSendMailItem` / `GetSendMailMoney` still return the staged
 attachments when it runs; `MAIL_SEND_SUCCESS` fires after the bags change or within the 10 s window.]
-Result:
+Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-07. Mail from others and a won auction.** Take a mail from another player and an auction
 you won → `IN MAIL` and `IN AH`, chat-claimed when a loot line fires. [`GetInboxItem(i, a)` returns
-`name, itemID, texture, count`.] Result:
+`name, itemID, texture, count`.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-08. AH post.** Post one item and one commodity → `⇄` to `me/auctions` for each and gold
 `OUT AH_POST_FEE`. [`C_AuctionHouse.PostItem(itemLocation, duration, quantity, bid, buyout)` and
 `PostCommodity(itemLocation, duration, quantity, unitPrice)`: the third argument is the quantity;
-`C_Item.GetItemID(itemLocation)` resolves it.] Result:
+`C_Item.GetItemID(itemLocation)` resolves it.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `⇄`), let another
 sell (take the money: item `OUT AH_SOLD` and gold `IN AH_SOLD`). [`OWNED_AUCTIONS_UPDATED` fires after
 opening the Auctions tab; `GetOwnedAuctionInfo(i).status` uses `Enum.AuctionStatus.Active` / `Sold`;
 `AUCTION_SOLD_MAIL_SUBJECT` matches the sale mail subject and its `%s` is the item name only.]
-Result:
+Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-10. Guild bank.** Deposit and withdraw an item and some gold → `OUT GUILD_DEPOSIT` and
 `IN GUILD_WITHDRAW`. [`GuildBankFrame` exists after `Blizzard_GuildBankUI` loads and its `OnShow` /
-`OnHide` fire on open and close.] Result:
+`OnHide` fire on open and close.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-11. Crafting.** Craft 5 of a recipe → the reagents as `OUT CRAFT_REAGENT` rows and the
 product as `IN CRAFT`. [`C_TradeSkillUI.CraftRecipe` / `CraftSalvage` / `CraftEnchant` exist and are
-hookable.] Result:
+hookable.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-12. Disenchant.** Disenchant one item → the item as `OUT DECONSTRUCT` and the materials as
-`IN DISENCHANT`. Result:
+`IN DISENCHANT`. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-13. Warband currency transfer.** Transfer a transferable currency to an alt → an
 `OUT CURRENCY_TRANSFER` on you and an `IN CURRENCY_TRANSFER` on the alt (to `Alt/currency`, one shared
 `pairId`; Phase 7), and any fee as `OUT TRANSFER`. The alt's next login shows no `UNTRACKED` row for it.
 [`CURRENCY_TRANSFER_LOG_UPDATE` fires; `C_CurrencyInfo.FetchCurrencyTransferTransactions()` returns
 records with `currencyType`, `quantityTransferred` and `destinationCharacterName`;
-`CURRENCY_DISPLAY_UPDATE`'s `destroyReason` names `AccountTransfer`.] Result:
+`CURRENCY_DISPLAY_UPDATE`'s `destroyReason` names `AccountTransfer`.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-14. Currency spend.** Spend crests on an upgrade and currency at a vendor → `OUT` rows with
 mapped reasons (not `OTHER`). [`CURRENCY_DISPLAY_UPDATE`'s payload is `(currencyType, quantity,
 quantityChange, quantityGainSource, quantityLostSource)`; `/dump Enum.CurrencySource` and `/dump
 Enum.CurrencyDestroyReason` contain the member names in `C.CURRENCY_SOURCE_REASON`. Correct that table
-if they do not.] Result:
+if they do not.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-15. Login drift.** Disable the addon, log in, move items about, re-enable it and `/reload`
-→ `UNTRACKED` rows for the differences. A brand-new character's first login writes none. Result:
+→ `UNTRACKED` rows for the differences. A brand-new character's first login writes none. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-16. Resume drift.** `/lh disable`, loot something, `/lh enable` → the loot appears as
-`UNTRACKED` about one second after enabling. Result:
+`UNTRACKED` about one second after enabling. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-17. History display.** The glyphs ▲ ▼ ⇄ render (no boxes) in the mono face, colored (green,
 red, gray); Qty reads `+3` / `-3`; gold rows show in pale gold; the Direction filter defaults to Gains +
 Losses; ticking **Show transfers by default** then **Clear** includes transfers; Group by Direction and
-by Holder both work. [JetBrains Mono carries U+21C4.] Result:
+by Holder both work. [JetBrains Mono carries U+21C4.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-18. Insights.** With losses in range: Gained, Lost, Net and Transfers cards, and the "Gains
 vs losses by reason / character / kind" charts above LOOT. Under the default Direction filter the
 Transfers card reads 0 (tick Transfers to count them). With kept history and a range before the
-upgrade date, the yellow pre-ledger caveat line shows. Result:
+upgrade date, the yellow pre-ledger caveat line shows. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-19. Exports.** The History CSV ends `...,wowheadLink,dir,kind,holder,from,to`; legacy rows
 read `IN,ITEM,<char>,,`; the Insights CSV ends with `Ledger` sections when losses are in range.
-Result:
+Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-20. Perf run.** `/lh perf` opens the step panel. Complete both arms on a training dummy with
 a loot-heavy pull, then `/lh perf finish` → a report whose `lootLine`, `spellCast` and `ledgerEvent`
-buckets are non-zero. Record it with `/dev-copilot:wow-perf-analysis`. Result:
+buckets are non-zero. Record it with `/dev-copilot:wow-perf-analysis`. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-21. Trainer and taxi.** Train a skill and take a flight → gold `OUT TRAINING` and
-`OUT TRAVEL`. [`Enum.PlayerInteractionType.Trainer` and `.TaxiNode` are the member names.] Result:
+`OUT TRAVEL`. [`Enum.PlayerInteractionType.Trainer` and `.TaxiNode` are the member names.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-22. Party loot money.** In a group, loot gold that is split → "Your share of the loot is
 ..." is parsed and claimed. With guild perks, note whether `YOU_LOOT_MONEY_GUILD`'s first amount is the
-pre- or post-cut figure (a known limitation if pre-cut). Result:
+pre- or post-cut figure (a known limitation if pre-cut). Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-23. Trade.** Trade an item and gold to another player → `OUT TRADE_GIVE` rows. [`UnitName("NPC")`
-names the trade partner while the trade window is open.] Result:
+names the trade partner while the trade window is open.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-24. Destroy.** Delete an item from your bags → `OUT DESTROY`. [`DeleteCursorItem` is a
-hookable global.] Result:
+hookable global.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 ### Holder moves (timeline ledger Phase 7)
 

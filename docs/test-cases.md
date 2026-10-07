@@ -476,10 +476,12 @@ Total.
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 
-### test_reconciler_rows.lua (31)
+### test_reconciler_rows.lua (33)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
+- Reconciler: a split withdraw that fires only a bag event is still one MOVE bank to bags
+- Reconciler: a bag change with the bank closed never reads the bank
 - Reconciler: vendor sale writes item OUT SELL and gold IN SELL
 - Reconciler: combat potion burst lands as one CONSUME row and coalesces
 - Reconciler: rows after the 60 s window append
@@ -1732,7 +1734,7 @@ Total.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 49 |
 | test_reconciler.lua | 8 |
-| test_reconciler_rows.lua | 31 |
+| test_reconciler_rows.lua | 33 |
 | test_escrow.lua | 21 |
 | test_database.lua | 85 |
 | test_stats.lua | 26 |
@@ -1775,4 +1777,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1521** |
+| **Total** | **1523** |
