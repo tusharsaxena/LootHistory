@@ -110,15 +110,21 @@ local function onEvent(self, event, a1, a3, a4, a5)
     if self.readable.auctionHouse then
       self.readable.auctions = true; self:MarkDirty("auctions"); scheduleFlush(self)
     end
-  elseif event == "PLAYER_REGEN_ENABLED" then
-    if self.loginPending then self:LoginScan()
-    elseif self.deferred then self.deferred = nil; self:Flush() end
   end
 end
 
+-- The combat-exit edge runs the work combat deferred (a pending login scan or a whole flush), so it
+-- is not a capture event and stays outside the ledgerEvent bracket (tests/test_perf.lua pins it).
+local function onRegenEnabled(self)
+  if self.loginPending then self:LoginScan()
+  elseif self.deferred then self.deferred = nil; self:Flush() end
+end
+
 -- Shape A bracket (performance-§2): every capture event, in combat included, is a dirty bit or a
--- debounce here; the flush it schedules is not inside this bucket (tests/perf.lua measures it).
+-- debounce here; the flush it schedules is not inside this bucket (tests/perf.lua measures it), and
+-- neither is the PLAYER_REGEN_ENABLED flush, which is dispatched before the bracket opens.
 function R:OnEvent(event, a1, _, a3, a4, a5)
+  if event == "PLAYER_REGEN_ENABLED" then return onRegenEnabled(self) end
   local t0 = Perf.on and debugprofilestop()
   onEvent(self, event, a1, a3, a4, a5)
   if t0 then Perf.Note("ledgerEvent", debugprofilestop() - t0) end

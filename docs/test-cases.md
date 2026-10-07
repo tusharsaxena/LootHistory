@@ -1506,10 +1506,11 @@ Total.
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
 
-### test_perf.lua (6)
+### test_perf.lua (7)
 
 - perf: the buckets are declared in report order
 - perf: every declared bucket is reached by a real bracket
+- perf: PLAYER_REGEN_ENABLED records no ledgerEvent sample while BAG_UPDATE does
 - perf: a dormant probe notes nothing
 - perf: suspend makes the addon inert and resume restores it
 - perf: suspend and resume log to the console whatever the debug flag says
@@ -1723,7 +1724,7 @@ Total.
 | test_libka0s.lua | 31 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 17 |
-| test_perf.lua | 6 |
+| test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_doc_structure.lua | 8 |
@@ -1736,4 +1737,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1482** |
+| **Total** | **1483** |
