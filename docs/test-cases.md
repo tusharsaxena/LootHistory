@@ -92,7 +92,7 @@ Total.
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
-### test_util.lua (46)
+### test_util.lua (47)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -137,6 +137,7 @@ Total.
 - Coalesce: the run is never LOST, only deferred
 - Coalesce: a later burst schedules a fresh run rather than being dropped
 - Coalesce: a raise inside the body does not wedge the trigger forever
+- Coalesce: a window canceled by the stand-down does not wedge the trigger
 - Coalesce: with no C_Timer it runs straight through
 - Util: ParseSelfMoney reads looted and shared money
 - Util.RangeFrom: 90d and 1y are rolling windows
@@ -1679,7 +1680,7 @@ Total.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
-| test_util.lua | 46 |
+| test_util.lua | 47 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 64 |
@@ -1735,4 +1736,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1481** |
+| **Total** | **1482** |

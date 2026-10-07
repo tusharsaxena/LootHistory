@@ -286,22 +286,27 @@ end
 -- @param delay number  seconds to wait before running
 -- @return function  the trigger; call it as often as you like
 function Util.Coalesce(fn, delay)
-  local pending = false
+  -- The window in flight is its NS.After HANDLE, not a boolean. The stand-down cancels every
+  -- deferral (NS.CancelDeferrals), and a canceled body never runs -- so a flag cleared only inside
+  -- the body stayed set, and this trigger returned early for the rest of the session. The settings
+  -- panel's readout coalescer is built once and outlives the stand-down, so `/lh disable` within
+  -- one delay of a loot line froze it. A canceled handle therefore counts as no window at all, and
+  -- the next trigger after the stand-up arms a fresh one.
+  local window
   return function()
-    if pending then return end
+    if window and not window.canceled then return end
     -- No C_Timer — headless, or a client old enough to lack it. Run straight through: correct and
     -- slow beats a surface that silently never repaints.
     if not (C_Timer and C_Timer.After) then return fn() end
-    pending = true
     -- NS.After rather than C_Timer.After, so a coalesced repaint that is already in flight when the
     -- player switches the addon off is CANCELED rather than left armed to wake up and find a flag
     -- (slash-commands-§7). A repaint timer re-arming ten times a second in combat and then
     -- discovering it has nothing to paint is the single shape that section singles out.
-    NS.After(delay, function()
-      -- Cleared BEFORE the body, not after. A raise inside `fn` would otherwise leave the flag
+    window = NS.After(delay, function()
+      -- Cleared BEFORE the body, not after. A raise inside `fn` would otherwise leave the window
       -- set for the rest of the session and this surface would never repaint again — trading a
       -- slow window for a dead one, which is the worse bug and the harder one to notice.
-      pending = false
+      window = nil
       fn()
     end)
   end

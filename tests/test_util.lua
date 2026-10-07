@@ -446,6 +446,25 @@ test("Coalesce: a raise inside the body does not wedge the trigger forever", fun
   assertEqual(calls, 2, "the second run still happened")
 end)
 
+test("Coalesce: a window canceled by the stand-down does not wedge the trigger", function()
+  -- red under: a `pending` boolean set before NS.After and cleared only inside the body. The
+  -- stand-down cancels the in-flight window, the body never runs, the flag stays set, and every
+  -- later trigger returns early -- the settings panel's record-count readout (built once, it
+  -- survives the stand-down) never repaints again for the session. Driven through
+  -- NS.CancelDeferrals, the step of NS.StandDown that cancels the window, rather than a full
+  -- switch toggle: that would leave the peripheral modules enabled for the suites that run next.
+  T.mocks.__fireTimers()   -- drain anything earlier cases left queued
+  local ran = 0
+  local trigger = NS.Coalesce(function() ran = ran + 1 end, 0.1)
+  trigger()
+  NS.CancelDeferrals()     -- the stand-down lands inside the window
+  T.mocks.__fireTimers()
+  assertEqual(ran, 0, "the canceled window must not run")
+  trigger()
+  T.mocks.__fireTimers()
+  assertEqual(ran, 1, "runs after stand-down + new trigger: " .. ran)
+end)
+
 test("Coalesce: with no C_Timer it runs straight through", function()
   -- Headless, and any client old enough to lack C_Timer. Degrading to the old synchronous
   -- behavior is right: correct and slow beats silently never repainting.
