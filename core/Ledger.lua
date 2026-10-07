@@ -124,8 +124,6 @@ function Ledger.ClassifyItems(before, after, own)
   return moves, net, arrivals, exits
 end
 
--- Inter-holder pairing (char <-> §warband): opposite-sign changes of one thing on the two holders
--- are a transfer for the smaller magnitude. Both nets are reduced in place; zeros are removed.
 local function byTostring(x, y) return tostring(x) < tostring(y) end
 
 -- `n` moved `q` toward zero; zero is stored as no entry.
@@ -135,6 +133,8 @@ local function shrink(n, q)
   return n
 end
 
+-- Inter-holder pairing (char <-> §warband): opposite-sign changes of one thing on the two holders
+-- are a transfer for the smaller magnitude. Both nets are reduced in place; zeros are removed.
 function Ledger.PairHolders(a, netA, b, netB)
   local keys = {}
   for k in pairs(netA) do
@@ -381,11 +381,6 @@ function Ledger.ForgetHolderDaily(daily, holder)
   return removed
 end
 
--- Rebuild the in/out tallies of the cells named in touched[day][holder][key] from `rows` (the v13
--- step, timeline-ledger Phase 7): each such cell's `i` / `o` is cleared and re-summed from every IN /
--- OUT row of that day, holder and thing, so a tally always matches the rows that produced it. A day
--- the rollup no longer holds (pruned) is skipped, never recreated, and a close is never touched.
--- Answers the number of cells rebuilt.
 -- Clear the tallies of one holder's touched cells on a held day, marking each key wanted (w).
 -- Answers how many cells were named.
 local function clearTouchedCells(cells, keys, w)
@@ -428,6 +423,11 @@ local function refoldRow(daily, touched, want, r)
   if h and h[key] then Ledger.RollupFlow(daily, day, holder, key, dir, r.quantity) end
 end
 
+-- Rebuild the in/out tallies of the cells named in touched[day][holder][key] from `rows` (the v13
+-- step, timeline-ledger Phase 7): each such cell's `i` / `o` is cleared and re-summed from every IN /
+-- OUT row of that day, holder and thing, so a tally always matches the rows that produced it. A day
+-- the rollup no longer holds (pruned) is skipped, never recreated, and a close is never touched.
+-- Answers the number of cells rebuilt.
 function Ledger.RecomputeFlows(daily, rows, touched)
   local want, n = clearTouched(daily, touched)
   if n == 0 then return 0 end
