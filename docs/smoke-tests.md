@@ -34,7 +34,7 @@ free number in its theme.
 | LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 14 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, and the line toggles |
+| TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -1544,6 +1544,16 @@ holder line and at the Total → the lines read as a few long segments with no s
 holder lines 2 px and the Total slightly heavier. Hover along a line → the crosshair still lands on
 real days, and a one-day spike is still drawn. Result:
 
+**TL-17. Legend tooltip and spacing.** On Gold with Character on **All**, a Warband line and two or
+more characters: hover a character's legend entry → the title is the character in its class color,
+**Holding** shows its gold now as coins (matching the Holdings tab), and a gray "Click to hide/show"
+closes it. Hover **Warband** → the title is the Warband's blue. Hover **Total** → a gold title and the
+sum of the lines charted; narrow Character to one character → it reads **Holding (all shown
+characters)** with that character's gold. Pick a currency → counts with commas (`12,345`). With
+`/lh test` on, the holdings are the sample's. Look along the legend → the gap after **Warband** is
+the same as between two characters, the gap after **Total** is as before, and with **Timeline lines**
+at 16 the legend wraps to a second row instead of running off the pane, with no Lua error. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1795,4 +1805,5 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | TL-1 to TL-13 | New | New with the timeline ledger, Phase 3 (the Timeline tab and the daily rollup); no result recorded, and TL-13's API facts are the unverified assumptions |
 | TL-14 | New | New with the timeline ledger P8 (Total only and the click-to-toggle legend); no result recorded |
 | TL-15 | New | New with the timeline ledger P8 (tooltips on the in/out strip); no result recorded |
+| TL-17 | New | New with the timeline ledger P10 (legend tooltip in the line's color with the current holding; even legend spacing); no result recorded |
 | LOC-1 to LOC-5 | § 18a to § 18e | "NOT YET RUN"; LOC-5's walk list rewritten by SP-LH-03R |

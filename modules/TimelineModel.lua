@@ -402,6 +402,67 @@ function TM.FlowLines(m, f)
   } }
 end
 
+-- ── the legend (spec §8.1, P10) ──
+
+-- A count with thousands grouped by commas ("12,345"); the default font has no thin space, and
+-- History's Qty column reads counts the same way.
+function TM.FormatCount(n)
+  local s = tostring(math.floor((n or 0) + 0.5))
+  local sign, digits = s:match("^(-?)(%d+)$")
+  if not digits then return s end
+  digits = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+  return sign .. digits
+end
+
+-- What a holder holds of the thing now: gold as a coin string (History's gold Qty formatter), anything
+-- else as a grouped count. Nothing held reads "0" rather than FormatMoney's blank.
+function TM.FormatHolding(kind, v)
+  if kind == "GOLD" then return (v and v > 0) and NS.Util.FormatMoney(v) or "0" end
+  return TM.FormatCount(v)
+end
+
+local GOLD_TITLE = { 1, 0.82, 0 }
+
+-- A legend entry's tooltip: the line's label in its color (a character's class color, the Warband's
+-- blue; the Total keeps the tooltip's gold title), what it holds of the charted thing NOW from the
+-- active Holdings store (the sample under test mode), and the click hint. The Total line is the sum
+-- of the charted holders (the Character filter and the line cap decide them), so its holding is too,
+-- and it says so when a holder that holds some is left out of the chart. Nil for a key not drawn.
+function TM.LegendTip(m, holder)
+  if not (m and holder) then return nil end
+  local sr, shown = nil, {}
+  for _, s in ipairs(m.series) do
+    if s.holder == holder then sr = s end
+    if s.holder ~= TM.TOTAL then shown[s.holder] = true end
+  end
+  if not sr then return nil end
+  local label, n = "Holding", 0
+  if holder == TM.TOTAL then
+    local _, rows = NS.Holdings:Total(m.key)
+    for _, r in ipairs(rows) do
+      if shown[r.holder] then n = n + r.count else label = "Holding (all shown characters)" end
+    end
+  else
+    n = NS.Holdings:Total(m.key, { [holder] = true })
+  end
+  return { title = sr.label, color = (holder == TM.TOTAL) and GOLD_TITLE or sr.color, label = label,
+    value = TM.FormatHolding(m.kind, n), hint = "Click to hide/show" }
+end
+
+-- Where each legend entry sits, from the label widths in legend order (the Total first). The Total
+-- keeps its fixed `slot`; every other entry is its label's width plus one even `gap`, so a short label
+-- (Warband) leaves no wider hole than a long one. An entry that would run past `avail` starts a new
+-- row at the left. Answers { { x, row }, ... } and the row count.
+function TM.LegendLayout(widths, slot, gap, avail)
+  local out, x, row = {}, 0, 1
+  for i, w in ipairs(widths) do
+    if x > 0 and avail and avail > 0 and x + w > avail then x, row = 0, row + 1 end
+    out[i] = { x = x, row = row }
+    x = x + ((i == 1) and math.max(slot, w + gap) or (w + gap))
+  end
+  return out, row
+end
+
 -- Only the visible lines reach the chart, with the y range taken over them. The in/out strip is not
 -- here: it stays the Total's whatever is hidden (m.flows).
 function TM.ChartData(m, hidden)

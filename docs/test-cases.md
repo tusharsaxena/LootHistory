@@ -1187,7 +1187,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (26)
+### test_timeline.lua (32)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1215,8 +1215,14 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: FlowLines titles the day as the Total's and signs Gained / Lost / Net
 - Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red
 - Timeline model: FlowLines answers nil for a day with no flow
+- Timeline model: FormatCount groups thousands, FormatHolding reads gold as coins
+- Timeline model: LegendTip colors the title by holder kind and reads the current holding
+- Timeline model: LegendTip's Total sums only the charted holders and says so
+- Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0
+- Timeline model: LegendTip reads the test-mode store when it is on
+- Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
 
-### test_timelinetab.lua (26)
+### test_timelinetab.lua (31)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1244,6 +1250,11 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: the chart's hover ending does not hide the strip's tooltip
 - Timeline tab: smoother lines -- 6 px per point reaches the chart and the lines are 2 px (Total 2.5)
 - Timeline tab: the wider point spacing thins a 120-day series to fewer points
+- Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint
+- Timeline tab: the Warband's legend tooltip wears the Warband's series color
+- Timeline tab: legend entries sit one even gap apart, the Total keeping its slot
+- Timeline tab: the Warband's legend entry takes the same gap as a character's
+- Timeline tab: a legend too wide for the pane wraps to a second row and the body makes room
 
 ### test_autocomplete.lua (14)
 
@@ -1668,8 +1679,8 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics.lua | 69 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 33 |
-| test_timeline.lua | 26 |
-| test_timelinetab.lua | 26 |
+| test_timeline.lua | 32 |
+| test_timelinetab.lua | 31 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
 | test_panel.lua | 43 |
@@ -1692,4 +1703,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1446** |
+| **Total** | **1457** |

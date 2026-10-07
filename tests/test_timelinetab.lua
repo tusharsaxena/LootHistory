@@ -362,7 +362,10 @@ local function spyTooltip(fn)
   for _, n in ipairs(names) do saved[n] = rawget(tt, n) end
   tt.SetOwner = function(_, owner, anchor) got.owner, got.anchor = owner, anchor end
   tt.GetOwner = function() return got.owner end
-  tt.AddLine = function(_, text) got.lines[#got.lines + 1] = text end
+  got.lineRGB = {}
+  tt.AddLine = function(_, text, r, g, b)
+    got.lines[#got.lines + 1] = text; got.lineRGB[#got.lines] = { r, g, b }
+  end
   tt.AddDoubleLine = function(_, l, r, lr, lg, lb, rr, rg, rb)
     got.doubles[#got.doubles + 1] = { l = l, r = r, lc = { lr, lg, lb }, rc = { rr, rg, rb } }
   end
@@ -493,4 +496,116 @@ case("Timeline tab: the wider point spacing thins a 120-day series to fewer poin
   local hasSpike = false
   for _, p in ipairs(out) do if p.y == 500 then hasSpike = true end end
   assertTrue(hasSpike, "thinning keeps the spike")
+end)
+
+-- ── the legend's tooltip and spacing (P10) ──
+
+case("Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint", function()
+  seed()
+  NS.db.global.holdings["Mock-Realm"].meta.classFile = "MAGE"
+  open()
+  local b = legendButton("Mock-Realm")
+  local got = spyTooltip(function(g)
+    b:__fire("OnEnter")
+    assertTrue(g.owner == b, "the tooltip belongs to the entry")
+    b:__fire("OnLeave")
+  end)
+  local cc = T.mocks.RAID_CLASS_COLORS.MAGE
+  assertEqual(got.lines[1], "Mock-Realm")
+  assertEqual(got.lineRGB[1][1], cc.r); assertEqual(got.lineRGB[1][3], cc.b)
+  assertEqual(#got.doubles, 1)
+  assertEqual(got.doubles[1].l, "Holding"); assertEqual(got.doubles[1].r, NS.Util.FormatMoney(70000))
+  assertEqual(got.lines[2], "Click to hide/show")
+  assertEqual(got.lineRGB[2][1], 0.5, "the hint is gray")
+  assertTrue(got.hides >= 1, "OnLeave hides it")
+  got = spyTooltip(function() legendButton(TOTAL):__fire("OnEnter") end)
+  assertEqual(got.lines[1], "Total")
+  assertEqual(got.lineRGB[1][1], 1); assertEqual(got.lineRGB[1][2], 0.82)
+  assertEqual(got.doubles[1].l, "Holding"); assertEqual(got.doubles[1].r, NS.Util.FormatMoney(80000))
+  NS.Browser:SetCharSet({ ["Alt-Realm"] = true })
+  got = spyTooltip(function() legendButton(TOTAL):__fire("OnEnter") end)
+  assertEqual(got.doubles[1].l, "Holding (all shown characters)", "the Total line is the filter's")
+  assertEqual(got.doubles[1].r, NS.Util.FormatMoney(10000))
+end)
+
+case("Timeline tab: the Warband's legend tooltip wears the Warband's series color", function()
+  seed()
+  NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 30000, os.time())
+  open()
+  local got = spyTooltip(function() legendButton(NS.Constants.WARBAND_HOLDER):__fire("OnEnter") end)
+  local W = NS.Constants.TIMELINE.WARBAND
+  assertEqual(got.lines[1], "Warband")
+  assertEqual(got.lineRGB[1][1], W[1]); assertEqual(got.lineRGB[1][2], W[2]); assertEqual(got.lineRGB[1][3], W[3])
+  assertEqual(got.doubles[1].r, NS.Util.FormatMoney(30000))
+end)
+
+-- Gives every legend label a nonzero width (6 px a glyph; the mock's font measures 0) and lays the
+-- legend out again at `w`.
+local function measuredLegend(w)
+  for _, b in ipairs(NS.Timeline.legendPool.active) do
+    b.fs.GetUnboundedStringWidth = function(s) return #(s:GetText() or "") * 6 end
+  end
+  NS.Timeline:Layout(w, 320)
+  return NS.Timeline.legendButtons
+end
+
+local function legendGaps(btns)
+  local gaps = {}
+  for i = 2, #btns - 1 do
+    local a, b = btns[i]:__lastPoint(), btns[i + 1]:__lastPoint()
+    if a.y == b.y then gaps[#gaps + 1] = b.x - (a.x + btns[i]:GetWidth()) end
+  end
+  return gaps
+end
+
+case("Timeline tab: legend entries sit one even gap apart, the Total keeping its slot", function()
+  seed()
+  NS.Holdings:ApplyMoney("Third-Realm", 5000, os.time())
+  open()
+  local btns = measuredLegend(640)
+  assertEqual(#btns, 4)
+  assertEqual(btns[1]:__lastPoint().x, 0); assertEqual(btns[2]:__lastPoint().x, 120, "the Total's gap is today's")
+  assertEqual(btns[2]:GetWidth(), #"Mock-Realm" * 6, "an entry is as wide as its label")
+  local gaps = legendGaps(btns)
+  assertEqual(#gaps, 2)
+  assertTrue(gaps[1] > 0, "a real gap")
+  assertEqual(gaps[1], gaps[2], "every character gap is the same")
+end)
+
+case("Timeline tab: the Warband's legend entry takes the same gap as a character's", function()
+  seed()
+  NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 90000, os.time())
+  open()
+  local btns = measuredLegend(640)
+  assertEqual(btns[2].key, NS.Constants.WARBAND_HOLDER, "the richest holder, first after the Total")
+  assertEqual(btns[2]:GetWidth(), #"Warband" * 6)
+  local gaps = legendGaps(btns)
+  assertEqual(#gaps, 2)
+  assertEqual(gaps[1], gaps[2], "Warband to the first character is the character-to-character gap")
+end)
+
+case("Timeline tab: a legend too wide for the pane wraps to a second row and the body makes room", function()
+  seed()
+  NS.Holdings:ApplyMoney("Third-Realm", 5000, os.time())
+  open()
+  local btns = measuredLegend(240)
+  local first
+  for _, b in ipairs(btns) do
+    if b:__lastPoint().y == -16 then first = first or b end
+  end
+  assertTrue(first ~= nil, "an entry wrapped one legend row down")
+  assertEqual(first:__lastPoint().x, 0, "the wrapped row starts at the left")
+  assertEqual(btns[#btns]:__lastPoint().y, -16, "and the rest follow it on that row")
+  assertEqual(NS.Timeline.legend:GetHeight(), 32, "the legend grew a row")
+  -- The chart's bottom edge, not the strip's: the mock's CreateTexture hands back the frame itself,
+  -- so the strip's axis texture clears the strip's own anchors on every repaint.
+  local cp
+  for _, p in ipairs(NS.Timeline.chart.__points) do if p.point == "BOTTOMRIGHT" then cp = p end end
+  assertEqual(cp.y, 56 + 32 + 2 * 6, "the plot sits above the strip and both legend rows")
+  for _, b in ipairs(btns) do
+    local p = b:__lastPoint()
+    assertTrue(p.x + b:GetWidth() <= 236, "every entry fits its row")
+  end
+  measuredLegend(640)
+  assertEqual(NS.Timeline.legend:GetHeight(), 16, "and back to one row when it fits")
 end)

@@ -319,3 +319,93 @@ case("Timeline model: FlowLines answers nil for a day with no flow", function()
   assertEqual(TM().FlowLines({ kind = "GOLD" }, { x = 0, i = 0, o = 0 }), nil)
   assertEqual(TM().FlowLines({ kind = "GOLD" }, nil), nil)
 end)
+
+-- ── the legend's tooltip and layout (P10) ──
+
+case("Timeline model: FormatCount groups thousands, FormatHolding reads gold as coins", function()
+  assertEqual(TM().FormatCount(0), "0")
+  assertEqual(TM().FormatCount(999), "999")
+  assertEqual(TM().FormatCount(1000), "1,000")
+  assertEqual(TM().FormatCount(1234567), "1,234,567")
+  assertEqual(TM().FormatCount(-12345), "-12,345")
+  assertEqual(TM().FormatHolding("GOLD", 123456), NS.Util.FormatMoney(123456), "History's gold Qty formatter")
+  assertEqual(TM().FormatHolding("GOLD", 0), "0", "no gold reads 0, not blank")
+  assertEqual(TM().FormatHolding("CURRENCY", 12345), "12,345")
+  assertEqual(TM().FormatHolding("ITEM", nil), "0")
+end)
+
+local function tipModel(key, kind, holders)
+  local series = {}
+  for _, h in ipairs(holders) do
+    series[#series + 1] = { holder = h, label = TM().Label(h), color = TM().Color(h, TM().Meta(h)) }
+  end
+  series[#series + 1] = { holder = TM().TOTAL, label = "Total", color = NS.Constants.TIMELINE.TOTAL }
+  return { key = key, kind = kind, series = series }
+end
+
+case("Timeline model: LegendTip colors the title by holder kind and reads the current holding", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  seedMoney({ ["A-R"] = 70000, [W] = 25000 }, noon(2026, 10, 5))
+  NS.db.global.holdings["A-R"].meta.classFile = "MAGE"
+  local m = tipModel("g", "GOLD", { "A-R", W })
+  local t = TM().LegendTip(m, "A-R")
+  local cc = T.mocks.RAID_CLASS_COLORS.MAGE
+  assertEqual(t.title, "A-R")
+  assertEqual(t.color[1], cc.r); assertEqual(t.color[2], cc.g); assertEqual(t.color[3], cc.b)
+  assertEqual(t.label, "Holding"); assertEqual(t.value, NS.Util.FormatMoney(70000))
+  assertEqual(t.hint, "Click to hide/show")
+  t = TM().LegendTip(m, W)
+  assertEqual(t.title, "Warband")
+  assertTrue(t.color == NS.Constants.TIMELINE.WARBAND, "the Warband's title is its series color")
+  assertEqual(t.value, NS.Util.FormatMoney(25000))
+  t = TM().LegendTip(m, TM().TOTAL)
+  assertEqual(t.title, "Total")
+  assertEqual(t.color[1], 1); assertEqual(t.color[2], 0.82); assertEqual(t.color[3], 0)
+  assertEqual(t.label, "Holding", "every holder is charted, so the Total is the account's")
+  assertEqual(t.value, NS.Util.FormatMoney(95000))
+end)
+
+case("Timeline model: LegendTip's Total sums only the charted holders and says so", function()
+  seedMoney({ ["A-R"] = 70000, ["B-R"] = 10000 }, noon(2026, 10, 5))
+  local t = TM().LegendTip(tipModel("g", "GOLD", { "B-R" }), TM().TOTAL)
+  assertEqual(t.label, "Holding (all shown characters)")
+  assertEqual(t.value, NS.Util.FormatMoney(10000))
+end)
+
+case("Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0", function()
+  NS.db.global.holdings, NS.db.global.daily = {}, {}
+  local ts = noon(2026, 10, 5)
+  NS.Holdings:ApplyCurrency("A-R", { [3008] = 12345 }, ts)
+  NS.Holdings:ApplyContainer("A-R", "bags", { [2589] = 1500 }, nil, ts)
+  assertEqual(TM().LegendTip(tipModel("c:3008", "CURRENCY", { "A-R" }), "A-R").value, "12,345")
+  assertEqual(TM().LegendTip(tipModel("i:2589", "ITEM", { "A-R" }), "A-R").value, "1,500")
+  assertEqual(TM().LegendTip(tipModel("i:2589", "ITEM", { "Gone-R" }), "Gone-R").value, "0")
+  assertEqual(TM().LegendTip(tipModel("g", "GOLD", { "Gone-R" }), "Gone-R").value, "0")
+  assertEqual(TM().LegendTip(tipModel("g", "GOLD", {}), "Nobody-R"), nil, "a key the chart does not draw")
+end)
+
+case("Timeline model: LegendTip reads the test-mode store when it is on", function()
+  seedMoney({ ["A-R"] = 70000 }, noon(2026, 10, 5))
+  local sample = NS.db.global.holdings
+  NS.db.global.holdings = {}
+  local saved = NS.State.testHoldings
+  NS.State.testHoldings = sample
+  local ok, err = pcall(function()
+    assertEqual(TM().LegendTip(tipModel("g", "GOLD", { "A-R" }), "A-R").value, NS.Util.FormatMoney(70000))
+  end)
+  NS.State.testHoldings = saved
+  if not ok then error(err, 0) end
+end)
+
+case("Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows", function()
+  local pos, rows = TM().LegendLayout({ 30, 42, 60, 54 }, 120, 16, 1000)
+  assertEqual(rows, 1)
+  assertEqual(pos[1].x, 0); assertEqual(pos[2].x, 120, "the Total's slot is unchanged")
+  assertEqual(pos[3].x, 120 + 42 + 16); assertEqual(pos[4].x, 120 + 42 + 16 + 60 + 16)
+  pos, rows = TM().LegendLayout({ 30, 42, 60, 54 }, 120, 16, 240)
+  assertEqual(rows, 2)
+  assertEqual(pos[3].row, 1); assertEqual(pos[4].row, 2); assertEqual(pos[4].x, 0, "a wrapped row starts at the left")
+  pos, rows = TM().LegendLayout({ 30, 500 }, 120, 16, 100)
+  assertEqual(rows, 2, "an entry wider than the row still gets a row of its own")
+  assertEqual(pos[2].x, 0)
+end)

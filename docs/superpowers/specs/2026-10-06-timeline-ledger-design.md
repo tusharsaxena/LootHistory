@@ -294,6 +294,15 @@ window-wide singleton; each tab declares which filters it honors (unused ones ar
   — click a legend entry to show it." and no axes. **Total only** persists in `savedView`
   (`timelineTotalOnly`, default off); the per-holder hidden set is session-only, survives changing the
   thing and range, and ignores holders not in the chart.
+- **Legend tooltip and spacing (P10, owner feedback 2026-10-07):** hovering a legend entry titles the
+  tooltip in the line's color (class color for a character, the Warband's series color, the Total in
+  the tooltip's gold), then **Holding** with the holder's current holding of the charted thing from the
+  active Holdings store (gold as coins, History's Qty formatter; currencies and items as counts with
+  thousands separators; `0` when none), then the gray hint "Click to hide/show". The Total's holding
+  is what its line sums, the charted holders; it reads **Holding (all shown characters)** when the
+  Character filter or the line cap leaves out a holder that holds some. Entries are as wide as their
+  labels and one even gap apart (Warband included); the Total keeps its fixed slot; a legend wider
+  than the pane wraps to another row.
 - **Primitive:** new pooled line-chart renderer using `Texture:CreateLine` (`SetStartPoint`,
   `SetEndPoint`, `SetThickness`) — none exists today. Built **in LibKa0s** (F3) as a pooled line-chart widget
   (lines, axes, ticks, crosshair hook), downsampled to ≤ 1 point per 2 px of width; reached here

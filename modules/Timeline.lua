@@ -19,6 +19,9 @@ local TL = NS.Timeline
 local TM = NS.TimelineModel
 local DAY = 86400
 local BAR_H, STRIP_H, LEGEND_H, SUGGEST_MAX, LEGEND_W, GAP = 22, 56, 16, 8, 120, 6
+-- LEGEND_W is the Total's legend slot and the widest a holder's label is drawn; LEGEND_GAP is the one
+-- gap between every other entry (P10).
+local LEGEND_GAP = 16
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local TOTAL = TM.TOTAL
 local EMPTY_TEXT = "All lines hidden — click a legend entry to show it."
@@ -149,9 +152,7 @@ local function makeLegendEntry(parent)
   f.fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.fs:SetPoint("LEFT", 0, 0); f.fs:SetWidth(LEGEND_W - 4); f.fs:SetWordWrap(false); f.fs:SetJustifyH("LEFT")
   f:SetScript("OnClick", function(self2) TL:ToggleSeries(self2.key) end)
-  f:SetScript("OnEnter", function(self2)
-    NS.Compat.ShowTextTooltip(self2, self2.label, "Click to hide/show", "ANCHOR_TOP")
-  end)
+  f:SetScript("OnEnter", function(self2) TL:ShowLegendTip(self2) end)
   f:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   return f
 end
@@ -206,10 +207,24 @@ local function buildHeader(self, pane)
   self.bar = bar
 end
 
+-- The strip and the chart sit above the legend, which grows a row for each wrap (P10), so both are
+-- re-anchored whenever its height changes.
+local function anchorBody(self, legendH)
+  if self.legendH == legendH then return end
+  self.legendH = legendH
+  self.legend:SetHeight(legendH)
+  self.strip:ClearAllPoints()
+  self.strip:SetPoint("BOTTOMLEFT", self.pane, "BOTTOMLEFT", 0, legendH + GAP)
+  self.strip:SetPoint("BOTTOMRIGHT", self.pane, "BOTTOMRIGHT", -4, legendH + GAP)
+  if self.chart then
+    self.chart:ClearAllPoints()
+    self.chart:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 0, -4)
+    self.chart:SetPoint("BOTTOMRIGHT", self.pane, "BOTTOMRIGHT", -4, STRIP_H + legendH + 2 * GAP)
+  end
+end
+
 local function buildBody(self, pane)
   self.strip = CreateFrame("Frame", nil, pane)
-  self.strip:SetPoint("BOTTOMLEFT", pane, "BOTTOMLEFT", 0, LEGEND_H + GAP)
-  self.strip:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -4, LEGEND_H + GAP)
   self.strip:SetHeight(STRIP_H)
   self.stripAxis = self.strip:CreateTexture(nil, "ARTWORK")
   self.stripAxis:SetColorTexture(0.45, 0.45, 0.5, 0.8)
@@ -217,8 +232,9 @@ local function buildBody(self, pane)
   self.legend = CreateFrame("Frame", nil, pane)
   self.legend:SetPoint("BOTTOMLEFT", pane, "BOTTOMLEFT", 0, 0)
   self.legend:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -4, 0)
-  self.legend:SetHeight(LEGEND_H)
   self.legendPool = NS.Pool.New()
+  self.legendH = nil
+  anchorBody(self, LEGEND_H)
 end
 
 function TL:Attach(pane)
@@ -232,8 +248,6 @@ function TL:Attach(pane)
     pxPerPoint = NS.Constants.TIMELINE.PX_PER_POINT,
   })
   if self.chart then
-    self.chart:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 0, -4)
-    self.chart:SetPoint("BOTTOMRIGHT", pane, "BOTTOMRIGHT", -4, STRIP_H + LEGEND_H + 2 * GAP)
     self.emptyMsg = self.chart:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     self.emptyMsg:SetPoint("CENTER")
     self.emptyMsg:SetText(EMPTY_TEXT)
@@ -308,9 +322,11 @@ function TL:Layout(w, h)
   w = w or self.pane:GetWidth() or 0
   h = h or self.pane:GetHeight() or 0
   self.chartW = w - 4
-  self.chart:Render(self.chartW, h - BAR_H - 4 - STRIP_H - LEGEND_H - 2 * GAP)
+  -- The legend first: how many rows it wraps to decides how tall the plot can be.
+  local legendH = self:RenderLegend() * LEGEND_H
+  anchorBody(self, legendH)
+  self.chart:Render(self.chartW, h - BAR_H - 4 - STRIP_H - legendH - 2 * GAP)
   self:RenderStrip()
-  self:RenderLegend()
 end
 
 function TL:FormatAxis(v)
@@ -393,18 +409,26 @@ function TL:RefreshFlowTip()
   if bar.flow and bar:IsShown() then self:ShowFlowTip(bar) else self:HideFlowTip() end
 end
 
+-- A label's drawn width, capped at the slot it had before P10. A client (or the headless mock) that
+-- measures nothing falls back to the cap, so the entries keep their old pitch rather than collapse.
+local function labelWidth(e)
+  local w = e.fs.GetUnboundedStringWidth and e.fs:GetUnboundedStringWidth() or 0
+  if not w or w <= 0 then return LEGEND_W - 4 end
+  return math.min(math.ceil(w), LEGEND_W - 4)
+end
+
 -- Total first in the legend (it is drawn last, on top of the chart). Every line keeps its entry and
--- its place when hidden; a hidden one is dimmed gray.
+-- its place when hidden; a hidden one is dimmed gray. Entries are as wide as their labels and one even
+-- gap apart, the Total keeping its slot (TM.LegendLayout); answers the number of rows they wrap to.
 function TL:RenderLegend()
   NS.Pool.ReleaseAll(self.legendPool)
   self.legendButtons = {}
   local s = self.model.series
   local order = { s[#s] }
   for i = 1, #s - 1 do order[#order + 1] = s[i] end
+  local widths = {}
   for i, sr in ipairs(order) do
     local e = NS.Pool.Acquire(self.legendPool, function() return makeLegendEntry(self.legend) end)
-    e:ClearAllPoints()
-    e:SetPoint("LEFT", self.legend, "LEFT", (i - 1) * LEGEND_W, 0)
     e.key, e.label = sr.holder, sr.label
     e.fs:SetText(sr.label)
     if self:IsHidden(sr.holder) then
@@ -412,8 +436,27 @@ function TL:RenderLegend()
     else
       e.fs:SetTextColor(sr.color[1], sr.color[2], sr.color[3], 1)
     end
+    widths[i] = labelWidth(e)
+    e.fs:SetWidth(widths[i]); e:SetSize(widths[i], LEGEND_H)
     self.legendButtons[i] = e
   end
+  local pos, rows = TM.LegendLayout(widths, LEGEND_W, LEGEND_GAP, self.chartW)
+  for i, e in ipairs(self.legendButtons) do
+    e:ClearAllPoints()
+    e:SetPoint("TOPLEFT", self.legend, "TOPLEFT", pos[i].x, -(pos[i].row - 1) * LEGEND_H)
+  end
+  return math.max(1, rows)
+end
+
+-- The entry's line in its own color, what that holder holds of the thing now, and the click hint
+-- (TM.LegendTip). Drawn by the amount-tooltip shim: a colored title, one label/value line, a gray hint.
+function TL:ShowLegendTip(btn)
+  local t = TM.LegendTip(self.model, btn.key)
+  if not t then
+    NS.Compat.ShowTextTooltip(btn, btn.label, "Click to hide/show", "ANCHOR_TOP")
+    return
+  end
+  NS.Compat.ShowAmountTooltip(btn, t.title, t.color, t.label, t.value, t.hint, "ANCHOR_TOP")
 end
 
 -- ── the picker: this tab's half of the Search autocomplete ──
