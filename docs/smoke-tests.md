@@ -781,9 +781,10 @@ list open → it stays under the box at the box's width. Result:
 
 Open `/lh show` → **Insights** on a history spanning several days with currency loot (or `/lh test`).
 
-**INS-1. The shared filter scopes everything.** Change the Date dropdown, a column filter and the
-search on Insights → every card and chart re-scopes live; switching tabs keeps the same slice; a
-filter matching nothing hides the charts cleanly. Insights has no range selector of its own.
+**INS-1. Insights' own filter scopes everything.** Change the Date dropdown, a column filter and the
+search on Insights → every card and chart re-scopes live; switch to History → it keeps its own,
+unchanged slice, and back on Insights the slice you set is still there; a filter matching nothing
+hides the charts cleanly. Insights has no range selector of its own.
 Result:
 
 **INS-2. KPI cards.** → records, distinct items, characters, value, active days, epic+ drops, best drop
