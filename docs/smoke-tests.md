@@ -1478,7 +1478,7 @@ logged in since the upgrade draws gray, which is expected). Result:
 
 **TL-8. Filter graying.** On the Timeline, Group, Bound, Quality, Type, SubType, Source, Zone and
 Export are grayed and **do not open** on click. On Holdings, Date, Direction, Source, Bound, Zone
-and Export are grayed; Group stays live and offers only None, Quality, Type, SubType and Character,
+and Export are grayed; Group stays live and offers only None, Quality, Type, SubType, Type & SubType and Character,
 grouping the list under collapsible "<Prefix>: <Value> (N)" headers without changing History's own
 group. History and Insights gray nothing. Result:
 
