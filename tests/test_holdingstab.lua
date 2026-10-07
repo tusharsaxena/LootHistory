@@ -491,6 +491,20 @@ test("HoldingsTab group: Type and SubType headers are alphabetical", function()
   end) end)
 end)
 
+test("HoldingsTab group: Type & SubType reads 'Type: <Type> · <SubType>', a currency its category, gold bare", function()
+  withGear(function() keep(function()
+    seedGroups()
+    local M = " \194\183 "
+    local lines = NS.HoldingsTab.BuildModel({}, {}, "name", nil, "typesub", {})
+    assertEqual(NS.Compat.CurrencyCategory(3008), "The War Within")
+    assertEqual(headers(lines), "Type: Armor" .. M .. "Cloth (1) | Type: Currency" .. M .. "The War Within (1)"
+      .. " | Type: Gold (1)")
+    local m = members(lines)
+    assertEqual(m["Type: Armor" .. M .. "Cloth"], "i:7=16", "the item keeps its all-holders total")
+    assertEqual(NS.HoldingsTab.GroupMode("typesub"), "typesub")
+  end) end)
+end)
+
 test("HoldingsTab group: Character lists a thing under every holder with that holder's count, Warband last", function()
   withGear(function() keep(function()
     seedGroups()
@@ -583,7 +597,7 @@ test("HoldingsTab group: the Group dropdown is live on Holdings, offers only its
     assertTrue(dd:IsEnabled(), "Group is a Holdings control")
     local vals = {}
     for _, o in ipairs(dd._options) do vals[#vals + 1] = o.value end
-    assertEqual(table.concat(vals, ","), "none,quality,type,subtype,char")
+    assertEqual(table.concat(vals, ","), "none,quality,type,subtype,typesub,char")
     assertEqual(dd._value, "none", "Holdings shows its own group, not History's Zone")
     dd.onSelect("char")
     assertEqual(HT.groupBy, "char"); assertEqual(BT.groupBy, "zone")

@@ -428,6 +428,27 @@ test("Browser.SaveView then ResetView clears the stored default", function()
   end)
 end)
 
+test("Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it", function()
+  local vals, label = {}, nil
+  for _, o in ipairs(B._groupOptions) do
+    vals[#vals + 1] = o.value
+    if o.value == "typesub" then label = o.label end
+  end
+  assertTrue(table.concat(vals, ","):find("type,typesub,source", 1, true) ~= nil, table.concat(vals, ","))
+  assertEqual(label, "Group: Type & SubType")
+  withFixture(FIXTURE, function()
+    B._dd = nil
+    B:ApplyView({ groupBy = "typesub", date = "all" }, "all")
+    assertEqual(NS.BrowserTable.groupBy, "typesub")
+    B:SaveView()
+    assertEqual(NS.db.profile.savedView.groupBy, "typesub")
+    B:ApplyView({ groupBy = "zone", date = "all" }, "all")
+    B:ApplyView(B._savedViewOrStock(), "all")
+    assertEqual(NS.BrowserTable.groupBy, "typesub", "the saved view brings the grouping back")
+    B:ResetView(true)
+  end)
+end)
+
 -- ── Menu row highlight ─────────────────────────────────────────────────────────
 -- WHICH ROW LIGHTS UP GOLD is no longer this file's decision: the popup, its pooled rows and the
 -- highlight rule all belong to LibKa0s-Widgets-1.0 now, so `B._optionSelected` is gone along with

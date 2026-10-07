@@ -1065,6 +1065,64 @@ test("BrowserTable: group by Direction and by Holder", function()
   BT.groupBy = saved
 end)
 
+-- Group by "Type & SubType" (timeline ledger P9): one header per type/subtype pair, by type then
+-- subtype; a missing (or blank) subtype reads "Type: Armor" with no trailing separator, and a
+-- currency row reads "Currency · <category>".
+local MIDDOT = " \194\183 "
+local function typesubHeaders(recs)
+  local BT = NS.BrowserTable
+  local saved = { BT.groupBy, BT.collapsed, BT.groupAsc }
+  BT.groupBy, BT.collapsed, BT.groupAsc = "typesub", {}, true
+  local out = {}
+  local ok, err = pcall(function()
+    for _, e in ipairs(BT:GroupRecords(recs)) do
+      if e.kind == "header" then out[#out + 1] = e.label .. " (" .. e.count .. ")" end
+    end
+  end)
+  BT.groupBy, BT.collapsed, BT.groupAsc = saved[1], saved[2], saved[3]
+  if not ok then error(err, 0) end
+  return table.concat(out, " | ")
+end
+
+test("BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically", function()
+  local got = typesubHeaders({
+    { itemType = "Weapon", itemSubType = "Sword" }, { itemType = "Armor", itemSubType = "Plate" },
+    { itemType = "Armor", itemSubType = "Cloth" }, { itemType = "Armor", itemSubType = "Cloth" },
+    { itemType = "Armor Kit", itemSubType = "Misc" }, { itemType = "armor", itemSubType = "Leather" },
+  })
+  assertEqual(got, "Type: Armor" .. MIDDOT .. "Cloth (2) | Type: armor" .. MIDDOT .. "Leather (1) | Type: Armor"
+    .. MIDDOT .. "Plate (1) | Type: Armor Kit" .. MIDDOT .. "Misc (1) | Type: Weapon" .. MIDDOT .. "Sword (1)")
+end)
+
+test("BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type", function()
+  local got = typesubHeaders({
+    { itemType = "Armor", itemSubType = "Cloth" }, { itemType = "Armor" }, { itemType = "Armor", itemSubType = "" },
+    {},
+  })
+  assertEqual(got, "Type: Armor (2) | Type: Armor" .. MIDDOT .. "Cloth (1) | Type: Unknown (1)")
+end)
+
+test("BrowserTable: Type & SubType reads a currency row as 'Currency · <category>'", function()
+  local C = NS.Constants
+  local got = typesubHeaders({
+    { currencyID = 3008, itemType = C.CURRENCY_TYPE, itemSubType = "The War Within" },
+    { currencyID = 9, itemType = C.CURRENCY_TYPE },
+  })
+  assertEqual(got, "Type: Currency (1) | Type: Currency" .. MIDDOT .. "The War Within (1)")
+end)
+
+test("BrowserTable: Type & SubType keys never collide with plain Type groups", function()
+  local BT = NS.BrowserTable
+  local saved = BT.groupBy
+  BT.groupBy = "typesub"
+  local key = BT:GroupRecords({ { itemType = "Armor", itemSubType = "Cloth" } })[1].key
+  BT.groupBy = "type"
+  local typeKey = BT:GroupRecords({ { itemType = "Armor", itemSubType = "Cloth" } })[1].key
+  BT.groupBy = saved
+  assertEqual(key, "typesub\001Armor\001Cloth")
+  assertTrue(key ~= typeKey)
+end)
+
 -- ---------------------------------------------------------------------------
 -- "Show in Timeline" on the History row menu (timeline ledger P3, spec §8.2)
 -- ---------------------------------------------------------------------------

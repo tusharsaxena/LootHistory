@@ -337,10 +337,11 @@ BrowserTable.groupBy = "none"
 BrowserTable.collapsed = {}
 BrowserTable.groupAsc = true
 
--- One handler per group-by mode, returning (raw key part, display label) in that order. The
--- table and its closures are module-level, built once at load: groupOf runs once per record on
--- every group build, so nothing here may allocate per call. Adding a group mode is one entry
--- here plus one in GROUP_COLUMN/GROUP_PREFIX below.
+-- One handler per group-by mode, returning (raw key part, display label) in that order, plus an
+-- optional order value for a mode with no column to sort by (typesub). The table and its closures
+-- are module-level, built once at load: groupOf runs once per record on every group build, so
+-- nothing here may allocate per call. Adding a group mode is one entry here plus one in
+-- GROUP_COLUMN/GROUP_PREFIX below.
 local GROUP_OF = {
   source = function(r)
     local label = C.SourceLabel[r.source] or r.source or "Other"
@@ -359,6 +360,8 @@ local GROUP_OF = {
     local label = r.itemType or "Unknown"
     return label, label
   end,
+  -- "Type & SubType" (P9): "Armor · Cloth", "Armor" with no subtype, by type then subtype.
+  typesub = function(r) return NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType) end,
   quality = function(r)
     return "q" .. tostring(r.quality or "-"),
            r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "\226\128\148"
@@ -382,9 +385,9 @@ local GROUP_OF = {
 -- zone named "Kill" vs the Kill source). \001 is an unprintable separator.
 local function groupOf(groupBy, r)
   local fn = GROUP_OF[groupBy]
-  local raw, label = "?", "?"
-  if fn then raw, label = fn(r) end
-  return groupBy .. "\001" .. raw, label
+  local raw, label, order = "?", "?", nil
+  if fn then raw, label, order = fn(r) end
+  return groupBy .. "\001" .. raw, label, order
 end
 
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
@@ -392,7 +395,7 @@ end
 local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date",
                        dir = "dir" }
 local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day",
-                       dir = "Direction", holder = "Holder" }
+                       dir = "Direction", holder = "Holder", typesub = "Type" }
 
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of
@@ -784,7 +787,7 @@ function BrowserTable:SetSort(key)
   self:Refresh()
 end
 
--- Set the active grouping ("none"/source/zone/char/quality/day) and repaint.
+-- Set the active grouping ("none"/source/zone/char/quality/type/typesub/day/dir/holder) and repaint.
 function BrowserTable:SetGroupBy(key)
   self.groupBy = key or "none"
   self:Refresh()
@@ -819,11 +822,11 @@ function BrowserTable:GroupRecords(records)
 
   local order, byKey = {}, {}
   for _, r in ipairs(records) do
-    local key, valueLabel = groupOf(groupBy, r)
+    local key, valueLabel, groupOrder = groupOf(groupBy, r)
     local g = byKey[key]
     if not g then
       g = { key = key, label = prefix .. ": " .. valueLabel, rows = {},
-            sortKey = sortFn and sortFn(r) or valueLabel }
+            sortKey = sortFn and sortFn(r) or groupOrder or valueLabel }
       byKey[key] = g
       order[#order + 1] = g
     end

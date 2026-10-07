@@ -625,7 +625,7 @@ badge and any count quoted in the docs must agree with it.
 - Stats: a holder move is a loss and a gain under its own reason, per holder
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 
-### test_browser.lua (93)
+### test_browser.lua (94)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -666,6 +666,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
 - Browser.SaveView then ResetView clears the stored default
+- Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
 - Browser: one selected value reads as that option's label
@@ -721,7 +722,7 @@ badge and any count quoted in the docs must agree with it.
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 
-### test_browsertable.lua (75)
+### test_browsertable.lua (79)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -794,6 +795,10 @@ badge and any count quoted in the docs must agree with it.
 - BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
 - BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
 - BrowserTable: group by Direction and by Holder
+- BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically
+- BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type
+- BrowserTable: Type & SubType reads a currency row as 'Currency · <category>'
+- BrowserTable: Type & SubType keys never collide with plain Type groups
 - History row menu: Show in Timeline opens the Timeline on that row's thing
 - History row menu: Show in Timeline is disabled for a row that names no thing
 - History row menu: the existing four entries keep their order around the new one
@@ -1144,7 +1149,7 @@ badge and any count quoted in the docs must agree with it.
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 
-### test_holdingstab.lua (32)
+### test_holdingstab.lua (33)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1172,6 +1177,7 @@ badge and any count quoted in the docs must agree with it.
 - HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
 - HoldingsTab group: Quality headers by rank (highest first), N = things in the group
 - HoldingsTab group: Type and SubType headers are alphabetical
+- HoldingsTab group: Type & SubType reads 'Type: <Type> · <SubType>', a currency its category, gold bare
 - HoldingsTab group: Character lists a thing under every holder with that holder's count, Warband last
 - HoldingsTab group: under Character an expanded thing lists only that holder's containers
 - HoldingsTab group: a collapsed group keeps its header and count and hides its members
@@ -1647,8 +1653,8 @@ badge and any count quoted in the docs must agree with it.
 | test_escrow.lua | 14 |
 | test_database.lua | 83 |
 | test_stats.lua | 25 |
-| test_browser.lua | 93 |
-| test_browsertable.lua | 75 |
+| test_browser.lua | 94 |
+| test_browsertable.lua | 79 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1659,7 +1665,7 @@ badge and any count quoted in the docs must agree with it.
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 69 |
 | test_analytics_layout.lua | 9 |
-| test_holdingstab.lua | 32 |
+| test_holdingstab.lua | 33 |
 | test_timeline.lua | 26 |
 | test_timelinetab.lua | 26 |
 | test_autocomplete.lua | 14 |
@@ -1684,4 +1690,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1438** |
+| **Total** | **1444** |

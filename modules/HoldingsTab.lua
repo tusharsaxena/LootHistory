@@ -136,8 +136,8 @@ end
 -- view): the window's Group dropdown is shared, but a pick made here never moves History's
 -- BrowserTable.groupBy, and History's pick never regroups this view. GROUPS is the set this tab
 -- offers, in menu order; any other mode (Day, Source, Zone, Direction, Holder) reads as None.
-HT.GROUPS = { "none", "quality", "type", "subtype", "char" }
-local GROUP_PREFIX = { quality = "Quality", type = "Type", subtype = "SubType", char = "Character" }
+HT.GROUPS = { "none", "quality", "type", "subtype", "typesub", "char" }
+local GROUP_PREFIX = { quality = "Quality", type = "Type", subtype = "SubType", typesub = "Type", char = "Character" }
 local NO_QUALITY = "\226\128\148"   -- History's label for a group with no quality (an em dash)
 
 -- One handler per mode: (raw key part, display label, order value) for a thing, or for a holder
@@ -157,6 +157,8 @@ local GROUP_OF = {
     local v = t.itemSubType or "Unknown"
     return v, v, v:lower()
   end,
+  -- "Type & SubType" (P9): History's labels and order (LedgerFormat.TypeSub).
+  typesub = function(t) return NS.LedgerFormat.TypeSub(t.itemType, t.itemSubType) end,
   char = function(_, h)
     if h == NS.Constants.WARBAND_HOLDER then return h, NS.LedgerFormat.HolderLabel(h), "\255" end
     return h, NS.LedgerFormat.HolderLabel(h), h:lower()

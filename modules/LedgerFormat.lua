@@ -50,3 +50,16 @@ function F.HolderLabel(h)
   if h == C.WARBAND_HOLDER then return "Warband" end
   return h or ""
 end
+
+-- The "Type & SubType" group (P9, History and Holdings): (raw key part, label, order value) for a
+-- type/subtype pair. The label reads "<Type> · <SubType>", or just "<Type>" when the subtype is
+-- missing or blank (never a trailing separator); a currency reads "Currency · <category>". The raw
+-- key and order put \001 between the two parts, so groups run by type, then subtype, both
+-- alphabetical (case-insensitive), with a bare type ahead of its subtyped siblings.
+local MIDDOT = " \194\183 "
+function F.TypeSub(itemType, itemSubType)
+  local ty = (itemType ~= nil and itemType ~= "") and itemType or "Unknown"
+  local st = (itemSubType ~= nil and itemSubType ~= "") and itemSubType or nil
+  local raw = ty .. "\001" .. (st or "")
+  return raw, st and (ty .. MIDDOT .. st) or ty, raw:lower()
+end

@@ -24,6 +24,7 @@ local GROUP_OPTIONS = {
   { value = "day", label = "Group: Day" },
   { value = "quality", label = "Group: Quality" },
   { value = "type", label = "Group: Type" },
+  { value = "typesub", label = "Group: Type & SubType" },
   { value = "source", label = "Group: Source" },
   { value = "zone", label = "Group: Zone" },
   { value = "char", label = "Group: Character" },
