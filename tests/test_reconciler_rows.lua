@@ -94,6 +94,38 @@ case("Reconciler: a one-sided change at an open bank is held, then paired", func
   assertEqual(NS.Holdings:Get(ME).items[7].bank, 2)
 end)
 
+-- LED-P2-01 (2026-10-08, in client): a shift-click split dragged from the bank to the bags fires a
+-- bag event for the bags only, never one for the bank. A bag change at an open bank must re-read the
+-- bank (and the warband tabs) itself, or the withdraw is a one-sided OTHER gain and the bank's half
+-- surfaces as UNTRACKED drift on the next visit.
+case("Reconciler: a split withdraw that fires only a bag event is still one MOVE bank to bags", function()
+  reset()
+  setBag(0, {})
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 9 } })
+  genesis()
+  openBank(); R():Flush()                                 -- the bank's first scan is its own genesis
+  assertEqual(#H(), 0)
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 4 } })
+  R():OnEvent("BAG_UPDATE", 0); R():Flush()               -- the bags' event only
+  assertEqual(#H(), 1)
+  local r = H()[1]
+  assertEqual(r.dir, "MOVE"); assertEqual(r.source, "TRANSFER"); assertEqual(r.quantity, 4)
+  assertEqual(r.from, ME .. "/bank"); assertEqual(r.to, ME .. "/bags")
+  assertEqual(NS.Holdings:Get(ME).items[7].bank, 5)
+end)
+
+case("Reconciler: a bag change with the bank closed never reads the bank", function()
+  reset()
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 2 } })
+  setBag(6, { [1] = { itemID = 8, link = "L8", count = 3 } })
+  genesis()
+  setBag(6, {})                                           -- a closed bank reads as empty
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 3 } })
+  R():OnEvent("BAG_UPDATE", 0); R():Flush()
+  for _, row in ipairs(H()) do assertTrue(row.itemID ~= 8, "the closed bank was read as a loss") end
+end)
+
 case("Reconciler: vendor sale writes item OUT SELL and gold IN SELL", function()
   reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 1 } }); m.__money = 1000

@@ -180,6 +180,10 @@ local CONTAINER_READS = {
 
 function R:Scan(me)
   local snap, d, S = {}, self.dirty, NS.Scanner
+  -- At an open bank a bag change re-reads the bank and the warband tabs too: a shift-click split
+  -- dragged out of the bank fires a bag event for the bags only (LED-P2-01), so waiting for the
+  -- bank's own event would leave the withdraw one-sided. Both reads are bounded to the banker visit.
+  if d.bags and self.readable.bank then d.bank, d.tabs = true, true end
   for part, spec in pairs(CONTAINER_READS) do
     if d[part] and self:IsReadable(part) then
       local counts, links
