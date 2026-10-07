@@ -229,6 +229,7 @@ function TL:Attach(pane)
   self.chart = NS.MakeLineChart(pane, {
     onHover = function(_, i) TL:OnHover(i) end,
     formatY = function(v) return TL:FormatAxis(v) end,
+    pxPerPoint = NS.Constants.TIMELINE.PX_PER_POINT,
   })
   if self.chart then
     self.chart:SetPoint("TOPLEFT", self.bar, "BOTTOMLEFT", 0, -4)

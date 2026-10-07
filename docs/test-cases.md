@@ -1208,7 +1208,7 @@ badge and any count quoted in the docs must agree with it.
 - Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red
 - Timeline model: FlowLines answers nil for a day with no flow
 
-### test_timelinetab.lua (24)
+### test_timelinetab.lua (26)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1234,6 +1234,8 @@ badge and any count quoted in the docs must agree with it.
 - Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws
 - Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
 - Timeline tab: the chart's hover ending does not hide the strip's tooltip
+- Timeline tab: smoother lines -- 6 px per point reaches the chart and the lines are 2 px (Total 2.5)
+- Timeline tab: the wider point spacing thins a 120-day series to fewer points
 
 ### test_autocomplete.lua (14)
 
@@ -1659,7 +1661,7 @@ badge and any count quoted in the docs must agree with it.
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 32 |
 | test_timeline.lua | 26 |
-| test_timelinetab.lua | 24 |
+| test_timelinetab.lua | 26 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
 | test_panel.lua | 43 |
@@ -1682,4 +1684,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1436** |
+| **Total** | **1438** |

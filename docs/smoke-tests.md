@@ -1535,6 +1535,11 @@ the plot straight down onto the strip → the strip's tooltip stays up (the char
 ending does not hide it), and back up onto the plot → the day tooltip takes over. Hide every line with
 the legend → the strip tooltip still reads the Total. Pick a currency → counts, not coins. Result:
 
+**TL-16. Smoother lines.** On Gold over **Last year** with Character on **All**, look at a near-flat
+holder line and at the Total → the lines read as a few long segments with no stair-stepping, the
+holder lines 2 px and the Total slightly heavier. Hover along a line → the crosshair still lands on
+real days, and a one-day spike is still drawn. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1

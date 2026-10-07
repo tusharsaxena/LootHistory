@@ -466,3 +466,31 @@ case("Timeline tab: the chart's hover ending does not hide the strip's tooltip",
   end)
   assertEqual(got.hides, 1, "and its end hides the chart's own")
 end)
+
+case("Timeline tab: smoother lines -- 6 px per point reaches the chart and the lines are 2 px (Total 2.5)", function()
+  seed(); open()
+  local chart = NS.Timeline.chart
+  assertEqual(chart.__opts.pxPerPoint, 6, "the point spacing reaches the chart")
+  for _, sr in ipairs(chart.__data.series) do
+    if sr.thickness ~= 2.5 then assertEqual(sr.thickness, 2, "a holder line is 2 px") end
+  end
+  local top = 0
+  for _, sr in ipairs(chart.__data.series) do if sr.thickness > top then top = sr.thickness end end
+  assertEqual(top, 2.5, "Total keeps the heavier line")
+end)
+
+case("Timeline tab: the wider point spacing thins a 120-day series to fewer points", function()
+  local Math = T.mocks.LibStub("LibKa0s-Widgets-1.0").ChartMath
+  local width = 600
+  local px = NS.Constants.TIMELINE.PX_PER_POINT
+  assertEqual(px, 6)
+  local old, new = Math.Budget(width, 2), Math.Budget(width, px)
+  assertEqual(new, 100); assertTrue(new < old, "fewer points than the 2 px default")
+  local pts = {}
+  for i = 1, 120 do pts[i] = { x = i, y = (i == 60) and 500 or (i % 7) } end
+  local out = Math.Downsample(pts, new)
+  assertTrue(#out <= new and #out < 120, "the 120-day series is thinned")
+  local hasSpike = false
+  for _, p in ipairs(out) do if p.y == 500 then hasSpike = true end end
+  assertTrue(hasSpike, "thinning keeps the spike")
+end)

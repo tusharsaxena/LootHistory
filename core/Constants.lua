@@ -362,5 +362,6 @@ C.TIMELINE = {
   GAIN    = C.DirRGB.IN,     -- Phase 2's direction colors: one definition
   LOSS    = C.DirRGB.OUT,
   TOTAL_W = 2.5,
-  LINE_W  = 1.5,
+  LINE_W  = 2,
+  PX_PER_POINT = 6,    -- chart point spacing: fewer, longer segments read smoother
 }
