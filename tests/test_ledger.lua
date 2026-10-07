@@ -117,6 +117,22 @@ test("Ledger: PairHolders leaves same-sign changes alone", function()
   assertEqual(#L().PairHolders("A", me, "§warband", wb), 0)
   assertEqual(me.g, 10); assertEqual(wb.g, 5)
 end)
+-- Characterization (LH-10): the sender is whichever side went down, an exact cancel clears both
+-- nets, a key on only one holder is never paired, and keys order by tostring (numbers included).
+test("Ledger: PairHolders pairs a withdrawal, cancels exact matches, skips one-sided keys", function()
+  local me = { g = 40, ["i:7"] = 3, ["c:9"] = -1, [5] = 2 }
+  local wb = { g = -100, ["i:7"] = -3, [5] = -1 }
+  local p = L().PairHolders("A", me, "§warband", wb)
+  assertEqual(#p, 3)
+  assertEqual(p[1].key, 5); assertEqual(p[1].qty, 1)
+  assertEqual(p[1].from, "§warband"); assertEqual(p[1].to, "A")
+  assertEqual(p[2].key, "g"); assertEqual(p[2].qty, 40)
+  assertEqual(p[2].from, "§warband"); assertEqual(p[2].to, "A")
+  assertEqual(p[3].key, "i:7"); assertEqual(p[3].qty, 3)
+  assertEqual(me[5], 1); assertEqual(me.g, nil); assertEqual(me["i:7"], nil); assertEqual(me["c:9"], -1)
+  assertEqual(wb[5], nil); assertEqual(wb.g, -60); assertEqual(wb["i:7"], nil)
+end)
+
 
 test("Ledger: claims consume fully, partially, and expire", function()
   local claims, rowA, rowB = {}, {}, {}
@@ -220,6 +236,23 @@ test("Ledger: PickReason — currency source names map before scopes", function(
   assertEqual(L().PickReason("CURRENCY", "OUT", ctx({ currencySrc = "CRAFT_REAGENT", scopes = { merchant = true } })),
     "CRAFT_REAGENT")
 end)
+-- Characterization (LH-10): guild bank beats merchant beats the gold-out scopes, which apply only
+-- to gold going out and in the order trainer, taxi, auction, mailbox.
+test("Ledger: PickReason — scope precedence, and gold-out scopes only for gold out", function()
+  local all = { trainer = true, taxi = true, auction = true, mailbox = true }
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ scopes = { guildBank = true, merchant = true } })), "GUILD_DEPOSIT")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { merchant = true, trainer = true } })), "BUY")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = all })), "TRAINING")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { taxi = true, auction = true, mailbox = true } })), "TRAVEL")
+  assertEqual(L().PickReason("GOLD", "OUT", ctx({ scopes = { auction = true, mailbox = true } })), "AH_POST_FEE")
+  assertEqual(L().PickReason("GOLD", "IN", ctx({ scopes = { trainer = true, taxi = true } })), "OTHER")
+  assertEqual(L().PickReason("GOLD", "IN", ctx({ scopes = { mailbox = true } })), "MAIL")
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ scopes = { taxi = true } })), "OTHER")
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ scopes = { mailbox = true } })), "OTHER")
+  assertEqual(L().PickReason("CURRENCY", "OUT", ctx({ scopes = all })), "OTHER")
+  assertEqual(L().PickReason("CURRENCY", "IN", ctx({ scopes = { merchant = true } })), "SELL")
+end)
+
 
 test("Ledger: CurrencyReason maps known enum member names, nil otherwise", function()
   assertEqual(L().CurrencyReason("Vendor", "OUT"), "BUY")

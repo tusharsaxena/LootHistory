@@ -520,6 +520,23 @@ test("Insights ledger: back-to-back rows share one peak and sort by total", func
   assertEqual(rows[1].value, NS.LedgerFormat.SignedCount(-4))
   assertEqual(rows[1].leftTip, "Lost: 8"); assertEqual(rows[1].rightTip, "Gained: 4")
 end)
+-- Characterization (LH-10): nil maps are empty, a zero peak gives zero fractions, the label color
+-- callback is optional, and an equal total falls back to the label.
+test("Insights ledger: back-to-back rows — nil maps, zero peak, label colors, label tie-break", function()
+  assertEqual(#AL().BackToBackRows(nil, nil, tostring, nil, tostring, tostring), 0)
+  local rows = AL().BackToBackRows({ b = 0, a = 0 }, { c = 0 }, function(k) return k:upper() end,
+    function(k) return "col-" .. k end, tostring, tostring)
+  assertEqual(#rows, 3)
+  assertEqual(rows[1].key, "a"); assertEqual(rows[2].key, "b"); assertEqual(rows[3].key, "c")
+  assertEqual(rows[1].label, "A"); assertEqual(rows[1].labelColor, "col-a")
+  assertEqual(rows[1].rightFrac, 0); assertEqual(rows[1].leftFrac, 0); assertEqual(rows[1].total, 0)
+  assertEqual(rows[1].value, "0"); assertEqual(rows[1].rightTip, "Gained: 0")
+  rows = AL().BackToBackRows({ y = 2 }, { x = 2 }, tostring, nil, tostring, tostring)
+  assertEqual(rows[1].key, "x"); assertEqual(rows[1].leftFrac, 1); assertEqual(rows[1].rightFrac, 0)
+  assertEqual(rows[1].labelColor, nil); assertEqual(rows[1].value, "-2")
+  assertEqual(rows[2].key, "y"); assertEqual(rows[2].rightFrac, 1); assertEqual(rows[2].value, "2")
+end)
+
 
 test("Insights ledger: HasLedger is false for gains-only ranges", function()
   assertEqual(AL().HasLedger({ ledger = { lostCount = 0, movedCount = 0 } }), false)

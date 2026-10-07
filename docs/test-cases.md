@@ -142,7 +142,7 @@ Total.
 - Util: ParseSelfMoney reads looted and shared money
 - Util.RangeFrom: 90d and 1y are rolling windows
 
-### test_ledger.lua (36)
+### test_ledger.lua (38)
 
 - Ledger: ThingKey round-trips for every kind
 - Ledger: Diff reports signed deltas, sorted, zeros omitted
@@ -158,6 +158,7 @@ Total.
 - Ledger: posting bags to auctions is a MOVE
 - Ledger: PairHolders turns a warband deposit into one pair and clears both nets
 - Ledger: PairHolders leaves same-sign changes alone
+- Ledger: PairHolders pairs a withdrawal, cancels exact matches, skips one-sided keys
 - Ledger: claims consume fully, partially, and expire
 - Ledger: a late claim is still consumed inside its TTL
 - Ledger: coalesce key and the 60 s amend window
@@ -171,6 +172,7 @@ Total.
 - Ledger: PickReason — item losses by inference
 - Ledger: PickReason — gains read the inbound loot stamp, then mailbox/AH scope
 - Ledger: PickReason — currency source names map before scopes
+- Ledger: PickReason — scope precedence, and gold-out scopes only for gold out
 - Ledger: CurrencyReason maps known enum member names, nil otherwise
 - Ledger: DayKey is the local calendar day and sorts chronologically
 - Ledger: RowThingKey covers items, currencies, gold and legacy rows
@@ -275,7 +277,7 @@ Total.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 
-### test_rollup.lua (21)
+### test_rollup.lua (22)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -297,6 +299,7 @@ Total.
 - Rollup: SeedOnce never overwrites a close already written today
 - Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
 - Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched
+- Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs
 - Rollup: the suite restores the shared state it changed
 
 ### test_attribution.lua (37)
@@ -1080,7 +1083,7 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (70)
+### test_analytics.lua (71)
 
 - Analytics._fitFontSize: fits within width returns base size
 - Analytics._fitFontSize: overflow scales down proportionally
@@ -1149,6 +1152,7 @@ Total.
 - Analytics: the module's function surface is exactly the published one
 - Insights ledger: the caveat shows only for kept history with pre-ledger rows
 - Insights ledger: back-to-back rows share one peak and sort by total
+- Insights ledger: back-to-back rows — nil maps, zero peak, label colors, label tie-break
 - Insights ledger: HasLedger is false for gains-only ranges
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
@@ -1692,12 +1696,12 @@ Total.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
 | test_util.lua | 47 |
-| test_ledger.lua | 36 |
+| test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 64 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
-| test_rollup.lua | 21 |
+| test_rollup.lua | 22 |
 | test_attribution.lua | 37 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
@@ -1718,7 +1722,7 @@ Total.
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 69 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 70 |
+| test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 33 |
 | test_timeline.lua | 34 |
@@ -1747,4 +1751,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1493** |
+| **Total** | **1497** |
