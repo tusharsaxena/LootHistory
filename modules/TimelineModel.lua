@@ -153,14 +153,13 @@ end
 
 -- ── intraday (Today / 7 d) ──
 
-local function sideOf(path) return path and path:match("^(.-)/") end
-
 function TM.RowDelta(r, holder)
   if NS.Util.RowHolder(r) ~= holder then return 0 end
   local dir, q = NS.Util.RowDir(r), r.quantity or 0
   if dir == "IN" then return q end
   if dir == "OUT" then return -q end
-  local fromH, toH = sideOf(r.from), sideOf(r.to)
+  -- One parser for a "<holder>/<container>" end: Ledger's (core/Ledger.lua loads first in the TOC).
+  local fromH, toH = NS.Ledger.LocationHolder(r.from), NS.Ledger.LocationHolder(r.to)
   if fromH == toH then return 0 end
   if toH == holder then return q end
   if fromH == holder then return -q end

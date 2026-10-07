@@ -1195,7 +1195,7 @@ Total.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (32)
+### test_timeline.lua (34)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1213,6 +1213,7 @@ Total.
 - Timeline model: IntradaySeries rebuilds steps from rows, newest backwards from now
 - Timeline model: IntradaySeries gives up when the rows disagree with the rollup
 - Timeline model: a MOVE row moves the holder's own balance by its side
+- Timeline model: a MOVE row splits its ends the way Ledger.LocationHolder does
 - Timeline model: intraday only for Today / 7d, inside retention, after the ledger began
 - Timeline model: HoverLines reads each line's value and that day's flows
 - Timeline model: Suggest puts Gold first, then the biggest totals, capped
@@ -1229,6 +1230,7 @@ Total.
 - Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0
 - Timeline model: LegendTip reads the test-mode store when it is on
 - Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
+- Timeline tab: one pane resize renders the chart twice (accepted, bounded)
 
 ### test_timelinetab.lua (35)
 
@@ -1713,7 +1715,7 @@ Total.
 | test_analytics.lua | 70 |
 | test_analytics_layout.lua | 9 |
 | test_holdingstab.lua | 33 |
-| test_timeline.lua | 32 |
+| test_timeline.lua | 34 |
 | test_timelinetab.lua | 35 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
@@ -1739,4 +1741,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1485** |
+| **Total** | **1487** |

@@ -465,7 +465,9 @@ function R:Write(holder, key, dir, reason, qty, now, from, to, pairId)
   return row
 end
 
-local function sideOf(key, holder, explicit)
+-- The CONTAINER a pair end names for a thing ("money", "currency", bags or tabs), not the holder
+-- half of a location string: that is NS.Ledger.LocationHolder's job.
+local function containerFor(key, holder, explicit)
   if explicit then return explicit end
   if key == "g" then return "money" end
   if tostring(key):sub(1, 2) == "c:" then return "currency" end
@@ -497,8 +499,8 @@ function R:WriteRows(plan, now, clock)
     self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - (mv.alt or 0), now, from, to)
   end
   for _, p in ipairs(plan.pairs) do
-    local from = p.from .. "/" .. sideOf(p.key, p.from, p.fromC)
-    local to = p.to .. "/" .. sideOf(p.key, p.to, p.toC)
+    local from = p.from .. "/" .. containerFor(p.key, p.from, p.fromC)
+    local to = p.to .. "/" .. containerFor(p.key, p.to, p.toC)
     if p.to ~= p.from then writePair(self, p, now, from, to)
     -- A pair within one holder is one row (an alt's gold taken from mail: its `dir` says IN).
     else self:Write(p.from, p.key, p.dir or "MOVE", p.reason or "TRANSFER", p.qty, now, from, to) end

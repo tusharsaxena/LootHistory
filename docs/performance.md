@@ -93,3 +93,13 @@ With no LibKa0s, `NS.Perf` is a stub: brackets are no-ops and `/lh perf` answers
 [combat-path-sweep.md](combat-path-sweep.md) keeps the whole-repo registration and timer inventory
 with per-fire work. It no longer backs an exemption; it is how you check that a new handler that
 can run in combat has a bucket.
+
+## Accepted costs
+
+**A Timeline pane resize renders the chart twice.** The pane's `OnSizeChanged` runs `TL:Layout`,
+which calls `chart:Render` explicitly (`modules/Timeline.lua`), and the chart, anchored to the pane,
+also renders from its own `OnSizeChanged` (LibKa0s `WidgetsLineChart.lua`). The second pass is
+bounded: the regions are pooled, so it costs one extra LTTB thinning and repaint, and only on a
+resize, never in combat. It is accepted rather than designed out, and no library seam is wanted for
+it (review finding LK-R-04). `tests/test_timeline.lua` pins the count at 2, so a change to it shows
+up as a failing case and this paragraph moves with it.

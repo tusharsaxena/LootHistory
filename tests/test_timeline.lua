@@ -209,6 +209,20 @@ case("Timeline model: a MOVE row moves the holder's own balance by its side", fu
   assertEqual(TM().RowDelta(out, "§warband"), 0, "another holder's row never moves this one")
 end)
 
+-- LH-R-08: one parser for a "<holder>/<container>" end. TimelineModel reads the holder through
+-- NS.Ledger.LocationHolder (everything before the LAST "/"), as Database's ledger pass does, so the
+-- two can never disagree on a location whose container part carries a "/" of its own.
+case("Timeline model: a MOVE row splits its ends the way Ledger.LocationHolder does", function()
+  local L = NS.Ledger
+  local r = { dir = "MOVE", kind = "ITEM", itemID = 7, holder = "A-R", quantity = 5, from = "A-R/bags/1", to = "A-R/bags" }
+  local fromH, toH = L.LocationHolder(r.from), L.LocationHolder(r.to)
+  assertEqual(fromH, "A-R/bags"); assertEqual(toH, "A-R")
+  local want = (fromH == toH and 0) or (toH == "A-R" and 5) or (fromH == "A-R" and -5) or 0
+  assertEqual(TM().RowDelta(r, "A-R"), want, "the model's holder split is Ledger's")
+  r.from, r.to = "A-R/bags", "A-R/bags/1"
+  assertEqual(TM().RowDelta(r, "A-R"), -5, "and the other way round")
+end)
+
 case("Timeline model: intraday only for Today / 7d, inside retention, after the ledger began", function()
   local now = noon(2026, 10, 5)
   assertTrue(TM().IntradayOK("today", now - 3600, now, 0, now - 99 * DAY))
@@ -408,4 +422,41 @@ case("Timeline model: LegendLayout keeps the Total's slot and one gap between th
   pos, rows = TM().LegendLayout({ 30, 500 }, 120, 16, 100)
   assertEqual(rows, 2, "an entry wider than the row still gets a row of its own")
   assertEqual(pos[2].x, 0)
+end)
+
+-- LK-R-04 (measured, accepted): one pane resize renders the chart TWICE. The pane's OnSizeChanged
+-- runs TL:Layout, which calls chart:Render explicitly (modules/Timeline.lua TL:Layout); the chart is
+-- anchored to the pane, so the client also fires the chart's own OnSizeChanged, which LibKa0s wires
+-- to Render. The mock does not cascade a size change through anchors, so the case fires both scripts
+-- the way the client does. The second pass is bounded (pooled regions, one extra LTTB thinning and
+-- repaint, on resize only) and recorded in docs/performance.md; no library seam is wanted for it.
+-- A change to this number is a change to that cost: update the doc with it.
+case("Timeline tab: one pane resize renders the chart twice (accepted, bounded)", function()
+  NS.db.global.holdings, NS.db.global.daily = {}, {}
+  local t = os.time()
+  NS.Holdings:ApplyMoney("Mock-Realm", 50000, t - 86400)
+  NS.Holdings:ApplyMoney("Mock-Realm", 70000, t)
+  local views = NS.Util.DeepCopy(NS.db.profile.savedViews)
+  local thing, hidden = NS.Timeline.thing, NS.Timeline.hidden
+  NS.Timeline.hidden = {}
+  local ok, err = pcall(function()
+    NS.Browser:Show()
+    NS.Browser:SelectTab("Timeline")
+    NS.Browser:SetCharSet(nil)
+    NS.Timeline:SetThing("g")
+    local TLm, chart = NS.Timeline, NS.Timeline.chart
+    local render, renders = chart.Render, 0
+    chart.Render = function(...) renders = renders + 1; return render(...) end
+    local ok2, err2 = pcall(function()
+      TLm.pane:GetScript("OnSizeChanged")(TLm.pane, 700, 360)
+      chart:GetScript("OnSizeChanged")(chart, 696, 240)
+    end)
+    chart.Render = render
+    if not ok2 then error(err2, 0) end
+    assertEqual(renders, 2, "TL:Layout's explicit Render plus the chart's own OnSizeChanged")
+  end)
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Timeline"); NS.Browser:Hide()
+  NS.db.profile.savedViews = views
+  NS.Timeline.thing, NS.Timeline.hidden = thing, hidden
+  if not ok then error(err, 0) end
 end)
