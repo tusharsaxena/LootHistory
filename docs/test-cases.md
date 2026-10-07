@@ -1367,7 +1367,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (29)
+### test_libka0s.lua (30)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1398,6 +1398,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 - v1.69.0: the line chart is vendored and attached to the Widgets major
+- v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 
 ### test_surface_parity.lua (14)
 
@@ -1648,7 +1649,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 29 |
+| test_libka0s.lua | 30 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 17 |
 | test_perf.lua | 6 |
@@ -1663,4 +1664,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1421** |
+| **Total** | **1422** |

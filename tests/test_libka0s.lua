@@ -43,6 +43,9 @@ local LIB_FILES = {
   -- New in v1.69.0: the line chart (WidgetsLineChart 1, Widgets key 12.1.4.1), a fourth file of
   -- LibKa0s-Widgets-1.0 that attaches lib.LineChart / lib.ChartMath / lib.LINE_CHART.
   "libs/LibKa0s/WidgetsLineChart.lua",
+  -- New in v1.70.0: the search-box autocomplete (WidgetsAutocomplete 1), a fifth file of
+  -- LibKa0s-Widgets-1.0 that attaches lib.Autocomplete.
+  "libs/LibKa0s/WidgetsAutocomplete.lua",
   "libs/LibKa0s/DebugLog.lua",
   -- New in v1.60.0: the diagnostics report, a second file of LibKa0s-DebugLog-1.0 (key 14.1) that
   -- lib:New installs on each instance. Loaded after DebugLog.lua, as the XML orders it.
@@ -587,6 +590,15 @@ test("v1.69.0: the line chart is vendored and attached to the Widgets major", fu
   local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(W ~= nil and type(W.LineChart) == "function",
     "lib.LineChart missing: re-vendor v1.69.0")
-  assertEqual(W.MODULES.WidgetsLineChart, 1)
+  assertTrue(W.MODULES.WidgetsLineChart >= 1) -- 2 since v1.70.0, pinned there
+  assertEqual(T.KIT_VERSION, 37)
+end)
+
+test("v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint", function()
+  local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  assertTrue(W ~= nil and type(W.Autocomplete) == "function",
+    "lib.Autocomplete missing: re-vendor v1.70.0")
+  assertEqual(W.MODULES.WidgetsAutocomplete, 1)
+  assertEqual(W.MODULES.WidgetsLineChart, 2)
   assertEqual(T.KIT_VERSION, 37)
 end)

@@ -28,7 +28,7 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local CHART_MINOR = 1
+local CHART_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -99,8 +99,10 @@ end
 -- for. Averaging or taking every Nth point erases it; LTTB keeps, per bucket, the point that spans
 -- the largest triangle with its neighbors, so a one-point spike survives (pinned).
 
-function Math.Budget(plotWidth)
-  return max(3, floor((plotWidth or 0) / LC.PX_PER_POINT))
+function Math.Budget(plotWidth, pxPerPoint)
+  local px = pxPerPoint
+  if type(px) ~= "number" or px <= 0 then px = LC.PX_PER_POINT end
+  return max(3, floor((plotWidth or 0) / px))
 end
 
 local function bucketAverage(points, from, to)
@@ -346,7 +348,7 @@ local function inDash(sr, xa, xb)
 end
 
 local function drawSeries(c, s, sr)
-  local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w))
+  local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w, c.__opts.pxPerPoint))
   local color, th = sr.color or LC.LINE, sr.thickness or 1.5
   if #pts == 1 then
     local x, y = xToPixel(s, pts[1].x), yToPixel(s, pts[1].y)
