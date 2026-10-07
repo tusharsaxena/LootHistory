@@ -191,7 +191,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (64)
+### test_compat.lua (66)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -228,6 +228,7 @@ Total.
 - Compat: ListedCurrencyID keeps a listed id and remaps a hidden one to its one same-name twin
 - Compat: ListedCurrencyID drops a hidden id whose name matches two listed currencies
 - Compat: ListedCurrencyID keeps an id under a collapsed header that the stored baseline holds
+- Compat: ListedCurrencyID counts a twin both listed and held once, and a held second twin as ambiguous
 - Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)
 - Compat: CurrencyName and GetItemTypeInfo answer, and degrade to nil
 - Compat: GetItemSellPrice degrades to nil
@@ -245,6 +246,7 @@ Total.
 - Compat: GetMoney nets cursor and trade money
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
 - Compat: ListCurrencies expands collapsed headers and restores them
+- Compat: ListCurrencies answers {} without the list API, and leaves a header shut without ExpandCurrencyList
 - Compat: IsConsumable reads the item class
 - Compat: account-wide currency and currency-source names
 - Compat: inbox scan sums attachments by itemID
@@ -1508,7 +1510,7 @@ Total.
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
 
-### test_disabled.lua (17)
+### test_disabled.lua (21)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
@@ -1527,6 +1529,10 @@ Total.
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
+- lifecycle: NS.StandDown reaches every surface exactly once, in order
+- lifecycle: NS.StandUp reaches every surface exactly once, in order
+- lifecycle: with logging off, neither callback writes its [State] line
+- lifecycle: every step keeps its own nil-guard -- nothing built, both callbacks are no-ops
 
 ### test_perf.lua (7)
 
@@ -1706,7 +1712,7 @@ Total.
 | test_util.lua | 47 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 64 |
+| test_compat.lua | 66 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 8 |
 | test_rollup.lua | 22 |
@@ -1745,7 +1751,7 @@ Total.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 31 |
 | test_surface_parity.lua | 15 |
-| test_disabled.lua | 17 |
+| test_disabled.lua | 21 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
@@ -1759,4 +1765,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1505** |
+| **Total** | **1511** |

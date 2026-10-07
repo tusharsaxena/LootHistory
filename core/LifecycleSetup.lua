@@ -110,51 +110,89 @@ local function dependencyText()
 end
 
 -- ── the two host callbacks ────────────────────────────────────────────────────────────────────
+--
+-- Each callback is an ORDERED LIST OF STEPS walked by one loop, and every step carries its own
+-- nil-guard: a surface not built yet (the load path stands down before the modules come up) or
+-- built without the member its step calls is skipped, and the steps after it still run. The
+-- surfaces are named, not captured, because the modules publish themselves into NS after this file
+-- runs -- each step reads NS at call time. tests/test_disabled.lua pins the order and that every
+-- surface is reached exactly once.
 
---- Tear the addon down to setup. Idempotent: every module guards its own teardown, so this is safe
---- on an addon that never came up (the load path calls it when the stored switch is already off).
-function NS.StandDown()
-  -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
-  -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
-  -- does not touch messages, and this target subscribes to none.
-  if NS.addon and NS.addon.UnregisterAllEvents then NS.addon:UnregisterAllEvents() end
-  for _, m in ipairs({ NS.Collector, NS.Reconciler, NS.Attribution, NS.Browser, NS.Analytics, NS.HoldingsTab,
-                      NS.Timeline, NS.Rollup }) do
-    if m and m.Disable then m:Disable() end
+--- A step that calls `NS[key]:member()` when both exist.
+local function method(key, member)
+  return function()
+    local m = NS[key]
+    if m and m[member] then m[member](m) end
   end
-  if NS.Attribution and NS.Attribution.DisableOut then NS.Attribution:DisableOut() end
-  if NS.DropLedgerResetOffer then NS.DropLedgerResetOffer() end
+end
+
+--- A step that calls the plain function `NS[key]()` when it exists.
+local function call(key)
+  return function()
+    local f = NS[key]
+    if f then f() end
+  end
+end
+
+--- Drop every deferral, and name the count on the [State] line while logging is on.
+local function cancelDeferralsStep()
   local dropped = NS.CancelDeferrals()
   if NS.State.debug and NS.Debug then
     NS.Debug("State", "stand-down: capture unregistered, %d deferral(s) canceled", dropped)
   end
+end
+
+--- PLAYER_ENTERING_WORLD on the AceAddon target, through the rejection-tolerant seam.
+local function registerEnterWorldStep()
+  if NS.addon and NS.addon.RegisterEvent then
+    NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
+  end
+end
+
+local function standUpLogStep()
+  if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
+  if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
+end
+
+local STAND_DOWN_STEPS = {
+  -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
+  -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
+  -- does not touch messages, and this target subscribes to none.
+  method("addon", "UnregisterAllEvents"),
+  method("Collector", "Disable"), method("Reconciler", "Disable"), method("Attribution", "Disable"),
+  method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
+  method("Timeline", "Disable"), method("Rollup", "Disable"),
+  method("Attribution", "DisableOut"),
+  call("DropLedgerResetOffer"),
+  cancelDeferralsStep,
   -- Hidden here as well as refused in the ladder, and both are needed: the ladder stops the window
   -- coming back, this takes down the one that is already up.
-  if NS.CloseMenu then NS.CloseMenu() end
-  if NS.Browser and NS.Browser.Hide then NS.Browser:Hide() end
-  if NS.Export and NS.Export.Hide then NS.Export:Hide() end
+  call("CloseMenu"),
+  method("Browser", "Hide"), method("Export", "Hide"),
   -- The debug console is a diagnostic surface and `/lh debug` keeps answering while the addon is
   -- off (slash-commands-§7), so this hides the window without gating the verb that reopens it.
-  if NS.DebugLog and NS.DebugLog.Hide then NS.DebugLog:Hide() end
+  method("DebugLog", "Hide"),
+}
+
+local STAND_UP_STEPS = {
+  registerEnterWorldStep,
+  method("Attribution", "Enable"), method("Attribution", "EnableOut"),
+  method("Collector", "Enable"), method("Reconciler", "Enable"), method("Rollup", "Enable"),
+  method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
+  method("Timeline", "Enable"),
+  standUpLogStep,
+}
+
+--- Tear the addon down to setup. Idempotent: every module guards its own teardown, so this is safe
+--- on an addon that never came up (the load path calls it when the stored switch is already off).
+function NS.StandDown()
+  for i = 1, #STAND_DOWN_STEPS do STAND_DOWN_STEPS[i]() end
 end
 
 --- Rebuild FROM CURRENT STATE, never from a snapshot taken on the way down: a setting changed while
 --- the addon was off has to be the setting that comes back (performance-§6).
 function NS.StandUp()
-  if NS.addon and NS.addon.RegisterEvent then
-    NS.SafeRegisterEvent(NS.addon, "PLAYER_ENTERING_WORLD", "OnEnterWorld", NS.RejectedEvents)
-  end
-  if NS.Attribution and NS.Attribution.Enable then NS.Attribution:Enable() end
-  if NS.Attribution and NS.Attribution.EnableOut then NS.Attribution:EnableOut() end
-  if NS.Collector and NS.Collector.Enable then NS.Collector:Enable() end
-  if NS.Reconciler and NS.Reconciler.Enable then NS.Reconciler:Enable() end
-  if NS.Rollup and NS.Rollup.Enable then NS.Rollup:Enable() end
-  if NS.Browser and NS.Browser.Enable then NS.Browser:Enable() end
-  if NS.Analytics and NS.Analytics.Enable then NS.Analytics:Enable() end
-  if NS.HoldingsTab and NS.HoldingsTab.Enable then NS.HoldingsTab:Enable() end
-  if NS.Timeline and NS.Timeline.Enable then NS.Timeline:Enable() end
-  if NS.State.debug and NS.Debug then NS.Debug("State", "stand-up: capture registered") end
-  if NS.DebugAtEnable then NS.DebugAtEnable("State", "dependencies: %s", dependencyText()) end
+  for i = 1, #STAND_UP_STEPS do STAND_UP_STEPS[i]() end
 end
 
 -- ── the latch ─────────────────────────────────────────────────────────────────────────────────

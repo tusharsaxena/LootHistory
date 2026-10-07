@@ -730,3 +730,109 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
     assertEqual(table.concat(paths, ", "), "", "the latch wrote to SavedVariables")
   end)
 
+
+-- ── the two host callbacks, characterized ─────────────────────────────────────────────────────
+--
+-- The cases above drive the latch through the write seam and assert on the registration set. These
+-- two pin what that set cannot show: the ORDER of NS.StandDown's and NS.StandUp's steps, that each
+-- surface is reached exactly once, and that every step keeps its own nil-guard (an addon with none
+-- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
+-- so they call the two callbacks directly; nothing here reaches the real modules.
+local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
+  "Timeline", "Rollup", "Export", "DebugLog", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "SafeRegisterEvent", "DebugAtEnable", "Debug" }
+
+local function withSurfaces(fill, body)
+  local saved, savedDebug = {}, NS.State.debug
+  for _, k in ipairs(SURFACES) do saved[k] = NS[k]; NS[k] = nil end
+  local log = {}
+  fill(log)
+  local ok, err = pcall(body, log)
+  for _, k in ipairs(SURFACES) do NS[k] = saved[k] end
+  NS.State.debug = savedDebug
+  if not ok then error(err, 0) end
+end
+
+local function recorder(log, name, methods)
+  local t = {}
+  for _, m in ipairs(methods) do
+    t[m] = function(self)
+      assertTrue(self == t, name .. ":" .. m .. " was not called as a method")
+      log[#log + 1] = name .. ":" .. m
+    end
+  end
+  return t
+end
+
+local function fillAll(log)
+  NS.State.debug = true
+  NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
+  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup" }) do
+    NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
+  end
+  NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
+  NS.Export = recorder(log, "Export", { "Hide" })
+  NS.DebugLog = recorder(log, "DebugLog", { "Hide" })
+  for _, k in ipairs({ "DropLedgerResetOffer", "CloseMenu" }) do
+    NS[k] = function() log[#log + 1] = k end
+  end
+  NS.CancelDeferrals = function() log[#log + 1] = "CancelDeferrals"; return 3 end
+  NS.SafeRegisterEvent = function(target, event, handler, rejected)
+    assertTrue(target == NS.addon, "SafeRegisterEvent targets NS.addon")
+    assertTrue(rejected == NS.RejectedEvents, "SafeRegisterEvent is handed NS.RejectedEvents")
+    log[#log + 1] = "SafeRegisterEvent:" .. event .. ":" .. handler
+  end
+  NS.Debug = function(tag, fmt, ...) log[#log + 1] = "Debug:" .. tag .. ":" .. fmt:format(...) end
+  NS.DebugAtEnable = function(tag) log[#log + 1] = "DebugAtEnable:" .. tag end
+end
+
+test("lifecycle: NS.StandDown reaches every surface exactly once, in order", function()
+  withSurfaces(fillAll, function(log)
+    NS.StandDown()
+    assertEqual(table.concat(log, "\n"), table.concat({
+      "addon:UnregisterAllEvents",
+      "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
+      "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
+      "Attribution:DisableOut",
+      "DropLedgerResetOffer",
+      "CancelDeferrals",
+      "Debug:State:stand-down: capture unregistered, 3 deferral(s) canceled",
+      "CloseMenu",
+      "Browser:Hide", "Export:Hide", "DebugLog:Hide",
+    }, "\n"))
+  end)
+end)
+
+test("lifecycle: NS.StandUp reaches every surface exactly once, in order", function()
+  withSurfaces(fillAll, function(log)
+    NS.StandUp()
+    assertEqual(table.concat(log, "\n"), table.concat({
+      "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
+      "Attribution:Enable", "Attribution:EnableOut",
+      "Collector:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
+      "HoldingsTab:Enable", "Timeline:Enable",
+      "Debug:State:stand-up: capture registered",
+      "DebugAtEnable:State",
+    }, "\n"))
+  end)
+end)
+
+test("lifecycle: with logging off, neither callback writes its [State] line", function()
+  withSurfaces(function(log) fillAll(log); NS.State.debug = false end, function(log)
+    NS.StandDown(); NS.StandUp()
+    for _, line in ipairs(log) do assertFalse(line:find("^Debug:") ~= nil, "logged while off: " .. line) end
+    assertEqual(log[#log], "DebugAtEnable:State", "the at-enable queue is written regardless")
+  end)
+end)
+
+test("lifecycle: every step keeps its own nil-guard -- nothing built, both callbacks are no-ops", function()
+  withSurfaces(function(log)
+    NS.State.debug = true
+    -- A surface present WITHOUT the member its step calls is skipped too.
+    NS.addon, NS.Attribution = {}, { Disable = function() log[#log + 1] = "Attribution:Disable" end }
+    NS.CancelDeferrals = function() log[#log + 1] = "CancelDeferrals"; return 0 end
+  end, function(log)
+    NS.StandDown(); NS.StandUp()
+    assertEqual(table.concat(log, ","), "Attribution:Disable,CancelDeferrals")
+  end)
+end)
