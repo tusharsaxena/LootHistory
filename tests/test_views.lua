@@ -50,6 +50,15 @@ local function case(name, fn)
   end)
 end
 
+-- A filter's text form with the Date range's resolved `from` set aside: a re-applied range is
+-- resolved again against the clock, so it can move on by a second between two reads.
+local function serFilter(f)
+  assertTrue(f.from == nil or type(f.from) == "number")
+  local from = f.from ~= nil
+  f.from = nil
+  return ser(f) .. (from and "+from" or "")
+end
+
 -- Drive a multi-select dropdown as a click would: the selection, then its onMultiSelect.
 local function pick(key, set)
   local dd = B._dd[key]
@@ -191,7 +200,7 @@ case("Views: switching tabs back and forth restores each tab's own live state ex
   pick("quality", { [3] = true, [4] = true }); pick("source", { KILL = true })
   B._dd.date:SelectValue("7d"); B._dd.date.onSelect("7d")
   B:SetSearchText("axe"); B:SetCharSet({ [me] = true })
-  local hist = ser(B:CurrentFilter())
+  local hist = serFilter(B:CurrentFilter())
   local histView = ser(B:CaptureView())
 
   B:SelectTab("Holdings")
@@ -199,18 +208,18 @@ case("Views: switching tabs back and forth restores each tab's own live state ex
   assertEqual(B.activeFilter.quality, nil, "nor its quality")
   pick("quality", { [2] = true }); B:SetSearchText("ore"); B:SetCharSet({ ["B-Realm"] = true })
   B._dd.group.onSelect("type")
-  local hold = ser(B:CurrentFilter())
+  local hold = serFilter(B:CurrentFilter())
 
   B:SelectTab("Timeline"); B:SetSearchText("Gold")
   B:SelectTab("History")
-  assertEqual(ser(B:CurrentFilter()), hist, "History's filter is back exactly")
+  assertEqual(serFilter(B:CurrentFilter()), hist, "History's filter is back exactly")
   assertEqual(ser(B:CaptureView()), histView, "and so is its view, sets and search included")
   assertTrue(B._dd.quality._selected[3] and B._dd.quality._selected[4], "the dropdown shows it")
   assertTrue(B._dd.char._selected[me])
   assertEqual(B:DateRange(), "7d")
 
   B:SelectTab("Holdings")
-  assertEqual(ser(B:CurrentFilter()), hold, "Holdings' filter is back exactly")
+  assertEqual(serFilter(B:CurrentFilter()), hold, "Holdings' filter is back exactly")
   assertEqual(B._search:GetText(), "ore"); assertTrue(B._dd.char._selected["B-Realm"])
   assertEqual(NS.HoldingsTab.groupBy, "type"); assertEqual(B._dd.group._value, "type")
   B:SelectTab("Timeline")
