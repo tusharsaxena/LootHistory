@@ -446,10 +446,11 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
-then `modules/BrowserTable.lua` and `tests/test_browsertable.lua` at 1272 (`git ls-files '*.lua' |
+then `tests/test_browsertable.lua` at 1392 and `modules/BrowserTable.lua` at 1302 (`git ls-files '*.lua' |
 grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-07, after `modules/BrowserTable.lua`
 shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1231,
-its dropdown-option kit to `modules/BrowserWidgets.lua`); the
+its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added characterization cases to
+`tests/test_browsertable.lua` and split the last five functions above CCN 15); the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---

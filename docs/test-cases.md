@@ -750,7 +750,7 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
-### test_browsertable.lua (81)
+### test_browsertable.lua (85)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -833,6 +833,10 @@ Total.
 - History row menu: the existing four entries keep their order around the new one
 - BrowserTable: the Character column shows the row's holder
 - BrowserTable: BrowserTableGroup.lua loads directly after BrowserTable.lua, members intact
+- BrowserTable: the sample's holder-move pairs are pinned whole
+- BrowserTable: GroupRecords pins nil, unknown and column-less group modes
+- Test mode: SetTestMode to the mode it is in answers true and does nothing
+- Test mode: SetTestMode traces each act and falls back to a table Refresh
 
 ### test_export.lua (32)
 
@@ -1681,7 +1685,7 @@ Total.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (20)
+### test_widgets.lua (22)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -1692,6 +1696,8 @@ Total.
 - Widgets: a selected character with no option row still counts in the collapsed label
 - Widgets: the filter bar builds all ten of its dropdowns through the seam
 - Widgets: the Character options fold the class icon into the label, not into an icon field
+- Widgets: history Character options pin value, label and tint over every branch
+- Widgets: holders Character options pin value, label and tint over every branch
 - Widgets: the History window's OnHide closes the shared popup
 - Widgets: Browser:Hide closes the shared popup
 - Widgets: the export modal's close path closes the shared popup
@@ -1731,7 +1737,7 @@ Total.
 | test_database.lua | 85 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
-| test_browsertable.lua | 81 |
+| test_browsertable.lua | 85 |
 | test_export.lua | 32 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
@@ -1767,6 +1773,6 @@ Total.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 20 |
+| test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1515** |
+| **Total** | **1521** |

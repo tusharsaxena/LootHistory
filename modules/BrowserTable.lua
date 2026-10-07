@@ -489,36 +489,56 @@ end
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
 BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
 
+-- The other end of a sample holder-move row: the Warband for a warband move, else the sample class
+-- after the row's own (wrapping), as that character's Name-Realm and its class.
+local function moveOtherEnd(r)
+  if r.source == "WARBAND_DEPOSIT" or r.source == "WARBAND_WITHDRAW" then
+    return C.WARBAND_HOLDER, nil
+  end
+  local k = 1
+  while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
+  local otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
+  return otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest", otherClass
+end
+
+-- The container a move lands in on its receiver: the Warband's tabs, an alt's mail for ALT_MAIL,
+-- else the receiver's bags.
+local function moveInto(r, toH)
+  local CT = C.Container
+  if toH == C.WARBAND_HOLDER then return CT.TABS end
+  if r.source == "ALT_MAIL" then return CT.MAIL end
+  return CT.BAGS
+end
+
+-- Turn sample row `r` (an OUT on its character) into the n-th holder-move pair: `r` becomes the
+-- sender's OUT and the returned copy the receiver's IN, under one pairId.
+local function pairHolderMove(r, n)
+  local W, CT = C.WARBAND_HOLDER, C.Container
+  local other, otherClass = moveOtherEnd(r)
+  local fromH, toH = r.char, other
+  if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
+  local gain = NS.Util.DeepCopy(r)
+  r.holder, gain.holder, gain.dir = fromH, toH, "IN"
+  if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
+  r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. moveInto(r, toH)
+  gain.from, gain.to = r.from, r.to
+  r.pairId = r.ts .. ":" .. n
+  gain.pairId = r.pairId
+  return gain
+end
+
 -- Timeline ledger Phase 7: a move between two holders is an OUT on the sender and an IN on the
 -- receiver under the same reason and pairId, never a MOVE pair. Each holder-move row the seed walk
 -- wrote (an OUT on its character) is turned into that pair: the Warband is the other end of a
 -- warband move (the sender of a withdraw), the next sample class the other end of an alt move.
 -- Draws nothing from the PRNG, so the rows before it are the ones the walk always made.
 local function holderMoves(out)
-  local W, n = C.WARBAND_HOLDER, 0
+  local n = 0
   for i = 1, #out do
     local r = out[i]
     if NS.Ledger.HOLDER_MOVE_REASON[r.source] then
       n = n + 1
-      local other, otherClass = W, nil
-      if r.source ~= "WARBAND_DEPOSIT" and r.source ~= "WARBAND_WITHDRAW" then
-        local k = 1
-        while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
-        otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
-        other = otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest"
-      end
-      local fromH, toH = r.char, other
-      if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
-      local CT = C.Container
-      local into = (toH == W) and CT.TABS or (r.source == "ALT_MAIL") and CT.MAIL or CT.BAGS
-      local gain = NS.Util.DeepCopy(r)
-      r.holder, gain.holder, gain.dir = fromH, toH, "IN"
-      if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
-      r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. into
-      gain.from, gain.to = r.from, r.to
-      r.pairId = r.ts .. ":" .. n
-      gain.pairId = r.pairId
-      out[#out + 1] = gain
+      out[#out + 1] = pairHolderMove(r, n)
     end
   end
 end
@@ -635,20 +655,37 @@ local function traceTestMode(on, why)
   end
 end
 
+--- A start testModeRefusal turned away: one [Table] line, one chat line, and the panel refreshed
+--- so the checkbox unticks.
+local function refuseTestMode(refusal)
+  if NS.State.debug and NS.Debug then NS.Debug("Table", "test mode refused: %s", refusal) end
+  NS.Print("test mode not started \226\128\148 " .. refusal)
+  refreshPanel()
+end
+
+--- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the new
+--- dataset, refresh the footer, and toggle the Test-Mode badge -- or, with no Browser to do that,
+--- repaint the table alone. A start opens the window first; a stop never does.
+local function showTestDataset(self, on)
+  local B = NS.Browser
+  if on and B and B.Show then B:Show() end
+  if B and B.OnDatasetChanged then
+    B:OnDatasetChanged()
+  else
+    self:Refresh()
+  end
+end
+
 --- Turn test mode on or off. Returns true when test mode now matches `on`, false for a refused
 --- start, which prints one line and leaves the checkbox unticked. A start opens the window; a stop
 --- never does. `why` (optional) is the reason a stop names in its [Table] line.
 function BrowserTable:SetTestMode(on, why)
   on = on and true or false
   if on == (self.testMode == true) then return true end
-  if on then
-    local refusal = testModeRefusal()
-    if refusal then
-      if NS.State.debug and NS.Debug then NS.Debug("Table", "test mode refused: %s", refusal) end
-      NS.Print("test mode not started \226\128\148 " .. refusal)
-      refreshPanel()
-      return false
-    end
+  local refusal = on and testModeRefusal()
+  if refusal then
+    refuseTestMode(refusal)
+    return false
   end
   self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
@@ -656,14 +693,7 @@ function BrowserTable:SetTestMode(on, why)
   -- ...and the Holdings / Timeline sample beside it (modules/TestData.lua), built from those rows.
   if NS.TestData then NS.TestData.Publish(NS.State.testRecords) end
   traceTestMode(on, why)
-  if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
-  -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
-  -- new dataset, refresh the footer, and toggle the Test-Mode badge.
-  if NS.Browser and NS.Browser.OnDatasetChanged then
-    NS.Browser:OnDatasetChanged()
-  else
-    self:Refresh()
-  end
+  showTestDataset(self, on)
   refreshPanel()
   return true
 end

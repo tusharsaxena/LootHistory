@@ -140,27 +140,21 @@ function BrowserTable:ToggleCollapse(key)
   self:Refresh()
 end
 
--- Turn a (already-sorted) record array into the flat display list. With no grouping every
--- record is a { kind="row" } entry. With grouping, records are partitioned into groups sorted
--- by the grouping column's natural order (alphabetical for text, numeric for quality,
--- chronological for day; direction = groupAsc). Each group is preceded by a { kind="header" }
--- entry labeled "<Column>: <Value>" with its count; a collapsed group emits only its header.
--- The active row sort still holds within each group.
-function BrowserTable:GroupRecords(records)
-  local list = {}
-  local groupBy = self.groupBy
-  if not groupBy or groupBy == "none" then
-    for _, r in ipairs(records) do
-      list[#list + 1] = { kind = "row", record = r }
-    end
-    return list
+-- Append one { kind="row" } entry per record to `list`.
+local function appendRows(list, records)
+  for _, r in ipairs(records) do
+    list[#list + 1] = { kind = "row", record = r }
   end
+end
 
+-- Partition records into groups under `groupBy`, in first-seen order. A group sorts by the grouping
+-- column's sortFn when the mode has a column, else by the mode's own order value (typesub), else by
+-- its label.
+local function partition(groupBy, records)
   local colKey = GROUP_COLUMN[groupBy]
   local col = colKey and COLUMN_BY_KEY[colKey]
   local sortFn = col and col.sortFn
   local prefix = GROUP_PREFIX[groupBy] or "?"
-
   local order, byKey = {}, {}
   for _, r in ipairs(records) do
     local key, valueLabel, groupOrder = groupOf(groupBy, r)
@@ -173,8 +167,11 @@ function BrowserTable:GroupRecords(records)
     end
     g.rows[#g.rows + 1] = r
   end
+  return order
+end
 
-  local asc = self.groupAsc ~= false
+-- Group order: by sortKey in the `asc` direction, ties broken on the (unique) key.
+local function sortGroups(order, asc)
   table.sort(order, function(a, b)
     if a.sortKey ~= b.sortKey then
       if asc then return a.sortKey < b.sortKey end
@@ -182,16 +179,28 @@ function BrowserTable:GroupRecords(records)
     end
     return a.key < b.key
   end)
+end
 
+-- Turn a (already-sorted) record array into the flat display list. With no grouping every
+-- record is a { kind="row" } entry. With grouping, records are partitioned into groups sorted
+-- by the grouping column's natural order (alphabetical for text, numeric for quality,
+-- chronological for day; direction = groupAsc). Each group is preceded by a { kind="header" }
+-- entry labeled "<Column>: <Value>" with its count; a collapsed group emits only its header.
+-- The active row sort still holds within each group.
+function BrowserTable:GroupRecords(records)
+  local list = {}
+  local groupBy = self.groupBy
+  if not groupBy or groupBy == "none" then
+    appendRows(list, records)
+    return list
+  end
+  local order = partition(groupBy, records)
+  sortGroups(order, self.groupAsc ~= false)
   for _, g in ipairs(order) do
     local collapsed = self.collapsed[g.key] or false
     list[#list + 1] = { kind = "header", key = g.key, label = g.label,
                         count = #g.rows, collapsed = collapsed }
-    if not collapsed then
-      for _, r in ipairs(g.rows) do
-        list[#list + 1] = { kind = "row", record = r }
-      end
-    end
+    if not collapsed then appendRows(list, g.rows) end
   end
   return list
 end

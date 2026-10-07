@@ -62,6 +62,37 @@ local function sourceOptions()
   end
   return withAll("Source: All", items)
 end
+-- The class icon as inline markup, "" with no class (or before BrowserTable has loaded).
+local function classIcon(cf)
+  local BT = NS.BrowserTable
+  if not (cf and BT and BT.ClassIconMarkup) then return "" end
+  return BT:ClassIconMarkup(cf) or ""
+end
+
+-- The class color as an {r, g, b} triple, nil with no class or an unknown one.
+local function classColor(cf)
+  local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
+  if not cc then return nil end
+  return { cc.r, cc.g, cc.b }
+end
+
+-- One Character option for holder `h` of class `cf` (nil for the Warband or an unclassed row).
+-- The class icon is FOLDED INTO THE LABEL, not carried in a field of its own. The widget is
+-- LibKa0s-Widgets-1.0's and it has no `icon` seam -- deliberately: inline |T...|t / |A...|a markup
+-- in a label is measured by its menuWidth (a class icon plus a Name-Realm is the example in its own
+-- comment), so a label is the supported way to put art on a row. The class color still rides in
+-- `color`, matching the Character column.
+local function charItem(h, cf)
+  local icon, name = classIcon(cf), NS.LedgerFormat.HolderLabel(h)
+  return { value = h, label = (icon ~= "" and (icon .. " " .. name) or name), color = classColor(cf) }
+end
+
+-- The class of a history row's holder, through the same seam the Character column reads.
+local function rowHolderClass(r)
+  local BT = NS.BrowserTable
+  return BT and BT.HolderClassFile and BT:HolderClassFile(r)
+end
+
 -- Keyed by each row's HOLDER (the Character column's value, timeline-ledger Phase 7): a legacy
 -- row's holder is its char, and the Warband half of a holder move lists the Warband, under the name
 -- a player reads and with no class art (BrowserTable:HolderClassFile, which the column reads too).
@@ -71,20 +102,7 @@ local function historyCharItems()
     local c = r.holder or r.char
     if c and not seen[c] then
       seen[c] = true
-      local cf = NS.BrowserTable and NS.BrowserTable.HolderClassFile and NS.BrowserTable:HolderClassFile(r)
-      -- The class icon is FOLDED INTO THE LABEL, not carried in a field of its own. The widget is
-      -- LibKa0s-Widgets-1.0's and it has no `icon` seam -- deliberately: inline |T...|t / |A...|a
-      -- markup in a label is measured by its menuWidth (a class icon plus a Name-Realm is the
-      -- example in its own comment), so a label is the supported way to put art on a row. The
-      -- class color still rides in `color`, matching the Character column.
-      local icon = (NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
-        and NS.BrowserTable:ClassIconMarkup(cf)) or ""
-      local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
-      local name = NS.LedgerFormat.HolderLabel(c)
-      items[#items + 1] = {
-        value = c, label = (icon ~= "" and (icon .. " " .. name) or name),
-        color = cc and { cc.r, cc.g, cc.b } or nil,
-      }
+      items[#items + 1] = charItem(c, rowHolderClass(r))
     end
   end
   return items
@@ -94,15 +112,10 @@ end
 -- every holder the ledger knows, and the warband under the name a player reads, "Warband".
 local function holderCharItems()
   local items = {}
-  for _, h in ipairs(NS.Holdings and NS.Holdings:Holders() or {}) do
-    local e = NS.Holdings:View(h)
-    local cf = e and e.meta and e.meta.classFile
-    local icon = (cf and NS.BrowserTable and NS.BrowserTable.ClassIconMarkup
-      and NS.BrowserTable:ClassIconMarkup(cf)) or ""
-    local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
-    local name = NS.LedgerFormat.HolderLabel(h)
-    items[#items + 1] = { value = h, label = (icon ~= "" and (icon .. " " .. name) or name),
-      color = cc and { cc.r, cc.g, cc.b } or nil }
+  local H = NS.Holdings
+  for _, h in ipairs(H and H:Holders() or {}) do
+    local e = H:View(h)
+    items[#items + 1] = charItem(h, e and e.meta and e.meta.classFile)
   end
   return items
 end
