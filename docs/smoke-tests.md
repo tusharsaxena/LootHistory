@@ -644,10 +644,10 @@ name in class color (a character with no class token shows the bare name); a sel
 row shows a tick and goes gold; no row shows an empty box. Result:
 
 **HIST-18. Save, Reset, Clear.** On History set a group, sort and filters including a **Bound**
-pick, **Save** → "History view saved as default."; change filters, **Reset** → back to the saved view
-and the current player, "History view reset to your saved view."; **Clear** → the stock view (no
-group, newest first, no filters) and the saved view is kept: **Reset** brings it back. `/reload` →
-the Bound pick survived. Result:
+pick, **Save** → "History view saved as default."; change filters, **Clear** → back to the saved view
+and the current player; **Reset** → "History view reset to stock defaults." and the stock view (no
+group, newest first, no filters), and the saved view is deleted: **Clear** now also lands on stock.
+Save again, `/reload` → the Bound pick survived. Result:
 
 **HIST-19. The window opens on the current player.** `/reload`, `/lh show` → the saved view and the
 current player; **Character** reads "Character: Current" with that menu row gold. On a character with
@@ -746,12 +746,12 @@ Result:
 **HIST-36. Per-tab views (P11).** `/lh show`. On **History** pick a Quality, type `ore` in Search and
 **Save**. Go to **Holdings** → the bar is Holdings' own: no Quality pick, Search empty. There, group by
 **Character**, click the **Total** header and **Save** → "Holdings view saved as default.". Change the
-group to None and sort by Name, **Reset** → the list regroups by Character, sorted by Total (the
-reported bug: Save, Reset and Clear did nothing here). **Clear** → None, sorted by Name, filters
-cleared. Back on **History** → the Quality pick and `ore` are still there, the group is History's
+group to None and sort by Name, **Clear** → the list regroups by Character, sorted by Total (the
+reported bug: Save, Reset and Clear did nothing here). **Reset** → None, sorted by Name, filters
+cleared, and Holdings' saved view is gone. Back on **History** → the Quality pick and `ore` are still there, the group is History's
 own. On **Insights** and **Timeline** set something different again and switch round all four tabs
 → each comes back exactly as left, Character scope included. **Clear** on the Timeline → its Search
-and Date go to stock and the charted thing stays. `/reload`, `/lh show` → each tab opens on its own
+and Date return to its saved view (stock if none) and the charted thing stays. `/reload`, `/lh show` → each tab opens on its own
 saved view (Insights and Timeline on stock if never saved). On a profile saved before this release,
 every tab first opens on the one view you had saved. Result:
 
@@ -1767,7 +1767,7 @@ expectation it corrected against the code, are listed with what changed. Sign on
 | HIST-32, HIST-33 | § 17j.8, § 17h.6 | No result recorded |
 | HIST-34 | New | New with the History grip on `Core.MakeResizable` (CA-LH-01, #33, LibKa0s v1.67.0 Core 10) |
 | HIST-35 | New | New with the timeline ledger P4 polish (the one-line filter bar, equal Direction/Bound widths, the measured minimum width); no result recorded; the Export/cluster bullet corrected by P6 (the bar now scales) |
-| HIST-36 | New | New with the timeline ledger P11 (per-tab views; Holdings Save/Reset/Clear; schema v14); no result recorded; HIST-18 rewritten by P11 (Reset restores the saved view, Clear goes to stock) |
+| HIST-36 | New | New with the timeline ledger P11 (per-tab views; Holdings Save/Reset/Clear; schema v14); no result recorded; HIST-18 rewritten by P11 (Reset deletes the saved view for stock, Clear returns to it) |
 | FB-1 | New | New with the timeline ledger P6 (the filter bar fills the window and scales proportionally); no result recorded |
 | AC-1 | New | New with the timeline ledger P9 (the Search autocomplete on every tab, LibKa0s v1.70.0 `Autocomplete`); no result recorded |
 | INS-1 to INS-3 | § 7 | No result recorded |

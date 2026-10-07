@@ -532,9 +532,9 @@ function B:BuildFilterBar(bar)
   self._exportBtn = exportBtn
   -- All three act on the ACTIVE tab alone (P11): every tab keeps its own filters and saved view.
   local clear = makeBarButton(bar, "Clear", exportW, function() B:ClearFilters() end,
-    "Clear this tab's filters, group and sort to stock defaults. Its saved view is kept.")
+    "Clear filters and group/sort back to this tab's saved view.")
   local resetBtn = makeBarButton(bar, "Reset", exportW, function() B:ResetView() end,
-    "Restore this tab's saved view (stock defaults when none is saved).")
+    "Reset this tab's saved view to stock defaults.")
   local saveBtn = makeBarButton(bar, "Save", exportW, function() B:SaveView() end,
     "Save this tab's current group, sort and filters as its default view.")
 

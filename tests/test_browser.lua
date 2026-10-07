@@ -419,19 +419,20 @@ test("Browser.CaptureView omits the character scope (it is session-only)", funct
   end)
 end)
 
-test("Browser.SaveView stores the tab's view; ResetView restores it; ClearFilters goes to stock", function()
-  -- P11: Reset no longer drops the saved view; Clear is the way back to stock, and keeps it.
+test("Browser.SaveView stores the tab's view; ClearFilters restores it; ResetView drops it for stock", function()
+  -- Original meanings, per tab: Clear goes back to the saved view (keeping it), Reset deletes it.
   withFixture(FIXTURE, function()
     B._dd = nil
     B:ApplyView({ groupBy = "zone", date = "all" }, "all")
     B:SaveView()
     assertEqual(NS.db.profile.savedViews.History.groupBy, "zone")
     B:ApplyView({ groupBy = "source", date = "all" }, "all")
-    B:ResetView(true)
-    assertEqual(NS.BrowserTable.groupBy, "zone", "reset restores the saved view")
     B:ClearFilters()
-    assertEqual(NS.BrowserTable.groupBy, "none", "clear goes to stock")
-    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone", "and keeps the saved view")
+    assertEqual(NS.BrowserTable.groupBy, "zone", "clear restores the saved view")
+    assertEqual(NS.db.profile.savedViews.History.groupBy, "zone", "and keeps it")
+    B:ResetView(true)
+    assertEqual(NS.BrowserTable.groupBy, "none", "reset goes to stock")
+    assertEqual(NS.db.profile.savedViews, nil, "and deletes the saved view")
   end)
 end)
 

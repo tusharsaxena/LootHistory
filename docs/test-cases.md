@@ -666,7 +666,7 @@ badge and any count quoted in the docs must agree with it.
 - Browser.CaptureView records the table's group and sort state
 - Browser.CaptureView stores unset column filters as empty sets, never nil
 - Browser.CaptureView omits the character scope (it is session-only)
-- Browser.SaveView stores the tab's view; ResetView restores it; ClearFilters goes to stock
+- Browser.SaveView stores the tab's view; ClearFilters restores it; ResetView drops it for stock
 - Browser: History offers Group: Type & SubType right after Type, and a saved view keeps it
 - Browser: an empty multi-select reads as the All sentinel's own label
 - Browser: a dropdown with no options at all still labels itself All
@@ -1286,11 +1286,12 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
 
-### test_views.lua (14)
+### test_views.lua (15)
 
 - Views: Save on each tab writes only that tab's slot
-- Views: Reset and Clear on one tab change only that tab's live state and no saved slot
-- Views: a tab with no saved view resets to its own stock view
+- Views: Clear on one tab applies its saved view, touching no other tab and no slot
+- Views: Reset deletes only the active tab's slot and applies its stock view
+- Views: a tab with no saved view clears and resets to its own stock view
 - Views: Holdings Save, Reset and Clear take effect on the Holdings view
 - Views: a view from another tab applies to Holdings as None, sorted by Name
 - Views: switching tabs back and forth restores each tab's own live state exactly
@@ -1700,7 +1701,7 @@ badge and any count quoted in the docs must agree with it.
 | test_timelinetab.lua | 31 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
-| test_views.lua | 14 |
+| test_views.lua | 15 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1721,4 +1722,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1471** |
+| **Total** | **1472** |

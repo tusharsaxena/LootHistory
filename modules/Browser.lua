@@ -901,11 +901,12 @@ end
 
 -- The filter bar's Save / Reset / Clear (P11): each acts on the ACTIVE tab alone.
 --   Save  stores the tab's current state as its saved view (profile.savedViews[tab]).
---   Reset restores the tab's saved view, or its stock view when it has none.
---   Clear returns the tab to its stock view; its saved view is kept. The Timeline's remembered
---         thing and Total only are not filters and are untouched (it never applies them from a view).
+--   Reset deletes the tab's saved view and applies its stock view.
+--   Clear returns the tab's filters/group/sort to its saved view, or its stock view when it has
+--         none; the saved slot is kept. The Timeline's remembered thing and Total only are not
+--         filters and are untouched by Clear (it never applies them from a view).
 -- Test mode is session-only and never writes a saved view (Save refuses), and its Reset and Clear
--- both land on the stock view over every character.
+-- both land on the stock view over every character without writing.
 function B:SaveView()
   if not (NS.db and NS.db.profile) then return end
   if NS.BrowserTable and NS.BrowserTable.testMode then
@@ -921,11 +922,15 @@ end
 -- `silent` suppresses the chat line when called programmatically; the filter-bar Reset button
 -- calls it with no argument and keeps the message.
 function B:ResetView(silent)
-  local all = NS.db and NS.db.profile and NS.db.profile.savedViews
-  local has = type(all) == "table" and type(all[lastTab]) == "table"
-  self:ApplyView(initialFor(lastTab))
+  local p = NS.db and NS.db.profile
+  local testMode = NS.BrowserTable and NS.BrowserTable.testMode
+  if p and not testMode and type(p.savedViews) == "table" then
+    p.savedViews[lastTab] = nil
+    if next(p.savedViews) == nil then p.savedViews = nil end
+  end
+  self:ApplyView(stockView(lastTab), testMode and "all" or "current")
   if not silent then
-    print(("%s view reset to %s."):format(lastTab, has and "your saved view" or "stock defaults"))
+    print(("%s view reset to stock defaults."):format(lastTab))
   end
 end
 
@@ -962,11 +967,11 @@ function B:AdoptProfile()
   B:ApplyVisibility()
 end
 
--- Clear returns the active tab's filters/group/sort to its stock view (its saved view is kept),
--- and the player scope to "current player" (every character in test mode). See SaveView above.
+-- Clear returns the active tab's filters/group/sort to its saved view (its stock view when it has
+-- none; the saved slot is kept), and the player scope to "current player" (every character in
+-- test mode). See SaveView above.
 function B:ClearFilters()
-  local _, scope = initialFor(lastTab)
-  self:ApplyView(stockView(lastTab), scope)
+  self:ApplyView(initialFor(lastTab))
 end
 
 -- Route the Export button to the active tab's modal (issue #15), titled after the tab ("Export

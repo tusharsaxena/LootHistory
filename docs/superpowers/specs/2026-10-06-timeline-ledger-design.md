@@ -276,10 +276,10 @@ thing and Total only, Holdings' group and sort), and a tab switch parks the outg
 puts the incoming tab's on the bar. This supersedes issue #13's one filter shared by History and
 Insights. Saved views are per tab too: `profile.savedViews = { History, Insights, Timeline,
 Holdings }`, and the schema step `to = 14` copies a stored `savedView` into every tab's slot and
-removes it. **Save** stores the active tab's state in its slot; **Reset** restores the active tab's
-saved view (its stock view when none); **Clear** applies the active tab's stock view (Holdings: group
-None, sort Name) and keeps its saved view; the Timeline's Clear resets its filters and keeps the
-charted thing and Total only. None touches another tab. Holdings' group and sort join its view (the
+removes it. **Save** stores the active tab's state in its slot; **Reset** deletes the active tab's
+saved view and applies its stock view (Holdings: group None, sort Name); **Clear** returns the tab to
+its saved view (its stock view when none) and keeps the slot; the Timeline's Clear returns its filters
+and keeps the charted thing and Total only. These are the original meanings, applied per tab. None touches another tab. Holdings' group and sort join its view (the
 P6 "session-only" ruling is superseded). Test mode stays session-only and never writes a saved view.
 
 ### 8.1 Timeline (3rd tab)

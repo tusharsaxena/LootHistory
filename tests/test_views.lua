@@ -98,7 +98,7 @@ case("Views: Save on each tab writes only that tab's slot", function()
   end
 end)
 
-case("Views: Reset and Clear on one tab change only that tab's live state and no saved slot", function()
+case("Views: Clear on one tab applies its saved view, touching no other tab and no slot", function()
   NS.db.profile.savedViews = nil
   for _, tab in ipairs(TABS) do
     B:SelectTab(tab); B:SetSearchText("saved-" .. tab); B:SaveView()
@@ -109,39 +109,54 @@ case("Views: Reset and Clear on one tab change only that tab's live state and no
   local saved = ser(NS.db.profile.savedViews)
   for _, tab in ipairs(TABS) do
     B:SelectTab(tab)
-    B:ResetView(true)
-    assertEqual(B._search:GetText(), "saved-" .. tab, tab .. " Reset restores its saved view")
+    B:ClearFilters()
+    assertEqual(B._search:GetText(), "saved-" .. tab, tab .. " Clear returns to its saved view")
     assertEqual(B:CurrentFilter().text, "saved-" .. tab)
     for _, other in ipairs(TABS) do
       if other ~= tab then
-        assertEqual(B:CurrentFilter(other).text, "live-" .. other, other .. " untouched by " .. tab .. "'s Reset")
+        assertEqual(B:CurrentFilter(other).text, "live-" .. other, other .. " untouched by " .. tab .. "'s Clear")
       end
     end
     B:SetSearchText("live-" .. tab)   -- back to the live text, so the next tab's check is exact
   end
-  local cleared = {}
+  assertEqual(ser(NS.db.profile.savedViews), saved, "Clear never writes or drops a saved view")
+end)
+
+case("Views: Reset deletes only the active tab's slot and applies its stock view", function()
+  NS.db.profile.savedViews = nil
+  for _, tab in ipairs(TABS) do
+    B:SelectTab(tab); B:SetSearchText("saved-" .. tab); B:SaveView()
+    B:SetSearchText("live-" .. tab)
+  end
+  local reset = {}
   for _, tab in ipairs(TABS) do
     B:SelectTab(tab)
-    B:ClearFilters()
-    cleared[tab] = true
-    assertEqual(B._search:GetText(), "", tab .. " Clear goes to stock")
+    B:ResetView(true)
+    reset[tab] = true
+    assertEqual(B._search:GetText(), "", tab .. " Reset applies its stock view")
+    assertEqual(NS.db.profile.savedViews and NS.db.profile.savedViews[tab], nil, tab .. "'s slot is gone")
     for _, other in ipairs(TABS) do
-      if not cleared[other] then
-        assertEqual(B:CurrentFilter(other).text, "live-" .. other, other .. " untouched by " .. tab .. "'s Clear")
+      if not reset[other] then
+        assertEqual(NS.db.profile.savedViews[other].search, "saved-" .. other, other .. "'s slot survives " .. tab .. "'s Reset")
+        assertEqual(B:CurrentFilter(other).text, "live-" .. other, other .. " live state untouched")
       end
     end
   end
-  assertEqual(ser(NS.db.profile.savedViews), saved, "Reset and Clear never write a saved view")
+  assertEqual(NS.db.profile.savedViews, nil, "the last slot's Reset drops the savedViews table")
 end)
 
-case("Views: a tab with no saved view resets to its own stock view", function()
+case("Views: a tab with no saved view clears and resets to its own stock view", function()
   NS.db.profile.savedViews = { History = { search = "kept", date = "all" } }
   B:SelectTab("Insights")
   B:SetSearchText("typed")
+  B:ClearFilters()
+  assertEqual(B._search:GetText(), "", "Insights has no saved view: Clear lands on stock")
+  B:SetSearchText("typed")
   B:ResetView(true)
-  assertEqual(B._search:GetText(), "", "Insights has no saved view: stock")
+  assertEqual(B._search:GetText(), "", "and so does Reset")
+  assertEqual(NS.db.profile.savedViews.History.search, "kept", "History's slot is its own")
   B:SelectTab("History")
-  B:ResetView(true)
+  B:ClearFilters()
   assertEqual(B._search:GetText(), "kept", "History's saved view is its own")
 end)
 
@@ -164,20 +179,20 @@ case("Views: Holdings Save, Reset and Clear take effect on the Holdings view", f
   assertEqual(NS.db.profile.savedViews.History, nil, "Save on Holdings wrote no History slot")
 
   B._dd.group.onSelect("none"); HT:SetSort("name"); pick("quality", {})
-  B:ResetView(true)
-  assertEqual(HT.groupBy, "char", "Reset regroups the Holdings view")
+  B:ClearFilters()
+  assertEqual(HT.groupBy, "char", "Clear regroups the Holdings view")
   assertEqual(HT.sortKey, "total"); assertEqual(HT.sortAsc, false)
   assertEqual(B._dd.group._value, "char", "and the Group dropdown reads it")
   assertTrue(B.activeFilter.quality and B.activeFilter.quality[4], "and its filter is back")
-  B:SetCharSet(nil)   -- Reset scopes to the logged-in character, who holds nothing in this seed
+  B:SetCharSet(nil)   -- Clear scopes to the logged-in character, who holds nothing in this seed
   local lines = HT:Rows()
   assertTrue(#lines > 0 and lines[1].line.kind == "header", "the repainted view is grouped")
 
-  B:ClearFilters()
-  assertEqual(HT.groupBy, "none", "Clear ungroups the Holdings view")
+  B:ResetView(true)
+  assertEqual(HT.groupBy, "none", "Reset ungroups the Holdings view")
   assertEqual(HT.sortKey, "name"); assertEqual(HT.sortAsc, true, "Holdings' stock sort is Name, A to Z")
   assertEqual(B.activeFilter.quality, nil)
-  assertEqual(NS.db.profile.savedViews.Holdings.groupBy, "char", "Clear keeps the saved view")
+  assertEqual(NS.db.profile.savedViews, nil, "Reset deleted the saved view")
   assertEqual(BT.groupBy, "zone", "nothing on Holdings moved History's table")
 end)
 
@@ -257,10 +272,17 @@ case("Views: test mode never writes a saved view", function()
   local BT = NS.BrowserTable
   local was = BT.testMode
   BT.testMode = true
-  local ok, err = pcall(function() B:SaveView() end)
+  local ok, err = pcall(function()
+    B:SaveView()
+    assertEqual(NS.db.profile.savedViews, nil, "Save in test mode stores nothing")
+    NS.db.profile.savedViews = { History = { search = "kept", date = "all" } }
+    B:ResetView(true)
+    B:ClearFilters()
+    assertEqual(NS.db.profile.savedViews.History.search, "kept", "Reset and Clear in test mode write nothing")
+    NS.db.profile.savedViews = nil
+  end)
   BT.testMode = was
   if not ok then error(err, 0) end
-  assertEqual(NS.db.profile.savedViews, nil, "Save in test mode stores nothing")
 end)
 
 case("Views: Clear on the Timeline keeps the remembered thing", function()
