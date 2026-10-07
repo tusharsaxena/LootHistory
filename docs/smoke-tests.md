@@ -588,9 +588,11 @@ that fits every column), 1.3× scale. Result:
 Vendor, Character), twice each → each direction renders; the active header shows one shared up or
 down arrow, not Blizzard's spinner arrow. Result:
 
-**HIST-6. Group by.** Cycle **Group by** through None, Day, Quality, Type, Source, Zone, Character;
+**HIST-6. Group by.** Cycle **Group by** through None, Day, Quality, Type, Type & SubType, Source, Zone, Character;
 collapse and expand a header → each renders in column order; headers show a chevron right when
-collapsed and a chevron down when expanded, not `+` / `-`. Result:
+collapsed and a chevron down when expanded, not `+` / `-`. **Type & SubType** headers read
+"Type: Armor · Plate" (just "Type: Armor" when an item has no subtype, a currency as "Currency · <category>"),
+alphabetical by type then subtype; the same mode is offered on **Holdings**. Result:
 
 **HIST-7. Filters and the row count.** Use **Date** (All, Today, Last 7 days, Last 30 days) and pick two
 values in **Bound**, **Quality**, **Type**, **SubType**, **Source**, **Zone**, **Character** → rows narrow
