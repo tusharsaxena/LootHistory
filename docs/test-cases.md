@@ -1286,7 +1286,7 @@ badge and any count quoted in the docs must agree with it.
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
 
-### test_views.lua (15)
+### test_views.lua (16)
 
 - Views: Save on each tab writes only that tab's slot
 - Views: Clear on one tab applies its saved view, touching no other tab and no slot
@@ -1300,6 +1300,7 @@ badge and any count quoted in the docs must agree with it.
 - Views: a profile adopt forgets every tab's parked state
 - Views: test mode never writes a saved view
 - Views: Clear on the Timeline keeps the remembered thing
+- Views: Reset on the Timeline turns Total only off at once; the charted thing lasts the session
 - Migrate v13->v14: a profile's saved view becomes four identical per-tab views, the old key goes
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
@@ -1701,7 +1702,7 @@ badge and any count quoted in the docs must agree with it.
 | test_timelinetab.lua | 31 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 10 |
-| test_views.lua | 15 |
+| test_views.lua | 16 |
 | test_panel.lua | 43 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
@@ -1722,4 +1723,4 @@ badge and any count quoted in the docs must agree with it.
 | test_diagnostics_contract.lua | 9 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
-| **Total** | **1472** |
+| **Total** | **1473** |

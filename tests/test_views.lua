@@ -301,6 +301,27 @@ case("Views: Clear on the Timeline keeps the remembered thing", function()
   if not ok then error(err, 0) end
 end)
 
+case("Views: Reset on the Timeline turns Total only off at once; the charted thing lasts the session", function()
+  -- red under: a Reset that keeps the Timeline's slot, or a doc claim that Total only waits for a load.
+  NS.db.profile.savedViews = nil
+  local TL = NS.Timeline
+  local thing, hidden = TL.thing, TL.hidden
+  local ok, err = pcall(function()
+    B:SelectTab("Timeline")
+    TL.hidden = {}
+    TL:SetThing("g", true)
+    B:SetViewField("timelineTotalOnly", true, "Timeline")
+    assertTrue(TL:IsHidden("A-Realm"), "Total only hides every holder before the Reset")
+    B:ResetView(true)
+    assertEqual(NS.db.profile.savedViews, nil, "Reset removed the Timeline's slot")
+    assertEqual(TL:Thing(), "g", "the charted thing stays live for the session")
+    assertTrue(B:ViewField("timelineTotalOnly", "Timeline") ~= true, "Total only reads off from the stock view")
+    assertTrue(not TL:IsHidden("A-Realm"), "and a holder shows again at once")
+  end)
+  TL.thing, TL.hidden = thing, hidden
+  if not ok then error(err, 0) end
+end)
+
 -- ── Review Focus 3: the v13 -> v14 migration ───────────────────────────────────────────────
 
 --- Run the real runner against `db`, with the harness's own db put back however it ends. Answers
