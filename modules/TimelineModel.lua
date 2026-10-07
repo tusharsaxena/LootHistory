@@ -404,8 +404,7 @@ end
 
 -- ── the legend (spec §8.1, P10) ──
 
--- A count with thousands grouped by commas ("12,345"); the default font has no thin space, and
--- History's Qty column reads counts the same way.
+-- A count with thousands grouped by commas ("12,345"); the default font has no thin space.
 function TM.FormatCount(n)
   local s = tostring(math.floor((n or 0) + 0.5))
   local sign, digits = s:match("^(-?)(%d+)$")
