@@ -1,4 +1,4 @@
-# Delta: LibKa0s v1.70.0 -> v1.71.0
+Delta: LibKa0s v1.70.0 -> v1.71.0
 
 Run by the 2026-10-07 review-and-audit remediation (item `RV-LH`) on branch
 `feat/2026-10-07-review-audit-remediation`. The re-vendor is mechanical; adoption of new surfaces is out
