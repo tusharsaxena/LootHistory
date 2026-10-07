@@ -1,8 +1,10 @@
 # Test Cases
 
 The full inventory of every headless test case in this repo, grouped by the suite file it
-lives in. The `## Totals` table below is the **authoritative pass count** — the README test
-badge and any count quoted in the docs must agree with it.
+lives in. The `## Totals` table below counts the cases that run: its **Total** is the
+authoritative pass count, and the README test badge and any count quoted in the docs must equal
+it. A declared skip is listed by name in its group and counted on the `Skipped` row, never in
+Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
@@ -1428,7 +1430,7 @@ badge and any count quoted in the docs must agree with it.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (30)
+### test_libka0s.lua (31)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1460,6 +1462,7 @@ badge and any count quoted in the docs must agree with it.
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 - v1.69.0: the line chart is vendored and attached to the Widgets major
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
+- v1.71.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (14)
 
@@ -1712,7 +1715,7 @@ badge and any count quoted in the docs must agree with it.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 30 |
+| test_libka0s.lua | 31 |
 | test_surface_parity.lua | 14 |
 | test_disabled.lua | 17 |
 | test_perf.lua | 6 |
@@ -1724,7 +1727,8 @@ badge and any count quoted in the docs must agree with it.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
-| test_diagnostics_contract.lua | 9 |
+| test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
+| Skipped | 1 |
 | **Total** | **1477** |

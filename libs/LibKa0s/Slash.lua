@@ -18,7 +18,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 19
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 20
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -264,7 +264,7 @@ end
 -- ── profiles (minor 17) ────────────────────────────────────────────────────────────────────
 --
 -- A profile store is DUCK-TYPED on AceDB-3.0's three methods, and the library never requires AceDB
--- (slash-commands.md:34). A store missing any of them is no store, so nothing is half-called.
+-- (slash-commands-§1). A store missing any of them is no store, so nothing is half-called.
 local function isProfileStore(store)
   return type(store) == "table" and type(store.GetProfiles) == "function"
     and type(store.GetCurrentProfile) == "function" and type(store.SetProfile) == "function"

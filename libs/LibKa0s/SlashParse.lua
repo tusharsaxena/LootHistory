@@ -16,7 +16,7 @@
 local lib = LibStub and LibStub("LibKa0s-Slash-1.0", true)
 if not lib then return end
 
-local PARSE_MINOR = 1
+local PARSE_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own: a parser that attached to an older shell
 -- would publish lib.ParseValue beside a `lib.MODULES` the shell owns, and nothing would say the two
 -- came from different vendored copies.
@@ -126,7 +126,10 @@ end
 
 local function parseNumber(args, row, S)
   local n = tonumber(args[1])
-  if not n then return nil, S("ERR_NUMBER") end
+  -- Lua's tonumber reads "nan", "inf" and "-inf" as numbers, and "1e400" overflows to inf. None of
+  -- them is a setting anyone means, and an unbounded row has no clamp to catch them, so they are
+  -- refused here as not-a-number, before the enum and the clamp (minor 2; n ~= n is NaN's test).
+  if not n or n ~= n or n == math.huge or n == -math.huge then return nil, S("ERR_NUMBER") end
   -- A NUMERIC dropdown constrains rather than clamps. Clamping a value that is merely outside the
   -- list lands BETWEEN two entries, and the renderer then has no label for what is stored — the
   -- row reads as blank and the user cannot tell what they set.
@@ -137,6 +140,9 @@ local function parseNumber(args, row, S)
     end
     return nil, S("ERR_ALLOWED"):format(allowedText(allowed))
   end
+  -- n stays the SECOND argument on purpose. Lua 5.1's math.max(0/0, -100) answers nan while
+  -- math.max(-100, 0/0) answers -100, so this order is what kept a NaN off a bounded row before
+  -- the refusal above existed. Non-finite input never reaches here now; keep the order anyway.
   if row.min then n = math.max(row.min, n) end
   if row.max then n = math.min(row.max, n) end
   return n

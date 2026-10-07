@@ -36,7 +36,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Env-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Env-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -49,10 +49,11 @@ lib.MODULES.Env = MINOR
 
 --- One field of an addon's TOC manifest, or nil.
 ---
---- The reader moved under `C_AddOns` in 10.x and the bare global is deprecated but still present,
---- so both rungs are live: the namespaced one wherever it exists, the global where it does not,
---- and nil where neither does. Nil is a real answer — a field the TOC does not carry answers nil
---- on a perfectly healthy client — so a caller that needs a value supplies its own.
+--- The reader lives under `C_AddOns` on every supported client. The bare global it moved from in
+--- 10.x is gone — the compat section's own worked case of a dead fallback rung — so it is never
+--- read: from minor 2 this answers `C_AddOns.GetAddOnMetadata` where that exists and nil where it
+--- does not. Nil is a real answer — a field the TOC does not carry answers nil on a perfectly
+--- healthy client — so a caller that needs a value supplies its own.
 ---
 --- @param addonName string  the addon FOLDER name, from the host's first vararg
 --- @param field string      a TOC key: "Version", "Title", "Notes", "Author", …
@@ -60,9 +61,6 @@ lib.MODULES.Env = MINOR
 function lib.GetAddOnMetadata(addonName, field)
   if C_AddOns and C_AddOns.GetAddOnMetadata then
     return C_AddOns.GetAddOnMetadata(addonName, field)
-  end
-  if GetAddOnMetadata then
-    return GetAddOnMetadata(addonName, field)
   end
   return nil
 end

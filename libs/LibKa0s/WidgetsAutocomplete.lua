@@ -19,9 +19,15 @@
 --
 -- The host's box already has its own OnTextChanged (its filter), OnEnterPressed and
 -- OnEscapePressed (usually ClearFocus). Every script here is HOOKED, so the host's handler runs
--- first and keeps running; nothing the host set is replaced. Hooks cannot be removed, so they are
--- installed ONCE per box and dispatch to whichever handle owns the box now: a second Autocomplete
--- on the same box releases the first, and a released handle's hooks do nothing.
+-- first and keeps running; nothing the host set is replaced. Hooks dispatch to whichever handle
+-- owns the box now: a second Autocomplete on the same box releases the first, and a released
+-- handle's hooks do nothing.
+--
+-- A host SetScript on a hooked script drops the hooks with the old script (the client keeps only
+-- the new one), so the host sets its scripts FIRST. Calling Autocomplete again re-installs every
+-- hook (minor 2). Hooks cannot be removed, so each call stamps the box with a new generation and
+-- its hooks dispatch only while that generation is current: the wrappers of an older call stay in
+-- the chain but do nothing, and a re-call with no SetScript between never dispatches twice.
 --
 -- Because the host's Enter usually clears focus BEFORE the Enter hook runs, losing focus does not
 -- close the list on the spot: the close waits one frame, so an Enter or Tab still finds the row the
@@ -39,7 +45,7 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local AUTOCOMPLETE_MINOR = 1
+local AUTOCOMPLETE_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -64,10 +70,12 @@ lib.AUTOCOMPLETE = {
 }
 local AC = lib.AUTOCOMPLETE
 
--- The box each hooked EditBox is owned by now, and the boxes already hooked. Weak-keyed: a box the
--- host drops takes its entries with it.
+-- The handle each hooked EditBox is owned by now, and each box's current hook generation. Both are
+-- weak-keyed, but only `generation` can actually shed an entry: its values are numbers. An `owners`
+-- entry persists until Release or replacement, because the handle references its box and Lua 5.1
+-- has no ephemerons. That is harmless: a client frame lives for the whole session anyway.
 local owners = setmetatable({}, { __mode = "k" })
-local hooked = setmetatable({}, { __mode = "k" })
+local generation = setmetatable({}, { __mode = "k" })
 
 -- -- small readers -------------------------------------------------------------------------------
 
@@ -154,16 +162,17 @@ local function ensureList(h)
   list:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, AC.OVERLAP)
   list:SetPoint("TOPRIGHT", box, "BOTTOMRIGHT", 0, AC.OVERLAP)
   list:EnableMouse(true)
+  -- Set once: the pieces never change. Only the colors follow the box, in skin().
+  if list.SetBackdrop then list:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 }) end
   list:Hide()
   h.__list = list
   return list
 end
 
---- The box's own skin, read on every show: a host that restyles its box restyles its list.
+--- The box's own colors, read on every show: a host that restyles its box restyles its list.
 local function skin(h)
   local list, box = h.__list, h.__box
-  if not list.SetBackdrop then return end
-  list:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+  if not list.SetBackdropColor then return end
   local r, g, b, a = boxColor(box, "GetBackdropColor", AC.BG)
   list:SetBackdropColor(r, g, b, max(a, AC.MIN_BG_ALPHA))
   list:SetBackdropBorderColor(boxColor(box, "GetBackdropBorderColor", AC.BORDER))
@@ -309,8 +318,10 @@ local function onFocusLost(h)
   end)
 end
 
-local function dispatch(fn)
+--- A hook for one call's generation: inert once a later call has stamped the box with a newer one.
+local function dispatch(fn, gen)
   return function(box, ...)
+    if generation[box] ~= gen then return end
     local h = owners[box]
     if h and live(h) then fn(h, ...) end
   end
@@ -343,13 +354,20 @@ local HOOK_ORDER = { "OnTextChanged", "OnArrowPressed", "OnEnterPressed", "OnTab
   "OnEscapePressed", "OnEditFocusLost", "OnEditFocusGained", "OnHide" }
 
 local function hookBox(box)
-  if hooked[box] then return end
-  hooked[box] = true
-  for _, script in ipairs(HOOK_ORDER) do box:HookScript(script, dispatch(HOOKS[script])) end
+  local gen = (generation[box] or 0) + 1
+  generation[box] = gen
+  for _, script in ipairs(HOOK_ORDER) do box:HookScript(script, dispatch(HOOKS[script], gen)) end
 end
 
 local function positive(v, fallback)
   return (type(v) == "number" and v > 0) and v or fallback
+end
+
+--- A row count: a positive number floored, or MAX_ROWS when it floors below 1. A fractional count
+--- would draw fewer rows than the list is tall.
+local function rowCount(v)
+  local n = math.floor(positive(v, AC.MAX_ROWS))
+  return n >= 1 and n or AC.MAX_ROWS
 end
 
 --- One autocomplete under `editBox`. See the API document for `opts`. Answers a handle, or nil with
@@ -361,7 +379,7 @@ function lib.Autocomplete(editBox, opts)
   if type(opts.provider) ~= "function" then return nil end
   local h = setmetatable({
     __box = editBox, __provider = opts.provider, __onPick = opts.onPick,
-    __maxRows = positive(opts.maxRows, AC.MAX_ROWS), __rowH = positive(opts.rowHeight, AC.ROW_H),
+    __maxRows = rowCount(opts.maxRows), __rowH = positive(opts.rowHeight, AC.ROW_H),
     __debounce = max(AC.DEBOUNCE, type(opts.debounce) == "number" and opts.debounce or 0),
     __minChars = positive(opts.minChars, AC.MIN_CHARS),
     __font = opts.font or AC.FONT, __strata = opts.strata or AC.STRATA,

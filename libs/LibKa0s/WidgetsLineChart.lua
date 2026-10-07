@@ -12,9 +12,9 @@
 -- -- WHY THE MATH IS PUBLISHED ------------------------------------------------------------------
 --
 -- Everything decided without a frame -- the tick ladder, the thinning, the time labels, the
--- nearest x, the dash cutting -- is on `lib.ChartMath`, so a library suite pins it with no geometry
--- stub and a host can line its own decorations (a bar strip under the plot) up with the same
--- numbers rather than restating them.
+-- nearest x, the dash cutting, the clip to the plot -- is on `lib.ChartMath`, so a library suite
+-- pins it with no geometry stub and a host can line its own decorations (a bar strip under the
+-- plot) up with the same numbers rather than restating them.
 --
 -- -- WHAT THE HOST STILL OWNS -------------------------------------------------------------------
 --
@@ -28,7 +28,7 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local CHART_MINOR = 2
+local CHART_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -217,6 +217,47 @@ function Math.Dashes(x1, y1, x2, y2, dash, gap)
   return out
 end
 
+-- -- the clip: Liang-Barsky against the plot rectangle ---------------------------------------------
+--
+-- WHY EVERY SEGMENT IS CLIPPED BEFORE IT IS DRAWN. A host may pin yMin/yMax (or xMin/xMax) inside
+-- its data, and a point a long way off the plot then maps to a pixel a long way off the chart. A
+-- solid segment to it draws over the rest of the UI, and a DASHED one is worse: Dashes cuts the
+-- whole unclipped length, one pooled Line per dash, and Lines are never destroyed in the client,
+-- so one far point could grow the pool by millions for the session. Clipped first, a segment is
+-- never longer than the plot's diagonal, so the dashes one range can make are bounded by geometry.
+
+-- One edge of the parametric clip: p is the direction's component toward the edge, q the distance
+-- to it. Answers the narrowed [t0, t1], or nil when the segment lies wholly beyond the edge.
+local function clipEdge(p, q, t0, t1)
+  if p == 0 then
+    if q < 0 then return nil end
+    return t0, t1
+  end
+  local r = q / p
+  if p < 0 then
+    if r > t1 then return nil end
+    if r > t0 then t0 = r end
+  else
+    if r < t0 then return nil end
+    if r < t1 then t1 = r end
+  end
+  return t0, t1
+end
+
+function Math.ClipSegment(x1, y1, x2, y2, left, bottom, right, top)
+  local dx, dy = x2 - x1, y2 - y1
+  local t0, t1 = clipEdge(-dx, x1 - left, 0, 1)
+  if t0 then t0, t1 = clipEdge(dx, right - x1, t0, t1) end
+  if t0 then t0, t1 = clipEdge(-dy, y1 - bottom, t0, t1) end
+  if t0 then t0, t1 = clipEdge(dy, top - y1, t0, t1) end
+  if not t0 then return nil end
+  -- An end the clip did not move is answered as given, not recomputed, so an inside segment comes
+  -- back bit-for-bit.
+  if t1 < 1 then x2, y2 = x1 + t1 * dx, y1 + t1 * dy end
+  if t0 > 0 then x1, y1 = x1 + t0 * dx, y1 + t0 * dy end
+  return x1, y1, x2, y2
+end
+
 -- -- the widget ----------------------------------------------------------------------------------
 --
 -- POOLED BY INDEX. A render hands out Lines and labels from two arrays in order and hides whatever
@@ -347,20 +388,28 @@ local function inDash(sr, xa, xb)
   return mid >= sr.dashFrom and mid <= (sr.dashTo or math.huge)
 end
 
+-- THE ONE PLACE A SERIES SEGMENT IS CLIPPED, before it is dashed or drawn solid, so Dashes only
+-- ever cuts a clipped length. A segment wholly off the plot draws nothing. Input values are never
+-- clamped: a clipped segment keeps the slope of the data it came from.
+local function drawSegment(c, s, sr, a, b, color, th)
+  local x1, y1, x2, y2 = Math.ClipSegment(xToPixel(s, a.x), yToPixel(s, a.y), xToPixel(s, b.x),
+    yToPixel(s, b.y), s.left, s.bottom, s.left + s.w, s.bottom + s.h)
+  if not x1 then return end
+  if inDash(sr, a.x, b.x) then dashed(c, x1, y1, x2, y2, color, th) else seg(c, x1, y1, x2, y2, color, th) end
+end
+
 local function drawSeries(c, s, sr)
   local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w, c.__opts.pxPerPoint))
   local color, th = sr.color or LC.LINE, sr.thickness or 1.5
   if #pts == 1 then
     local x, y = xToPixel(s, pts[1].x), yToPixel(s, pts[1].y)
-    seg(c, x - 1, y, x + 1, y, color, th)
+    -- The tick only for a point on the plot, for the reason drawSegment clips.
+    if Math.ClipSegment(x, y, x, y, s.left, s.bottom, s.left + s.w, s.bottom + s.h) then
+      seg(c, x - 1, y, x + 1, y, color, th)
+    end
     return
   end
-  for i = 2, #pts do
-    local a, b = pts[i - 1], pts[i]
-    local x1, y1 = xToPixel(s, a.x), yToPixel(s, a.y)
-    local x2, y2 = xToPixel(s, b.x), yToPixel(s, b.y)
-    if inDash(sr, a.x, b.x) then dashed(c, x1, y1, x2, y2, color, th) else seg(c, x1, y1, x2, y2, color, th) end
-  end
+  for i = 2, #pts do drawSegment(c, s, sr, pts[i - 1], pts[i], color, th) end
 end
 
 local function scaleFor(d, w, h)
@@ -371,8 +420,15 @@ local function scaleFor(d, w, h)
   return { x0 = d.xMin, x1 = d.xMax, y0 = y0, y1 = y1, left = left, bottom = bottom, w = pw, h = ph }, ticks
 end
 
+-- Every render RE-ARMS the hover: the scale (and maybe the data) under a resting cursor has just
+-- changed, so the crosshair's pixel and the host's tooltip are both stale even when the nearest
+-- index is not. `__hoverStale` makes the next HoverAtPixel -- the armed OnUpdate's, one frame later
+-- -- move the crosshair and fire onHover even for the same index. The index itself is kept, so a
+-- ClearHover (OnLeave, OnHide) that arrives first still tells the host its hover ended. With no
+-- scale left there is nothing to point at, so the crosshair goes now.
 local function render(c, w, h)
   c.__lineUsed, c.__labelUsed = 0, 0
+  c.__hoverStale = true
   local d = c.__data
   if d and d.xMin and d.xMax and w > 0 and h > 0 then
     local s, ticks = scaleFor(d, w, h)
@@ -383,6 +439,7 @@ local function render(c, w, h)
     for _, sr in ipairs(d.series or {}) do drawSeries(c, s, sr) end
   else
     c.__scale = nil
+    c.__cross:Hide()
   end
   hideUnused(c)
 end
@@ -427,8 +484,8 @@ local function attachMethods(c)
     local xs = d and d.hoverXs
     if not (s and xs and #xs > 0) then return nil end
     local i = Math.NearestIndex(xs, self:PixelToX(px))
-    if i ~= self.__hoverIndex then
-      self.__hoverIndex = i
+    if i ~= self.__hoverIndex or self.__hoverStale then
+      self.__hoverIndex, self.__hoverStale = i, nil
       moveCross(self, xs[i])
       if self.__opts.onHover then self.__opts.onHover(self, i, xs[i]) end
     end
