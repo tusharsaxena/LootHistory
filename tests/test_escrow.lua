@@ -286,3 +286,110 @@ case("Escrow: a money-only pass leaves the staged items for the item pass; both 
   assertEqual(alt.escrow.mailMoneyAlt, 1000)
   assertEqual(NS.State.pendingMail, nil)
 end)
+
+-- LH-11 characterization, pinned before planMailMoney, planExits and commitExits were split into
+-- named helpers. The multi-auction shapes pin CURRENT behavior, the known limitation LH-R-06
+-- names: the exits of one item share one ts (a new exit restarts the TTL) and one sale mail books
+-- every pending exit of the item as AH_SOLD.
+case("Escrow: mail money taken with the mailbox closed is not drawn from mail (LH-11)", function()
+  S.reset()
+  m.__money = 0
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.mailMoney, esc.mailMoneyAlt = 1000, 1000
+  m.__money = 400
+  R():MarkDirty("money"); R():Flush()
+  m.__now = 108; R():Flush()
+  assertEqual(#rowsBy("MOVE"), 0)
+  local ins = rowsBy("IN")
+  assertEqual(#ins, 1); assertEqual(ins[1].quantity, 400); assertTrue(ins[1].source ~= "ALT_MAIL")
+  assertEqual(esc.mailMoney, 1000); assertEqual(esc.mailMoneyAlt, 1000)
+end)
+
+case("Escrow: a gold loss with mail money waiting is never drawn from mail (LH-11)", function()
+  S.reset()
+  m.__money = 1000
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.mailMoney = 500
+  S.show("MailInfo"); R():Flush()
+  m.__money = 900
+  R():MarkDirty("money"); R():Flush()
+  m.__now = 108; R():Flush()
+  assertEqual(#rowsBy("MOVE"), 0); assertEqual(#rowsBy("OUT"), 1)
+  assertEqual(esc.mailMoney, 500)
+end)
+
+local function auctionsGone(list)
+  S.show("Auctioneer")
+  m.__ownedAuctions = list
+  R():OnEvent("OWNED_AUCTIONS_UPDATED"); R():Flush()       -- auctions column genesis
+  m.__ownedAuctions = {}
+  R():OnEvent("OWNED_AUCTIONS_UPDATED"); R():Flush()
+end
+
+case("Escrow: two auctions of one item leave as one exit; a partial return leaves the rest (LH-11)", function()
+  S.reset()
+  S.genesis()
+  auctionsGone({ { itemID = 3, quantity = 1, link = "L3", status = 0 },
+    { itemID = 3, quantity = 2, link = "L3", status = 0 } })
+  local esc = NS.Holdings:Escrow(S.me())
+  assertEqual(esc.exits[3].n, 3); assertEqual(esc.exits[3].ts, m.__epoch)
+  S.show("MailInfo"); R():Flush()                          -- empty inbox: mail column genesis
+  m.__inbox = { { items = { { itemID = 3, count = 1, link = "L3" } } } }
+  R():OnEvent("MAIL_INBOX_UPDATE"); R():Flush()
+  assertEqual(#H(), 0)
+  assertEqual(esc.mailOwn[3], 1); assertEqual(esc.exits[3].n, 2)
+end)
+
+case("Escrow: one sale mail books every pending exit of the item as AH_SOLD (LH-11, LH-R-06)", function()
+  S.reset()
+  S.genesis()
+  auctionsGone({ { itemID = 3, quantity = 1, link = "L3", status = 0 },
+    { itemID = 3, quantity = 2, link = "L3", status = 0 } })
+  local esc = NS.Holdings:Escrow(S.me())
+  S.show("MailInfo"); R():Flush()
+  NS.State.soldMail = { itemName = "Item Name", expires = 150 }
+  m.__inbox = { { items = { { itemID = 3, count = 1, link = "L3" } } } }  -- one auction expired back
+  R():OnEvent("MAIL_INBOX_UPDATE"); R():Flush()
+  local outs = rowsBy("OUT")
+  assertEqual(#outs, 1); assertEqual(outs[1].source, "AH_SOLD"); assertEqual(outs[1].quantity, 2)
+  assertEqual(esc.mailOwn[3], 1); assertEqual(esc.exits[3], nil); assertEqual(NS.State.soldMail, nil)
+end)
+
+case("Escrow: a second exit of the same item restarts the shared TTL clock (LH-11, LH-R-06)", function()
+  S.reset()
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  local old = m.__epoch - NS.Escrow.EXIT_TTL + 10
+  esc.exits[3] = { n = 1, ts = old }
+  auctionsGone({ { itemID = 3, quantity = 2, link = "L3", status = 0 } })
+  assertEqual(esc.exits[3].n, 3); assertEqual(esc.exits[3].ts, m.__epoch)
+  m.__epoch = old + NS.Escrow.EXIT_TTL + 1                 -- the first exit's TTL has passed
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#H(), 0); assertEqual(esc.exits[3].n, 3)
+end)
+
+case("Escrow: a genesis pass resolves no exit, even with a sale mail live (LH-11)", function()
+  S.reset()
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.exits[3] = { n = 2, ts = m.__epoch - NS.Escrow.EXIT_TTL - 1 }
+  NS.db.global.holdings[S.me()].links[3] = "L3"
+  NS.State.soldMail = { itemName = "Item Name", expires = 150 }
+  R().silent = true; R():MarkDirty("bags"); R():Flush(); R().silent = nil
+  assertEqual(#H(), 0); assertEqual(esc.exits[3].n, 2)
+  assertTrue(NS.State.soldMail ~= nil)
+end)
+
+case("Escrow: a sale mail for another item leaves the exit pending (LH-11)", function()
+  S.reset()
+  S.genesis()
+  local esc = NS.Holdings:Escrow(S.me())
+  esc.exits[3] = { n = 2, ts = m.__epoch }
+  NS.db.global.holdings[S.me()].links[3] = "L3"
+  NS.State.soldMail = { itemName = "Other Thing", expires = 150 }
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#H(), 0); assertEqual(esc.exits[3].n, 2)
+  assertEqual(NS.State.soldMail.itemName, "Other Thing")
+end)

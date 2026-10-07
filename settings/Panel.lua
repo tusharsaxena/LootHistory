@@ -4,8 +4,9 @@ local P = NS.Panel
 
 -- The LibKa0s-Options-1.0 instance: the canvas shell, the page registry, the lazy Defaults button,
 -- the five widget makers, the two-column flow engine and the always-shown scrollbar patch. Wired in
--- settings/OptionsSetup.lua, which loads immediately before this file and is where every descriptor
--- decision (and every declined surface) is written down.
+-- settings/OptionsSetup.lua, which loads above this file (settings/Schema.lua and settings/Slash.lua
+-- load between them) and is where every descriptor decision (and every declined surface) is written
+-- down.
 local O = NS.Options
 
 -- Ka0s settings-panel pattern (shared across Ka0s addons; see WowAddonStandards):

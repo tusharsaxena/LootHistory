@@ -30,12 +30,34 @@ function AL.Caveat(resetPrompt, ledgerSince, preLedgerRows)
     :format(NS.Util.FormatDate(ledgerSince))
 end
 
-function AL.BackToBackRows(inMap, outMap, labelOf, labelColorOf, signedFmt, plainFmt)
-  inMap, outMap = inMap or {}, outMap or {}
+-- The union of both maps' keys, each once.
+local function unionKeys(inMap, outMap)
   local keys, seen = {}, {}
   for _, m in ipairs({ inMap, outMap }) do
-    for k in pairs(m) do if not seen[k] then seen[k] = true; keys[#keys + 1] = k end end
+    for k in pairs(m) do
+      if not seen[k] then
+        seen[k] = true
+        keys[#keys + 1] = k
+      end
+    end
   end
+  return keys
+end
+
+local function frac(v, peak)
+  if peak > 0 then return v / peak end
+  return 0
+end
+
+-- Biggest total first; an equal total orders by label.
+local function byTotalThenLabel(a, b)
+  if a.total ~= b.total then return a.total > b.total end
+  return tostring(a.label) < tostring(b.label)
+end
+
+function AL.BackToBackRows(inMap, outMap, labelOf, labelColorOf, signedFmt, plainFmt)
+  inMap, outMap = inMap or {}, outMap or {}
+  local keys = unionKeys(inMap, outMap)
   local peak = 0
   for _, k in ipairs(keys) do peak = math.max(peak, inMap[k] or 0, outMap[k] or 0) end
   local rows = {}
@@ -43,15 +65,12 @@ function AL.BackToBackRows(inMap, outMap, labelOf, labelColorOf, signedFmt, plai
     local i, o = inMap[k] or 0, outMap[k] or 0
     rows[#rows + 1] = {
       key = k, label = labelOf(k), labelColor = labelColorOf and labelColorOf(k) or nil,
-      rightFrac = peak > 0 and i / peak or 0, leftFrac = peak > 0 and o / peak or 0,
+      rightFrac = frac(i, peak), leftFrac = frac(o, peak),
       total = i + o, value = signedFmt(i - o),
       rightTip = "Gained: " .. plainFmt(i), leftTip = "Lost: " .. plainFmt(o),
     }
   end
-  table.sort(rows, function(a, b)
-    if a.total ~= b.total then return a.total > b.total end
-    return tostring(a.label) < tostring(b.label)
-  end)
+  table.sort(rows, byTotalThenLabel)
   return rows
 end
 

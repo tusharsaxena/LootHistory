@@ -124,21 +124,34 @@ function Ledger.ClassifyItems(before, after, own)
   return moves, net, arrivals, exits
 end
 
+local function byTostring(x, y) return tostring(x) < tostring(y) end
+
+-- `n` moved `q` toward zero; zero is stored as no entry.
+local function shrink(n, q)
+  n = n + ((n < 0) and q or -q)
+  if n == 0 then return nil end
+  return n
+end
+
 -- Inter-holder pairing (char <-> §warband): opposite-sign changes of one thing on the two holders
 -- are a transfer for the smaller magnitude. Both nets are reduced in place; zeros are removed.
 function Ledger.PairHolders(a, netA, b, netB)
   local keys = {}
-  for k in pairs(netA) do if netB[k] then keys[#keys + 1] = k end end
-  table.sort(keys, function(x, y) return tostring(x) < tostring(y) end)
+  for k in pairs(netA) do
+    if netB[k] then
+      keys[#keys + 1] = k
+    end
+  end
+  table.sort(keys, byTostring)
   local out = {}
   for _, k in ipairs(keys) do
     local x, y = netA[k], netB[k]
     if (x < 0) ~= (y < 0) then
       local q = math.min(math.abs(x), math.abs(y))
-      out[#out + 1] = { key = k, qty = q, from = (x < 0) and a or b, to = (x < 0) and b or a }
-      x = x + ((x < 0) and q or -q); y = y + ((y < 0) and q or -q)
-      netA[k] = (x ~= 0) and x or nil
-      netB[k] = (y ~= 0) and y or nil
+      local from, to = b, a
+      if x < 0 then from, to = a, b end
+      out[#out + 1] = { key = k, qty = q, from = from, to = to }
+      netA[k], netB[k] = shrink(x, q), shrink(y, q)
     end
   end
   return out
@@ -216,18 +229,29 @@ local function stampApplies(o, kind, dir, now)
   return o and o.expires >= now and (not o.dirs or o.dirs[dir]) and (not o.kinds or o.kinds[kind])
 end
 
+-- MERCHANT_REASON[dir == "OUT"][kind == "ITEM"]: at a merchant an item going out is sold and gold
+-- going out buys; anything else is coming in, where an item was vendored and gold is the sale.
+local MERCHANT_REASON = {
+  [true] = { [true] = "SELL", [false] = "BUY" },
+  [false] = { [true] = "VENDOR", [false] = "SELL" },
+}
+
+-- The scopes gold going out is spent under, first match wins.
+local GOLD_OUT_SCOPES = {
+  { "trainer", "TRAINING" }, { "taxi", "TRAVEL" }, { "auction", "AH_POST_FEE" }, { "mailbox", "MAIL_SEND" },
+}
+
+local function goldOutReason(s)
+  for _, e in ipairs(GOLD_OUT_SCOPES) do
+    if s[e[1]] then return e[2] end
+  end
+  return nil
+end
+
 local function scopeReason(kind, dir, s)
   if s.guildBank then return dir == "OUT" and "GUILD_DEPOSIT" or "GUILD_WITHDRAW" end
-  if s.merchant then
-    if dir == "OUT" then return kind == "ITEM" and "SELL" or "BUY" end
-    return kind == "ITEM" and "VENDOR" or "SELL"
-  end
-  if kind == "GOLD" and dir == "OUT" then
-    if s.trainer then return "TRAINING" end
-    if s.taxi then return "TRAVEL" end
-    if s.auction then return "AH_POST_FEE" end
-    if s.mailbox then return "MAIL_SEND" end
-  end
+  if s.merchant then return MERCHANT_REASON[dir == "OUT"][kind == "ITEM"] end
+  if kind == "GOLD" and dir == "OUT" then return goldOutReason(s) end
   return nil
 end
 
@@ -357,12 +381,22 @@ function Ledger.ForgetHolderDaily(daily, holder)
   return removed
 end
 
--- Rebuild the in/out tallies of the cells named in touched[day][holder][key] from `rows` (the v13
--- step, timeline-ledger Phase 7): each such cell's `i` / `o` is cleared and re-summed from every IN /
--- OUT row of that day, holder and thing, so a tally always matches the rows that produced it. A day
--- the rollup no longer holds (pruned) is skipped, never recreated, and a close is never touched.
--- Answers the number of cells rebuilt.
-function Ledger.RecomputeFlows(daily, rows, touched)
+-- Clear the tallies of one holder's touched cells on a held day, marking each key wanted (w).
+-- Answers how many cells were named.
+local function clearTouchedCells(cells, keys, w)
+  local n = 0
+  for key in pairs(keys) do
+    w[key] = true
+    local c = cells and cells[key]
+    if c then c.i, c.o = nil, nil end
+    n = n + 1
+  end
+  return n
+end
+
+-- Phase 1 of RecomputeFlows: clear every touched cell on a day the rollup still holds. Answers
+-- want[holder][key] (the things worth reading a row for) and the number of cells cleared.
+local function clearTouched(daily, touched)
   local want, n = {}, 0
   for day, holders in pairs(touched) do
     local d = daily[day]
@@ -370,28 +404,34 @@ function Ledger.RecomputeFlows(daily, rows, touched)
       for holder, keys in pairs(holders) do
         local w = want[holder] or {}
         want[holder] = w
-        for key in pairs(keys) do
-          w[key] = true
-          local c = d[holder] and d[holder][key]
-          if c then c.i, c.o = nil, nil end
-          n = n + 1
-        end
+        n = n + clearTouchedCells(d[holder], keys, w)
       end
     end
   end
+  return want, n
+end
+
+-- Phase 2 for one row: fold it back in when its (day, holder, thing) was touched and the day is held.
+local function refoldRow(daily, touched, want, r)
+  local dir, holder = NS.Util.RowDir(r), NS.Util.RowHolder(r)
+  local w = dir ~= "MOVE" and r.ts and want[holder]
+  local key = w and Ledger.RowThingKey(r)
+  if not (key and w[key]) then return end
+  local day = Ledger.DayKey(r.ts)
+  local t = daily[day] and touched[day]
+  local h = t and t[holder]
+  if h and h[key] then Ledger.RollupFlow(daily, day, holder, key, dir, r.quantity) end
+end
+
+-- Rebuild the in/out tallies of the cells named in touched[day][holder][key] from `rows` (the v13
+-- step, timeline-ledger Phase 7): each such cell's `i` / `o` is cleared and re-summed from every IN /
+-- OUT row of that day, holder and thing, so a tally always matches the rows that produced it. A day
+-- the rollup no longer holds (pruned) is skipped, never recreated, and a close is never touched.
+-- Answers the number of cells rebuilt.
+function Ledger.RecomputeFlows(daily, rows, touched)
+  local want, n = clearTouched(daily, touched)
   if n == 0 then return 0 end
-  for _, r in ipairs(rows) do
-    local dir, holder = NS.Util.RowDir(r), NS.Util.RowHolder(r)
-    local w = dir ~= "MOVE" and r.ts and want[holder]
-    local key = w and Ledger.RowThingKey(r)
-    if key and w[key] then
-      local day = Ledger.DayKey(r.ts)
-      local t = touched[day]
-      if daily[day] and t and t[holder] and t[holder][key] then
-        Ledger.RollupFlow(daily, day, holder, key, dir, r.quantity)
-      end
-    end
-  end
+  for _, r in ipairs(rows) do refoldRow(daily, touched, want, r) end
   return n
 end
 

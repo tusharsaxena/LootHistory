@@ -1,4 +1,4 @@
--- testkit/framework.lua — the test registry, the assertions, the runner and the `--list` renderer.
+-- testkit/framework.lua — the test registry, the assertions and the runner.
 --
 -- COLLECT-THEN-RUN, deliberately. Some runners in the collection execute each case body at
 -- registration time and short-circuit it in list mode, which makes `--list` a second code path
@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 37
+Kit.VERSION = 38
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -238,6 +238,7 @@ local function kitFolder()
 end
 
 local asserts = dofile(kitFolder() .. "asserts.lua")(Kit)
+dofile(kitFolder() .. "secrets.lua")(Kit)   -- Kit.secret and its siblings (kit revision 38)
 local fail = asserts.fail
 
 --- Merge the registry and assertions into the host's `_G.<X>_TEST` table and return it, so a repo
@@ -419,7 +420,9 @@ end
 -- Emits the whole body of docs/test-cases.md, CRLF-terminated, and exits 0 without running a
 -- single case. CRLF is written HERE rather than left to a `| sed 's/$/\r/'` in the shell: the
 -- repos pin `*.md text eol=crlf`, a plain redirect writes LF, and a regeneration command with a
--- pipeline in it is one someone eventually runs without the pipeline.
+-- pipeline in it is one someone eventually runs without the pipeline. The renderer itself is in
+-- `inventory.lua` since kit revision 38, which took this file's Totals change out of the 1000-line
+-- band; `Kit.run` hands it the registry.
 
 -- ── the command line ───────────────────────────────────────────────────────────────────────
 --
@@ -513,86 +516,6 @@ local function shardRange(total, i, n)
   local first = (i - 1) * base + math.min(i - 1, extra) + 1
   local count = base + ((i <= extra) and 1 or 0)
   return first, first + count - 1
-end
-
-local function out(line) io.write((line or ""), "\r\n") end
-
-local function countIn(suite)
-  local n = 0
-  for _, t in ipairs(tests) do
-    if t.suite == suite then n = n + 1 end
-  end
-  return n
-end
-
--- renderInventory's parts (split at kit revision 35: it measured CCN 17 once the complexity suite
--- was sighted). The rendered bytes are unchanged; `docs/test-cases.md` is their characterization.
-
---- A case as the inventory lists it: a declared skip is disclosed, so a reader of
---- docs/test-cases.md sees that the case exists AND that it is not currently being evaluated.
-local function caseLabel(t)
-  return t.skip and (t.name .. " (skipped: " .. t.skip .. ")") or t.name
-end
-
---- The labels of every case registered under `suite`, in registration order; nil names the cases
---- the runner registered itself.
-local function caseLabels(suite)
-  local names = {}
-  for _, t in ipairs(tests) do
-    if t.suite == suite then names[#names + 1] = caseLabel(t) end
-  end
-  return names
-end
-
---- One `### heading (n)` group and its bullet list, or nothing for an empty group.
-local function renderGroup(heading, names)
-  if #names == 0 then return end
-  out()
-  out(string.format("### %s (%d)", heading, #names))
-  out()
-  for _, name in ipairs(names) do out("- " .. name) end
-end
-
---- The `## Totals` table: the runner's own cases first, then each declared suite with any cases.
-local function renderTotals(suites, looseCount)
-  out()
-  out("## Totals")
-  out()
-  out("| Suite | Cases |")
-  out("|-------|------:|")
-  if looseCount > 0 then out(string.format("| the runner | %d |", looseCount)) end
-  for _, entry in ipairs(suites) do
-    local suite = suiteEntry(entry)
-    local n = countIn(suite)
-    if n > 0 then out(string.format("| %s.lua | %d |", suite, n)) end
-  end
-  out(string.format("| **Total** | **%d** |", #tests))
-end
-
-local function renderInventory(suites)
-  out("# Test Cases")
-  out()
-  out("The full inventory of every headless test case in this repo, grouped by the suite file it")
-  out("lives in. The `## Totals` table below is the **authoritative pass count** — the README test")
-  out("badge and any count quoted in the docs must agree with it.")
-  out()
-  out("**Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.")
-
-  -- Cases the RUNNER registered rather than a suite file — today, a declined kit gate (kit revision
-  -- 25). They are emitted first, because that is when they run, and they are emitted at all because
-  -- the `## Totals` line counts the whole registry: a case in no group would make the table's rows
-  -- and its own total disagree, which is a worse way to lose a decline than never printing it.
-  local loose = caseLabels(nil)
-  renderGroup("the runner", loose)
-
-  -- Declared-suite order, not first-seen and not sorted: the suite list is load-order-sensitive and
-  -- the inventory should read the way the run reads.
-  for _, entry in ipairs(suites) do
-    local suite = suiteEntry(entry)
-    renderGroup(suite .. ".lua", caseLabels(suite))
-  end
-
-  renderTotals(suites, #loose)
 end
 
 -- ── run ────────────────────────────────────────────────────────────────────────────────────
@@ -949,7 +872,7 @@ function Kit.run(opts)
   loadSuites(dir, suites)
 
   if wantsList() then
-    renderInventory(suites)
+    inventory.renderInventory(tests, suites)
     os.exit(0)
   end
 

@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1476%2F1476_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1521%2F1521_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -60,7 +60,7 @@ Reading back your loot happens in the History window, in this order:
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
-Everything else is on the addon's page under Settings → AddOns. `/lh` (or `/loothistory`) on its own opens it, and `/lh help` lists every command.
+Everything else is on the addon's page under Settings → AddOns, which `/lh` (or `/loothistory`) opens on its own, and `/lh help` lists every command.
 
 ## How attribution works
 
@@ -131,7 +131,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| 1.4.0 | 2026-09-27 | - Left-click the minimap button to open settings, right-click it for Enabled, Locked, Test mode and Show window, and hover over it to see the status and record count<br>- New `/lh enable` and `/lh disable` commands and a Test mode box on Master controls. Turning the addon off now stops it watching for loot entirely<br>- New `/lh diagnostics` command and a "Reporting a bug" guide<br>- The blacklist, whitelist and currency lists on the Filters tab take item names and suggest them as you type<br>- Fixes: shortening "Keep history for" asks before it deletes records, boss loot keeps its kill source for a short grace window, the Mythic+ context clears when you leave, a hidden minimap button stays hidden through resets, and Lock frame also stops resizing<br>Released on lint, tests and complexity only. Loot History holds a ratified no-combat-path exemption (`performance-§12`), so it ships no `tests/perf.lua` and the perf suite was skipped, not measured. |
+| 1.4.0 | 2026-09-27 | - Left-click the minimap button to open settings, right-click it for Enabled, Locked, Test mode and Show window, and hover over it to see the status and record count<br>- New `/lh enable` and `/lh disable` commands and a Test mode box on Master controls. Turning the addon off now stops it watching for loot entirely<br>- New `/lh diagnostics` command and a "Reporting a bug" guide<br>- The blacklist, whitelist and currency lists on the Filters tab take item names and suggest them as you type<br>- Fixes: shortening "Keep history for" asks before it deletes records, boss loot keeps its kill source for a short grace window, the Mythic+ context clears when you leave, a hidden minimap button stays hidden through resets, and Lock frame also stops resizing |
 | 1.3.0 | 2026-09-10 | - **General** and **Filters** are now tab strips, with price sources reordered by drag and a **Master controls** group<br>- Fixed the auction-house status colors rendering muted instead of saturated<br>- Attribution wiring and the lifecycle kick gained guard rails against a half-built window<br>- The saved-data byte estimate now counts every field it declares<br>- Updated for game patch 12.1.0 |
 | 1.2.0 | 2026-07-26 | - **Currency capture** — currencies recorded as their own rows with a dedicated Insights section, in-game tooltips, quality colors, and blacklisting<br>- **Insights dashboard overhaul** — Loot/Currency sections, per-character companion charts, refreshed source palette and legends<br>- **More loot sources** — Bonus Roll, Craft, Roll, Refund<br>- **Removed Export to AI** — Export to CSV remains for History and Insights |
 | 1.1.0 | 2026-07-20 | - **Export to AI** report (Claude — Desktop, Code, and Web); **auction-house values** via Auctionator / TSM / OribosExchange, shown in a new AH Price column with its own settings page; **Blacklist / Whitelist** item filters; a **shared** History/Insights filter bar with new **Bound** and **Sub-Type** filters and **Group by Type**; Insights valued at market price. Plus settings-panel polish — the scrollbar no longer shifts the layout between pages, and Reset All / Purge are no longer clipped. |

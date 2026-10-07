@@ -258,3 +258,91 @@ test("Test mode: a pick of a thing the sample lacks falls back to the default", 
     assertEqual(TL:Thing(), "i:999999")
   end)
 end)
+
+-- ── Characterization (LH-13): the seeded build and the default-thing picker ──────────────────
+-- A canonical dump of both stores (keys sorted), folded to a checksum: the seeded RNG must meet the
+-- series in the same order and draw the same numbers after any refactor of walk. The build reads the
+-- wall clock (the History sample's `time()`) and the local zone (`date`, `time{...}`), so the pin
+-- runs on a frozen UTC clock: the same bytes on every machine, in every zone, on every day.
+local function canon(v, out)
+  if type(v) ~= "table" then out[#out + 1] = tostring(v); return end
+  local ks = {}
+  for k in pairs(v) do ks[#ks + 1] = k end
+  table.sort(ks, function(a, b) return tostring(a) < tostring(b) end)
+  out[#out + 1] = "{"
+  for _, k in ipairs(ks) do out[#out + 1] = tostring(k) .. "="; canon(v[k], out) end
+  out[#out + 1] = "}"
+end
+
+local function checksum(s)
+  local h = 0
+  for i = 1, #s do h = (h * 31 + s:byte(i)) % 2147483647 end
+  return h
+end
+
+-- Days since 1970-01-01 for a proleptic Gregorian date (Hinnant's days_from_civil); `d` may run
+-- past either end of its month, as os.time's normalization allows.
+local function daysFromCivil(y, m, d)
+  y = y + math.floor((m - 1) / 12); m = (m - 1) % 12 + 1
+  if m <= 2 then y = y - 1 end
+  local era = math.floor(y / 400)
+  local yoe = y - era * 400
+  local doy = math.floor((153 * (m + (m > 2 and -3 or 9)) + 2) / 5)
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468 + (d - 1)
+end
+
+local function withUtcClock(now, fn)
+  local m = T.mocks   -- the loader's chunk environment reads the mock table before _G
+  local savedTime, savedDate = m.time, m.date
+  m.time = function(t)
+    if not t then return now end
+    return daysFromCivil(t.year, t.month, t.day) * 86400 + (t.hour or 12) * 3600 + (t.min or 0) * 60 + (t.sec or 0)
+  end
+  m.date = function(fmt, t)
+    fmt = fmt or "%c"
+    if fmt:sub(1, 1) ~= "!" then fmt = "!" .. fmt end
+    return os.date(fmt, t or now)
+  end
+  local ok, err = pcall(fn)
+  m.time, m.date = savedTime, savedDate
+  if not ok then error(err, 0) end
+end
+
+test("TestData: the seeded sample stores are byte-identical to the pinned build", function()
+  local now = daysFromCivil(2026, 10, 6) * 86400 + 15 * 3600
+  withUtcClock(now, function()
+    local holdings, daily = NS.TestData.Build(NS.BrowserTable:BuildTestData(), now)
+    local h, d = {}, {}
+    canon(holdings, h); canon(daily, d)
+    local hs, ds = table.concat(h, ","), table.concat(d, ",")
+    assertEqual(#hs .. ":" .. checksum(hs), "3160:2043831815", "holdings")
+    assertEqual(#ds .. ":" .. checksum(ds), "117029:2104532542", "daily")
+  end)
+end)
+
+test("TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key", function()
+  local saved = NS.State.testDaily
+  local ok, err = pcall(function()
+    -- c:/g keys never count; a key seen twice in a day (two holders) counts that day once.
+    NS.State.testDaily = {
+      ["2026-10-01"] = { A = { ["i:5"] = {}, ["i:9"] = {}, ["c:1"] = {}, g = {} }, B = { ["i:5"] = {} } },
+      ["2026-10-02"] = { A = { ["i:5"] = {}, ["c:1"] = {} }, B = { ["i:3"] = {} } },
+      ["2026-10-03"] = { B = { ["i:3"] = {}, ["c:1"] = {}, g = {} } },
+    }
+    assertEqual(NS.TestData.DefaultTimelineThing(), "i:3", "i:3 and i:5 tie on two days")
+    NS.State.testDaily["2026-10-03"].A = { ["i:5"] = {} }
+    assertEqual(NS.TestData.DefaultTimelineThing(), "i:5", "i:5 now leads on three days")
+    NS.State.testDaily = { ["2026-10-01"] = { A = { ["c:1"] = {}, g = {} } } }
+    assertEqual(NS.TestData.DefaultTimelineThing(), nil, "no item at all")
+    -- Everlight Crystal wins on any one day, over an item on more days.
+    local names, everlight = NS.BrowserTable.TestSample.itemNames
+    for i, n in ipairs(names) do if n == "Everlight Crystal" then everlight = "i:" .. (100000 + i) end end
+    NS.State.testDaily = {
+      ["2026-10-01"] = { A = { ["i:5"] = {} } }, ["2026-10-02"] = { A = { ["i:5"] = {}, [everlight] = {} } },
+    }
+    assertEqual(NS.TestData.DefaultTimelineThing(), everlight)
+  end)
+  NS.State.testDaily = saved
+  if not ok then error(err, 0) end
+end)

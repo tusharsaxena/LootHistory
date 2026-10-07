@@ -85,40 +85,62 @@ local function isIn(list, id)
   return false
 end
 
-local function onEvent(self, event, a1, a3, a4, a5)
-  if event == "BAG_UPDATE" then
+-- A part that only needs its dirty bit and the flush fuse.
+local function dirtyAndFlush(part)
+  return function(self) self:MarkDirty(part); scheduleFlush(self) end
+end
+
+-- event -> handler, built once at file scope (performance-§2: no per-event table). A BAG_UPDATE only
+-- marks dirty; BAG_UPDATE_DELAYED, which closes its burst, lights the fuse.
+local EVENT_HANDLERS = {
+  BAG_UPDATE = function(self, a1)
     if isIn(C.BANK_IDS, a1) then self:MarkDirty("bank")
     elseif isIn(C.WARBAND_TAB_IDS, a1) then self:MarkDirty("tabs")
     else self:MarkDirty("bags", a1) end
-  elseif event == "BAG_UPDATE_DELAYED" then scheduleFlush(self)
-  elseif event == "PLAYER_EQUIPMENT_CHANGED" then self:MarkDirty("equipped"); scheduleFlush(self)
-  elseif event == "PLAYER_MONEY" then self:MarkDirty("money"); scheduleFlush(self)
-  elseif event == "ACCOUNT_MONEY" then self:MarkDirty("warbandMoney"); scheduleFlush(self)
-  elseif event == "CURRENCY_DISPLAY_UPDATE" then
+  end,
+  BAG_UPDATE_DELAYED = function(self) scheduleFlush(self) end,
+  PLAYER_EQUIPMENT_CHANGED = dirtyAndFlush("equipped"),
+  PLAYER_MONEY = dirtyAndFlush("money"),
+  ACCOUNT_MONEY = dirtyAndFlush("warbandMoney"),
+  CURRENCY_DISPLAY_UPDATE = function(self, a1, a3, a4, a5)
     self:OnCurrencyUpdate(a1, a3, a4, a5)                 -- (id, quantity, change, gainSrc, lostSrc)
-  elseif event == "CURRENCY_TRANSFER_LOG_UPDATE" then
+  end,
+  CURRENCY_TRANSFER_LOG_UPDATE = function(self)
     self.pendingTransfer = true
     self:MarkDirty("currencyDelta"); scheduleFlush(self)
-  elseif event == "PLAYERBANKSLOTS_CHANGED" then self:MarkDirty("bank"); scheduleFlush(self)
-  elseif event == "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" then self:MarkDirty("tabs"); scheduleFlush(self)
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then self:OnInteraction(true, a1)
-  elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then self:OnInteraction(false, a1)
-  elseif event == "MAIL_INBOX_UPDATE" then
+  end,
+  PLAYERBANKSLOTS_CHANGED = dirtyAndFlush("bank"),
+  PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = dirtyAndFlush("tabs"),
+  PLAYER_INTERACTION_MANAGER_FRAME_SHOW = function(self, a1) self:OnInteraction(true, a1) end,
+  PLAYER_INTERACTION_MANAGER_FRAME_HIDE = function(self, a1) self:OnInteraction(false, a1) end,
+  MAIL_INBOX_UPDATE = function(self)
     if self.readable.mail then self:MarkDirty("mail"); scheduleFlush(self) end
-  elseif event == "OWNED_AUCTIONS_UPDATED" then
+  end,
+  OWNED_AUCTIONS_UPDATED = function(self)
     -- The owned list is only trustworthy once the client has answered the query, which is this event.
     if self.readable.auctionHouse then
       self.readable.auctions = true; self:MarkDirty("auctions"); scheduleFlush(self)
     end
-  elseif event == "PLAYER_REGEN_ENABLED" then
-    if self.loginPending then self:LoginScan()
-    elseif self.deferred then self.deferred = nil; self:Flush() end
-  end
+  end,
+}
+
+local function onEvent(self, event, a1, a3, a4, a5)
+  local handler = EVENT_HANDLERS[event]
+  if handler then handler(self, a1, a3, a4, a5) end
+end
+
+-- The combat-exit edge runs the work combat deferred (a pending login scan or a whole flush), so it
+-- is not a capture event and stays outside the ledgerEvent bracket (tests/test_perf.lua pins it).
+local function onRegenEnabled(self)
+  if self.loginPending then self:LoginScan()
+  elseif self.deferred then self.deferred = nil; self:Flush() end
 end
 
 -- Shape A bracket (performance-§2): every capture event, in combat included, is a dirty bit or a
--- debounce here; the flush it schedules is not inside this bucket (tests/perf.lua measures it).
+-- debounce here; the flush it schedules is not inside this bucket (tests/perf.lua measures it), and
+-- neither is the PLAYER_REGEN_ENABLED flush, which is dispatched before the bracket opens.
 function R:OnEvent(event, a1, _, a3, a4, a5)
+  if event == "PLAYER_REGEN_ENABLED" then return onRegenEnabled(self) end
   local t0 = Perf.on and debugprofilestop()
   onEvent(self, event, a1, a3, a4, a5)
   if t0 then Perf.Note("ledgerEvent", debugprofilestop() - t0) end
@@ -187,17 +209,17 @@ local function columnOf(e, c)
   return out
 end
 
--- One holder's net change per thing, plus its intra-holder moves and escrow traffic. Only
--- containers that already had a baseline take part (a container's first scan is its genesis).
-local function planHolder(plan, holder, e, s)
+-- Each scanned container's stored column beside its new counts, for those with a baseline.
+local function baselineColumns(e, s)
   local before, after = {}, {}
   for c, counts in pairs(s.items) do
     if e.scanned[c] then before[c] = columnOf(e, c); after[c] = counts end
   end
-  local own = e.escrow and { mail = e.escrow.mailOwn } or nil
-  local moves, ids, arrivals, exits = L.ClassifyItems(before, after, own)
-  local net = {}
-  for id, dlt in pairs(ids) do net[L.ThingKey("ITEM", id)] = dlt end
+  return before, after
+end
+
+-- Gold and currency against the stored baseline, each only once that part has one.
+local function addPurseNet(net, e, s)
   if s.money and e.scanned.money then
     local dm = s.money - (e.money or 0)
     if dm ~= 0 then net.g = dm end
@@ -205,6 +227,17 @@ local function planHolder(plan, holder, e, s)
   if s.currency and e.scanned.currency then
     for _, x in ipairs(L.Diff(e.currency, s.currency)) do net[L.ThingKey("CURRENCY", x.key)] = x.delta end
   end
+end
+
+-- One holder's net change per thing, plus its intra-holder moves and escrow traffic. Only
+-- containers that already had a baseline take part (a container's first scan is its genesis).
+local function planHolder(plan, holder, e, s)
+  local before, after = baselineColumns(e, s)
+  local own = e.escrow and { mail = e.escrow.mailOwn } or nil
+  local moves, ids, arrivals, exits = L.ClassifyItems(before, after, own)
+  local net = {}
+  for id, dlt in pairs(ids) do net[L.ThingKey("ITEM", id)] = dlt end
+  addPurseNet(net, e, s)
   plan.net[holder] = net
   for _, mv in ipairs(moves) do mv.holder = holder; plan.moves[#plan.moves + 1] = mv end
   plan.arrivals[holder], plan.exits[holder] = arrivals, exits
@@ -459,7 +492,9 @@ function R:Write(holder, key, dir, reason, qty, now, from, to, pairId)
   return row
 end
 
-local function sideOf(key, holder, explicit)
+-- The CONTAINER a pair end names for a thing ("money", "currency", bags or tabs), not the holder
+-- half of a location string: that is NS.Ledger.LocationHolder's job.
+local function containerFor(key, holder, explicit)
   if explicit then return explicit end
   if key == "g" then return "money" end
   if tostring(key):sub(1, 2) == "c:" then return "currency" end
@@ -481,29 +516,43 @@ local function writePair(self, p, now, from, to)
   self:Write(p.to, p.key, "IN", reason, p.qty, now, from, to, out and out.pairId or nil)
 end
 
-function R:WriteRows(plan, now, clock)
-  -- A genesis pass applies holdings and writes nothing, whatever a plan step added.
-  if self.silent then self.reasonMemo = {}; return end
+local function writeMoves(self, plan, now)
   for _, mv in ipairs(plan.moves) do
     local key, from, to = L.ThingKey("ITEM", mv.id), mv.holder .. "/" .. mv.from, mv.holder .. "/" .. mv.to
     -- What an own alt mailed is that alt's move landing here: a gain (Escrow marks it `alt`).
-    if (mv.alt or 0) > 0 then self:Write(mv.holder, key, "IN", "ALT_MAIL", mv.alt, now, from, to) end
-    self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - (mv.alt or 0), now, from, to)
+    local alt = mv.alt or 0
+    if alt > 0 then self:Write(mv.holder, key, "IN", "ALT_MAIL", alt, now, from, to) end
+    self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - alt, now, from, to)
   end
+end
+
+local function writePairs(self, plan, now)
   for _, p in ipairs(plan.pairs) do
-    local from = p.from .. "/" .. sideOf(p.key, p.from, p.fromC)
-    local to = p.to .. "/" .. sideOf(p.key, p.to, p.toC)
+    local from = p.from .. "/" .. containerFor(p.key, p.from, p.fromC)
+    local to = p.to .. "/" .. containerFor(p.key, p.to, p.toC)
     if p.to ~= p.from then writePair(self, p, now, from, to)
     -- A pair within one holder is one row (an alt's gold taken from mail: its `dir` says IN).
     else self:Write(p.from, p.key, p.dir or "MOVE", p.reason or "TRANSFER", p.qty, now, from, to) end
   end
-  for _, x in ipairs(plan.extra or {}) do self:Write(x.holder, x.key, x.dir, x.reason, x.qty, now) end
+end
+
+local function writeNet(self, plan, now, clock)
   for holder, net in pairs(plan.net) do
     for key, dlt in pairs(net) do
       local dir = dlt > 0 and "IN" or "OUT"
       self:Write(holder, key, dir, self:ReasonFor(holder, key, dir, clock), math.abs(dlt), now)
     end
   end
+end
+
+-- Moves, then pairs, then plan steps' extra rows, then each holder's remaining net change.
+function R:WriteRows(plan, now, clock)
+  -- A genesis pass applies holdings and writes nothing, whatever a plan step added.
+  if self.silent then self.reasonMemo = {}; return end
+  writeMoves(self, plan, now)
+  writePairs(self, plan, now)
+  for _, x in ipairs(plan.extra or {}) do self:Write(x.holder, x.key, x.dir, x.reason, x.qty, now) end
+  writeNet(self, plan, now, clock)
   self.reasonMemo = {}
 end
 

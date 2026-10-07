@@ -16,7 +16,7 @@ local boundOptions      = B._options.bound
 local qualityOptions    = B._options.quality
 
 -- Static option sets. "all" is the sentinel for "no filter"; onSelect maps it to nil.
--- (Quality is data-driven — see qualityOptions in modules/Browser.lua — so any quality the history actually contains,
+-- (Quality is data-driven — see qualityOptions in modules/BrowserWidgets.lua — so any quality the history actually contains,
 -- Heirloom / Poor / Artifact included, shows up and absent ones don't clutter.)
 -- Ordered to mirror the table's column layout: Date, Quality, Type, Source, Zone, Character.
 local GROUP_OPTIONS = {

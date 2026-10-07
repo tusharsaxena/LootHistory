@@ -591,14 +591,31 @@ test("v1.69.0: the line chart is vendored and attached to the Widgets major", fu
   assertTrue(W ~= nil and type(W.LineChart) == "function",
     "lib.LineChart missing: re-vendor v1.69.0")
   assertTrue(W.MODULES.WidgetsLineChart >= 1) -- 2 since v1.70.0, pinned there
-  assertEqual(T.KIT_VERSION, 37)
+  assertTrue(T.KIT_VERSION >= 37) -- 38 since v1.71.0, pinned there
 end)
 
 test("v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint", function()
   local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(W ~= nil and type(W.Autocomplete) == "function",
     "lib.Autocomplete missing: re-vendor v1.70.0")
-  assertEqual(W.MODULES.WidgetsAutocomplete, 1)
-  assertEqual(W.MODULES.WidgetsLineChart, 2)
-  assertEqual(T.KIT_VERSION, 37)
+  assertTrue(W.MODULES.WidgetsAutocomplete >= 1) -- 2 since v1.71.0, pinned there
+  assertTrue(W.MODULES.WidgetsLineChart >= 2) -- 3 since v1.71.0, pinned there
+  assertTrue(T.KIT_VERSION >= 37) -- 38 since v1.71.0, pinned there
+end)
+
+-- v1.71.0 moves five minors and the kit, with no surface added: the chart clips its segments and
+-- re-syncs the hover on every render, the autocomplete re-installs its hooks per call, a number
+-- row refuses nan and the infinities, Env and OptionsIdList drop the bare-global addon-API rungs,
+-- and kit revision 38's --list Totals leave declared skips out of Total.
+test("v1.71.0: the vendored minors and the kit revision match the release", function()
+  local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  assertTrue(W ~= nil and type(W.MODULES) == "table", "Widgets missing: re-vendor v1.71.0")
+  assertEqual(W.MODULES.WidgetsLineChart, 3)
+  assertEqual(W.MODULES.WidgetsAutocomplete, 2)
+  local S = T.mocks.LibStub("LibKa0s-Slash-1.0", true)
+  assertEqual(S.MODULES.Slash, 20)
+  assertEqual(S.MODULES.SlashParse, 2)
+  assertEqual(T.mocks.LibStub("LibKa0s-Env-1.0", true).MODULES.Env, 2)
+  assertEqual(T.mocks.LibStub("LibKa0s-Options-1.0", true).MODULES.OptionsIdList, 4)
+  assertEqual(T.KIT_VERSION, 38)
 end)

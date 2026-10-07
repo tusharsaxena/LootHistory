@@ -236,11 +236,11 @@ end
 function Sl:Holdings(query)
   query = query or ""
   local rows = NS.Holdings and NS.Holdings:Search({ text = query }) or {}
-  if #rows == 0 then print("no holdings match '" .. query .. "'."); return end
+  if #rows == 0 then NS.Format("no holdings match '%s'.", query); return end
   for i = 1, math.min(10, #rows) do
     local r = rows[i]
     local total = r.key == "g" and NS.Util.FormatMoney(r.total) or tostring(r.total)
-    print(("%s: %s"):format(r.name, total))
+    NS.Format("%s: %s", r.name, total)
   end
 end
 

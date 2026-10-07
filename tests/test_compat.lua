@@ -473,6 +473,27 @@ test("Compat: ListedCurrencyID keeps an id under a collapsed header that the sto
   end)
 end)
 
+test("Compat: ListedCurrencyID counts a twin both listed and held once, and a held second twin as ambiguous",
+  function()
+    local me = NS.Util.PlayerKey()
+    local function held(ids)
+      local c = {}
+      for _, id in ipairs(ids) do c[id] = 1 end
+      return { [me] = { meta = {}, scanned = { currency = 1 }, items = {}, currency = c, links = {} } }
+    end
+    local list = { { header = true, name = "Midnight" }, { id = 3418, name = "Nebulous Voidcore" } }
+    withListed(list, held({ 3418 }), function()
+      assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3418)   -- same twin, seen twice
+    end)
+    withListed(list, held({ 3419 }), function()
+      assertEqual(NS.Compat.ListedCurrencyID(3419, "Nebulous Voidcore"), 3419)   -- held stands as itself
+      assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), nil)    -- listed + held twin: ambiguous
+    end)
+    withListed({ { header = true, name = "Midnight" } }, held({ 3419 }), function()
+      assertEqual(NS.Compat.ListedCurrencyID(3513, "Nebulous Voidcore"), 3419)   -- a held-only twin, named by id
+    end)
+  end)
+
 test("Compat: the filter-row label shims are gone (LibKa0s IdList labels its own rows)", function()
   -- ItemNameQuality and CurrencyName were written to label the Filters tab's rows. The tab is a
   -- LibKa0s IdList now, which resolves its own names, so a kept copy is a second answer nobody calls.
@@ -641,6 +662,29 @@ test("Compat: ListCurrencies expands collapsed headers and restores them", funct
   assertTrue(m.__currencyList[1].collapsed)   -- restored
   m.__currencyList = saved
 end)
+
+test("Compat: ListCurrencies answers {} without the list API, and leaves a header shut without ExpandCurrencyList",
+  function()
+    local m = T.mocks
+    local CI, savedList = m.C_CurrencyInfo, m.__currencyList
+    local savedLink, savedExpand = CI.GetCurrencyListLink, CI.ExpandCurrencyList
+    CI.GetCurrencyListLink = nil
+    local ok, err = pcall(function()
+      assertEqual(#NS.Compat.ListCurrencies(), 0, "no list API, empty list")
+      CI.GetCurrencyListLink, CI.ExpandCurrencyList = savedLink, nil
+      m.__currencyList = {
+        { id = 3008 },
+        { header = true, collapsed = true, name = "Midnight" },
+        { id = 2032, quantity = 5, accountWide = true },
+      }
+      local list = NS.Compat.ListCurrencies()
+      assertEqual(#list, 1, "a collapsed header stays shut when it cannot be expanded")
+      assertEqual(list[1].id, 3008); assertEqual(list[1].quantity, 0); assertEqual(list[1].accountWide, false)
+      assertTrue(m.__currencyList[2].collapsed)
+    end)
+    CI.GetCurrencyListLink, CI.ExpandCurrencyList, m.__currencyList = savedLink, savedExpand, savedList
+    if not ok then error(err, 0) end
+  end)
 
 test("Compat: IsConsumable reads the item class", function()
   local m = T.mocks

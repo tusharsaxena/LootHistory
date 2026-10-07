@@ -230,6 +230,37 @@ test("Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows,
   assertEqual(daily[D]["A-R"].g.i, 50, "an untouched thing keeps its tally")
   assertEqual(daily[day(T0 + 86400)], nil, "another day is not written")
 end)
+-- Characterization (LH-10): a touched day the rollup no longer holds is skipped and not counted; a
+-- touched cell that does not exist yet is counted and created by its rows; a row with no ts, a
+-- thing nobody touched, or a touched thing on a day it was not touched adds nothing.
+test("Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs", function()
+  local D, D2, OLD = day(T0), day(T0 + 86400), "1999-01-01"
+  local daily = { [D] = { ["A-R"] = { ["i:7"] = { i = 9, o = 9 } } }, [D2] = { ["A-R"] = { g = { c = 1 } } } }
+  local touched = {
+    [D] = { ["A-R"] = { ["i:7"] = true, ["c:3"] = true } },
+    [D2] = { ["A-R"] = { g = true } },
+    [OLD] = { ["A-R"] = { ["i:7"] = true } },
+  }
+  local rows = {
+    { holder = "A-R", dir = "OUT", kind = "ITEM", itemID = 7, quantity = 2 },
+    { ts = T0, holder = "A-R", dir = "OUT", kind = "ITEM", itemID = 7, quantity = 3 },
+    { ts = T0 + 86400, holder = "A-R", dir = "IN", kind = "ITEM", itemID = 7, quantity = 4 },
+    { ts = T0, holder = "A-R", dir = "IN", kind = "CURRENCY", currencyID = 3, quantity = 5 },
+    { ts = T0 + 86400, holder = "A-R", dir = "IN", kind = "GOLD", quantity = 7 },
+    { ts = T0 + 1, holder = "A-R", dir = "IN", kind = "ITEM", itemID = 8, quantity = 1 },
+  }
+  assertEqual(NS.Ledger.RecomputeFlows(daily, rows, touched), 3)
+  local c = daily[D]["A-R"]["i:7"]
+  assertEqual(c.i, nil); assertEqual(c.o, 3)
+  assertEqual(daily[D]["A-R"]["c:3"].i, 5)
+  assertEqual(daily[D]["A-R"]["i:8"], nil)
+  assertEqual(daily[D2]["A-R"].g.i, 7); assertEqual(daily[D2]["A-R"].g.c, 1)
+  assertEqual(daily[D2]["A-R"]["i:7"], nil)
+  assertEqual(daily[OLD], nil)
+  assertEqual(NS.Ledger.RecomputeFlows(daily, rows, { [OLD] = { ["A-R"] = { g = true } } }), 0)
+  assertEqual(daily[D2]["A-R"].g.i, 7, "nothing touched: no cell is cleared")
+end)
+
 
 -- Not a behavior case: puts the stores, the key index and the write hook back the way this suite
 -- found them, so the suites after it see no rollup state of this file's making.

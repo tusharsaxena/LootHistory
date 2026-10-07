@@ -91,7 +91,10 @@ core\LauncherSetup.lua
 defaults\Global.lua
 defaults\Profile.lua
 
-# Modules (Attribution before Collector)
+# Modules
+# CONVENTIONAL: every modules\ position below that carries no annotation of its own. Each such file
+# publishes its own table idempotently and reaches its siblings only inside functions (Collector
+# calls NS.Attribution at capture time, never at load); what it binds at load comes from core\.
 modules\Attribution.lua
 modules\AttributionOut.lua
 modules\Filters.lua
@@ -99,20 +102,37 @@ modules\Scanner.lua
 modules\Holdings.lua
 modules\Rollup.lua
 modules\Reconciler.lua
+# LOAD-BEARING POSITION: appends to NS.Reconciler.SCAN_STEPS/PLAN_STEPS/COMMIT_STEPS at file load;
+# modules\Reconciler.lua must be above.
 modules\Escrow.lua
 modules\AuctionPrice.lua
 modules\Collector.lua
 modules\LedgerFormat.lua
+# LOAD-BEARING POSITION: publishes B._dataset, B._withAll, B._options and the Bound labels, which
+# modules\Browser.lua binds as file-scope locals at load; it must be above modules\Browser.lua.
+modules\BrowserWidgets.lua
 modules\Browser.lua
+# LOAD-BEARING POSITION: binds modules\Browser.lua's B._setToFilter, B._applyFilter, B._options and
+# their siblings as file-scope locals at load; modules\Browser.lua must be above.
 modules\BrowserFilterBar.lua
 modules\BrowserTable.lua
+# LOAD-BEARING POSITION: binds modules\BrowserTable.lua's BrowserTable._columnByKey and
+# BrowserTable._groupColumn as file-scope locals at load; modules\BrowserTable.lua must be above.
+modules\BrowserTableGroup.lua
 modules\Export.lua
 modules\AnalyticsFormat.lua
+# LOAD-BEARING POSITION: binds Analytics.K, Analytics._fmt and the Analytics._* helpers as file-scope
+# locals at load; modules\AnalyticsFormat.lua, which publishes them, must be above.
 modules\Analytics.lua
+# LOAD-BEARING POSITION: publishes NS.Analytics idempotently but binds Analytics.K at file load and
+# writes Analytics._charts into it; modules\AnalyticsFormat.lua, which sets K, must be above.
 modules\AnalyticsCharts.lua
 modules\AnalyticsLedger.lua
+# LOAD-BEARING POSITION: calls NS.Browser:RegisterTab at file load; modules\Browser.lua must be above.
 modules\HoldingsTab.lua
 modules\TimelineModel.lua
+# LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
+# load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
 modules\TestData.lua
 modules\Diagnostics.lua
@@ -125,9 +145,11 @@ modules\Diagnostics.lua
 settings\OptionsSetup.lua
 settings\Schema.lua
 # LOAD-BEARING POSITION: the dispatcher is built at file load with commands = NS.COMMANDS, assigned
-# by settings\Schema.lua; above Schema, LibKa0s-Slash :New raises (libs\LibKa0s\Slash.lua:487)
-# and /lh is never registered.
+# by settings\Schema.lua; above Schema, LibKa0s-Slash lib:New raises (libs\LibKa0s\Slash.lua,
+# checkDescriptor's "requires descriptor.commands" refusal) and /lh is never registered.
 settings\Slash.lua
+# LOAD-BEARING POSITION: reads NS.Schema.MASTER_GROUP and NS.Schema.MasterAfterGroup at file load;
+# settings\Schema.lua must be above.
 settings\Panel.lua
 # CONVENTIONAL: the Profiles page's builder is registered from P:Register (settings\Panel.lua) at
 # addon:OnInitialize, after General's, so nothing here resolves at load.

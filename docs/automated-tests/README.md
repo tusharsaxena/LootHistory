@@ -25,7 +25,7 @@ silently by the next re-vendor.
 | `lint` | `luacheck .` | **yes** (testing-§4) | **yes** |
 | `tests` | `lua tests/run.lua` | **yes** (testing-§4) | **yes** |
 | `perf` | `lua tests/perf.lua` | no — recorded only | **yes** — at `pass` |
-| `complexity` | `lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .` | no — recorded only | **yes** — at `pass`, zero functions above CCN 15 |
+| `complexity` | `bash tests/_kit/run-automated-tests.sh --suite complexity` | no — recorded only | **yes** — at `pass`, zero functions above CCN 15 |
 
 `perf` and `complexity` are **measured, recorded and diffed — never used to fail a run and never used
 to block a commit.** A threshold that fails a run teaches everyone to reach for `--no-verify`, after

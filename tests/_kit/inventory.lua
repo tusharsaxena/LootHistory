@@ -15,9 +15,9 @@
 --
 -- SHAPE. The file returns `function(Kit, fail)`, as `asserts.lua` does: it installs
 -- `Kit.assertSuiteInventory` on the kit table it is handed and returns the helpers `framework.lua`
--- still calls, and the internals it exposes to the kit's own self-tests. It is not a module a suite
--- loads on its own: `framework.lua` is the entry point, and this file vendors beside it in the same
--- folder.
+-- still calls (from kit revision 38 the `--list` renderer among them), and the internals it
+-- exposes to the kit's own self-tests. It is not a module a suite loads on its own: `framework.lua`
+-- is the entry point, and this file vendors beside it in the same folder.
 
 return function(Kit, fail)
 
@@ -498,9 +498,121 @@ return function(Kit, fail)
     end
   end
 
-  --- What `framework.lua` needs back: the path helpers its suite loader, `--list` renderer and
-  --- shard partitioner call, and the decline reader and gate table it exposes to the kit's own
-  --- self-tests (`Kit.__deviationRows`, `Kit.__declineFor`, `Kit.__kitGateRule`).
+  -- ── the `--list` renderer (moved here from framework.lua at kit revision 38) ──────────────
+  --
+  -- Emits the whole body of docs/test-cases.md, CRLF-terminated. Moved rather than grown in place:
+  -- revision 38's Totals change would have taken `framework.lua` back into `layout-§1`'s 1000-1500
+  -- band, and the renderer reads nothing of the runner's but the registry, which it is handed.
+  --
+  -- WHAT THE TOTALS COUNT (kit revision 38). Only cases that run. A declared skip (a `Kit.test`
+  -- with a skip reason: a recorded decline, a `pending` suite, a case a repo opted out of) is listed
+  -- by name in its group, as before, but counted on a `| Skipped | N |` row of its own and in no
+  -- other row, so Total equals the sum of the count rows above Skipped and equals the passing count
+  -- a README badge carries. `testing-§5`: a skip MUST NOT be folded into passed or total. Revision
+  -- 37 printed the whole registry as Total, and every consumer with a declared skip shipped an
+  -- inventory one above its badge.
+
+  local function out(line) io.write((line or ""), "\r\n") end
+
+  --- How many cases registered under `suite` will run (declared skips left out); nil is the runner.
+  local function countIn(tests, suite)
+    local n = 0
+    for _, t in ipairs(tests) do
+      if t.suite == suite and not t.skip then n = n + 1 end
+    end
+    return n
+  end
+
+  --- How many declared skips the registry holds, wherever they were registered.
+  local function skippedIn(tests)
+    local n = 0
+    for _, t in ipairs(tests) do
+      if t.skip then n = n + 1 end
+    end
+    return n
+  end
+
+  -- renderInventory's parts (split at kit revision 35: it measured CCN 17 once the complexity suite
+  -- was sighted).
+
+  --- A case as the inventory lists it: a declared skip is disclosed, so a reader of
+  --- docs/test-cases.md sees that the case exists AND that it is not currently being evaluated.
+  local function caseLabel(t)
+    return t.skip and (t.name .. " (skipped: " .. t.skip .. ")") or t.name
+  end
+
+  --- The labels of every case registered under `suite`, in registration order; nil names the cases
+  --- the runner registered itself.
+  local function caseLabels(tests, suite)
+    local names = {}
+    for _, t in ipairs(tests) do
+      if t.suite == suite then names[#names + 1] = caseLabel(t) end
+    end
+    return names
+  end
+
+  --- One `### heading (n)` group and its bullet list, or nothing for an empty group. The heading
+  --- counts every case listed, declared skips included: it counts the list, not the run.
+  local function renderGroup(heading, names)
+    if #names == 0 then return end
+    out()
+    out(string.format("### %s (%d)", heading, #names))
+    out()
+    for _, name in ipairs(names) do out("- " .. name) end
+  end
+
+  --- The `## Totals` table: the runner's own cases first, then each declared suite with any cases
+  --- that run, then the declared skips when there are any, then the Total of the cases that run.
+  local function renderTotals(tests, suites)
+    out()
+    out("## Totals")
+    out()
+    out("| Suite | Cases |")
+    out("|-------|------:|")
+    local total = countIn(tests, nil)
+    if total > 0 then out(string.format("| the runner | %d |", total)) end
+    for _, entry in ipairs(suites) do
+      local suite = suiteEntry(entry)
+      local n = countIn(tests, suite)
+      if n > 0 then out(string.format("| %s.lua | %d |", suite, n)) end
+      total = total + n
+    end
+    local skipped = skippedIn(tests)
+    if skipped > 0 then out(string.format("| Skipped | %d |", skipped)) end
+    out(string.format("| **Total** | **%d** |", total))
+  end
+
+  --- The whole inventory over the registry `tests`, in declared-suite order.
+  local function renderInventory(tests, suites)
+    out("# Test Cases")
+    out()
+    out("The full inventory of every headless test case in this repo, grouped by the suite file it")
+    out("lives in. The `## Totals` table below counts the cases that run: its **Total** is the")
+    out("authoritative pass count, and the README test badge and any count quoted in the docs must equal")
+    out("it. A declared skip is listed by name in its group and counted on the `Skipped` row, never in")
+    out("Total.")
+    out()
+    out("**Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.")
+
+    -- Cases the RUNNER registered rather than a suite file — today, a declined kit gate (kit
+    -- revision 25). They are emitted first, because that is when they run, and they are emitted at
+    -- all because a case in no group would be a decline nobody reads.
+    renderGroup("the runner", caseLabels(tests, nil))
+
+    -- Declared-suite order, not first-seen and not sorted: the suite list is load-order-sensitive
+    -- and the inventory should read the way the run reads.
+    for _, entry in ipairs(suites) do
+      local suite = suiteEntry(entry)
+      renderGroup(suite .. ".lua", caseLabels(tests, suite))
+    end
+
+    renderTotals(tests, suites)
+  end
+
+  --- What `framework.lua` needs back: the path helpers its suite loader and shard partitioner
+  --- call, the `--list` renderer `Kit.run` hands the registry to (kit revision 38), and the decline
+  --- reader and gate table it exposes to the kit's own self-tests (`Kit.__deviationRows`,
+  --- `Kit.__declineFor`, `Kit.__kitGateRule`).
   return {
     fileExists    = fileExists,
     normDir       = normDir,
@@ -511,6 +623,7 @@ return function(Kit, fail)
     deviationRows = deviationRows,
     declineFor    = declineFor,
     kitGateRule   = KIT_GATE_RULE,
+    renderInventory = renderInventory,
   }
 
 end

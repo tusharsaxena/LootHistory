@@ -442,15 +442,13 @@ local function heldCurrency(holder)
   local e = NS.Holdings and NS.Holdings.Get and NS.Holdings:Get(holder)
   return e and e.currency
 end
-function Compat.ListedCurrencyID(id, name)
-  if not id then return nil end
-  currencyCacheFor(id)
-  local mine = heldCurrency(NS.Util.PlayerKey())
-  local warband = heldCurrency(NS.Constants.WARBAND_HOLDER)
-  if currencyListed[id] ~= nil or (mine and mine[id] ~= nil) or (warband and warband[id] ~= nil) then
-    return id
-  end
-  if not name then return nil end
+-- `id` stands as itself: listed in the token list, or held in either stored baseline.
+local function listedOrHeld(id, mine, warband)
+  return currencyListed[id] ~= nil or (mine ~= nil and mine[id] ~= nil) or (warband ~= nil and warband[id] ~= nil)
+end
+-- The one listed-or-held currency named `name`, or nil when none is or more than one is. A twin seen
+-- in more than one place (listed AND held) counts once.
+local function sameNameTwin(name, mine, warband)
   local twin
   local function consider(cid, cname)
     if cid == twin then return true end
@@ -465,6 +463,15 @@ function Compat.ListedCurrencyID(id, name)
     for cid in pairs(held) do if not consider(cid, currencyListed[cid]) then return nil end end
   end
   return twin or nil
+end
+function Compat.ListedCurrencyID(id, name)
+  if not id then return nil end
+  currencyCacheFor(id)
+  local mine = heldCurrency(NS.Util.PlayerKey())
+  local warband = heldCurrency(NS.Constants.WARBAND_HOLDER)
+  if listedOrHeld(id, mine, warband) then return id end
+  if not name then return nil end
+  return sameNameTwin(name, mine, warband)
 end
 
 -- Quality tier (Enum.ItemQuality) for a currency id, from C_CurrencyInfo; nil when uncached/absent.
@@ -685,18 +692,23 @@ end
 -- Every currency the character has, with its quantity. The client's list hides the children of a
 -- collapsed header, so collapsed headers are expanded for the walk and collapsed again after,
 -- last-to-first so indices stay valid (BagSync scanner.lua does the same).
-function Compat.ListCurrencies()
-  local CI = C_CurrencyInfo
-  if not (CI and CI.GetCurrencyListSize and CI.GetCurrencyListInfo and CI.GetCurrencyListLink) then return {} end
+-- Open every collapsed header, so the list shows the currencies under it; the indexes opened, to
+-- shut again afterwards. A client without ExpandCurrencyList leaves them shut.
+local function expandCollapsedHeaders(CI)
   local expanded = {}
+  if not CI.ExpandCurrencyList then return expanded end
   local i = 1
   while i <= CI.GetCurrencyListSize() do
     local info = CI.GetCurrencyListInfo(i)
-    if info and info.isHeader and not info.isHeaderExpanded and CI.ExpandCurrencyList then
+    if info and info.isHeader and not info.isHeaderExpanded then
       CI.ExpandCurrencyList(i, true); expanded[#expanded + 1] = i
     end
     i = i + 1
   end
+  return expanded
+end
+-- Every currency row the list shows now, as { id, quantity, accountWide }.
+local function listedCurrencyRows(CI)
   local out = {}
   for j = 1, CI.GetCurrencyListSize() do
     local info = CI.GetCurrencyListInfo(j)
@@ -705,6 +717,13 @@ function Compat.ListCurrencies()
       if id then out[#out + 1] = { id = id, quantity = info.quantity or 0, accountWide = info.isAccountWide == true } end
     end
   end
+  return out
+end
+function Compat.ListCurrencies()
+  local CI = C_CurrencyInfo
+  if not (CI and CI.GetCurrencyListSize and CI.GetCurrencyListInfo and CI.GetCurrencyListLink) then return {} end
+  local expanded = expandCollapsedHeaders(CI)
+  local out = listedCurrencyRows(CI)
   for k = #expanded, 1, -1 do CI.ExpandCurrencyList(expanded[k], false) end
   return out
 end

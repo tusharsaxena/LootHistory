@@ -1245,3 +1245,148 @@ test("BrowserTable: the Character column shows the row's holder", function()
     assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
   end)
 end)
+
+-- LH-08 (review F-002): the display-list layer (sort, group, the filter→sort→group pipeline) lives
+-- in modules/BrowserTableGroup.lua, which extends NS.BrowserTable and binds BrowserTable.lua's
+-- `_columnByKey` / `_groupColumn` seams at file load. So it must load DIRECTLY after its parent, and
+-- every member it moved must still be on NS.BrowserTable once the TOC has loaded.
+test("BrowserTable: BrowserTableGroup.lua loads directly after BrowserTable.lua, members intact", function()
+  local f = assert(io.open("LootHistory.toc", "r"))
+  local files = {}
+  for line in f:lines() do
+    line = line:gsub("\r$", "")
+    if line ~= "" and not line:find("^#") then files[#files + 1] = line end
+  end
+  f:close()
+  local at
+  for i, path in ipairs(files) do if path == "modules\\BrowserTable.lua" then at = i end end
+  assertTrue(at ~= nil, "the TOC loads modules\\BrowserTable.lua")
+  assertEqual(files[at + 1], "modules\\BrowserTableGroup.lua", "the group layer loads right after its parent")
+  local BT = NS.BrowserTable
+  for _, name in ipairs({ "SortRecords", "SetSort", "SetGroupBy", "ToggleCollapse", "GroupRecords",
+                          "CurrentRecords", "BuildDisplayList", "SetFilter", "OrderedFilteredRecords" }) do
+    assertEqual(type(BT[name]), "function", "NS.BrowserTable." .. name)
+  end
+  assertEqual(type(BT.collapsed), "table", "NS.BrowserTable.collapsed")
+  assertTrue(BT.groupBy ~= nil and BT.groupAsc ~= nil, "groupBy / groupAsc defaults are published")
+end)
+
+-- ── LH-14 characterization (review F-001 / LH-R-01) ──────────────────────────────────────────
+--
+-- Pinned before holderMoves, BrowserTable:SetTestMode and BrowserTable:GroupRecords were brought
+-- under CCN 15, over the branches each has, so the split is held to "no behavior change".
+
+test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
+  -- Every holder-move row of the sample, both halves, with the pairId's ts part dropped (it moves
+  -- with time()) and the pair checked to share it. Covers the warband deposit and withdraw ends,
+  -- an alt move's next-class receiver, and the mail vs bags container on the receiving side.
+  local rows, byPair = {}, {}
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    if NS.Ledger.HOLDER_MOVE_REASON[r.source] then
+      local n = r.pairId:match(":(%d+)$")
+      byPair[r.pairId] = (byPair[r.pairId] or 0) + 1
+      rows[#rows + 1] = table.concat({ n, r.source, r.dir or "OUT", r.holder, r.char, tostring(r.classFile),
+        r.from, r.to }, "|")
+    end
+  end
+  for id, count in pairs(byPair) do assertEqual(count, 2, "pair " .. id .. " has both halves") end
+  local W = NS.Constants.WARBAND_HOLDER
+  local want = {
+    "1|WARBAND_DEPOSIT|OUT|Warlock-Ravencrest|Warlock-Ravencrest|WARLOCK|Warlock-Ravencrest/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|OUT|{W}|Monk-Ravencrest|MONK|{W}/tabs|Monk-Ravencrest/bags",
+    "3|ALT_MAIL|OUT|Druid-Ravencrest|Druid-Ravencrest|DRUID|Druid-Ravencrest/bags|Demonhunter-Ravencrest/mail",
+    "4|ALT_TRADE|OUT|Demonhunter-Ravencrest|Demonhunter-Ravencrest|DEMONHUNTER|Demonhunter-Ravencrest/bags"
+      .. "|Evoker-Ravencrest/bags",
+    "5|CURRENCY_TRANSFER|OUT|Evoker-Ravencrest|Evoker-Ravencrest|EVOKER|Evoker-Ravencrest/bags"
+      .. "|Warrior-Ravencrest/bags",
+    "1|WARBAND_DEPOSIT|IN|{W}|Warlock-Ravencrest|WARLOCK|Warlock-Ravencrest/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|IN|Monk-Ravencrest|Monk-Ravencrest|MONK|{W}/tabs|Monk-Ravencrest/bags",
+    "3|ALT_MAIL|IN|Demonhunter-Ravencrest|Demonhunter-Ravencrest|DEMONHUNTER|Druid-Ravencrest/bags"
+      .. "|Demonhunter-Ravencrest/mail",
+    "4|ALT_TRADE|IN|Evoker-Ravencrest|Evoker-Ravencrest|EVOKER|Demonhunter-Ravencrest/bags|Evoker-Ravencrest/bags",
+    "5|CURRENCY_TRANSFER|IN|Warrior-Ravencrest|Warrior-Ravencrest|WARRIOR|Evoker-Ravencrest/bags"
+      .. "|Warrior-Ravencrest/bags",
+  }
+  assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{W}", W)))
+end)
+
+test("BrowserTable: GroupRecords pins nil, unknown and column-less group modes", function()
+  local BT = NS.BrowserTable
+  local savedGroup, savedAsc, savedCollapsed = BT.groupBy, BT.groupAsc, BT.collapsed
+  local function shape(list)
+    local out = {}
+    for i, e in ipairs(list) do
+      out[i] = e.kind == "header" and (e.label .. "#" .. e.count .. (e.collapsed and "c" or ""))
+        or ("r" .. tostring(e.record.ts))
+    end
+    return table.concat(out, ",")
+  end
+  local ok, err = pcall(function()
+    local recs = {
+      { ts = 1, itemType = "Armor", itemSubType = "Plate" },
+      { ts = 2, itemType = "Armor", itemSubType = "Cloth" },
+      { ts = 3, itemType = "Weapon" },
+      { ts = 4, itemType = "Armor", itemSubType = "Cloth" },
+    }
+    BT.collapsed = {}
+    BT.groupBy = nil
+    assertEqual(shape(BT:GroupRecords(recs)), "r1,r2,r3,r4", "a nil mode is flat")
+    BT.groupBy, BT.groupAsc = "nosuchmode", true
+    assertEqual(shape(BT:GroupRecords(recs)), "?: ?#4,r1,r2,r3,r4", "an unknown mode is one ? group")
+    BT.groupBy, BT.groupAsc = "typesub", true
+    assertEqual(shape(BT:GroupRecords(recs)),
+      "Type: Armor \194\183 Cloth#2,r2,r4,Type: Armor \194\183 Plate#1,r1,Type: Weapon#1,r3")
+    BT.groupAsc = false
+    local list = BT:GroupRecords(recs)
+    assertEqual(shape(list),
+      "Type: Weapon#1,r3,Type: Armor \194\183 Plate#1,r1,Type: Armor \194\183 Cloth#2,r2,r4")
+    BT.collapsed = { [list[1].key] = true }
+    assertEqual(shape(BT:GroupRecords(recs)),
+      "Type: Weapon#1c,Type: Armor \194\183 Plate#1,r1,Type: Armor \194\183 Cloth#2,r2,r4")
+  end)
+  BT.groupBy, BT.groupAsc, BT.collapsed = savedGroup, savedAsc, savedCollapsed
+  if not ok then error(err, 0) end
+end)
+
+test("Test mode: SetTestMode to the mode it is in answers true and does nothing", function()
+  withTestMode(function(lines, refreshes)
+    local n, before = #lines, refreshes()
+    assertTrue(NS.BrowserTable:SetTestMode(false), "a stop while stopped is not a refusal")
+    assertEqual(#lines, n, "a no-op prints nothing")
+    assertEqual(refreshes(), before, "a no-op refreshes nothing")
+    assertTrue(NS.State.testRecords == nil)
+  end)
+end)
+
+test("Test mode: SetTestMode traces each act and falls back to a table Refresh", function()
+  -- The debug lines for a refusal, a start and a named stop; and the table repaints itself when the
+  -- Browser has no OnDatasetChanged to rebuild the filter bar.
+  withTestMode(function()
+    local BT, B = NS.BrowserTable, NS.Browser
+    local savedDebug, savedDbg, savedOnChanged, savedRefresh = NS.State.debug, NS.Debug,
+      B.OnDatasetChanged, BT.Refresh
+    local traced, tableRefreshes = {}, 0
+    NS.State.debug = true
+    NS.Debug = function(cat, fmt, ...)
+      if cat == "Table" then traced[#traced + 1] = string.format(fmt, ...) end
+    end
+    local ok, err = pcall(function()
+      NS.db.profile.settings.visibility = "never"
+      assertFalse(BT:SetTestMode(true))
+      NS.db.profile.settings.visibility = "always"
+      B.OnDatasetChanged = nil
+      BT.Refresh = function() tableRefreshes = tableRefreshes + 1 end
+      assertTrue(BT:SetTestMode(true))
+      assertEqual(tableRefreshes, 2, "no OnDatasetChanged: the opened window paints once and the table refreshes itself")
+      assertTrue(BT:SetTestMode(false, "combat started"))
+      assertEqual(tableRefreshes, 3, "a stop opens nothing, so only the fallback refresh runs")
+    end)
+    NS.State.debug, NS.Debug, B.OnDatasetChanged, BT.Refresh = savedDebug, savedDbg, savedOnChanged, savedRefresh
+    if not ok then error(err, 0) end
+    assertEqual(table.concat(traced, "\n"), table.concat({
+      "test mode refused: the General visibility setting keeps the window hidden.",
+      "test mode on: " .. 304 .. " sample rows",
+      "test mode off (combat started)",
+    }, "\n"))
+  end)
+end)

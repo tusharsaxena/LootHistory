@@ -1124,6 +1124,8 @@ test("/lh holdings <query> prints the matching name and its account-wide total",
   local none = capture(function() Sl:Holdings("item name") end)
   NS.db.global.holdings = saved
   assertEqual(#out, 1)
-  assertTrue(out[1]:find("Item Name: 11", 1, true) ~= nil, out[1])
-  assertTrue(none[1]:find("no holdings match 'item name'", 1, true) ~= nil, none[1])
+  -- Exact, prefix included: both lines are pinned byte for byte across their move to the shared
+  -- printer's format form (LH-A-12).
+  assertEqual(out[1], NS.PREFIX .. " Item Name: 11")
+  assertEqual(none[1], NS.PREFIX .. " no holdings match 'item name'.")
 end)

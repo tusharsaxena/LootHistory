@@ -312,10 +312,6 @@ BrowserTable.testMode = false
 BrowserTable.sortKey = "date"
 BrowserTable.sortAsc = false
 
--- Columns whose sortFn yields a number. New sort on these starts descending (largest/
--- newest first); text columns start ascending (A→Z). Re-clicking a column toggles.
-local NUMERIC_SORT = { date = true, time = true, dir = true, ilvl = true, qty = true, quality = true, vendor = true, auction = true }
-
 -- The default WoW font has no ▲/▼/▶ glyphs, so all arrows use inline texture markup instead.
 -- ":0" sizes the texture to the surrounding line height.
 --
@@ -330,72 +326,16 @@ local NUMERIC_SORT = { date = true, time = true, dir = true, ilvl = true, qty = 
 local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, GOLD_R, GOLD_G, GOLD_B)
 local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, GOLD_R, GOLD_G, GOLD_B)
 
--- Grouping. "none" = flat table; otherwise records are partitioned under collapsible
--- headers (see SetGroupBy). collapsed[key] = true hides a group's rows. groupAsc is the
--- group-order direction (ascending by default), toggled by clicking the grouped column.
-BrowserTable.groupBy = "none"
-BrowserTable.collapsed = {}
-BrowserTable.groupAsc = true
-
--- One handler per group-by mode, returning (raw key part, display label) in that order, plus an
--- optional order value for a mode with no column to sort by (typesub). The table and its closures
--- are module-level, built once at load: groupOf runs once per record on every group build, so
--- nothing here may allocate per call. Adding a group mode is one entry here plus one in
--- GROUP_COLUMN/GROUP_PREFIX below.
-local GROUP_OF = {
-  source = function(r)
-    local label = C.SourceLabel[r.source] or r.source or "Other"
-    return label, label
-  end,
-  -- "" buckets with nil (NS.Zone answers "" with no zone text), as in Stats/the Zone filter.
-  zone = function(r)
-    local label = (r.zone ~= nil and r.zone ~= "" and r.zone) or "Unknown"
-    return label, label
-  end,
-  char = function(r)
-    local raw = r.holder or r.char or "Unknown"
-    return raw, NS.LedgerFormat.HolderLabel(raw)
-  end,
-  type = function(r)
-    local label = r.itemType or "Unknown"
-    return label, label
-  end,
-  -- "Type & SubType" (P9): "Armor · Cloth", "Armor" with no subtype, by type then subtype.
-  typesub = function(r) return NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType) end,
-  quality = function(r)
-    return "q" .. tostring(r.quality or "-"),
-           r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "\226\128\148"
-  end,
-  -- Key stays ISO (stable, unique per calendar day); label matches the Date column's format.
-  day = function(r)
-    return date("%Y-%m-%d", r.ts or 0), NS.Util.FormatDate(r.ts or 0)
-  end,
-  dir = function(r)
-    local d = NS.Util.RowDir(r)
-    return d, C.DirLabel[d] or d
-  end,
-  holder = function(r)
-    local h = NS.Util.RowHolder(r) or "Unknown"
-    return h, NS.LedgerFormat.HolderLabel(h)
-  end,
-}
-
--- Group identity + display label for a record under the active group-by. The key is
--- namespaced by group mode so the collapsed-state map never collides across modes (a
--- zone named "Kill" vs the Kill source). \001 is an unprintable separator.
-local function groupOf(groupBy, r)
-  local fn = GROUP_OF[groupBy]
-  local raw, label, order = "?", "?", nil
-  if fn then raw, label, order = fn(r) end
-  return groupBy .. "\001" .. raw, label, order
-end
-
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
--- toggle) and the human prefix shown in each group header ("Quality: Poor").
+-- toggle). The human prefix each group header shows sits beside the grouping, in
+-- modules/BrowserTableGroup.lua.
 local GROUP_COLUMN = { source = "source", zone = "zone", char = "char", quality = "quality", type = "type", day = "date",
                        dir = "dir" }
-local GROUP_PREFIX = { source = "Source", zone = "Zone", char = "Character", quality = "Quality", type = "Type", day = "Day",
-                       dir = "Direction", holder = "Holder", typesub = "Type" }
+
+-- The seam modules/BrowserTableGroup.lua binds at its file load: the display-list layer (sort,
+-- group and the filter→sort→group pipeline) lives there, and GROUP_COLUMN stays here because
+-- UpdateHeaderArrows reads it too.
+BrowserTable._columnByKey, BrowserTable._groupColumn = COLUMN_BY_KEY, GROUP_COLUMN
 
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of
@@ -549,36 +489,56 @@ end
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
 BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
 
+-- The other end of a sample holder-move row: the Warband for a warband move, else the sample class
+-- after the row's own (wrapping), as that character's Name-Realm and its class.
+local function moveOtherEnd(r)
+  if r.source == "WARBAND_DEPOSIT" or r.source == "WARBAND_WITHDRAW" then
+    return C.WARBAND_HOLDER, nil
+  end
+  local k = 1
+  while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
+  local otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
+  return otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest", otherClass
+end
+
+-- The container a move lands in on its receiver: the Warband's tabs, an alt's mail for ALT_MAIL,
+-- else the receiver's bags.
+local function moveInto(r, toH)
+  local CT = C.Container
+  if toH == C.WARBAND_HOLDER then return CT.TABS end
+  if r.source == "ALT_MAIL" then return CT.MAIL end
+  return CT.BAGS
+end
+
+-- Turn sample row `r` (an OUT on its character) into the n-th holder-move pair: `r` becomes the
+-- sender's OUT and the returned copy the receiver's IN, under one pairId.
+local function pairHolderMove(r, n)
+  local W, CT = C.WARBAND_HOLDER, C.Container
+  local other, otherClass = moveOtherEnd(r)
+  local fromH, toH = r.char, other
+  if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
+  local gain = NS.Util.DeepCopy(r)
+  r.holder, gain.holder, gain.dir = fromH, toH, "IN"
+  if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
+  r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. moveInto(r, toH)
+  gain.from, gain.to = r.from, r.to
+  r.pairId = r.ts .. ":" .. n
+  gain.pairId = r.pairId
+  return gain
+end
+
 -- Timeline ledger Phase 7: a move between two holders is an OUT on the sender and an IN on the
 -- receiver under the same reason and pairId, never a MOVE pair. Each holder-move row the seed walk
 -- wrote (an OUT on its character) is turned into that pair: the Warband is the other end of a
 -- warband move (the sender of a withdraw), the next sample class the other end of an alt move.
 -- Draws nothing from the PRNG, so the rows before it are the ones the walk always made.
 local function holderMoves(out)
-  local W, n = C.WARBAND_HOLDER, 0
+  local n = 0
   for i = 1, #out do
     local r = out[i]
     if NS.Ledger.HOLDER_MOVE_REASON[r.source] then
       n = n + 1
-      local other, otherClass = W, nil
-      if r.source ~= "WARBAND_DEPOSIT" and r.source ~= "WARBAND_WITHDRAW" then
-        local k = 1
-        while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
-        otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
-        other = otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest"
-      end
-      local fromH, toH = r.char, other
-      if r.source == "WARBAND_WITHDRAW" then fromH, toH = W, r.char end
-      local CT = C.Container
-      local into = (toH == W) and CT.TABS or (r.source == "ALT_MAIL") and CT.MAIL or CT.BAGS
-      local gain = NS.Util.DeepCopy(r)
-      r.holder, gain.holder, gain.dir = fromH, toH, "IN"
-      if toH == other and otherClass then gain.char, gain.classFile = other, otherClass end
-      r.from, r.to = fromH .. "/" .. ((fromH == W) and CT.TABS or CT.BAGS), toH .. "/" .. into
-      gain.from, gain.to = r.from, r.to
-      r.pairId = r.ts .. ":" .. n
-      gain.pairId = r.pairId
-      out[#out + 1] = gain
+      out[#out + 1] = pairHolderMove(r, n)
     end
   end
 end
@@ -695,20 +655,37 @@ local function traceTestMode(on, why)
   end
 end
 
+--- A start testModeRefusal turned away: one [Table] line, one chat line, and the panel refreshed
+--- so the checkbox unticks.
+local function refuseTestMode(refusal)
+  if NS.State.debug and NS.Debug then NS.Debug("Table", "test mode refused: %s", refusal) end
+  NS.Print("test mode not started \226\128\148 " .. refusal)
+  refreshPanel()
+end
+
+--- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the new
+--- dataset, refresh the footer, and toggle the Test-Mode badge -- or, with no Browser to do that,
+--- repaint the table alone. A start opens the window first; a stop never does.
+local function showTestDataset(self, on)
+  local B = NS.Browser
+  if on and B and B.Show then B:Show() end
+  if B and B.OnDatasetChanged then
+    B:OnDatasetChanged()
+  else
+    self:Refresh()
+  end
+end
+
 --- Turn test mode on or off. Returns true when test mode now matches `on`, false for a refused
 --- start, which prints one line and leaves the checkbox unticked. A start opens the window; a stop
 --- never does. `why` (optional) is the reason a stop names in its [Table] line.
 function BrowserTable:SetTestMode(on, why)
   on = on and true or false
   if on == (self.testMode == true) then return true end
-  if on then
-    local refusal = testModeRefusal()
-    if refusal then
-      if NS.State.debug and NS.Debug then NS.Debug("Table", "test mode refused: %s", refusal) end
-      NS.Print("test mode not started \226\128\148 " .. refusal)
-      refreshPanel()
-      return false
-    end
+  local refusal = on and testModeRefusal()
+  if refusal then
+    refuseTestMode(refusal)
+    return false
   end
   self.testMode = on
   -- Publish to State so every read-path query (table + Insights) resolves against the same data.
@@ -716,14 +693,7 @@ function BrowserTable:SetTestMode(on, why)
   -- ...and the Holdings / Timeline sample beside it (modules/TestData.lua), built from those rows.
   if NS.TestData then NS.TestData.Publish(NS.State.testRecords) end
   traceTestMode(on, why)
-  if on and NS.Browser and NS.Browser.Show then NS.Browser:Show() end
-  -- The dataset changed under the filter bar: reset filters, rebuild the dropdowns from the
-  -- new dataset, refresh the footer, and toggle the Test-Mode badge.
-  if NS.Browser and NS.Browser.OnDatasetChanged then
-    NS.Browser:OnDatasetChanged()
-  else
-    self:Refresh()
-  end
+  showTestDataset(self, on)
   refreshPanel()
   return true
 end
@@ -739,150 +709,6 @@ function BrowserTable:EndTestModeForCombat()
   if not self.testMode then return end
   self:SetTestMode(false, "combat started")
   NS.Print("test mode off \226\128\148 combat started")
-end
-
--- Stable sort by the active column into a NEW array (records are not mutated). Lua 5.1's
--- table.sort is not stable, so we tiebreak on the original index to keep equal keys in
--- their prior (chronological) order.
-function BrowserTable:SortRecords(records)
-  local col = COLUMN_BY_KEY[self.sortKey]
-  if not col or not col.sortFn then return records end
-  local keyFn, asc = col.sortFn, self.sortAsc
-  local deco = {}
-  for i = 1, #records do
-    deco[i] = { r = records[i], i = i, k = keyFn(records[i]) }
-  end
-  table.sort(deco, function(a, b)
-    if a.k ~= b.k then
-      if asc then return a.k < b.k end
-      return a.k > b.k
-    end
-    return a.i < b.i
-  end)
-  local out = {}
-  for i = 1, #deco do out[i] = deco[i].r end
-  return out
-end
-
--- Handle a header click. If the table is grouped by this column, flip the GROUP order;
--- otherwise set the row sort — re-clicking the active column flips direction, a new column
--- starts descending for numeric columns and ascending for text.
-function BrowserTable:SetSort(key)
-  local col = COLUMN_BY_KEY[key]
-  if not col or not col.sortFn then return end
-  local groupedCol = self.groupBy ~= "none" and GROUP_COLUMN[self.groupBy] or nil
-  if key == groupedCol then
-    self.groupAsc = not self.groupAsc
-    self:UpdateHeaderArrows()
-    self:Refresh()
-    return
-  end
-  if self.sortKey == key then
-    self.sortAsc = not self.sortAsc
-  else
-    self.sortKey = key
-    self.sortAsc = not NUMERIC_SORT[key]
-  end
-  self:UpdateHeaderArrows()
-  self:Refresh()
-end
-
--- Set the active grouping ("none"/source/zone/char/quality/type/typesub/day/dir/holder) and repaint.
-function BrowserTable:SetGroupBy(key)
-  self.groupBy = key or "none"
-  self:Refresh()
-end
-
--- Collapse/expand a group header (keyed by groupOf's namespaced key) and repaint.
-function BrowserTable:ToggleCollapse(key)
-  self.collapsed[key] = (not self.collapsed[key]) or nil
-  self:Refresh()
-end
-
--- Turn a (already-sorted) record array into the flat display list. With no grouping every
--- record is a { kind="row" } entry. With grouping, records are partitioned into groups sorted
--- by the grouping column's natural order (alphabetical for text, numeric for quality,
--- chronological for day; direction = groupAsc). Each group is preceded by a { kind="header" }
--- entry labeled "<Column>: <Value>" with its count; a collapsed group emits only its header.
--- The active row sort still holds within each group.
-function BrowserTable:GroupRecords(records)
-  local list = {}
-  local groupBy = self.groupBy
-  if not groupBy or groupBy == "none" then
-    for _, r in ipairs(records) do
-      list[#list + 1] = { kind = "row", record = r }
-    end
-    return list
-  end
-
-  local colKey = GROUP_COLUMN[groupBy]
-  local col = colKey and COLUMN_BY_KEY[colKey]
-  local sortFn = col and col.sortFn
-  local prefix = GROUP_PREFIX[groupBy] or "?"
-
-  local order, byKey = {}, {}
-  for _, r in ipairs(records) do
-    local key, valueLabel, groupOrder = groupOf(groupBy, r)
-    local g = byKey[key]
-    if not g then
-      g = { key = key, label = prefix .. ": " .. valueLabel, rows = {},
-            sortKey = sortFn and sortFn(r) or groupOrder or valueLabel }
-      byKey[key] = g
-      order[#order + 1] = g
-    end
-    g.rows[#g.rows + 1] = r
-  end
-
-  local asc = self.groupAsc ~= false
-  table.sort(order, function(a, b)
-    if a.sortKey ~= b.sortKey then
-      if asc then return a.sortKey < b.sortKey end
-      return a.sortKey > b.sortKey
-    end
-    return a.key < b.key
-  end)
-
-  for _, g in ipairs(order) do
-    local collapsed = self.collapsed[g.key] or false
-    list[#list + 1] = { kind = "header", key = g.key, label = g.label,
-                        count = #g.rows, collapsed = collapsed }
-    if not collapsed then
-      for _, r in ipairs(g.rows) do
-        list[#list + 1] = { kind = "row", record = r }
-      end
-    end
-  end
-  return list
-end
-
--- The base dataset the table is showing: the synthetic dataset in test mode, else live history.
--- The filter bar (options + footer) reads this too, so filters work identically in both modes.
-function BrowserTable:CurrentRecords()
-  return NS.Database:ActiveHistory()
-end
-
--- Filter -> sort -> group into the flat display list the virtualizer binds.
--- matchCount is the number of records that passed the filter (the "X" the footer shows),
--- captured before grouping inserts header entries.
-function BrowserTable:BuildDisplayList()
-  local records = NS.Database:QueryList(self:CurrentRecords(), self.filter)
-  self.matchCount = #records
-  return self:GroupRecords(self:SortRecords(records))
-end
-
-function BrowserTable:SetFilter(filter)
-  self.filter = filter or {}
-  self:Refresh()
-end
-
--- The filtered records in current sort/group order (group headers dropped) — the "Current View"
--- dataset the Export modal serializes. Mirrors what the table shows on screen.
-function BrowserTable:OrderedFilteredRecords()
-  local out = {}
-  for _, entry in ipairs(self:BuildDisplayList()) do
-    if entry.kind == "row" then out[#out + 1] = entry.record end
-  end
-  return out
 end
 
 -- ── Pooled rows ─────────────────────────────────────────────────────────────────

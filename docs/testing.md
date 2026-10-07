@@ -62,9 +62,9 @@ It is **collect-then-run**: `test()` only records, and nothing executes until `K
 
 ## The suites
 
-Forty-four suites (see **[test-cases.md](test-cases.md)** for the full per-case inventory and the
-authoritative count): thirty-nine files of this repo's own under `tests/`, and five the kit ships under
-`tests/_kit/`, each declared by the pair (basename, directory) as `testing-§9` prescribes.
+The suites are this repo's own files under `tests/` plus the ones the kit ships under `tests/_kit/`
+(the **Totals** in **[test-cases.md](test-cases.md)** carry the count, beside the full per-case
+inventory), each declared by the pair (basename, directory) as `testing-§9` prescribes.
 `tests/run.lua` fixes the load order, which is significant and commented there; this table groups by
 concern, and the repo gates that read the checkout rather than the loaded addon sit together at the
 foot of it:
@@ -271,6 +271,14 @@ upstream and is re-vendored.
 **At release, not at commit.** A full bundle is produced as part of every version bump, before the
 tag, with an `ANALYSIS.md` write-up. Commits are gated on lint + tests only; the **tag** is gated on
 all four suites, per the table above.
+
+**The 1.4.0 tag has one in-client gate on top.** The ledger's Phase 2 is signed off only when
+every one of `LED-P2-01` to `LED-P2-24` in [smoke-tests.md](smoke-tests.md#ledger-capture-timeline-ledger-phase-2) has a
+recorded `Result:`, and those results are the owner's to record in the client: no agent fills one
+in or marks one passed (review 2026-10-07 F-003). The merge does not wait on them; the version bump
+and the tag do. When `LED-P2-06` passes, the post-hook comment on `Attribution:OnSendMail` in
+`modules/AttributionOut.lua` changes from *to be verified by smoke LED-P2-06* to *verified by smoke
+LED-P2-06* with the owner and the date.
 
 Results live in [`automated-tests/`](./automated-tests/): `RESULTS.md` is one row per run across all
 four suites plus the current complexity watch list — **one file, overwritten in place**, so its git

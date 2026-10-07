@@ -17,7 +17,7 @@ if not lib then return end
 -- Minor 2: a toggle asks the lock once, naming the entry, so a refusal is one Cfg line (gap G3).
 -- Minor 3: the help mark takes the descriptor's addonName only when the client reports that addon
 -- loaded, and a fall past that rung writes one Cfg line saying why (LibKa0s#42).
-local IDLIST_MINOR = 3
+local IDLIST_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -476,13 +476,14 @@ function lib.__AttachIdList(O, d, ids)
   --- Every collection host passes its first vararg as `addonName` from v1.67.0.
   local idHelpDefault
 
-  --- Does the client report `name` as a loaded addon? `C_AddOns.IsAddOnLoaded`, else the
-  --- deprecated global. TRUSTED when neither exists (a harness, or a client that has neither) and
-  --- when the check raises: the guard exists to catch a wrong name, not to veto a right one on a
+  --- Does the client report `name` as a loaded addon? `C_AddOns.IsAddOnLoaded`, and from minor 4
+  --- nothing else: the bare global is gone on every supported client and is never read. TRUSTED
+  --- when there is no `C_AddOns` reader (a harness, or a client that cannot answer) and when
+  --- the check raises: the guard exists to catch a wrong name, not to veto a right one on a
   --- client that cannot answer. Asked lazily, at the first helped mark -- a panel draw, long after
   --- the host's own ADDON_LOADED -- never at file load.
   local function hostLoaded(name)
-    local api = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    local api = C_AddOns and C_AddOns.IsAddOnLoaded
     if type(api) ~= "function" then return true end
     local ok, loaded = pcall(api, name)
     return not ok or (loaded and true or false)
@@ -1190,8 +1191,8 @@ function lib.__AttachIdList(O, d, ids)
   ---                 LibKa0s-Media-1.0 from the Options descriptor's `addonName` -- so a host that
   ---                 names itself gets the collection's glyph and needs this field only to draw
   ---                 something else. With no `addonName`, an `addonName` the client does not
-  ---                 report loaded (minor 3: C_AddOns.IsAddOnLoaded, else the global; trusted when
-  ---                 neither exists), no Media major, or a Media that does not know the name, the
+  ---                 report loaded (minor 3: C_AddOns.IsAddOnLoaded; trusted when C_AddOns has
+  ---                 no reader, and from minor 4 the bare global is never read), no Media major, or a Media that does not know the name, the
   ---                 mark falls back to the client's own information glyph -- with one Cfg line
   ---                 through the descriptor's `debug` per instance when the name was missing or
   ---                 not loaded -- and the level tints below are muted there because that art is

@@ -57,6 +57,29 @@ test("perf: every declared bucket is reached by a real bracket", function()
   end
 end)
 
+test("perf: PLAYER_REGEN_ENABLED records no ledgerEvent sample while BAG_UPDATE does", function()
+  -- red under: the combat-exit LoginScan/Flush run inside the ledgerEvent bracket, which charges a
+  -- whole flush to a bucket declared as dirty bits and debounces (core/PerfSetup.lua).
+  local R = NS.Reconciler
+  local savedDirty, savedDeferred, savedLogin, savedFlush = R.dirty, R.deferred, R.loginPending, R.Flush
+  local flushed = 0
+  R.dirty, R.deferred, R.loginPending = {}, true, nil
+  R.Flush = function() flushed = flushed + 1 end
+  local seen, restore = spyNotes()
+  NS.Perf.on = true
+  local ok, err = pcall(function()
+    R:OnEvent("PLAYER_REGEN_ENABLED")
+    assertEqual(flushed, 1, "the regen edge still runs the deferred flush")
+    assertEqual(seen.ledgerEvent, nil, "regen was noted under ledgerEvent")
+    R:OnEvent("BAG_UPDATE", 0)
+    assertEqual(seen.ledgerEvent, 1, "BAG_UPDATE was not noted under ledgerEvent")
+  end)
+  NS.Perf.on = false
+  restore()
+  R.dirty, R.deferred, R.loginPending, R.Flush = savedDirty, savedDeferred, savedLogin, savedFlush
+  if not ok then error(err, 0) end
+end)
+
 test("perf: a dormant probe notes nothing", function()
   -- red under: a bracket that notes without testing Perf.on (performance-§2).
   local seen, restore = spyNotes()

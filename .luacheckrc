@@ -130,6 +130,7 @@ files["modules/AttributionOut.lua"] = { ignore = { "212/self" } }
 files["modules/AuctionPrice.lua"] = { ignore = { "212/self" } }
 files["modules/Browser.lua"]      = { ignore = { "212/self" } }
 files["modules/BrowserTable.lua"] = { ignore = { "212/self" } }
+files["modules/BrowserTableGroup.lua"] = { ignore = { "212/self" } }
 files["modules/Collector.lua"]    = { ignore = { "212/self" } }
 files["modules/Export.lua"]       = { ignore = { "212/self" } }
 files["modules/Filters.lua"]      = { ignore = { "212/self" } }

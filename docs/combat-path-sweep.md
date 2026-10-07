@@ -124,7 +124,7 @@ Added by the timeline ledger, after the sweep above was taken. All register one 
 | `CURRENCY_TRANSFER_LOG_UPDATE` | same | One flag, one dirty bit, the debounce. |
 | `MAIL_INBOX_UPDATE`, `OWNED_AUCTIONS_UPDATED` | same | Only while the mailbox / auction house is open: one dirty bit and the debounce. |
 | `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | same, and `modules/AttributionOut.lua` (`EnableOut`) | Not a combat path (an NPC frame). Reconciler: readability flags, and on hide one final flush. AttributionOut: one scope stamp. |
-| `PLAYER_REGEN_ENABLED` | `modules/Reconciler.lua` | **Where the deferred work runs.** `R:Flush` returns at once in combat and sets `deferred`; this edge runs the one reconcile (or the deferred login scan). |
+| `PLAYER_REGEN_ENABLED` | `modules/Reconciler.lua` | **Where the deferred work runs.** `R:Flush` returns at once in combat and sets `deferred`; this edge runs the one reconcile (or the deferred login scan). Outside the `ledgerEvent` bucket: `R:OnEvent` dispatches it before the bracket opens (`tests/test_perf.lua`). |
 | `MAIL_SEND_SUCCESS`, `MAIL_FAILED` | `modules/AttributionOut.lua` | Out of combat by construction. A stamp, or one field clear. |
 | `TRADE_ACCEPT_UPDATE` | `modules/AttributionOut.lua` | Out of combat by construction. One stamp on a completed trade. |
 | `ADDON_LOADED` | `modules/AttributionOut.lua` | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |

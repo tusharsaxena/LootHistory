@@ -1,4 +1,5 @@
 local _, NS = ...
+NS.Analytics = NS.Analytics or {}
 local Analytics = NS.Analytics
 
 -- The Insights tab's drawing half: the pooled widget factories (bars, stacked bars, strip bars,

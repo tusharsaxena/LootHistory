@@ -146,6 +146,40 @@ local function pairBucket(r)
     r.from, r.to }, "|")
 end
 
+-- A converted row with no pairId waits in `queued` (conversion order) and in its bucket's side, so
+-- assignPairIds can hand each half the first unpaired partner on the opposite side.
+local function queueForPairing(r, queued, buckets)
+  queued[#queued + 1] = r
+  local b = pairBucket(r)
+  buckets[b] = buckets[b] or { OUT = {}, IN = {} }
+  local side = buckets[b][r.dir]
+  side[#side + 1] = r
+end
+
+-- Record the (day, holder, thing) cell a converted row lands in, for the rollup rebuild. A row with
+-- no ts, holder or thing key touches no cell.
+local function markTouched(touched, r, holder)
+  local key = NS.Ledger.RowThingKey(r)
+  if not (key and r.ts and holder) then return end
+  local day = NS.Ledger.DayKey(r.ts)
+  touched[day] = touched[day] or {}
+  touched[day][holder] = touched[day][holder] or {}
+  touched[day][holder][key] = true
+end
+
+-- Each queued half still unpaired takes `<ts>:m<its queue index>` and gives it to the first
+-- unpaired half on the opposite side of its bucket.
+local function assignPairIds(queued, buckets)
+  for i, r in ipairs(queued) do
+    if r.pairId == nil then
+      r.pairId = tostring(r.ts) .. ":m" .. i
+      for _, other in ipairs(buckets[pairBucket(r)][r.dir == "OUT" and "IN" or "OUT"]) do
+        if other.pairId == nil then other.pairId = r.pairId; break end
+      end
+    end
+  end
+end
+
 local function convertHolderMoves(g)
   local L, U = NS.Ledger, NS.Util
   local rows = g.history or {}
@@ -157,30 +191,11 @@ local function convertHolderMoves(g)
       r.dir = (holder == fromH) and "OUT" or "IN"
       r.source = L.HolderMoveReason(r, fromH, toH)
       n = n + 1
-      if r.pairId == nil then
-        queued[#queued + 1] = r
-        local b = pairBucket(r)
-        buckets[b] = buckets[b] or { OUT = {}, IN = {} }
-        local side = buckets[b][r.dir]
-        side[#side + 1] = r
-      end
-      local key = L.RowThingKey(r)
-      if key and r.ts and holder then
-        local day = L.DayKey(r.ts)
-        touched[day] = touched[day] or {}
-        touched[day][holder] = touched[day][holder] or {}
-        touched[day][holder][key] = true
-      end
+      if r.pairId == nil then queueForPairing(r, queued, buckets) end
+      markTouched(touched, r, holder)
     end
   end
-  for i, r in ipairs(queued) do
-    if r.pairId == nil then
-      r.pairId = tostring(r.ts) .. ":m" .. i
-      for _, other in ipairs(buckets[pairBucket(r)][r.dir == "OUT" and "IN" or "OUT"]) do
-        if other.pairId == nil then other.pairId = r.pairId; break end
-      end
-    end
-  end
+  assignPairIds(queued, buckets)
   if n > 0 and type(g.daily) == "table" then L.RecomputeFlows(g.daily, rows, touched) end
   return n
 end
@@ -687,23 +702,32 @@ end
 -- `anyFiltered(a, b, c, d, e)` returning `a or b or c or d or e` would move eight decisions out of
 -- whatever function held it and buy nothing at runtime — it is called three times per query, not
 -- per record. Complexity moved is not complexity removed (performance-§11, anti-pattern #52).
+--
+-- The type-gated clauses DO go through one: clauseOfType answers the clause when it has the form
+-- the loop reads and nil otherwise, so a clause of the wrong type (a stray "all" sentinel, a
+-- string quality) is unfiltered. That is one rule applied to five clauses, not five decisions.
+local function clauseOfType(v, t)
+  if type(v) == t then return v end
+  return nil
+end
+
 local function compileFilter(filter)
   local q = filter.quality
   local p = {
-    qSet     = type(q) == "table" and q,
-    qExact   = type(q) == "number" and q,
+    qSet     = clauseOfType(q, "table"),
+    qExact   = clauseOfType(q, "number"),
     srcSet   = membershipSet(filter.source),
     chrSet   = membershipSet(filter.char),
     itypeSet = membershipSet(filter.itemType),
     isubSet  = membershipSet(filter.itemSubType),
     zoneSet  = membershipSet(filter.zone),
-    boundSet = type(filter.bound) == "table" and filter.bound,
+    boundSet = clauseOfType(filter.bound, "table"),
     from     = filter.from,
     to       = filter.to,
     text     = filter.text and filter.text:lower(),
     dirSet   = membershipSet(filter.dir),
-    minQ     = type(filter.minQuality) == "number" and filter.minQuality or nil,
-    minQEx   = type(filter.minQualityExempt) == "table" and filter.minQualityExempt or nil,
+    minQ     = clauseOfType(filter.minQuality, "number"),
+    minQEx   = clauseOfType(filter.minQualityExempt, "table"),
   }
   p.anyQ      = p.qSet or p.qExact
   p.anyScalar = p.srcSet or p.chrSet or p.itypeSet or p.isubSet or p.zoneSet
@@ -807,21 +831,27 @@ local function newLedger()
   }
 end
 
-local function accumulateLedger(L, dir, kind, qty, value, src, ch)
-  if dir == "MOVE" then L.movedCount = L.movedCount + 1; return end
-  local v = (kind == "GOLD") and qty or value
-  local gain = dir ~= "OUT"
-  local reasons, values, chars, kinds =
-    gain and L.reasonIn or L.reasonOut, gain and L.valueReasonIn or L.valueReasonOut,
-    gain and L.charIn or L.charOut, gain and L.kindIn or L.kindOut
-  if gain then L.gainedCount, L.gainedValue = L.gainedCount + 1, L.gainedValue + v
-  else L.lostCount, L.lostValue = L.lostCount + 1, L.lostValue + v end
+-- One side's breakdowns (the In or the Out maps) for a single gain or loss: count and value by
+-- reason, value by holder (a row with none lands on no character), count by kind.
+local function tallySide(reasons, values, chars, kinds, src, ch, kind, v)
   reasons[src] = (reasons[src] or 0) + 1
   values[src] = (values[src] or 0) + v
   if ch then chars[ch] = (chars[ch] or 0) + v end
   kinds[kind] = (kinds[kind] or 0) + 1
-  if kind == "GOLD" then
-    if gain then L.goldIn = L.goldIn + qty else L.goldOut = L.goldOut + qty end
+end
+
+local function accumulateLedger(L, dir, kind, qty, value, src, ch)
+  if dir == "MOVE" then L.movedCount = L.movedCount + 1; return end
+  local isGold = kind == "GOLD"
+  local v = isGold and qty or value
+  if dir ~= "OUT" then
+    L.gainedCount, L.gainedValue = L.gainedCount + 1, L.gainedValue + v
+    if isGold then L.goldIn = L.goldIn + qty end
+    tallySide(L.reasonIn, L.valueReasonIn, L.charIn, L.kindIn, src, ch, kind, v)
+  else
+    L.lostCount, L.lostValue = L.lostCount + 1, L.lostValue + v
+    if isGold then L.goldOut = L.goldOut + qty end
+    tallySide(L.reasonOut, L.valueReasonOut, L.charOut, L.kindOut, src, ch, kind, v)
   end
 end
 
@@ -971,6 +1001,34 @@ local function accumulateCurrency(A, r, src, qty)
   end
 end
 
+-- One record's ledger facts, with the legacy defaults of NS.Util.RowDir/RowKind inlined so the
+-- read path makes one local call per record rather than one per field: quantity (1), direction (a
+-- gain), kind (CURRENCY for a row with only a currencyID, else ITEM) and source (OTHER). `src` is
+-- read for the currency charts too, which is why it is resolved here rather than in the ledger.
+-- A currency row carries no vendor/auction price, so its value was always 0; gold is valued in
+-- copper by accumulateLedger, never here.
+local function rowFacts(r)
+  local qty = r.quantity or 1
+  local kind = r.kind or ((r.itemID == nil and r.currencyID ~= nil) and "CURRENCY" or "ITEM")
+  local value = (kind == "ITEM") and (NS.Util.RecordValue(r) or 0) * qty or 0
+  return qty, r.dir or "IN", kind, value, r.source or "OTHER"
+end
+
+-- One loot record (a gain of an item or currency that is not half of a holder move) into the
+-- legacy breakdowns: the totals, its item or currency group, then time, provenance and character.
+local function accumulateLoot(A, r, ch, src, qty, value, isCurrency)
+  A.totalValue = A.totalValue + value
+  A.totalQuantity = A.totalQuantity + qty
+  if isCurrency then
+    accumulateCurrency(A, r, src, qty)
+  else
+    accumulateItem(A, r, ch, src, value)
+  end
+  accumulateTime(A, r, value)
+  accumulateProvenance(A, r, value)
+  accumulateChar(A, r, ch, isCurrency, value)
+end
+
 -- The orderings and day rollup derived from the buckets once the pass is done.
 local function derive(A)
   local topZones = {}
@@ -1024,15 +1082,7 @@ function Database:Stats(filter)
   local HOLDER_MOVE_REASON = NS.Ledger.HOLDER_MOVE_REASON
 
   for _, r in ipairs(records) do
-    local qty = r.quantity or 1
-    -- Inline legacy defaults (NS.Util.RowDir/RowKind) — no per-record call on the read path.
-    local dir = r.dir or "IN"
-    local kind = r.kind or ((r.itemID == nil and r.currencyID ~= nil) and "CURRENCY" or "ITEM")
-    -- A currency row carries no vendor/auction price, so its value was always 0; gold is valued in
-    -- copper by accumulateLedger, never here.
-    local value = (kind == "ITEM") and (NS.Util.RecordValue(r) or 0) * qty or 0
-    -- `src` is read for the currency charts too, which is why it is resolved out here.
-    local src = r.source or "OTHER"
+    local qty, dir, kind, value, src = rowFacts(r)
     local ch = r.char
     -- The ledger's by-character chart reads the HOLDER (inline Util.RowHolder), as the History
     -- Character column does, so each half of a holder move lands on its own holder.
@@ -1044,17 +1094,7 @@ function Database:Stats(filter)
     -- by the sender (char = the depositor), and these gains-only charts have no OUT to offset it.
     if dir == "IN" and kind ~= "GOLD" and not HOLDER_MOVE_REASON[src] then
       loot = loot + 1
-      local isCurrency = kind == "CURRENCY"
-      A.totalValue = A.totalValue + value
-      A.totalQuantity = A.totalQuantity + qty
-      if isCurrency then
-        accumulateCurrency(A, r, src, qty)
-      else
-        accumulateItem(A, r, ch, src, value)
-      end
-      accumulateTime(A, r, value)
-      accumulateProvenance(A, r, value)
-      accumulateChar(A, r, ch, isCurrency, value)
+      accumulateLoot(A, r, ch, src, qty, value, kind == "CURRENCY")
     end
   end
   L.netValue = L.gainedValue - L.lostValue

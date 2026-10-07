@@ -133,12 +133,12 @@ lua tests/run.lua                                              # headless suite 
 luacheck .                                                     # 0 warnings / 0 errors
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
-lizard -l lua -x "./libs/*" -x "./tests/_kit/*" .              # complexity report (release only)
+bash tests/_kit/run-automated-tests.sh --suite complexity --no-bundle   # complexity (release gate)
 bash tests/_kit/run-automated-tests.sh                         # the frozen bundle (all four suites)
 ```
 
-The first two are the commit gate. The two diffs need `../LibKa0s` beside this repo. The `lizard`
-run is a **release** step and is never a commit gate (`performance-§10`).
+The first two are the commit gate. The two diffs need `../LibKa0s` beside this repo. The complexity
+suite is a **release** step and is never a commit gate (`performance-§10`).
 
 ---
 

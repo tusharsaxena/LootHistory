@@ -303,6 +303,68 @@ test("Widgets: the Character options fold the class icon into the label, not int
     assertTrue(row.label:find("Ka0z-Realm", 1, true) ~= nil, "and the name must still be there")
   end)
 
+-- LH-14 (review F-001 / LH-R-01): characterization pins for the two Character-option builders in
+-- modules/BrowserWidgets.lua (historyCharItems, holderCharItems), written before they were brought
+-- under CCN 15. Every option is pinned whole -- value, label (icon markup folded in) and tint -- over
+-- each branch: a row keyed by its holder vs its char, the Warband half of a move, a known class, an
+-- unclassed row and a duplicate; on the holders side an entry with a class, one without, one with no
+-- meta at all and the Warband.
+local function charOptionLines(opts)
+  local out = {}
+  for i, o in ipairs(opts) do
+    local c = o.color and string.format("%.2f,%.2f,%.2f", o.color[1], o.color[2], o.color[3]) or "-"
+    out[i] = tostring(o.value) .. "|" .. tostring(o.label) .. "|" .. c
+  end
+  return table.concat(out, "\n")
+end
+
+local MAGE_ICON, WARRIOR_ICON = "|A:classicon-mage:14:14|a ", "|A:classicon-warrior:14:14|a "
+
+test("Widgets: history Character options pin value, label and tint over every branch", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local saved = NS.State.testRecords
+  NS.State.testRecords = {
+    { ts = 1, char = "Ka0z-Realm", classFile = "MAGE", source = "KILL" },
+    { ts = 2, char = "Ka0z-Realm", classFile = "MAGE", source = "VENDOR" },          -- duplicate
+    { ts = 3, char = "Ka0z-Realm", holder = W, classFile = "MAGE", source = "WARBAND_DEPOSIT" },
+    { ts = 4, char = "Nomad-Other", source = "AH" },                                  -- no class
+    { ts = 5, char = "Alt-Realm", holder = "Alt-Realm", classFile = "WARRIOR", source = "KILL" },
+  }
+  local ok, got = pcall(function() return charOptionLines(B._options.char(false)) end)
+  NS.State.testRecords = saved
+  if not ok then error(got, 0) end
+  assertEqual(got, table.concat({
+    "all|Character: All|-",
+    "current|Character: Current|-",
+    "Alt-Realm|" .. WARRIOR_ICON .. "Alt-Realm|0.78,0.61,0.43",
+    "Ka0z-Realm|" .. MAGE_ICON .. "Ka0z-Realm|0.25,0.78,0.92",
+    "Nomad-Other|Nomad-Other|-",
+    W .. "|Warband|-",
+  }, "\n"))
+end)
+
+test("Widgets: holders Character options pin value, label and tint over every branch", function()
+  local W = NS.Constants.WARBAND_HOLDER
+  local saved = NS.db.global.holdings
+  NS.db.global.holdings = {
+    ["Ka0z-Realm"] = { meta = { classFile = "MAGE" } },
+    ["Bare-Realm"] = { meta = {} },
+    ["Nometa-Realm"] = {},
+    [W] = { meta = {} },
+  }
+  local ok, got = pcall(function() return charOptionLines(B._options.char(true)) end)
+  NS.db.global.holdings = saved
+  if not ok then error(got, 0) end
+  assertEqual(got, table.concat({
+    "all|Character: All|-",
+    "current|Character: Current|-",
+    "Bare-Realm|Bare-Realm|-",
+    "Ka0z-Realm|" .. MAGE_ICON .. "Ka0z-Realm|0.25,0.78,0.92",
+    "Nometa-Realm|Nometa-Realm|-",
+    W .. "|Warband|-",
+  }, "\n"))
+end)
+
 -- ── CloseMenu from every non-click close path ────────────────────────────────────────────────
 
 local function countingCloseMenu(fn)
