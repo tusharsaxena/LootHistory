@@ -92,7 +92,7 @@ Total.
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 
-### test_util.lua (42)
+### test_util.lua (46)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -119,6 +119,10 @@ Total.
 - Util: ParseSelfCurrency bonus + overflow variants -> link, qty
 - Util: ParseSelfCurrency tags a refunded currency line as REFUND
 - Util: ParseSelfCurrency ignores item loot and other players
+- Util: a rewritten LOOT_ITEM_SELF is honored on the next parse without a reload
+- Util: a rewritten CURRENCY_GAINED_MULTIPLE is honored
+- Util: LOOT_ROLL_YOU_WON appearing after a nil first parse is honored
+- Util: an unchanged global set does not rebuild
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
@@ -1675,7 +1679,7 @@ Total.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 7 |
-| test_util.lua | 42 |
+| test_util.lua | 46 |
 | test_ledger.lua | 36 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 64 |
@@ -1731,4 +1735,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 20 |
 | Skipped | 1 |
-| **Total** | **1477** |
+| **Total** | **1481** |

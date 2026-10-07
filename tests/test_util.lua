@@ -232,6 +232,82 @@ do
     assertEqual(NS.Util.ParseSelfCurrency(string.format(T.mocks.LOOT_ITEM_SELF, LINK)), nil)
     assertEqual(NS.Util.ParseSelfCurrency("Someone receives currency: " .. CURR), nil)
   end)
+
+  -- ── the patterns follow the globals they were compiled from (PC-R-01) ─────────────────────────
+  -- Another addon can rewrite the loot/currency globals mid-session: PrettyChat does it on every
+  -- settings write, profile change, /pc disable|enable and combat boundary (its handoff H-1). A
+  -- pattern set compiled once and never re-checked silently drops every record until /reload.
+  -- The loader env resolves T.mocks before _G, so the swap goes through T.mocks.
+  local function withGlobal(name, value, body)
+    local saved = T.mocks[name]
+    T.mocks[name] = value
+    local ok, err = pcall(body)
+    T.mocks[name] = saved
+    if not ok then error(err, 0) end
+  end
+
+  test("Util: a rewritten LOOT_ITEM_SELF is honored on the next parse without a reload", function()
+    NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_SELF, LINK))   -- compile from the original
+    withGlobal("LOOT_ITEM_SELF", "|cff00ff00Loot|r: %s", function()
+      local link, qty = NS.Util.ParseSelfLoot("|cff00ff00Loot|r: " .. LINK)
+      assertEqual(link, LINK)
+      assertEqual(qty, 1)
+    end)
+    -- And back again once the rewriter restores the original.
+    local link = NS.Util.ParseSelfLoot(string.format(T.mocks.LOOT_ITEM_SELF, LINK))
+    assertEqual(link, LINK)
+  end)
+
+  test("Util: a rewritten CURRENCY_GAINED_MULTIPLE is honored", function()
+    NS.Util.ParseSelfCurrency(string.format(T.mocks.CURRENCY_GAINED_MULTIPLE, CURR, 3))
+    withGlobal("CURRENCY_GAINED_MULTIPLE", "Currency: %s x%d", function()
+      local link, qty = NS.Util.ParseSelfCurrency("Currency: " .. CURR .. " x45")
+      assertEqual(link, CURR)
+      assertEqual(qty, 45)
+    end)
+  end)
+
+  test("Util: LOOT_ROLL_YOU_WON appearing after a nil first parse is honored", function()
+    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    withGlobal("LOOT_ROLL_YOU_WON", nil, function()
+      NS.Util.RollWonPattern()                       -- caches false: the global is absent
+      assertEqual(NS.Util.ParseRollWon(won), nil)
+    end)
+    assertEqual(NS.Util.ParseRollWon(won), LINK)     -- the cached false must not survive
+  end)
+
+  test("Util: an unchanged global set does not rebuild", function()
+    local U = NS.Util
+    local origLoot, origCurr, origRoll = U.BuildLootPatterns, U.BuildCurrencyPatterns, U.RollWonPattern
+    local builds = { loot = 0, curr = 0, roll = 0 }
+    U.BuildLootPatterns = function(...) builds.loot = builds.loot + 1; return origLoot(...) end
+    U.BuildCurrencyPatterns = function(...) builds.curr = builds.curr + 1; return origCurr(...) end
+    U.RollWonPattern = function(...) builds.roll = builds.roll + 1; return origRoll(...) end
+    local loot = string.format(T.mocks.LOOT_ITEM_SELF, LINK)
+    local curr = string.format(T.mocks.CURRENCY_GAINED, CURR)
+    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    local ok, err = pcall(function()
+      -- A change rebuilds exactly once, then the unchanged set is reused.
+      withGlobal("LOOT_ITEM_SELF", "Got: %s", function()
+        withGlobal("CURRENCY_GAINED", "Got currency: %s", function()
+          withGlobal("LOOT_ROLL_YOU_WON", "Won: %s", function()
+            for _ = 1, 5 do
+              U.ParseSelfLoot("Got: " .. LINK); U.ParseSelfCurrency("Got currency: " .. CURR)
+              U.ParseRollWon("Won: " .. LINK)
+            end
+          end)
+        end)
+      end)
+      assertEqual(builds.loot, 1, "one loot rebuild for one change")
+      assertEqual(builds.curr, 1, "one currency rebuild for one change")
+      assertEqual(builds.roll, 1, "one roll-won rebuild for one change")
+      -- Back on the original globals: one more rebuild each, then none.
+      for _ = 1, 5 do U.ParseSelfLoot(loot); U.ParseSelfCurrency(curr); U.ParseRollWon(won) end
+      assertEqual(builds.loot, 2); assertEqual(builds.curr, 2); assertEqual(builds.roll, 2)
+    end)
+    U.BuildLootPatterns, U.BuildCurrencyPatterns, U.RollWonPattern = origLoot, origCurr, origRoll
+    if not ok then error(err, 0) end
+  end)
 end
 
 test("Util: FormatClock is HH:MM", function()

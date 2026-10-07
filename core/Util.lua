@@ -113,35 +113,85 @@ local function toLootPattern(fmt)
   return "^" .. p .. "$"
 end
 
--- Self-loot patterns, compiled once from the localized global strings. Quantity-bearing
--- variants come first: their (.+) is greedy, so a single-loot pattern would otherwise
--- swallow the trailing "xN" of a multiple-loot line. Some variants carry a `source` tag: their
--- loot line is itself the authoritative, locale-independent proof of the source — a bonus roll
--- (LOOT_ITEM_BONUS_ROLL_SELF), a crafted item (LOOT_ITEM_CREATED_SELF, "You create"), or a token/
--- vendor refund (LOOT_ITEM_REFUND, "You are refunded") — so the collector attributes them directly
--- to that source rather than reading the peripheral loot context (see docs/data-flow.md).
-local lootPatterns
-function Util.BuildLootPatterns()
-  local specs = {
-    { g = LOOT_ITEM_SELF_MULTIPLE,             hasQty = true },
-    { g = LOOT_ITEM_PUSHED_SELF_MULTIPLE,      hasQty = true },
-    { g = LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE,  hasQty = true,  source = "BONUS_ROLL" },
-    { g = LOOT_ITEM_CREATED_SELF_MULTIPLE,     hasQty = true,  source = "CRAFT" },
-    { g = LOOT_ITEM_REFUND_MULTIPLE,           hasQty = true,  source = "REFUND" },
-    { g = LOOT_ITEM_SELF,                      hasQty = false },
-    { g = LOOT_ITEM_PUSHED_SELF,               hasQty = false },
-    { g = LOOT_ITEM_BONUS_ROLL_SELF,           hasQty = false, source = "BONUS_ROLL" },
-    { g = LOOT_ITEM_CREATED_SELF,              hasQty = false, source = "CRAFT" },
-    { g = LOOT_ITEM_REFUND,                    hasQty = false, source = "REFUND" },
-  }
-  local out = {}
-  for _, s in ipairs(specs) do
-    if s.g then
-      out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty, source = s.source }
+-- Patterns compiled from client globals, and the globals they were compiled FROM.
+--
+-- Each pattern set is compiled once per distinct set of source globals, not once per session:
+-- another addon may rewrite these globals at runtime. PrettyChat does, on every settings write,
+-- profile change, /pc disable|enable and combat boundary (its docs call this handoff H-1), and a
+-- set compiled once and never re-checked silently dropped every self-loot and currency record until
+-- /reload (PC-R-01). So each set keeps the exact source strings beside it, and every parse compares
+-- the live globals against them: plain rawequal compares over the reader's multiple returns, no
+-- table and no string built on the hit path (performance-§2 — CHAT_MSG_LOOT is a combat-path event).
+-- Any difference, including a global that appeared or disappeared, rebuilds the set.
+
+-- True when the recorded sources `src` still match the live globals the reader returned.
+local function sameSources(src, ...)
+  if not src then return false end
+  for i = 1, select("#", ...) do
+    if not rawequal(src[i], (select(i, ...))) then return false end
+  end
+  return true
+end
+
+-- Compile one pattern set. `shapes[i]` describes the i-th global the reader returns (`hasQty`, and
+-- an optional self-identifying `source` tag); an absent global is skipped. Returns the patterns
+-- and the source strings they came from, positionally, for sameSources.
+local function compilePatterns(shapes, ...)
+  local out, src = {}, {}
+  for i = 1, #shapes do
+    local g = (select(i, ...))
+    src[i] = g
+    if g then
+      local s = shapes[i]
+      out[#out + 1] = { pattern = toLootPattern(g), hasQty = s.hasQty, source = s.source }
     end
   end
-  lootPatterns = out
-  return out
+  return out, src
+end
+
+-- Self-loot patterns. Quantity-bearing variants come first: their (.+) is greedy, so a single-loot
+-- pattern would otherwise swallow the trailing "xN" of a multiple-loot line. Some variants carry a
+-- `source` tag: their loot line is itself the authoritative, locale-independent proof of the
+-- source — a bonus roll (LOOT_ITEM_BONUS_ROLL_SELF), a crafted item (LOOT_ITEM_CREATED_SELF, "You
+-- create"), or a token/vendor refund (LOOT_ITEM_REFUND, "You are refunded") — so the collector
+-- attributes them directly to that source rather than reading the peripheral loot context (see
+-- docs/data-flow.md). LOOT_SHAPES is positional: entry i describes lootGlobals()'s i-th return.
+-- modules/Diagnostics.lua's LOOT_GLOBALS names the same globals; keep the three in step.
+local function lootGlobals()
+  return LOOT_ITEM_SELF_MULTIPLE, LOOT_ITEM_PUSHED_SELF_MULTIPLE, LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE,
+    LOOT_ITEM_CREATED_SELF_MULTIPLE, LOOT_ITEM_REFUND_MULTIPLE, LOOT_ITEM_SELF, LOOT_ITEM_PUSHED_SELF,
+    LOOT_ITEM_BONUS_ROLL_SELF, LOOT_ITEM_CREATED_SELF, LOOT_ITEM_REFUND
+end
+local LOOT_SHAPES = {
+  { hasQty = true },                          -- LOOT_ITEM_SELF_MULTIPLE
+  { hasQty = true },                          -- LOOT_ITEM_PUSHED_SELF_MULTIPLE
+  { hasQty = true,  source = "BONUS_ROLL" },  -- LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE
+  { hasQty = true,  source = "CRAFT" },       -- LOOT_ITEM_CREATED_SELF_MULTIPLE
+  { hasQty = true,  source = "REFUND" },      -- LOOT_ITEM_REFUND_MULTIPLE
+  { hasQty = false },                         -- LOOT_ITEM_SELF
+  { hasQty = false },                         -- LOOT_ITEM_PUSHED_SELF
+  { hasQty = false, source = "BONUS_ROLL" },  -- LOOT_ITEM_BONUS_ROLL_SELF
+  { hasQty = false, source = "CRAFT" },       -- LOOT_ITEM_CREATED_SELF
+  { hasQty = false, source = "REFUND" },      -- LOOT_ITEM_REFUND
+}
+local lootPatterns, lootSources
+function Util.BuildLootPatterns()
+  lootPatterns, lootSources = compilePatterns(LOOT_SHAPES, lootGlobals())
+  return lootPatterns
+end
+
+-- Shared matcher: the first pattern that matches wins.
+local function matchPatterns(pats, msg)
+  for _, p in ipairs(pats) do
+    if p.hasQty then
+      local link, qty = msg:match(p.pattern)
+      if link then return link, tonumber(qty) or 1, p.source end
+    else
+      local link = msg:match(p.pattern)
+      if link then return link, 1, p.source end
+    end
+  end
+  return nil
 end
 
 -- Parse a CHAT_MSG_LOOT line. Returns itemLink, quantity, source for the player's own loot;
@@ -149,27 +199,21 @@ end
 -- for the tagged variants, else nil (the collector then reads the peripheral context).
 function Util.ParseSelfLoot(msg)
   if not msg then return nil end
-  local pats = lootPatterns or Util.BuildLootPatterns()
-  for _, p in ipairs(pats) do
-    if p.hasQty then
-      local link, qty = msg:match(p.pattern)
-      if link then return link, tonumber(qty) or 1, p.source end
-    else
-      local link = msg:match(p.pattern)
-      if link then return link, 1, p.source end
-    end
-  end
-  return nil
+  local pats = lootPatterns
+  if not (pats and sameSources(lootSources, lootGlobals())) then pats = Util.BuildLootPatterns() end
+  return matchPatterns(pats, msg)
 end
 
 -- The roll-won line ("You won: <item>", LOOT_ROLL_YOU_WON) announces that YOU won a group need/
 -- greed/transmog roll. It is NOT itself a receipt — no record is written on it; the item arrives a
 -- moment later on a normal "You receive loot:" line. The collector uses this to stamp ROLL context
 -- so that imminent receive line attributes to the roll rather than inheriting a stale kill/container
--- stamp. Compiled once, like the self-loot patterns (false = the global string is absent).
-local rollWonPattern
+-- stamp. Compiled once per distinct LOOT_ROLL_YOU_WON, like the self-loot patterns (false = the
+-- global string is absent; a false cached while it was absent is rebuilt once it appears).
+local rollWonPattern, rollWonSource
 function Util.RollWonPattern()
-  rollWonPattern = LOOT_ROLL_YOU_WON and toLootPattern(LOOT_ROLL_YOU_WON) or false
+  rollWonSource = LOOT_ROLL_YOU_WON
+  rollWonPattern = rollWonSource and toLootPattern(rollWonSource) or false
   return rollWonPattern
 end
 
@@ -177,34 +221,35 @@ end
 function Util.ParseRollWon(msg)
   if not msg then return nil end
   local pat = rollWonPattern
-  if pat == nil then pat = Util.RollWonPattern() end
+  if pat == nil or not rawequal(rollWonSource, LOOT_ROLL_YOU_WON) then pat = Util.RollWonPattern() end
   if not pat then return nil end
   return msg:match(pat)
 end
 
--- Self-currency patterns, compiled once from the CHAT_MSG_CURRENCY global strings. Quantity-bearing
--- variants (incl. the bonus/overflow parenthetical forms) come first so the greedy single-pattern
--- (.+) can't swallow a trailing "xN (...)". The overflow global embeds a second %s (the currency
--- name); toLootPattern turns it into a third capture that ParseSelfCurrency simply ignores.
+-- Self-currency patterns, from the CHAT_MSG_CURRENCY global strings. Quantity-bearing variants
+-- (incl. the bonus/overflow parenthetical forms) come first so the greedy single-pattern (.+) can't
+-- swallow a trailing "xN (...)". The overflow global embeds a second %s (the currency name);
+-- toLootPattern turns it into a third capture that ParseSelfCurrency simply ignores.
 -- A currency-vendor refund returns the currency on THIS channel (not CHAT_MSG_LOOT) as a
 -- "You are refunded" line (LOOT_ITEM_REFUND*); like the item refund/craft/bonus-roll lines it is
 -- self-identifying, so its `source` tag lets the collector attribute REFUND directly (see Collector).
-local currencyPatterns
+-- CURRENCY_SHAPES is positional against currencyGlobals(), as LOOT_SHAPES is against lootGlobals().
+local function currencyGlobals()
+  return CURRENCY_GAINED_MULTIPLE_OVERFLOW, CURRENCY_GAINED_MULTIPLE_BONUS, CURRENCY_GAINED_MULTIPLE,
+    LOOT_ITEM_REFUND_MULTIPLE, CURRENCY_GAINED, LOOT_ITEM_REFUND
+end
+local CURRENCY_SHAPES = {
+  { hasQty = true },                          -- CURRENCY_GAINED_MULTIPLE_OVERFLOW
+  { hasQty = true },                          -- CURRENCY_GAINED_MULTIPLE_BONUS
+  { hasQty = true },                          -- CURRENCY_GAINED_MULTIPLE
+  { hasQty = true,  source = "REFUND" },      -- LOOT_ITEM_REFUND_MULTIPLE
+  { hasQty = false },                         -- CURRENCY_GAINED
+  { hasQty = false, source = "REFUND" },      -- LOOT_ITEM_REFUND
+}
+local currencyPatterns, currencySources
 function Util.BuildCurrencyPatterns()
-  local specs = {
-    { g = CURRENCY_GAINED_MULTIPLE_OVERFLOW, hasQty = true },
-    { g = CURRENCY_GAINED_MULTIPLE_BONUS,    hasQty = true },
-    { g = CURRENCY_GAINED_MULTIPLE,          hasQty = true },
-    { g = LOOT_ITEM_REFUND_MULTIPLE,         hasQty = true,  source = "REFUND" },
-    { g = CURRENCY_GAINED,                   hasQty = false },
-    { g = LOOT_ITEM_REFUND,                  hasQty = false, source = "REFUND" },
-  }
-  local out = {}
-  for _, s in ipairs(specs) do
-    if s.g then out[#out + 1] = { pattern = toLootPattern(s.g), hasQty = s.hasQty, source = s.source } end
-  end
-  currencyPatterns = out
-  return out
+  currencyPatterns, currencySources = compilePatterns(CURRENCY_SHAPES, currencyGlobals())
+  return currencyPatterns
 end
 
 -- Parse a CHAT_MSG_CURRENCY line. Returns currencyLink, quantity, source for the player's own
@@ -212,17 +257,11 @@ end
 -- "REFUND" for a self-identifying refund line, else nil (the collector then reads the context).
 function Util.ParseSelfCurrency(msg)
   if not msg then return nil end
-  local pats = currencyPatterns or Util.BuildCurrencyPatterns()
-  for _, p in ipairs(pats) do
-    if p.hasQty then
-      local link, qty = msg:match(p.pattern)
-      if link then return link, tonumber(qty) or 1, p.source end
-    else
-      local link = msg:match(p.pattern)
-      if link then return link, 1, p.source end
-    end
+  local pats = currencyPatterns
+  if not (pats and sameSources(currencySources, currencyGlobals())) then
+    pats = Util.BuildCurrencyPatterns()
   end
-  return nil
+  return matchPatterns(pats, msg)
 end
 
 -- The secret-safe stringifier (NS.IsConcatSafe / NS.SafeToString) and the shared cyan-[LH] chat
