@@ -74,7 +74,7 @@ The help list is rendered by **subtraction** from `NS.COMMANDS`: one set, `UNAVA
 `Sl:PrintHelp` prints the header from `Dispatcher:HelpHeader()` (`Sl:HelpHeader` in `libs/LibKa0s/Slash.lua`) — version, an **em dash**, then the alias clause composed from the descriptor's `slashAliases`:
 
 ```
-[LH] v1.4.0 — slash commands (|cFFFFFF00/loothistory|r is an alias for |cFFFFFF00/lh|r)
+[LH] v1.5.0 — slash commands (|cFFFFFF00/loothistory|r is an alias for |cFFFFFF00/lh|r)
 ```
 
 then one prefixed row per `NS.COMMANDS` entry, each **indented two spaces** so it sits under that header (`Sl:HelpRows` in `libs/LibKa0s/Slash.lua`). A row is a gold command, an em dash with a **single space either side**, and a white description — upper-case hex, because that is the library's:
