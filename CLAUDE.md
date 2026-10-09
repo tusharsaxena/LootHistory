@@ -44,7 +44,7 @@ touching code:
 - Everything else — `scope.md`, `module-map.md`, `schema.md`, `profiles.md`,
   `message-bus.md`, `browser.md`, `debug.md`, `disabled-state.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
   `midnight-quirks.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
-  `automated-tests/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
+  `automated-tests/`, `perf-analysis/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
 ## Green gate
 

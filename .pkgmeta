@@ -22,8 +22,8 @@ ignore:
   - tests
   - _dev
   - "*.bak"
-  # Tracked, and the only entries here that change a download. Nine screenshots,
-  # 5.9M -- the second largest in the collection -- project-page art the
+  # Tracked, and the only entries here that change a download. Four screenshots,
+  # 3.6M -- project-page art the
   # CurseForge CDN already serves. CLAUDE.md and DEPENDENCIES.md are developer
   # documentation; README.md and LICENSE stay, because players do read those.
   - media/screenshots

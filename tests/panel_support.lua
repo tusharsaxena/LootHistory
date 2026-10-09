@@ -123,7 +123,7 @@ end
 --- Run `fn` with every AceGUI ScrollFrame's CONTENT widened to `px`, then put the fixture back.
 ---
 --- THE HARNESS'S CANVAS IS A FIXTURE, NOT A MODEL. The kit's AceGUI fake gives every ScrollFrame's
---- content a flat `original_width = 400` (tests/_kit/mock_base.lua:1307) and LibKa0s's
+--- content a flat `original_width = 400` (tests/_kit/mock_base.lua:1311) and LibKa0s's
 --- always-shown-scrollbar patch then takes its 20px gutter off it (OptionsScroll.lua:35 and :74-75),
 --- so every list in this suite measures 380px of content. Nothing in the kit claims that is what
 --- Blizzard's settings canvas hands a page; it is a number a fake made up.
@@ -131,7 +131,7 @@ end
 --- It matters from LibKa0s v1.50.0, which made `columns` a MAXIMUM: O.IdList measures the content
 --- width at draw time and drops toward one column when the count cannot be paid for -- 520px for
 --- two entries in the icon style, 584 in the default one (fitIdColumns / entryMinContent,
---- libs/LibKa0s/OptionsIdList.lua:952-972 and :994-1003). At 380 every multi-column list collapses to one,
+--- libs/LibKa0s/OptionsIdList.lua:998-1018 and :1040-1049). At 380 every multi-column list collapses to one,
 --- which is the library being right about a number the harness invented. So a case asserting how a
 --- list PACKS has to say what canvas it packs into, or it is asserting the fixture.
 ---

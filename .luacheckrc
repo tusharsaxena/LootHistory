@@ -65,7 +65,7 @@ globals = {
   "StaticPopupDialogs", -- we register a purge-confirm dialog
 }
 
--- The harness publishes its exposed table as _G.LH_TEST, written at tests/run.lua:164 and read
+-- The harness publishes its exposed table as _G.LH_TEST, written at tests/run.lua:173 and read
 -- by every suite file. `globals` rather than `read_globals` because tests/run.lua is the writer,
 -- and declared HERE rather than at the top level on purpose: a name granted at the top level is
 -- granted to core/, modules/ and settings/ as much as to a suite. Scoped like this, a shipped

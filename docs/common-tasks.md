@@ -66,7 +66,7 @@ below.
 
 ### Add a migration
 
-Append **one entry** to the module-level `MIGRATIONS` array in `core/Database.lua:123` — never edit the
+Append **one entry** to the module-level `MIGRATIONS` array in `core/Database.lua:245` — never edit the
 runner. Array order is run order, the runner stamps `schemaVersion` only *after* `apply` returns, and
 every step must be idempotent. Anything needing a warm item cache cannot run inline at
 `ADDON_LOADED`; hand it to the deferred repair instead. Full contract in [schema.md](schema.md).
@@ -245,11 +245,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:72`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
+  `NS.ApplySkin` (`modules/Browser.lua:63`, `core/CoreSetup.lua`); `modules/Browser.lua:15`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:22`, drawn at `:888`) — branding art, not a re-skinnable surface.
-- **Nineteen hard-coded `Interface\` paths remain, and each one is in a class named right here**
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
+- **Twenty-four hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
   every other sweep in this repo excludes them, and a count taken over the whole tree is a count of
@@ -259,12 +259,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/' | xargs grep -n 'Interface\\'
   ```
 
+  It prints 25 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
+
   | # | Class | Where |
   |---|---|---|
-  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:223`, `modules/AnalyticsFormat.lua:12`, `modules/Browser.lua:15`, `modules/BrowserTable.lua:89`, `:1154`, `modules/Export.lua:322` |
-  | 8 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:114`, `:259`, `:260`, `:1122`, `:1123`, `settings/Panel.lua:540`, `:541`, `:542` |
-  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:133` (the class-circle sheet, under the `classicon-` atlas) |
-  | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:22` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
+  | 7 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:223`, `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:95`, `:1191`, `modules/Export.lua:346`, `modules/Timeline.lua:25` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:120`, `:326`, `:327`, `:1168`, `:1169`, `modules/HoldingsTab.lua:304`, `:305`, `:428`, `:429`, `settings/Panel.lua:541`, `:542`, `:543` |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:139` (the class-circle sheet, under the `classicon-` atlas) |
+  | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
   The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the
   catalog does not have it" is a claim that has to be re-checked against `lib.ICONS` and not

@@ -29,7 +29,7 @@ says it is account-wide. A profile switch, copy or reset never changes it, never
 deletes a record. A per-profile retention would let a switch to a profile that keeps a week delete
 everything older at the next login for every profile.
 
-The db is created with `AceDB:New("LootHistoryDB", NS.defaults, true)` (`core/Database.lua:7`): the
+The db is created with `AceDB:New("LootHistoryDB", NS.defaults, true)` (`core/Database.lua:8`): the
 `true` puts every character on one shared profile, `Default`, until the player picks another. So out
 of the box the addon behaves exactly as it did when the settings were account-wide.
 

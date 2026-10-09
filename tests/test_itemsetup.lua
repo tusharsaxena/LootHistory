@@ -21,7 +21,7 @@ local LEGACY_EPIC_LINK =
   "|cffa335ee|Hitem:258586::::::::80:250::5:3:10356:10355:1540:1:28:2462:::|h[Bloodfeather Chestguard]|h|r"
 
 -- The hex rung is now the FALLBACK, reached only by a link with no `|cnIQ<n>` prefix, and it needs
--- a client whose ITEM_QUALITY_COLORS actually distinguishes qualities. tests/wow_mock.lua:95
+-- a client whose ITEM_QUALITY_COLORS actually distinguishes qualities. tests/wow_mock.lua:145
 -- answers a white swatch for EVERY index on purpose — the addon's coloring code only ever reads
 -- r/g/b and a per-quality palette would pin cosmetics no suite cares about — but a reverse
 -- hex→quality map built from that table maps one hex to one quality and answers nil for every real

@@ -73,7 +73,7 @@ core\WidgetsSetup.lua
 # core\Constants.lua must be above.
 core\DebugLogSetup.lua
 # The LibKa0s-Pool seam. CONVENTIONAL: nothing resolves at load; every NS.Pool.New call is inside
-# a function (modules/Analytics.lua:213).
+# a function (modules/Analytics.lua:227).
 core\PoolSetup.lua
 core\LootHistory.lua
 core\Database.lua
