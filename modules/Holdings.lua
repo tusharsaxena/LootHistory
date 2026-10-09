@@ -120,16 +120,6 @@ function Holdings:MarkGenesis(holder, ts)
   e.meta.partial = e.scanned[gate] == nil
 end
 
-function Holdings:ItemCounts(holder)
-  local e, out = self:Get(holder), {}
-  if not e then return out end
-  for id, row in pairs(e.items) do
-    local n = 0; for _, c in pairs(row) do n = n + c end
-    out[id] = n
-  end
-  return out
-end
-
 function Holdings:Holders()
   local chars, hasWarband = {}, false
   for h in pairs(self:ActiveStore()) do

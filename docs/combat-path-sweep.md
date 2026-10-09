@@ -143,7 +143,7 @@ written down because a silent skip reads exactly like an oversight.
 `wantedByProvider` (`modules/AuctionPrice.lua:61`) regroups the capture set into
 `{ provider = { key = true } }` on every call, and `GatherAll` calls it at `:87` — once per **kept**
 loot line, the `CHAT_MSG_LOOT` row above. It allocates one `out` table plus one sub-map per
-provider named in the set: on the shipped default (`core/Constants.lua:154-158`, seven keys across
+provider named in the set: on the shipped default (`core/Constants.lua:238-242`, seven keys across
 Auctionator, TSM and Oribos) that is exactly **four small tables per kept line**, from a set that
 changes only when the player edits the Price sources table in settings. The obvious repair is to
 memoize it and refresh on a settings change.
@@ -153,7 +153,7 @@ It is not being taken, and the reason is the exemption itself rather than an arg
 there is not going to be one** — so the number that would decide this cannot be produced, and
 "four tables is cheap" would be the same unmeasured assertion the exemption exists to refuse. What is
 already on that line makes the guess a bad bet in any case: `NS.Compat.GetItemExtras`
-(`modules/Collector.lua:163`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
+(`modules/Collector.lua:178`) walks a `C_TooltipInfo` build line by line, and `GatherAll` then makes
 one `pcall`ed call into every installed pricing addon. A memo would also buy real state — an
 invalidation path, and a cached table handed out to three third-party fetchers — against a saving
 nobody in this repo can size.

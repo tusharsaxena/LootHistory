@@ -9,8 +9,6 @@ local F = NS.LedgerFormat
 local C = NS.Constants
 local DASH = "\226\128\148"
 
-function F.Glyph(dir) return C.DirGlyph[dir or "IN"] or "" end
-
 function F.Color(dir)
   local c = C.DirRGB[dir or "IN"] or C.DirRGB.MOVE
   return c[1], c[2], c[3]

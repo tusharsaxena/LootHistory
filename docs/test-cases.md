@@ -185,7 +185,7 @@ Total.
 
 ### test_ledgerformat.lua (5)
 
-- LedgerFormat: glyph and color per direction, legacy reads as a gain
+- LedgerFormat: color per direction, legacy reads as a gain
 - LedgerFormat: quantity text is signed; transfers unsigned; gold as money
 - LedgerFormat: gold quantity is pale gold; others take the direction color
 - LedgerFormat: signed count and money; zero is a gray dash

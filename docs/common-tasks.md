@@ -99,7 +99,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:735`),
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:798`),
   a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
   look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
   row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
@@ -108,7 +108,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`tests/test_schema.lua` pins it, on both builds).
 - **Paths resolve against the active profile, `NS.db.profile`** — every setting but two is per
   profile, so `Schema:Get`/`:Set` read and write `NS.db.profile` (the descriptor's `resolveRoot`,
-  `settings/Schema.lua:697`, asked at call time so a profile switch retargets it). Only the loot
+  `settings/Schema.lua:760`, asked at call time so a profile switch retargets it). Only the loot
   history, its repair bookkeeping, the schema stamp, the retention (`retentionDays`, owner decision
   D6: the setting that governs the recorded data, reached through its row's own `get`/`set`) and
   LibDBIcon's `minimap` table live in `NS.db.global` ([profiles.md](profiles.md)). A new setting that
@@ -132,7 +132,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:153`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:154`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -153,11 +153,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Collector hot-path upvalues
 
 - The collector caches its gate config as file-level upvalues — `qualityThreshold`,
-  `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:17`) — so the `CHAT_MSG_LOOT`
+  `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:19`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:266`), which also rewrites the one module-level `gateCfg` table
-  (`modules/Collector.lua:26`) the handler passes to `ShouldRecord` — a loot line sets only
+  (`modules/Collector.lua:358`), which also rewrites the one module-level `gateCfg` table
+  (`modules/Collector.lua:29`) the handler passes to `ShouldRecord` — a loot line sets only
   `gateCfg.itemID`, never builds a config table. The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
 
@@ -165,7 +165,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
   under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:322`,
-  `:190`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
+  `:328`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
   each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:290` —
@@ -191,14 +191,14 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:174`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:1016`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:1083`); the header's `Debug: ON`/`OFF` control flips the same flag
   (the title-bar toggle's `onToggleClick`, built in `EnsureFrame` in `libs/LibKa0s/DebugLog.lua`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:117-118`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
-  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:206`).
+  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:207`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`lib.FormatPlain` in `libs/LibKa0s/DebugLog.lua`; the colored console
-  variant is `lib.FormatColored`, `:160`). `tag` is one short word, printed verbatim — no padding,
+  variant is `lib.FormatColored`). `tag` is one short word, printed verbatim — no padding,
   no truncation.
 - `NS.Debug` is **secret-safe** (events-frames-taint-§8): every `...` arg is routed through
   `NS.SafeToString` before it reaches `string.format`, so a combat-protected "secret" value logs as
@@ -303,7 +303,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1132`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1133`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
@@ -315,7 +315,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`lib.LAYOUT.BUTTON_PAIR_REL` in `libs/LibKa0s/Options.lua`), re-exported on the instance as
-  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:34`).
+  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
   hard-code it per button.
@@ -333,7 +333,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
   clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
-  (`core/Constants.lua:100`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  (`core/Constants.lua:174`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
   gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not

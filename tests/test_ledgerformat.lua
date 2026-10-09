@@ -3,9 +3,10 @@ local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 local F = function() return NS.LedgerFormat end
 
-test("LedgerFormat: glyph and color per direction, legacy reads as a gain", function()
-  assertEqual(F().Glyph("OUT"), NS.Constants.DirGlyph.OUT)
-  assertEqual(F().Glyph(nil), NS.Constants.DirGlyph.IN)
+test("LedgerFormat: color per direction, legacy reads as a gain", function()
+  local lr, lg, lb = F().Color(nil)
+  local IN = NS.Constants.DirRGB.IN
+  assertEqual(lr, IN[1]); assertEqual(lg, IN[2]); assertEqual(lb, IN[3])
   local r, g, b = F().Color("OUT")
   assertEqual(r, 1.00); assertEqual(g, 0.33); assertEqual(b, 0.33)
 end)
