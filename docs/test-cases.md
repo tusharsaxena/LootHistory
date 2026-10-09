@@ -1349,7 +1349,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (43)
+### test_panel.lua (44)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1391,6 +1391,7 @@ Total.
 - Panel: toggling a source's Enabled box writes the capture set and repaints
 - Panel: the landing page renders one label per slash command, through the ONE row formatter
 - Panel: the landing page shows the tagline
+- Panel: the landing page is drawn by the library's BuildLandingPage, logo and commands
 - Panel: Open refuses during combat and never defers-and-replays
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colors are saturated, not muted
@@ -1756,7 +1757,7 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 43 |
+| test_panel.lua | 44 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
@@ -1777,4 +1778,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1523** |
+| **Total** | **1524** |

@@ -880,45 +880,22 @@ local function buildAuctionTable(ctx)
   refreshAuctionTable(ctx)   -- first paint, and every later paint of this tab
 end
 -- ── Landing page: logo + tagline + slash-command list ───────────────────────────
+-- Through the library's builder (options-ui-§5): logo, the tagline, then the Slash Commands heading
+-- and one row per NS.COMMANDS entry (the rows go through lib.FormatRow; see closed issue #24,
+-- LIBKA0S-09). It replaced a private body that drew the logo as a texture straight on a pooled
+-- AceGUI SimpleGroup frame and never took it off: after a re-render the frame came back as another
+-- SimpleGroup (the spacer under the heading) still carrying the logo, so the page showed it twice.
+-- The builder owns the clear, keeps one texture per frame and hides it in the group's OnRelease.
 local function buildMainContent(ctx)
-  local scroll = O.EnsureScroll(ctx)
-
-  local logoGroup = NS.AceGUI:Create("SimpleGroup")
-  logoGroup:SetLayout(nil); logoGroup:SetFullWidth(true); logoGroup:SetHeight(LOGO_SIZE)
-  local tex = logoGroup.frame:CreateTexture(nil, "ARTWORK")
-  tex:SetTexture(LOGO_PATH)
-  tex:SetSize(LOGO_SIZE, LOGO_SIZE)
-  tex:SetPoint("TOPLEFT", logoGroup.frame, "TOPLEFT", 0, 0)
-  scroll:AddChild(logoGroup)
-  O.AddSpacer(scroll, 8)
-
-  local desc = NS.AceGUI:Create("Label")
-  desc:SetFullWidth(true); desc:SetText(ADDON_TAGLINE)
-  if desc.label and desc.label.SetFontObject and _G.GameFontHighlight then
-    desc.label:SetFontObject(_G.GameFontHighlight)
-  end
-  scroll:AddChild(desc)
-  O.AddSpacer(scroll, 12)
-
-  local heading = NS.AceGUI:Create("Heading")
-  heading:SetFullWidth(true); heading:SetHeight(O.SECTION_HEADING_H); heading:SetText("Slash Commands")
-  if heading.label and heading.label.SetFontObject and _G.GameFontNormalLarge then
-    heading.label:SetFontObject(_G.GameFontNormalLarge)
-  end
-  scroll:AddChild(heading)
-  O.AddSpacer(scroll, 6)
-
-  -- CONVERGENCE (LibKa0s adoption). This page used to carry its OWN command-row formatter — double
-  -- spaces around the em dash, the dash explicitly white-wrapped, the description left bare — while
-  -- settings/Slash.lua two files away already rendered the same data another way. Both now go
-  -- through lib.FormatRow: single spaces, no color span on the dash, the description white.
-  -- Deliberate and user-visible; do not "fix" it back. See closed issue #24 (LIBKA0S-09).
-  for _, line in ipairs(NS.Slash.LandingRows and NS.Slash:LandingRows() or {}) do
-    local labelRow = NS.AceGUI:Create("Label")
-    labelRow:SetFullWidth(true)
-    labelRow:SetText(line)
-    scroll:AddChild(labelRow)
-  end
+  O.BuildLandingPage(ctx, {
+    logo     = LOGO_PATH,
+    logoSize = LOGO_SIZE,
+    notes    = ADDON_TAGLINE,
+    sections = { {
+      heading = "Slash Commands",
+      rows    = function() return NS.Slash.LandingRows and NS.Slash:LandingRows() or {} end,
+    } },
+  })
 end
 
 -- ── Flow-engine hooks ───────────────────────────────────────────────────────────
@@ -1068,7 +1045,6 @@ local function renderGeneral(ctx)
 end
 
 function P.BuildMain(ctx)
-  O.ClearScroll(ctx)
   buildMainContent(ctx)
   if ctx.scroll and ctx.scroll.DoLayout then ctx.scroll:DoLayout() end
 end

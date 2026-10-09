@@ -835,6 +835,28 @@ test("Panel: the landing page shows the tagline", function()
   assertTrue(found ~= nil, "the one-line description must be drawn")
 end)
 
+-- Owner report: the landing page showed the logo twice, the second under the Slash Commands
+-- heading. A private body drew it on a pooled AceGUI frame and never took it off; the library's
+-- BuildLandingPage hides it on release. The page body must go through the library's builder.
+test("Panel: the landing page is drawn by the library's BuildLandingPage, logo and commands",
+  function()
+    local O = NS.Options
+    local seen
+    local real = O.BuildLandingPage
+    O.BuildLandingPage = function(_, spec) seen = spec end
+    local ok, err = pcall(NS.Panel.BuildMain, {})
+    O.BuildLandingPage = real
+    assertTrue(ok, tostring(err))
+    -- red under: the private logoGroup.frame:CreateTexture body in settings/Panel.lua
+    assertTrue(seen ~= nil, "BuildMain delegates to the library")
+    assertTrue(seen.logo:find("media\\logos\\loothistory.logo.tga", 1, true) ~= nil, seen.logo)
+    assertEqual(seen.logoSize, 300)
+    assertTrue(seen.notes:find("attributes its source", 1, true) ~= nil, "the tagline is the notes")
+    assertEqual(#seen.sections, 1)
+    assertEqual(seen.sections[1].heading, "Slash Commands")
+    assertEqual(#seen.sections[1].rows(), #NS.COMMANDS)
+  end)
+
 -- ── combat ───────────────────────────────────────────────────────────────────────────────────
 
 test("Panel: Open refuses during combat and never defers-and-replays", function()
