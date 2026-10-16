@@ -3,7 +3,7 @@
 These are the in-client checks the headless suite cannot make: real `CHAT_MSG_LOOT` capture, the
 History window, the settings panel, the minimap button, combat locks and what the client draws. The
 pure logic is covered by `lua tests/run.lua` and `luacheck .` (see [testing.md](testing.md)). Run the
-suite on the live Retail client (Midnight 12.1.0, Interface 120100) before tagging a release, after a
+suite on the live Retail client (Midnight 12.1.5, Interface 120105) before tagging a release, after a
 `## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
 change done (see *Which themes to run* below). Start each theme from a clean `/reload` with debug
 logging off unless a step turns it on. Record each check on its `Result:` line (pass, or what you

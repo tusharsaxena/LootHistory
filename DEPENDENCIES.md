@@ -12,8 +12,8 @@ or a documented command. Nothing is listed on a hunch.
 
 ## 1. Runtime (in-game) — what a player needs
 
-**World of Warcraft (Retail), interface 120100 — Midnight 12.1.0.** Evidence:
-`LootHistory.toc:1` (`## Interface: 120100`), mirrored by the README's `[wow]` badge
+**World of Warcraft (Retail), interface 120105 — Midnight 12.1.5.** Evidence:
+`LootHistory.toc:1` (`## Interface: 120105`), mirrored by the README's `[wow]` badge
 (`README.md:3`).
 
 **Nothing else.** Every library the addon uses is **vendored** under `libs/` and committed, so the
