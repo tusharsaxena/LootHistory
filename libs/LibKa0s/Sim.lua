@@ -34,7 +34,10 @@
 -- closures over a private state table, so nothing a host can index mutates them:
 --
 --   Start(opts)      -> ok, line   unknown scenario, already running, refusal (inside seam:Live),
---                                  the stood-down backstop; then the session, STARTED, prepare
+--                                  the stood-down backstop; then the session, STARTED, prepare.
+--                                  The scenarios are read at call time (a def listed after New
+--                                  starts, checked as New checks), and prepare gets a copy of the
+--                                  caller's opts, extra fields kept (minor 2)
 --   Stop(reason)     -> bool       the two-phase stop below; re-entrancy-safe (OWNER_SCOPE C.1)
 --   Fire(event, ...) -> n          deliver under pcall, only while live and not stood down
 --   After(delay, fn) -> handle     a timer that dies with its session; handle:Cancel() forgets it
@@ -91,7 +94,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Sim-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Sim-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -327,26 +330,33 @@ local function checkOptional(d)
   end
 end
 
---- Raise unless every listed scenario has a def with a timeline; answer the set of known names.
+-- The scenario checks are New's and Start's alike (minor 2: Start reads the scenarios live, so a
+-- def listed after New is checked on its first Start). Both callers sit at the same depth, so the
+-- error level is fixed: this function (1), its caller (2), checkDescriptor or startRefusal (3), New
+-- or Start (4), and the host's call site (5).
+
+--- Raise, naming `verb`, unless sc carries a names list and a defs table.
+local function checkShape(sc, verb)
+  if type(sc) ~= "table" or type(sc.names) ~= "table" or type(sc.defs) ~= "table" then
+    error(("%s: %s: descriptor.scenarios must carry a names list and a defs table"):format(MAJOR, verb), 5)
+  end
+end
+
+--- Raise, naming `verb`, unless the listed scenario `name` has a def with a timeline; answer the def.
+local function checkDef(sc, name, verb)
+  local def = sc.defs[name]
+  local at = ("%s: %s: descriptor.scenarios.defs.%s"):format(MAJOR, verb, tostring(name))
+  if type(def) ~= "table" then error(at .. " is missing", 5) end
+  if type(def.timeline) ~= "function" then error(at .. ".timeline must be a function", 5) end
+  if def.sizes ~= nil and type(def.sizes) ~= "table" then error(at .. ".sizes must be a list", 5) end
+  return def
+end
+
+--- Raise unless every scenario listed when New runs has a def with a timeline. An empty list is
+--- accepted: a host may fill its scenarios after New, and Start reads them at call time.
 local function checkScenarios(sc)
-  if type(sc.names) ~= "table" or type(sc.defs) ~= "table" then
-    error(MAJOR .. ": New: descriptor.scenarios must carry a names list and a defs table", 4)
-  end
-  local known = {}
-  for _, name in ipairs(sc.names) do
-    local def = sc.defs[name]
-    if type(def) ~= "table" then
-      error(("%s: New: descriptor.scenarios.defs.%s is missing"):format(MAJOR, tostring(name)), 4)
-    end
-    if type(def.timeline) ~= "function" then
-      error(("%s: New: descriptor.scenarios.defs.%s.timeline must be a function"):format(MAJOR, tostring(name)), 4)
-    end
-    if def.sizes ~= nil and type(def.sizes) ~= "table" then
-      error(("%s: New: descriptor.scenarios.defs.%s.sizes must be a list"):format(MAJOR, tostring(name)), 4)
-    end
-    known[name] = true
-  end
-  return known
+  checkShape(sc, "New")
+  for _, name in ipairs(sc.names) do checkDef(sc, name, "New") end
 end
 
 --- Raise on a panel field that is not presentation.
@@ -360,19 +370,19 @@ local function checkPanel(panel)
   end
 end
 
---- Validate the whole descriptor; answer the seam's private state and the known scenario names.
+--- Validate the whole descriptor; answer the seam's private state.
 local function checkDescriptor(d)
   if type(d) ~= "table" then error(MAJOR .. ": New(d): the descriptor must be a table", 3) end
   for _, field in ipairs(REQUIRED) do required(d, field[1], field[2]) end
   checkOptional(d)
-  local known = checkScenarios(d.scenarios)
+  checkScenarios(d.scenarios)
   checkPanel(d.panel)
   local seamState = STATE[d.seam]
   if not seamState then error(MAJOR .. ": New: descriptor.seam must come from Sim:NewSeam", 3) end
   if seamState.bound then
     error(MAJOR .. ": New: descriptor.seam (" .. seamState.name .. ") is already bound: one seam binds one session", 3)
   end
-  return seamState, known
+  return seamState
 end
 
 -- ── the session's private helpers (S is one instance's private state) ────────────────────────
@@ -444,7 +454,7 @@ end
 --- Stop's step (4): the seam off, the session and delivering cleared, the cleanup phase entered.
 local function seamOff(S)
   S.seamState.active = false
-  S.session, S.delivering, S.ready = nil, false, false
+  S.session, S.delivering, S.ready, S.startOpts = nil, false, false, nil
   S.cleanup = true
 end
 
@@ -465,11 +475,27 @@ local function stopLine(S, reason)
   return tr(S, "STOPPED_REASON"):format(tostring(reason))
 end
 
+--- The def of the scenario `name`, read from d.scenarios at call time (minor 2): nil when `name`
+--- is not listed; a listed name whose def is malformed raises as New does (a host programming error).
+local function liveDef(S, name)
+  local sc = S.d.scenarios
+  checkShape(sc, "Start")
+  for _, listed in ipairs(sc.names) do
+    if listed == name then
+      local def = checkDef(sc, name, "Start")   -- not a tail call: the error level counts this frame
+      return def
+    end
+  end
+  return nil
+end
+
 --- The line refusing Start(opts), or nil and the scenario's def when it may start. In order:
---- unknown scenario, already running, the host's refusal read inside seam:Live, stood down.
+--- unknown scenario (the live names), already running, the host's refusal read inside seam:Live,
+--- stood down.
 local function startRefusal(S, opts)
   local d, name = S.d, opts.scenario
-  if not S.known[name] then
+  local def = liveDef(S, name)
+  if not def then
     return tr(S, "UNKNOWN_SCENARIO"):format(tostring(name), concat(d.scenarios.names, ", "))
   end
   if S.session or S.stopping then return tr(S, "ALREADY_RUNNING") end
@@ -478,7 +504,17 @@ local function startRefusal(S, opts)
     if line ~= nil and line ~= false then return tostring(line) end
   end
   if d.isStoodDown() then return tr(S, "STOOD_DOWN") end
-  return nil, d.scenarios.defs[name]
+  return nil, def
+end
+
+--- A shallow copy of the caller's start opts with scenario, size and seed set to the resolved
+--- values (minor 2), so a host's own start fields reach its prepare. The library reads no other
+--- field, and the caller's table is never written.
+local function resolvedOpts(opts, size, seed)
+  local out = {}
+  for k, v in pairs(opts) do out[k] = v end
+  out.size, out.seed = size, seed
+  return out
 end
 
 --- A seed for a session the host gave none: time-derived, and different on every call.
@@ -517,11 +553,12 @@ local function installLifecycle(sim, S)
     local seed = tonumber(opts.seed) or freshSeed(S)
     local session = { sim = true, scenario = opts.scenario, size = size, seed = seed, startedAt = time(), events = 0 }
     S.session, S.ready, S.delivering = session, false, false
+    S.startOpts = resolvedOpts(opts, size, seed)   -- Restart's copy (ctx.startOpts), apart from prepare's
     S.seamState.active = true
     local started = tr(S, "STARTED"):format(tostring(def.label or opts.scenario))
     say(S, started)
     debugOut(S, "started %s (size %s, seed %s)", tostring(opts.scenario), tostring(size), tostring(seed))
-    runPrepare(S, session, def, { scenario = opts.scenario, size = size, seed = seed })
+    runPrepare(S, session, def, resolvedOpts(opts, size, seed))
     if S.session ~= session then return false end   -- it ended inside prepare; its stop line printed
     notify(S)
     return true, started
@@ -646,6 +683,8 @@ end
 --- The attach handshake's internal table: what SimTimeline.lua and SimPanel.lua read and the
 --- fields SimTimeline.lua sets on it (cancelRun, Stop's step 1; status, filling Status()'s timeline
 --- fields; runTo, the click-ahead SimPanel.lua drives, which is never an instance member).
+--- startOpts (minor 2) answers a fresh copy of the live session's resolved start opts, the host's
+--- extra fields included, or nil while idle: what Restart starts again with.
 local function newCtx(S)
   return {
     d = S.d,
@@ -656,6 +695,12 @@ local function newCtx(S)
     session = function() return S.session end,
     stopping = function() return S.stopping end,
     ready = function() return S.ready end,
+    startOpts = function()
+      if not S.startOpts then return nil end
+      local out = {}
+      for k, v in pairs(S.startOpts) do out[k] = v end
+      return out
+    end,
   }
 end
 
@@ -664,10 +709,10 @@ end
 ---   prepare, play are required
 --- @return table sim
 function lib:New(d)   -- luacheck: ignore 212/self
-  local seamState, known = checkDescriptor(d)
+  local seamState = checkDescriptor(d)
   local sim = {}
   local S = {
-    d = d, sim = sim, seam = d.seam, seamState = seamState, known = known, seeds = 0,
+    d = d, sim = sim, seam = d.seam, seamState = seamState, seeds = 0,
     session = nil, stopping = false, cleanup = false, delivering = false, ready = false,
     timers = {}, guarded = {}, onStop = {}, listeners = {},
   }

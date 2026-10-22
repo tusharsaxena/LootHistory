@@ -15,8 +15,9 @@
 --
 -- Sim:New calls lib.__AttachTimeline(sim, ctx) after installing its fallbacks, and this file
 -- overwrites them. ctx is the handshake's internal table (Sim.lua's newCtx), not contract. This
--- file reads ctx.d, tr, print, debug, notify, session, stopping and ready, and sets three fields
--- on it: `cancelRun` (Stop's step 1), `status` (fills Status()'s timeline fields) and `runTo`.
+-- file reads ctx.d, tr, print, debug, notify, session, stopping, ready and startOpts, and sets
+-- three fields on it: `cancelRun` (Stop's step 1), `status` (fills Status()'s timeline fields)
+-- and `runTo`.
 --
 -- ── THE MEMBERS ──────────────────────────────────────────────────────────────────────────────
 --
@@ -33,7 +34,8 @@
 --                advancing, open plays a step and sets the next tick after stepDelay(step).
 --   Pause()   -> notPlaying; cancels the pending tick (no orphan timer).
 --   Resume()  -> notPaused; calls Run.
---   Restart() -> notRunning; Stop("restart"), then Start{scenario, size} with a fresh seed. A
+--   Restart() -> notRunning; Stop("restart"), then Start{scenario, size} with a fresh seed, and
+--                with the host's extra start fields the session was started with (minor 2). A
 --                refusal is printed by Start and answered false, "refused".
 --   RunVerb(line) -> ok, code   the typed grammar every host's `/<slash> sim` shares, printed
 --                through d.print: the generic verbs, then d.verbs, else the usage (the verbs
@@ -60,7 +62,7 @@
 local lib = LibStub and LibStub("LibKa0s-Sim-1.0", true)
 if not lib then return end
 
-local TIMELINE_MINOR = 1
+local TIMELINE_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as Perf's attach files are: a step
 -- machine attached to an older shell would read ctx fields that shell may not hand over.
 if lib.__timelineMinor and lib.__timelineMinor >= TIMELINE_MINOR
@@ -360,9 +362,12 @@ local function installRun(sim, T)
   function sim.Restart()
     local R = current(T)
     if not R then return false, "notRunning" end
-    local scenario, size = R.session.scenario, R.session.size
+    -- The live session's start opts, the host's extra fields included (minor 2), read before the
+    -- stop clears them; the seed is dropped so Start draws a fresh one.
+    local opts = type(T.ctx.startOpts) == "function" and T.ctx.startOpts() or {}
+    opts.scenario, opts.size, opts.seed = R.session.scenario, R.session.size, nil
     sim:Stop("restart")
-    if not sim:Start({ scenario = scenario, size = size }) then return false, "refused" end
+    if not sim:Start(opts) then return false, "refused" end
     return true
   end
 end

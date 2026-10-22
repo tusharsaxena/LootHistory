@@ -95,8 +95,8 @@ local LIB_FILES = {
   "libs/LibKa0s/PerfSampler.lua",
   "libs/LibKa0s/PerfCommands.lua",
   "libs/LibKa0s/PerfPanel.lua",
-  -- New in v1.75.0: LibKa0s-Sim-1.0, the Compat answer seam and session (Sim 1), its step machine
-  -- and verbs (SimTimeline 1) and its panel (SimPanel 1), in XML order. Loading them builds no
+  -- New in v1.75.0: LibKa0s-Sim-1.0, the Compat answer seam and session (Sim 2), its step machine
+  -- and verbs (SimTimeline 2) and its panel (SimPanel 1), in XML order. Loading them builds no
   -- frame, timer or event until a host calls NewSeam or New.
   "libs/LibKa0s/Sim.lua",
   "libs/LibKa0s/SimTimeline.lua",
@@ -680,8 +680,9 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertEqual(perf.Perf, 15)
   assertEqual(perf.PerfPanel, 7)
   local sim, S = modules("LibKa0s-Sim-1.0")
-  assertEqual(sim.Sim, 1)
-  assertEqual(sim.SimTimeline, 1)
+  -- Sim 2 / SimTimeline 2: the local v1.75.0 tag moved to carry LK-26 (Start reads scenarios live).
+  assertEqual(sim.Sim, 2)
+  assertEqual(sim.SimTimeline, 2)
   assertEqual(sim.SimPanel, 1)
   assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
   assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
