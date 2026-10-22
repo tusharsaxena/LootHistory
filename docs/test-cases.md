@@ -841,12 +841,15 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (32)
+### test_export.lua (35)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
+- Export: WowheadLink stops at the declared bonus count when modifiers follow
+- Export: WowheadLink with a bare itemString or no link falls back to itemID
+- Export: WowheadLink reads bonuses through NS.Item.BonusIDsFromLink
 - Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
 - Export: CSV auction/value columns — auction present and vendor fallback
 - Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
@@ -1744,7 +1747,7 @@ Total.
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
 | test_browsertable.lua | 85 |
-| test_export.lua | 32 |
+| test_export.lua | 35 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
 | test_slash.lua | 63 |
@@ -1781,4 +1784,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1527** |
+| **Total** | **1530** |

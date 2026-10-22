@@ -28,6 +28,33 @@ test("Export: WowheadLink falls back to itemID, then empty", function()
   assertEqual(NS.Export:WowheadLink({}), "")
 end)
 
+test("Export: WowheadLink stops at the declared bonus count when modifiers follow", function()
+  -- numBonusIDs = 2, then numModifiers = 1 with a (type, value) pair: only the two bonus ids belong
+  -- in the URL, never the modifier fields that follow them.
+  local link = "|cffa335ee|Hitem:210501:0:0:0:0:0:0:0:0:0:0:0:2:6652:1498:1:9:70:::|h[X]|h|r"
+  assertEqual(NS.Export:WowheadLink({ itemLink = link }),
+    "https://www.wowhead.com/item=210501?bonus=6652:1498")
+end)
+
+test("Export: WowheadLink with a bare itemString or no link falls back to itemID", function()
+  assertEqual(NS.Export:WowheadLink({ itemLink = "item:6948" }), "https://www.wowhead.com/item=6948")
+  assertEqual(NS.Export:WowheadLink({ itemLink = "no link here", itemID = 777 }),
+    "https://www.wowhead.com/item=777")
+  assertEqual(NS.Export:WowheadLink({ itemID = "4242" }), "https://www.wowhead.com/item=4242")
+end)
+
+test("Export: WowheadLink reads bonuses through NS.Item.BonusIDsFromLink", function()
+  local real = NS.Item.BonusIDsFromLink
+  local seen
+  NS.Item.BonusIDsFromLink = function(link) seen = link; return { 11, 22 } end
+  local link = "|cffa335ee|Hitem:210501:0:0:0:0:0:0:0:0:0:0:0:0:::|h[X]|h|r"
+  local ok, url = pcall(NS.Export.WowheadLink, NS.Export, { itemLink = link })
+  NS.Item.BonusIDsFromLink = real
+  assertTrue(ok, tostring(url))
+  assertEqual(seen, link)
+  assertEqual(url, "https://www.wowhead.com/item=210501?bonus=11:22")
+end)
+
 test("Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last", function()
   local csv = NS.Export:CSV({})
   local header = csv:match("^(.-)\r\n")

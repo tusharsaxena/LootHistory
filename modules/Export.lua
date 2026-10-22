@@ -24,36 +24,17 @@ local function money(copper)
     math.floor(copper / 10000), math.floor((copper % 10000) / 100), copper % 100)
 end
 
--- Split a colon-delimited itemString into fields, preserving empty fields (a trailing sentinel
--- guarantees the final field is captured). "1:2::4" -> { "1", "2", "", "4" }.
-local function splitColons(s)
-  local parts = {}
-  for field in (s .. ":"):gmatch("(.-):") do parts[#parts + 1] = field end
-  return parts
-end
-
 -- Build a Wowhead item URL from a record's itemLink, carrying bonus IDs (the modifiers Wowhead
--- needs to reconstruct the exact item — ilvl, tertiaries, sockets). itemString layout:
---   itemID : enchant : gem1..gem4 : suffix : unique : linkLevel : specID : modifiersMask :
---   itemContext : numBonusIDs : bonusID1..N : numModifiers : ...
--- so itemID is field 1 and numBonusIDs is field 13. Falls back to a bare item=<id>, or "".
+-- needs to reconstruct the exact item — ilvl, tertiaries, sockets). The itemString walk (field 13
+-- is the declared bonus count, 14..13+n the ids) is LibKa0s's Item.BonusIDsFromLink — see the
+-- library's docs/api/Item/version-3-docs.md; NS.Item is the library or core/ItemSetup.lua's stub.
+-- Falls back to a bare item=<id>, or "".
 function E:WowheadLink(record)
   record = record or {}
-  local itemStr = record.itemLink and record.itemLink:match("|?H?item:([%-%d:]+)")
-  local id, bonuses
-  if itemStr then
-    local parts = splitColons(itemStr)
-    id = tonumber(parts[1])
-    local numBonus = tonumber(parts[13]) or 0
-    if numBonus > 0 then
-      local b = {}
-      for i = 14, 13 + numBonus do
-        if parts[i] and parts[i] ~= "" then b[#b + 1] = parts[i] end
-      end
-      if #b > 0 then bonuses = table.concat(b, ":") end
-    end
-  end
-  id = id or tonumber(record.itemID)
+  local link = record.itemLink
+  local id = NS.Item.ItemIDFromLink(link) or tonumber(record.itemID)
+  local list = NS.Item.BonusIDsFromLink(link)
+  local bonuses = list and #list > 0 and table.concat(list, ":") or nil
   if not id then return "" end
   local url = "https://www.wowhead.com/item=" .. id
   if bonuses then url = url .. "?bonus=" .. bonuses end
