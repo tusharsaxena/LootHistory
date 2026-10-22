@@ -48,14 +48,17 @@ local STOP_TIP = {
 -- The rows a step recorded: from the history index its play began at (Host.Play's wrapper in
 -- modules/Sim.lua stamps `lhFrom`) up to where the next step began, or to now for the last one
 -- played. The gate holds the next step until the ledger settles, so every row of a step lands
--- before the next one starts.
+-- before the next one starts. A `/lh sim loot` verb closes the window first (`lhTo`, stamped by
+-- runLoot in modules/Sim.lua), so the verb's ad hoc rows are never counted as the step's.
 local function recorded(step, i)
   local from = step.lhFrom
   if type(from) ~= "number" then return nil end
-  local steps = NS.Sim:Steps()
-  local nextStep = steps[i + 1]
   local history = NS.Database:History()
-  local to = (type(nextStep) == "table" and type(nextStep.lhFrom) == "number") and nextStep.lhFrom or #history
+  local to = step.lhTo
+  if type(to) ~= "number" then
+    local nextStep = NS.Sim:Steps()[i + 1]
+    to = (type(nextStep) == "table" and type(nextStep.lhFrom) == "number") and nextStep.lhFrom or #history
+  end
   local rows = {}
   for k = from + 1, to do rows[#rows + 1] = history[k] end
   return rows

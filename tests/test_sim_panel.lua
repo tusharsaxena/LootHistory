@@ -143,6 +143,24 @@ test("sim panel: the rows track the timeline, and a run step's tip names the row
   end)
 end)
 
+test("sim panel: `/lh sim loot` rows are never counted as rows the step before them recorded", function()
+  clean(function()
+    start("loot")
+    assertTrue(Sim:Step() ~= nil, "the kill plays")
+    assertTrue(until_(H.settled), "the ledger settles")
+    local before = #NS.Database:History()
+    slash("sim loot 3")
+    assertTrue(until_(H.settled), "the ledger settles after the verb")
+    assertEqual(#NS.Database:History() - before, 3, "the verb recorded its three rows")
+    local tip = tipText(Sim:PanelRows()[2].tip)
+    assertTrue(tip:find("Recorded: 4 rows", 1, true) ~= nil, "the kill still recorded four rows: " .. tip)
+    assertTrue(Sim:Step() ~= nil, "the lockbox plays")
+    assertTrue(until_(H.settled), "the ledger settles")
+    tip = tipText(Sim:PanelRows()[2].tip)
+    assertTrue(tip:find("Recorded: 4 rows", 1, true) ~= nil, "a later step leaves the kill at four: " .. tip)
+  end)
+end)
+
 -- ── the built panel ──────────────────────────────────────────────────────────────────────────
 
 test("sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it", function()

@@ -1765,12 +1765,13 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (14)
+### test_sim_panel.lua (15)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
 - sim panel: idle, the rows preview the picked scenario's steps with their commands and tips
 - sim panel: the rows track the timeline, and a run step's tip names the rows it recorded
+- sim panel: `/lh sim loot` rows are never counted as rows the step before them recorded
 - sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it
 - sim panel: clicking a row ahead plays every step up to it, waiting out the ledger gate
 - sim panel: a typed `/lh sim step` repaints the shown panel
@@ -1974,7 +1975,7 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 14 |
+| test_sim_panel.lua | 15 |
 | test_sim_slash.lua | 8 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
@@ -1986,4 +1987,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1684** |
+| **Total** | **1685** |

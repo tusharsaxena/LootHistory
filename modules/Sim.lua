@@ -280,9 +280,20 @@ local function parseLoot(words)
   return { n = n }
 end
 
+-- Close the last played step's row window before the verb's rows land (`lhTo`, read first by
+-- modules/SimPanel.lua's `recorded`), so its tooltip never counts them as that step's. The first
+-- verb after a step closes it; a later one finds it closed already.
+local function closeStepWindow(sim)
+  local step = sim:Steps()[sim:Status().pos]
+  if type(step) == "table" and type(step.lhFrom) == "number" and step.lhTo == nil then
+    step.lhTo = #NS.Database:History()
+  end
+end
+
 local function runLoot(cmd, sim)
   if cmd.n < 1 or cmd.n > LOOT_MAX then return false, "lootCount" end
   if not sim:Status().ready then return false, "building" end
+  closeStepWindow(sim)
   local D = Host.Drivers
   D.LootOpened("Creature", LOOT_NPC, cmd.n)
   for i = 1, cmd.n do D.Loot(LOOT_KEYS[(i - 1) % #LOOT_KEYS + 1], 1) end
