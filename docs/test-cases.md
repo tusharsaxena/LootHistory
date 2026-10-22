@@ -1708,11 +1708,12 @@ Total.
 - Sim: the History row's Delete refuses while a simulation runs
 - Sim: a retention change that would prune refuses and keeps the confirmed value
 
-### test_sim_world.lua (9)
+### test_sim_world.lua (10)
 
 - SimWorld: the fixture world is deterministic for a seed
 - SimWorld: a world never mirrors the player's real bags
 - SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads
+- SimWorld: the fixture is Midnight's: items, currencies and the situation
 - SimWorld: the uncached fixture link falls back to the link's own name and color
 - SimWorld: the mutation helpers move stacks, money, mail and auctions
 - SimWorld: every provider answers from the world while active and live when idle
@@ -1907,7 +1908,7 @@ Total.
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 26 |
-| test_sim_world.lua | 9 |
+| test_sim_world.lua | 10 |
 | test_sim_drivers.lua | 7 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
@@ -1919,4 +1920,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1633** |
+| **Total** | **1634** |

@@ -22,10 +22,10 @@ local _, NS = ...
 --
 -- It is SEEDED, never mirrored: World.New reads no real bag, so a run is deterministic for its
 -- seed and never shows the player's own items inside a simulated history. The items and currencies
--- are real current-expansion ids, so the live item reads (GetItemInfo, ScanBound, the AH price
--- providers) answer for real; one fixture link carries bonus ids (Item.BonusIDsFromLink, LH-02's
--- adoption) and one is the item least likely to be cached, whose rows fall back to the link's own
--- name and color (Compat.GetItemInfo).
+-- are real current-expansion (Midnight, 12.0.x) ids, so the live item reads (GetItemInfo,
+-- ScanBound, the AH price providers) answer for real; one fixture link carries bonus ids
+-- (Item.BonusIDsFromLink, LH-02's adoption) and one is the item least likely to be cached, whose
+-- rows fall back to the link's own name and color (Compat.GetItemInfo).
 --
 -- ── THE PROVIDERS ────────────────────────────────────────────────────────────────────────────
 --
@@ -49,19 +49,21 @@ Host.World = World
 -- Item quality -> link color (ITEM_QUALITY_COLORS' hex, written out: the link is built here).
 local QUALITY_HEX = { [0] = "9d9d9d", "ffffff", "1eff00", "0070dd", "a335ee", "ff8000" }
 
---- The fixture's items, by key. Real The War Within ids. `bonus` makes a link carry bonus ids;
---- `uncached` marks the one the client is least likely to have cached; `hasLoot` an openable one.
+--- The fixture's items, by key. Real Midnight (12.0.x) ids, taken from the owner's own captures:
+--- `bonus` makes a link carry bonus ids; `uncached` marks the one the client is least likely to
+--- have cached; `hasLoot` an openable one. `level` is the link's level field (the player's, 90).
 World.ITEMS = {
-  herb    = { id = 210796, name = "Mycobloom", quality = 1, level = 80 },
-  ore     = { id = 210930, name = "Bismuth", quality = 1, level = 80 },
-  trinket = { id = 219915, name = "Foul Behemoth's Chelicera", quality = 4, level = 610,
-              bonus = { 10356, 6652, 1540 } },
-  cache   = { id = 225571, name = "Theater Troupe's Trove", quality = 3, level = 80,
+  herb    = { id = 236761, name = "Tranquility Bloom", quality = 1, level = 90 },
+  ore     = { id = 237359, name = "Refulgent Copper Ore", quality = 1, level = 90 },
+  trinket = { id = 273796, name = "Vile Vial of Volatile Venom", quality = 4, level = 90,
+              bonus = { 12843, 13440, 6652, 12699 } },
+  cache   = { id = 279287, name = "Corroded Pouch", quality = 2, level = 90,
               hasLoot = true, uncached = true },
 }
 
 --- The default fixture. A scenario def may carry its own as `def.fixture`; `{ min, max }` pairs
---- are drawn from the session seed.
+--- are drawn from the session seed. Currencies are Champion Mistcrest (per character) and
+--- Voidlight Marl (warband-wide); the situation is Silvermoon City.
 World.FIXTURE = {
   slots = { bags = 16, bank = 28, tabs = 98 },
   money = { 1500000, 2500000 },
@@ -70,8 +72,8 @@ World.FIXTURE = {
   bank = { { "ore", 20, 40 } },
   tabs = { { "herb", 20, 60 } },
   equipped = { [13] = "trinket" },
-  currencies = { { 3008, 100, 400, false }, { 2815, 500, 1500, true } },
-  instance = { zone = "Dornogal", subzone = "The Coreway", mapID = 2339 },
+  currencies = { { 3444, 100, 400, false }, { 3316, 500, 1500, true } },
+  instance = { zone = "Silvermoon City", subzone = "The Bazaar", mapID = 2393 },
 }
 
 -- Park-Miller: exact in a double, so a seed answers the same sequence on every client.

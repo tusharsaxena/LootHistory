@@ -13,6 +13,8 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 
 local Sim, Host, R, A, U = NS.Sim, NS.SimHost, NS.Reconciler, NS.Attribution, NS.Util
 local D, World = Host.Drivers, Host.World
+-- The fixture's per-character currency (Champion Mistcrest), whatever id it carries.
+local CREST = World.FIXTURE.currencies[1][1]
 
 -- Run body(record) in a session. record is the list of { event, args = {n, ...}, seen } the deliver
 -- received, `seen` being snap(event) taken when the event reached it.
@@ -80,13 +82,13 @@ end)
 
 test("SimDrivers: the currency and money lines parse", function()
   withSession(function(record)
-    D.Currency(3008, 25)
+    D.Currency(CREST, 25)
     local r = first(record, "CHAT_MSG_CURRENCY")
     assertEqual(r.args.n, 17)
     local link, qty = U.ParseSelfCurrency(r.args[1])
-    assertEqual(NS.Compat.CurrencyLinkID(link), 3008)
+    assertEqual(NS.Compat.CurrencyLinkID(link), CREST)
     assertEqual(qty, 25)
-    D.Currency(3008, 1)
+    D.Currency(CREST, 1)
     assertTrue(U.ParseSelfCurrency(record[#record - 1].args[1]) ~= nil, "a single currency line parses")
     for _, copper in ipairs({ 1, 99, 10000, 123456, 5000000 }) do
       for _, split in ipairs({ false, true }) do
@@ -106,8 +108,8 @@ local MUTATES = {
     function(s, s0) return s.ore == s0.ore + 3 end },
   { "Loot bagsFirst", function() D.Loot("ore", 2, { bagsFirst = true }) end, "BAG_UPDATE",
     function(s, s0) return s.ore == s0.ore + 2 end },
-  { "Currency", function() D.Currency(3008, 7) end, "CHAT_MSG_CURRENCY",
-    function(s, s0) return s.valor == s0.valor + 7 end },
+  { "Currency", function() D.Currency(CREST, 7) end, "CHAT_MSG_CURRENCY",
+    function(s, s0) return s.crest == s0.crest + 7 end },
   { "Money", function() D.Money(4321) end, "CHAT_MSG_MONEY", function(s, s0) return s.money == s0.money + 4321 end },
   { "LootOpened", function() D.LootOpened("Creature", 1234, 2) end, "LOOT_OPENED",
     function(s) return s.loot == 2 end },
@@ -124,8 +126,8 @@ local MUTATES = {
     function(s) return s.combat == false end },
   { "WarbandGold", function() D.WarbandGold(1000) end, "ACCOUNT_MONEY",
     function(s, s0) return s.money == s0.money - 1000 and s.warband == s0.warband + 1000 end },
-  { "CurrencyTransfer", function() D.CurrencyTransfer(3008, 2, "Simalt-Realm") end, "CURRENCY_TRANSFER_LOG_UPDATE",
-    function(s, s0) return s.valor == s0.valor - 2 and s.transfer == 2 end },
+  { "CurrencyTransfer", function() D.CurrencyTransfer(CREST, 2, "Simalt-Realm") end, "CURRENCY_TRANSFER_LOG_UPDATE",
+    function(s, s0) return s.crest == s0.crest - 2 and s.transfer == 2 end },
   { "Buy", function() D.Buy(1, "herb", 2, 300) end, "hook:BuyMerchantItem",
     function(s, s0) return s.herb == s0.herb + 2 and s.money == s0.money - 300 end },
   { "Repair", function() D.Repair(700) end, "hook:RepairAllItems", function(s, s0) return s.money == s0.money - 700 end },
@@ -135,10 +137,10 @@ local MUTATES = {
 
 local function snapshot()
   local w = Host.world
-  local valor = 0
-  for _, c in ipairs(w.currencies) do if c.id == 3008 then valor = c.quantity end end
+  local crest = 0
+  for _, c in ipairs(w.currencies) do if c.id == CREST then crest = c.quantity end end
   return { ore = bagCount(World.ITEMS.ore.id), herb = bagCount(World.ITEMS.herb.id), money = w.money,
-    warband = w.warbandMoney, valor = valor, loot = w.loot and w.loot.n, key = w.instance.keystone,
+    warband = w.warbandMoney, crest = crest, loot = w.loot and w.loot.n, key = w.instance.keystone,
     zone = w.instance.zone, trade = w.trade and w.trade.target, combat = w.combat,
     transfer = w.transfer and w.transfer.quantity }
 end

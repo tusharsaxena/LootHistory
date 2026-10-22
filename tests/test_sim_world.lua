@@ -86,7 +86,26 @@ test("SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads", f
   assertEqual(table.concat(NS.Item.BonusIDsFromLink(link), ","), table.concat(spec.bonus, ","))
   assertEqual(NS.Item.ItemIDFromLink(link), spec.id)
   assertEqual(#NS.Item.BonusIDsFromLink(World.Link(World.ITEMS.herb)), 0, "no bonus ids, none read")
-  assertTrue(link:find("^|cffa335ee|Hitem:219915::::::::610::::3:") ~= nil, "the itemString shape: " .. link)
+  assertTrue(link:find("^|cffa335ee|Hitem:273796::::::::90::::4:") ~= nil, "the itemString shape: " .. link)
+end)
+
+-- The add-on targets Midnight (the TOC's ## Interface 120xxx), so the fixture's ids are Midnight's:
+-- an id from an older expansion still answers the live reads, but prices and names from the wrong
+-- expansion make a simulated history no player of this client would see (LH-11 review).
+test("SimWorld: the fixture is Midnight's: items, currencies and the situation", function()
+  local ids = {}
+  for key, s in pairs(World.ITEMS) do ids[key] = s.id end
+  assertEqual(ids.herb, 236761, "Tranquility Bloom")
+  assertEqual(ids.ore, 237359, "Refulgent Copper Ore")
+  assertEqual(ids.trinket, 273796, "Vile Vial of Volatile Venom")
+  assertEqual(ids.cache, 279287, "Corroded Pouch")
+  local F = World.FIXTURE
+  assertEqual(F.currencies[1][1], 3444, "Champion Mistcrest, per character")
+  assertFalse(F.currencies[1][4])
+  assertEqual(F.currencies[2][1], 3316, "Voidlight Marl, warband-wide")
+  assertTrue(F.currencies[2][4])
+  assertEqual(F.instance.zone, "Silvermoon City")
+  assertEqual(F.instance.mapID, 2393)
 end)
 
 test("SimWorld: the uncached fixture link falls back to the link's own name and color", function()
@@ -119,9 +138,9 @@ test("SimWorld: the mutation helpers move stacks, money, mail and auctions", fun
   local money = w.money
   World.AddMoney(w, -100)
   assertEqual(w.money, money - 100)
-  local q0 = w.currencies[1].quantity
-  assertEqual(World.SetCurrency(w, 3008, q0 + 10), 10, "SetCurrency answers the change")
-  assertEqual(World.AddCurrency(w, 3008, -4), -4)
+  local cid, q0 = w.currencies[1].id, w.currencies[1].quantity
+  assertEqual(World.SetCurrency(w, cid, q0 + 10), 10, "SetCurrency answers the change")
+  assertEqual(World.AddCurrency(w, cid, -4), -4)
   assertEqual(w.currencies[1].quantity, q0 + 6)
   local oreBag, oreSlot = World.Find(w, "bags", World.ITEMS.ore.id)
   local idx, took = World.PostAuction(w, oreBag, oreSlot, 1)
