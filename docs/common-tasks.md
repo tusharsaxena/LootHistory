@@ -79,12 +79,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS` table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no
   global `LootHistory` — nothing in `core/`, `modules/`, `settings/`, `defaults/`, or `locales/`
   reaches the addon through the global table.
-- **Which spelling of that header depends on whether the file reads the folder name.** Eight files
+- **Which spelling of that header depends on whether the file reads the folder name.** Eleven files
   do, and they name it: `local addonName, NS = ...` in `core/LootHistory.lua` (which hands it to
   `AceAddon:NewAddon(NS, addonName, …)` at `:4`), `core/Namespace.lua`, `core/CoreSetup.lua`,
-  `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `modules/AuctionPrice.lua`
-  and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
-  infer which folder this addon was copied into. **The other twenty write `local _, NS = ...`**,
+  `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `core/PerfSetup.lua`,
+  `core/LauncherSetup.lua`, `settings/OptionsSetup.lua`, `modules/AuctionPrice.lua` and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
+  infer which folder this addon was copied into. **The other forty-eight write `local _, NS = ...`**,
   because naming a local nothing reads is a warning the linter is right to raise. Three files
   (`core/ItemSetup.lua`, `core/PoolSetup.lua`, `core/WidgetsSetup.lua`) already spelled it that
   way; `M4c-06` removed the top-level `ignore` that had been hiding the other seventeen and
