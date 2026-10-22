@@ -217,3 +217,28 @@ test("Reconciler: ResetState clears every working table and cancels _pending and
     assertEqual(table.concat(ran, ","), "bystander", "a canceled fuse still woke up")
     reset()
   end)
+
+-- req-lh-sim §4 (LootHistory#37): the 60 s coalescing check reads the row back through
+-- Database:History, so during a simulation it finds the row in the session store it was written
+-- to. Read straight off db.global.history, the check misses and every write lands as a new row.
+test("Reconciler: coalescing reads Database:History (session-aware)", function()
+  local r = R()
+  local savedRecent = r.recent
+  local live = NS.db.global.history
+  local liveCount = #live
+  local session = {}
+  r.recent = {}
+  NS.SimStores.history = session
+  local ok, err = pcall(function()
+    local now = os.time()
+    local first = r:Write(ME(), "g", "IN", "LOOT", 100, now)
+    local second = r:Write(ME(), "g", "IN", "LOOT", 50, now + 5)
+    assertTrue(first ~= nil and second == first, "the second write amends the first row")
+    assertEqual(#session, 1, "one coalesced row in the session store")
+    assertEqual(session[1].quantity, 150)
+  end)
+  NS.SimStores.history = nil
+  r.recent = savedRecent
+  if not ok then error(err, 0) end
+  assertTrue(NS.db.global.history == live and #live == liveCount, "the live history was not written")
+end)

@@ -93,7 +93,7 @@ end
 
 --- Zone and subzone. ALWAYS two strings; "" when the client has no text yet. A call-time forwarder
 --- to NS.Compat.Zone, which holds the ladder and documents why the "" is load-bearing
---- (core/Database.lua:944 and the Browser's Zone column bucket it with nil).
+--- (core/Database.lua:961 and the Browser's Zone column bucket it with nil).
 ---
 --- @return string zone, string subzone
 function NS.Zone()

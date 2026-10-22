@@ -288,6 +288,18 @@ The Timeline reads `db.global.daily`, a sparse `["YYYY-MM-DD"][holder][thingKey]
 
 **Intraday.** Today and 7 d, when the range lies inside the retention and after `ledgerSince`, are rebuilt from event time rather than from daily points: `IntradaySeries` starts at the holder's balance *now* and undoes each history row of the thing, newest first, so it needs no stored snapshot. Two checks keep it honest. The balance it arrives at for the range start must not be negative, and it must equal the rollup's last close before that day when there is one. If either fails for any shown holder, the whole chart falls back to daily points (all holders or none, because mixing event-time and midnight points would make the Total add two clocks).
 
+## Capture-path stores
+
+Every write the capture paths make, and every read they make back, resolves through one accessor per store. Each accessor answers the simulator's session table when one is set in `NS.SimStores` (`core/State.lua`; a host table, never a field on the Sim-1.0 instance), and the saved store otherwise. Until a simulation runs, every field is `nil` and each accessor answers exactly the saved store (LootHistory#37).
+
+| Store | Accessor (session table first) | Read accessor | Live-only paths, always `NS.db.global` |
+|---|---|---|---|
+| history | `historyStore()`, local to `core/Database.lua`, behind `Database:Add`, `Amend`, `History`, `Count` and `Delete` | `Database:ActiveHistory()`: test mode's records, else `historyStore()` | `Purge`, `PruneOld`, `StorageStats`, `CountOlderThan`, `RepairBoundStates`, the migrations |
+| holdings | `Holdings:Store()` | `Holdings:ActiveStore()`: test mode's sample, else `Store()` | `Rollup:SeedOnce` reads `db.global.holdings` |
+| daily | `Rollup:Store()`, so `NoteClose`, `NoteFlow` and the `OnWrite` hook follow it | `Rollup:ActiveStore()`: test mode's sample, else `Store()` | `Rollup:SeedOnce`, `Rollup:Prune` |
+
+The Reconciler's 60 s [coalescing](#coalescing) check reads the row it would amend back through `Database:History()`, so during a simulation it finds the row in the session store it was written to. Write hooks need no change: `Rollup:OnWrite` writes `Rollup:Store()`. The live-only paths name the saved store explicitly, so a simulation can neither prune nor repair it, and the saved `history`, `holdings` and `daily` stores come out of a session byte-identical.
+
 ## Known limitation
 
 The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.

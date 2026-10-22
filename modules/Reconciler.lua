@@ -480,13 +480,14 @@ function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to, pairId)
 end
 
 -- Write one ledger row, or amend the same-key row written under COALESCE_WINDOW seconds ago. An
--- amended row keeps the pairId it was written with.
+-- amended row keeps the pairId it was written with. The row is read back through Database:History,
+-- the session store during a simulation (req-lh-sim §4).
 function R:Write(holder, key, dir, reason, qty, now, from, to, pairId)
   local kind, id = L.ParseThingKey(key)
   if not kind or qty <= 0 or not rowAllowed(kind, id) then return nil end
   local ck = L.CoalesceKey(holder, key, dir, reason, from and (from .. ">" .. (to or "")) or nil)
   local recent = self.recent[ck]
-  if L.Amendable(recent, now) and NS.db.global.history[recent.index] == recent.row then
+  if L.Amendable(recent, now) and NS.Database:History()[recent.index] == recent.row then
     NS.Database:Amend(recent.index, qty)
     return recent.row
   end

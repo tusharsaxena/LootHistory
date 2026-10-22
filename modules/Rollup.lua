@@ -17,16 +17,27 @@ local Rollup = NS.Rollup
 
 local Ledger = NS.Ledger
 
-function Rollup:Store()
+-- The saved account-wide day table. SeedOnce and Prune (the login deferral) name it directly: they
+-- are live-only and never touch a simulation's session store.
+local function liveDaily()
   local g = NS.db and NS.db.global
   if not g then return {} end
   g.daily = g.daily or {}
   return g.daily
 end
 
+-- The day table every WRITE resolves against (NoteClose, NoteFlow and so OnWrite, ForgetHolder): the
+-- simulator's session table while one runs (NS.SimStores.daily, core/State.lua; req-lh-sim §4),
+-- otherwise the saved store.
+function Rollup:Store()
+  local sim = NS.SimStores and NS.SimStores.daily
+  return sim or liveDaily()
+end
+
 -- The day table every READ path resolves against (the Timeline's model and picker): test mode's
 -- session-only sample (NS.State.testDaily, modules/TestData.lua) while it is on, else the live store.
--- NoteClose / NoteFlow, the seed, Prune and ForgetHolder all write Store() and never see the sample.
+-- NoteClose / NoteFlow and ForgetHolder write Store(), the seed and Prune write the live store, and
+-- none of them sees the sample.
 function Rollup:ActiveStore()
   return (NS.State and NS.State.testDaily) or self:Store()
 end
@@ -139,8 +150,8 @@ end
 function Rollup:SeedOnce(ts)
   local g = NS.db and NS.db.global
   if not g or g.rollupSeeded then return 0 end
-  local daily, day, n = self:Store(), Ledger.DayKey(ts), 0
-  for holder, e in pairs(NS.Holdings:Store()) do n = n + seedHolder(daily, day, holder, e) end
+  local daily, day, n = liveDaily(), Ledger.DayKey(ts), 0
+  for holder, e in pairs(g.holdings or {}) do n = n + seedHolder(daily, day, holder, e) end
   g.rollupSeeded = ts
   self._keys = nil
   if NS.State.debug and NS.Debug then NS.Debug("Rollup", "seeded %d cells", n) end
@@ -156,7 +167,7 @@ function Rollup:Prune(now)
     if NS.State.debug and NS.Debug then NS.Debug("Rollup", "prune skipped: retention is Always") end
     return 0
   end
-  local removed = Ledger.PruneDaily(self:Store(), Ledger.DayKey((now or time()) - days * DAY))
+  local removed = Ledger.PruneDaily(liveDaily(), Ledger.DayKey((now or time()) - days * DAY))
   if removed > 0 then self._keys = nil end
   if NS.State.debug and NS.Debug then NS.Debug("Rollup", "retention %dd: removed %d days", days, removed) end
   return removed

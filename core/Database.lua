@@ -546,20 +546,36 @@ function Database:RepairBoundStates()
 end
 
 
+-- The capture-path history store (req-lh-sim §4): the simulator's session table while one runs
+-- (NS.SimStores.history, core/State.lua), else the saved account-wide history. Add, Amend, History,
+-- Count and Delete go through it; the live-only paths below (RepairBoundStates, Purge, PruneOld,
+-- StorageStats, CountOlderThan, the migrations) name NS.db.global.history explicitly instead.
+local function historyStore()
+  local s = NS.SimStores
+  return (s and s.history) or NS.db.global.history
+end
+
+-- Swap a rebuilt array in for whichever store historyStore() answered (Delete's rebuild-and-swap).
+local function setHistoryStore(rows)
+  local s = NS.SimStores
+  if s and s.history then s.history = rows else NS.db.global.history = rows end
+end
+
 function Database:History()
-  return NS.db.global.history
+  return historyStore()
 end
 
 -- The dataset every read-path query (Query/Stats/Export, and thus the table + Insights tab)
 -- resolves against. In Browser test mode this is the synthetic preview dataset published to
 -- State by BrowserTable:ToggleTestMode; otherwise it is the live account-wide history. Filtering
--- is point-in-time (decided at capture) — reads never hide stored rows.
+-- is point-in-time (decided at capture) — reads never hide stored rows. During a simulation the
+-- live history is the session store (historyStore).
 function Database:ActiveHistory()
-  return (NS.State and NS.State.testRecords) or NS.db.global.history
+  return (NS.State and NS.State.testRecords) or historyStore()
 end
 
 function Database:Count()
-  return #NS.db.global.history
+  return #historyStore()
 end
 
 -- Per-row write hooks (timeline-ledger spec §4.3): the daily rollup (Phase 3) and any later
@@ -581,9 +597,10 @@ local function runWriteHooks(record, delta, isNew)
   for i = 1, #writeHooks do writeHooks[i](record, delta, isNew) end
 end
 
--- Append a record to the account-wide history; run the write hooks; fire RecordAdded; return its index.
+-- Append a record to the history (historyStore: the session store during a simulation); run the
+-- write hooks; fire RecordAdded; return its index.
 function Database:Add(record)
-  local history = NS.db.global.history
+  local history = historyStore()
   history[#history + 1] = record
   local index = #history
   runWriteHooks(record, record.quantity or 1, true)
@@ -596,7 +613,7 @@ end
 -- Grow an existing row in place (the Reconciler's 60 s coalescing, spec §5.5). RecordAdded is sent
 -- again with the same (record, index): every receiver is a coalesced repaint, never a counter.
 function Database:Amend(index, addQty)
-  local r = NS.db.global.history[index]
+  local r = historyStore()[index]
   if not r or not addQty or addQty == 0 then return nil end
   r.quantity = (r.quantity or 1) + addQty
   runWriteHooks(r, addQty, false)
@@ -1141,10 +1158,10 @@ function Database:FireHistoryChanged()
   fireHistoryChanged()
 end
 
--- Delete every record for which pred(record) is true. Rebuild-and-swap (no holes).
+-- Delete every record of historyStore() for which pred(record) is true. Rebuild-and-swap (no holes).
 -- Returns the number removed; fires HistoryChanged.
 function Database:Delete(pred)
-  local history = NS.db.global.history
+  local history = historyStore()
   local kept, removed = {}, 0
   for _, r in ipairs(history) do
     if pred(r) then
@@ -1153,7 +1170,7 @@ function Database:Delete(pred)
       kept[#kept + 1] = r
     end
   end
-  NS.db.global.history = kept
+  setHistoryStore(kept)
   fireHistoryChanged()
   if NS.State.debug and NS.Debug then
     NS.Debug("Data", "delete removed %s rows", tostring(removed))

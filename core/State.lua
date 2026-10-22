@@ -20,6 +20,15 @@ State.testRecords = nil     -- session-only synthetic dataset published by /lh t
 State.testHoldings = nil    -- its Holdings / Timeline half (modules/TestData.lua): db.global.holdings' and
 State.testDaily = nil       -- db.global.daily's shapes, read through Holdings/Rollup:ActiveStore, never written
 
+-- The simulator's session-only capture stores (req-lh-sim §4, LootHistory#37). A HOST table, never a
+-- field on the Sim-1.0 instance (OWNER_SCOPE C.4). Each field is nil while live; a simulation swaps a
+-- fresh table in and puts nil back at stop. Every capture-path accessor reads it first:
+--   history  -> core/Database.lua historyStore() (Add, Amend, History, Count, Delete, ActiveHistory)
+--   holdings -> Holdings:Store()      daily -> Rollup:Store()
+-- The live-only paths (Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates, the
+-- migrations, Rollup:SeedOnce / Prune) keep reading NS.db.global, so saved data stays untouched.
+NS.SimStores = NS.SimStores or { history = nil, holdings = nil, daily = nil }
+
 -- Outbound (loss-side) context for the ledger (timeline-ledger spec §5.4). A SECOND single slot
 -- beside lootContext, same TTL engine: one BuyMerchantItem must stamp an inbound VENDOR for the
 -- item AND an outbound BUY for the gold, and one slot would let either clobber the other.

@@ -129,3 +129,38 @@ test("Holdings: Search filters by text, quality, type and subtype, drops zero to
   C.GetItemInfo, C.GetItemTypeInfo = savedInfo, savedType
   if not ok then error(err, 0) end
 end)
+
+-- ── Session-only store (req-lh-sim §4, LootHistory#37) ──────────────────────────────────────────
+-- Deterministic serialization (sorted keys), so "byte-identical" is a string comparison.
+local function dump(v)
+  if type(v) ~= "table" then return type(v) .. ":" .. tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. dump(v[k]) end
+  return "{" .. table.concat(out, ",") .. "}"
+end
+
+test("Holdings: with NS.SimStores.holdings set, Store and every write act on the session table", function()
+  fresh()
+  H():ApplyContainer("A-Realm", "bags", { [1] = 5 }, {}, 100)
+  local live = NS.db.global.holdings
+  local before = dump(live)
+  local session = {}
+  NS.SimStores.holdings = session
+  local ok, err = pcall(function()
+    assertTrue(H():Store() == session, "Store answers the session table first")
+    assertTrue(H():ActiveStore() == session, "ActiveStore (unchanged) resolves through Store")
+    H():ApplyContainer("A-Realm", "bags", { [1] = 9 }, {}, 200)
+    H():ApplyMoney("B-Realm", 42, 200)
+    assertEqual(session["A-Realm"].items[1].bags, 9)
+    assertEqual(session["B-Realm"].money, 42)
+    assertTrue(H():ForgetHolder("B-Realm"))
+    assertEqual(session["B-Realm"], nil)
+  end)
+  NS.SimStores.holdings = nil
+  if not ok then error(err, 0) end
+  assertTrue(H():Store() == live, "with the session cleared Store answers live again")
+  assertEqual(dump(NS.db.global.holdings), before, "the saved holdings are byte-identical")
+end)

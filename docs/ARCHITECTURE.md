@@ -66,6 +66,8 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 
 Beside the loot log sits the **timeline ledger's** account-wide state (schema v11): `db.global.holdings` (what each character and the virtual `"§warband"` holder owns now, by container, with the time each container was last read), the sparse `daily` rollup the Timeline reads (written by `modules/Rollup.lua`, with its own retention `rollupRetentionDays`), and the `ledgerSince` / `resetPrompt` bookkeeping. Row fields `dir` / `kind` / `holder` / `from` / `to` are reserved and written from Phase 2. Shapes and writers are in [schema.md](schema.md#the-ledger-stores); the scan engine is in [data-flow.md](data-flow.md#holdings-scan).
 
+The capture paths reach all three stores through one accessor each (`Database`'s local `historyStore()`, `Holdings:Store()`, `Rollup:Store()`), which answers a simulation's session table from the host's `NS.SimStores` first and the saved store otherwise. Retention, purge, the storage summary, the bound repair, the migrations and the rollup's seed and prune stay on the saved stores. The table is in [data-flow.md](data-flow.md#capture-path-stores).
+
 ## Settings schema
 
 `settings/Schema.lua` is the single source of truth: one row drives the AceDB default, the panel

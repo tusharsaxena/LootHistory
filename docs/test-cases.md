@@ -282,7 +282,7 @@ Total.
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
 
-### test_holdings.lua (9)
+### test_holdings.lua (10)
 
 - Holdings: ApplyContainer replaces one column and keeps others
 - Holdings: unchanged container reports no change
@@ -293,8 +293,9 @@ Total.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 - Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
+- Holdings: with NS.SimStores.holdings set, Store and every write act on the session table
 
-### test_rollup.lua (22)
+### test_rollup.lua (24)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -317,6 +318,8 @@ Total.
 - Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
 - Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched
 - Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs
+- Rollup: with NS.SimStores.daily set, Store and OnWrite act on the session table
+- Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
 ### test_attribution.lua (40)
@@ -482,7 +485,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (9)
+### test_reconciler.lua (10)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -493,6 +496,7 @@ Total.
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
+- Reconciler: coalescing reads Database:History (session-aware)
 
 ### test_reconciler_rows.lua (33)
 
@@ -554,7 +558,7 @@ Total.
 - Escrow: a genesis pass resolves no exit, even with a sale mail live (LH-11)
 - Escrow: a sale mail for another item leaves the exit pending (LH-11)
 
-### test_database.lua (85)
+### test_database.lua (89)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -641,6 +645,10 @@ Total.
 - Migrate v12->v13: a day the rollup no longer holds is not recreated
 - Migrate v12->v13 (characterization): pairIds are <ts>:m<queue index>, halves pair first-come
 - Database: QueryList clause type gates (characterization)
+- Database: NS.SimStores is a host table whose fields default to live (nil)
+- Database: with NS.SimStores set, Add/Amend/History/Count/Delete act on the session table
+- Database: ActiveHistory is test records, then the session store, then live
+- Database: Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates still read the live store
 
 ### test_stats.lua (26)
 
@@ -1788,17 +1796,17 @@ Total.
 | test_compat.lua | 74 |
 | test_compat_routing.lua | 2 |
 | test_scanner.lua | 5 |
-| test_holdings.lua | 9 |
-| test_rollup.lua | 22 |
+| test_holdings.lua | 10 |
+| test_rollup.lua | 24 |
 | test_attribution.lua | 40 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 49 |
-| test_reconciler.lua | 9 |
+| test_reconciler.lua | 10 |
 | test_reconciler_rows.lua | 33 |
 | test_escrow.lua | 21 |
-| test_database.lua | 85 |
+| test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
 | test_teststrip.lua | 6 |
@@ -1842,4 +1850,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1572** |
+| **Total** | **1580** |
