@@ -62,8 +62,8 @@ a comment, and four lines the [timeline-ledger table](#timeline-ledger-registrat
 | `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:439` | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
 | `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:440` | One field write, once per reset key. |
 | `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:451` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1202` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1079`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1208` | The other edge of the same handler, same cost. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1236` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1113`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1242` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: seven, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.
@@ -104,7 +104,7 @@ window is open" described exactly the case that mattered and read as though it d
 
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
-per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1196`,
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1230`,
 `modules/Analytics.lua:280` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:170`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.

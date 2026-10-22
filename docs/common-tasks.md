@@ -245,7 +245,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:63`, `core/CoreSetup.lua`); `modules/Browser.lua:15`’s own
+  `NS.ApplySkin` (`modules/Browser.lua:64`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
@@ -290,7 +290,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
 - **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
   only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:13`) that now belongs at the LibKa0s seam, not a
+  a tracked post-1.0.0 idea (`modules/Browser.lua:14`) that now belongs at the LibKa0s seam, not a
   gap to close now.
 
 ### Options UI: Blizzard canvas, never AceConfigDialog
