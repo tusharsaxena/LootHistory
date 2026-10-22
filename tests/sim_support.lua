@@ -77,7 +77,8 @@ function S.new(T)
     end
   end
 
-  local function cancelled(t) return t.cancelled or (t.timer and t.timer.cancelled) end
+  -- `cancelled` is the kit mock's own field (AceTimer's name for it, tests/_kit/mock_record.lua).
+  local function canceled(t) return t.cancelled or (t.timer and t.timer.cancelled) end
 
   --- Move the clock `dt` seconds, running every timer that falls due, earliest first (a timer set
   --- while running is due from the moment it was set).
@@ -93,7 +94,7 @@ function S.new(T)
       if not best then break end
       table.remove(M.__timers, at)
       if best.__due > M.__now then M.__now = best.__due end
-      if not cancelled(best) then best.fn() end
+      if not canceled(best) then best.fn() end
     end
     M.__now = target
   end
