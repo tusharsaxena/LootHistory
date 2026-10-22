@@ -184,7 +184,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Session-only debug
 
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
-  **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
+  **never persisted** (`core/State.lua:17`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug` in `libs/LibKa0s/DebugLog.lua`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
