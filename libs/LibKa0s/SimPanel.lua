@@ -34,6 +34,11 @@
 --
 -- Idle, the rows preview the picked scenario's `timeline(def, opts)` at pos 0, all locked.
 --
+-- The picked scenario is read at use (minor 2): `chosen(P)` answers the picker's choice while its
+-- def resolves, else the first name `d.scenarios.names` lists NOW, so a host that fills its
+-- scenarios after `Sim:New` (legal since Sim minor 2) gets a working Start row and picker. With no
+-- scenario listed at all the Start row is locked and the picker's Start disabled.
+--
 -- Placement: a point dragged THIS SESSION wins, held in this instance's memory only (OWNER_SCOPE
 -- C.11: the panel position is session-only and nothing is written to SavedVariables). Otherwise it
 -- docks right of `d.panel.anchorTo()`, or left of it when the right has no room, or floats at
@@ -50,7 +55,7 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 1
+local SIM_PANEL_MINOR = 2
 
 --- Close Widgets' shared dropdown menu. The picker's dropdowns drop that process-wide popup, which
 --- no owner's Hide reaches (Widgets.lua's CloseMenu contract), so every non-click way the picker
@@ -456,8 +461,20 @@ end
 
 local function slashOf(P, rest) return tostring(P.ctx.d.slash) .. " " .. rest end
 
---- The scenario def `name` names, or nil.
-local function defOf(P, name) return P.ctx.d.scenarios.defs[name] end
+--- The scenario def `name` names, read from d.scenarios now, or nil (a non-table entry included).
+local function defOf(P, name)
+  if name == nil then return nil end
+  local def = P.ctx.d.scenarios.defs[name]
+  return type(def) == "table" and def or nil
+end
+
+--- The scenario the picker means, read at use (minor 2): its choice while that def resolves, else
+--- the first name d.scenarios.names lists now, else nil (nothing listed yet).
+local function chosen(P)
+  local name = P.choice.scenario
+  if defOf(P, name) then return name end
+  return P.ctx.d.scenarios.names[1]
+end
 
 --- The size the picker sends with `name`: its chosen size when the def has sizes, else nil.
 local function sizeFor(P, name)
@@ -466,8 +483,9 @@ local function sizeFor(P, name)
   return tonumber(P.choice.size) or 0
 end
 
---- The verb line that starts `name` at `size` (0 or nil: no size argument).
+--- The verb line that starts `name` at `size` (0 or nil: no size argument). No name: the bare verb.
 local function startLine(name, size)
+  if name == nil then return "start" end
   local n = tonumber(size)
   if n and n > 0 then return ("start %s %d"):format(tostring(name), n) end
   return "start " .. tostring(name)
@@ -488,7 +506,7 @@ local function model(P)
   local ctx, sim = P.ctx, P.sim
   local session = ctx.session()
   if not session then
-    local name = P.choice.scenario
+    local name = chosen(P)
     local size = sizeFor(P, name)
     return { mode = "idle", scenario = name, size = size, steps = previewSteps(P, name, size), pos = 0 }
   end
@@ -517,7 +535,10 @@ local function stepState(m, i)
 end
 
 local function startState(m)
-  if m.mode == "idle" then return "ready", true end
+  if m.mode == "idle" then
+    if m.scenario == nil then return "locked", false end   -- nothing listed yet: nothing to start
+    return "ready", true
+  end
   if m.mode == "running" and m.ready then return "done", false end
   return "busy", false
 end
@@ -528,7 +549,7 @@ local function startRow(P, m)
   local tip = copyTip(tipList(P, "startTip"))
   if state == "done" and m.session then tip[#tip + 1] = ranLine(P, m.session.startedAt) end
   return { key = "start", index = 0, state = state, actionable = act, tip = tip,
-    label = P.ctx.tr("PANEL_START"):format(tostring(def and def.label or m.scenario)),
+    label = P.ctx.tr("PANEL_START"):format(m.scenario == nil and "" or tostring(def and def.label or m.scenario)),
     command = slashOf(P, startLine(m.scenario, m.size)) }
 end
 
@@ -559,7 +580,10 @@ end
 --- the typed verbs; the ready row is the typed `step`; a row ahead is the internal click-ahead.
 local function act(P, row)
   local sim, ctx = P.sim, P.ctx
-  if row.key == "start" then return sim:RunVerb(startLine(P.choice.scenario, sizeFor(P, P.choice.scenario))) end
+  if row.key == "start" then
+    local name = chosen(P)
+    return sim:RunVerb(startLine(name, sizeFor(P, name)))
+  end
   if row.key == "stop" then return sim:RunVerb("stop") end
   if row.index == (sim:Status().pos or 0) + 1 then return sim:RunVerb("step") end
   if type(ctx.runTo) ~= "function" then return false end
@@ -634,7 +658,8 @@ end
 
 local function sizeOptions(P, def)
   local out = { { value = 0, label = P.ctx.tr("RANDOM") } }
-  for _, n in ipairs(def and def.sizes or {}) do out[#out + 1] = { value = n, label = tostring(n) } end
+  local sizes = def and def.sizes
+  for _, n in ipairs(type(sizes) == "table" and sizes or {}) do out[#out + 1] = { value = n, label = tostring(n) } end
   return out
 end
 
@@ -659,9 +684,12 @@ local function buildPicker(P, f)
     P.choice.size = tonumber(v) or 0
     P.refresh()
   end
-  local function typed() return slashOf(P, startLine(P.choice.scenario, sizeFor(P, P.choice.scenario))) end
+  local function line()
+    local name = chosen(P)
+    return startLine(name, sizeFor(P, name))
+  end
   pk.start = makeButton(pk, BUTTON_W, P.ctx.tr("START"),
-    function() P.sim:RunVerb(startLine(P.choice.scenario, sizeFor(P, P.choice.scenario))) end, typed)
+    function() P.sim:RunVerb(line()) end, function() return slashOf(P, line()) end)
   pk.start:SetPoint("RIGHT", pk, "RIGHT", 0, 0)
   f.picker = pk
 end
@@ -685,12 +713,14 @@ end
 
 local function paintPicker(P, f)
   local pk = f.picker
-  local def = defOf(P, P.choice.scenario)
+  local name = chosen(P)
+  local def = defOf(P, name)
   pk.scenario:SetOptions(scenarioOptions(P))
-  pk.scenario:SelectValue(P.choice.scenario)
+  if name == nil then pk.scenario:SetValue(nil, "") else pk.scenario:SelectValue(name) end
   pk.size:SetOptions(sizeOptions(P, def))
   pk.size:SelectValue(tonumber(P.choice.size) or 0)
   pk.size:SetShown(def ~= nil and def.sizes ~= nil)
+  setEnabled(pk.start, name ~= nil)
 end
 
 local function paintControls(P, f)
@@ -852,6 +882,8 @@ end
 
 --- Attach the panel to one instance. Called by Sim:New with the instance and the handshake's
 --- internal ctx (Sim.lua); overwrites the shell's panel fallbacks.
+--- `first` only seeds the choice and may be nil (scenarios filled after New); every read of the
+--- choice goes through chosen(P), which falls back to the live first name (minor 2).
 function lib.__AttachPanel(sim, ctx)
   local first = ctx.d.scenarios.names[1]
   local P = { sim = sim, ctx = ctx, choice = { scenario = first, size = 0 }, point = nil }
