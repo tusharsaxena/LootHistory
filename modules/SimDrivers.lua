@@ -133,6 +133,14 @@ function D.Loot(key, qty, opts)
   return chat("CHAT_MSG_LOOT", text) + bagBurst({ bagID })
 end
 
+--- A self-loot line alone, for a stack the bags already show: a purchase's pushed line, whose
+--- stack D.Buy has put in the bags. `form` as D.Loot takes it.
+function D.LootLine(key, qty, form)
+  local w = world()
+  if not w then return 0 end
+  return chat("CHAT_MSG_LOOT", D.LootText(World.Link(World.Spec(w, key)), qty or 1, form))
+end
+
 --- "You won: <item>": the roll result only; the item follows on its own loot line (D.Loot).
 function D.RollWon(key)
   local w = world()

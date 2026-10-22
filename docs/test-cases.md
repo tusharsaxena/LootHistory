@@ -1731,6 +1731,35 @@ Total.
 - SimDrivers: LOOT_OPENED carries the provider GUID kind (Creature/GameObject/Item)
 - SimDrivers: with no session a driver changes nothing and fires nothing
 
+### test_sim_e2e.lua (17)
+
+- SimScenario: loot by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: loot by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: key by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: key by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: vendor by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: vendor by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: ah by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: ah by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: bank by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: bank by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: social by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: social by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps
+- SimScenario: key: the potion drunk in combat waits for the regen edge, and the gate stays open
+- SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes
+- SimScenario: the gate is closed by a pending flush, a settle hold and an out-of-combat deferral
+- SimScenario: with gains and losses off the ledger scenarios refuse, and loot and key run on the Collector
+
+### test_sim_store.lua (6)
+
+- SimStore: loot: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: key: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: vendor: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: ah: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
+
 ### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -1910,6 +1939,8 @@ Total.
 | test_sim_session.lua | 26 |
 | test_sim_world.lua | 10 |
 | test_sim_drivers.lua | 7 |
+| test_sim_e2e.lua | 17 |
+| test_sim_store.lua | 6 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1920,4 +1951,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1634** |
+| **Total** | **1657** |

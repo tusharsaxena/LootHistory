@@ -158,6 +158,10 @@ modules\SimWorld.lua
 # LOAD-BEARING POSITION: the simulator's event and hook drivers. Binds NS.SimHost.World at file
 # load, so modules\SimWorld.lua must be above; fires through NS.Sim at call time only.
 modules\SimDrivers.lua
+# LOAD-BEARING POSITION: the simulator's six scenarios and its ledger gate. Binds NS.SimHost.World
+# and NS.SimHost.Drivers at file load, so modules\SimWorld.lua and modules\SimDrivers.lua must be
+# above; fills NS.SimHost.SCENARIOS in place, which modules\Sim.lua hands to Sim:New.
+modules\SimScenario.lua
 # LOAD-BEARING POSITION: the simulator's session host. Sim:New binds NS.SimSeam (core\SimSeam.lua)
 # at file load, and the file registers its stop steps on NS.Sim:OnStop there; it publishes NS.Sim,
 # NS.SimStop and NS.SimBlocks. Below every capture module and core\Dispatch.lua (NS.DeliverAll,

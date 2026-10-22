@@ -114,6 +114,13 @@ local SUITES = {
   "test_sim_world",
   -- modules/SimDrivers.lua, the event and hook drivers (LootHistory#37). After test_sim_world.
   "test_sim_drivers",
+  -- modules/SimScenario.lua end to end (LootHistory#37): the six scenarios through the real engine,
+  -- by step and by run, against the mock's solo answers (the DW-90 regression). After
+  -- test_sim_drivers, with the addon brought up; every case stops its session.
+  "test_sim_e2e",
+  -- The saved-data invariant: every scenario leaves db.global.history, .holdings and .daily
+  -- byte-identical (LootHistory#37, H4). After test_sim_e2e.
+  "test_sim_store",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
