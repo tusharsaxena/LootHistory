@@ -1552,7 +1552,7 @@ Total.
 - v1.71.0: the vendored minors and the kit revision match the release
 - v1.75.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (15)
+### test_surface_parity.lua (16)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1569,6 +1569,7 @@ Total.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
+- parity: the Sim session and seam stubs carry the whole live surface, both ways
 
 ### test_disabled.lua (25)
 
@@ -1608,7 +1609,7 @@ Total.
 - perf: suspend and resume log to the console whatever the debug flag says
 - perf: /lh perf dispatches to the harness
 
-### test_diagnostics.lua (20)
+### test_diagnostics.lua (23)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -1630,8 +1631,11 @@ Total.
 - diagnostics: the browser section with no window and no table module
 - diagnostics: the browser section with a shown window, test records and saved views
 - diagnostics: the browser section with a hidden window, a descending sort and no view
+- diagnostics: the sim section while idle, with no stop on record
+- diagnostics: the sim section while a session runs, with its stores and the last stop
+- diagnostics: the live sim section names the real seam's wrapped count and guarded keys
 
-### test_debug_coverage.lua (21)
+### test_debug_coverage.lua (22)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
 - coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
@@ -1654,6 +1658,7 @@ Total.
 - coverage: N Insights recomputes with nothing changed log one [Insights] line
 - coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
+- coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
 
 ### test_dispatch.lua (7)
 
@@ -1759,6 +1764,34 @@ Total.
 - SimStore: ah: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
+
+### test_sim_panel.lua (14)
+
+- sim panel: the descriptor carries LootHistory's presentation fields and nothing else
+- sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
+- sim panel: idle, the rows preview the picked scenario's steps with their commands and tips
+- sim panel: the rows track the timeline, and a run step's tip names the rows it recorded
+- sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it
+- sim panel: clicking a row ahead plays every step up to it, waiting out the ledger gate
+- sim panel: a typed `/lh sim step` repaints the shown panel
+- sim panel: while the ledger settles, the gate holds the next step and says so
+- sim panel: the controls run, pause, resume, restart and stop through the typed verbs
+- sim panel: the picker starts the chosen scenario
+- sim panel: a drag is remembered for the session only, and ResetPanelPosition redocks it
+- sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
+- sim marker: the stop takes the badge, the strip and the footer line down
+- sim marker: test mode and the simulation never show together
+
+### test_sim_slash.lua (8)
+
+- sim slash: NS.COMMANDS carries one `sim` row, and it is a feature verb
+- sim slash: bare `/lh sim` prints the status and the usage and opens the panel
+- sim slash: start, step, run, pause, resume, status, restart and stop each act
+- sim slash: a control with no session says so; an unknown word or `help` prints the usage
+- sim slash: `loot [n]` plays n self-loot lines from a kill into the session
+- sim slash: `loot` refuses a bad count, a word, and no session, each with its line
+- sim slash: refused while the addon is disabled, on the one line, and nothing starts
+- sim slash: with no LibKa0s-Sim-1.0 the stub answers the collection's line
 
 ### test_doc_structure.lua (8)
 
@@ -1929,11 +1962,11 @@ Total.
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 32 |
-| test_surface_parity.lua | 15 |
+| test_surface_parity.lua | 16 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
-| test_diagnostics.lua | 20 |
-| test_debug_coverage.lua | 21 |
+| test_diagnostics.lua | 23 |
+| test_debug_coverage.lua | 22 |
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 26 |
@@ -1941,6 +1974,8 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
+| test_sim_panel.lua | 14 |
+| test_sim_slash.lua | 8 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1951,4 +1986,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1657** |
+| **Total** | **1684** |

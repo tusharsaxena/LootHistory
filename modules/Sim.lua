@@ -264,6 +264,50 @@ local function deliver(event, ...)
   return NS.DeliverAll(event, ...)
 end
 
+-- ── the host verb: /lh sim loot [n] ────────────────────────────────────────────────────────────
+
+-- n ad hoc self-loot lines now, from a kill: one loot window over a Creature GUID (the Rookery Bat
+-- the loot scenario kills), n CHAT_MSG_LOOT lines with their bag bursts cycling through the
+-- fixture's items, then the window closes. Played through the drivers (modules/SimDrivers.lua),
+-- so the engine decides the source exactly as it does for a timeline step.
+local LOOT_NPC, LOOT_DEFAULT, LOOT_MAX = 219000, 3, 10
+local LOOT_KEYS = { "herb", "ore", "trinket" }
+
+local function parseLoot(words)
+  if words[2] == nil then return { n = LOOT_DEFAULT } end
+  local n = tonumber(words[2])
+  if not n or n ~= math.floor(n) then return nil end
+  return { n = n }
+end
+
+local function runLoot(cmd, sim)
+  if cmd.n < 1 or cmd.n > LOOT_MAX then return false, "lootCount" end
+  if not sim:Status().ready then return false, "building" end
+  local D = Host.Drivers
+  D.LootOpened("Creature", LOOT_NPC, cmd.n)
+  for i = 1, cmd.n do D.Loot(LOOT_KEYS[(i - 1) % #LOOT_KEYS + 1], 1) end
+  D.LootClosed()
+  NS.Print(L["Simulated a kill's %d loot lines."]:format(cmd.n))
+  debug("loot verb: %d lines", cmd.n)
+  return true
+end
+
+--- The descriptor's `verbs`, `why` and `usage`: the one host verb and its lines.
+Host.VERBS = { loot = { parse = parseLoot, run = runLoot } }
+Host.WHY = { lootCount = L["/lh sim loot takes a count from 1 to 10."] }
+Host.USAGE = { L["/lh sim loot [n]: n loot lines now, from a kill (1 to 10, default 3)."] }
+
+--- The descriptor's `panel`, filled in place at load by modules/SimPanel.lua.
+Host.PANEL = Host.PANEL or {}
+
+-- The library's `play`: the history index the step begins at goes on the host's own step table
+-- (`lhFrom`), so the step's tooltip can name the rows it recorded (modules/SimPanel.lua).
+local function play(step, session)
+  if not Host.Play then return nil end
+  step.lhFrom = #NS.Database:History()
+  return Host.Play(step, session)
+end
+
 local Lib = LibStub and LibStub("LibKa0s-Sim-1.0", true)
 if Lib then
   NS.Sim = Lib:New({
@@ -274,10 +318,14 @@ if Lib then
     isStoodDown = function() return NS.IsStoodDown() end,
     scenarios = Host.SCENARIOS,
     prepare = function(...) return Host.Prepare(...) end,
-    play = function(step, session) if Host.Play then return Host.Play(step, session) end end,
+    play = play,
     refusal = function(opts) return Host.Refusal(opts) end,
     gate = function(session) if Host.Gate then return Host.Gate(session) end return true end,
     stepDelay = SIM_STEP_DELAY,
+    verbs = Host.VERBS,
+    why = Host.WHY,
+    usage = Host.USAGE,
+    panel = Host.PANEL,
     stopText = STOP_TEXT,
     L = LINES,
     print = function(line) NS.Print(line) end,
@@ -326,6 +374,9 @@ local STOP_STEPS = {
   announce,
   function(s, reason)
     debug("simulation stopped (%s): %d events, %d rows", tostring(reason), s.events or 0, s.lhRows or 0)
+    -- The diagnostics report's `last stop` (modules/Diagnostics.lua): the reason and what it ended.
+    Host.lastStop = { reason = tostring(reason), events = s.events or 0, rows = s.lhRows or 0,
+      hooks = Host.counts and Host.counts.hooks or 0 }
     Host.world, Host.counts, Host.alt = nil, nil, nil
   end,
 }

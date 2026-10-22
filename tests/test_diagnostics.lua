@@ -96,6 +96,7 @@ test("diagnostics: every DX-LH section writes its own lead line, in the report's
   local want = {
     "identity:", "patterns:", "lifecycle:", "capture:", "settings:", "auction:", "filters:",
     "attribution:", "history:", "tail:", "bound repair:", "browser:", "launcher:", "pools:",
+    "sim:",
   }
   local last = 0
   for _, lead in ipairs(want) do
@@ -412,3 +413,62 @@ test("diagnostics: the browser section with a hidden window, a descending sort a
   }, "\n"))
 end)
 
+-- ── the sim section (LootHistory#37, LibKa0s-Sim-1.0's H8) ────────────────────────────────────
+--
+-- Driven directly through Dx.Sections() with a recording `out`, over the library's Status(), the
+-- host's fields and the session stores, each swapped for the case: idle with no stop yet, and a
+-- session running with rows and holders in its stores and an earlier stop on record.
+
+local function runSim(sim, host, stores, seam)
+  local lines = {}
+  local out = {}
+  out.add = function(_, _, fmt, ...)
+    local args = { ... }
+    for i = 1, select("#", ...) do args[i] = tostring(args[i]) end
+    lines[#lines + 1] = fmt:format(unpack(args))
+  end
+  out.joined = function(_, _, lead, parts) lines[#lines + 1] = lead .. " " .. table.concat(parts, ", ") end
+  local section
+  for _, sec in ipairs(NS.Diagnostics.Sections()) do if sec[1] == "sim" then section = sec[2] end end
+  local saved = { NS.Sim, NS.SimHost, NS.SimStores, NS.SimSeam }
+  NS.Sim, NS.SimHost, NS.SimStores, NS.SimSeam = sim, host, stores, seam
+  local ok, err = pcall(section, out)
+  NS.Sim, NS.SimHost, NS.SimStores, NS.SimSeam = saved[1], saved[2], saved[3], saved[4]
+  if not ok then error(err, 0) end
+  return table.concat(lines, "\n")
+end
+
+local function fakeSim(status) return { Status = function() return status end } end
+local function fakeSeam(n)
+  return { Keys = function() local k = {}; for i = 1, n do k[i] = "K" .. i end; return k end }
+end
+
+test("diagnostics: the sim section while idle, with no stop on record", function()
+  assertEqual(runSim(fakeSim({ active = false, pos = 0, total = 0 }), { GUARDED_KEYS = { "ListCurrencies" } },
+    {}, fakeSeam(3)), table.concat({
+    "sim: active=no scenario=- step 0/0 events=0 hooks=0",
+    "sim: session rows=- holders=-; last stop none",
+    "sim: seam wraps 3 keys; guarded ListCurrencies",
+  }, "\n"))
+end)
+
+test("diagnostics: the sim section while a session runs, with its stores and the last stop", function()
+  local host = { counts = { hooks = 4 }, GUARDED_KEYS = { "ListCurrencies" },
+    lastStop = { reason = "world", events = 12, hooks = 2, rows = 5 } }
+  local stores = { history = { {}, {}, {} }, holdings = { ["Mock-Realm"] = {}, ["\194\167warband"] = {} } }
+  assertEqual(runSim(fakeSim({ active = true, scenario = "vendor", pos = 2, total = 7, events = 30 }), host,
+    stores, fakeSeam(40)), table.concat({
+    "sim: active=yes scenario=vendor step 2/7 events=30 hooks=4",
+    "sim: session rows=3 holders=2; last stop world (12 events, 2 hooks, 5 rows)",
+    "sim: seam wraps 40 keys; guarded ListCurrencies",
+  }, "\n"))
+end)
+
+test("diagnostics: the live sim section names the real seam's wrapped count and guarded keys", function()
+  local lines = build()
+  local line = find(lines, "sim: seam wraps ")
+  assertTrue(line ~= nil, "the sim section writes its seam line")
+  assertTrue(line:find("sim: seam wraps " .. #NS.SimSeam:Keys() .. " keys; guarded ListCurrencies", 1, true) ~= nil,
+    line)
+  assertTrue(find(lines, "sim: active=no") ~= nil, "no session runs while the report is built")
+end)

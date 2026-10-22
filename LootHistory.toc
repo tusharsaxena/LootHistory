@@ -168,6 +168,10 @@ modules\SimScenario.lua
 # NS.RealEventFilter, read at call time) and above settings\, whose destructive surfaces call
 # NS.SimBlocks at call time. The simulator's world, driver and scenario modules sit above it.
 modules\Sim.lua
+# LOAD-BEARING POSITION: the simulation step panel's presentation fields and the History window's
+# simulation marker. Fills NS.SimHost.PANEL, which modules\Sim.lua hands to Sim:New, and calls
+# NS.Sim:AddListener at file load, so modules\Sim.lua must be above.
+modules\SimPanel.lua
 modules\Diagnostics.lua
 
 # Settings

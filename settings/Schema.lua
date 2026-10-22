@@ -1134,6 +1134,14 @@ NS.COMMANDS = gateFeatureVerbs{
       local on, switched = BT:ToggleTestMode()
       if switched then NS.Format("test mode %s", on and "on" or "off") end
     end },
+  -- The in-game simulator (LootHistory#37, LibKa0s-Sim-1.0's H7): one feature-verb row, so the gate
+  -- above refuses it while the addon is disabled (it is NOT on LIVE_WHILE_DISABLED). The grammar is
+  -- the library's (start, run, step, pause, resume, restart, stop, status, panel; no help verb) plus
+  -- the host verb `loot [n]` (modules/Sim.lua). Slash-only: no launcher entry, no key binding. With
+  -- no LibKa0s the session stub answers "The simulator needs LibKa0s-Sim-1.0.".
+  { "sim", NS.L["In-game simulator: /lh sim start <scenario>"], function(rest)
+      NS.Sim:RunVerb(rest or "")
+    end },
   { "purge", "Delete ALL loot history (asks to confirm)", function()
       if NS.SimBlocks("Purge") then return end
       if type(StaticPopup_Show) == "function" then

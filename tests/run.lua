@@ -121,6 +121,13 @@ local SUITES = {
   -- The saved-data invariant: every scenario leaves db.global.history, .holdings and .daily
   -- byte-identical (LootHistory#37, H4). After test_sim_e2e.
   "test_sim_store",
+  -- modules/SimPanel.lua and the History window's simulation marker (LootHistory#37): the panel
+  -- descriptor, the library's panel driven through it, and the SIMULATION badge, strip and footer.
+  -- After test_sim_store, with the addon brought up; every case stops its session.
+  "test_sim_panel",
+  -- `/lh sim` (LootHistory#37): every verb, the host verb `loot [n]`, the disabled refusal and the
+  -- library-absent stub. After test_sim_panel; every case stops its session.
+  "test_sim_slash",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

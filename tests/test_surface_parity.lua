@@ -339,3 +339,21 @@ test("parity: the Perf stub carries every member the addon reads off NS.Perf", f
   end
   T.assertSurfaceParity(live, degraded, "Perf stub vs live instance")
 end)
+
+-- ── Sim (the session and its seam) ─────────────────────────────────────────────────────────────
+
+test("parity: the Sim session and seam stubs carry the whole live surface, both ways", function()
+  -- LibKa0s-Sim-1.0's H9. The live halves are the instance modules/Sim.lua builds (NS.Sim) and the
+  -- seam core/SimSeam.lua wraps NS.Compat with (NS.SimSeam); the degraded halves are the reference
+  -- stubs those two files publish when the major is absent. No manifest lists instance members,
+  -- because Sim:New builds them per host, so the four-argument form compares the two tables, and
+  -- both ways with no ignore set: a stub that carries a member the live surface lacks is as wrong as
+  -- one that is missing one. tests/test_sim_seam.lua pins the stubs member by member; this is the
+  -- collection's one place to ask whether every degradation stub is checked. `/lh sim` (the COMMANDS
+  -- row, settings/Schema.lua) and the History window's marker call NS.Sim on both paths.
+  T.assertSurfaceParity(NS.Sim, degradedNS.Sim, "Sim session stub", {})
+  T.assertSurfaceParity(degradedNS.Sim, NS.Sim, "Sim session stub carries nothing the instance lacks", {})
+  T.assertSurfaceParity(NS.SimSeam, degradedNS.SimSeam, "Sim seam stub", {})
+  T.assertSurfaceParity(degradedNS.SimSeam, NS.SimSeam, "Sim seam stub carries nothing the seam lacks", {})
+end)
+

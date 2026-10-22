@@ -69,6 +69,12 @@ GUARDED.ListCurrencies = function()
   return (world and world.currencies) or {}
 end
 
+--- The guarded keys, sorted: the diagnostics report's `sim` section names them
+--- (modules/Diagnostics.lua), since the seam answers only its wrapped keys.
+Host.GUARDED_KEYS = {}
+for key in pairs(GUARDED) do Host.GUARDED_KEYS[#Host.GUARDED_KEYS + 1] = key end
+table.sort(Host.GUARDED_KEYS)
+
 -- ── the reference stubs (LibKa0s tests/test_sim_stub.lua) ────────────────────────────────────
 
 local NEEDS_LINE = "The simulator needs LibKa0s-Sim-1.0."
