@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1524%2F1524_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1526%2F1526_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -143,6 +143,11 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 ## Credits
 
 The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
-licensed under the SIL Open Font License 1.1, and the History window's lock, dropdown and checkbox
-marks, the export icons and the settings page's info button are drawn from [Open Iconic](https://github.com/iconic/open-iconic) (MIT). Both ship inside the bundled LibKa0s payload,
-with their license text beside them.
+licensed under the SIL Open Font License 1.1.
+
+The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by P.J. Onori
+(MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
+Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
+info and drag-handle marks, the window close buttons, and the debug console's copy and clear
+buttons. Only the icons the addon draws are shipped. The font and the icons are bundled inside the
+LibKa0s payload, with their license text beside them.

@@ -56,7 +56,7 @@ Total.
 - MediaSetup: the font this addon names is the face the library registers
 - MediaSetup: the font no longer resolves inside this addon's own folder
 - MediaSetup: every mark this addon draws is one the library ships
-- MediaSetup: every name the library ships has a file in the vendored copy
+- MediaSetup: the icon declaration is exactly the drawn set, and each has its file
 - MediaSetup: the source names no icon the DRAWN list above has forgotten
 - MediaSetup: a tinted mark spells the long escape, vertex color last
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
@@ -82,7 +82,7 @@ Total.
 - PoolSetup: a released object is reused rather than rebuilt
 - PoolSetup: ReleaseAll returns every active object to the free list
 
-### test_itemsetup.lua (7)
+### test_itemsetup.lua (8)
 
 - ItemSetup: the seam is published
 - ItemSetup: the primitives answer what the deleted shims answered
@@ -91,6 +91,7 @@ Total.
 - ItemSetup: the resolver did NOT move, and still guesses when uncached
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
+- ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
 ### test_util.lua (47)
 
@@ -1469,7 +1470,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (31)
+### test_libka0s.lua (32)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1496,12 +1497,13 @@ Total.
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 - the Options descriptor passes addonName, the FOLDER name, to the library
-- the vendored info art the help mark points at is on disk
+- the vendored info art the help mark points at is declared and on disk
 - degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 - v1.69.0: the line chart is vendored and attached to the Widgets major
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 - v1.71.0: the vendored minors and the kit revision match the release
+- v1.75.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (15)
 
@@ -1721,7 +1723,7 @@ Total.
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
-| test_itemsetup.lua | 7 |
+| test_itemsetup.lua | 8 |
 | test_util.lua | 47 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
@@ -1762,7 +1764,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 31 |
+| test_libka0s.lua | 32 |
 | test_surface_parity.lua | 15 |
 | test_disabled.lua | 21 |
 | test_perf.lua | 7 |
@@ -1778,4 +1780,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1524** |
+| **Total** | **1526** |

@@ -71,7 +71,7 @@ foot of it:
 
 | Suite | Covers |
 |-------|--------|
-| `test_mediasetup.lua` | the **`LibKa0s-Media-1.0`** seam (`core/MediaSetup.lua`) — `NS.Icon` answering the vendored, **extensionless** path and `nil` for a name the catalog does not carry, `NS.MediaFont` against the shipped face, `FONT_MONO` equal to `NS.MediaFont(FONT_MONO_NAME)` and no longer naming this addon's deleted `media/fonts/`, `NS.IconMarkup`'s splice and its required fallback, **every mark this addon draws cross-checked against `Media.ICONS` AND against a file in `libs/LibKa0s/media/icons/`** (a rename on either side answers nil, and nil draws nothing), the source re-derived so a name added to a module and not to the list cannot go unchecked, and the degraded load where both seams answer nil and `FONT_MONO` falls back to `STANDARD_TEXT_FONT` |
+| `test_mediasetup.lua` | the **`LibKa0s-Media-1.0`** seam (`core/MediaSetup.lua`) — `NS.Icon` answering the vendored, **extensionless** path and `nil` for a name the catalog does not carry, `NS.MediaFont` against the shipped face, `FONT_MONO` equal to `NS.MediaFont(FONT_MONO_NAME)` and no longer naming this addon's deleted `media/fonts/`, `NS.IconMarkup`'s splice and its required fallback, **every mark this addon draws cross-checked against `Media.ICONS`, and the `LibKa0s icons:` declaration in `CLAUDE.md` (read through the kit's own parser) held equal to that drawn set with a file in `libs/LibKa0s/media/icons/` for each name** (a rename answers nil, an undeclared name is pruned and draws blank, and neither raises), the source re-derived so a name added to a module and not to the list cannot go unchecked, and the degraded load where both seams answer nil and `FONT_MONO` falls back to `STANDARD_TEXT_FONT` |
 | `test_constants.lua` | enum + derived-table invariants — `SourceType` key==value (the export contract), `SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` totality, the derived `SOURCE_OPTIONS`, the quality ladder + retention presets, and the auction key catalog (unique tags, capture options mirror the keys, the priority cascade covers every key exactly once with the captured ones ranked first), and the bus message names: each wire name and payload driven through its real sender, `NS.MSG` as the **`LibKa0s-Bus-1.0`** strict catalog (three keys, a mistyped key raises), no `Ka0s_LootHistory_` literal in any TOC file but `core/Constants.lua`, and the degraded build's plain table carrying the same names |
 | `test_util.lua` | pure helpers — time/link/loot-string parsing, table ops, `PlayerKey`; the secret-safe printer (`IsConcatSafe`/`SafeToString`/`NS.Print`, reclaimed from AceConsole) |
 | `test_compat.lua` | `NS.Compat` shims — GUID decode, item/map info, degraded fallbacks; `GetSpellName` as **`LibKa0s-Compat-1.0`**'s member: each rung and its one-value arity, the nil-id guard, the nil/`""` fall-through, and the degraded reader stub answering nil |
@@ -164,13 +164,17 @@ tag=$(grep -oE 'Bundles \[LibKa0s\]\([^)]*\) v[0-9]+\.[0-9]+\.[0-9]+' CLAUDE.md 
         | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')
 rm -rf "/tmp/libka0s-$tag" && mkdir -p "/tmp/libka0s-$tag"
 git -C ../LibKa0s archive "$tag" | tar -x -C "/tmp/libka0s-$tag"
-diff -r --strip-trailing-cr "/tmp/libka0s-$tag/LibKa0s" libs/LibKa0s   # MUST be empty
+diff -r --strip-trailing-cr "/tmp/libka0s-$tag/LibKa0s" libs/LibKa0s   # MUST be empty, bar media/icons
 diff -r --strip-trailing-cr "/tmp/libka0s-$tag/testkit" tests/_kit     # MUST be empty
 ```
 
 `tests/test_vendor_sync.lua` asks exactly this question inside the suite — it greps the tag out of
 `CLAUDE.md` and reads that blob out of git — so **a green suite has already answered it**, and the
-block above is only the by-eye version for when you want to see the hunks. Which leaves the
+block above is only the by-eye version for when you want to see the hunks. Since LibKa0s v1.75.0 the
+library diff is not quite empty: `media/icons/` holds only the icons the `LibKa0s icons:` line under
+the provenance line declares (the tag's `tools/prune-icons.lua` removes the rest after the copy), so
+the one allowed difference is the `Only in /tmp/libka0s-<tag>/LibKa0s/media/icons…` lines for the
+undeclared ones. The gate holds declared == shipped. Which leaves the
 working-tree diffs above answering a real but different question: *how far behind the library is
 this addon?* That is release planning, not a gate.
 

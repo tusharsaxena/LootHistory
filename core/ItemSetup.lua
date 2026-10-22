@@ -19,7 +19,7 @@ local _, NS = ...
 --
 -- ── WHAT A DEGRADED INSTALL GETS ─────────────────────────────────────────────────────────────
 --
--- The same four primitives, locally. They are short, pure and three of them were here before;
+-- The same five primitives, locally (BonusIDsFromLink joined with Item minor 3, LibKa0s v1.75.0). They are short, pure and three of them were here before;
 -- a caller that had to branch on the library's presence would be a caller that classifies drops
 -- differently on a broken install — and the quality it wrote is stored, not just drawn.
 
@@ -41,6 +41,24 @@ NS.Item = Item or {
   ItemIDFromLink = function(link)
     if type(link) ~= "string" then return nil end
     return tonumber(link:match("|?H?item:(%d+)"))
+  end,
+
+  -- The library's positional walk, not an approximation of it: the itemString keeps its empty
+  -- fields, field 13 is the declared count and fields 14..13+n are the ids, a non-numeric one
+  -- skipped. nil for a non-string or no `item:<id>`; {} for an item with no bonuses.
+  BonusIDsFromLink = function(link)
+    if type(link) ~= "string" then return nil end
+    local body = link:match("item:([%-%d:]*)")
+    if not body then return nil end
+    local fields = {}
+    for v in (body .. ":"):gmatch("([^:]*):") do fields[#fields + 1] = v end
+    if not tonumber(fields[1]) then return nil end
+    local out = {}
+    for i = 14, 13 + (tonumber(fields[13]) or 0) do
+      local id = tonumber(fields[i])
+      if id then out[#out + 1] = id end
+    end
+    return out
   end,
 
   QualityFromLink = function(link)

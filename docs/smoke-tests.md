@@ -30,6 +30,7 @@ free number in its theme.
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
+| ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
 | LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
@@ -67,7 +68,8 @@ free number in its theme.
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
 - Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
 - Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5 to
-  HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10 and DIAG-11.
+  HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10, DIAG-11
+  and ICON; a LibKa0s re-vendor or a change to the `LibKa0s icons:` line in `CLAUDE.md` runs ICON.
 - Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
   HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2, INSTALL-8
   and DIAG-28 (the copy windows are this file's `CopyWindow`).
@@ -1572,6 +1574,35 @@ that character, or narrow Character from the filter bar by keyboard) → the too
 line the entry under the cursor names now, and goes away if the entry under the cursor is gone.
 Result: pass (owner-marked 2026-10-10)
 
+## Vendored icons
+
+Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
+declares. A drawn name missing from that line still resolves to a path and draws **blank**, with no
+Lua error and every suite green, so these checks are the only witness. Each fail below is an empty
+square or a missing mark where the art should be.
+
+**ICON-1. Window close marks.** `/lh toggle` → the title-bar close mark draws on the History window;
+open the Export window → its close mark draws. Result:
+
+**ICON-2. Debug console and perf panel marks.** `/lh debug` → the console's close, copy and clear
+marks draw; open the `/lh perf` panel → its close mark draws. Result:
+
+**ICON-3. Row menu marks.** Right-click a History row → Link to chat, Show in Timeline, Blacklist
+item (or Blacklist currency on a currency row) and Delete each show their mark; right-click a
+Holdings row → Show in Timeline and Forget this character show theirs. Result:
+
+**ICON-4. Table marks.** In the History and Holdings tables, sort a column both ways → the up and
+down arrows draw; collapse and expand a group header → the right and down chevrons draw; the Bound
+lock draws in the History table and in its legend. Result:
+
+**ICON-5. Dropdown and export marks.** Open a filter-bar dropdown → its chevron draws, and a
+multi-select entry shows its tick when selected; the Export window's Export to CSV button shows its
+spreadsheet mark. Result:
+
+**ICON-6. Settings marks.** Settings → AH Price tab → each row's leading tick (circle-check, or ban
+when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
+list shows its info help mark. Result:
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
@@ -1670,7 +1701,9 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-None. On 2026-10-10 the owner marked every check in this file as passed, recorded on its
+On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
+
+- ICON-1 to ICON-6 (added 2026-10-22 with the LibKa0s v1.75.0 re-vendor and its icon prune).

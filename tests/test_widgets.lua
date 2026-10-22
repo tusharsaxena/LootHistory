@@ -124,7 +124,13 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- and their machinery unchanged into WidgetsReorder.lua (minor 1). No member, opts field or
   -- controller method moves, and Dropdown, CloseMenu and CopyWindow are untouched. Nothing to
   -- change; the drag-reorder itself is an in-client smoke.
-  assertEqual(lib.MODULES.Widgets, 12, "this adoption is written against Widgets minor 12")
+  --
+  -- Minor 13 (LibKa0s v1.75.0, docs/api/Widgets/version-13.1.4.3.2-docs.md) adds SearchBox,
+  -- TestStrip and TEST_STRIP, and hoists the dropdown's skin literals into a file-local SKIN table
+  -- with the same values (20px, the same fill and line colors). Dropdown, CloseMenu, CopyWindow and
+  -- ReorderList keep every member and opts field. Nothing to change on the re-vendor; the two new
+  -- widgets are adopted in their own commits.
+  assertEqual(lib.MODULES.Widgets, 13, "this adoption is written against Widgets minor 13")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

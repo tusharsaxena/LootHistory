@@ -122,3 +122,40 @@ test("ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung"
     assertEqual(NS.Item.QualityFromLink(LEGACY_EPIC_LINK), 4)
   end)
 end)
+
+test("ItemSetup: the degraded BonusIDsFromLink answers what the library answers", function()
+  -- Item minor 3 (LibKa0s v1.75.0) adds BonusIDsFromLink, so the library-absent stub carries the
+  -- same positional walk (surface parity alone would accept any function). Every shape below is
+  -- asked of both and the answers compared element by element: the 3-bonus link, a link with no
+  -- bonuses, a bare itemString, a link with modifiers after its bonuses (never read), a string
+  -- holding no item, and a non-string.
+  local live = mocks.LibStub("LibKa0s-Item-1.0", true)
+  assertTrue(live ~= nil and type(live.BonusIDsFromLink) == "function",
+    "the vendored library carries no Item.BonusIDsFromLink")
+  local degraded = dofile("tests/degraded_env.lua")().Item
+  assertTrue(type(degraded.BonusIDsFromLink) == "function",
+    "core/ItemSetup.lua's stub carries no BonusIDsFromLink")
+  local cases = {
+    EPIC_LINK,
+    "|cnIQ1:|Hitem:2589::::::::80:250::::::|h[Linen Cloth]|h|r",
+    "item:258586::::::::80:250::5:0:10356:10355:1540",
+    "item:258586::::::::80:250::5:2:10356:x:1540:1:28:2462",
+    "|cnIQ4:|Hitem:258586::::::::80:250::5:2:10356:10355:1540:2:28:2462:29:41:::|h[X]|h|r",
+    "|Hcurrency:3008:1|h[Valorstones]|h",
+    42,
+  }
+  local function show(v)
+    if type(v) ~= "table" then return tostring(v) end
+    local parts = {}
+    for i, id in ipairs(v) do parts[i] = tostring(id) end
+    return "{" .. table.concat(parts, ",") .. "}"
+  end
+  for i, link in ipairs(cases) do
+    assertEqual(show(degraded.BonusIDsFromLink(link)), show(live.BonusIDsFromLink(link)),
+      "case " .. i .. ": " .. tostring(link))
+  end
+  assertEqual(show(degraded.BonusIDsFromLink(EPIC_LINK)), "{10356,10355,1540}")
+  assertEqual(show(degraded.BonusIDsFromLink(cases[2])), "{}")
+  assertEqual(show(degraded.BonusIDsFromLink(cases[6])), "nil")
+  assertEqual(show(degraded.BonusIDsFromLink(42)), "nil")
+end)

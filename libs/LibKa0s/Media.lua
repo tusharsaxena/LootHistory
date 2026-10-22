@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 4
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -76,10 +76,10 @@ local TEXTURE_DIR = "media\\textures"
 
 -- ── the catalog ──────────────────────────────────────────────────────────────────────────
 
--- Every icon in `media/icons/`, by the name callers use, which is the file's own basename. Open
--- Iconic (MIT), rendered to 64x64 white RGBA TGAs by `tools/artwork/icon_cleaner.py` — that tool is
--- the provenance record for this art: which upstream glyph each name draws, and every
--- transformation applied. The license ships beside the art in `media/icons/`.
+-- Every icon in `media/icons/`, by the name callers use: Open Iconic's 113 semantic keys (MIT),
+-- rendered to 64x64 white RGBA TGAs by `tools/artwork/icon_cleaner.py`, the provenance record for
+-- ALL the art here. `MediaIcons.lua` appends the other sets at load (see ICON_SETS below); this
+-- block stays first and in this order, because consumers store the path a name resolves to.
 --
 -- WHITE, AND THAT IS A CONTRACT. A texture is tinted by MULTIPLYING, so white art becomes any
 -- color a caller asks for and black art stays black whatever it is asked for. Every mark here is
@@ -173,10 +173,68 @@ lib.TEXTURES = {
   ["Ka0s Overline 4"]  = { file = "overline-4.tga" },
 }
 
--- Answering a lookup with a set rather than a linear scan of ICONS. Built once, from the array, so
--- the array stays the single place a name is written down.
-local KNOWN_ICON = {}
-for i = 1, #lib.ICONS do KNOWN_ICON[lib.ICONS[i]] = true end
+-- THREE ICON SETS, ONE CATALOG (minor 5): Open Iconic (MIT, flat in `media/icons/`, unprefixed),
+-- Phosphor Fill (MIT, `ph:<name>` in `media/icons/phosphor/`) and Game-icons.net (CC BY 3.0,
+-- `gi:<name>` in `media/icons/game-icons/`). The prefix exists because the sets reuse each other's
+-- names (star, heart, bug), and `:` occurs in no Open Iconic name, so the split is unambiguous.
+-- `ICONS` stays the ONE enumerable list of every name: minor 4's 113 hand-written names first and
+-- unmoved, then the generated names `MediaIcons.lua` appends.
+--
+-- The icon sets, in the order a browser lists them. `prefix` starts every name of the set (empty
+-- for Open Iconic, whose names predate the other sets), `dir` is its folder under `media\icons`
+-- (empty: the folder itself), `license` the file recording its terms, which ships in that folder.
+-- Game-icons is CC BY 3.0, so its folder also carries `AUTHORS.txt` (every mark's author) and the
+-- statement of changes, and `IconAuthor` answers the author per name.
+lib.ICON_SETS = {
+  { id = "open-iconic", prefix = "",    dir = "",           label = "Open Iconic",
+    license = "LICENSE-open-iconic.txt" },
+  { id = "phosphor",    prefix = "ph:", dir = "phosphor",   label = "Phosphor",
+    license = "LICENSE-phosphor.txt" },
+  { id = "game-icons",  prefix = "gi:", dir = "game-icons", label = "Game-icons",
+    license = "LICENSE-game-icons.txt" },
+}
+
+-- A prefix's folder, answered by lookup. Built once from ICON_SETS so that table stays the one
+-- place a set is described.
+local SET_DIR = {}
+for _, set in ipairs(lib.ICON_SETS) do
+  SET_DIR[set.prefix] = set.dir == "" and ICON_DIR or (ICON_DIR .. "\\" .. set.dir)
+end
+
+-- Answering a lookup with a set rather than a linear scan of ICONS. Built from the array, so the
+-- array stays the single place a name is written down; `__SetGeneratedIcons` rebuilds it.
+local KNOWN_ICON, ICON_AUTHOR = {}, {}
+local BASE_ICONS = #lib.ICONS
+for i = 1, BASE_ICONS do KNOWN_ICON[lib.ICONS[i]] = true end
+
+--- Append the generated names to ICONS, in place, and index them. Called by `MediaIcons.lua`, once
+--- per load of that file against this shell.
+---
+--- IDEMPOTENT, because the paired-file guard lets a newer `MediaIcons.lua` run again against the
+--- same shell: ICONS is cut back to the hand-written block first, then refilled, so a second call
+--- never doubles a name. The TABLE keeps its identity — a host that captured `ICONS` once still
+--- reads the whole catalog.
+---
+--- @param names table    array of catalog names, prefixes included
+--- @param authors table  optional, name -> author, for the CC BY sets
+function lib.__SetGeneratedIcons(names, authors)
+  local icons = lib.ICONS
+  for i = #icons, BASE_ICONS + 1, -1 do
+    KNOWN_ICON[icons[i]] = nil
+    icons[i] = nil
+  end
+  ICON_AUTHOR = {}
+  for i = 1, #names do
+    local name = names[i]
+    if not KNOWN_ICON[name] then
+      icons[#icons + 1] = name
+      KNOWN_ICON[name] = true
+    end
+  end
+  for name, who in pairs(authors or {}) do
+    if KNOWN_ICON[name] then ICON_AUTHOR[name] = who end
+  end
+end
 
 -- ── paths ──────────────────────────────────────────────────────────────────────────────────
 
@@ -195,6 +253,10 @@ end
 --- anyone discovers is wrong. The client appends the extension itself. The file on disk is still
 --- `<name>.tga`, and `tests/test_media.lua` checks for it under that name.
 ---
+--- A PREFIXED NAME resolves into its set's folder (minor 5): `ph:sword` is
+--- `...\media\icons\phosphor\sword`. The name must still be in `ICONS`, so an unknown prefix,
+--- or a set's mark asked for without its prefix, answers nil like any other unknown name.
+---
 --- @param addonName string  the consumer's own addon folder name (its first vararg)
 --- @param name string       an entry of `lib.ICONS`
 --- @param vendorPath string optional, defaults to `lib.VENDOR_PATH`
@@ -203,7 +265,22 @@ function lib.Icon(addonName, name, vendorPath)
   if not KNOWN_ICON[name] then return nil end
   local base = root(addonName, vendorPath)
   if not base then return nil end
-  return base .. ICON_DIR .. "\\" .. name
+  local prefix, rest = name:match("^(%l+:)(.+)$")
+  if not prefix then return base .. ICON_DIR .. "\\" .. name end
+  local dir = SET_DIR[prefix]
+  if not dir then return nil end
+  return base .. dir .. "\\" .. rest
+end
+
+--- The author of one icon, for the sets whose license asks for attribution per mark (Game-icons,
+--- CC BY 3.0), or nil for every other name, an unknown one included. A browser shows it in the
+--- mark's tooltip; the full list ships as `media/icons/game-icons/AUTHORS.txt`.
+---
+--- @param name string  an entry of `lib.ICONS`
+--- @return string|nil
+function lib.IconAuthor(name)
+  if type(name) ~= "string" then return nil end
+  return ICON_AUTHOR[name]
 end
 
 --- The path of one shipped statusbar texture, or nil when the name is not in `TEXTURES`.

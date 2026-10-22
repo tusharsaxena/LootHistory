@@ -13,16 +13,23 @@
 --
 -- Both are correct for their addon. A shared resolver would have to pick one, and picking would
 -- have silently overturned a decision the other addon wrote down and tested. That is exactly the
--- "shared bug surface" a module is supposed to avoid being — so this module carries the four
+-- "shared bug surface" a module is supposed to avoid being — so this module carries the five
 -- primitives both compose, and holds no opinion about how.
 --
--- ── WHY THESE FOUR ───────────────────────────────────────────────────────────────────────────
+-- ── WHY THESE FIVE ───────────────────────────────────────────────────────────────────────────
 --
--- `QualityLabel` and `LoadItem` were byte-identical in both addons. The other two were each
+-- `QualityLabel` and `LoadItem` were byte-identical in both addons. The next two were each
 -- written by only ONE of them — BankLedger had `ItemIDFromLink`, LootHistory had
 -- `QualityFromLink` — which is the better argument: each addon was missing a primitive the other
 -- had already written, and the color fallback is the one whose absence had already cost a
--- misclassified item.
+-- misclassified item. The fifth, `BonusIDsFromLink` (minor 3, LibKa0s#51), is the positional
+-- walk BankLedger and LootHistory each wrote to build the Wowhead bonus string: field 13 is the
+-- declared count and the ids follow it, which is domain knowledge a copy can get wrong.
+--
+-- The rest of #51 — a merged link detail, an identity key, the gear item level, a bag-slot level
+-- and quality read, a quality-with-source read, the Wowhead URL builder and the loot-line parser —
+-- was considered and rejected; each reason and re-check trigger is recorded under "What this
+-- major is not" in docs/api/Item/version-3-docs.md.
 --
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework.
 
@@ -30,7 +37,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Item-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Item-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -50,6 +57,34 @@ lib.MODULES.Item = MINOR
 function lib.ItemIDFromLink(link)
   if type(link) ~= "string" then return nil end
   return tonumber(link:match("|?H?item:(%d+)"))
+end
+
+--- The bonus ids an item link or a bare itemString carries, as numbers, in link order.
+---
+--- The itemString is colon-separated and POSITIONAL, so empty fields are kept when splitting:
+---   field 1 is the itemID, 2..12 are enchant, gems, suffix, unique id, level, spec, upgrade
+---   type and difficulty, field 13 is the declared bonus count n, and fields 14..13+n are the
+---   bonus ids. What follows them (the modifier block, relic and crafting data) is never read.
+---
+--- Answers nil for a non-string or a string holding no `item:<id>`, and {} for an item with no
+--- bonuses. A non-numeric field inside the declared span is skipped rather than read as 0.
+--- Locale-independent, like ItemIDFromLink: it reads the link's structure, never a name.
+---
+--- @param link string
+--- @return number[]|nil
+function lib.BonusIDsFromLink(link)
+  if type(link) ~= "string" then return nil end
+  local body = link:match("item:([%-%d:]*)")
+  if not body then return nil end
+  local fields = {}
+  for v in (body .. ":"):gmatch("([^:]*):") do fields[#fields + 1] = v end
+  if not tonumber(fields[1]) then return nil end
+  local out = {}
+  for i = 14, 13 + (tonumber(fields[13]) or 0) do
+    local id = tonumber(fields[i])
+    if id then out[#out + 1] = id end
+  end
+  return out
 end
 
 -- Reverse map of quality-color hex (rrggbb) → quality id, built on first use.

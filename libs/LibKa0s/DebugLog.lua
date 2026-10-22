@@ -34,7 +34,7 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 19
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 20
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -229,9 +229,9 @@ end
 --- The same control drawn from `LibKa0s-Media-1.0`'s art, or nil when there is no art to draw.
 ---
 --- NIL IS THE WHOLE INTERFACE. The caller falls back to the text button above, which is what a host
---- that never passes `addonName` gets, what a host without the Media module gets, and what an
---- install missing the art gets -- one path, exercised by every one of those cases, rather than a
---- degraded branch that only runs on installs nobody tests on.
+--- that never passes `addonName` gets and what a host without the Media module gets. A host whose
+--- copy lacks the art gets a BLANK control: Media.Icon answers a path and never checks the file
+--- exists, so `close, copy, clear` are the host's to declare on its `LibKa0s icons:` line.
 ---
 --- NO TOOLTIP, AND NO LABEL TO PUT IN ONE. Minor 9 took a label and showed it under the control,
 --- which put it on top of the first line of the log -- the thing the window exists to show -- every

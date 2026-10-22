@@ -2,15 +2,16 @@
 -- button, and the reset/refresh trio every Ka0s addon's options UI runs on. The page registry it
 -- attaches is OptionsRegistry.lua's.
 --
--- Ten files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
+-- Eleven files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
 -- category it registers and its combat park; OptionsWidgets.lua is the schema-row -> AceGUI
 -- translation and the flow engine; OptionsIds.lua / OptionsIdList.lua the id input and list;
 -- OptionsCombat.lua the combat lock's event frame, dispatcher and cover; OptionsTabs.lua the page's
 -- chrome (tab strip, banner, header block, secondary strip); OptionsCompose.lua the composers;
 -- OptionsScroll.lua the always-shown scrollbar patch and the font preload; OptionsNav.lua the nav
--- rail a page may lead with (minor 25 reads its inset). They are one major because they are one
--- feature: a host that ended up with a shell from one vendored copy and a flow engine from another
--- would build panels that lay out wrong, and there is no version negotiation that would catch it.
+-- rail a page may lead with (minor 25 reads its inset); OptionsDrawer.lua the drawer (minor 29
+-- attaches it). They are one major because they are one feature: a host that ended up with a shell
+-- from one vendored copy and a flow engine from another would build panels that lay out wrong, and
+-- there is no version negotiation that would catch it.
 --
 -- The basenames are namespaced (OptionsWidgets, not Widgets) because tests/test_versioning.lua
 -- searches one shared CHANGELOG.md for "<FileBasename> minor <N>". Two majors owning a file called
@@ -30,7 +31,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- descriptor's `debug` (gap G3 of the 2026-09-30 debug-gaps run); nothing moves without one.
 -- Minor 28: docblock only -- the descriptor's `addonName` is read by OptionsIdList.lua, is the
 -- host's FOLDER name, and is checked against the client's loaded addons there (LibKa0s#42).
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 28
+-- Minor 29: lib:New attaches OptionsDrawer.lua, and RefreshPanel takes a drawer's body ctx back to
+-- the page it is drawn on.
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 29
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1125,6 +1128,25 @@ function lib:New(d)
     end)
   end
 
+  --- Run `fn`, a structural re-render of a page on screen, with the page's scroll offset carried
+  --- across it (minor 29). ClearScroll releases the page's rows, and the render's first AddChild
+  --- runs the ScrollFrame's LayoutFinished -> FixScroll synchronously while the content is one row
+  --- tall, which sets the offset to 0 (OptionsScroll.lua's FixScroll, the "content fits" branch).
+  --- A refresh redraws what the player is already looking at -- a write inside an open drawer, a
+  --- row appearing -- so they stay where they were; FixScroll clamps an offset past the new end.
+  --- Only here: a page drawn on its show and a tab click (OptionsTabs.lua) are a change of
+  --- subject, and start at the top.
+  local function keepScroll(ctx, fn)
+    local sc = ctx.scroll
+    local st = sc and (sc.status or sc.localstatus)
+    local off = st and st.offset
+    fn()
+    if st and off then
+      st.offset = off
+      if sc.FixScroll then sc:FixScroll() end
+    end
+  end
+
   local function refreshCtx(ctx, structural)
     -- No renderer declared: the legacy shape, refreshed ungated exactly as it always was. In
     -- combat too: refreshers only put widgets back to stored values, which is what a refused write
@@ -1134,7 +1156,7 @@ function lib:New(d)
       ctx._dirty = true
       return
     end
-    if structural then renderCtx(ctx) else runRefreshers(ctx) end
+    if structural then keepScroll(ctx, function() renderCtx(ctx) end) else runRefreshers(ctx) end
   end
 
   function O.RefreshAllPanels()
@@ -1165,6 +1187,9 @@ function lib:New(d)
   --- know whether it is on screen, which is the whole point.
   function O.RefreshPanel(ctx, structural)
     if type(ctx) ~= "table" then return end
+    -- A drawer's body ctx (OptionsDrawer.lua, minor 29) is a view of its page: refreshing the view
+    -- itself would render the whole page into one drawer's box.
+    ctx = rawget(ctx, "__drawerPage") or ctx
     refreshCtx(ctx, structural)
   end
 
@@ -1283,6 +1308,7 @@ function lib:New(d)
   if lib.__AttachCompose then lib.__AttachCompose(O, d) end
   if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
   if lib.__AttachNav     then lib.__AttachNav(O)        end
+  if lib.__AttachDrawer  then lib.__AttachDrawer(O)     end
 
   return O
 end

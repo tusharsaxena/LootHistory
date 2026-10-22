@@ -7,7 +7,9 @@
 	<Script file="Schema.lua"/>
 	<Script file="Pool.lua"/>
 	<Script file="Item.lua"/>
+	<Script file="Glow.lua"/>
 	<Script file="Media.lua"/>
+	<Script file="MediaIcons.lua"/>
 	<Script file="Widgets.lua"/>
 	<Script file="WidgetsReorder.lua"/>
 	<Script file="WidgetsDragHandle.lua"/>
@@ -29,8 +31,12 @@
 	<Script file="OptionsCompose.lua"/>
 	<Script file="OptionsScroll.lua"/>
 	<Script file="OptionsNav.lua"/>
+	<Script file="OptionsDrawer.lua"/>
 	<Script file="Perf.lua"/>
 	<Script file="PerfSampler.lua"/>
 	<Script file="PerfCommands.lua"/>
 	<Script file="PerfPanel.lua"/>
+	<Script file="Sim.lua"/>
+	<Script file="SimTimeline.lua"/>
+	<Script file="SimPanel.lua"/>
 </Ui>

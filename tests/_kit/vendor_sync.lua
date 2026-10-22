@@ -58,6 +58,23 @@
 --     which is why this is a factory the CONSUMER calls rather than a suite that auto-registers,
 --     and why `tests/test_kitsync.lua` stays the library-side equivalent.
 --
+-- THE ONE CARVE-OUT FROM WHOLE-FOLDER: `media/icons/` (kit revision 40, `library-stack-§7` from
+-- standard v2.85.0). LibKa0s v1.74.0 took the icon folder to 5,836 TGAs, about 18 MB (28 MB on disk), and twelve
+-- consumers copying all of it to draw a handful of glyphs is a cost nobody chose. So a consumer
+-- DECLARES which icons it ships, in one line directly under its provenance line:
+--
+--   LibKa0s icons: all (icon picker).            -- the whole catalog; only for a player-facing chooser
+--   LibKa0s icons: none.                         -- no icon files, no icon license files
+--   LibKa0s icons: settings, close, ph:sword.    -- exactly these, by their lib.ICONS names
+--
+-- and this gate then holds `libs/LibKa0s/media/icons/` to EXACTLY that: every declared icon
+-- present and byte-identical to the tag, every undeclared one absent, each set's attribution
+-- files (the non-TGA files beside its icons) present when any of its icons ships and absent when
+-- none does. Everything else under `libs/LibKa0s/` is compared whole, as before. The catalog a name
+-- is checked against is the TAG's file list, never this repo's copy: a copy already pruned of a
+-- name must not be able to vouch for it. No line at all is read as `all`, so a consumer that has
+-- not declared yet is gated exactly as it was before this revision.
+--
 -- USAGE, from a consuming `tests/test_vendor_sync.lua`:
 --
 --   local VendorSync = dofile("tests/_kit/vendor_sync.lua")
@@ -82,7 +99,9 @@ local DEFAULT_PAIRS = {
   { case    = "libs/LibKa0s is the LibKa0s release CLAUDE.md says this addon bundles",
     tag     = "LibKa0s",
     local_  = "libs/LibKa0s",
-    label   = "the library repo" },
+    label   = "the library repo",
+    -- The one subfolder held to the `LibKa0s icons:` declaration rather than copied whole.
+    icons   = "media/icons" },
   -- Markdown included in the compared file set: the file that actually diverged in
   -- this collection WAS a README, so a check restricted to *.lua would have caught
   -- nothing.
@@ -124,7 +143,10 @@ local function localNames(dir)
         pipe:close()
     end
     collect(('cd "%s" 2>/dev/null && find . -type f 2>/dev/null'):format(dir))
-    if #names == 0 then
+    -- The cmd.exe fallback only where Lua says it is on Windows. Elsewhere an EMPTY or absent
+    -- directory, which a `LibKa0s icons: none.` copy legitimately has (kit revision 40), would
+    -- run coreutils' own `dir` and leave a file named NUL in the working directory.
+    if #names == 0 and package.config:sub(1, 1) == "\\" then
         local win = dir:gsub("/", "\\")
         collect(('dir /b /s /a-d "%s" 2>NUL'):format(win),
                 "^" .. win:gsub("%p", "%%%0") .. "\\")
@@ -152,6 +174,199 @@ local function isBinary(path)
     return ext ~= nil and BINARY_EXT[ext:lower()] == true
 end
 
+-- ── the icon declaration (kit revision 40) ────────────────────────────────────────────────────
+--
+-- Pure functions, published on the module so `tools/prune-icons.lua` parses the line and builds
+-- the catalog with exactly the code this gate does. A pruning tool and a gate that disagreed about
+-- what a line means would let the tool produce a copy the gate then refuses.
+
+--- How the line is found: the marker at the START of a line (an optional `- ` or `* ` list marker
+--- before it), then the declaration body. Anchored so prose that MENTIONS the line, such as
+--- "see the `LibKa0s icons:` line above", is not read as a second declaration.
+local DEFAULT_ICONS_PATTERN = "^[%s%-%*]*LibKa0s icons:%s*(.-)%s*$"
+
+--- The icon sets, by the subfolder of `media/icons/` each lives in, mapped to the `lib.ICONS`
+--- prefix its names carry (Media's `ICON_SETS`). Open Iconic is the flat folder, unprefixed.
+local ICON_SET_PREFIX = { [""] = "", phosphor = "ph:", ["game-icons"] = "gi:" }
+
+--- How many names a failure message lists before it says how many more there are.
+local LIST_CAP = 10
+
+--- `names`, sorted, the first LIST_CAP of them joined, and a count of the rest.
+local function cappedList(names)
+    table.sort(names)
+    local shown = {}
+    for i = 1, math.min(#names, LIST_CAP) do shown[i] = names[i] end
+    local text = table.concat(shown, ", ")
+    if #names > LIST_CAP then text = text .. (", ... and %d more"):format(#names - LIST_CAP) end
+    return text
+end
+VendorSync.cappedList = cappedList
+
+--- Parse a declaration's body (everything after `LibKa0s icons:`) into
+---   { mode = "all", reason = "icon picker" } | { mode = "none", names = {} }
+---   | { mode = "list", names = { "close", "ph:sword", ... } }   -- sorted, duplicates dropped
+--- or nil and the reason it is malformed. Names are not checked against a catalog here; see
+--- `VendorSync.requiredIcons`.
+function VendorSync.parseIconLine(body)
+    local s = tostring(body or ""):match("^%s*(.-)%s*$")
+    if s:sub(-1) ~= "." then
+        return nil, "the `LibKa0s icons:` line must end with a period"
+    end
+    s = s:sub(1, -2):match("^(.-)%s*$")
+    if s == "" then
+        return nil, "the `LibKa0s icons:` line names nothing: write `all (<the player-facing "
+            .. "chooser>).`, `none.` or a comma-separated list of lib.ICONS names"
+    end
+    if s == "all" or s:match("^all[%s%(]") then
+        local reason = s:match("^all%s*%((.-)%)$")
+        reason = reason and reason:match("^%s*(.-)%s*$")
+        if not reason or reason == "" then
+            return nil, "`all` must be followed by a parenthesized reason naming the player-facing "
+                .. "chooser, e.g. `LibKa0s icons: all (icon picker).` -- `all` is only for an addon "
+                .. "whose UI lets the player choose among the catalog"
+        end
+        return { mode = "all", reason = reason }
+    end
+    if s == "none" then return { mode = "none", names = {} } end
+    local names, seen = {}, {}
+    for item in (s .. ","):gmatch("([^,]*),") do
+        local name = item:match("^%s*(.-)%s*$")
+        if name == "" then
+            return nil, "the `LibKa0s icons:` list has an empty entry (two commas, or a trailing one)"
+        end
+        if not (name:match("^[%w_%-]+$") or name:match("^%a+:[%w_%-]+$")) then
+            return nil, ("`%s` is not a lib.ICONS name (Open Iconic unprefixed, `ph:` Phosphor, "
+                .. "`gi:` Game-icons; comma-separated)"):format(name)
+        end
+        if not seen[name] then seen[name] = true; names[#names + 1] = name end
+    end
+    table.sort(names)
+    return { mode = "list", names = names }
+end
+
+--- Find and parse the declaration in a provenance document's text.
+---
+--- Returns `decl` (see parseIconLine), or `nil, nil` when the document carries no
+--- `LibKa0s icons:` line at all -- the transition state, read by every caller as `all` -- or
+--- `nil, reason` when the line is malformed, declared twice, or not directly under the provenance
+--- line (blank lines between the two are allowed; any other line is not).
+---
+--- opts: `provenancePattern` (the gate's), `iconsPattern` (DEFAULT_ICONS_PATTERN).
+--- The first non-blank line after line `at`, or nil.
+local function nextNonBlank(lines, at)
+    if not at then return nil end
+    for i = at + 1, #lines do
+        if lines[i]:match("%S") then return i end
+    end
+    return nil
+end
+
+function VendorSync.iconDeclaration(doc, opts)
+    opts = opts or {}
+    local provenance = opts.provenancePattern or DEFAULT_PATTERN
+    local marker = opts.iconsPattern or DEFAULT_ICONS_PATTERN
+    local found, provAt, lines = {}, nil, {}
+    for line in (tostring(doc or "") .. "\n"):gmatch("([^\n]*)\n") do
+        line = line:gsub("\r$", "")
+        lines[#lines + 1] = line
+        if line:match(marker) then found[#found + 1] = #lines end
+        if not provAt and line:match(provenance) then provAt = #lines end
+    end
+    if #found == 0 then return nil, nil end
+    if #found > 1 then
+        return nil, ("the `LibKa0s icons:` line appears %d times (lines %s); declare once")
+            :format(#found, table.concat(found, ", "))
+    end
+    local at = found[1]
+    if nextNonBlank(lines, provAt) ~= at then
+        return nil, ("the `LibKa0s icons:` line (line %d) must sit directly under the "
+            .. "`Bundles [LibKa0s](...) vX.Y.Z (MIT).` provenance line"):format(at)
+    end
+    return VendorSync.parseIconLine(lines[at]:match(marker))
+end
+
+--- The catalog an icons folder answers, from its file paths RELATIVE to that folder:
+---   names       = { [lib.ICONS name] = "phosphor/sword.tga", ... }
+---   attribution = { [prefix] = { "phosphor/LICENSE-phosphor.txt", ... } }  -- non-TGA files in a set's folder
+---   other       = { ... }  -- anything in no known set's folder; always ships, never pruned
+--- `<n>.tga` flat is `<n>`, `phosphor/<n>.tga` is `ph:<n>`, `game-icons/<n>.tga` is `gi:<n>`.
+function VendorSync.iconCatalog(paths)
+    local cat = { names = {}, attribution = {}, other = {} }
+    for _, path in ipairs(paths) do
+        local dir, file = path:match("^(.-)/?([^/]+)$")
+        local prefix = ICON_SET_PREFIX[dir or ""]
+        if prefix == nil then
+            cat.other[#cat.other + 1] = path
+        elseif file:match("%.tga$") then
+            cat.names[prefix .. file:sub(1, -5)] = path
+        else
+            local list = cat.attribution[prefix] or {}
+            list[#list + 1] = path
+            cat.attribution[prefix] = list
+        end
+    end
+    return cat
+end
+
+--- The paths under the icons folder a declaration requires, as a sorted array, and the declared
+--- names the catalog does not carry (sorted; empty when every name resolved). `all` answers every
+--- path the catalog was built from, so pass the same `paths` iconCatalog read.
+function VendorSync.requiredIcons(decl, cat, paths)
+    local want, unknown = {}, {}
+    if decl.mode == "all" then
+        for _, p in ipairs(paths) do want[#want + 1] = p end
+        table.sort(want)
+        return want, unknown
+    end
+    local set, prefixes = {}, {}
+    for _, p in ipairs(cat.other) do set[p] = true end
+    for _, name in ipairs(decl.names or {}) do
+        local path = cat.names[name]
+        if path then
+            set[path] = true
+            prefixes[name:match("^(%a+:)") or ""] = true
+        else
+            unknown[#unknown + 1] = name
+        end
+    end
+    for prefix in pairs(prefixes) do
+        for _, p in ipairs(cat.attribution[prefix] or {}) do set[p] = true end
+    end
+    for p in pairs(set) do want[#want + 1] = p end
+    table.sort(want)
+    table.sort(unknown)
+    return want, unknown
+end
+
+--- Split `names` (paths relative to the payload) into those under `dir/` -- returned RELATIVE to
+--- it -- and the rest, both in their input order.
+local function splitUnder(names, dir)
+    local inside, outside = {}, {}
+    local lead = dir .. "/"
+    for _, name in ipairs(names) do
+        if name:sub(1, #lead) == lead then inside[#inside + 1] = name:sub(#lead + 1)
+        else outside[#outside + 1] = name end
+    end
+    return inside, outside
+end
+VendorSync.splitUnder = splitUnder
+VendorSync.localNames = localNames
+
+--- `register`'s opts with their defaults filled in, in the order `register` names them. A function
+--- of its own because every default is a branch, and `register` is long enough already.
+local function resolveOpts(opts)
+    local root = opts.root or DEFAULT_ROOT
+    return root,
+        opts.sibling or (root .. DEFAULT_SIBLING),
+        opts.probe or DEFAULT_PROBE,
+        opts.provenanceFile or DEFAULT_FILE,
+        opts.provenancePattern or opts.readmePattern or DEFAULT_PATTERN,
+        opts.runner or DEFAULT_RUNNER,
+        opts.runnerCase or DEFAULT_RUNNER_CASE,
+        opts.iconsPattern or DEFAULT_ICONS_PATTERN
+end
+
 --- Register the gate's cases on the consumer's test table.
 ---
 --- opts = {
@@ -160,10 +375,15 @@ end
 ---   probe         = "HEAD:LibKa0s/Core.lua",   -- the ref that answers "is the sibling there?"
 ---   provenanceFile    = "CLAUDE.md",           -- which doc carries the provenance line
 ---   provenancePattern = "[Bb]undles ...",      -- how the provenance line is spelled
----   pairs         = { { case = …, tag = …, local_ = …, label = … }, … },
+---   pairs         = { { case = …, tag = …, local_ = …, label = …, icons = … }, … },
 ---   runner        = "tests/_kit/run-automated-tests.sh",  -- the runner, relative to root
 ---   runnerCase    = "the automated-test runner is recorded executable (100755)",
+---   iconsPattern  = "^[%s%-%*]*LibKa0s icons:%s*(.-)%s*$", -- the icon declaration line, anchored (rev 40)
 --- }
+---
+--- A pair's `icons` names the subfolder of its payload held to the `LibKa0s icons:` declaration
+--- rather than compared whole; the default library pair carries `icons = "media/icons"` (kit
+--- revision 40). A pair without the field is compared whole, as every pair was before.
 ---
 --- Besides one case per pair, it registers ONE more, named by `runnerCase`: the runner's recorded
 --- mode in the consuming repo's git index (kit revision 16). That case needs no sibling checkout.
@@ -180,13 +400,7 @@ function VendorSync.register(T, opts)
             .. "re-vendor tests/_kit/ from a LibKa0s tag that ships testkit/vendor_sync.lua", 0)
     end
 
-    local ROOT    = opts.root or DEFAULT_ROOT
-    local SIBLING = opts.sibling or (ROOT .. DEFAULT_SIBLING)
-    local PROBE   = opts.probe or DEFAULT_PROBE
-    local FILE    = opts.provenanceFile or DEFAULT_FILE
-    local PATTERN = opts.provenancePattern or opts.readmePattern or DEFAULT_PATTERN
-    local RUNNER      = opts.runner or DEFAULT_RUNNER
-    local RUNNER_CASE = opts.runnerCase or DEFAULT_RUNNER_CASE
+    local ROOT, SIBLING, PROBE, FILE, PATTERN, RUNNER, RUNNER_CASE, ICONS_PATTERN = resolveOpts(opts)
 
     --- Run a command in the sibling library repo and return stdout, or nil if it
     --- produced nothing. `nil` means "could not answer" — never "matched".
@@ -301,14 +515,73 @@ function VendorSync.register(T, opts)
         return version
     end
 
-    local function assertVendorSync(tag, subdir, localDir, label)
+    --- The icon declaration this repo's provenance doc carries, or nil when it carries none (the
+    --- transition state: the folder is compared whole). A malformed line FAILS here, naming why.
+    local function iconDecl()
+        local decl, err = VendorSync.iconDeclaration(readBytes(ROOT .. "/" .. FILE) or "",
+            { provenancePattern = PATTERN, iconsPattern = ICONS_PATTERN })
+        T.assertTrue(err == nil, ("%s: %s"):format(FILE, tostring(err)))
+        return decl
+    end
+
+    --- The paths in `have` that `want` does not hold, sorted.
+    local function minus(have, want)
+        local inWant, out = {}, {}
+        for _, p in ipairs(want) do inWant[p] = true end
+        for _, p in ipairs(have) do
+            if not inWant[p] then out[#out + 1] = p end
+        end
+        table.sort(out)
+        return out
+    end
+
+    local compareBlobs   -- defined below; both comparison shapes end in it
+
+    --- The declared shape (kit revision 40): everything outside `iconsDir` whole, and under it
+    --- exactly what the declaration requires. Only the required blobs are read, so `none` or a
+    --- short list costs one `ls-tree` and a few dozen blobs, not 5,836.
+    local function assertDeclared(tag, subdir, localDir, label, shipped, mine, iconsDir, decl)
+        local tagIcons, tagRest = splitUnder(shipped, iconsDir)
+        local myIcons, myRest = splitUnder(mine, iconsDir)
+        T.assertEqual(table.concat(myRest, ", "), table.concat(tagRest, ", "),
+            ("%s holds the same files as %s at %s outside %s/"):format(localDir, label, tag, iconsDir))
+        local want, unknown = VendorSync.requiredIcons(decl, VendorSync.iconCatalog(tagIcons), tagIcons)
+        T.assertTrue(#unknown == 0,
+            ("%s declares %d icon name(s) %s at %s does not carry in lib.ICONS: %s")
+                :format(FILE, #unknown, label, tag, cappedList(unknown)))
+        local extra, missing = minus(myIcons, want), minus(want, myIcons)
+        T.assertTrue(#extra == 0,
+            ("%d undeclared file(s) ship under %s/%s/ -- the `LibKa0s icons:` line does not require "
+                .. "them: %s. Remove them with `lua tools/prune-icons.lua <this repo>` from the "
+                .. "LibKa0s checkout, or declare the icons you draw")
+                :format(#extra, localDir, iconsDir, cappedList(extra)))
+        T.assertTrue(#missing == 0,
+            ("%d declared file(s) are missing from %s/%s/: %s. Re-copy the folder from %s, then "
+                .. "prune")
+                :format(#missing, localDir, iconsDir, cappedList(missing), tag))
+        local compare = {}
+        for _, name in ipairs(tagRest) do compare[#compare + 1] = name end
+        for _, p in ipairs(want) do compare[#compare + 1] = iconsDir .. "/" .. p end
+        compareBlobs(tag, subdir, localDir, label, compare)
+    end
+
+    local function assertVendorSync(tag, subdir, localDir, label, iconsDir)
         local shipped = shippedNames(tag, subdir)
         local mine    = localNames(localDir)
         T.assertTrue(#shipped > 0, ("%s %s carries %s/"):format(label, tag, subdir))
+        local decl = iconsDir and iconDecl()
+        if decl and decl.mode ~= "all" then
+            return assertDeclared(tag, subdir, localDir, label, shipped, mine, iconsDir, decl)
+        end
         -- The file SET first: a file added on one side and not the other is invisible
         -- to a byte comparison that only walks the names it already knows about.
         T.assertEqual(table.concat(mine, ", "), table.concat(shipped, ", "),
             ("%s holds the same files as %s at %s"):format(localDir, label, tag))
+        compareBlobs(tag, subdir, localDir, label, shipped)
+    end
+
+    --- Every name in `shipped` (relative to `subdir`), byte for byte against the tag.
+    compareBlobs = function(tag, subdir, localDir, label, shipped)
         -- Every blob in one `git` call, not one call per file. See gitShowMany.
         local refs = {}
         for i, name in ipairs(shipped) do
@@ -333,7 +606,7 @@ function VendorSync.register(T, opts)
         T.test(pair.case, function()
             local tag = siblingTag()
             assertVendorSync(tag, pair.tag, ROOT .. "/" .. pair.local_,
-                pair.label or "the library repo")
+                pair.label or "the library repo", pair.icons)
         end)
     end
 

@@ -22,6 +22,7 @@ broken in the other twelve.
 | `inventory.lua` | The suite inventory (`Kit.assertSuiteInventory`, the gate-rule table, the `## Documented deviations` reader and the decline matcher) and the path helpers it keys on, and the `--list` renderer, which `Kit.run` hands the registry (kit revision 38). `framework.lua` loads it from its own folder; nothing else does (kit revision 28). The `## Totals` table it prints counts only the cases that run: a declared skip is listed by name in its group and counted on a `\| Skipped \| N \|` row of its own, never in a count row or in **Total**, so Total equals the README badge (`testing-§5`; kit revision 38) |
 | `asserts.lua` | The assertions (`assertEqual` to `assertError`, `assertErrorMatches` and `assertLibraryConstant`) and the surface-parity gate (`setSurfaceSource`, `publicMembers`, `assertSurfaceParity`). `framework.lua` loads it from its own folder; nothing else does (kit revision 26) |
 | `secrets.lua` | The secret-value simulator: `Kit.secret`, `Kit.isSecret`, `Kit.reveal`, `Kit.SECRET_ERROR` and the opt-in `Kit.installSecretValue`, which sets the global `issecretvalue` and returns its restore. Nothing installs the global by default. `framework.lua` loads it from its own folder; nothing else does (kit revision 38) |
+| `latch.lua` | The `slash-commands-§7` step-10 helper: `Kit.assertLatchHoldOrder(opts)` drives the two-hold latch in both orders (perf then disabled, disabled then perf) through injected seams (`lifecycle`, `perfHold`, `setEnabled`, `regSet`, optional `key` and `label`), asserts the addon stays stood down until the last hold is released and that it comes back with the registration set it went down with, compared by key, and restores state on failure. Published by `Kit.expose`. `framework.lua` loads it from its own folder; nothing else does (kit revision 39) |
 | `loader.lua` | Headless source loading into the mocked environment |
 | `mock_base.lua` | The universal half of the WoW-API mock, and the Ace fakes |
 | `mock_record.lua` | The recording surveys; `mock_base.lua` loads it from its own folder |
@@ -42,7 +43,7 @@ broken in the other twelve.
 | `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
 | `README.md` | This file |
 
-They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `mock_record.lua`,
+They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `mock_record.lua`,
 `mock_events.lua`, `mock_resize.lua`, `mock_lines.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua` or
 `lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
 runner's complexity suite is a skip.
@@ -109,6 +110,25 @@ about it are load-bearing:
   `complexity` is `fail`, the verdict `amber`, the files are named on the console and in
   `RESULTS.md`, and `manifest.json` counts them as `suites.complexity.blindFiles`. That blocks the
   tag and never the run or the commit. No Lua to build the shadow is a skip.
+- **A lizard crash or bound is a fail, never a measurement** (kit revision 41, LibKa0s#46).
+  lizard's stderr goes to its own file, not into the parse, and the footer is read two lines below
+  `Total nloc`. A run counts only when lizard exits 0 or 1 (1 is any run that warned), the footer
+  is eight numbers and stderr holds no `Traceback`. Otherwise `complexity` is `fail` (amber) with
+  the crashed note below or `lizard exited <rc> with no valid footer (bound: ...)`,
+  every figure is 0 in `manifest.json` and `n/a` on the console and in the trend row, parity is
+  skipped, and the watch list carries the last measured one. `complexity.txt` keeps lizard's
+  stderr under a `--- lizard stderr ---` separator.
+- **A lizard raise is its own bucket, `crashed`, named by a per-file retry** (kit revision 41,
+  LibKa0s#47). On a `Traceback` (not on a 124 or 137 bound, which keeps the bound note) the runner
+  retries lizard once per file inside the shadow, with the same fixed flags, each run bounded, and
+  names every file whose solo run raises: `lizard raised on N file(s): <path> (<exception>), so
+  nothing was measured.`, plus a static hint to hoist the function literal out of the `for` header.
+  It never re-measures the rest: figures stay 0 / `n/a` and a crashed file is never called blind.
+  If no single file raises, the note says the whole tree raised. `manifest.json` counts the files
+  as `suites.complexity.crashedFiles`, the exceptions stay in `complexity.txt` and the note, and
+  `RESULTS.md`'s watch list leads with `**Not measured — lizard raised**`. No detector names the
+  shape and the shadow does not rewrite it; both were rejected, with triggers, in the version 41
+  document.
 - **The bundle is written to whatever `.gitattributes` declares for it**, read per path with
   `git check-attr text eol` at the end of the run — not assumed. Everything the runner writes goes
   down a plain shell redirect, which bypasses git's filters entirely, so before kit revision 10 every
@@ -158,6 +178,20 @@ DrvFs with `core.fileMode=false` everything looks executable. The case needs no 
 missing LibKa0s checkout does not skip it. It skips, with the reason, only where the index cannot be
 read at all: no `io.popen`, no git, or not a work tree. `opts.runner` and `opts.runnerCase` override
 the path and the case name.
+
+**From revision 40 it holds `media/icons/` to the consumer's icon declaration** (`library-stack-§7`,
+standard v2.85.0). The icon folder is the one carve-out from whole-folder vendoring: a consumer
+declares, in one line directly under its `CLAUDE.md` provenance line, `LibKa0s icons: all (icon
+picker).`, `LibKa0s icons: none.` or a comma-separated list of `lib.ICONS` names
+(`LibKa0s icons: settings, close, ph:sword, gi:skull.`), and the library pair then requires exactly
+those icons under `libs/LibKa0s/media/icons/`, each set's attribution files beside them when one of
+its icons ships, every one byte-identical to the tag, and nothing else there. Undeclared files fail
+with a count and ten names, missing ones fail the same way, and a name the **tag's** catalog does
+not carry fails. Everything outside `media/icons/` is still compared whole, and a repo with no line
+is gated exactly as before. `tools/prune-icons.lua` in the LibKa0s repo cuts a fresh copy down to
+the declaration using this file's own parser (`VendorSync.parseIconLine`, `iconDeclaration`,
+`iconCatalog`, `requiredIcons`). `opts.iconsPattern` overrides how the line is spelled, and a pair's
+`icons` field names the folder held to it. See `docs/api/testkit/version-40-docs.md`.
 
 ## `test_eol.lua`
 
@@ -618,6 +652,33 @@ one-at-a-time. `--jobs auto` also caps its worker count by available memory.
 global name (`AT_TEST`, `LK_TEST`, `KICKCD_TEST`, …) and its own extra keys, and **no existing suite
 file has to change** when a repo adopts the kit.
 
+## The step-10 latch helper
+
+`slash-commands-§7` step 10 (two holds, one latch) is the same case in every addon, so the kit
+ships it from **revision 39** as `Kit.assertLatchHoldOrder(opts)` (`latch.lua`, published by
+`Kit.expose`). Every seam is injected and nothing reaches into the addon's namespace:
+
+```lua
+test("slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other holds down", function()
+  -- red under: an enable path, or a perf resume, that calls NS.StandUp() directly instead of
+  -- releasing its hold - the registration set comes back non-empty under the other hold.
+  T.assertLatchHoldOrder{
+    lifecycle = NS.Lifecycle, perfHold = NS.HOLD_PERF,
+    setEnabled = setEnabled, regSet = regSet, label = "MyAddon",
+  }
+end)
+```
+
+Order A holds perf, disables, releases perf and asserts the set is still empty, then enables and
+asserts the set equals `R_on`; order B disables, holds perf, enables and asserts still empty, then
+releases perf and asserts `R_on`. `R_on` is captured first and must be non-empty, and the
+comparison is **by key**, sorted, not by count: a string entry is its own key, a
+`M.__registrations()` row is keyed by target, kind, event and unit, and `opts.key` overrides both.
+A failure names its order, and the helper releases perf and re-enables before it re-raises. It
+takes the perf hold through the latch directly, not through `P.Suspend`. **The `-- red under:`
+comment stays at the call site** (`testing-§12`): the helper does not carry the consumer's
+falsification claim for it.
+
 ## What an addon's `tests/wow_mock.lua` looks like
 
 A thin extender over the base. Plain per-key overwrite — the base builder returns a fresh table per
@@ -657,7 +718,13 @@ Driving them: **`M.__fire(event, ...)` dispatches to the live registration set o
 client would do — and **`M.__fireUnconditional(target, event, ...)` fires at a target whose
 registration has been removed**, which is what proves a survivor would have been caught. A suite
 that omits the second is asserting on its own silence: an empty registry dispatches nothing whether
-the addon stood down or the harness lost the ability to dispatch at all.
+the addon stood down or the harness lost the ability to dispatch at all. It answers how many
+handlers it reached, 1 or 0, and never raises, so **assert the count**: a 0 means the harness had
+nothing to fire at. From **revision 39** it also reaches an AceEvent handler registered under a
+method name, or as a function, after `UnregisterEvent` / `UnregisterAllEvents`: `RegisterEvent`
+keeps each event's handler as `__kitEver` on the `__events` table's metatable, which unregister
+never clears and `pairs` never sees, and the record wins over a method that merely shares the
+event's name. See `docs/api/testkit/version-39-docs.md`.
 
 The same revision models **`AceBucket-3.0`** (`RegisterBucketEvent`, `RegisterBucketMessage`,
 `UnregisterBucket`, `UnregisterAllBuckets`), because a bucket is a registration a stand-down has to
@@ -836,7 +903,8 @@ Delete the local copy when you re-vendor:
   so a module's own event target and the addon object behave identically. `RegisterEvent` raises
   where CallbackHandler does, including a missing method. Fire a recorded function as
   CallbackHandler does, `t.__events[event](event, ...)`, and a recorded method name as
-  `t[method](t, event, ...)`.
+  `t[method](t, event, ...)`. From revision 39 each event's last handler is also kept, uncleared, as
+  `__kitEver` on the metatable of `t.__events`, for `M.__fireUnconditional`.
 - **`NewAddon`** stamps AceConsole's `Printf` beside its `Print`, so an addon that forgets to take
   its own `NS.Printf` back after `NewAddon` fails the way it does in the client.
 - **`vendor_sync.lua`** checks the runner's recorded mode, as described above.

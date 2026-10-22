@@ -39,7 +39,9 @@ local DRAWN = {
   -- LibKa0s-Widgets-1.0's ReorderList (core/WidgetsSetup.lua) for the reason every other mark is:
   -- a vendored library cannot know which addon folder it was copied into.
   "segment",
-  -- drawn by LibKa0s on our behalf: Core's close on four windows, DebugLog's strip on two
+  -- drawn by LibKa0s on our behalf: Core's close on four windows, DebugLog's strip on two (its
+  -- copy and clear; `clear` is listed once, above, because the row menus draw it too), and the
+  -- Options id list's help mark (`info`, above: settings/Panel.lua's IdList passes no helpIcon)
   "close", "copy",
 }
 
@@ -103,13 +105,31 @@ test("MediaSetup: every mark this addon draws is one the library ships", functio
   end
 end)
 
-test("MediaSetup: every name the library ships has a file in the vendored copy", function()
-  -- The library's own suite checks its catalog against its own directory. This checks the COPY: a
-  -- re-vendor that dropped a file, or a packaging step that filtered it out, leaves a catalog
-  -- naming art this build does not carry.
-  local Media = T.mocks.LibStub("LibKa0s-Media-1.0", true)
+test("MediaSetup: the icon declaration is exactly the drawn set, and each has its file", function()
+  -- Since LibKa0s v1.75.0 the copy ships only the icons CLAUDE.md's `LibKa0s icons:` line
+  -- declares (tools/prune-icons.lua cuts the rest), so the old whole-catalog walk is gone: the kit's
+  -- vendor gate holds declared == shipped. What the gate cannot see is a name this addon draws and
+  -- forgot to declare -- that mark resolves to a path and draws blank. So the declaration, read
+  -- through the kit's own parser, must equal DRAWN as a set: a draw site added without its
+  -- declaration goes red here, and so does a declared name nothing draws any more.
+  local VendorSync = dofile("tests/_kit/vendor_sync.lua")
+  local decl, err = VendorSync.iconDeclaration(Loader.readFile("CLAUDE.md"))
+  assertTrue(type(decl) == "table", "CLAUDE.md's `LibKa0s icons:` line did not parse: " .. tostring(err))
+  assertEqual(decl.mode, "list")
+  local declared = {}
+  for _, name in ipairs(decl.names) do declared[name] = true end
+  local undeclared, undrawn, drawn = {}, {}, {}
+  for _, name in ipairs(DRAWN) do
+    drawn[name] = true
+    if not declared[name] then undeclared[#undeclared + 1] = name end
+  end
+  for _, name in ipairs(decl.names) do
+    if not drawn[name] then undrawn[#undrawn + 1] = name end
+  end
+  assertEqual(table.concat(undeclared, ", "), "", "drawn but not declared")
+  assertEqual(table.concat(undrawn, ", "), "", "declared but not drawn")
   local missing = {}
-  for _, name in ipairs(Media.ICONS) do
+  for _, name in ipairs(decl.names) do
     local fh = io.open("libs/LibKa0s/media/icons/" .. name .. ".tga", "rb")
     if fh then fh:close() else missing[#missing + 1] = name end
   end

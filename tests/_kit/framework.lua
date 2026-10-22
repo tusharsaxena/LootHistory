@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 38
+Kit.VERSION = 41
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -239,6 +239,7 @@ end
 
 local asserts = dofile(kitFolder() .. "asserts.lua")(Kit)
 dofile(kitFolder() .. "secrets.lua")(Kit)   -- Kit.secret and its siblings (kit revision 38)
+dofile(kitFolder() .. "latch.lua")(Kit)     -- Kit.assertLatchHoldOrder (kit revision 39)
 local fail = asserts.fail
 
 --- Merge the registry and assertions into the host's `_G.<X>_TEST` table and return it, so a repo
@@ -261,6 +262,7 @@ function Kit.expose(t)
   t.assertSurfaceParity  = Kit.assertSurfaceParity
   t.publicMembers        = Kit.publicMembers
   t.setSurfaceSource     = Kit.setSurfaceSource
+  t.assertLatchHoldOrder = Kit.assertLatchHoldOrder
 
   -- The by-name form needs somewhere to look, and every harness in this collection that stubs a
   -- LIBRARY TABLE already has it: the mock it just built. Wired here rather than demanded of the
@@ -903,15 +905,15 @@ Kit.__limits           = limits
 Kit.__leakFailure      = leakFailure
 Kit.__heapFailure      = heapFailure
 
---- The suite-inventory internals (kit revision 25), for the kit's own self-tests. The decline
---- reader above all: it is the one path in the inventory that can turn a failure into a skip, so
---- what it does and does not accept is pinned directly rather than inferred from a green run.
-Kit.__loadSuites    = loadSuites
-Kit.__normDir       = normDir
-Kit.__resolveDir    = resolveDir
-Kit.__adviceDir     = adviceDir
-Kit.__deviationRows = inventory.deviationRows
-Kit.__declineFor    = inventory.declineFor
-Kit.__kitGateRule   = inventory.kitGateRule
+--- The suite-inventory internals (kit revision 25), for the kit's own self-tests: the path helpers
+--- and the gate-rule table, and nothing else. The decline reader, the one path in the inventory that
+--- can turn a failure into a skip, is pinned by `tests/test_kit_inventory.lua` through its fixtures
+--- (a real register read by `Kit.assertSuiteInventory`), not through an export; revision 41 dropped
+--- the two exports no suite read.
+Kit.__loadSuites  = loadSuites
+Kit.__normDir     = normDir
+Kit.__resolveDir  = resolveDir
+Kit.__adviceDir   = adviceDir
+Kit.__kitGateRule = inventory.kitGateRule
 
 return Kit

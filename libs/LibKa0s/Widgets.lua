@@ -1,5 +1,6 @@
--- LibKa0s-Widgets-1.0 — the collection's flat dropdown, and the one popup menu every instance of it
--- drops.
+-- LibKa0s-Widgets-1.0 — the collection's flat dropdown, the one popup menu every instance of it
+-- drops, the flat search box a filter bar puts beside it, and the test-mode strip a window lays
+-- over sample data (minor 13).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT A COPY ──────────────────────────────────────────────────────
 --
@@ -8,6 +9,12 @@
 -- author's work the first time one copy is restyled and the other is not. That is the argument the
 -- icons were consolidated under at v1.9.0; a widget that DRAWS those icons is the same argument one
 -- layer up.
+--
+-- The test-mode strip (`lib.TestStrip`, #48) is here for the same reason. DropWatcher drew it, and
+-- LootHistory, BankLedger and MultiMeters each marked test mode their own way: a red title-bar
+-- word in two of them and a title suffix in the third, which a hidden header hides with it. The
+-- owner's 2026-10-22 ruling promoted DropWatcher's strip so all four say "this is not your data"
+-- with one band, in one color, at one height.
 --
 -- ── WHY IT DOES NOT DEPEND ON LibKa0s-Media-1.0 ───────────────────────────────────────────────
 --
@@ -22,10 +29,29 @@
 --
 -- ── WHAT IT DELIBERATELY IS NOT ───────────────────────────────────────────────────────────────
 --
--- No search box, no keyboard navigation, no scrolling for a long list, no sub-menus, no per-row
--- disable. None of those is wanted by either shipped consumer, and every one of them is reachable
--- later without a major bump. A widget that grows features nobody asked for is a widget whose
--- degraded behavior nobody has tested.
+-- The dropdown's menu has no search box inside it (the filter bar's search box beside it is
+-- `lib.SearchBox`, below), no keyboard navigation, no scrolling for a long list, no sub-menus, no
+-- per-row disable. None of those is wanted by either shipped consumer, and every one of them is
+-- reachable later without a major bump. A widget that grows features nobody asked for is a widget
+-- whose degraded behavior nobody has tested.
+--
+-- Two flat controls were censused with the search box at minor 13 (#52) and REJECTED:
+--
+--   * `W.Checkbox`, a flat checkbox. No consumer draws one today. Re-check trigger: a second addon
+--     hand-builds a flat checkbox.
+--   * An exported flat skin (the `SKIN` table below, or an applier that paints it). It stays
+--     file-local: the dropdown and the search box are its only readers, and the autocomplete
+--     publishes its own copy as `AUTOCOMPLETE.BORDER` / `.BG`. Re-check trigger: a third flat
+--     control outside this file copies the literals.
+--
+-- The test-mode strip is a band, a mark and a line of text, and deliberately nothing more. It has
+-- no tooltip option (three hosts, three tooltip renderers; a host enables the mouse and hooks
+-- OnEnter itself), no color option (the sameness is the point), no wrap, no measuring and no
+-- `Height()` (one host wraps, and one must never measure), no test-mode state (the host decides
+-- when it shows and what it says), no placement and no body shift (that is host layout; a host
+-- leaves its own gap around `TEST_STRIP.HEIGHT`), and no icon fallback (no icon is a valid state:
+-- the text moves to the left edge). Re-check trigger for all six: a consumer needs a different
+-- color, a tooltip renderer or a measured height with the same semantics as another.
 --
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework.
 
@@ -33,7 +59,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 12
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -42,6 +68,17 @@ lib.MODULES = lib.MODULES or {}
 lib.MODULES.Widgets = MINOR
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+
+-- The house flat skin: the dropdown's button and the search box wear it. Hoisted out of
+-- MakeDropdown's literals at minor 13 with no visible change. FILE-LOCAL on purpose (see the
+-- header's rejections): `focus` is the gold line a search box wears while it has the keys.
+local SKIN = {
+  edge   = WHITE,
+  fill   = { 0.1, 0.1, 0.12, 0.9 },
+  line   = { 0.24, 0.24, 0.27, 0.9 },
+  focus  = { 1, 0.82, 0, 0.9 },
+  height = 20,
+}
 
 -- The rungs below every piece of injected art. Named rather than inlined at the fallback site so
 -- that "what does a host with no LibKa0s-Media draw?" is answerable by reading two lines.
@@ -292,11 +329,11 @@ end
 local function MakeDropdown(parent, width, opts)
   opts = opts or {}
   local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  dd:SetSize(width, 20)
-  dd:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+  dd:SetSize(width, SKIN.height)
+  dd:SetBackdrop({ bgFile = SKIN.edge, edgeFile = SKIN.edge, edgeSize = 1,
                    insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  dd:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  dd:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  dd:SetBackdropColor(unpack(SKIN.fill))
+  dd:SetBackdropBorderColor(unpack(SKIN.line))
 
   -- The tick a multi-select dropdown puts in front of every chosen row. INLINE |T…|t markup,
   -- resolved ONCE per dropdown so a degraded install appends the Blizzard string it always did
@@ -426,6 +463,86 @@ end
 --- click at all.
 function lib.CloseMenu()
   if menu and menu:IsShown() then menu:Hide() end
+end
+
+-- ── the search box (minor 13) ───────────────────────────────────────────────────────────────
+--
+-- WHY THIS IS HERE. LootHistory, BankLedger and DropWatcher each hand-built the same flat EditBox
+-- for their filter bars: the dropdown's fill and line, a gray hint while empty, Escape and Enter
+-- to let go of the keys. Three copies of a control that sits beside this file's dropdown is the
+-- header's argument again (#52). The gold focus line is new for all three (the owner's ruling).
+
+local SEARCH_ICON_SIZE, SEARCH_ICON_X = 11, 5
+local SEARCH_INSET, SEARCH_INSET_ICON = 6, 21
+
+local function searchText(box)
+  local t = box:GetText()
+  return type(t) == "string" and t or ""
+end
+
+local function paintSearchBorder(box, c)
+  if box.SetBackdropBorderColor then box:SetBackdropBorderColor(unpack(c)) end
+end
+
+--- Build the flat filter-bar search box. A host EXTENDS it with HookScript and never SetScripts the
+--- five scripts below, which this constructor sets: OnTextChanged (the hint, then `opts.onChange`),
+--- OnEscapePressed and OnEnterPressed (ClearFocus), OnEditFocusGained (the gold line) and
+--- OnEditFocusLost (the gray line). There are no setters: the host rewrites `box.hint:SetText`
+--- directly, and `lib.Autocomplete(box, ...)` composes after construction. The icon art is
+--- HOST-PASSED, a resolved path or a fileID, because this file cannot call Media (the header); a
+--- host that passes one declares that icon's name, and it joins no library-drawn icon set.
+---
+--- @param parent table       the frame to parent it to
+--- @param width number|nil   the box's width; nil sets none, for a host that anchors both edges
+--- @param opts table|nil     { hint = string|nil, icon = path|fileID|nil,
+---                             onChange = function(text, box)|nil }, and nothing else
+--- @return table  the EditBox, with `box.hint` (FontString) and `box.icon` (Texture or nil)
+function lib.SearchBox(parent, width, opts)
+  opts = opts or {}
+  local box = CreateFrame("EditBox", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  if type(width) == "number" then box:SetWidth(width) end
+  box:SetHeight(SKIN.height)
+  if box.SetBackdrop then
+    box:SetBackdrop({ bgFile = SKIN.edge, edgeFile = SKIN.edge, edgeSize = 1,
+                      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    box:SetBackdropColor(unpack(SKIN.fill))
+  end
+  paintSearchBorder(box, SKIN.line)
+  box:SetFontObject("GameFontHighlightSmall")
+  box:SetAutoFocus(false)
+
+  local icon = opts.icon
+  local left = SEARCH_INSET
+  if type(icon) == "string" or type(icon) == "number" then
+    local tex = box:CreateTexture(nil, "ARTWORK")
+    tex:SetSize(SEARCH_ICON_SIZE, SEARCH_ICON_SIZE)
+    tex:SetPoint("LEFT", SEARCH_ICON_X, 0)
+    tex:SetTexture(icon)
+    tex:SetVertexColor(0.7, 0.7, 0.72)
+    box.icon = tex
+    left = SEARCH_INSET_ICON
+  end
+  box:SetTextInsets(left, SEARCH_INSET, 0, 0)
+
+  local hint = box:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+  hint:SetPoint("LEFT", left, 0)
+  hint:SetPoint("RIGHT", -SEARCH_INSET, 0)
+  hint:SetJustifyH("LEFT")
+  hint:SetText(type(opts.hint) == "string" and opts.hint or "")
+  box.hint = hint
+
+  local onChange = opts.onChange
+  box:SetScript("OnTextChanged", function(self)
+    local text = searchText(self)
+    self.hint:SetShown(text == "")
+    if onChange then onChange(text, self) end
+  end)
+  box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+  box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+  box:SetScript("OnEditFocusGained", function(self) paintSearchBorder(self, SKIN.focus) end)
+  box:SetScript("OnEditFocusLost", function(self) paintSearchBorder(self, SKIN.line) end)
+  hint:SetShown(searchText(box) == "")
+  return box
 end
 
 -- ── the copy window ──────────────────────────────────────────────────────────────────────────
@@ -652,4 +769,66 @@ function lib.CopyWindow(d)
   end
 
   return win
+end
+
+-- ── the test-mode strip ──────────────────────────────────────────────────────────────────────
+
+-- DropWatcher's C.TONE.warn (1, 0.65, 0.15) at 12%. FILE-LOCAL, like SKIN: there is no color option.
+local STRIP_FILL = { 1.00, 0.65, 0.15, 0.12 }
+local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
+
+--- Read-only layout figures, so a host lays out around the strip's own height rather than copying
+--- it (the DRAG_HANDLE / ROW_BOX precedent). A host adds its own gaps around it. Writing to this
+--- table moves nothing: the constructor reads the file-local.
+lib.TEST_STRIP = { HEIGHT = STRIP_H }
+
+--- Build the test-mode strip: a full-width band a window lays between its chrome and its data,
+--- saying the data under it is not real. It draws itself and nothing else.
+---
+--- Born HIDDEN, UNANCHORED and `TEST_STRIP.HEIGHT` tall, with the mouse never enabled. After this
+--- returns the strip never anchors, shows, hides, re-measures or changes its height or its text's
+--- anchors, so a host's later `SetHeight`, `strip.text:SetWordWrap` and `strip.text:SetText`
+--- stick. The icon art is HOST-PASSED, a resolved path or a fileID (the host's `info` icon),
+--- because this file cannot call Media (the header): a host that passes one declares that icon's
+--- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
+---
+--- @param parent table     the frame to parent it to
+--- @param opts table|nil   { text = string|nil, icon = path|fileID|nil }; text is the host's
+---                         localized line ('' when absent), and no icon puts the text at LEFT+6
+--- @return table  the Frame, with `strip.text` (FontString, OVERLAY, GameFontNormalSmall, LEFT at
+---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
+function lib.TestStrip(parent, opts)
+  opts = type(opts) == "table" and opts or {}
+  local s = CreateFrame("Frame", nil, parent)
+  s:SetHeight(STRIP_H)   -- the local, not lib.TEST_STRIP: a host write cannot move it
+
+  local fill = s:CreateTexture(nil, "BACKGROUND")
+  fill:SetAllPoints(s)
+  fill:SetColorTexture(unpack(STRIP_FILL))
+  s.__fill = fill
+
+  local icon = opts.icon
+  if type(icon) == "string" or type(icon) == "number" then
+    local tex = s:CreateTexture(nil, "ARTWORK")
+    tex:SetSize(STRIP_ICON, STRIP_ICON)
+    tex:SetPoint("LEFT", s, "LEFT", STRIP_INSET, 0)
+    tex:SetTexture(icon)
+    s.__icon = tex
+  end
+
+  -- From a template, so it is never fontless when SetText arrives.
+  local text = s:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  if s.__icon then
+    text:SetPoint("LEFT", s.__icon, "RIGHT", STRIP_INSET, 0)
+  else
+    text:SetPoint("LEFT", s, "LEFT", STRIP_INSET, 0)
+  end
+  text:SetPoint("RIGHT", s, "RIGHT", -STRIP_INSET, 0)
+  text:SetJustifyH("LEFT")
+  text:SetWordWrap(false)   -- with both anchors, a long line truncates with an ellipsis
+  text:SetText(type(opts.text) == "string" and opts.text or "")
+  s.text = text
+
+  s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
+  return s
 end
