@@ -198,8 +198,5 @@ function Attribution:DisableOut()
     self.__outEv:UnregisterAllMessages()
     self.__outEv = nil
   end
-  State.outContext, State.pendingMail, State.soldMail, State.tradeTarget, State.craftUntil = nil, nil, nil, nil, nil
-  State.mailTaken = nil
-  for k in pairs(State.scopes) do State.scopes[k] = nil end
-  for k in pairs(State.pendingPost) do State.pendingPost[k] = nil end
+  self:ResetContexts()
 end

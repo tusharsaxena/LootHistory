@@ -319,7 +319,7 @@ Total.
 - Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (39)
+### test_attribution.lua (40)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -360,6 +360,7 @@ Total.
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
+- Attribution: ResetContexts clears every context field and leaves registrations
 
 ### test_attribution_out.lua (13)
 
@@ -481,7 +482,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (8)
+### test_reconciler.lua (9)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -491,6 +492,7 @@ Total.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
+- Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 
 ### test_reconciler_rows.lua (33)
 
@@ -1560,7 +1562,7 @@ Total.
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
 
-### test_disabled.lua (23)
+### test_disabled.lua (25)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
@@ -1585,6 +1587,8 @@ Total.
 - lifecycle: NS.StandUp reaches every surface exactly once, in order
 - lifecycle: with logging off, neither callback writes its [State] line
 - lifecycle: every step keeps its own nil-guard -- nothing built, both callbacks are no-ops
+- lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running
+- lifecycle: loginSettled flips at the 20 s deferral
 
 ### test_perf.lua (7)
 
@@ -1786,12 +1790,12 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 9 |
 | test_rollup.lua | 22 |
-| test_attribution.lua | 39 |
+| test_attribution.lua | 40 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 49 |
-| test_reconciler.lua | 8 |
+| test_reconciler.lua | 9 |
 | test_reconciler_rows.lua | 33 |
 | test_escrow.lua | 21 |
 | test_database.lua | 85 |
@@ -1823,7 +1827,7 @@ Total.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 32 |
 | test_surface_parity.lua | 15 |
-| test_disabled.lua | 23 |
+| test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
@@ -1838,4 +1842,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1568** |
+| **Total** | **1572** |

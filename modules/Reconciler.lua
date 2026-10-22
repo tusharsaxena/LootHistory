@@ -571,6 +571,9 @@ end
 -- While holding, look again every CLAIM_WAIT seconds (bounded by SETTLE_TIMEOUT in ShouldHold).
 -- Events drive the real re-checks; this is the deadline. `_flushing` stops a deferral that runs
 -- straight through (no C_Timer) from re-entering Flush.
+-- `_recheck` holds the NS.After handle, so ResetState can cancel exactly this fuse; it is `true`
+-- only for the instant the deferral is being armed, which is what stops a straight-through run
+-- from arming a second one.
 function R:ScheduleRecheck()
   if self._recheck then return end
   self._recheck = true
@@ -578,7 +581,7 @@ function R:ScheduleRecheck()
     self._recheck = nil
     if not self._flushing then self:Flush() end
   end)
-  if h == nil then self._recheck = nil end
+  self._recheck = h
 end
 
 local function clearReadDirty(self)
@@ -727,20 +730,32 @@ function R:Enable()
   end
 end
 
---- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
-function R:DisableCapture()
-  NS.UnregisterRows("Reconciler")
-  if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
+--- Every piece of working state, cleared WITHOUT unregistering (LootHistory#37, req-lh-sim §3.4):
+--- dirty bits, readable containers, claims, the coalescing map, memoized reasons, the currency
+--- accumulators, the settle hold, and the flush and recheck fuses, each canceled by its own handle
+--- (NS.CancelDeferral) so the login deferrals keep running. DisableCapture runs it on the way down;
+--- the simulator runs it at start and stop, so a simulated claim never attributes the next real loot.
+function R:ResetState()
+  NS.CancelDeferral(self._pending)
+  NS.CancelDeferral(self._recheck)
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil
+end
+
+--- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
+function R:DisableCapture()
+  NS.UnregisterRows("Reconciler")
+  if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
+  self:ResetState()
   self._enabled = nil
 end
 
 --- The full stand-down (slash-commands-§7): the capture events AND the settings listener. Called
---- from NS.StandDown; `_pending`'s timer is canceled there by NS.CancelDeferrals.
+--- from NS.StandDown; DisableCapture's ResetState cancels the two fuses, and NS.CancelDeferrals
+--- (later in the same stand-down) everything else.
 function R:Disable()
   self:DisableCapture()
   if self._settings then self._settings:UnregisterAllMessages(); self._settings = nil end

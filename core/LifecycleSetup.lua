@@ -87,6 +87,19 @@ function NS.CancelDeferrals()
   return n
 end
 
+--- Drop ONE deferral and leave every other armed. The simulator's stop needs this (LootHistory#37,
+--- req-lh-sim §3.4): it must put out the Reconciler's flush and recheck fuses without taking the
+--- login deferrals (retention prune, rollup seed, bound-state repair, `loginSettled`) down with them,
+--- which is what NS.CancelDeferrals would do. A nil handle -- a deferral that ran straight through --
+--- and a handle already run or canceled are no-ops. Returns true when it canceled something.
+function NS.CancelDeferral(h)
+  if h == nil or not live[h] then return false end
+  h.canceled = true
+  if h.timer and h.timer.Cancel then h.timer:Cancel() end
+  live[h] = nil
+  return true
+end
+
 -- ── the two edge lines (debug-logging-§8, Diagnosis) ─────────────────────────────────────────
 --
 -- The EDGE is the library's line: from Lifecycle minor 3 (LibKa0s v1.65.0) the latch writes one

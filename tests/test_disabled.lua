@@ -894,3 +894,53 @@ test("lifecycle: every step keeps its own nil-guard -- nothing built, both callb
     assertEqual(table.concat(log, ","), "Attribution:Disable,CancelDeferrals")
   end)
 end)
+
+-- ── the simulator's host contract (LootHistory#37, req-lh-sim §3.4 and §5.1 item 9) ──────────
+
+--- Whether a queued kit timer is still armed: the kit's live set, rather than its own flag.
+local function isLive(t)
+  for _, x in ipairs(M.__timers()) do
+    if x == t then return true end
+  end
+  return false
+end
+
+--- Arm the login deferrals the way PLAYER_ENTERING_WORLD does, and hand back the queued 20 s one.
+local function armLogin()
+  setEnabled(false)
+  local before = #M.__timers()
+  bringUp()
+  NS.State.cleanupDone, NS.State.loginSettled = false, false
+  assertTrue(M.__fire("PLAYER_ENTERING_WORLD") > 0, "the login handler must be registered")
+  local settle
+  for _, t in ipairs(M.__timers) do
+    if t.delay == 20 and isLive(t) then settle = t end
+  end
+  assertTrue(settle ~= nil, "PLAYER_ENTERING_WORLD must arm the 20 s deferral")
+  return before, settle
+end
+
+test("lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running", function()
+  local _, settle = armLogin()
+  local live = #M.__timers()
+  local ran = false
+  local h = NS.After(30, function() ran = true end)
+  assertEqual(#M.__timers(), live + 1)
+  assertTrue(NS.CancelDeferral(h), "a live handle must report it was canceled")
+  assertTrue(h.canceled, "the handle must be flagged canceled")
+  assertEqual(#M.__timers(), live, "CancelDeferral touched a deferral other than its own")
+  assertTrue(isLive(settle), "CancelDeferral canceled a login deferral")
+  assertFalse(NS.CancelDeferral(h), "a second cancel of the same handle is a no-op")
+  assertFalse(NS.CancelDeferral(nil), "a nil handle (a deferral that ran straight through) is a no-op")
+  assertFalse(ran, "a canceled deferral ran")
+  setEnabled(true)
+end)
+
+test("lifecycle: loginSettled flips at the 20 s deferral", function()
+  local _, settle = armLogin()
+  assertFalse(NS.State.loginSettled, "loginSettled must stay false until the 20 s deferral runs")
+  settle.fn()
+  assertTrue(NS.State.loginSettled, "the 20 s deferral must set loginSettled")
+  setEnabled(false)
+  setEnabled(true)
+end)

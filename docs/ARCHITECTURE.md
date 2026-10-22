@@ -163,7 +163,11 @@ the switch arrives at `NS.Lifecycle:Set("disabled", …)`. Standing down unregis
 subscription and unit frame, cancels every deferral `NS.After` armed and hides the windows at the
 source (`B:VisibilityAllows`); `hooksecurefunc` is the one sanctioned gate. The slash surface, the
 settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
-is the conformance suite. The full account is in [disabled-state.md](disabled-state.md).
+is the conformance suite. The working-state wipes are callable apart from the stand-down, for the
+simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`
+and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
+The 20-second login deferral sets `NS.State.loginSettled`. The full account is in
+[disabled-state.md](disabled-state.md).
 
 ---
 

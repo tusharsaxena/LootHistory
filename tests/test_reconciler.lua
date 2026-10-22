@@ -173,3 +173,47 @@ test("Reconciler: every capture event routes to its dirty part, fuse and handler
   end
   reset()
 end)
+
+-- R:ResetState (LootHistory#37, req-lh-sim §3.4): the working state a simulation start and stop
+-- must clear, split out of DisableCapture so it can run WITHOUT unregistering. The two fuses are
+-- canceled one handle at a time through NS.CancelDeferral, never through NS.CancelDeferrals, which
+-- would also take the login deferrals down.
+test("Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations",
+  function()
+    local r, m = R(), T.mocks
+    local ev, settings, enabled = r.__ev, r._settings, r._enabled
+    local regs = #m.__registrations()
+    local ran = {}
+    r._pending = NS.After(60, function() ran[#ran + 1] = "pending" end)
+    r._recheck = nil
+    r:ScheduleRecheck()
+    local pendingH, recheckH = r._pending, r._recheck
+    assertEqual(type(pendingH), "table", "the flush fuse must hold its NS.After handle")
+    assertEqual(type(recheckH), "table", "the recheck fuse must hold its NS.After handle")
+    local bystander = NS.After(60, function() ran[#ran + 1] = "bystander" end)
+    r.dirty, r.readable = { bags = { [0] = true }, money = true }, { bank = true }
+    r.deferred, r.driftPending = true, true
+    r.claims, r.recent, r.reasonMemo = { x = 1 }, { x = 1 }, { x = 1 }
+    r.pendingCur, r.curGain, r.curLoss = { [7] = 1 }, { [7] = 1 }, { [7] = 1 }
+    r.pendingTransfer, r.loginPending, r._holdSince = true, true, 12
+
+    r:ResetState()
+
+    for _, k in ipairs({ "dirty", "readable", "claims", "recent", "reasonMemo", "pendingCur", "curGain",
+                         "curLoss" }) do
+      assertEqual(type(r[k]), "table", k .. " must be an empty table, not nil")
+      assertEqual(next(r[k]), nil, k .. " survived ResetState")
+    end
+    for _, k in ipairs({ "deferred", "_pending", "driftPending", "pendingTransfer", "loginPending",
+                         "_holdSince", "_recheck" }) do
+      assertEqual(r[k], nil, k .. " survived ResetState")
+    end
+    assertTrue(pendingH.canceled and recheckH.canceled, "both fuses must be canceled, not just forgotten")
+    assertFalse(bystander.canceled, "ResetState canceled a deferral that was not its own")
+    assertTrue(r.__ev == ev and r._settings == settings and r._enabled == enabled,
+      "ResetState must not touch the bus targets or the enabled flag")
+    assertEqual(#m.__registrations(), regs, "ResetState changed the registrations")
+    m.__fireTimers()
+    assertEqual(table.concat(ran, ","), "bystander", "a canceled fuse still woke up")
+    reset()
+  end)

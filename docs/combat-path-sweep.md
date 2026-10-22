@@ -47,14 +47,14 @@ and `:92` (every other row). The table therefore cites each row's declaration. O
 lines, those two calls and two comment lines are `core/Dispatch.lua`'s; twelve are Core's per-event
 helper bodies in `core/CoreSetup.lua` (the degraded stub at `:205-214`, the live wrappers at
 `:296-310`; see [ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions));
-`core/LifecycleSetup.lua:147` is the guard above the call at `:148`; `modules/Attribution.lua:429-430`
+`core/LifecycleSetup.lua:160` is the guard above the call at `:161`; `modules/Attribution.lua:429-430`
 are the pattern names inside a comment; and the last three (`modules/Browser.lua:1236` / `:1242` and
 `settings/Slash.lua:184`) are registrations this table and the
 [timeline-ledger table](#timeline-ledger-registrations-phases-1-and-2) below cover.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
-| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:148` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the four one-shot timers below. |
+| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:161` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the four one-shot timers below. |
 | `CHAT_MSG_LOOT` | `modules/Collector.lua:340` (row) | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:172`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:175` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:178`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:179`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
 | `CHAT_MSG_CURRENCY` | `modules/Collector.lua:341` (row) | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, the listed-id check (`Compat.ListedCurrencyID`: one `GetCurrencyListSize` read, plus at most one list walk for an id seen for the first time since the list last changed), blacklist check, three `Compat.Currency*` lookups, one record insert. |
 | `LOOT_OPENED` | `modules/Attribution.lua:420` (row) | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
@@ -86,9 +86,9 @@ inside those five seconds got the write anyway, from a game event, while it was 
 | Call | Where | What it is |
 |---|---|---|
 | `NS.After(5, …)` | `core/LootHistory.lua:138` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancelable**. |
-| `NS.After(20, …)` | `core/LootHistory.lua:148` | The second warbound repair pass, once the item cache is warm. Once per session, and cancelable. |
-| `NS.After(3, …)` | `core/LootHistory.lua:153` | The holdings genesis / login scan (`Reconciler:LoginScan`) when the ledger is on. Once per session, and cancelable. |
-| `NS.After(5, …)` | `core/LootHistory.lua:157` | The one-time ledger reset recommendation (`NS.OfferLedgerReset`). Once per session, and cancelable. |
+| `NS.After(20, …)` | `core/LootHistory.lua:148` | The second warbound repair pass, once the item cache is warm, which also sets `NS.State.loginSettled` (the simulator's login refusal). Once per session, and cancelable. |
+| `NS.After(3, …)` | `core/LootHistory.lua:157` | The holdings genesis / login scan (`Reconciler:LoginScan`) when the ledger is on. Once per session, and cancelable. |
+| `NS.After(5, …)` | `core/LootHistory.lua:161` | The one-time ledger reset recommendation (`NS.OfferLedgerReset`). Once per session, and cancelable. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same call in the library (`lib.LoadItem` in `libs/LibKa0s/Item.lua`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:489`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
 | `NS.After(delay, …)` | `core/Util.lua:305` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is canceled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:228` | The library's 50 ms slider and color-picker drag throttles, handed in through the descriptor. The return value is unused: the library keeps its own armed flag (OptionsWidgets minor 31: the `armed` local behind `makeSlider`'s live-commit throttle and the color picker's `throttledCommit`, both in `libs/LibKa0s/OptionsWidgets.lua`). No schema row is a color today; the sliders reach it. |
@@ -125,7 +125,7 @@ shared bus or a private bus target, and all go down with the latch.
 | Event | Registered at | Work done per fire |
 |---|---|---|
 | `CHAT_MSG_MONEY` | `modules/Collector.lua:342` (row) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
-| `BAG_UPDATE` | `modules/Reconciler.lua:698` (the fourteen `ledger` rows) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
+| `BAG_UPDATE` | `modules/Reconciler.lua:701` (the fourteen `ledger` rows) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
 | `BAG_UPDATE_DELAYED` | same | Arms the 0.35 s debounce (one `NS.After`, swallowed while one is pending). |
 | `PLAYER_EQUIPMENT_CHANGED`, `PLAYER_MONEY`, `ACCOUNT_MONEY`, `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | same | One dirty bit and the debounce. |
 | `CURRENCY_DISPLAY_UPDATE` | same | One accumulator add per currency id (the signed change and its gain/loss source), one dirty bit, the debounce. |

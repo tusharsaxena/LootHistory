@@ -484,6 +484,20 @@ function Attribution:Disable()
   -- The short-lived source context goes down with the registrations. A stamp left behind would be
   -- consumed by the first loot line after the addon came back, attributing it to a kill that
   -- happened while the addon was off.
-  NS.State.lootContext, NS.State.encounter, NS.State.keystone = nil, nil, nil
+  self:ResetContexts()
   self._enabled = nil
+end
+
+--- Every short-lived attribution context, inbound and outbound, cleared WITHOUT unregistering
+--- (LootHistory#37, req-lh-sim §3.4): the loot stamp, the instance context, the outbound slot, the
+--- staged and taken mail, the trade partner, the craft window, the open interaction scopes and the
+--- posted-auction tally. `scopes` and `pendingPost` are emptied in place, since other modules hold
+--- the tables. Both Disables call it; the simulator calls it at start and stop.
+function Attribution:ResetContexts()
+  local S = NS.State
+  S.lootContext, S.encounter, S.keystone = nil, nil, nil
+  S.outContext, S.pendingMail, S.soldMail, S.tradeTarget, S.craftUntil = nil, nil, nil, nil, nil
+  S.mailTaken = nil
+  for k in pairs(S.scopes) do S.scopes[k] = nil end
+  for k in pairs(S.pendingPost) do S.pendingPost[k] = nil end
 end

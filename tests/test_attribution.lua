@@ -674,3 +674,29 @@ for _, rung in ipairs({ { "front gate", false }, { "pcall rung", true } }) do
     end)
   end)
 end
+
+-- Attribution:ResetContexts (LootHistory#37, req-lh-sim §3.4): every short-lived context, inbound
+-- and outbound, cleared WITHOUT unregistering, so a simulation start and stop can wipe a stamp or a
+-- claim that would otherwise attribute the next real loot. Both Disables call it.
+test("Attribution: ResetContexts clears every context field and leaves registrations", function()
+  local S, A = NS.State, NS.Attribution
+  local enabled, outEv, spell = A._enabled, A.__outEv, A.__spellFrame
+  local regs = #mocks.__registrations()
+  local scopes, pendingPost = S.scopes, S.pendingPost
+  S.lootContext, S.encounter, S.keystone = { source = "KILL" }, { id = 1 }, { level = 2 }
+  S.outContext, S.pendingMail, S.soldMail = { reason = "BUY" }, { to = "x" }, { itemName = "y" }
+  S.mailTaken, S.tradeTarget, S.craftUntil = { own = true }, "Other-Realm", 99
+  S.scopes.merchant, S.pendingPost[5] = true, 3
+
+  A:ResetContexts()
+
+  for _, k in ipairs({ "lootContext", "encounter", "keystone", "outContext", "pendingMail", "soldMail",
+                       "mailTaken", "tradeTarget", "craftUntil" }) do
+    assertEqual(S[k], nil, k .. " survived ResetContexts")
+  end
+  assertTrue(S.scopes == scopes and next(S.scopes) == nil, "scopes must be emptied in place")
+  assertTrue(S.pendingPost == pendingPost and next(S.pendingPost) == nil, "pendingPost must be emptied in place")
+  assertTrue(A._enabled == enabled and A.__outEv == outEv and A.__spellFrame == spell,
+    "ResetContexts must not touch the targets or the enabled flag")
+  assertEqual(#mocks.__registrations(), regs, "ResetContexts changed the registrations")
+end)
