@@ -687,6 +687,31 @@ test("Panel: the price host is parked off the page while another tab is on scree
   assertFalse(ctx._priHost:IsShown(), "and hidden the moment another tab is drawn")
 end)
 
+test("options-ui-§19: releasing the Price-sources placeholder outside renderGeneral parks " ..
+  "ctx._priHost on ctx.panel, hidden", function()
+  -- The rule's undo lives on the placeholder's own OnRelease, so a release that never passes
+  -- through renderGeneral (the panel torn down, a library-side clear) still parks the host.
+  -- red under: removing the placeholder's OnRelease callback in buildAuctionTable.
+  -- The kit's stub frame answers GetParent with itself, so the host gets a parent recorder for the
+  -- length of this case (rawset, then rawset nil: the kit's documented spy pattern).
+  local ctx = ahTab()
+  homeTab(ctx)
+  local host = ctx._priHost
+  rawset(host, "SetParent", function(self, p) self.__lhParent = p; return self end)
+  rawset(host, "GetParent", function(self) return self.__lhParent end)
+  ahTab()
+  local placeholder
+  for _, w in ipairs(AceGUI.__created) do
+    if w.frame ~= nil and w.frame == host:GetParent() then placeholder = w end
+  end
+  assertTrue(placeholder ~= nil, "the host sits on a placeholder this render created")
+  AceGUI:Release(placeholder)
+  assertTrue(host:GetParent() == ctx.panel, "released placeholder hands the host back to the panel")
+  assertFalse(host:IsShown(), "and the parked host is hidden")
+  homeTab(ctx)
+  rawset(host, "SetParent", nil); rawset(host, "GetParent", nil); host.__lhParent = nil
+end)
+
 test("Panel: the AH Price tab renders its own schema row and no other tab's", function()
   local ctx = ahTab()
   local created = {}

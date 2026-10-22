@@ -1350,7 +1350,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (44)
+### test_panel.lua (45)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1384,6 +1384,7 @@ Total.
 - Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
+- options-ui-§19: releasing the Price-sources placeholder outside renderGeneral parks ctx._priHost on ctx.panel, hidden
 - Panel: the AH Price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
@@ -1759,7 +1760,7 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 44 |
+| test_panel.lua | 45 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
@@ -1780,4 +1781,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 22 |
 | Skipped | 1 |
-| **Total** | **1526** |
+| **Total** | **1527** |
