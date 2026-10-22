@@ -115,6 +115,16 @@ and `PlayerClassFile`, and every read-side hook goes in through `HookSecure`/`Ho
 **file-scope** capture of a member (`local x = NS.Compat.Member` binds the function before the seam
 can wrap it; a capture of the table, `local Compat = NS.Compat`, reads the member at call time).
 
+The seam is `core/SimSeam.lua`, loaded straight after `core/Compat.lua`. It sorts every member three
+ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctionHouseMail`,
+`DecodeGUID`, `BindState`, `BestBound`, `CurrencyLinkID`, `AuctionMailKind`, `CurrencySourceName`,
+`InteractionType`), the tooltip `Show*` / `HideTooltip` family and the four hook installers.
+**Guarded**: `ListCurrencies`, the one member that changes client state (it opens and shuts the
+Currency tab's headers to walk the list), which answers only the simulated world's list while a
+simulation runs. **Wrapped**: everything else, answered live until the simulator sets a provider.
+`tests/test_sim_seam.lua` pins the classification member by member, so a new member fails until it
+is sorted, and asserts `NS.SimSeam:Unwrapped()` is empty once the whole addon has loaded.
+
 **Deliberately left bare:**
 
 - `Util.PlayerKey` / `Util.QualifyName` (`UnitName`, the realm): the simulated player is the real player.

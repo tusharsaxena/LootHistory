@@ -101,6 +101,10 @@ local SUITES = {
   -- core/Dispatch.lua's row tables (LootHistory#37). After test_debug_coverage, which leaves the
   -- addon brought up: its cases read the live registration set and leave the addon up again.
   "test_dispatch",
+  -- core/SimSeam.lua, LibKa0s-Sim-1.0's answer seam over NS.Compat (LootHistory#37). After
+  -- test_dispatch, with the whole addon loaded and brought up: its Unwrapped()-empty case then also
+  -- catches a suite before it that swapped a Compat member and never put the wrapper back.
+  "test_sim_seam",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

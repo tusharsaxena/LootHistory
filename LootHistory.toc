@@ -34,6 +34,12 @@ locales\enUS.lua
 
 # Core (Compat loads first)
 core\Compat.lua
+# LOAD-BEARING POSITION: LibKa0s-Sim-1.0's answer seam (H2). Sim:NewSeam wraps every NS.Compat
+# member in place at FILE LOAD, so it must load STRAIGHT after core\Compat.lua and before any file
+# that reads a Compat member; a member added below it escapes the wrap (NS.SimSeam:Unwrapped(),
+# asserted empty by tests/test_sim_seam.lua). Publishes NS.SimSeam (or the inert stub without the
+# library) and NS.SimHost; NS.State and NS.Debug are read at call time.
+core\SimSeam.lua
 # The LibKa0s-Env seam. After Compat, whose map, zone and TOC-metadata shims it took over;
 # nothing here resolves at load, so the position is conventional rather than load-bearing.
 core\EnvSetup.lua

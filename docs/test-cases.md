@@ -1665,6 +1665,17 @@ Total.
 - Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
 
+### test_sim_seam.lua (8)
+
+- SimSeam: NS.SimSeam is the library's seam over NS.Compat, with the host table beside it
+- SimSeam: every non-PURE function member of NS.Compat is wrapped and Unwrapped() is empty after the whole addon loads
+- SimSeam: a member snapshot: a new Compat member must be classified
+- SimSeam: the seam is idle with no session: every wrapped member answers live
+- SimSeam: the degraded stub carries the instance surface (LibKa0s-Sim-1.0)
+- SimSeam: the seam stub carries the live seam surface, both ways
+- SimSeam: the session stub is inert and says the library is needed
+- SimSeam: degraded (no LibKa0s): NS.SimSeam is the inert stub and Compat is not wrapped
+
 ### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -1840,6 +1851,7 @@ Total.
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_dispatch.lua | 7 |
+| test_sim_seam.lua | 8 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1850,4 +1862,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1580** |
+| **Total** | **1588** |

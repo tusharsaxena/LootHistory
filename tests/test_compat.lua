@@ -570,7 +570,13 @@ end)
 test("Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path", function()
   local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
   assertTrue(lib ~= nil, "the live load has the major")
-  assertTrue(NS.Compat.GetSpellName == lib.GetSpellName, "core/Compat.lua wires the library's function")
+  -- core/SimSeam.lua wraps the member in place at load (LibKa0s-Sim-1.0's seam), so the identity
+  -- core/Compat.lua wired is now the seam's closure over it: idle, the closure is the library's
+  -- function answering, argument for argument.
+  local wrapped = false
+  for _, k in ipairs(NS.SimSeam:Keys()) do if k == "GetSpellName" then wrapped = true end end
+  assertTrue(wrapped, "GetSpellName is a seam-wrapped member")
+  assertEqual(NS.Compat.GetSpellName(13262), lib.GetSpellName(13262), "core/Compat.lua wires the library's function")
 end)
 
 test("Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name", function()

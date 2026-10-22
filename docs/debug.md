@@ -99,6 +99,7 @@ at once.
 | `Rollup` | `Rollup:SeedOnce` / `Rollup:Prune`, `modules/Rollup.lua`, from the login deferral | the one-time seed, `seeded <n> cells`, once per account; each login's rollup prune, `retention <n>d: removed <n> days`, or `prune skipped: retention is Always` |
 | `Holdings` | `modules/Reconciler.lua`, `Flush` | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing |
 | `Dispatch` | `NS.DeliverAll`, `core/Dispatch.lua` | `row raised: <error>`, once per row that raised under `pcall` during a simulated delivery (the rest of the rows still run); written only with logging on |
+| `Sim` | `core/SimSeam.lua` (the seam's `debug` sink) | a traceback from `NS.SimSeam:Live` when the function it ran raised, before the error is re-raised; written only with logging on |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
