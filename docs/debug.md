@@ -98,6 +98,7 @@ at once.
 | `Launcher` | `LibKa0s-Launcher-1.0` (minor 5) | registration, and the broker or minimap library missing, once at register; these are state lines on the descriptor's `debugAtEnable`, held for `debug on` because register runs at login with logging off |
 | `Rollup` | `Rollup:SeedOnce` / `Rollup:Prune`, `modules/Rollup.lua`, from the login deferral | the one-time seed, `seeded <n> cells`, once per account; each login's rollup prune, `retention <n>d: removed <n> days`, or `prune skipped: retention is Always` |
 | `Holdings` | `modules/Reconciler.lua`, `Flush` | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing |
+| `Dispatch` | `NS.DeliverAll`, `core/Dispatch.lua` | `row raised: <error>`, once per row that raised under `pcall` during a simulated delivery (the rest of the rows still run); written only with logging on |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
