@@ -93,6 +93,9 @@ end
 
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
+  -- First: a switch, copy or reset ends a running simulation (modules/Sim.lua, reason `profile`)
+  -- before any setting it was built under moves.
+  if NS.SimStop then NS.SimStop("profile") end
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end

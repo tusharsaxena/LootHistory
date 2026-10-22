@@ -169,4 +169,41 @@ test("SimSeam: degraded (no LibKa0s): NS.SimSeam is the inert stub and Compat is
   T.assertSurfaceParity(NS.SimSeam, ns.SimSeam, "live seam vs degraded load's seam", {})
   assertEqual(#ns.SimSeam:Keys(), 0, "the stub wraps nothing")
   assertEqual(ns.SimSeam:Live(function(x) return x end, 7), 7, "Live calls fn")
+  -- modules/Sim.lua's NS.Sim on the same load is the session stub, carrying the live instance's surface.
+  T.assertSurfaceParity(NS.Sim, ns.Sim, "live NS.Sim vs degraded load's NS.Sim", {})
+  assertFalse(ns.Sim:IsActive())
+  assertFalse(ns.SimBlocks("Purge"), "nothing is refused without a session")
+end)
+
+-- ── the guarded member, live (needs the session: modules/Sim.lua binds NS.SimSeam) ──────────
+
+test("SimSeam: ListCurrencies never reaches C_CurrencyInfo.ExpandCurrencyList while a simulation runs",
+function()
+  local CI, Host, sc = M.C_CurrencyInfo, NS.SimHost, NS.SimHost.SCENARIOS
+  local saved, expands = CI.ExpandCurrencyList, 0
+  local state = { NS.State.cleanupDone, NS.State.loginSettled }
+  CI.ExpandCurrencyList = function(...) expands = expands + 1; return saved(...) end
+  sc.names[#sc.names + 1] = "lhseam"
+  sc.defs.lhseam = { label = "Seam", timeline = function() return { { kind = "noop" } } end }
+  NS.State.cleanupDone, NS.State.loginSettled = true, true
+  NS.Reconciler:ResetState()
+  local ok, err = pcall(function()
+    assertTrue(NS.Sim:Start({ scenario = "lhseam" }), "the probe session starts")
+    expands = 0
+    Host.world.currencies = { { id = 3008, quantity = 5, accountWide = false } }
+    local list = NS.Compat.ListCurrencies()
+    assertEqual(#list, 1, "the simulated world's list answers")
+    assertEqual(list[1].id, 3008)
+    NS.SimSeam:Live(function() NS.Compat.ListCurrencies() end)
+    Host.world.currencies = nil
+    assertEqual(#NS.Compat.ListCurrencies(), 0, "no world list answers nothing")
+    assertEqual(expands, 0, "a guarded member never reaches the client, inside Live included")
+  end)
+  NS.Sim:Stop("stop")
+  sc.defs.lhseam = nil
+  table.remove(sc.names)
+  CI.ExpandCurrencyList = saved
+  NS.State.cleanupDone, NS.State.loginSettled = state[1], state[2]
+  if not ok then error(err, 0) end
+  assertTrue(#NS.Compat.ListCurrencies() > 0, "idle again, the member answers the client's list")
 end)

@@ -168,6 +168,10 @@ local function standUpLogStep()
 end
 
 local STAND_DOWN_STEPS = {
+  -- FIRST (LibKa0s-Sim-1.0's H6): a running simulation stops while every module still holds its
+  -- state, so its stop steps reset the Reconciler and release the session stores before the
+  -- modules below take themselves down. modules/Sim.lua's NS.SimStop, reason `standDown`.
+  call("SimStop"),
   -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
   -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.

@@ -797,7 +797,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "Rollup", "Export", "DebugLog", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -831,7 +831,7 @@ local function fillAll(log)
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
   NS.Export = recorder(log, "Export", { "Hide" })
   NS.DebugLog = recorder(log, "DebugLog", { "Hide" })
-  for _, k in ipairs({ "DropLedgerResetOffer", "CloseMenu" }) do
+  for _, k in ipairs({ "SimStop", "DropLedgerResetOffer", "CloseMenu" }) do
     NS[k] = function() log[#log + 1] = k end
   end
   NS.CancelDeferrals = function() log[#log + 1] = "CancelDeferrals"; return 3 end
@@ -848,6 +848,8 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
   withSurfaces(fillAll, function(log)
     NS.StandDown()
     assertEqual(table.concat(log, "\n"), table.concat({
+      -- H6: the simulation stops FIRST, while every module still holds its state.
+      "SimStop",
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",

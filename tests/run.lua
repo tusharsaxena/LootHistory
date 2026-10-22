@@ -105,6 +105,10 @@ local SUITES = {
   -- test_dispatch, with the whole addon loaded and brought up: its Unwrapped()-empty case then also
   -- catches a suite before it that swapped a Compat member and never put the wrapper back.
   "test_sim_seam",
+  -- modules/Sim.lua, the simulator's session host (LootHistory#37): refusals, start and stop, the
+  -- automatic stops, the real-event split and the destructive-surface guards. After test_sim_seam,
+  -- with the addon brought up; every case stops its session and leaves the addon up again.
+  "test_sim_session",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

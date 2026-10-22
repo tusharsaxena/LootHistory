@@ -10,6 +10,8 @@ if type(StaticPopupDialogs) == "table" then
     button1 = YES or "Yes",
     button2 = NO or "No",
     OnAccept = function()
+      -- A confirm raised before a simulation started is refused too (modules/Sim.lua).
+      if NS.SimBlocks("Purge") then return end
       if NS.Database and NS.Database.Purge then NS.Database:Purge() end
       print("history purged.")
     end,
@@ -125,7 +127,10 @@ if type(StaticPopupDialogs) == "table" then
       "|cffffd100If you reset:|r older loot records are deleted permanently. Settings, filters and " ..
       "profiles are kept. Choose Export first for a copy.",
     button1 = "Reset history", button2 = "Keep history", button3 = "Export first",
-    OnAccept = function() StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM", #NS.db.global.history) end,
+    OnAccept = function()
+      if NS.SimBlocks("The ledger reset") then return end
+      StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM", #NS.db.global.history)
+    end,
     -- button2 reports reason "clicked"; Esc hides through OnHide and never reaches here, and a
     -- re-show reports "override"/"timeout". Only the deliberate click is a decision.
     OnCancel = function(_, _, reason)
@@ -144,6 +149,7 @@ if type(StaticPopupDialogs) == "table" then
     text = "Delete %d loot records permanently? This cannot be undone.",
     button1 = YES or "Yes", button2 = NO or "No",
     OnAccept = function()
+      if NS.SimBlocks("The ledger reset") then return end
       local g = NS.db.global
       if NS.Database and NS.Database.Purge then NS.Database:Purge() end
       g.resetPrompt, g.resetPromptPending, g.ledgerSince = "reset", nil, time()
@@ -177,6 +183,7 @@ end
 function NS.OfferLedgerReset()
   local g = NS.db and NS.db.global
   if not NS.ShouldOfferLedgerReset(g) then return end
+  if NS.SimBlocks("The ledger reset") then return end
   if NS.Compat.InCombatLockdown() then
     if offerTarget then return end
     offerTarget = NS.NewBusTarget()

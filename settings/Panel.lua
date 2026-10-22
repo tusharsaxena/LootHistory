@@ -111,6 +111,7 @@ local function renderHistory(ctx)
 
   -- "Purge history…" — ellipsis: opens a confirm dialog.
   local purgeBtn = makePairButton("Purge history\226\128\166", function()
+    if NS.SimBlocks("Purge") then return end
     if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
     elseif NS.Database and NS.Database.Purge then NS.Database:Purge() end
   end)

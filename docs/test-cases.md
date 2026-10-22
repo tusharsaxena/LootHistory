@@ -1665,7 +1665,7 @@ Total.
 - Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
 
-### test_sim_seam.lua (8)
+### test_sim_seam.lua (9)
 
 - SimSeam: NS.SimSeam is the library's seam over NS.Compat, with the host table beside it
 - SimSeam: every non-PURE function member of NS.Compat is wrapped and Unwrapped() is empty after the whole addon loads
@@ -1675,6 +1675,33 @@ Total.
 - SimSeam: the seam stub carries the live seam surface, both ways
 - SimSeam: the session stub is inert and says the library is needed
 - SimSeam: degraded (no LibKa0s): NS.SimSeam is the inert stub and Compat is not wrapped
+- SimSeam: ListCurrencies never reaches C_CurrencyInfo.ExpandCurrencyList while a simulation runs
+
+### test_sim_session.lua (23)
+
+- Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
+- Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
+- Sim: the stood-down refusal names the disabled line while the addon is switched off
+- Sim: the ledger scenarios refuse while gains and losses are off; loot and key run either way
+- Sim: a start swaps in session stores, seeds the alt, resets the engine and prints its line
+- Sim: a stop clears contexts and Reconciler state, cancels R._pending, releases the stores and schedules the drift scan
+- Sim: a stop announces the history and each session holder through their one senders
+- Sim: a stand-down stop schedules no drift scan
+- Sim: joining a real group stops it
+- Sim: entering an instance stops it (zone change and entering the world)
+- Sim: a roster update or zone change that changes nothing real leaves it running
+- Sim: entering combat stops it
+- Sim: a real loot line stops it, then lands in the saved history
+- Sim: another player's loot line is absorbed, and so are bag and money events
+- Sim: a real hook call stops it, then runs live
+- Sim: the stand-down stops it first
+- Sim: a profile event stops it
+- Sim: test mode and the simulation exclude each other
+- Sim: /lh purge, the settings button and the purge confirm refuse while a simulation runs
+- Sim: the ledger reset offer and its confirm refuse while a simulation runs
+- Sim: Forget this character refuses while a simulation runs
+- Sim: the History row's Delete refuses while a simulation runs
+- Sim: a retention change that would prune refuses and keeps the confirmed value
 
 ### test_doc_structure.lua (8)
 
@@ -1851,7 +1878,8 @@ Total.
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_dispatch.lua | 7 |
-| test_sim_seam.lua | 8 |
+| test_sim_seam.lua | 9 |
+| test_sim_session.lua | 23 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1862,4 +1890,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1588** |
+| **Total** | **1612** |

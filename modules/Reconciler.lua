@@ -762,12 +762,21 @@ function R:Disable()
   if self._settings then self._settings:UnregisterAllMessages(); self._settings = nil end
 end
 
+--- Announce `holders` (a list of holder keys) as changed, once each. The simulator's stop calls it
+--- for its session store's holders (modules/Sim.lua), whose holdings every reader just stopped
+--- seeing; it goes through here because the Reconciler is HOLDINGS_CHANGED's one sender
+--- (docs/message-bus.md). Called as R:AnnounceHolders(holders); it reads no Reconciler state.
+function R.AnnounceHolders(_, holders)
+  for _, holder in ipairs(holders or {}) do NS.bus:SendMessage(NS.MSG.HOLDINGS_CHANGED, holder) end
+end
+
 -- "Forget this character" (spec §8.2): drop a character's holdings and its Timeline cells. History
 -- rows are kept -- they are what happened. The logged-in character would be re-created by its next
 -- scan, and the warband is not a character, so both are refused. The Reconciler announces the change
 -- because it is HOLDINGS_CHANGED's one sender (docs/message-bus.md).
 -- Called as R:ForgetHolder(holder); it reads no Reconciler state, hence the `_` receiver.
 function R.ForgetHolder(_, holder)
+  if NS.SimBlocks("Forget this character") then return false, "simulation" end
   if holder == nil or holder == WARBAND then return false, "warband" end
   if holder == NS.Util.PlayerKey() then return false, "current" end
   local had = NS.Holdings:ForgetHolder(holder)
