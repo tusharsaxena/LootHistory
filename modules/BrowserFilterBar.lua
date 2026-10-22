@@ -359,6 +359,32 @@ local function makeBarButton(parent, text, width, onClick, tooltip, icon)
   return b
 end
 
+-- The plain Search box, for a Widgets shell older than minor 13 (NS.MakeSearchBox answered nil):
+-- the box this bar hand-built before LibKa0s#52, moved here unchanged, so it filters exactly as it
+-- did. It has no gold focus line; `onFilter(text)` is the bar's filter body.
+local function makePlainSearch(bar, onFilter)
+  local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
+  search:SetHeight(20)
+  search:SetAutoFocus(false)
+  search:SetFontObject("GameFontHighlightSmall")
+  search:SetTextInsets(6, 6, 0, 0)
+  search:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+  search:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
+  search:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  ph:SetPoint("LEFT", 6, 0)
+  ph:SetText("Search items…")
+  search:SetScript("OnTextChanged", function(self2)
+    local t = self2:GetText() or ""
+    ph:SetShown(t == "")
+    onFilter(t)
+  end)
+  search:SetScript("OnEscapePressed", function(self2) self2:ClearFocus() end)
+  search:SetScript("OnEnterPressed", function(self2) self2:ClearFocus() end)
+  return search
+end
+
 -- Build the SHARED, singleton filter bar (issue #13) into `bar` — a window-level host anchored
 -- once in EnsureFrame, above every tab pane. One set of controls; each tab keeps its own state on
 -- them (P11, Browser.lua "Per-tab views"). The footer is shared window chrome too (built in EnsureFrame); this function
@@ -400,30 +426,20 @@ function B:BuildFilterBar(bar)
   end
 
   -- Item-name search box (row 1): it fills from Direction to the Save/Reset/Clear cluster, so its
-  -- right edge lines up with the row-2 Character dropdown's at every window width.
-  local search = CreateFrame("EditBox", nil, bar, "BackdropTemplate")
-  search:SetHeight(20)
-  search:SetAutoFocus(false)
-  search:SetFontObject("GameFontHighlightSmall")
-  search:SetTextInsets(6, 6, 0, 0)
-  search:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  search:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  search:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  ph:SetPoint("LEFT", 6, 0)
-  ph:SetText("Search items…")
+  -- right edge lines up with the row-2 Character dropdown's at every window width. No width here:
+  -- B:LayoutFilterBar sizes it. The library's SearchBox (LibKa0s#52) owns the hint and the gold
+  -- focus line; onSearchText is only the filter. A Widgets shell without SearchBox gets the plain box.
   local function onSearchText(t)
     t = t or ""
-    ph:SetShown(t == "")
     B.activeFilter.text = (t ~= "") and t or nil
     ApplyFilter()
   end
-  search:SetScript("OnTextChanged", function(self2) onSearchText(self2:GetText()) end)
-  search:SetScript("OnEscapePressed", function(self2) self2:ClearFocus() end)
-  search:SetScript("OnEnterPressed", function(self2) self2:ClearFocus() end)
+  local search = NS.MakeSearchBox(bar, nil, {
+    hint = "Search items…",
+    onChange = function(text) onSearchText(text) end,
+  }) or makePlainSearch(bar, onSearchText)
   self._search, self._onSearchText = search, onSearchText
-  -- The suggestion list under the box (P9), on every tab. AFTER the scripts above, because the
+  -- The suggestion list under the box (P9), on every tab. AFTER the box's scripts, because the
   -- library HOOKS them: the box's own filter, Enter and Escape run first and keep running. nil on a
   -- degraded install, where the box stays a plain filter box.
   self._autocomplete = NS.MakeAutocomplete(search, {

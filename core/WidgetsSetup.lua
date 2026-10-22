@@ -89,6 +89,13 @@
 -- NS.MakeAutocomplete answers nil for the same reason, and the Search box simply stays a plain box:
 -- typing still filters every tab, there is just no suggestion list under it. `W.Autocomplete` is
 -- checked as well as `W`, for the same shell-negotiation reason as the chart.
+--
+-- NS.MakeSearchBox answers nil for the same reason. With no library at all the filter bar has
+-- already refused to draw (its first dropdown is the probe), so the nil that reaches the bar is the
+-- shell-negotiation one: a Widgets shell older than minor 13 won LibStub, Dropdown is there and
+-- SearchBox is not. The bar then builds its own plain box (modules/BrowserFilterBar.lua's
+-- makePlainSearch), which filters exactly as the box did before the library had one, without the
+-- gold focus line.
 
 local _, NS = ...
 
@@ -109,6 +116,25 @@ function NS.MakeDropdown(parent, width)
         check   = NS.Icon and NS.Icon("confirm"),
         -- glyphFont deliberately absent -- see the header.
     })
+end
+
+--- The filter bar's flat search box, or nil when the library (or its SearchBox) is absent.
+---
+--- LibKa0s#52: the same EditBox the bar hand-built (the dropdown's fill and line, a gray hint while
+--- empty, Escape and Enter let go of the keys), now the library's, so it wears the collection's gold
+--- focus line. The widget owns the hint and its OnTextChanged; `opts.onChange` gets the text after
+--- the hint has been toggled. A host EXTENDS it with HookScript (NS.MakeAutocomplete does) and never
+--- SetScripts it. No icon is passed: the box draws none, so this addon's icon declaration is unchanged.
+---
+--- NIL IS A REAL ANSWER and the caller builds a plain box instead (see the header).
+---
+--- @param parent table       the frame to parent it to
+--- @param width number|nil   nil sets none: B:LayoutFilterBar sizes the box on every relayout
+--- @param opts table|nil     { hint =, onChange = } (see LibKa0s docs/api/Widgets/version-13.1.4.3.2-docs.md)
+--- @return table|nil         the library's EditBox, with `box.hint`
+function NS.MakeSearchBox(parent, width, opts)
+    if not (W and W.SearchBox) then return nil end
+    return W.SearchBox(parent, width, opts)
 end
 
 --- Whether the dropdown seam can build anything at all.

@@ -1694,7 +1694,7 @@ Total.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (22)
+### test_widgets.lua (27)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -1718,6 +1718,11 @@ Total.
 - seam: NS.MakeLineChart builds the library's chart and routes hover back to the host
 - seam: NS.MakeLineChart copies the host's opts rather than stamping them
 - seam: the chart draws Line regions, not textures
+- search: the filter bar's search is the library SearchBox when Widgets is present
+- search: typing filters and hides the hint; clearing restores it
+- search: Esc and Enter clear focus, and the focus line lights gold and returns to gray
+- search: the Autocomplete still attaches to the search box
+- search: degraded (no W.SearchBox): a plain box is built and filters
 
 ## Totals
 
@@ -1782,6 +1787,6 @@ Total.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 22 |
+| test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1530** |
+| **Total** | **1535** |

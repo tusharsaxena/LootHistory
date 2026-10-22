@@ -527,3 +527,116 @@ test("seam: the chart draws Line regions, not textures", function()
   c:Render(300, 150)
   assertTrue(#c.__madeLines >= 3, "crosshair, axis and at least one segment, all Lines")
 end)
+
+-- ── the search box seam (LibKa0s#52, Widgets minor 13) ─────────────────────────────────────────
+--
+-- The filter bar's Search box is the library's W.SearchBox, leased through NS.MakeSearchBox, so it
+-- wears the collection's gold focus line. These cases build a SCRATCH bar and put the window's
+-- singleton bar state back afterwards, as tests/test_browser.lua's withMeasuredBar does, and restore
+-- the filter text the typing changed.
+
+local BAR_KEYS = { "_dd", "_search", "_onSearchText", "_autocomplete", "_exportBtn", "_ddWidths", "_bar",
+                   "_barCtl", "_barW" }
+
+local function withScratchBar(fn, prep)
+  local saved = {}
+  for _, k in ipairs(BAR_KEYS) do saved[k] = B[k] end
+  local text = B.activeFilter.text
+  local undo = prep and prep()
+  local ok, err = pcall(function()
+    B:BuildFilterBar(T.mocks.CreateFrame("Frame"))
+    fn(B._search)
+  end)
+  if undo then undo() end
+  for _, k in ipairs(BAR_KEYS) do B[k] = saved[k] end
+  B.activeFilter.text = text
+  if not ok then error(err, 0) end
+end
+
+local function type_(box, text)
+  box:SetText(text); box:__fire("OnTextChanged", true)
+end
+
+local function spyBorder(box)
+  local seen = {}
+  rawset(box, "SetBackdropBorderColor", function(self, r, g, b, a) seen[#seen + 1] = { r, g, b, a }; return self end)
+  return seen
+end
+
+test("search: the filter bar's search is the library SearchBox when Widgets is present", function()
+  local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  local stock, built, seenOpts = lib.SearchBox, {}, nil
+  withScratchBar(function(box)
+    assertTrue(built[box] == true, "B._search was not built by LibKa0s-Widgets-1.0's own SearchBox")
+    assertEqual(box.hint:GetText(), "Search items…", "the hint is passed to the widget")
+    assertEqual(seenOpts.icon, nil, "no icon is passed: the box draws none, so no declaration changes")
+  end, function()
+    lib.SearchBox = function(parent, width, opts)
+      local f = stock(parent, width, opts)
+      built[f], seenOpts = true, opts
+      return f
+    end
+    return function() lib.SearchBox = stock end
+  end)
+end)
+
+test("search: typing filters and hides the hint; clearing restores it", function()
+  withScratchBar(function(box)
+    assertTrue(box.hint:IsShown(), "an empty box shows its hint")
+    type_(box, "robe")
+    assertEqual(B.activeFilter.text, "robe", "typing sets the shared filter text")
+    assertFalse(box.hint:IsShown(), "the hint hides while text is present")
+    type_(box, "")
+    assertEqual(B.activeFilter.text, nil, "clearing drops the filter text")
+    assertTrue(box.hint:IsShown(), "and the hint comes back")
+  end)
+end)
+
+test("search: Esc and Enter clear focus, and the focus line lights gold and returns to gray", function()
+  withScratchBar(function(box)
+    local cleared = 0
+    rawset(box, "ClearFocus", function(self) cleared = cleared + 1; return self end)
+    box:__fire("OnEscapePressed"); box:__fire("OnEnterPressed")
+    assertEqual(cleared, 2, "Escape and Enter each let go of the keys")
+    local seen = spyBorder(box)
+    box:__fire("OnEditFocusGained")
+    assertEqual(seen[1][1], 1); assertEqual(seen[1][2], 0.82); assertEqual(seen[1][3], 0)
+    box:__fire("OnEditFocusLost")
+    assertEqual(seen[2][1], 0.24, "losing focus returns the line to the dropdown's gray")
+  end)
+end)
+
+test("search: the Autocomplete still attaches to the search box", function()
+  local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  local stock, hostBox = lib.Autocomplete, nil
+  withScratchBar(function(box)
+    assertTrue(B._autocomplete ~= nil, "the suggestion list was not hung from the search box")
+    assertEqual(hostBox, box, "the Autocomplete hooks the library SearchBox itself")
+    type_(box, "robe")
+    assertEqual(B.activeFilter.text, "robe", "the box's own filter still runs under the hooks")
+  end, function()
+    lib.Autocomplete = function(editBox, opts) hostBox = editBox; return stock(editBox, opts) end
+    return function() lib.Autocomplete = stock end
+  end)
+end)
+
+test("search: degraded (no W.SearchBox): a plain box is built and filters", function()
+  -- A Widgets shell older than minor 13 can win the LibStub negotiation (another addon vendored an
+  -- older copy), leaving Dropdown present and SearchBox absent: the bar still draws and searches.
+  local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  local stock = lib.SearchBox
+  assertEqual((function() lib.SearchBox = nil; local r = NS.MakeSearchBox(T.mocks.UIParent); lib.SearchBox = stock
+    return r end)(), nil, "the seam answers nil without W.SearchBox")
+  withScratchBar(function(box)
+    assertTrue(box ~= nil, "a plain box must still be built")
+    type_(box, "axe")
+    assertEqual(B.activeFilter.text, "axe", "the plain box filters")
+    local cleared = 0
+    rawset(box, "ClearFocus", function(self) cleared = cleared + 1; return self end)
+    box:__fire("OnEscapePressed"); box:__fire("OnEnterPressed")
+    assertEqual(cleared, 2, "Escape and Enter clear focus on the plain box too")
+  end, function()
+    lib.SearchBox = nil
+    return function() lib.SearchBox = stock end
+  end)
+end)

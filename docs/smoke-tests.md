@@ -23,7 +23,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
-| HIST-1 to 36 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
+| HIST-1 to 37 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
@@ -756,6 +756,13 @@ own. On **Insights** and **Timeline** set something different again and switch r
 and Date return to its saved view (stock if none) and the charted thing stays. `/reload`, `/lh show` → each tab opens on its own
 saved view (Insights and Timeline on stock if never saved). On a profile saved before this release,
 every tab first opens on the one view you had saved. Result: pass (owner-marked 2026-10-10)
+
+**HIST-37. The Search box's gold focus line (LibKa0s#52).** `/lh toggle`, then on **History**,
+**Insights**, **Timeline** and **Holdings** click into the Search box → its outline lights gold while
+it has focus; press **Esc**, click in again and press **Enter** → each time focus leaves and the
+outline returns to the dropdowns' gray. Type a few letters → the `Search items…` hint hides while
+text is present and the view filters as before; clear the text → the hint comes back. The
+autocomplete list (AC-1) still opens under the box. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
