@@ -378,25 +378,72 @@ local function refusesWhileActive(line, act)
   end)
 end
 
-test("Sim: /lh purge, the settings button and the purge confirm refuse while a simulation runs", function()
-  local before = #NS.db.global.history
-  refusesWhileActive("Purge is not available while a simulation runs.", function()
-    NS.Slash:OnSlash("purge")
-    M.StaticPopupDialogs.KA0S_LOOTHISTORY_PURGE.OnAccept()
+-- Each surface is driven ON ITS OWN, with StaticPopup_Show counted: the purge confirm's OnAccept
+-- prints the same line as the slash verb and the button, so a case that reaches both would stay
+-- green with either guard gone. The refusal must print its line exactly once and raise nothing.
+local function refusesAlone(line, act)
+  local shown, savedShow = {}, M.StaticPopup_Show
+  M.StaticPopup_Show = function(which) shown[#shown + 1] = which end
+  local ok, err = pcall(refusesWhileActive, line, function()
+    act()
+    local n = 0
+    for _, l in ipairs(M.__printed()) do if l:find(line, 1, true) then n = n + 1 end end
+    assertEqual(n, 1, "the refusal line is printed exactly once")
   end)
+  M.StaticPopup_Show = savedShow
+  if not ok then error(err, 0) end
+  assertEqual(#shown, 0, "no confirm is raised: " .. table.concat(shown, ", "))
+end
+
+local PURGE_LINE = "Purge is not available while a simulation runs."
+
+test("Sim: /lh purge refuses while a simulation runs and raises no confirm", function()
+  local before = #NS.db.global.history
+  refusesAlone(PURGE_LINE, function() NS.Slash:OnSlash("purge") end)
   assertEqual(#NS.db.global.history, before, "nothing was purged")
 end)
 
-test("Sim: the ledger reset offer and its confirm refuse while a simulation runs", function()
+test("Sim: the settings panel's Purge history button refuses while a simulation runs", function()
+  local PS = dofile("tests/panel_support.lua")
+  local ctx = NS.Panel.general
+  local created = PS.clickTab(M.__subcategories["General"], ctx, PS.tabAt("History"))
+  local btn = PS.findByLabel(created, "Purge history\226\128\166")
+  assertTrue(btn ~= nil, "the History tab draws the Purge history button")
+  local before = #NS.db.global.history
+  refusesAlone(PURGE_LINE, function() btn:__fire("OnClick") end)
+  PS.homeTab(ctx)
+  assertEqual(#NS.db.global.history, before, "nothing was purged")
+end)
+
+test("Sim: the purge confirm raised before the session refuses on accept", function()
+  local before = #NS.db.global.history
+  refusesAlone(PURGE_LINE, function() M.StaticPopupDialogs.KA0S_LOOTHISTORY_PURGE.OnAccept() end)
+  assertEqual(#NS.db.global.history, before, "nothing was purged")
+end)
+
+local LEDGER_LINE = "The ledger reset is not available while a simulation runs."
+
+test("Sim: the ledger reset offer refuses while a simulation runs and raises no popup", function()
+  local g = NS.db.global
+  local savedH, savedPending, savedPrompt = g.history, g.resetPromptPending, g.resetPrompt
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
+  assertTrue(NS.ShouldOfferLedgerReset(g), "the offer is due, so only the simulation holds it back")
+  local ok, err = pcall(refusesAlone, LEDGER_LINE, function() NS.OfferLedgerReset() end)
+  local prompt, pending = g.resetPrompt, g.resetPromptPending
+  g.history, g.resetPromptPending, g.resetPrompt = savedH, savedPending, savedPrompt
+  if not ok then error(err, 0) end
+  assertEqual(prompt, nil, "no choice was stored")
+  assertEqual(pending, true, "the offer stays pending for a later login")
+end)
+
+test("Sim: the ledger reset popup and its confirm refuse on accept while a simulation runs", function()
   local g = NS.db.global
   local before, savedPrompt = #g.history, g.resetPrompt
-  refusesWhileActive("The ledger reset is not available while a simulation runs.", function()
-    local shown, savedShow = 0, M.StaticPopup_Show
-    M.StaticPopup_Show = function() shown = shown + 1 end
+  refusesAlone(LEDGER_LINE, function()
     M.StaticPopupDialogs.KA0S_LOOTHISTORY_LEDGER_RESET.OnAccept()
+  end)
+  refusesAlone(LEDGER_LINE, function()
     M.StaticPopupDialogs.KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM.OnAccept()
-    M.StaticPopup_Show = savedShow
-    assertEqual(shown, 0, "the confirm is not raised")
   end)
   assertEqual(#g.history, before, "nothing was reset")
   assertEqual(g.resetPrompt, savedPrompt, "no choice was stored")
