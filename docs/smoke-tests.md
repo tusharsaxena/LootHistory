@@ -18,7 +18,7 @@ free number in its theme.
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
-| STATE-1 to 12 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode |
+| STATE-1 to 16 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
@@ -63,7 +63,7 @@ free number in its theme.
   a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
   needs LOC.
 - Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
-  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-6, STATE-7 to STATE-12, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
+  `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-6, STATE-7 to STATE-16, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
 - Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.
 - Filter lists (`modules/Filters.lua`, the Filters tab): FILT, PROFILE-5, CAP-22 to CAP-24.
@@ -391,6 +391,23 @@ settings** and confirm → test mode off, box unticked. Tick it again, `/reload`
 **STATE-12. Lock frame gates the library grip.** Tick **Lock frame**, pull the History window's
 resize grip → the grip is still drawn, nothing resizes and no size is saved (`/reload`, `/lh show`
 keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result: pass (owner-marked 2026-10-10)
+
+**STATE-13. The test-mode strip (LootHistory#36).** `/lh test` → an amber strip with the info mark
+reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits under the filter bar,
+the History table starts under it, and the red **TEST MODE** badge is still beside the title.
+Result:
+
+**STATE-14. Every tab makes room for the strip.** Still in test mode, open **Insights**,
+**Timeline** and **Holdings** → each starts under the strip, shifted down the same way as History,
+with nothing hidden behind it. Result:
+
+**STATE-15. The strip goes with test mode.** Enter combat (hit a target dummy) → test mode ends, and
+the strip and the badge both go and every tab moves back up under the filter bar. Turn it on again
+and `/lh test` → the same. Result:
+
+**STATE-16. The strip's tooltip.** In test mode, hover the strip → a tooltip titled `Test mode`,
+then `Shows: sample loot, holdings and timeline` and `Ended by: combat, /lh test, the launcher
+menu`; move off → it goes. Result:
 
 **TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
 held by four sample characters and the Warband (expand one to see the holders; the Character list
@@ -1714,3 +1731,4 @@ keeps it. A check added or rewritten after that date is listed here until its `R
 a pass.
 
 - ICON-1 to ICON-6 (added 2026-10-22 with the LibKa0s v1.75.0 re-vendor and its icon prune).
+- STATE-13 to STATE-16 (added 2026-10-22 with the test-mode strip, LootHistory#36).

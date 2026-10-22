@@ -753,6 +753,15 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
+### test_teststrip.lua (6)
+
+- test strip: test mode on shows the strip with its L text, shifts the panes and shows the badge
+- test strip: test mode off hides the strip and the badge and puts the panes back
+- test strip: Show while already in test mode reserves the space
+- test strip: the strip hangs under the filter bar, and hovering it explains test mode
+- test strip: the strip and the badge text come from NS.L
+- test strip: degraded (no Widgets): no strip, no shift, the badge still shows
+
 ### test_browsertable.lua (85)
 
 - BrowserTable: CellText renders each column
@@ -1751,6 +1760,7 @@ Total.
 | test_database.lua | 85 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
+| test_teststrip.lua | 6 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
@@ -1789,4 +1799,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1535** |
+| **Total** | **1541** |

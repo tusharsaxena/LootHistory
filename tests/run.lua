@@ -68,7 +68,7 @@ local SUITES = {
   "test_ledgerformat",
   "test_compat", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
-  "test_browser", "test_browsertable", "test_export", "test_debuglog",
+  "test_browser", "test_teststrip", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
   "test_launcher", "test_slash", "test_slash_degraded", "test_resetprompt",

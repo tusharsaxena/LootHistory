@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1535%2F1535_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1541%2F1541_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -47,7 +47,7 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows. Combat switches it off, and it's never saved.
+There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip below the filter bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
 
 Reading back your loot happens in the History window, in this order:
 

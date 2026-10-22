@@ -3,6 +3,7 @@ NS.Browser = NS.Browser or {}
 local B = NS.Browser
 local frame
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
+local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip strings route through it
 
 -- The window CHROME this addon owns: the tab strip's two label colors and every height the layout
 -- is measured from. The window EDGE is NOT here — the dark flat background, the 1px black outer
@@ -131,12 +132,21 @@ local function BuildPane(name)
   if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
 end
 
--- One content pane, filling between the shared filter bar and the shared footer.
-local function CreatePane(name)
+-- Where a pane sits: between the shared filter bar and the shared footer, and below the test-mode
+-- strip while it is shown (LootHistory#36). Re-run on every pane by B:UpdateTestStrip.
+local function anchorPane(pane)
+  local strip = frame.testStrip
   local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
-  local pane = CreateFrame("Frame", nil, frame)
+    + ((strip and strip:IsShown()) and NS.TestStripReserve() or 0)
+  pane:ClearAllPoints()
   pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
   pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
+end
+
+-- One content pane, filling between the shared filter bar and the shared footer.
+local function CreatePane(name)
+  local pane = CreateFrame("Frame", nil, frame)
+  anchorPane(pane)
   pane:Hide(); frame.panes[name] = pane
 end
 
@@ -572,15 +582,20 @@ function B:OnDatasetChanged()
   self:ApplyView(initialFor(lastTab))
   self:UpdateFooter()
   self:UpdateDbSize()
-  self:UpdateTestBadge()
+  self:UpdateTestStrip()
   -- The Insights tab reads the same dataset; refresh it so a live Insights view reflects the swap.
   if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end
 end
 
--- Show/hide the bright-red "TEST MODE" badge beside the window title.
-function B:UpdateTestBadge()
+-- Test mode's two marks: the bright-red "TEST MODE" badge beside the window title, and the amber
+-- strip under the filter bar (LootHistory#36). The strip takes room, so every pane is re-anchored
+-- below it while it shows and back up when it goes. A degraded install has the badge only.
+function B:UpdateTestStrip()
   if not (frame and frame.testBadge) then return end
-  frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
+  local on = NS.BrowserTable and NS.BrowserTable.testMode or false
+  frame.testBadge:SetShown(on)
+  if frame.testStrip then frame.testStrip:SetShown(on) end
+  for _, pane in pairs(frame.panes) do anchorPane(pane) end
 end
 
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
@@ -886,7 +901,7 @@ local function EnsureFrame()
   -- Bright-red badge beside the title, shown only while the table is in test mode.
   local testBadge = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   testBadge:SetPoint("LEFT", title, "RIGHT", 10, 0)
-  testBadge:SetText("TEST MODE")
+  testBadge:SetText(L["TEST MODE"])
   testBadge:SetTextColor(1, 0.15, 0.15)
   testBadge:Hide()
   frame.testBadge = testBadge
@@ -918,6 +933,25 @@ local function EnsureFrame()
   filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -BAR_INSET, -barTop)
   filterHost:SetHeight(FILTERBAR_H)
   frame.filterHost = filterHost
+
+  -- The test-mode strip (LootHistory#36, LibKa0s#48): the library's amber band, hung 2px under the
+  -- filter bar and shown by B:UpdateTestStrip while test mode is on. nil on a degraded install,
+  -- where the title badge alone marks test mode. The library draws no tooltip, so it is hooked here.
+  local strip = NS.MakeTestStrip(frame, L["TEST MODE: a sample loot history, not yours. Combat ends it."])
+  if strip then
+    strip:SetPoint("TOPLEFT",  filterHost, "BOTTOMLEFT",  0, -2)
+    strip:SetPoint("TOPRIGHT", filterHost, "BOTTOMRIGHT", 0, -2)
+    strip:EnableMouse(true)
+    strip:HookScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      GameTooltip:SetText(L["Test mode"])
+      GameTooltip:AddLine(L["Shows: sample loot, holdings and timeline"], 1, 1, 1)
+      GameTooltip:AddLine(L["Ended by: combat, /lh test, the launcher menu"], 1, 1, 1)
+      GameTooltip:Show()
+    end)
+    strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  frame.testStrip = strip
 
   -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
   -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
@@ -1109,7 +1143,7 @@ function B:Show()
   -- (issue #13) then reads correctly even when the window opens straight onto the Insights tab.
   BuildPane("History")
   B:SelectTab(lastTab)
-  B:UpdateTestBadge()
+  B:UpdateTestStrip()
 end
 
 function B:Hide()

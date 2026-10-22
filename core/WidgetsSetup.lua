@@ -96,6 +96,10 @@
 -- SearchBox is not. The bar then builds its own plain box (modules/BrowserFilterBar.lua's
 -- makePlainSearch), which filters exactly as the box did before the library had one, without the
 -- gold focus line.
+--
+-- NS.MakeTestStrip answers nil for the same reason, and test mode is still marked: the red TEST MODE
+-- badge beside the window title does not depend on the library, so a degraded window shows the badge,
+-- draws no strip and reserves no space for one (NS.TestStripReserve answers 0).
 
 local _, NS = ...
 
@@ -269,4 +273,34 @@ function NS.MakeAutocomplete(editBox, opts)
   local o = {}
   for k, v in pairs(opts or {}) do o[k] = v end
   return W.Autocomplete(editBox, o)
+end
+
+--- The test-mode strip under the filter bar, or nil when the library (or its TestStrip) is absent.
+---
+--- LibKa0s#48 / LootHistory#36: an amber band with the info mark saying the rows under it are a
+--- sample. Born hidden and unanchored; modules/Browser.lua anchors it under the filter bar, hooks
+--- its tooltip and shows it while test mode is on. The `info` art is resolved here, once, like the
+--- dropdown's chevron, which is why `info` is on this addon's `LibKa0s icons:` line.
+---
+--- NIL IS A REAL ANSWER: no strip, no reserve, and the title badge still marks test mode.
+---
+--- @param parent table  the frame to parent it to
+--- @param text string   the localized line, set once at birth
+--- @return table|nil    the library's strip, with `strip.text`
+function NS.MakeTestStrip(parent, text)
+  if not (W and W.TestStrip) then return nil end
+  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info") })
+end
+
+-- The gap this addon leaves above and below the strip: 2 px under the filter bar, 2 px over the
+-- panes. A HOST constant, because the library publishes only the strip's own height.
+local TEST_STRIP_GAPS = 4
+
+--- The height the panes give up while the strip is shown: the library's published HEIGHT plus this
+--- addon's gaps, or 0 when there is no strip to make room for.
+---
+--- @return number
+function NS.TestStripReserve()
+  if not (W and W.TestStrip and W.TEST_STRIP) then return 0 end
+  return W.TEST_STRIP.HEIGHT + TEST_STRIP_GAPS
 end
