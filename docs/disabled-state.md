@@ -123,6 +123,17 @@ live and runs `/lh enable`. The gate is the library's, read from the descriptor'
 **The tooltip still shows while disabled** (Launcher minor 3, the library's own block): it reads
 `Enabled: No` under the same two fixed hints.
 
+**The Show window key binding refuses by its hold** (`launcher-§6`, anti-pattern #96). A key cannot
+be grayed the way the menu entry is, and a press that does nothing and says nothing is what §6
+forbids, so the `LootHistoryToggleWindow` button's click asks **`NS.RefusalLine()`**
+(`core/LifecycleSetup.lua`), the addon's one refusal-by-hold helper, before it runs `/lh toggle`.
+While the stored switch is off it answers the dispatcher's own line (`NS.Slash.DisabledLine()`,
+read at call time); under the perf hold alone it answers *Not available during a performance
+capture.*, never the disabled line; otherwise nil and the press toggles the window. The slash gate
+and `B:Show` keep their own behavior: the gate keys on the stored switch only, and `B:Show` refuses
+a stand-down silently, which is exactly why the press has to ask first. Step 8 of the suite below
+presses the button in both states.
+
 ## The conformance suite
 
 `tests/test_disabled.lua` is `slash-commands-§7`'s mandated suite, in the green gate like any other.

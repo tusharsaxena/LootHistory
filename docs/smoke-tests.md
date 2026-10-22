@@ -28,7 +28,7 @@ free number in its theme.
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
-| LAUNCH-1 to 10 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility |
+| LAUNCH-1 to 14 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
@@ -1045,6 +1045,24 @@ and the same menu as the button. Result: pass (owner-marked 2026-10-10)
 **LAUNCH-10. Hiding the button keeps the broker row.** Untick **Minimap button** → the broker row
 stays (a display offers its own per-plugin toggle). Result: pass (owner-marked 2026-10-10)
 
+**LAUNCH-11. The Show window key binding is listed (launcher-§6).** Esc > Options > Keybindings >
+AddOns > Ka0s Loot History lists `Toggle Loot History window` with no key. Bind one and press it
+twice → the History window opens, then closes.
+Result:
+
+**LAUNCH-12. The key refuses while disabled.** `/lh disable`, press the key → exactly one disabled
+refusal line, no window. `/lh enable`.
+Result:
+
+**LAUNCH-13. The key refuses during a perf capture.** During `/lh perf start` (the perf hold only),
+press the key → exactly one `Not available during a performance capture.` line and no window; never
+the disabled line.
+Result:
+
+**LAUNCH-14. The key works in combat.** In combat, press the key → the History window toggles (it is
+not a secure frame), subject to the **General visibility** setting's own refusal line.
+Result:
+
 ## Debug console and diagnostics
 
 Logging (`/lh debug on|off`) is session-only and independent of the console window. Tags and their
@@ -1732,3 +1750,4 @@ a pass.
 
 - ICON-1 to ICON-6 (added 2026-10-22 with the LibKa0s v1.75.0 re-vendor and its icon prune).
 - STATE-13 to STATE-16 (added 2026-10-22 with the test-mode strip, LootHistory#36).
+- LAUNCH-11 to LAUNCH-14 (added 2026-10-22 with the Show window key binding, launcher-§6).

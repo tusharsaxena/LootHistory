@@ -676,7 +676,10 @@ test("launcher: the descriptor answers the library's questions, and every toggle
     local fakeLibStub = setmetatable({}, { __call = function(_, name)
       if name == "LibKa0s-Launcher-1.0" then return fakeLauncher end
     end })
-    local mocks = setmetatable({ LibStub = fakeLibStub }, { __index = T.mocks })
+    -- Its own CreateFrame, so the scratch load's key-binding button (launcher-§6) is not filed over
+    -- the live one in T.mocks.__namedFrames, which tests/test_keybinding.lua and step 8 press.
+    local mocks = setmetatable({ LibStub = fakeLibStub, CreateFrame = function() return T.mocks.__stubFrame() end },
+      { __index = T.mocks })
     local off, locked, opens, winShown = false, false, 0, false
     local ran, sets = {}, {}
     local function verb(name) return { name, name, function() ran[#ran + 1] = name end } end

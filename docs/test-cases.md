@@ -936,6 +936,15 @@ Total.
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
+### test_keybinding.lua (6)
+
+- keybinding: Bindings.xml parses, names CLICK LootHistoryToggleWindow:LeftButton under header LOOTHISTORY, category ADDONS, no default attribute
+- keybinding: Bindings.xml is not listed in LootHistory.toc
+- keybinding: the button exists, is named, is not secure, registers AnyDown
+- keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set
+- keybinding: one press toggles once (open then close) through the toggle verb
+- keybinding: the button exists on a degraded install (no Launcher library)
+
 ### test_slash.lua (63)
 
 - FormatSchemaValue renders booleans as true/false
@@ -1536,7 +1545,7 @@ Total.
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
 
-### test_disabled.lua (21)
+### test_disabled.lua (23)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
@@ -1552,6 +1561,8 @@ Total.
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
 - slash-commands-§7 step 7: both diagnostics forms write a full report while stood down
 - slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature
+- slash-commands-§7 step 8: the key binding's press while disabled prints exactly one refusal line, writes nothing, shows nothing
+- slash-commands-§7 step 8: under the perf hold alone the press prints exactly one performance-capture line, never the disabled line, and toggles nothing
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
@@ -1765,6 +1776,7 @@ Total.
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
+| test_keybinding.lua | 6 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
@@ -1785,7 +1797,7 @@ Total.
 | test_harness.lua | 7 |
 | test_libka0s.lua | 32 |
 | test_surface_parity.lua | 15 |
-| test_disabled.lua | 21 |
+| test_disabled.lua | 23 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
@@ -1799,4 +1811,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1541** |
+| **Total** | **1549** |

@@ -645,6 +645,64 @@ test("slash-commands-§7 step 8: the left click opens the panel and writes nothi
     setEnabled(true)
   end)
 
+--- The Show window key binding's button (launcher-§6), pressed the way the client presses it: the
+--- binding's CLICK runs the named button's OnClick with LeftButton, down.
+local function pressKey()
+  local b = M.__namedFrames.LootHistoryToggleWindow
+  assertTrue(b ~= nil, "core/LauncherSetup.lua creates the LootHistoryToggleWindow button at load")
+  return capture(function() b:GetScript("OnClick")(b, "LeftButton", true) end)
+end
+
+--- Whether the History window is up, without building it.
+local function windowShown()
+  local f = NS.Browser.GetWindow and NS.Browser:GetWindow()
+  return (f ~= nil and f:IsShown()) and true or false
+end
+
+test("slash-commands-§7 step 8: the key binding's press while disabled prints exactly one refusal line, "
+  .. "writes nothing, shows nothing", function()
+    -- launcher-§6: a key cannot be grayed the way the menu's Show window entry is, so the press
+    -- answers by its hold. Disabled, that is the dispatcher's own line, byte for byte.
+    -- red under: a silent press (B:Show's own refusal is silent), a second line, a press that
+    -- reached B:Toggle, or a write to SavedVariables on a disabled addon.
+    bringUp()
+    setEnabled(false)
+    local realToggle, toggles = NS.Browser.Toggle, 0
+    NS.Browser.Toggle = function() toggles = toggles + 1 end
+    M.__resetSvWrites()
+    local ok, out = pcall(pressKey)
+    NS.Browser.Toggle = realToggle
+    if not ok then setEnabled(true); error(out, 0) end
+    assertEqual(#out, 1, "exactly one line, got: " .. table.concat(out, " | "))
+    assertTrue(out[1]:find(NS.Slash.DisabledLine(), 1, true) ~= nil,
+      "the line is the disabled refusal: " .. tostring(out[1]))
+    assertEqual(toggles, 0, "the press must not reach the window")
+    assertEqual(windowShown(), false, "no window on a disabled addon")
+    assertEqual(#M.__svWrites(), 0, "the press wrote SavedVariables on a disabled addon")
+    setEnabled(true)
+  end)
+
+test("slash-commands-§7 step 8: under the perf hold alone the press prints exactly one performance-capture "
+  .. "line, never the disabled line, and toggles nothing", function()
+    -- The perf hold is a stand-down the dispatcher's gate does not see (it keys on the stored
+    -- switch), and B:Show refuses it silently -- so without the press asking NS.RefusalLine first,
+    -- the key would do nothing and say nothing, which launcher-§6 forbids.
+    bringUp()
+    local realToggle, toggles = NS.Browser.Toggle, 0
+    NS.Browser.Toggle = function() toggles = toggles + 1 end
+    NS.Lifecycle:Hold(NS.HOLD_PERF)
+    local ok, out = pcall(pressKey)
+    NS.Lifecycle:Release(NS.HOLD_PERF)
+    NS.Browser.Toggle = realToggle
+    if not ok then error(out, 0) end
+    assertEqual(#out, 1, "exactly one line, got: " .. table.concat(out, " | "))
+    assertTrue(out[1]:find("Not available during a performance capture.", 1, true) ~= nil,
+      "the line names the capture: " .. tostring(out[1]))
+    assertTrue(out[1]:find(NS.Slash.DisabledLine(), 1, true) == nil, "never the disabled line")
+    assertEqual(toggles, 0, "the press must not reach the window during a capture")
+    assertEqual(#NS.Lifecycle:Holds(), 0, "no hold outlives this case")
+  end)
+
 -- ── 9. restoration, from CURRENT state ────────────────────────────────────────────────────────
 
 test("slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW",

@@ -250,6 +250,21 @@ function NS.IsStoodDown()
   return NS.Lifecycle and NS.Lifecycle:IsDown() or false
 end
 
+--- The one line a press that cannot be grayed owes the player while the addon stands down, or nil
+--- when it may act: the addon's ONE refusal-by-hold helper (launcher-§6). Disabled answers the
+--- dispatcher's own line (NS.Slash.DisabledLine, read at call time); otherwise any hold left is
+--- the perf capture's, and that is its own line. The slash gate and B:Show keep their behavior: the
+--- gate keys on NS.AddonIsOff only and B:Show refuses a stand-down silently, so the Show window
+--- key binding (core/LauncherSetup.lua) asks HERE first, or under a capture it would do nothing and
+--- say nothing.
+function NS.RefusalLine()
+  if NS.AddonIsOff() then
+    return NS.Slash and NS.Slash.DisabledLine and NS.Slash.DisabledLine() or nil
+  end
+  if NS.IsStoodDown() then return NS.L["Not available during a performance capture."] end
+  return nil
+end
+
 --- The stored enable path, read through the Schema READ seam so the verbs, the Master controls
 --- checkbox and this can never answer from two places. Guarded because the table exists only after
 --- NS:InitDB, and a read before that is not a disabled addon -- it is an unbuilt one.

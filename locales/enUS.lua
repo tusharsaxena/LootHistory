@@ -19,6 +19,9 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 --   "Test mode"                                                      the strip's tooltip title
 --   "Shows: sample loot, holdings and timeline"                      ...and its two lines
 --   "Ended by: combat, /lh test, the launcher menu"
+-- and the Show window key binding (core/LauncherSetup.lua, core/LifecycleSetup.lua; launcher-§6) --
+--   "Toggle Loot History window"                  the binding's row on the Key Bindings page
+--   "Not available during a performance capture."  NS.RefusalLine's answer under the perf hold
 
 -- ── the disabled refusal is NOT one of them, and that is the rule rather than an omission ─────
 --

@@ -50,6 +50,52 @@ local Launcher = LibStub and LibStub("LibKa0s-Launcher-1.0", true)
 NS.LAUNCHER_ICON =
   "Interface\\AddOns\\" .. addonName .. "\\media\\logos\\loothistory.logo.128.tga"
 
+--- Run one of the addon's own slash verbs, by name: the very function `/lh <verb>` dispatches to.
+---
+--- The menu's toggles call THIS rather than the model underneath (B:Toggle, CliSet, the test
+--- switch), so an entry is the verb and never a copy of it (launcher-§2, anti-pattern #81): the
+--- feature-verb gate settings/Schema.lua wraps round `toggle` and `test`, the confirmation line
+--- `enable` prints and the refusal `test` speaks all come along. So does the Show window key
+--- binding below, which is why this sits above the degraded exit. Looked up at CALL time, because
+--- NS.COMMANDS is built by settings/Schema.lua, which loads after this file.
+local function runVerb(verb)
+  for _, entry in ipairs(NS.COMMANDS or {}) do
+    if entry[1] == verb then return entry[3]("") end
+  end
+end
+
+-- ── THE SHOW WINDOW KEY BINDING (launcher-§6, anti-pattern #96) ──────────────────────────────
+--
+-- Bindings.xml at the addon root (never a TOC line; the client reads it by itself) declares one
+-- binding, `CLICK LootHistoryToggleWindow:LeftButton`, with no default key: the client clicks the
+-- button of that GLOBAL NAME when the player's key goes down. THE NAME IS PERMANENT. A player's
+-- chosen key is stored against the binding string, so renaming this button silently unbinds every
+-- player's key, and the binding then clicks nothing and raises nothing.
+--
+-- Created HERE, ABOVE the degraded exit below, so a key the player bound still works on a
+-- library-less install: the window and the verb are the addon's own, not the launcher library's.
+-- A plain, hidden, NON-SECURE Button: the History window is not secure, so a press opens it in
+-- combat too, subject to the General visibility setting's own refusal line.
+--
+-- The click is the launcher's toggleWindow handler and `/lh toggle` (B:Toggle -> B:Show), asked
+-- FIRST for a refusal by hold. A key cannot be grayed the way the menu entry is, so it answers with
+-- a line instead; NS.RefusalLine (core/LifecycleSetup.lua) is that line. The verb's own gate keys
+-- on the stored switch only and B:Show refuses a perf capture silently, so without the question a
+-- press during a capture would do nothing and say nothing, which launcher-§6 forbids.
+local toggleButton = CreateFrame("Button", "LootHistoryToggleWindow", UIParent)
+toggleButton:Hide()
+toggleButton:RegisterForClicks("AnyDown")
+toggleButton:SetScript("OnClick", function()
+  local line = NS.RefusalLine()
+  if line then return NS.Print(line) end
+  runVerb("toggle")
+end)
+
+-- The Key Bindings page's labels: the header row (the brand, as the launcher's broker label) and
+-- the binding's own row. The second name carries a space and a colon, so it is set through rawset.
+BINDING_HEADER_LOOTHISTORY = NS.BRAND
+rawset(_G, "BINDING_NAME_CLICK LootHistoryToggleWindow:LeftButton", NS.L["Toggle Loot History window"])
+
 if not Launcher then
   -- Degrade by ABSENCE, which is this seam's shape rather than the stub table every other
   -- LibKa0s seam in this addon carries. The difference is real: nothing in the addon calls into
@@ -66,19 +112,6 @@ if not Launcher then
   -- avoid.
   NS.Launcher = nil
   return
-end
-
---- Run one of the addon's own slash verbs, by name: the very function `/lh <verb>` dispatches to.
----
---- The menu's toggles call THIS rather than the model underneath (B:Toggle, CliSet, the test
---- switch), so an entry is the verb and never a copy of it (launcher-§2, anti-pattern #81): the
---- feature-verb gate settings/Schema.lua wraps round `toggle` and `test`, the confirmation line
---- `enable` prints and the refusal `test` speaks all come along. Looked up at CALL time, because
---- NS.COMMANDS is built by settings/Schema.lua, which loads after this file.
-local function runVerb(verb)
-  for _, entry in ipairs(NS.COMMANDS or {}) do
-    if entry[1] == verb then return entry[3]("") end
-  end
 end
 
 --- Whether the frames are locked: the *Lock frame* row's `settings.locked`, through B:IsLocked.

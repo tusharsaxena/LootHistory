@@ -341,12 +341,27 @@ return function()
   -- `edit:GetText()`, and modules/Export.lua has no other seam onto it, so the round-trip is
   -- modeled here: raw in, raw out, nil for nil. Only for EditBox -- every other frame type keeps
   -- the kit's behavior, which suites elsewhere in this repo are written against.
+  --
+  -- ── and a frame remembers what it was created as ──────────────────────────
+  --
+  -- The kit's own CreateFrame records (frameType, name, parent, template) on the frame; this
+  -- wrapper used to drop all four, because it builds from M.__stubFrame directly. They are recorded
+  -- again, and a NAMED frame is filed under M.__namedFrames[name]: the Show window key binding
+  -- (launcher-§6, Bindings.xml) reaches its button by global name and nothing else, so "the button
+  -- exists under that name" is a question a suite has to be able to ask. A Button also records
+  -- RegisterForClicks, which the metatable would otherwise swallow: a binding's CLICK fires the
+  -- button only for a registered click, so the registration is behavior, not decoration.
+  M.__namedFrames = {}
   local stubCreateFrame = function() return M.__stubFrame() end
-  M.CreateFrame = function(frameType, ...)
-    local f = stubCreateFrame(frameType, ...)
+  M.CreateFrame = function(frameType, name, parent, template)
+    local f = stubCreateFrame()
+    f.__frameType, f.__name, f.__parent, f.__template = frameType, name, parent, template
+    if name ~= nil then M.__namedFrames[name] = f end
     if frameType == "EditBox" then
       function f:SetText(t) self.__text = (t ~= nil) and tostring(t) or nil; return self end
       function f:GetText() return self.__text end
+    elseif frameType == "Button" then
+      function f:RegisterForClicks(...) self.__clicks = { ... }; return self end
     end
     return f
   end

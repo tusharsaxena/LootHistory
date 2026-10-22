@@ -118,6 +118,12 @@ files["tests/"] = {
 -- Dropping it would mean rewriting every call site of a published surface that
 -- tests/test_surface_parity.lua pins by name, which is a different change from this one.
 
+-- The Show window key binding's header label (launcher-§6). The Key Bindings page reads the
+-- BINDING_HEADER_<header> global, so core/LauncherSetup.lua assigns it; granted to that one file
+-- and nowhere else. The binding's own BINDING_NAME_ global carries a space and a colon, so it is
+-- set through rawset(_G, ...) and needs no entry.
+files["core/LauncherSetup.lua"] = { globals = { "BINDING_HEADER_LOOTHISTORY" } }
+
 -- The AceAddon object's own lifecycle hooks. AceAddon calls `addon:OnInitialize()` itself, and
 -- `OnEnterWorld` is registered on the AceEvent mixin the same object carries.
 files["core/LootHistory.lua"] = { ignore = { "212/self" } }
