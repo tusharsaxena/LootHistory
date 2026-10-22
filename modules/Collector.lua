@@ -178,7 +178,7 @@ local function lootLine(self, msg)
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local auctionPrice = NS.AuctionPrice:GatherAll(link, itemID)
   local zone, subzone = NS.Zone()
-  local classFile = select(2, UnitClass("player"))
+  local classFile = NS.Compat.PlayerClassFile()
   local record = self:BuildRecord(link, qty,
     { source = source, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
@@ -243,7 +243,7 @@ end
 local function currencyRecord(currencyID, name, qty, source, sourceDetail, confidence)
   local zone, subzone = NS.Zone()
   return {
-    ts = time(), char = NS.Util.PlayerKey(), classFile = select(2, UnitClass("player")),
+    ts = time(), char = NS.Util.PlayerKey(), classFile = NS.Compat.PlayerClassFile(),
     currencyID = currencyID, itemName = name,
     itemType = NS.Constants.CURRENCY_TYPE, itemSubType = NS.Compat.CurrencyCategory(currencyID),
     quality = NS.Compat.CurrencyQuality(currencyID),

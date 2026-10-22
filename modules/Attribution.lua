@@ -203,9 +203,10 @@ function Attribution:OnLootOpened()
     if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
     return
   end
-  local n = (GetNumLootItems and GetNumLootItems()) or 0
+  -- Through Compat, so the Sim-1.0 answer seam can play a loot window (LootHistory#37).
+  local n = NS.Compat.NumLootItems()
   for slot = 1, n do
-    local guid = GetLootSourceInfo and GetLootSourceInfo(slot)
+    local guid = NS.Compat.LootSourceGUID(slot)
     if guid then
       local source, detail = self:ResolveLootSource(guid, State)
       if NS.State.debug and NS.Debug then
@@ -457,22 +458,16 @@ function Attribution:Enable()
   -- through `hooksecurefunc`, which has no un-hook, so a second Enable after a stand-down would
   -- stack a second copy of each. The carve-out slash-commands-§7 grants for exactly this API is a
   -- hook that GATES ITS OWN BODY and returns, and Attribution:Stamp is where that gate sits -- one
-  -- funnel, and every one of these five lands in it.
+  -- funnel, and every one of these five lands in it. All five go in through Compat.HookSecure /
+  -- HookSecureMember, which hold the presence gate (LootHistory#37).
   if not self._hooked then
     self._hooked = true
-    if hooksecurefunc then
-      if type(BuyMerchantItem) == "function" then
-        hooksecurefunc("BuyMerchantItem", function() self:StampVendor() end)
-      end
-      if type(TakeInboxItem) == "function" then
-        hooksecurefunc("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
-      end
-      if type(AutoLootMailItem) == "function" then
-        hooksecurefunc("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
-      end
-    end
-    NS.Compat.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
-    NS.Compat.HookGetQuestReward(function() self:StampQuestReward() end)
+    local C = NS.Compat
+    C.HookSecure("BuyMerchantItem", function() self:StampVendor() end)
+    C.HookSecure("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
+    C.HookSecure("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
+    C.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
+    C.HookGetQuestReward(function() self:StampQuestReward() end)
   end
 end
 

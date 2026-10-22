@@ -38,6 +38,10 @@ local addonName, NS = ...
 -- Any answer. All three shims already agreed with the library rung for rung, so a difference in
 -- what comes back here is a defect in the adoption rather than an improvement — most sharply for
 -- NS.Zone, whose "" is load-bearing (see its own note). tests/test_envsetup.lua pins all of it.
+--
+-- The map and zone ladders live in core/Compat.lua again, as Compat.PlayerMapID / Compat.Zone (still
+-- Env-first), because LibKa0s-Sim-1.0's answer seam wraps Compat members and reaches nothing else
+-- (LootHistory#37). NS.PlayerMapID / NS.Zone stay here as call-time forwarders, so no caller moved.
 
 local Env = LibStub and LibStub("LibKa0s-Env-1.0", true)
 
@@ -78,33 +82,20 @@ function NS.Version()
   return NS.Meta("Version") or NS.version or "?"
 end
 
---- The player's current UI map id, or nil.
----
---- Best-effort by design: the id is a stamp on a stored row, and a row with no map id is worth more
---- than a raise during a zone transition. modules/Collector.lua stores whatever this answers.
+--- The player's current UI map id, or nil. A call-time forwarder to NS.Compat.PlayerMapID, which
+--- holds the Env-then-C_Map ladder so LibKa0s-Sim-1.0's answer seam can reach it (LootHistory#37).
+--- Best-effort by design: modules/Collector.lua stores whatever this answers.
 ---
 --- @return number|nil
 function NS.PlayerMapID()
-  if Env then return Env.GetPlayerMapID() end
-  if C_Map and C_Map.GetBestMapForUnit then
-    return C_Map.GetBestMapForUnit("player")
-  end
-  return nil
+  return NS.Compat.PlayerMapID()
 end
 
---- Zone and subzone. ALWAYS two strings; "" when the client has no text yet.
----
---- The empty string is load-bearing rather than tidy. core/Database.lua:944 and
---- modules/BrowserTable.lua's Zone column both bucket "" with nil on purpose — in Database:Stats, in the
---- Browser's Zone filter and in the table's group-by-zone — because one named zone spans many
---- UiMapIDs and a row captured before the client had text must not become its own bucket. A nil
---- from here would raise nothing and look fine, and would start moving stored rows between buckets
---- the moment a caller compared the two.
+--- Zone and subzone. ALWAYS two strings; "" when the client has no text yet. A call-time forwarder
+--- to NS.Compat.Zone, which holds the ladder and documents why the "" is load-bearing
+--- (core/Database.lua:944 and the Browser's Zone column bucket it with nil).
 ---
 --- @return string zone, string subzone
 function NS.Zone()
-  if Env then return Env.GetZone() end
-  local zone = (GetZoneText and GetZoneText()) or ""
-  local subzone = (GetSubZoneText and GetSubZoneText()) or ""
-  return zone, subzone
+  return NS.Compat.Zone()
 end

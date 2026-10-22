@@ -219,7 +219,12 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `PLAYER_REGEN_ENABLED` | runs a login reconcile deferred by combat, else replays a deferred flush | `modules/Reconciler.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
-`core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
+`core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code. So is
+every read a simulated loot run has to answer — the loot window (`NumLootItems`, `LootSourceGUID`), the
+where-am-I stamp (`Zone`, `PlayerMapID`, which `NS.Zone`/`NS.PlayerMapID` forward to), the instance,
+group and combat reads, the class token, and every read-side hook (`HookSecure`/`HookSecureMember`) —
+because `LibKa0s-Sim-1.0`'s answer seam wraps Compat members and nothing else
+([compat-layer.md](compat-layer.md#the-simulator-relevant-reads); `tests/test_compat_routing.lua` pins it).
 
 **Every event row above registers through one per-event helper** (events-frames-taint-§1):
 `NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent` / `NS.SafeRegisterEvents`, `LibKa0s-Core-1.0`'s

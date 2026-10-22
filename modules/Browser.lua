@@ -1096,9 +1096,9 @@ function B:VisibilityAllows(inCombat)
   -- A display decision, so never the combat-lockdown flag (events-frames-taint-§2):
   -- PLAYER_REGEN_DISABLED fires BEFORE lockdown engages, so at the pull the lockdown still reads
   -- false and "Only out of combat" would leave the window up for the whole fight. The edge itself
-  -- is the state; off an edge, UnitAffectingCombat("player") is the display-side read.
+  -- is the state; off an edge, Compat.PlayerInCombat() is the display-side read.
   if inCombat == nil then
-    inCombat = UnitAffectingCombat and UnitAffectingCombat("player") and true or false
+    inCombat = NS.Compat.PlayerInCombat()
   end
   if mode == "inCombat" then return inCombat end
   return not inCombat   -- "outOfCombat"

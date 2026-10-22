@@ -41,15 +41,84 @@ function Compat.InPartyInstance()
   return (inInst and kind == "party") and true or false
 end
 
+-- ── The simulator-relevant reads (LootHistory#37, LibKa0s#54) ────────────────────────────────
+--
+-- Every client read a loot run depends on goes through a member here, because LibKa0s-Sim-1.0's
+-- answer seam wraps NS.Compat members and reaches nothing else: a bare global left in a handler is
+-- a read a simulated run cannot answer, and it then records nothing without raising (Drop
+-- Watcher's DW-90). Each member answers exactly what the bare read answered, and degrades to a safe
+-- default when the global is absent. docs/compat-layer.md lists the reads left bare on purpose.
+
+-- Slots in the open loot window; 0 with no window or no API.
+function Compat.NumLootItems()
+  if type(GetNumLootItems) ~= "function" then return 0 end
+  return GetNumLootItems() or 0
+end
+
+-- The first source GUID of a loot slot (GetLootSourceInfo's first return), or nil. One value: the
+-- quantity and any further GUID/quantity pairs are not part of the answer.
+function Compat.LootSourceGUID(slot)
+  if type(GetLootSourceInfo) ~= "function" then return nil end
+  return (GetLootSourceInfo(slot))
+end
+
+-- Zone and map, through LibKa0s-Env-1.0 with the ladder it replaced written out for an install
+-- without the library. Moved here from core/EnvSetup.lua so the seam can reach them; NS.Zone and
+-- NS.PlayerMapID forward here at call time.
+local Env = LibStub and LibStub("LibKa0s-Env-1.0", true)
+
+--- Zone and subzone. ALWAYS two strings; "" when the client has no text yet.
+---
+--- The empty string is load-bearing rather than tidy. core/Database.lua:944 and
+--- modules/BrowserTable.lua's Zone column both bucket "" with nil on purpose — in Database:Stats, in the
+--- Browser's Zone filter and in the table's group-by-zone — because one named zone spans many
+--- UiMapIDs and a row captured before the client had text must not become its own bucket.
+function Compat.Zone()
+  if Env then return Env.GetZone() end
+  local zone = (GetZoneText and GetZoneText()) or ""
+  local subzone = (GetSubZoneText and GetSubZoneText()) or ""
+  return zone, subzone
+end
+
+-- The player's current UI map id, or nil. Best-effort: a row with no map id beats a raise during a
+-- zone transition.
+function Compat.PlayerMapID()
+  if Env then return Env.GetPlayerMapID() end
+  if C_Map and C_Map.GetBestMapForUnit then
+    return C_Map.GetBestMapForUnit("player")
+  end
+  return nil
+end
+
+-- Inside any instance? A boolean, plus the instance kind the client names ("party", "raid", …).
+-- false, nil when the API is absent.
+function Compat.InInstance()
+  if type(IsInInstance) ~= "function" then return false, nil end
+  local inInst, kind = IsInInstance()
+  return inInst and true or false, kind
+end
+
+-- In a party or raid? A boolean; false when the API is absent.
+function Compat.InGroup()
+  return type(IsInGroup) == "function" and IsInGroup() and true or false
+end
+
+-- The player's combat FLAG, the display-side read (events-frames-taint-§2), not the lockdown gate
+-- Compat.InCombatLockdown answers. A boolean; false when the API is absent.
+function Compat.PlayerInCombat()
+  return type(UnitAffectingCombat) == "function" and UnitAffectingCombat("player") and true or false
+end
+
 -- Hook the "use a bag item" path. Opening a container item pushes its contents straight to bags
 -- with no LOOT_OPENED / source GUID, so attribution needs a stamp from here. Calls fn(bag, slot)
 -- after each use. Retail routes through C_Container; older clients expose a global.
+-- Installed through Compat.HookSecureMember / HookSecure (read at call time), like every other
+-- read-side hook, so the presence gate lives in one place.
 function Compat.HookUseContainerItem(fn)
   if C_Container and C_Container.UseContainerItem then
-    hooksecurefunc(C_Container, "UseContainerItem", fn)
-  elseif type(UseContainerItem) == "function" then
-    hooksecurefunc("UseContainerItem", fn)
+    return Compat.HookSecureMember(C_Container, "UseContainerItem", fn)
   end
+  return Compat.HookSecure("UseContainerItem", fn)
 end
 
 -- Does the bag item at (bag, slot) have openable loot (a container / lockbox)? False when unknown
@@ -67,9 +136,7 @@ end
 -- turn-in, so a stamp here lands before the reward items push (the QUEST_TURNED_IN *event* can
 -- fire after the reward loot line and miss it). Calls fn() after each turn-in.
 function Compat.HookGetQuestReward(fn)
-  if type(GetQuestReward) == "function" then
-    hooksecurefunc("GetQuestReward", fn)
-  end
+  return Compat.HookSecure("GetQuestReward", fn)
 end
 
 -- The quest ID of the quest currently open in the quest frame (nil / 0 when none).

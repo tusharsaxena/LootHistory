@@ -192,7 +192,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (66)
+### test_compat.lua (74)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -260,6 +260,19 @@ Total.
 - Compat: ShowLinesTooltip draws a gold title and one colored double line per row
 - Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
 - Compat: ShowLinesTooltip answers false without a GameTooltip
+- Compat: NumLootItems answers GetNumLootItems, and 0 when it is absent or answers nil
+- Compat: LootSourceGUID answers the slot's first source GUID only; nil when absent
+- Compat: Zone and PlayerMapID answer what LibKa0s-Env answers, including ""
+- Compat: NS.Zone and NS.PlayerMapID forward to the Compat members at call time
+- Compat: InInstance answers IsInInstance as a boolean and its kind; false when absent
+- Compat: InGroup answers IsInGroup as a boolean; false when absent
+- Compat: PlayerInCombat asks UnitAffectingCombat about the player; false when absent
+- Compat: HookUseContainerItem and HookGetQuestReward install through HookSecure*
+
+### test_compat_routing.lua (2)
+
+- Compat routing: modules/ makes no bare simulator-relevant client read
+- Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 
 ### test_scanner.lua (5)
 
@@ -306,7 +319,7 @@ Total.
 - Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (37)
+### test_attribution.lua (39)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -332,6 +345,7 @@ Total.
 - Attribution: a memoized deconstruct source survives a later name change
 - Attribution: deconstruct's own loot window does not clobber its source
 - OnLootOpened logs ONE coalesced summary, not one line per slot
+- OnLootOpened reads the loot source through Compat
 - Attribution: an unrelated player spell does not stamp a source
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
@@ -341,6 +355,7 @@ Total.
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
 - Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: read-side hooks are installed through Compat.HookSecure once
 - Attribution: a retired ENCOUNTER_START costs only itself (front gate)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
@@ -1756,11 +1771,12 @@ Total.
 | test_util.lua | 47 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 66 |
+| test_compat.lua | 74 |
+| test_compat_routing.lua | 2 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 9 |
 | test_rollup.lua | 22 |
-| test_attribution.lua | 37 |
+| test_attribution.lua | 39 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -1811,4 +1827,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1549** |
+| **Total** | **1561** |

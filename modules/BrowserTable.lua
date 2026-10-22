@@ -636,7 +636,7 @@ end
 -- the player's flag, not the combat-lockdown flag: this is a display question
 -- (events-frames-taint-§2), and lockdown lags PLAYER_REGEN_DISABLED.
 local function testModeRefusal()
-  if UnitAffectingCombat and UnitAffectingCombat("player") then
+  if NS.Compat.PlayerInCombat() then
     return "combat ends it, so it cannot start in combat."
   end
   if NS.Browser and NS.Browser.VisibilityAllows and not NS.Browser:VisibilityAllows() then

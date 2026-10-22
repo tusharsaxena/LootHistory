@@ -22,7 +22,7 @@ free number in its theme.
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
-| CAP-1 to 32 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune |
+| CAP-1 to 33 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
 | HIST-1 to 37 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
@@ -579,6 +579,12 @@ reads 7 days; no Lua error. Result: pass (owner-marked 2026-10-10)
 
 **CAP-32. Always keeps everything.** Set **Keep history for** to *Always*, `/reload` → nothing is
 pruned. Result: pass (owner-marked 2026-10-10)
+
+**CAP-33. Capture reads go through Compat (regression, LootHistory#37).** Kill a mob and loot it,
+open a lockbox, take an item from mail and buy from a vendor → the rows record with the same sources
+as before: **Kill** with the npc id in the detail, **Container**, **Mail** and **Vendor**; the Zone and
+Subzone columns still fill. The loot-window, zone, map, class and hook reads now go through
+`core/Compat.lua` members so the simulator can answer them. Result:
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -1751,3 +1757,4 @@ a pass.
 - ICON-1 to ICON-6 (added 2026-10-22 with the LibKa0s v1.75.0 re-vendor and its icon prune).
 - STATE-13 to STATE-16 (added 2026-10-22 with the test-mode strip, LootHistory#36).
 - LAUNCH-11 to LAUNCH-14 (added 2026-10-22 with the Show window key binding, launcher-§6).
+- CAP-33 (added 2026-10-22 with the Compat-routed capture reads, LootHistory#37).

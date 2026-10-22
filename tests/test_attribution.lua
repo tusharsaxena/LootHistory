@@ -333,6 +333,28 @@ test("OnLootOpened logs ONE coalesced summary, not one line per slot", function(
   mocks.GetNumLootItems, mocks.GetLootSourceInfo = oNum, oSrc
 end)
 
+test("OnLootOpened reads the loot source through Compat", function()
+  -- The Sim-1.0 answer seam wraps NS.Compat members and nothing else, so a bare GetNumLootItems or
+  -- GetLootSourceInfo here would be a read a simulated loot window could never answer
+  -- (LootHistory#37). With the client globals absent, only the Compat members can supply the GUID.
+  resetContext()
+  local C = NS.Compat
+  local oNum, oSrc = C.NumLootItems, C.LootSourceGUID
+  local mNum, mSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo = false, false
+  local asked = {}
+  C.NumLootItems = function() return 2 end
+  C.LootSourceGUID = function(slot) asked[#asked + 1] = slot; return "Creature-0-0-0-0-31146-000000AAAA" end
+  local ok, err = pcall(function() NS.Attribution:OnLootOpened() end)
+  C.NumLootItems, C.LootSourceGUID = oNum, oSrc
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo = mNum, mSrc
+  if not ok then error(err, 0) end
+  assertEqual(asked[1], 1, "slot 1 is asked through Compat.LootSourceGUID")
+  local source, detail = NS.Attribution:Consume()
+  assertEqual(source, "KILL")
+  assertEqual(type(detail) == "table" and detail.npcID or nil, 31146)
+end)
+
 test("Attribution: an unrelated player spell does not stamp a source", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "cast-1", 999999)
@@ -458,6 +480,7 @@ local ENABLE_HOOKS = {
 
 local STUBBED = { "CreateFrame", "hooksecurefunc", "BuyMerchantItem", "TakeInboxItem",
                   "AutoLootMailItem", "GetQuestReward", "C_Container" }
+local GLOBAL_HOOKED = { "BuyMerchantItem", "TakeInboxItem", "AutoLootMailItem", "GetQuestReward" }
 
 local function withClientStubs(body)
   local saved = {}
@@ -480,6 +503,11 @@ local function withClientStubs(body)
   mocks.TakeInboxItem    = function() end
   mocks.AutoLootMailItem = function() end
   mocks.GetQuestReward   = function() end
+  -- The by-name hooks go in through Compat.HookSecure, which resolves its target through _G the
+  -- way hooksecurefunc itself does; the loader env reaches _G only after the mocks, so the same
+  -- stubs go on _G too (tests/test_compat.lua's HookSecure case does the same) and come off below.
+  local savedG = {}
+  for _, key in ipairs(GLOBAL_HOOKED) do savedG[key] = rawget(_G, key); rawset(_G, key, mocks[key]) end
   local container = {}
   for k, v in pairs(saved.C_Container or {}) do container[k] = v end
   container.UseContainerItem = function() end
@@ -488,6 +516,7 @@ local function withClientStubs(body)
   local ok, err = pcall(body, rec)
 
   for _, key in ipairs(STUBBED) do mocks[key] = saved[key] end
+  for _, key in ipairs(GLOBAL_HOOKED) do rawset(_G, key, savedG[key]) end
   for event in pairs(NS.addon.__events) do
     if not rec.before[event] then NS.addon:UnregisterEvent(event) end
   end
@@ -531,6 +560,28 @@ function()
     NS.Attribution:Enable()
     assertEqual(#rec.frames, frames, "a second Enable() built another cast frame")
     assertEqual(#rec.hooks, hooks, "a second Enable() installed the read-side hooks again")
+  end)
+end)
+
+test("Attribution: read-side hooks are installed through Compat.HookSecure once", function()
+  -- One installer, so the presence gate lives in core/Compat.lua and a later hook table can wrap
+  -- every read-side hook in one place (LootHistory#37). The latch still holds across Enable cycles.
+  withClientStubs(function()
+    local C = NS.Compat
+    local savedH, savedHM, savedLatch = C.HookSecure, C.HookSecureMember, NS.Attribution._hooked
+    local via = {}
+    C.HookSecure = function(name, fn) via[#via + 1] = name; return savedH(name, fn) end
+    C.HookSecureMember = function(tbl, member, fn) via[#via + 1] = member; return savedHM(tbl, member, fn) end
+    NS.Attribution._hooked = nil
+    local ok, err = pcall(function()
+      NS.Attribution:Enable()
+      NS.Attribution._enabled = false
+      NS.Attribution:Enable()
+    end)
+    C.HookSecure, C.HookSecureMember, NS.Attribution._hooked = savedH, savedHM, savedLatch
+    if not ok then error(err, 0) end
+    assertEqual(table.concat(via, ","), table.concat(ENABLE_HOOKS, ","),
+      "every read-side hook goes through Compat.HookSecure/HookSecureMember, once")
   end)
 end)
 
