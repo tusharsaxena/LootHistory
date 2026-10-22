@@ -68,7 +68,7 @@ db.profile = {
 }
 ```
 
-- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:1163`, `:1236`). Each record's field shape is documented below.
+- `history` is a **dense array** — `Database:Delete`/`PruneOld` rebuild-and-swap rather than leaving holes (`core/Database.lua:1163`, `:1253`). Each record's field shape is documented below.
 - `settings.excludedSources` is stored as the set of **muted** sources; the panel renders it inverted ("Record data from"), so a checked box means "record this source" (`settings/Schema.lua:324`).
 - `savedViews[tab]` exists once the user clicks **Save** on that tab of the browser, or (the Timeline's slot) once the Timeline remembers a pick (see below); until then reads fall back to that tab's stock view. Schema v14 replaced the single `savedView` with it.
 
