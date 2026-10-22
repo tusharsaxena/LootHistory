@@ -686,12 +686,17 @@ function R:LoginScan()
   self:MarkLoginGenesis()
 end
 
-local EVENTS = {
+-- The fourteen capture rows (core/Dispatch.lua) on the private `__ev` target, appended at FILE LOAD
+-- so their order is TOC order. Each fn hands R:OnEvent the client's full payload; R:OnEvent keeps
+-- its (event, a1, _, a3, a4, a5) shape because the suites drive it directly.
+for _, event in ipairs({
   "BAG_UPDATE", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_MONEY", "ACCOUNT_MONEY",
   "CURRENCY_DISPLAY_UPDATE", "PLAYERBANKSLOTS_CHANGED", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED",
   "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "PLAYER_REGEN_ENABLED",
   "CURRENCY_TRANSFER_LOG_UPDATE", "MAIL_INBOX_UPDATE", "OWNED_AUCTIONS_UPDATED",
-}
+}) do
+  NS.EventRow("Reconciler", "ledger", event, function(ev, ...) return R:OnEvent(ev, ...) end)
+end
 
 local function trackLedgerOn()
   local s = NS.db and NS.db.profile and NS.db.profile.settings
@@ -711,10 +716,9 @@ function R:Enable()
   end
   if self.__ev or not trackLedgerOn() then return end
   self.__ev = NS.NewBusTarget()
-  -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
-  for _, ev in ipairs(EVENTS) do
-    NS.SafeRegisterEvent(self.__ev, ev, function(_, ...) self:OnEvent(ev, ...) end, NS.RejectedEvents)
-  end
+  -- Per event through Core's helper (events-frames-taint-§1, inside NS.RegisterRows): a refused
+  -- name costs only itself.
+  NS.RegisterRows("Reconciler", self.__ev, "ledger")
   self._enabled = true
   -- Back up after a stand-down (disable, perf suspend) in a session that already logged in: what
   -- changed while nothing was watching is drift, exactly like a login.
@@ -725,6 +729,7 @@ end
 
 --- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
 function R:DisableCapture()
+  NS.UnregisterRows("Reconciler")
   if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil

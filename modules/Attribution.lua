@@ -409,78 +409,77 @@ function Attribution:StampQuestReward()
     Constants.Confidence.CERTAIN, "GetQuestReward")
 end
 
+-- The capture rows (core/Dispatch.lua), appended at FILE LOAD so their order is TOC order. Each
+-- fn receives the client's full payload, event name first.
+--
+-- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET.
+-- PLAYER_ENTERING_WORLD is deliberately NOT a row: the addon object already binds it to
+-- OnEnterWorld (core/LifecycleSetup.lua), and a second registration of that event on the same
+-- target would replace that handler.
+local function busRow(event, fn) NS.EventRow("Attribution", "bus", event, fn) end
+busRow("LOOT_OPENED", function() Attribution:OnLootOpened() end)
+busRow("ENCOUNTER_START", function(...) Attribution:OnEncounterStart(...) end)
+busRow("ENCOUNTER_END", function(...) Attribution:OnEncounterEnd(...) end)
+busRow("CHALLENGE_MODE_START", function() Attribution:OnChallengeModeStart() end)
+busRow("CHALLENGE_MODE_COMPLETED", function() Attribution:OnChallengeModeCompleted() end)
+busRow("TRADE_ACCEPT_UPDATE", function(...) Attribution:OnTradeAcceptUpdate(...) end)
+busRow("QUEST_TURNED_IN", function(...) Attribution:OnQuestTurnedIn(...) end)
+busRow("ZONE_CHANGED_NEW_AREA", function() Attribution:OnZoneChanged() end)
+busRow("CHALLENGE_MODE_RESET", function() Attribution:OnChallengeModeReset() end)
+-- Player-only spell-success on a dedicated RegisterUnitEvent frame: a bare
+-- RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") delivers the raid-wide firehose (every nameplate cast).
+NS.EventRow("Attribution", "spell", "UNIT_SPELLCAST_SUCCEEDED", function(event, unit, castGUID, spellID)
+  Attribution:OnSpellSucceeded(event, unit, castGUID, spellID)
+end, "player")
+
+-- The five read-side hooks (core/Dispatch.lua's HOOK_ROWS), in install order: three globals
+-- through Compat.HookSecure, then core/Compat.lua's two seams. Every one lands in
+-- Attribution:Stamp, which holds the stood-down gate.
+NS.HookRow("Attribution", "BuyMerchantItem", function() Attribution:StampVendor() end)
+NS.HookRow("Attribution", "TakeInboxItem", function(mailIndex) Attribution:StampMail(mailIndex) end)
+NS.HookRow("Attribution", "AutoLootMailItem", function(mailIndex) Attribution:StampMail(mailIndex) end)
+NS.HookRow("Attribution", "UseContainerItem", function(bag, slot) Attribution:OnContainerItemUse(bag, slot) end,
+  { install = "HookUseContainerItem" })
+NS.HookRow("Attribution", "GetQuestReward", function() Attribution:StampQuestReward() end,
+  { install = "HookGetQuestReward" })
+
 -- Register events + read-side hooks. Guarded so a missing API degrades gracefully per flavor.
 function Attribution:Enable()
   local bus = NS.addon
   if not bus or self._enabled then return end
   self._enabled = true
 
-  -- Each name through Core's per-event helper (events-frames-taint-§1): a name this client refuses
-  -- costs only itself, lands once on NS.RejectedEvents, and is left out of `__events`, which holds
-  -- exactly the names that registered so Attribution:Disable unregisters exactly those rather than
-  -- from a hand-typed second list that drifts the day an event is added.
-  --
-  -- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET.
-  -- PLAYER_ENTERING_WORLD is deliberately NOT used: the addon object already binds it to
-  -- OnEnterWorld (core/LifecycleSetup.lua), and a second registration of that event on the same
-  -- target would replace that handler.
-  local events = {}
-  local function safeRegisterEvent(event, handler)
-    if NS.SafeRegisterEvent(bus, event, handler, NS.RejectedEvents) then
-      events[#events + 1] = event
-    end
-  end
-  safeRegisterEvent("LOOT_OPENED", function() self:OnLootOpened() end)
-  safeRegisterEvent("ENCOUNTER_START", function(...) self:OnEncounterStart(...) end)
-  safeRegisterEvent("ENCOUNTER_END", function(...) self:OnEncounterEnd(...) end)
-  safeRegisterEvent("CHALLENGE_MODE_START", function() self:OnChallengeModeStart() end)
-  safeRegisterEvent("CHALLENGE_MODE_COMPLETED", function() self:OnChallengeModeCompleted() end)
-  safeRegisterEvent("TRADE_ACCEPT_UPDATE", function(...) self:OnTradeAcceptUpdate(...) end)
-  safeRegisterEvent("QUEST_TURNED_IN", function(...) self:OnQuestTurnedIn(...) end)
-  safeRegisterEvent("ZONE_CHANGED_NEW_AREA", function() self:OnZoneChanged() end)
-  safeRegisterEvent("CHALLENGE_MODE_RESET", function() self:OnChallengeModeReset() end)
-  self.__events = events
+  -- The bus rows, each through Core's per-event helper (events-frames-taint-§1, inside
+  -- NS.RegisterRows): a name this client refuses costs only itself, lands once on
+  -- NS.RejectedEvents, and is left out of `__events`, which holds exactly the names that registered.
+  self.__events = NS.RegisterRows("Attribution", bus, "bus")
 
-  -- Player-only spell-success via a dedicated RegisterUnitEvent frame — avoids the raid-wide
-  -- firehose a bare RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") would deliver (every nameplate cast).
-  -- HELD ON THE MODULE, not in a local: Attribution:Disable has to reach it to unregister, and a
-  -- frame only the closure knows about is a per-unit registration no stand-down can take out and no
-  -- suite can see. Re-used across a disable/enable cycle rather than rebuilt, so the cycle does not
-  -- leak one frame per turn of the switch.
+  -- The spell row's frame is HELD ON THE MODULE, not in a local: Attribution:Disable has to reach
+  -- it to unregister, and a frame only the closure knows about is a per-unit registration no
+  -- stand-down can take out and no suite can see. Re-used across a disable/enable cycle rather than
+  -- rebuilt, so the cycle does not leak one frame per turn of the switch.
   local spellFrame = self.__spellFrame or CreateFrame("Frame")
   self.__spellFrame = spellFrame
-  NS.SafeRegisterUnitEvent(spellFrame, "UNIT_SPELLCAST_SUCCEEDED", NS.RejectedEvents, "player")
-  spellFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
-    self:OnSpellSucceeded(event, unit, castGUID, spellID)
-  end)
+  NS.RegisterRows("Attribution", spellFrame, "spell")
 
-  -- INSTALLED ONCE PER SESSION, and that is forced rather than chosen: every hook here goes in
-  -- through `hooksecurefunc`, which has no un-hook, so a second Enable after a stand-down would
-  -- stack a second copy of each. The carve-out slash-commands-§7 grants for exactly this API is a
-  -- hook that GATES ITS OWN BODY and returns, and Attribution:Stamp is where that gate sits -- one
-  -- funnel, and every one of these five lands in it. All five go in through Compat.HookSecure /
-  -- HookSecureMember, which hold the presence gate (LootHistory#37).
+  -- INSTALLED ONCE PER SESSION, and that is forced rather than chosen: every hook goes in through
+  -- `hooksecurefunc`, which has no un-hook, so a second Enable after a stand-down would stack a
+  -- second copy of each. The carve-out slash-commands-§7 grants for exactly this API is a hook that
+  -- GATES ITS OWN BODY and returns, and Attribution:Stamp is where that gate sits. Every row goes in
+  -- through Compat.HookSecure / HookSecureMember, which hold the presence gate (LootHistory#37).
   if not self._hooked then
     self._hooked = true
-    local C = NS.Compat
-    C.HookSecure("BuyMerchantItem", function() self:StampVendor() end)
-    C.HookSecure("TakeInboxItem", function(mailIndex) self:StampMail(mailIndex) end)
-    C.HookSecure("AutoLootMailItem", function(mailIndex) self:StampMail(mailIndex) end)
-    C.HookUseContainerItem(function(bag, slot) self:OnContainerItemUse(bag, slot) end)
-    C.HookGetQuestReward(function() self:StampQuestReward() end)
+    NS.InstallHookRows("Attribution")
   end
 end
 
---- The stand-down half of Enable (slash-commands-§7). The nine shared-target events go by name --
---- UnregisterAllEvents there would take the Collector's two and the addon's own with them -- and
+--- The stand-down half of Enable (slash-commands-§7). The bus rows go by name (NS.UnregisterRows)
+--- -- UnregisterAllEvents there would take the Collector's and the addon's own with them -- and
 --- the per-unit spell frame goes wholesale, which is the registration a draw gate leaves visibly in
 --- place and no early return can take out.
 function Attribution:Disable()
   if not self._enabled then return end
-  local bus = NS.addon
-  if bus and bus.UnregisterEvent then
-    for _, event in ipairs(self.__events or {}) do bus:UnregisterEvent(event) end
-  end
+  NS.UnregisterRows("Attribution")
   if self.__spellFrame then self.__spellFrame:UnregisterAllEvents() end
   -- The short-lived source context goes down with the registrations. A stamp left behind would be
   -- consumed by the first loot line after the addon came back, attributing it to a kill that

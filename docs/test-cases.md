@@ -1643,6 +1643,16 @@ Total.
 - coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 
+### test_dispatch.lua (7)
+
+- Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reconciler
+- Dispatch: registered follows Enable/Disable, including trackLedger off
+- Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
+- Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
+- Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
+- Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
+
 ### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -1817,6 +1827,7 @@ Total.
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
+| test_dispatch.lua | 7 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1827,4 +1838,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1561** |
+| **Total** | **1568** |

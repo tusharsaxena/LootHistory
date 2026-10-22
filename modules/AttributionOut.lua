@@ -139,47 +139,60 @@ function Attribution:HookGuildBankFrame()
   return true
 end
 
--- Installed ONCE per session (hooksecurefunc has no un-hook); each body gates on the latch.
-local function installHooks(self)
-  if self._outHooked then return end
-  self._outHooked = true
-  local H, HM = NS.Compat.HookSecure, NS.Compat.HookSecureMember
-  H("RepairAllItems", function() self:StampOut("REPAIR", { kinds = { GOLD = true }, dirs = { OUT = true } }, "RepairAllItems") end)
-  H("BuyMerchantItem", function() self:StampOut("BUY", { dirs = { OUT = true } }, "BuyMerchantItem") end)
-  H("BuybackItem", function() self:StampOut("BUY", { dirs = { OUT = true } }, "BuybackItem") end)
-  H("DeleteCursorItem", function() self:StampOut("DESTROY", { kinds = { ITEM = true }, dirs = { OUT = true } }, "DeleteCursorItem") end)
-  H("SendMail", function(recipient) self:OnSendMail(recipient) end)
-  H("TakeInboxMoney", function(index) self:OnTakeInboxMoney(index) end)
-  local AH = C_AuctionHouse
-  HM(AH, "PostItem", function(loc, _, qty) self:OnPost(loc, qty) end)
-  HM(AH, "PostCommodity", function(loc, _, qty) self:OnPost(loc, qty) end)
-  HM(AH, "PlaceBid", function() self:OnAuctionBuy() end)
-  HM(AH, "ConfirmCommoditiesPurchase", function() self:OnAuctionBuy() end)
-  local TS = C_TradeSkillUI
-  HM(TS, "CraftRecipe", function() self:OnCraft() end)
-  HM(TS, "CraftSalvage", function() self:OnCraft() end)
-  HM(TS, "CraftEnchant", function() self:OnCraft() end)
+-- The thirteen outbound hooks (core/Dispatch.lua's HOOK_ROWS), appended at FILE LOAD after
+-- Attribution's five, so BuyMerchantItem runs StampVendor first and StampOut BUY second. Installed
+-- ONCE per session (hooksecurefunc has no un-hook); each body gates on the latch. The two C_*
+-- tables are read at install time, as before.
+local function hookRow(name, fn, opts) NS.HookRow("AttributionOut", name, fn, opts) end
+local goldOut = function(reason, trigger)
+  return function() Attribution:StampOut(reason, { kinds = { GOLD = true }, dirs = { OUT = true } }, trigger) end
 end
+hookRow("RepairAllItems", goldOut("REPAIR", "RepairAllItems"))
+hookRow("BuyMerchantItem", function() Attribution:StampOut("BUY", { dirs = { OUT = true } }, "BuyMerchantItem") end)
+hookRow("BuybackItem", function() Attribution:StampOut("BUY", { dirs = { OUT = true } }, "BuybackItem") end)
+hookRow("DeleteCursorItem", function()
+  Attribution:StampOut("DESTROY", { kinds = { ITEM = true }, dirs = { OUT = true } }, "DeleteCursorItem")
+end)
+hookRow("SendMail", function(recipient) Attribution:OnSendMail(recipient) end)
+hookRow("TakeInboxMoney", function(index) Attribution:OnTakeInboxMoney(index) end)
+local AH = { tbl = function() return C_AuctionHouse end }
+hookRow("PostItem", function(loc, _, qty) Attribution:OnPost(loc, qty) end, AH)
+hookRow("PostCommodity", function(loc, _, qty) Attribution:OnPost(loc, qty) end, AH)
+hookRow("PlaceBid", function() Attribution:OnAuctionBuy() end, AH)
+hookRow("ConfirmCommoditiesPurchase", function() Attribution:OnAuctionBuy() end, AH)
+local TS = { tbl = function() return C_TradeSkillUI end }
+hookRow("CraftRecipe", function() Attribution:OnCraft() end, TS)
+hookRow("CraftSalvage", function() Attribution:OnCraft() end, TS)
+hookRow("CraftEnchant", function() Attribution:OnCraft() end, TS)
+
+-- The six capture rows on the private `__outEv` target. TRADE_ACCEPT_UPDATE and the two
+-- PLAYER_INTERACTION_MANAGER_FRAME_* events also have a row of their own on another target
+-- (Attribution's bus row, the Reconciler's ledger rows): two handlers each, as the client calls them.
+local function outRow(event, fn) NS.EventRow("AttributionOut", "out", event, fn) end
+outRow("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, t) Attribution:OnInteraction(true, t) end)
+outRow("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, t) Attribution:OnInteraction(false, t) end)
+outRow("MAIL_SEND_SUCCESS", function() Attribution:OnMailSent() end)
+outRow("MAIL_FAILED", function() Attribution:OnMailFailed() end)
+outRow("TRADE_ACCEPT_UPDATE", function(_, p, t) Attribution:OnTradeAccept(p, t) end)
+outRow("ADDON_LOADED", function(_, name) if name == "Blizzard_GuildBankUI" then Attribution:HookGuildBankFrame() end end)
 
 function Attribution:EnableOut()
   if self.__outEv then return end
-  installHooks(self)
+  if not self._outHooked then
+    self._outHooked = true
+    NS.InstallHookRows("AttributionOut")
+  end
   self:HookGuildBankFrame()
   local ev = NS.NewBusTarget()
   if not ev then return end
   self.__outEv = ev
-  local function reg(event, fn) NS.SafeRegisterEvent(ev, event, fn, NS.RejectedEvents) end
-  reg("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", function(_, t) self:OnInteraction(true, t) end)
-  reg("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", function(_, t) self:OnInteraction(false, t) end)
-  reg("MAIL_SEND_SUCCESS", function() self:OnMailSent() end)
-  reg("MAIL_FAILED", function() self:OnMailFailed() end)
-  reg("TRADE_ACCEPT_UPDATE", function(_, p, t) self:OnTradeAccept(p, t) end)
-  reg("ADDON_LOADED", function(_, name) if name == "Blizzard_GuildBankUI" then self:HookGuildBankFrame() end end)
+  NS.RegisterRows("AttributionOut", ev, "out")
 end
 
 -- Stand-down: the target goes wholesale and every outbound state goes with it, so nothing stamped
 -- while the addon was up attributes a change after it comes back.
 function Attribution:DisableOut()
+  NS.UnregisterRows("AttributionOut")
   if self.__outEv then
     self.__outEv:UnregisterAllEvents()
     self.__outEv:UnregisterAllMessages()

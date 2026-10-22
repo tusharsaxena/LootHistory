@@ -22,7 +22,7 @@ free number in its theme.
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
-| CAP-1 to 33 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
+| CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
 | HIST-1 to 37 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
@@ -585,6 +585,13 @@ open a lockbox, take an item from mail and buy from a vendor → the rows record
 as before: **Kill** with the npc id in the detail, **Container**, **Mail** and **Vendor**; the Zone and
 Subzone columns still fill. The loot-window, zone, map, class and hook reads now go through
 `core/Compat.lua` members so the simulator can answer them. Result:
+
+**CAP-34. One dispatch table (regression, LootHistory#37).** Play one ordinary session: loot a mob,
+sell to and buy from a merchant, take mail, post an auction, deposit to the bank → History records
+the same rows, with the same sources and reasons, as before the dispatch refactor. Then `/lh disable`
+and `/lh enable` → capture resumes (loot a mob: a row appears). Untick **Track holdings and losses** (General → Capture) →
+only loot rows appear (no ledger rows for a vendor sale or a bank deposit); tick it again. Every
+capture event and read-side hook now comes from `core/Dispatch.lua`'s row tables. Result:
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -1758,3 +1765,4 @@ a pass.
 - STATE-13 to STATE-16 (added 2026-10-22 with the test-mode strip, LootHistory#36).
 - LAUNCH-11 to LAUNCH-14 (added 2026-10-22 with the Show window key binding, launcher-§6).
 - CAP-33 (added 2026-10-22 with the Compat-routed capture reads, LootHistory#37).
+- CAP-34 (added 2026-10-22 with the one dispatch table, LootHistory#37; the item's SM-LH-19).

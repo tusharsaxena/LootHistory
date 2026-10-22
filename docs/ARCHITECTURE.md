@@ -40,8 +40,8 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 The authored files load in the fixed order `LootHistory.toc` sets: vendored `libs/` →
 `locales/` → `core/` (Compat first) → `defaults/` → `modules/` → `settings/` (last). The
 `core/*Setup.lua` files and three in `settings/` (`OptionsSetup.lua`, `Schema.lua`, `Slash.lua`) are
-the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, the
-holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
+the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, every
+capture registration and read-side hook in `core/Dispatch.lua`'s two row tables, the holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
 its tabs, and every setting in one `settings/Schema.lua` row. A handful of TOC positions are
 load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
 `grep -c LOAD-BEARING LootHistory.toc`); every other position is conventional, and the TOC says so.
@@ -169,11 +169,29 @@ is the conformance suite. The full account is in [disabled-state.md](disabled-st
 
 ## Event subscriptions
 
+**One event table and one hook table** (`core/Dispatch.lua`, LootHistory#37). Every capture event
+below that is not the lifecycle's own `PLAYER_ENTERING_WORLD` or the window's `PLAYER_REGEN_*` pair
+is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `hooksecurefunc`
+row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The four capture modules append
+their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (nine
+`bus` rows, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
+hooks), Collector (three `bus` rows), Reconciler (fourteen `ledger` rows). Each module's Enable and
+Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
+hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
+per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
+`NS.Deliver(row, event, ...)` (hooks: `NS.DeliverHook`), whose one hook point, `NS.RealEventFilter`,
+is nil until the simulator sets it. `NS.DeliverAll(event, ...)` walks the registered rows (or
+`hook:<name>` the installed hook rows) in order under `pcall`, which is how a simulated event reaches
+exactly the handlers the client would call. `TRADE_ACCEPT_UPDATE` and the two
+`PLAYER_INTERACTION_MANAGER_FRAME_*` events have two rows each, on two targets, and `BuyMerchantItem`
+two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua` pins the
+(target, event) set against a pre-refactor snapshot.
+
 **Every row below is torn out, not gated, while the addon is disabled** — see
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
-The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.SafeRegisterEvent` on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
+The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
 | Event / hook | Handler | Module |
 |---|---|---|
@@ -226,7 +244,8 @@ group and combat reads, the class token, and every read-side hook (`HookSecure`/
 because `LibKa0s-Sim-1.0`'s answer seam wraps Compat members and nothing else
 ([compat-layer.md](compat-layer.md#the-simulator-relevant-reads); `tests/test_compat_routing.lua` pins it).
 
-**Every event row above registers through one per-event helper** (events-frames-taint-§1):
+**Every event row above registers through one per-event helper** (events-frames-taint-§1; for the
+capture rows, inside `NS.RegisterRows`):
 `NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent` / `NS.SafeRegisterEvents`, `LibKa0s-Core-1.0`'s
 (Core minor 8) published by `core/CoreSetup.lua`, so a name the client refuses costs only itself. The
 refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints and the

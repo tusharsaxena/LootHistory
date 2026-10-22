@@ -98,6 +98,9 @@ local SUITES = {
   -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
   -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
   "test_debug_coverage",
+  -- core/Dispatch.lua's row tables (LootHistory#37). After test_debug_coverage, which leaves the
+  -- addon brought up: its cases read the live registration set and leave the addon up again.
+  "test_dispatch",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

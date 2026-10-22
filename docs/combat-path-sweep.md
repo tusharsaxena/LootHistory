@@ -39,29 +39,34 @@ grep -rn "C_Timer\|NewTicker" core modules settings defaults locales
 **`OnUpdate` handlers: none. Repeating tickers: none.** The second grep returns zero lines, and
 `NewTicker` appears nowhere in the third's output.
 
-**Game events: fifteen registrations, fifteen rows.** The first grep returns **thirty-six** lines;
-twenty-one of them are not this table's registrations: the twelve lines of Core's per-event helper bodies in
-`core/CoreSetup.lua` (the degraded stub at `:205-214`, the live wrappers at `:296-310`; see
-[ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions)),
-`core/LifecycleSetup.lua:147`, the guard above the call, `modules/Attribution.lua:427-428`, the local
-helper the nine bus events go through, `modules/Attribution.lua:443-444`, the pattern names inside
-a comment, and four lines the [timeline-ledger table](#timeline-ledger-registrations-phases-1-and-2) below covers (`modules/AttributionOut.lua:171`, `modules/Collector.lua:348`, `modules/Reconciler.lua:716` and `settings/Slash.lua:184`). The rows are in the order the grep prints them, so the two can be held side by side.
+**Game events: fifteen registrations, fifteen rows.** The first grep returns **twenty-three** lines,
+and since the dispatch table (`core/Dispatch.lua`, LootHistory#37) most capture registrations are
+no longer a grep hit of their own: every capture event is a row of `NS.EVENT_ROWS`, declared at file
+load in its module, and registered by `NS.RegisterRows` at `core/Dispatch.lua:88` (the unit row)
+and `:92` (every other row). The table therefore cites each row's declaration. Of the twenty-three
+lines, those two calls and two comment lines are `core/Dispatch.lua`'s; twelve are Core's per-event
+helper bodies in `core/CoreSetup.lua` (the degraded stub at `:205-214`, the live wrappers at
+`:296-310`; see [ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions));
+`core/LifecycleSetup.lua:147` is the guard above the call at `:148`; `modules/Attribution.lua:429-430`
+are the pattern names inside a comment; and the last three (`modules/Browser.lua:1236` / `:1242` and
+`settings/Slash.lua:184`) are registrations this table and the
+[timeline-ledger table](#timeline-ledger-registrations-phases-1-and-2) below cover.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
 | `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:148` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the four one-shot timers below. |
-| `CHAT_MSG_LOOT` | `modules/Collector.lua:344` | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:172`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:175` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:178`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:179`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
-| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:346` | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, the listed-id check (`Compat.ListedCurrencyID`: one `GetCurrencyListSize` read, plus at most one list walk for an id seen for the first time since the list last changed), blacklist check, three `Compat.Currency*` lookups, one record insert. |
-| `LOOT_OPENED` | `modules/Attribution.lua:432` | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
-| `ENCOUNTER_START` | `modules/Attribution.lua:433` | Two field writes, once per encounter. |
-| `ENCOUNTER_END` | `modules/Attribution.lua:434` | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua:435` | Two field writes, once per key. |
-| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:436` | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
-| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:437` | Out of combat by construction. |
-| `QUEST_TURNED_IN` | `modules/Attribution.lua:438` | One context stamp. |
-| `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:439` | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
-| `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:440` | One field write, once per reset key. |
-| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:451` | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
+| `CHAT_MSG_LOOT` | `modules/Collector.lua:340` (row) | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:172`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:175` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:178`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:179`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
+| `CHAT_MSG_CURRENCY` | `modules/Collector.lua:341` (row) | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, the listed-id check (`Compat.ListedCurrencyID`: one `GetCurrencyListSize` read, plus at most one list walk for an id seen for the first time since the list last changed), blacklist check, three `Compat.Currency*` lookups, one record insert. |
+| `LOOT_OPENED` | `modules/Attribution.lua:420` (row) | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
+| `ENCOUNTER_START` | `modules/Attribution.lua:421` (row) | Two field writes, once per encounter. |
+| `ENCOUNTER_END` | `modules/Attribution.lua:422` (row) | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua:423` (row) | Two field writes, once per key. |
+| `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua:424` (row) | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
+| `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua:425` (row) | Out of combat by construction. |
+| `QUEST_TURNED_IN` | `modules/Attribution.lua:426` (row) | One context stamp. |
+| `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:427` (row) | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
+| `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:428` (row) | One field write, once per reset key. |
+| `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:431` (row) | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
 | `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1236` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1113`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
 | `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1242` | The other edge of the same handler, same cost. |
 
@@ -113,23 +118,24 @@ The bus is therefore **in** the sweep's scope from now on, and the entry above i
 
 ## Timeline-ledger registrations (phases 1 and 2)
 
-Added by the timeline ledger, after the sweep above was taken. All register one by one through
-`NS.SafeRegisterEvent` on private bus targets, and all go down with the latch.
+Added by the timeline ledger, after the sweep above was taken. All but the last register one by one
+through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) from their `NS.EVENT_ROWS` rows, on the
+shared bus or a private bus target, and all go down with the latch.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
-| `CHAT_MSG_MONEY` | `modules/Collector.lua` (`Collector:Enable`) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
-| `BAG_UPDATE` | `modules/Reconciler.lua` (`R:Enable`, the `EVENTS` list) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
+| `CHAT_MSG_MONEY` | `modules/Collector.lua:342` (row) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
+| `BAG_UPDATE` | `modules/Reconciler.lua:698` (the fourteen `ledger` rows) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
 | `BAG_UPDATE_DELAYED` | same | Arms the 0.35 s debounce (one `NS.After`, swallowed while one is pending). |
 | `PLAYER_EQUIPMENT_CHANGED`, `PLAYER_MONEY`, `ACCOUNT_MONEY`, `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | same | One dirty bit and the debounce. |
 | `CURRENCY_DISPLAY_UPDATE` | same | One accumulator add per currency id (the signed change and its gain/loss source), one dirty bit, the debounce. |
 | `CURRENCY_TRANSFER_LOG_UPDATE` | same | One flag, one dirty bit, the debounce. |
 | `MAIL_INBOX_UPDATE`, `OWNED_AUCTIONS_UPDATED` | same | Only while the mailbox / auction house is open: one dirty bit and the debounce. |
-| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | same, and `modules/AttributionOut.lua` (`EnableOut`) | Not a combat path (an NPC frame). Reconciler: readability flags, and on hide one final flush. AttributionOut: one scope stamp. |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | same, and `modules/AttributionOut.lua:172-173` (rows) | Not a combat path (an NPC frame). Reconciler: readability flags, and on hide one final flush. AttributionOut: one scope stamp. |
 | `PLAYER_REGEN_ENABLED` | `modules/Reconciler.lua` | **Where the deferred work runs.** `R:Flush` returns at once in combat and sets `deferred`; this edge runs the one reconcile (or the deferred login scan). Outside the `ledgerEvent` bucket: `R:OnEvent` dispatches it before the bracket opens (`tests/test_perf.lua`). |
-| `MAIL_SEND_SUCCESS`, `MAIL_FAILED` | `modules/AttributionOut.lua` | Out of combat by construction. A stamp, or one field clear. |
-| `TRADE_ACCEPT_UPDATE` | `modules/AttributionOut.lua` | Out of combat by construction. One stamp on a completed trade. |
-| `ADDON_LOADED` | `modules/AttributionOut.lua` | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
+| `MAIL_SEND_SUCCESS`, `MAIL_FAILED` | `modules/AttributionOut.lua:174-175` (rows) | Out of combat by construction. A stamp, or one field clear. |
+| `TRADE_ACCEPT_UPDATE` | `modules/AttributionOut.lua:176` (row) | Out of combat by construction. One stamp on a completed trade. |
+| `ADDON_LOADED` | `modules/AttributionOut.lua:177` (row) | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
 | `PLAYER_REGEN_ENABLED` | `settings/Slash.lua:184` (`NS.OfferLedgerReset`) | Only when the reset offer comes due in combat: a one-shot on a private target that drops itself and re-offers once out of combat. |
 
 The reconcile itself (`Reconciler:Flush`: scan, plan, hold or commit) never runs in combat, so it is

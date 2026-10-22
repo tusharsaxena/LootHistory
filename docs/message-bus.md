@@ -72,10 +72,12 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
-- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:357`).
+- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:359`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1217`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:275`).
 - Reconciler — **two** targets: `self._settings` hears `SettingsChanged("ledger" | "profile")` for as long as the addon is up, so ticking `trackLedger` back on can re-register; `self.__ev` carries the capture events and exists only while the setting is on (`modules/Reconciler.lua`).
+
+The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
 - HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:154`) and the Filters tab's id-lists (`settings/Panel.lua:500`), each on its own target.
 
