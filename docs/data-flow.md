@@ -300,6 +300,61 @@ Every write the capture paths make, and every read they make back, resolves thro
 
 The Reconciler's 60 s [coalescing](#coalescing) check reads the row it would amend back through `Database:History()`, so during a simulation it finds the row in the session store it was written to. Write hooks need no change: `Rollup:OnWrite` writes `Rollup:Store()`. The live-only paths name the saved store explicitly, so a simulation can neither prune nor repair it, and the saved `history`, `holdings` and `daily` stores come out of a session byte-identical.
 
+## Simulator
+
+`/lh sim` (LootHistory#37, `LibKa0s-Sim-1.0`) drives everything above from an invented world. The rule
+is **edges invented, engine real**.
+
+**The edges.** `modules/SimWorld.lua` builds one session's world from the scenario's fixture (bags,
+bank, warband tabs, worn gear, purses, currencies, inbox, staged mail, owned auctions, the loot
+window, the situation, simulated combat, the trade partner, the quest) and answers the world reads
+through providers on `NS.SimSeam`, the answer seam `core/SimSeam.lua` wraps around `NS.Compat`. The
+item, spell and currency reads and the class token still answer live, because the simulated player
+is the real player. `modules/SimDrivers.lua` changes the world first and then fires what the client
+would: the chat lines written from the parser's own globals, `LOOT_OPENED` over a Creature,
+GameObject or Item GUID, the encounter and key events, the interaction frames, the bag, money and
+currency bursts, and each hooked call as `hook:<name>`. `NS.Sim:Fire` hands each to `NS.DeliverAll`
+(`core/Dispatch.lua`), which walks the registered `NS.EVENT_ROWS` (or the installed `NS.HOOK_ROWS`)
+in the order the client would call them. No simulator file calls a hooked client function, and none
+calls `Database:Add`, `Holdings:Apply*`, `Attribution:Stamp` or `R:Write`.
+
+**The engine.** From the handler on, nothing knows it is simulated: the single-slot context, the
+collector's gates, the claims, the scan, plan, hold and commit, escrow and the reason picker run as
+they do live. `modules/SimScenario.lua`'s ledger gate holds the next step while `R._pending`,
+`R._holdSince` or a deferred flush is set, so every step lands on a settled ledger.
+
+**The three session stores.** At start, `modules/Sim.lua` puts fresh `history`, `holdings` and `daily`
+tables into `NS.SimStores`, so every [capture-path accessor](#capture-path-stores) writes and reads
+the session. The one read the Reconciler made straight from the saved history, the coalescing check
+(`modules/Reconciler.lua:490`), goes through `Database:History()` and follows the session too. A
+simulated own alt, `Simalt-<realm>`, is seeded into the session holdings so the alt mail and alt trade
+paths see it. The start then runs `R:LoginScan()` with the seam on: the session holdings are empty, so
+that pass is a silent genesis and writes no rows.
+
+**Real input while it runs.** Every live handler goes through `NS.Deliver` / `NS.DeliverHook`, and
+the start sets their one hook point, `NS.RealEventFilter`, to `NS.SimHost.OnRealEvent`, which sorts
+what the real client delivers:
+
+| Class | Events | What happens |
+|---|---|---|
+| Interference | The player's own `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` or `CHAT_MSG_MONEY` line (by the self parse; another player's line is absorbed), `LOOT_OPENED`, `ENCOUNTER_START`, `CHALLENGE_MODE_START`, `QUEST_TURNED_IN`, `TRADE_ACCEPT_UPDATE`, `MAIL_SEND_SUCCESS`, `PLAYER_INTERACTION_MANAGER_FRAME_SHOW`, any real hook call | The simulation stops with reason `world`, then the event runs live into the saved stores, so no real loot is lost |
+| Setup | `ADDON_LOADED` (the guild bank frame's hook install) | Delivered live; no stop |
+| Absorbed | Everything else: bags, money, currency, equipment, bank, auctions, spell casts | Dropped; the stop's drift scan sees what they changed |
+| World watch | `GROUP_ROSTER_UPDATE`, `PLAYER_ENTERING_WORLD`, `ZONE_CHANGED_NEW_AREA`, `PLAYER_REGEN_DISABLED`, on a private target registered only while a session runs | Stops with `group` in a real group, `instance` in a real instance, `combat` on combat (the reads go through `NS.SimSeam:Live`, so they answer the real client) |
+
+The stand-down stops a simulation first (`standDown`), and a profile switch, copy or reset stops it
+(`profile`). `/reload` and logout end it, because nothing of it is saved.
+
+**The stop, and the drift scan after it.** The stop cancels the Reconciler's flush and recheck fuses
+by handle, resets the Reconciler and the attribution contexts (a simulated stamp or claim must never
+attribute the next real loot), puts `nil` back into `NS.SimStores` so every accessor answers the
+saved store again, drops the real-event filter and the world watch, and announces the swap to the
+window and the bus. Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
+second out: whatever really changed in the bags, purse or currencies while the simulation absorbed
+those events is written as [`UNTRACKED`](#login-and-resume-untracked) drift, the same answer the
+addon gives after a disable and enable. A stand-down needs no scan of its own, because the
+Reconciler's stand-up rescan covers it.
+
 ## Known limitation
 
 The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.

@@ -186,6 +186,7 @@ cut out of a longer trace by tag alone.
 | browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; each tab's saved view keys (`saved views none` when no tab has one) |
 | launcher | Whether the launcher is present and whether the minimap button is hidden |
 | pools | The History row pool's free and active counts, and how many Insights chart pools exist |
+| sim | The simulator (LootHistory#37): whether a session is active, its scenario, step `k/n`, events and hooks fired; the session store's row and holder counts (`-` while none runs) and the last stop (reason, events, hooks, rows, or `none`); how many keys the answer seam wraps and the guarded keys. Read only: the report never starts or stops a simulation |
 | (end) | `==== Ka0s Loot History diagnostics end: N line(s) ====`, with `N` counting both markers |
 
 A section that raises costs one line, `section <name> failed: <err>`, and the rest of the report

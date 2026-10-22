@@ -42,7 +42,10 @@ The authored files load in the fixed order `LootHistory.toc` sets: vendored `lib
 `core/*Setup.lua` files and three in `settings/` (`OptionsSetup.lua`, `Schema.lua`, `Slash.lua`) are
 the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, every
 capture registration and read-side hook in `core/Dispatch.lua`'s two row tables, the holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
-its tabs, and every setting in one `settings/Schema.lua` row. A handful of TOC positions are
+its tabs, and every setting in one `settings/Schema.lua` row. The in-game simulator is
+`core/SimSeam.lua` (the answer seam, straight after Compat), `modules/SimWorld.lua`, `SimDrivers.lua`,
+`SimScenario.lua`, `Sim.lua` (the session host) and `SimPanel.lua`, on `LibKa0s-Sim-1.0`
+([§ The simulator](#the-simulator)). A handful of TOC positions are
 load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
 `grep -c LOAD-BEARING LootHistory.toc`); every other position is conventional, and the TOC says so.
 
@@ -111,7 +114,7 @@ CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing 
 | `Ka0s_LootHistory_RecordAdded` (`RECORD_ADDED`) | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (never counted: the rollup tallies from `Database:OnWrite`). Browser, Analytics and Timeline run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
 | `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — eight `onChange` handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`), and `S:AdoptProfile` with the seventh, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
-| `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, and `Reconciler:ForgetHolder` | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown) |
+| `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, `Reconciler:ForgetHolder`, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown) |
 
 A blacklist/whitelist edit re-caches the Collector by a direct call and broadcasts through
 `Database:FireHistoryChanged()`; `windowScale`, `rowHeight`, `retentionDays` and `minimap.shown` are
@@ -127,7 +130,7 @@ Settings panel on its landing page** by running the `config` verb (slash-command
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 **The slash surface is unchanged while the addon is disabled** (slash-commands-§2/§7): only the
-feature verbs `show` / `hide` / `toggle` / `test` / `purge` / `holdings` refuse, with the collection's one refusal
+feature verbs `show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
 line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-state.md).
 
 | Verb | Action |
@@ -148,7 +151,8 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. The run turns session logging on first when it is off (standard v2.71.0), and the console's **Diagnostics** link runs the same call. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the five in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
 | `test` | Toggle a synthetic preview dataset for the table, Insights, Holdings and the Timeline (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
-| `purge` | Delete ALL loot history (confirm dialog) |
+| `sim` | The in-game simulator, `LibKa0s-Sim-1.0`'s verb grammar (`NS.Sim:RunVerb`): bare prints status and usage and opens the panel; `start <scenario>`, `run` / `step` / `pause` / `resume` / `restart`, `stop`, `status`, `panel`, and the host verb `loot [n]`. A feature verb: refused while the addon is disabled. No launcher entry and no key binding. See [§ The simulator](#the-simulator) |
+| `purge` | Delete ALL loot history (confirm dialog). Refused while a simulation runs |
 | `help` | Print the generated command index |
 
 ### The Show window key binding
@@ -257,6 +261,48 @@ capture rows, inside `NS.RegisterRows`):
 refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints and the
 diagnostics report carries;
 [midnight-quirks.md](midnight-quirks.md#unknown-event-names--one-refusal-costs-one-edge) records the trade.
+
+---
+
+## The simulator
+
+`/lh sim` (LootHistory#37, on `LibKa0s-Sim-1.0`, LibKa0s#53 and #54) runs the **real capture
+engine** against an invented world, solo and outside an instance. The edges are invented: the
+seam's providers answer the world reads, and the drivers fire the client's events and play its
+hooked calls as `hook:<name>`. Everything between the edges is the live code, so a simulated row's
+source or reason is the one `Attribution`, the `Collector`, the `Reconciler` and `Ledger.PickReason`
+decided. The simulator never writes a row, a source or a reason itself. Six scenarios ship (`loot`,
+`key`, `vendor`, `ah`, `bank`, `social`); the four that record through the ledger refuse while
+`settings.trackLedger` is off. Nothing a simulation records is saved: the capture paths write
+session stores, and the History, Insights, Holdings and Timeline tabs read them while it runs. The
+library owns the seam, the session, the step machine, the verb grammar and the step panel; this
+addon owns the world, the drivers, the scenarios, the store swap, the refusals and the marker, and
+keeps its own fields on `NS.SimHost` and `NS.SimStores`, never on the library instance. The data
+path is in [data-flow.md](data-flow.md#simulator); the design is
+`docs/superpowers/specs/2026-10-22-in-game-simulator-design.md`.
+
+The library's host contract, and where this addon meets each point:
+
+| Point | What it asks | Where it is met |
+|---|---|---|
+| H1 | Every client read the simulator answers is an `NS.Compat` member, read at call time | `core/Compat.lua` (`NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`, `InInstance`, `InGroup`, `PlayerInCombat`; read-side hooks through `HookSecure` / `HookSecureMember`); `tests/test_compat_routing.lua` |
+| H2 | The seam is built straight after the Compat file, and nothing escapes its wrap | `core/SimSeam.lua`, the LOAD-BEARING TOC line after `core\Compat.lua`; `tests/test_sim_seam.lua` asserts `NS.SimSeam:Unwrapped()` is empty |
+| H3 | One `deliver` that reaches the client's handlers, in the client's order, for any event name | `NS.DeliverAll` over `NS.EVENT_ROWS` / `NS.HOOK_ROWS` (`core/Dispatch.lua`, [§ Event subscriptions](#event-subscriptions)) |
+| H4 | Session-only storage for every capture-path write, proven byte-identical | `NS.SimStores` and one accessor per store ([§ Data model](#data-model)); `tests/test_sim_store.lua` |
+| H5 | The refusal covers stood-down, test mode and the world; test mode refuses while a simulation runs | `NS.SimHost.Refusal` (`modules/Sim.lua`) and `testModeRefusal` (`modules/BrowserTable.lua`) |
+| H6 | The stand-down stops it first; host reasons stop it | `call("SimStop")` first in `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua`); `NS.OnProfileEvent` (`profile`); the world watch (`group`, `instance`, `combat`); real interference (`world`) |
+| H7 | One feature-verb row, `sim`, refused while disabled, no launcher entry | `settings/Schema.lua`'s `NS.COMMANDS` row, not in `LIVE_WHILE_DISABLED`; no launcher entry and no key binding |
+| H8 | A preview-mode marker, a diagnostics section and a debug tag | The `SIMULATION` badge, strip and footer (`modules/Browser.lua`, [browser.md](browser.md)); the `sim` diagnostics section (`modules/Diagnostics.lua`); the `Sim` tag ([debug.md](debug.md)) |
+| H9 | An inert stub without the library, with surface parity | `NS.SimHost.NewSeamStub` / `NewSimStub` (`core/SimSeam.lua`); `tests/test_surface_parity.lua` |
+| H10 | The panel's position | Session-only by the owner's ruling (OWNER_SCOPE C.11): held in the library instance's memory, never a window-state key and never a schema row, so a simulation writes nothing to SavedVariables |
+
+**While a simulation runs**, a real event that interferes (the player's own loot, currency or
+money line, a loot window, an encounter or key start, a quest turn-in, a trade, a sent mail, an
+interaction frame, any real hook call) stops it with reason `world` and is then recorded live into
+the saved stores, so no real loot is lost; other real events are absorbed, and the stop's drift scan
+picks up what they changed. Joining a group, entering an instance or combat stops it too. The
+destructive surfaces (purge, the ledger reset, Forget this character, a row's Delete and a retention
+change that would prune) refuse with one line until it stops.
 
 ---
 
@@ -456,6 +502,12 @@ its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added
 - **Play elsewhere is `UNTRACKED`.** Changes made while the addon was not watching (disabled, not installed, or on another PC) are written as `UNTRACKED` rows: bags, gear, gold and currency at the next login or resume, the bank and warband tabs on the first read of the next banker visit ([data-flow.md](data-flow.md#login-and-resume-untracked)). Two PCs each running the addon keep separate SavedVariables, so each sees the other's play this way: holdings totals stay correct, but the reasons (loot, vendor, deposit) are lost. Cross-PC sync is out of scope.
 - **Insights' Transfers card depends on the Direction filter.** Insights reads its own filter (per tab since P11), so under its default view (Gains + Losses) the Transfers card reads 0 until Transfers is ticked.
 - **The Timeline starts at the upgrade.** A holder's line begins at its genesis, the first full scan after the ledger shipped, and there is no back-casting before it (ledger D5). Counts are per item id, not per variant (item level, bonus ids). A holder that has not logged in since the upgrade has no class, so it draws gray. Several Line-region facts can only be proved in the client (`Frame:CreateLine`, fractional thickness, the cursor-to-plot mapping, daylight-saving day labels); they are the TL-13 list in [smoke-tests.md](smoke-tests.md#timeline).
+- **The simulator runs on the real clock.** `time()` and `GetTime()` are never seamed, so the
+  Reconciler's 0.35 s debounce, its 1.5 s claim wait and its 6 s settle hold take real seconds, and
+  `/lh sim run` waits on them through the ledger gate rather than skipping them.
+- **Simulated items must be cached for full names.** The simulator's item, bind and price reads
+  answer live from the client; an item the client has not cached yet records with the link's own
+  name and color until it is.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [schema.md](schema.md).

@@ -36,6 +36,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
+| SIM-1 to 7 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -84,6 +85,10 @@ free number in its theme.
   (`core/Ledger.lua`, `modules/Reconciler.lua`, `Escrow.lua`, `AttributionOut.lua`, `LedgerFormat.lua`,
   `AnalyticsLedger.lua`, `core/PerfSetup.lua`) add LED-P2 and COMBAT-1.
 - The Timeline (`modules/Rollup.lua`, `TimelineModel.lua`, `Timeline.lua`, the Browser's per-tab filters and Date options, `BrowserTable:ShowMenu`, `HoldingsTab.RowActions`, `Reconciler:ForgetHolder`, `core/WidgetsSetup.lua`'s `NS.MakeLineChart`): TL, LED-4, COMBAT-1 and HIST-12. A LibKa0s re-vendor that moves `WidgetsLineChart.lua` also needs TL-1, TL-3, TL-12 and TL-13.
+- The simulator (`core/SimSeam.lua`, `core/Dispatch.lua`, `modules/Sim.lua`, `SimWorld.lua`,
+  `SimDrivers.lua`, `SimScenario.lua`, `SimPanel.lua`, a `libs/LibKa0s/Sim*.lua` refresh): SIM, then
+  CAP-33 and CAP-34 (the live capture the simulator shares), STATE-13 to STATE-16 (the strip it
+  reuses) and DEGRADED-1.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -1629,6 +1634,60 @@ that character, or narrow Character from the filter bar by keyboard) → the too
 line the entry under the cursor names now, and goes away if the entry under the cursor is gone.
 Result: pass (owner-marked 2026-10-10)
 
+## Simulator
+
+`/lh sim` runs the real capture engine against an invented world (LootHistory#37). It records into
+session stores only, so every check here also asks that nothing real moved. Run it solo, outside any
+instance and group, with test mode off, at least half a minute after login, and with **Track holdings
+and losses** on (General → Capture) unless a step turns it off. Before SIM-1, note the History row
+count (`/run print(#LootHistoryDB.global.history)`) for SIM-5. A check fails on any Lua error.
+
+**SIM-1. Start and stop.** `/lh toggle`, then `/lh sim start loot` → the simulation panel opens
+docked beside the History window, titled *Ka0s Loot History - Simulation*; one chat line reads
+*Simulation started (loot): nothing is saved; your history and holdings are not touched.*; the
+History window's title badge reads `SIMULATION` in cyan, the strip under the filter bar reads
+*SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it.*, and
+the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the badge,
+strip and footer prefix go; the panel shows the scenario picker. (SM-LH-20) Result:
+
+**SIM-2. Refusals.** Each of these prints its own one line and starts nothing: `/lh sim start loot`
+in combat (a target dummy); inside an instance; in a group; with `/lh test` on; with the mailbox
+open; and within a few seconds of `/reload` (login not yet settled). Then untick **Track holdings
+and losses** and `/lh sim start ah` → *These steps record through the ledger, so turn on gains and
+losses first.*; tick it again. With the addon disabled (`/lh disable`), `/lh sim start loot` prints
+the one disabled line; `/lh enable` after. (SM-LH-21) Result:
+
+**SIM-3. Every scenario end to end.** For each of `loot`, `key`, `vendor`, `ah`, `bank` and `social`:
+`/lh sim start <name>`, press **Run all** on the panel and wait for the last row to finish → the rows
+the scenario names appear in History (sources and reasons, for example Kill, Container and Quest for
+`loot`; Mythic+ and Bonus Roll for `key`; Sell, Buy, Repair, Destroy and Disenchant for `vendor`;
+AH post fee, AH buy and AH sold for `ah`; warband deposit and withdraw for `bank`; alt mail, trades
+and the currency transfer for `social`), the Holdings tab shows the session's holders, and the
+Timeline charts them. `/lh sim stop` between scenarios. (SM-LH-22) Result:
+
+**SIM-4. A real loot stops it.** `/lh sim start loot`, then kill and loot a real mob before the run
+ends → the simulation stops with *Simulation stopped: something real happened (a loot, a trade, a
+mail or a window), and it is recorded as usual.*, and the real item appears in History as a normal
+row. (SM-LH-23) Result:
+
+**SIM-5. Saved data untouched.** After SIM-1 to SIM-4, `/reload` → `/run
+print(#LootHistoryDB.global.history)` prints the count noted before SIM-1, plus only the real rows
+SIM-4 recorded; History, Holdings and the Timeline show your real data and no simulated row
+(no Rookery Bat kill, no Simalt holder). (SM-LH-24) Result:
+
+**SIM-6. The panel.** `/lh sim start vendor` → the panel's rows follow the run as steps play;
+click a row three ahead → the steps in between run in order; during the merchant steps a step waits
+while the panel shows the ledger settling, then continues; hover a done row → its tooltip says what
+it injected and which rows it recorded. Drag the panel somewhere else, `/lh sim stop`, `/reload`,
+`/lh sim` → the panel opens at its default place beside the window (its position is never saved).
+(SM-LH-25) Result:
+
+**SIM-7. Destructive surfaces refuse.** With a simulation running: `/lh purge` → *Purge is not
+available while a simulation runs.* and no confirm; Holdings → right-click a character → **Forget
+this character**, confirm → *Forget this character is not available while a simulation runs.*,
+nothing forgotten; History → right-click a row → **Delete** →
+*Delete is not available while a simulation runs.*, the row stays. (SM-LH-26) Result:
+
 ## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
@@ -1766,3 +1825,5 @@ a pass.
 - LAUNCH-11 to LAUNCH-14 (added 2026-10-22 with the Show window key binding, launcher-§6).
 - CAP-33 (added 2026-10-22 with the Compat-routed capture reads, LootHistory#37).
 - CAP-34 (added 2026-10-22 with the one dispatch table, LootHistory#37; the item's SM-LH-19).
+- SIM-1 to SIM-7 (added 2026-10-23 with the in-game simulator, LootHistory#37; the items' SM-LH-20
+  to SM-LH-26).

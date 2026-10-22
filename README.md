@@ -58,6 +58,8 @@ Reading back your loot happens in the History window, in this order:
 - Switch to Insights. It breaks your loot down by source, value, quality and character, and gives currency a section of its own. Insights keeps its own filters, separate from History's, so narrowing one tab leaves the other's slice alone.
 - Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
 
+Want to see how a session would record without playing one? `/lh sim start loot` runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIMULATION while it runs. Nothing it records is saved, and `/lh sim stop` ends it. It only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
+
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
 Everything else is on the addon's page under Settings → AddOns, which `/lh` (or `/loothistory`) opens on its own, and `/lh help` lists every command.
@@ -96,6 +98,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Do my filters and sorting stick between sessions? | Only if you save them. Each tab has its own: the filter bar's **Save** button stores the current tab's group, sort and filters as that tab's default view in your profile. **Clear** returns to that view, and **Reset** forgets it and goes back to stock. |
 | How do I wipe everything and start clean? | `/lh purge` deletes all history, and asks you to confirm first. To reset your settings but keep the history, use `/lh resetall`, or **Reset all settings** on the Master controls tab. Both reset only the profile you're on. |
 | What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look before you have real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It's never saved, and it clears when you run the command again, untick the box, or enter combat. |
+| Does `/lh sim` change my history? | No. A simulation records into a scratch copy that's thrown away when it stops, so your history, holdings and Timeline are exactly as they were. While it runs, purging, deleting a row and forgetting a character are refused. |
 | Does history survive reloads and relogs? | Yes. It's saved, and restored every time you log in. |
 
 ## Troubleshooting

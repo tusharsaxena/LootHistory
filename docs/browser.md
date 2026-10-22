@@ -316,6 +316,18 @@ The same switch fills the **Holdings** and **Timeline** tabs (timeline-ledger P6
 
 Test mode is session-only: it resets on `/reload` and is never persisted (Standard debug-logging-§5, same rule as the debug flag). It stays on until something turns it off (the box, `/lh test`, combat, **Reset all settings** or `/lh resetall`) and does not depend on Lock frame; closing the window leaves it on.
 
+## Simulation marker (`/lh sim`)
+
+While the in-game simulator runs (LootHistory#37, [ARCHITECTURE.md § The simulator](ARCHITECTURE.md#the-simulator)), the window reads the session stores, and it wears the preview-mode marker in the simulation's own color so a simulated row is never mistaken for a real one. `B:UpdateTestStrip` draws both previews with the same two marks, picking the words and color by which one is on (`TEST_MARK` / `SIM_MARK`, `modules/Browser.lua`):
+
+- the title badge reads `SIMULATION` in cyan (`0.3, 0.8, 1`), in the slot test mode's red `TEST MODE` badge uses;
+- the test-mode strip under the filter bar reads `SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it.`, and the panes make the same room for it;
+- `B:UpdateFooter` leads the footer with `Simulating: <scenario> · step k/n`, ahead of `Showing X of Y`.
+
+The two previews exclude each other (a simulation refuses to start in test mode, and test mode refuses while a simulation runs), so the marks never show both at once. A Sim listener in `modules/SimPanel.lua` calls `B:UpdateTestStrip` and `B:UpdateFooter` on every simulation transition (start, ready, each step, run, pause, stop), so the marker comes with the start and goes with the stop. The start and the stop also call `B:OnDatasetChanged`, which rebuilds the dropdowns from the session data and back. Every marker string routes through `NS.L`. While a simulation runs, the row menu's **Delete** refuses with one chat line, `Delete is not available while a simulation runs.`
+
+The simulation's step panel is the library's, docked beside this window while it is shown (the panel descriptor's `anchorTo`); its position is session-only and never saved.
+
 ---
 
 See also: [module-map.md](module-map.md) · [schema.md](schema.md) · [settings-panel.md](settings-panel.md) · [message-bus.md](message-bus.md)

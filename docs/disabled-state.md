@@ -34,7 +34,7 @@ addon is on.
 
 **A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
 reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
-`show` / `hide` / `toggle` / `test` / `purge` / `holdings` answer one tagged line naming `/lh enable` and do
+`show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` answer one tagged line naming `/lh enable` and do
 nothing else. The gate is **one gate**, wrapped round each feature handler as `NS.COMMANDS` is built
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
@@ -75,7 +75,7 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
 | The Timeline tab's private bus target (`HOLDINGS_CHANGED` and `RECORD_ADDED`, one coalesced repaint) and any tooltip it owns | `Timeline:Disable`, from `NS.StandDown` |
 | The daily rollup's write hook (the `NS.Database:OnWrite` function; it holds no event and no bus target, so nothing in the event survey shows it, and the proof is behavioral: a row written while stood down tallies nothing) | `Rollup:Disable`, from `NS.StandDown`; `NS.StandUp` re-adds it. The login seed and prune are `NS.After` deferrals, so `NS.CancelDeferrals` drops them |
-| A running simulation (`/lh sim`: its session stores, its real-event split, its world-watch target and its timers) | `NS.SimStop`, the **first** `NS.StandDown` step (LibKa0s-Sim-1.0's H6): `NS.Sim:Stop("standDown")` runs while every module still holds its state, resets the Reconciler and the attribution contexts and releases the session stores, and schedules no drift scan |
+| A running simulation (`/lh sim`: its session stores, its real-event split, its world-watch target and its timers) | `NS.SimStop`, the **first** `NS.StandDown` step, `call("SimStop")` at the head of `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua:174`; LibKa0s-Sim-1.0's H6, pinned by `tests/test_disabled.lua`): `NS.Sim:Stop("standDown")` runs while every module still holds its state, resets the Reconciler and the attribution contexts and releases the session stores, and schedules no drift scan |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
 | `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
 | The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop); the clearing itself is `Attribution:ResetContexts` |
