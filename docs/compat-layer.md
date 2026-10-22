@@ -122,6 +122,13 @@ ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctio
 **Guarded**: `ListCurrencies`, the one member that changes client state (it opens and shuts the
 Currency tab's headers to walk the list), which answers only the simulated world's list while a
 simulation runs. **Wrapped**: everything else, answered live until the simulator sets a provider.
+`modules/SimWorld.lua` sets one, at file load, for exactly the world reads (`GetContainerNumSlots`,
+`GetContainerSlot`, `GetInventoryItem`, `GetMoney`, `GetWarbandMoney`, `ListCurrencies`, `ScanInbox`,
+`GetMailHeader`, `ReadSendMail`, `ScanOwnedAuctions`, `ItemLocationID`, `ContainerItemHasLoot`,
+`IsSpellTargeting`, `CurrentQuestID`, `GetActiveKeystoneLevel`, `InPartyInstance`, `InCombatLockdown`,
+`TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`); the
+item, spell and currency reads and `PlayerClassFile` keep answering live, because the simulated player
+is the real player, and `InInstance`, `InGroup` and `PlayerInCombat` are read only through `Live`.
 `tests/test_sim_seam.lua` pins the classification member by member, so a new member fails until it
 is sorted, and asserts `NS.SimSeam:Unwrapped()` is empty once the whole addon has loaded.
 

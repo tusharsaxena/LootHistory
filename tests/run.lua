@@ -109,6 +109,11 @@ local SUITES = {
   -- automatic stops, the real-event split and the destructive-surface guards. After test_sim_seam,
   -- with the addon brought up; every case stops its session and leaves the addon up again.
   "test_sim_session",
+  -- modules/SimWorld.lua, the simulator's seeded world and the seam's providers (LootHistory#37).
+  -- After test_sim_session, with the addon brought up; every case stops the session it starts.
+  "test_sim_world",
+  -- modules/SimDrivers.lua, the event and hook drivers (LootHistory#37). After test_sim_world.
+  "test_sim_drivers",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

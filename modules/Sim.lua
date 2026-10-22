@@ -220,10 +220,13 @@ local function datasetChanged()
   if NS.Browser and NS.Browser.OnDatasetChanged then NS.Browser:OnDatasetChanged() end
 end
 
---- Build the session: the host fields, the session stores, a clean engine, the real-event split,
---- the world watch and the session's genesis, then ready. The seam is already on.
-function Host.Prepare(_, _, _, ready)
-  Host.world, Host.counts = {}, { hooks = 0 }
+--- Build the session: the host fields (the world seeded from the def's fixture and the session's
+--- seed, modules/SimWorld.lua), the session stores, a clean engine, the real-event split, the
+--- world watch and the session's genesis, then ready. The seam is already on.
+function Host.Prepare(_, def, opts, ready)
+  local World = Host.World
+  Host.world = World and World.New(def and def.fixture, opts and opts.seed) or {}
+  Host.counts = { hooks = 0 }
   local S = NS.SimStores
   S.history, S.holdings, S.daily = {}, {}, {}
   Host.alt = seedAlt()

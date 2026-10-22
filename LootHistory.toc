@@ -151,6 +151,13 @@ modules\TimelineModel.lua
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
 modules\TestData.lua
+# LOAD-BEARING POSITION: the simulator's world. Registers its providers on NS.SimSeam at file load,
+# so core\SimSeam.lua must be above; publishes NS.SimHost.World, which modules\SimDrivers.lua binds
+# at load and modules\Sim.lua's prepare reads at call time.
+modules\SimWorld.lua
+# LOAD-BEARING POSITION: the simulator's event and hook drivers. Binds NS.SimHost.World at file
+# load, so modules\SimWorld.lua must be above; fires through NS.Sim at call time only.
+modules\SimDrivers.lua
 # LOAD-BEARING POSITION: the simulator's session host. Sim:New binds NS.SimSeam (core\SimSeam.lua)
 # at file load, and the file registers its stop steps on NS.Sim:OnStop there; it publishes NS.Sim,
 # NS.SimStop and NS.SimBlocks. Below every capture module and core\Dispatch.lua (NS.DeliverAll,

@@ -207,3 +207,53 @@ function()
   if not ok then error(err, 0) end
   assertTrue(#NS.Compat.ListCurrencies() > 0, "idle again, the member answers the client's list")
 end)
+
+-- ── the static rules over the simulator's own files (req-lh-sim §1, §2.4) ────────────────────
+
+-- Every shipped modules/Sim*.lua file, as code: comments and string literals blanked, so a hooked
+-- name in prose or in a "hook:<name>" event string is not read as a call. Naive about a `--` inside
+-- a string and about long strings, which only ever over-report.
+local function simCode()
+  local out = {}
+  for _, path in ipairs(T.Loader.tocFiles("LootHistory.toc")) do
+    if path:match("^modules/Sim[^/]*%.lua$") then
+      local text = T.Loader.readFile(path)
+      text = text:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+      text = text:gsub('"[^"\n]*"', '""'):gsub("'[^'\n]*'", "''")
+      out[#out + 1] = { path = path, code = text }
+    end
+  end
+  return out
+end
+
+test("SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua",
+function()
+  local files = simCode()
+  assertTrue(#files >= 3, "the scan sees the simulator's files (Sim, SimWorld, SimDrivers)")
+  local names, seen = { "hooksecurefunc", "HookScript" }, {}
+  for _, row in ipairs(NS.HOOK_ROWS) do
+    if not seen[row.name] then seen[row.name] = true; names[#names + 1] = row.name end
+  end
+  assertTrue(#names > 10, "the hook rows are loaded")
+  local bad = {}
+  for _, f in ipairs(files) do
+    for _, name in ipairs(names) do
+      if f.code:find("%f[%w_]" .. name .. "%s*%(") then bad[#bad + 1] = f.path .. ": " .. name end
+    end
+  end
+  assertEqual(table.concat(bad, "; "), "", "the simulator plays a hook, it never calls the hooked function")
+end)
+
+test("SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua", function()
+  local banned = {
+    "Database[:.]Add%f[^%w_]", "Holdings[:.]Apply", "Attribution[:.]Stamp", "%f[%w_]R[:.]Write%f[^%w_]",
+    "Reconciler[:.]Write%f[^%w_]",
+  }
+  local bad = {}
+  for _, f in ipairs(simCode()) do
+    for _, pat in ipairs(banned) do
+      if f.code:find(pat) then bad[#bad + 1] = f.path .. ": " .. pat end
+    end
+  end
+  assertEqual(table.concat(bad, "; "), "", "the simulator never writes a source, a reason or a row")
+end)

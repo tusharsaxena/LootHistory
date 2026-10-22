@@ -162,6 +162,9 @@ local function lootGlobals()
     LOOT_ITEM_CREATED_SELF_MULTIPLE, LOOT_ITEM_REFUND_MULTIPLE, LOOT_ITEM_SELF, LOOT_ITEM_PUSHED_SELF,
     LOOT_ITEM_BONUS_ROLL_SELF, LOOT_ITEM_CREATED_SELF, LOOT_ITEM_REFUND
 end
+-- Published for the simulator's line writer (modules/SimDrivers.lua), so a simulated line is
+-- formatted from exactly the globals this parser compiles.
+Util.LootGlobals = lootGlobals
 local LOOT_SHAPES = {
   { hasQty = true },                          -- LOOT_ITEM_SELF_MULTIPLE
   { hasQty = true },                          -- LOOT_ITEM_PUSHED_SELF_MULTIPLE
@@ -238,6 +241,7 @@ local function currencyGlobals()
   return CURRENCY_GAINED_MULTIPLE_OVERFLOW, CURRENCY_GAINED_MULTIPLE_BONUS, CURRENCY_GAINED_MULTIPLE,
     LOOT_ITEM_REFUND_MULTIPLE, CURRENCY_GAINED, LOOT_ITEM_REFUND
 end
+Util.CurrencyGlobals = currencyGlobals   -- the simulator's line writer, as Util.LootGlobals
 local CURRENCY_SHAPES = {
   { hasQty = true },                          -- CURRENCY_GAINED_MULTIPLE_OVERFLOW
   { hasQty = true },                          -- CURRENCY_GAINED_MULTIPLE_BONUS

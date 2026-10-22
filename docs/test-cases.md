@@ -1665,7 +1665,7 @@ Total.
 - Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
 
-### test_sim_seam.lua (9)
+### test_sim_seam.lua (11)
 
 - SimSeam: NS.SimSeam is the library's seam over NS.Compat, with the host table beside it
 - SimSeam: every non-PURE function member of NS.Compat is wrapped and Unwrapped() is empty after the whole addon loads
@@ -1676,8 +1676,10 @@ Total.
 - SimSeam: the session stub is inert and says the library is needed
 - SimSeam: degraded (no LibKa0s): NS.SimSeam is the inert stub and Compat is not wrapped
 - SimSeam: ListCurrencies never reaches C_CurrencyInfo.ExpandCurrencyList while a simulation runs
+- SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
+- SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
 
-### test_sim_session.lua (23)
+### test_sim_session.lua (26)
 
 - Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
 - Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
@@ -1697,11 +1699,36 @@ Total.
 - Sim: the stand-down stops it first
 - Sim: a profile event stops it
 - Sim: test mode and the simulation exclude each other
-- Sim: /lh purge, the settings button and the purge confirm refuse while a simulation runs
-- Sim: the ledger reset offer and its confirm refuse while a simulation runs
+- Sim: /lh purge refuses while a simulation runs and raises no confirm
+- Sim: the settings panel's Purge history button refuses while a simulation runs
+- Sim: the purge confirm raised before the session refuses on accept
+- Sim: the ledger reset offer refuses while a simulation runs and raises no popup
+- Sim: the ledger reset popup and its confirm refuse on accept while a simulation runs
 - Sim: Forget this character refuses while a simulation runs
 - Sim: the History row's Delete refuses while a simulation runs
 - Sim: a retention change that would prune refuses and keeps the confirmed value
+
+### test_sim_world.lua (9)
+
+- SimWorld: the fixture world is deterministic for a seed
+- SimWorld: a world never mirrors the player's real bags
+- SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads
+- SimWorld: the uncached fixture link falls back to the link's own name and color
+- SimWorld: the mutation helpers move stacks, money, mail and auctions
+- SimWorld: every provider answers from the world while active and live when idle
+- SimWorld: the item, spell and currency reads and the three world rules have no provider
+- SimWorld: SetProvider twice for one key raises
+- SimWorld: a start seeds the session world from the fixture and the session seed
+
+### test_sim_drivers.lua (7)
+
+- SimDrivers: a loot driver produces a line ParseSelfLoot accepts
+- SimDrivers: the currency and money lines parse
+- SimDrivers: each driver mutates the world before it fires
+- SimDrivers: a hook driver shows the client's pre-call world to the post-hook
+- SimDrivers: hook drivers reach the HOOK_ROWS fns through deliver
+- SimDrivers: LOOT_OPENED carries the provider GUID kind (Creature/GameObject/Item)
+- SimDrivers: with no session a driver changes nothing and fires nothing
 
 ### test_doc_structure.lua (8)
 
@@ -1878,8 +1905,10 @@ Total.
 | test_diagnostics.lua | 20 |
 | test_debug_coverage.lua | 21 |
 | test_dispatch.lua | 7 |
-| test_sim_seam.lua | 9 |
-| test_sim_session.lua | 23 |
+| test_sim_seam.lua | 11 |
+| test_sim_session.lua | 26 |
+| test_sim_world.lua | 9 |
+| test_sim_drivers.lua | 7 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1890,4 +1919,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1612** |
+| **Total** | **1633** |
