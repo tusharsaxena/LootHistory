@@ -145,7 +145,7 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
 licensed under the SIL Open Font License 1.1.
 
-The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by P.J. Onori
+The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
 Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
 info and drag-handle marks, the window close buttons, and the debug console's copy and clear
