@@ -262,6 +262,65 @@ test("Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day,
 end)
 
 
+-- ── Session-only store (req-lh-sim §4, LootHistory#37) ──────────────────────────────────────────
+-- Deterministic serialization (sorted keys), so "byte-identical" is a string comparison.
+local function dump(v)
+  if type(v) ~= "table" then return type(v) .. ":" .. tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. dump(v[k]) end
+  return "{" .. table.concat(out, ",") .. "}"
+end
+
+local function withSession(daily, holdings, fn)
+  NS.SimStores.daily, NS.SimStores.holdings = daily, holdings
+  local ok, err = pcall(fn)
+  NS.SimStores.daily, NS.SimStores.holdings = nil, nil
+  if not ok then error(err, 0) end
+end
+
+test("Rollup: with NS.SimStores.daily set, Store and OnWrite act on the session table", function()
+  reset()
+  NS.Holdings:ApplyMoney("A-R", 1, T0)
+  local live, liveHoldings = NS.db.global.daily, NS.db.global.holdings
+  local before, beforeHoldings = dump(live), dump(liveHoldings)
+  local session = {}
+  withSession(session, {}, function()
+    assertTrue(NS.Rollup:Store() == session, "Store answers the session table first")
+    assertTrue(NS.Rollup:ActiveStore() == session, "ActiveStore (unchanged) resolves through Store")
+    NS.Rollup:OnWrite({ ts = T0, dir = "IN", kind = "GOLD", holder = "A-R", quantity = 7 }, 7, true)
+    NS.Holdings:ApplyMoney("A-R", 99, T0)
+    local d = session[day(T0)]
+    assertEqual(d["A-R"].g.i, 7, "the write hook tallies into the session store")
+    assertEqual(d["A-R"].g.c, 99, "a session holdings close lands in the session store")
+  end)
+  assertTrue(NS.Rollup:Store() == live, "with the session cleared Store answers live again")
+  assertEqual(dump(NS.db.global.daily), before, "the saved daily store is byte-identical")
+  assertEqual(dump(NS.db.global.holdings), beforeHoldings, "the saved holdings are byte-identical")
+end)
+
+test("Rollup: SeedOnce and Prune stay on the live stores while a session is set", function()
+  reset()
+  local g = NS.db.global
+  local savedSeeded, savedDays = g.rollupSeeded, g.rollupRetentionDays
+  g.holdings = { ["A-R"] = { money = 5, items = {}, currency = {} } }
+  g.daily = { ["2000-01-01"] = { ["A-R"] = { g = { c = 1 } } } }
+  local session, sessionHoldings = {}, { ["S-R"] = { money = 8, items = {}, currency = {} } }
+  withSession(session, sessionHoldings, function()
+    g.rollupSeeded = nil
+    assertEqual(NS.Rollup:SeedOnce(T0), 1, "the seed reads the live holdings")
+    assertEqual(g.daily[day(T0)]["A-R"].g.c, 5, "and writes the live daily store")
+    g.rollupRetentionDays = 30
+    assertTrue(NS.Rollup:Prune(T0) >= 1, "Prune prunes the live daily store")
+    assertEqual(g.daily["2000-01-01"], nil)
+  end)
+  assertEqual(next(session), nil, "neither touched the session daily store")
+  g.rollupSeeded, g.rollupRetentionDays = savedSeeded, savedDays
+  NS.Rollup._keys = nil
+end)
+
 -- Not a behavior case: puts the stores, the key index and the write hook back the way this suite
 -- found them, so the suites after it see no rollup state of this file's making.
 test("Rollup: the suite restores the shared state it changed", function()

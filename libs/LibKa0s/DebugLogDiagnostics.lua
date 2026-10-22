@@ -46,7 +46,7 @@
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 if not lib then return end
 
-local DIAG_MINOR = 2
+local DIAG_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own, exactly as WidgetsDragHandle.lua pairs on
 -- Widgets': a report that attached to an older console would install methods that call private
 -- pieces the shell no longer hands over, and nothing would say the two came from different copies.
@@ -76,10 +76,12 @@ local FLOOR    = 3     -- the smallest cap that still fits the begin marker, tru
 
 -- The majors whose running minors the identity header prints. LibStub has no way to list the
 -- libraries it holds (its IterateLibraries is not on every copy), so the names are written down.
--- A major missing from this client is skipped, not reported as an error.
+-- A major missing from this client is skipped, not reported as an error. The list is in
+-- tests/majors.lua order, and tests/test_debuglog_diagnostics.lua fails naming the file when a major
+-- that file ships is missing here.
 local MAJORS = {
-  "Core", "Env", "Compat", "Lifecycle", "Bus", "Schema", "Pool", "Item", "Media", "Widgets",
-  "DebugLog", "Slash", "Launcher", "Options", "Perf",
+  "Core", "Env", "Compat", "Lifecycle", "Bus", "Schema", "Pool", "Item", "Glow", "Media", "Widgets",
+  "DebugLog", "Slash", "Launcher", "Options", "Perf", "Sim",
 }
 
 -- The chat line's English, for the one case where the shell's STRINGS table does not carry it.

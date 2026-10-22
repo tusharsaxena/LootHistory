@@ -10,8 +10,8 @@ Loot History has two debug surfaces, and both write into the same window:
   line means.
 
 The console itself is the library's, and its contract lives in LibKa0s's
-[`docs/api/DebugLog/version-19.2.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-19.2.1-docs.md)
-(DebugLog 19 with DebugLogDiagnostics 2 and DebugLogGates 1 is the vendored set, from LibKa0s v1.71.0). This page covers only what Loot History
+[`docs/api/DebugLog/version-20.3.1-docs.md`](https://github.com/tusharsaxena/LibKa0s/blob/master/docs/api/DebugLog/version-20.3.1-docs.md)
+(DebugLog 20 with DebugLogDiagnostics 3 and DebugLogGates 1 is the vendored set, from LibKa0s v1.75.0). This page covers only what Loot History
 adds on top.
 
 ## The console
@@ -98,6 +98,8 @@ at once.
 | `Launcher` | `LibKa0s-Launcher-1.0` (minor 5) | registration, and the broker or minimap library missing, once at register; these are state lines on the descriptor's `debugAtEnable`, held for `debug on` because register runs at login with logging off |
 | `Rollup` | `Rollup:SeedOnce` / `Rollup:Prune`, `modules/Rollup.lua`, from the login deferral | the one-time seed, `seeded <n> cells`, once per account; each login's rollup prune, `retention <n>d: removed <n> days`, or `prune skipped: retention is Always` |
 | `Holdings` | `modules/Reconciler.lua`, `Flush` | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing |
+| `Dispatch` | `NS.DeliverAll`, `core/Dispatch.lua` | `row raised: <error>`, once per row that raised under `pcall` during a simulated delivery (the rest of the rows still run); written only with logging on |
+| `Sim` | `core/SimSeam.lua` (the seam's `debug` sink); `modules/Sim.lua` (the session's `debug` sink and the host) | a traceback from `NS.SimSeam:Live` when the function it ran raised, before the error is re-raised; the library's session lines (each fired event, each step, the stop with its event count and reason); each refused start, `refused: <line>`; each real event that stopped a session, `real <event>: stopping, then recording it live`; each destructive surface refused while one runs, `refused while active: <what>`; each `/lh sim loot`, `loot verb: <n> lines`; and the host's stop line, `simulation stopped (<reason>): <n> events, <n> rows`. Written only with logging on |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
 
 ### Deliberately not logged
@@ -184,6 +186,7 @@ cut out of a longer trace by tag alone.
 | browser | Whether the History window is built, shown and locked; the table's sort, grouping, match count and test-record count; each tab's saved view keys (`saved views none` when no tab has one) |
 | launcher | Whether the launcher is present and whether the minimap button is hidden |
 | pools | The History row pool's free and active counts, and how many Insights chart pools exist |
+| sim | The simulator (LootHistory#37): whether a session is active, its scenario, step `k/n`, events and hooks fired; the session store's row and holder counts (`-` while none runs) and the last stop (reason, events, hooks, rows, or `none`); how many keys the answer seam wraps and the guarded keys. Read only: the report never starts or stops a simulation |
 | (end) | `==== Ka0s Loot History diagnostics end: N line(s) ====`, with `N` counting both markers |
 
 A section that raises costs one line, `section <name> failed: <err>`, and the rest of the report

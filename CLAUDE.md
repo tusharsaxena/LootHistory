@@ -53,12 +53,18 @@ Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game chec
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.71.0 (MIT) — the Ka0s-owned shared
-library behind the chat printer, the debug console, the slash-command interface, the settings
-panel and the filter-bar dropdowns, vendored whole-folder into `libs/LibKa0s/` with its test kit
-under `tests/_kit/`.
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.75.0 (MIT).
+LibKa0s icons: ban, chat, chevron-down, chevron-right, circle-check, clear, close, confirm, copy, graph, info, lock, segment, sort-down, sort-up, spreadsheet.
 
-That line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag
+That is the Ka0s-owned shared library behind the chat printer, the debug console, the
+slash-command interface, the settings panel and the filter-bar dropdowns, vendored whole-folder
+into `libs/LibKa0s/` with its test kit under `tests/_kit/`, apart from `media/icons/`, which holds
+only the icons the declaration line above names. That line is what the tag's `tools/prune-icons.lua`
+and the vendor gate read. A mark the library draws for this addon (`close`, `copy`, `clear`,
+`info`) or one this addon passes in that is missing from the line resolves to a path, draws blank,
+and leaves every suite green.
+
+The provenance line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag
 it names, and diffs both vendored payloads against what LibKa0s published at that tag — so a
 provenance line and a payload that disagree fail the run. **Bump the line and re-vendor the bytes in
 the same commit**; a maintainer's question about which build carries which library is answered here

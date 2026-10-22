@@ -111,6 +111,7 @@ local function renderHistory(ctx)
 
   -- "Purge history…" — ellipsis: opens a confirm dialog.
   local purgeBtn = makePairButton("Purge history\226\128\166", function()
+    if NS.SimBlocks("Purge") then return end
     if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
     elseif NS.Database and NS.Database.Purge then NS.Database:Purge() end
   end)
@@ -804,6 +805,14 @@ local function buildAuctionTable(ctx)
   hf:ClearAllPoints()
   hf:SetAllPoints(placeholder.frame)
   hf:Show()
+  -- The undo of the reparent above, on the placeholder's own release (options-ui-§19). Guarded on
+  -- the host still sitting on THIS placeholder: every render creates a fresh one, so an old one
+  -- released late must never pull the host off the new one.
+  placeholder:SetCallback("OnRelease", function(w)
+    if hf:GetParent() == w.frame then
+      hf:Hide(); hf:SetParent(ctx.panel); hf:ClearAllPoints()
+    end
+  end)
 
   if not ctx._priRows then
     local gutter = handleGutter()
@@ -994,9 +1003,10 @@ local function renderGeneral(ctx)
   -- controller's handles and boxes are pooled and are parented to frames ClearScroll is about to
   -- hand back to AceGUI (options-ui-§18).
   cancelReorder(ctx)
-  -- The pooled price host is this addon's own frame and is NOT released by ClearScroll, so it has
-  -- to be taken off the placeholder it was anchored to by hand — otherwise it stays visible over
-  -- whichever tab is drawn next, and its anchor rides a placeholder that has gone back to the pool.
+  -- The pooled price host is this addon's own frame and is NOT released by ClearScroll. The rule's
+  -- undo is the placeholder's own OnRelease in buildAuctionTable (options-ui-§19); this park is the
+  -- second line, kept as belt-and-braces so the host never stays visible over whichever tab is
+  -- drawn next or rides a placeholder that has gone back to the pool.
   if ctx._priHost then
     ctx._priHost:Hide()
     ctx._priHost:SetParent(ctx.panel)

@@ -31,7 +31,12 @@ local LIB_FILES = {
   "libs/LibKa0s/Schema.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
+  -- New in v1.75.0: LibKa0s-Glow-1.0, the stateless LibCustomGlow driver. This addon draws no
+  -- glow and wires nothing from it; the client loads every file of the XML, so the suite must too.
+  "libs/LibKa0s/Glow.lua",
   "libs/LibKa0s/Media.lua",
+  -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
+  "libs/LibKa0s/MediaIcons.lua",
   "libs/LibKa0s/Widgets.lua",
   -- New in v1.66.0: ReorderList PEELS out of Widgets.lua into its own file and its own minor
   -- (WidgetsReorder 1), with no member change; NS.MakeReorderList still calls W.ReorderList.
@@ -81,12 +86,21 @@ local LIB_FILES = {
   "libs/LibKa0s/OptionsCompose.lua",
   "libs/LibKa0s/OptionsScroll.lua",
   "libs/LibKa0s/OptionsNav.lua",
+  -- New in v1.73.0: O.Drawer (OptionsDrawer 1), an eleventh file of LibKa0s-Options-1.0. No page
+  -- here draws a drawer; settings/OptionsSetup.lua's stub carries it as a no-op for parity.
+  "libs/LibKa0s/OptionsDrawer.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
   "libs/LibKa0s/PerfSampler.lua",
   "libs/LibKa0s/PerfCommands.lua",
   "libs/LibKa0s/PerfPanel.lua",
+  -- New in v1.75.0: LibKa0s-Sim-1.0, the Compat answer seam and session (Sim 2), its step machine
+  -- and verbs (SimTimeline 2) and its panel (SimPanel 2), in XML order. Loading them builds no
+  -- frame, timer or event until a host calls NewSeam or New.
+  "libs/LibKa0s/Sim.lua",
+  "libs/LibKa0s/SimTimeline.lua",
+  "libs/LibKa0s/SimPanel.lua",
 }
 
 -- ── the shared cause clause ──────────────────────────────────────────────────────────────────
@@ -536,9 +550,20 @@ test("the Options descriptor passes addonName, the FOLDER name, to the library",
     "the Options descriptor must carry `addonName = addonName,`")
 end)
 
-test("the vendored info art the help mark points at is on disk", function()
+test("the vendored info art the help mark points at is declared and on disk", function()
   -- The one residual the library's guard cannot catch: a correct folder name with the art missing
   -- (a partial vendor, or a payload outside libs/LibKa0s). The path would build and draw nothing.
+  -- Since v1.75.0 the copy ships only the icons CLAUDE.md's `LibKa0s icons:` line declares, and
+  -- the prune removes an undeclared `info` without a word, so the declaration is asserted first:
+  -- the help mark is library-drawn (settings/Panel.lua's IdList passes no helpIcon).
+  local VendorSync = dofile("tests/_kit/vendor_sync.lua")
+  local decl = VendorSync.iconDeclaration(Loader.readFile("CLAUDE.md"))
+  assertTrue(type(decl) == "table" and decl.mode == "list",
+    "CLAUDE.md carries no `LibKa0s icons:` list under its provenance line")
+  local declared = false
+  for _, name in ipairs(decl.names or {}) do if name == "info" then declared = true end end
+  assertTrue(declared, "CLAUDE.md's `LibKa0s icons:` line does not declare `info`, so the prune "
+    .. "removes the help mark's art and the mark draws blank")
   local f = io.open("libs/LibKa0s/media/icons/info.tga", "rb")
   assertTrue(f ~= nil, "libs/LibKa0s/media/icons/info.tga is missing: the folder was not copied whole")
   if f then f:close() end
@@ -616,6 +641,51 @@ test("v1.71.0: the vendored minors and the kit revision match the release", func
   assertEqual(S.MODULES.Slash, 20)
   assertEqual(S.MODULES.SlashParse, 2)
   assertEqual(T.mocks.LibStub("LibKa0s-Env-1.0", true).MODULES.Env, 2)
-  assertEqual(T.mocks.LibStub("LibKa0s-Options-1.0", true).MODULES.OptionsIdList, 4)
-  assertEqual(T.KIT_VERSION, 38)
+  assertTrue(T.mocks.LibStub("LibKa0s-Options-1.0", true).MODULES.OptionsIdList >= 4) -- 5 since v1.75.0, pinned there
+  assertTrue(T.KIT_VERSION >= 38) -- 41 since v1.75.0, pinned there
+end)
+
+-- v1.75.0 (from v1.71.0, the three releases between never vendored here): Widgets 13 (W.SearchBox,
+-- W.TestStrip), Item 3 (Item.BonusIDsFromLink), the comment-only Core 11, DebugLog 20,
+-- OptionsIdList 5 and PerfPanel 7, DebugLogDiagnostics 3, OptionsTabs 9 (O.__releaseChrome gone),
+-- Options 29 with OptionsDrawer 1 (v1.73.0), Media 5 with MediaIcons 1 (v1.74.0), Perf 15
+-- (v1.72.0), the new majors Glow 1 and Sim 1 (SimTimeline 1, SimPanel 1), and kit revision 41.
+-- W.StepPanel was withdrawn before release, so no WidgetsStepPanel file ships.
+test("v1.75.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.75.0")
+    return lib.MODULES, lib
+  end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 11)
+  assertEqual(modules("LibKa0s-Item-1.0").Item, 3)
+  assertEqual(modules("LibKa0s-Glow-1.0").Glow, 1)
+  local media = modules("LibKa0s-Media-1.0")
+  assertEqual(media.Media, 5)
+  assertEqual(media.MediaIcons, 1)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 13)
+  assertTrue(widgets.WidgetsStepPanel == nil, "W.StepPanel was withdrawn before v1.75.0 shipped")
+  local debugLog = modules("LibKa0s-DebugLog-1.0")
+  assertEqual(debugLog.DebugLog, 20)
+  assertEqual(debugLog.DebugLogDiagnostics, 3)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.Options, 29)
+  assertEqual(options.OptionsIdList, 5)
+  assertEqual(options.OptionsTabs, 9)
+  assertEqual(options.OptionsDrawer, 1)
+  -- O.Drawer attaches to each instance lib:New builds, not to the module table LibStub answers.
+  assertTrue(type(NS.Options.Drawer) == "function", "O.Drawer missing: OptionsDrawer did not attach")
+  local perf = modules("LibKa0s-Perf-1.0")
+  assertEqual(perf.Perf, 15)
+  assertEqual(perf.PerfPanel, 7)
+  local sim, S = modules("LibKa0s-Sim-1.0")
+  -- Sim 2 / SimTimeline 2: the local v1.75.0 tag moved to carry LK-26 (Start reads scenarios live).
+  -- SimPanel 2: it moved again to carry LK-27 (the picker reads its scenario at use).
+  assertEqual(sim.Sim, 2)
+  assertEqual(sim.SimTimeline, 2)
+  assertEqual(sim.SimPanel, 2)
+  assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
+  assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
+  assertEqual(T.KIT_VERSION, 41)
 end)

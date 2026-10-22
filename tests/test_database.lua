@@ -1155,3 +1155,98 @@ test("Database: QueryList clause type gates (characterization)", function()
   assertEqual(ids({ from = 7, to = 9 }), "2,3", "the ts window is inclusive")
   assertEqual(ids({ dir = "OUT" }), "")
 end)
+
+-- ── Session-only capture stores (req-lh-sim §4, LootHistory#37) ─────────────────────────────────
+-- NS.SimStores is the host table the simulator (LH-10) swaps its session stores into; a nil field
+-- means live. Every capture-path accessor reads it first, and the saved store must come out of a
+-- session byte-identical. The live-only paths (retention, purge, storage, the bound repair) stay on
+-- NS.db.global.history whatever the session holds.
+
+-- Deterministic serialization (sorted keys), so "byte-identical" is a string comparison.
+local function dump(v)
+  if type(v) ~= "table" then return type(v) .. ":" .. tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do out[#out + 1] = tostring(k) .. "=" .. dump(v[k]) end
+  return "{" .. table.concat(out, ",") .. "}"
+end
+
+-- Run fn with a session history store in place; always restores NS.SimStores.history.
+local function withSessionHistory(session, fn)
+  NS.SimStores.history = session
+  local ok, err = pcall(fn)
+  NS.SimStores.history = nil
+  if not ok then error(err, 0) end
+end
+
+test("Database: NS.SimStores is a host table whose fields default to live (nil)", function()
+  assertTrue(type(NS.SimStores) == "table", "the host owns a SimStores table")
+  assertEqual(NS.SimStores.history, nil)
+  assertEqual(NS.SimStores.holdings, nil)
+  assertEqual(NS.SimStores.daily, nil)
+end)
+
+test("Database: with NS.SimStores set, Add/Amend/History/Count/Delete act on the session table", function()
+  seed()
+  local live = NS.db.global.history
+  local before = dump(live)
+  local session = {}
+  withSessionHistory(session, function()
+    assertTrue(NS.Database:History() == session, "History answers the session table")
+    assertEqual(NS.Database:Count(), 0)
+    local a = NS.Database:Add({ itemID = 501, quantity = 2, ts = 10 })
+    local b = NS.Database:Add({ itemID = 502, ts = 11 })
+    assertEqual(a, 1, "Add indexes into the session table")
+    assertEqual(b, 2)
+    assertEqual(NS.Database:Count(), 2)
+    NS.Database:Amend(1, 3)
+    assertEqual(session[1].quantity, 5, "Amend grows the session row")
+    assertEqual(NS.Database:Delete(function(r) return r.itemID == 502 end), 1)
+    assertEqual(NS.Database:Count(), 1, "Delete swaps the session store, not the live one")
+    assertEqual(NS.Database:History()[1].itemID, 501)
+    assertTrue(NS.SimStores.history ~= session, "Delete rebuilt the session store")
+  end)
+  assertTrue(NS.db.global.history == live, "the live store was never swapped")
+  assertEqual(dump(NS.db.global.history), before, "the saved history is byte-identical")
+  assertEqual(NS.Database:Count(), 4, "with the session cleared every accessor answers live again")
+end)
+
+test("Database: ActiveHistory is test records, then the session store, then live", function()
+  seed()
+  local session = { { itemID = 9 } }
+  withSessionHistory(session, function()
+    assertTrue(NS.Database:ActiveHistory() == session)
+    local saved = NS.State.testRecords
+    NS.State.testRecords = {}
+    assertTrue(NS.Database:ActiveHistory() == NS.State.testRecords, "test mode still wins")
+    NS.State.testRecords = saved
+  end)
+  assertTrue(NS.Database:ActiveHistory() == NS.db.global.history)
+end)
+
+test("Database: Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates still read the live store", function()
+  local g = NS.db.global
+  local now, day = os.time(), 86400
+  local savedDays = g.retentionDays
+  local session = { { ts = now - 100 * day, itemID = 77, bound = "WARBAND" } }
+  local sessionBefore = dump(session)
+  withSessionHistory(session, function()
+    g.history = { { ts = now - day, itemID = 1 }, { ts = now - 40 * day, itemID = 2 } }
+    assertEqual(NS.Database:StorageStats(now).count, 2, "StorageStats counts the live store")
+    assertEqual(NS.Database:CountOlderThan(30), 1, "CountOlderThan counts the live store")
+    g.retentionDays = 30
+    assertEqual(NS.Database:PruneOld(), 1, "PruneOld prunes the live store")
+    assertEqual(#g.history, 1)
+    g.boundRepairPending, g.boundRepairAttempts = true, nil
+    local _, _, candidates = NS.Database:RepairBoundStates()
+    assertEqual(candidates, 0, "the bound repair scans the live store, which holds no WARBAND row")
+    g.boundRepairPending, g.boundRepairAttempts = nil, nil
+    assertEqual(NS.Database:Purge(), 1, "Purge wipes the live store")
+    assertEqual(#g.history, 0)
+    assertTrue(NS.SimStores.history == session, "no live-only path swapped the session store")
+  end)
+  assertEqual(dump(session), sessionBefore, "no live-only path touched the session rows")
+  g.retentionDays = savedDays
+end)

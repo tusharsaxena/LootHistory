@@ -34,6 +34,12 @@ locales\enUS.lua
 
 # Core (Compat loads first)
 core\Compat.lua
+# LOAD-BEARING POSITION: LibKa0s-Sim-1.0's answer seam (H2). Sim:NewSeam wraps every NS.Compat
+# member in place at FILE LOAD, so it must load STRAIGHT after core\Compat.lua and before any file
+# that reads a Compat member; a member added below it escapes the wrap (NS.SimSeam:Unwrapped(),
+# asserted empty by tests/test_sim_seam.lua). Publishes NS.SimSeam (or the inert stub without the
+# library) and NS.SimHost; NS.State and NS.Debug are read at call time.
+core\SimSeam.lua
 # The LibKa0s-Env seam. After Compat, whose map, zone and TOC-metadata shims it took over;
 # nothing here resolves at load, so the position is conventional rather than load-bearing.
 core\EnvSetup.lua
@@ -57,6 +63,12 @@ core\Ledger.lua
 # be above), and NS.Print, published here, is captured as a file-scope local by modules\Browser.lua,
 # settings\Schema.lua and settings\Slash.lua (must be below them).
 core\CoreSetup.lua
+# LOAD-BEARING POSITION: publishes NS.EVENT_ROWS / NS.HOOK_ROWS and NS.EventRow / NS.HookRow,
+# which modules\Attribution.lua, modules\AttributionOut.lua, modules\Collector.lua and
+# modules\Reconciler.lua call at FILE LOAD to append their capture rows; it must be above every
+# module. Row order is TOC order. Nothing here resolves at load (NS.SafeRegisterEvent, from
+# core\CoreSetup.lua above, is read at call time).
+core\Dispatch.lua
 # The LibKa0s-Lifecycle-1.0 seam: the ONE latch every reason to be inert holds
 # (slash-commands-§7). LOAD-BEARING relative to core\PerfSetup.lua only, which hands NS.Lifecycle
 # to lib:New at file load; nothing in this file resolves at load (every field is a closure and the
@@ -97,6 +109,11 @@ defaults\Profile.lua
 # calls NS.Attribution at capture time, never at load); what it binds at load comes from core\.
 modules\Attribution.lua
 modules\AttributionOut.lua
+# CONVENTIONAL as a load position, but kept directly below the two Attribution files and above
+# modules\Reconciler.lua on purpose: its capture rows append to NS.EVENT_ROWS at file load, and
+# row order is TOC order, which this keeps equal to the stand-up order (Attribution,
+# AttributionOut, Collector, Reconciler; core\LifecycleSetup.lua).
+modules\Collector.lua
 modules\Filters.lua
 modules\Scanner.lua
 modules\Holdings.lua
@@ -106,7 +123,6 @@ modules\Reconciler.lua
 # modules\Reconciler.lua must be above.
 modules\Escrow.lua
 modules\AuctionPrice.lua
-modules\Collector.lua
 modules\LedgerFormat.lua
 # LOAD-BEARING POSITION: publishes B._dataset, B._withAll, B._options and the Bound labels, which
 # modules\Browser.lua binds as file-scope locals at load; it must be above modules\Browser.lua.
@@ -135,6 +151,27 @@ modules\TimelineModel.lua
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
 modules\TestData.lua
+# LOAD-BEARING POSITION: the simulator's world. Registers its providers on NS.SimSeam at file load,
+# so core\SimSeam.lua must be above; publishes NS.SimHost.World, which modules\SimDrivers.lua binds
+# at load and modules\Sim.lua's prepare reads at call time.
+modules\SimWorld.lua
+# LOAD-BEARING POSITION: the simulator's event and hook drivers. Binds NS.SimHost.World at file
+# load, so modules\SimWorld.lua must be above; fires through NS.Sim at call time only.
+modules\SimDrivers.lua
+# LOAD-BEARING POSITION: the simulator's six scenarios and its ledger gate. Binds NS.SimHost.World
+# and NS.SimHost.Drivers at file load, so modules\SimWorld.lua and modules\SimDrivers.lua must be
+# above; fills NS.SimHost.SCENARIOS in place, which modules\Sim.lua hands to Sim:New.
+modules\SimScenario.lua
+# LOAD-BEARING POSITION: the simulator's session host. Sim:New binds NS.SimSeam (core\SimSeam.lua)
+# at file load, and the file registers its stop steps on NS.Sim:OnStop there; it publishes NS.Sim,
+# NS.SimStop and NS.SimBlocks. Below every capture module and core\Dispatch.lua (NS.DeliverAll,
+# NS.RealEventFilter, read at call time) and above settings\, whose destructive surfaces call
+# NS.SimBlocks at call time. The simulator's world, driver and scenario modules sit above it.
+modules\Sim.lua
+# LOAD-BEARING POSITION: the simulation step panel's presentation fields and the History window's
+# simulation marker. Fills NS.SimHost.PANEL, which modules\Sim.lua hands to Sim:New, and calls
+# NS.Sim:AddListener at file load, so modules\Sim.lua must be above.
+modules\SimPanel.lua
 modules\Diagnostics.lua
 
 # Settings

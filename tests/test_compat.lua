@@ -570,7 +570,13 @@ end)
 test("Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path", function()
   local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
   assertTrue(lib ~= nil, "the live load has the major")
-  assertTrue(NS.Compat.GetSpellName == lib.GetSpellName, "core/Compat.lua wires the library's function")
+  -- core/SimSeam.lua wraps the member in place at load (LibKa0s-Sim-1.0's seam), so the identity
+  -- core/Compat.lua wired is now the seam's closure over it: idle, the closure is the library's
+  -- function answering, argument for argument.
+  local wrapped = false
+  for _, k in ipairs(NS.SimSeam:Keys()) do if k == "GetSpellName" then wrapped = true end end
+  assertTrue(wrapped, "GetSpellName is a seam-wrapped member")
+  assertEqual(NS.Compat.GetSpellName(13262), lib.GetSpellName(13262), "core/Compat.lua wires the library's function")
 end)
 
 test("Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name", function()
@@ -821,4 +827,143 @@ test("Compat: ShowLinesTooltip answers false without a GameTooltip", function()
   local ok, res = pcall(NS.Compat.ShowLinesTooltip, {}, "Title", {})
   m.GameTooltip = saved
   assertTrue(ok, tostring(res)); assertFalse(res)
+end)
+
+-- ── The simulator-relevant reads (LootHistory#37, LibKa0s#54) ────────────────────────────────
+--
+-- Every read a simulated loot run has to answer goes through a Compat member, because the Sim-1.0
+-- answer seam wraps NS.Compat and reaches nothing else: a bare global left in a handler is a read
+-- the simulator cannot see, and the run then records nothing without raising (Drop Watcher's DW-90).
+-- Each member answers exactly what its bare read answered, and each degrades to a safe default when
+-- the global is absent. `withGlobals` restores the shared mock even when the body raises.
+
+local function withGlobals(over, body)
+  local m, saved = T.mocks, {}
+  for k, v in pairs(over) do saved[k] = { m[k] }; m[k] = v end
+  local ok, err = pcall(body)
+  for k, s in pairs(saved) do m[k] = s[1] end
+  if not ok then error(err, 0) end
+end
+-- A value that marks "absent" in an override table (pairs skips a nil value).
+local ABSENT = false
+
+test("Compat: NumLootItems answers GetNumLootItems, and 0 when it is absent or answers nil", function()
+  withGlobals({ GetNumLootItems = function() return 3 end }, function()
+    assertEqual(NS.Compat.NumLootItems(), 3)
+  end)
+  withGlobals({ GetNumLootItems = function() return nil end }, function()
+    assertEqual(NS.Compat.NumLootItems(), 0)
+  end)
+  withGlobals({ GetNumLootItems = ABSENT }, function()
+    assertEqual(NS.Compat.NumLootItems(), 0)
+  end)
+end)
+
+test("Compat: LootSourceGUID answers the slot's first source GUID only; nil when absent", function()
+  local asked
+  withGlobals({ GetLootSourceInfo = function(slot)
+    asked = slot
+    return "Creature-0-0-0-0-31146-000000AAAA", 1, "Creature-0-0-0-0-99999-000000BBBB", 2
+  end }, function()
+    local a, b = NS.Compat.LootSourceGUID(2)
+    assertEqual(a, "Creature-0-0-0-0-31146-000000AAAA")
+    assertEqual(b, nil, "one value, the GUID: the quantity and later pairs are not part of the answer")
+  end)
+  assertEqual(asked, 2)
+  withGlobals({ GetLootSourceInfo = ABSENT }, function()
+    assertEqual(NS.Compat.LootSourceGUID(1), nil)
+  end)
+end)
+
+test("Compat: Zone and PlayerMapID answer what LibKa0s-Env answers, including \"\"", function()
+  local Env = T.mocks.LibStub("LibKa0s-Env-1.0", true)
+  assertTrue(Env ~= nil, "this run has the library")
+  local z, s = NS.Compat.Zone()
+  local ez, es = Env.GetZone()
+  assertEqual(z, ez); assertEqual(s, es)
+  assertEqual(z, "Testville")
+  assertEqual(NS.Compat.PlayerMapID(), Env.GetPlayerMapID())
+  assertEqual(NS.Compat.PlayerMapID(), 2657)
+  withGlobals({ GetZoneText = function() return nil end, GetSubZoneText = ABSENT }, function()
+    local nz, ns = NS.Compat.Zone()
+    assertEqual(nz, ""); assertEqual(ns, "")
+  end)
+end)
+
+test("Compat: NS.Zone and NS.PlayerMapID forward to the Compat members at call time", function()
+  -- The seam replaces the MEMBER, so the NS helpers every caller uses must reach it when called,
+  -- not a copy taken at load.
+  local C = NS.Compat
+  local savedZ, savedM = C.Zone, C.PlayerMapID
+  C.Zone = function() return "Seamed", "Sub" end
+  C.PlayerMapID = function() return 4242 end
+  local ok, err = pcall(function()
+    local z, s = NS.Zone()
+    assertEqual(z, "Seamed"); assertEqual(s, "Sub")
+    assertEqual(NS.PlayerMapID(), 4242)
+  end)
+  C.Zone, C.PlayerMapID = savedZ, savedM
+  if not ok then error(err, 0) end
+end)
+
+test("Compat: InInstance answers IsInInstance as a boolean and its kind; false when absent", function()
+  withGlobals({ IsInInstance = function() return 1, "raid" end }, function()
+    local inside, kind = NS.Compat.InInstance()
+    assertEqual(inside, true); assertEqual(kind, "raid")
+  end)
+  withGlobals({ IsInInstance = function() return false, "none" end }, function()
+    local inside, kind = NS.Compat.InInstance()
+    assertEqual(inside, false); assertEqual(kind, "none")
+  end)
+  withGlobals({ IsInInstance = ABSENT }, function()
+    local inside, kind = NS.Compat.InInstance()
+    assertEqual(inside, false); assertEqual(kind, nil)
+  end)
+end)
+
+test("Compat: InGroup answers IsInGroup as a boolean; false when absent", function()
+  withGlobals({ IsInGroup = function() return 1 end }, function()
+    assertEqual(NS.Compat.InGroup(), true)
+  end)
+  withGlobals({ IsInGroup = function() return nil end }, function()
+    assertEqual(NS.Compat.InGroup(), false)
+  end)
+  withGlobals({ IsInGroup = ABSENT }, function()
+    assertEqual(NS.Compat.InGroup(), false)
+  end)
+end)
+
+test("Compat: PlayerInCombat asks UnitAffectingCombat about the player; false when absent", function()
+  local asked
+  withGlobals({ UnitAffectingCombat = function(unit) asked = unit; return 1 end }, function()
+    assertEqual(NS.Compat.PlayerInCombat(), true)
+  end)
+  assertEqual(asked, "player")
+  withGlobals({ UnitAffectingCombat = function() return nil end }, function()
+    assertEqual(NS.Compat.PlayerInCombat(), false)
+  end)
+  withGlobals({ UnitAffectingCombat = ABSENT }, function()
+    assertEqual(NS.Compat.PlayerInCombat(), false)
+  end)
+end)
+
+test("Compat: HookUseContainerItem and HookGetQuestReward install through HookSecure*", function()
+  -- One installer for every read-side hook, so the presence gate and the seam's view of the hook
+  -- set live in one place.
+  local C, hooked = NS.Compat, {}
+  local savedH, savedHM = C.HookSecure, C.HookSecureMember
+  C.HookSecure = function(name) hooked[#hooked + 1] = name; return true end
+  C.HookSecureMember = function(_, member) hooked[#hooked + 1] = "member:" .. member; return true end
+  local ok, err = pcall(function()
+    withGlobals({ C_Container = { UseContainerItem = function() end } }, function()
+      C.HookUseContainerItem(function() end)
+    end)
+    withGlobals({ C_Container = ABSENT, UseContainerItem = function() end }, function()
+      C.HookUseContainerItem(function() end)
+    end)
+    C.HookGetQuestReward(function() end)
+  end)
+  C.HookSecure, C.HookSecureMember = savedH, savedHM
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(hooked, ","), "member:UseContainerItem,UseContainerItem,GetQuestReward")
 end)

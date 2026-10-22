@@ -9,7 +9,7 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` **and** `Database:Amend` ([`core/Database.lua`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (coalesced repaint; never counted: the rollup's tallies come from the `Database:OnWrite` hook, because this message is re-sent on every amend) — Browser, Analytics and Timeline repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons) |
-| `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, and `Reconciler:ForgetHolder`, once for a forgotten character | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible) |
+| `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, `Reconciler:ForgetHolder`, once for a forgotten character, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops (`modules/Sim.lua`) | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible) |
 
 Exactly one sender is allowed per message — the table is sender-authoritative. `HoldingsChanged` keeps its one sender, the Reconciler, even for "Forget this character": `Holdings:ForgetHolder` and `Rollup:ForgetHolder` do the dropping, and `Reconciler:ForgetHolder` announces it.
 
@@ -23,7 +23,7 @@ Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua)
 
 Fired once per persisted loot event, immediately after the record is appended to the account-wide array in [`Database:Add`](../core/Database.lua), **and again by `Database:Amend`** when the Reconciler grows a same-key row inside the 60 s coalescing window (timeline-ledger spec §5.5). An amend resends the same `(record, index)` with the record's quantity already raised. **Receivers repaint, never count** (spec S2): a handler that incremented a total per message would count a coalesced row once per amend. Browser, Analytics and the Panel are all coalesced repaints, so this holds; anything that must account for each quantity change registers `Database:OnWrite` instead, which sees every `Add` and `Amend` once with its delta. The payload is `(record, index)`: the full record table (see [schema.md](schema.md)) and its 1-based position in `NS.db.global.history`. Consumers treat it as an incremental "one row added" signal — the Browser refreshes the History table, Analytics recomputes live, and the Settings panel updates its live storage stats. None of the current subscribers actually read the `index`; it is carried for cheap append-in-place refreshes without a full re-query.
 
-Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:557`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
+Note the write path fires against the *real* history only. Browser test mode swaps a synthetic dataset in at the read seam (`Database:ActiveHistory`, `core/Database.lua:573`), but `Add`/prune never see that override, so `RecordAdded` is never emitted for test data.
 
 ## `Ka0s_LootHistory_HistoryChanged` payload
 
@@ -49,7 +49,7 @@ The one receiver is `HoldingsTab`, on its own private target (`HT.__ev`), which 
 Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. A seventh, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
-- **Browser** (`modules/Browser.lua:1184`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
+- **Browser** (`modules/Browser.lua:1218`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
 
 ### What does NOT broadcast
 
@@ -72,10 +72,12 @@ The reason: **CallbackHandler keys registered callbacks by `(message, target)`.*
 
 Because multiple consumers subscribe to the same messages — `HistoryChanged` has four listeners (Browser, Analytics, the Panel's History-stats section, and the Panel's Filters tab) and `RecordAdded` three — sharing `NS.bus` as the target would clobber all but the last. Each consumer therefore stores its own target and registers on it (the Panel uses two: `P.__ev` for the History stats and `P.__evFilters` for the Filters tab's live list rebuild):
 
-- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:357`).
-- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1183`).
+- Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:359`).
+- Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1217`).
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:275`).
 - Reconciler — **two** targets: `self._settings` hears `SettingsChanged("ledger" | "profile")` for as long as the addon is up, so ticking `trackLedger` back on can re-register; `self.__ev` carries the capture events and exists only while the setting is on (`modules/Reconciler.lua`).
+
+The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
 - HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:154`) and the Filters tab's id-lists (`settings/Panel.lua:500`), each on its own target.
 

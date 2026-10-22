@@ -93,6 +93,9 @@ end
 
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
+  -- First: a switch, copy or reset ends a running simulation (modules/Sim.lua, reason `profile`)
+  -- before any setting it was built under moves.
+  if NS.SimStop then NS.SimStop("profile") end
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end
@@ -146,6 +149,10 @@ function addon:OnEnterWorld()
     end
   end)
   NS.After(20, function()
+    -- The simulator refuses to start until this has run (req-lh-sim §5.1 item 9): the prune, the
+    -- bound-state repair and the rollup seed read and write NS.db.global directly, so they must not
+    -- race its session-store swap. Set first, so a failing repair cannot hold the refusal forever.
+    NS.State.loginSettled = true
     if NS.Database and NS.Database.RepairBoundStates then NS.Database:RepairBoundStates() end
   end)
   -- Holdings genesis / login scan (timeline-ledger spec §5.6). Three seconds in, after the item

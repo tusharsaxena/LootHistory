@@ -343,6 +343,39 @@ local function pools(out)
   out:add(TAG, "pools: insights chart pools %s", n > 0 and n or "not built")
 end
 
+-- The simulator (LootHistory#37, LibKa0s-Sim-1.0's H8): the session as the library's Status() and
+-- the host's fields say, the session stores' size, the last stop and the seam's classification.
+-- Status() and Keys() are reads that build a fresh table each call; nothing is started or stopped.
+local function simSession(out)
+  local S, Host = NS.Sim, NS.SimHost or {}
+  local st = S and S:Status() or { active = false }
+  local counts = Host.counts or {}
+  out:add(TAG, "sim: active=%s scenario=%s step %s/%s events=%s hooks=%s", yn(st.active), st.scenario or "-",
+    st.pos or 0, st.total or 0, st.events or 0, counts.hooks or 0)
+end
+
+local function simStores(out)
+  local stores, Host = NS.SimStores or {}, NS.SimHost or {}
+  local holders = 0
+  for _ in pairs(stores.holdings or {}) do holders = holders + 1 end
+  local last = Host.lastStop
+  out:add(TAG, "sim: session rows=%s holders=%s; last stop %s", stores.history and #stores.history or "-",
+    stores.holdings and holders or "-", last and ("%s (%s events, %s hooks, %s rows)"):format(last.reason,
+      last.events, last.hooks, last.rows) or "none")
+end
+
+local function simSeam(out)
+  local seam, Host = NS.SimSeam, NS.SimHost or {}
+  local keys = seam and seam.Keys and seam:Keys() or {}
+  out:joined(TAG, "sim: seam wraps " .. #keys .. " keys; guarded", Host.GUARDED_KEYS or {})
+end
+
+local function sim(out)
+  simSession(out)
+  simStores(out)
+  simSeam(out)
+end
+
 -- The sections in report order (STD-10: identity, then settings, then domain state, then the
 -- error record, which here is the rejected-event list inside `capture`).
 local SECTIONS = {
@@ -350,7 +383,7 @@ local SECTIONS = {
   { "capture", capture }, { "settings", settings }, { "auction", auction },
   { "filters", filters }, { "attribution", attribution }, { "history", history },
   { "tail", tail }, { "bound repair", boundRepair }, { "browser", browser },
-  { "launcher", launcher }, { "pools", pools },
+  { "launcher", launcher }, { "pools", pools }, { "sim", sim },
 }
 
 --- The descriptor's `diagnostics` hook (core/DebugLogSetup.lua) answers this, at run time.

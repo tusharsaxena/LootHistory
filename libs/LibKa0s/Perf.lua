@@ -34,7 +34,7 @@ local lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 local NEEDS_LIFECYCLE = 1
 if not lifecycle or (lifecycle.MINOR or 0) < NEEDS_LIFECYCLE then return end   -- module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 14
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -277,9 +277,21 @@ end
 -- The old wording printed the first form for all three, which is how AbsorbTracker's descriptor
 -- carried `appearance` and `visibility` inside a `repaintPass` neither ever ran in, through every
 -- archived capture, with the report asserting the containment as fact each time.
-local function nestingSentence(key, declared, observed, mixed)
+-- From minor 15 an observation may be `false`, "ran at top level": an observation, never read as
+-- falsy here, and the sentinel never reaches the reader ("top level" does).
+local function nestingSentence(key, declared, observed, mixed, second)
   if mixed then
-    return ("%s observed inside more than one parent (first: %s)"):format(key, tostring(observed))
+    if observed == false or second == false then
+      local parent = observed == false and second or observed
+      return ("%s observed inside %s and at top level"):format(key, tostring(parent))
+    end
+    return ("%s observed inside more than one parent (first: %s, then: %s)")
+      :format(key, tostring(observed), tostring(second))
+  elseif observed == false then
+    if declared then
+      return ("%s declares itself within %s but was observed at top level"):format(key, declared)
+    end
+    return ("%s observed at top level"):format(key)
   elseif observed and declared and observed ~= declared then
     return ("%s declares itself within %s but was observed inside %s"):format(key, declared, observed)
   elseif observed then
@@ -289,18 +301,20 @@ local function nestingSentence(key, declared, observed, mixed)
 end
 
 local function addNestingNote(add, P, record)
-  local pairsOut = {}
+  local pairsOut, nests = {}, false
   for _, key in ipairs(P.BUCKET_ORDER) do
     local b = record.buckets[key]
     -- The record's own `within` first, so a capture read back off the ring reports the nesting IT
     -- was built with rather than whatever the live descriptor declares now.
     local declared = b and (b.within or P.BUCKET_WITHIN[key]) or nil
-    local observed = b and b.observedWithin or nil
-    if b and (declared or observed) then
-      pairsOut[#pairsOut + 1] = nestingSentence(key, declared, observed, b.observedMixed)
+    local observed = b and b.observedWithin   -- no `or nil`: a top-level `false` must survive
+    if b and (declared or observed ~= nil) then
+      pairsOut[#pairsOut + 1] = nestingSentence(key, declared, observed, b.observedMixed, b.observedSecond)
+      -- An undeclared top-level-only bucket is listed, but is not nesting: no footer on its own.
+      if declared or observed or b.observedMixed then nests = true end
     end
   end
-  if #pairsOut > 0 then
+  if nests then
     add("(buckets nest: %s \226\128\148 do not sum)", table.concat(pairsOut, ", "))
   end
 end
@@ -666,6 +680,10 @@ function lib:New(descriptor)
   --- record can confirm the declaration, or contradict it. Every call site written against the old
   --- two-argument form keeps working unchanged, which is why the parent is taken here rather than
   --- inferred from a bracket stack no deployed call site opens.
+  --- From minor 15 `parentKey` has three states: nil NOT STATED, a key OBSERVED INSIDE it, and
+  --- `false` OBSERVED AT TOP LEVEL (inside no bucket). A sometimes-nested bucket passes its parent
+  --- or `false` and the record says it ran in both places (observedMixed, observedWithin and
+  --- observedSecond) instead of claiming a containment seen only part of the time.
   function P.Note(key, ms, parentKey)
     -- A nil key used to reach `buckets[key] = b` and raise a bare "table index is nil" from inside
     -- this file, which names neither the host, the library nor the offending bracket. Framed like
@@ -686,9 +704,11 @@ function lib:New(descriptor)
       -- First observation wins and every later one is compared against it. Overwriting would report
       -- whichever call site happened to run last as though it were the only one, which is the same
       -- class of silent false claim this whole change exists to end.
+      -- `false` takes part exactly as a key does; the first DIFFERENT one is kept as observedSecond.
       if b.observedWithin == nil then
         b.observedWithin = parentKey
       elseif b.observedWithin ~= parentKey then
+        if not b.observedMixed then b.observedSecond = parentKey end
         b.observedMixed = true
       end
     end
@@ -843,7 +863,8 @@ function lib:New(descriptor)
     end
 
     -- `within` is what the descriptor DECLARED; `observedWithin` is what the capture actually saw,
-    -- and it is absent exactly when no call site passed a parent. Both travel, so a record read
+    -- absent exactly when no call site passed a parent, `false` at top level (minor 15), and
+    -- `observedSecond` beside observedMixed is the first that differed. Both travel, so a record read
     -- back months later answers "was that nesting ever confirmed?" without the addon's source in
     -- hand. Additive within schema 2 — a reader of an older record sees the same fields it always
     -- did, and a bucket nobody supplied a parent for is missing the key the same way an undeclared
@@ -857,6 +878,7 @@ function lib:New(descriptor)
         within         = P.BUCKET_WITHIN[key],
         observedWithin = b.observedWithin,
         observedMixed  = b.observedMixed,
+        observedSecond = b.observedSecond,
       }
     end
     fillAncestors(out, P.BUCKET_WITHIN)

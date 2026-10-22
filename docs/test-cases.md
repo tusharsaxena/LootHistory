@@ -56,7 +56,7 @@ Total.
 - MediaSetup: the font this addon names is the face the library registers
 - MediaSetup: the font no longer resolves inside this addon's own folder
 - MediaSetup: every mark this addon draws is one the library ships
-- MediaSetup: every name the library ships has a file in the vendored copy
+- MediaSetup: the icon declaration is exactly the drawn set, and each has its file
 - MediaSetup: the source names no icon the DRAWN list above has forgotten
 - MediaSetup: a tinted mark spells the long escape, vertex color last
 - MediaSetup: NS.IconMarkup splices the extensionless path and never answers nil
@@ -82,7 +82,7 @@ Total.
 - PoolSetup: a released object is reused rather than rebuilt
 - PoolSetup: ReleaseAll returns every active object to the free list
 
-### test_itemsetup.lua (7)
+### test_itemsetup.lua (8)
 
 - ItemSetup: the seam is published
 - ItemSetup: the primitives answer what the deleted shims answered
@@ -91,6 +91,7 @@ Total.
 - ItemSetup: the resolver did NOT move, and still guesses when uncached
 - ItemSetup: an uncached |cnIQ link answers its quality with no palette installed
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
+- ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
 ### test_util.lua (47)
 
@@ -191,7 +192,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (66)
+### test_compat.lua (74)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -259,6 +260,19 @@ Total.
 - Compat: ShowLinesTooltip draws a gold title and one colored double line per row
 - Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
 - Compat: ShowLinesTooltip answers false without a GameTooltip
+- Compat: NumLootItems answers GetNumLootItems, and 0 when it is absent or answers nil
+- Compat: LootSourceGUID answers the slot's first source GUID only; nil when absent
+- Compat: Zone and PlayerMapID answer what LibKa0s-Env answers, including ""
+- Compat: NS.Zone and NS.PlayerMapID forward to the Compat members at call time
+- Compat: InInstance answers IsInInstance as a boolean and its kind; false when absent
+- Compat: InGroup answers IsInGroup as a boolean; false when absent
+- Compat: PlayerInCombat asks UnitAffectingCombat about the player; false when absent
+- Compat: HookUseContainerItem and HookGetQuestReward install through HookSecure*
+
+### test_compat_routing.lua (2)
+
+- Compat routing: modules/ makes no bare simulator-relevant client read
+- Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 
 ### test_scanner.lua (5)
 
@@ -268,7 +282,7 @@ Total.
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
 
-### test_holdings.lua (9)
+### test_holdings.lua (10)
 
 - Holdings: ApplyContainer replaces one column and keeps others
 - Holdings: unchanged container reports no change
@@ -279,8 +293,9 @@ Total.
 - Holdings: Search keeps uncached items and filters by holder
 - Holdings: ForgetHolder drops the entry
 - Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
+- Holdings: with NS.SimStores.holdings set, Store and every write act on the session table
 
-### test_rollup.lua (22)
+### test_rollup.lua (24)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -303,9 +318,11 @@ Total.
 - Schema: rollupRetentionDays is account-wide, defaults to Always and is reset-exempt
 - Rollup: RecomputeFlows rebuilds only the touched cells from IN / OUT rows, closes untouched
 - Rollup: RecomputeFlows skips pruned days, ts-less rows and untouched (day, thing) pairs
+- Rollup: with NS.SimStores.daily set, Store and OnWrite act on the session table
+- Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (37)
+### test_attribution.lua (40)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -331,6 +348,7 @@ Total.
 - Attribution: a memoized deconstruct source survives a later name change
 - Attribution: deconstruct's own loot window does not clobber its source
 - OnLootOpened logs ONE coalesced summary, not one line per slot
+- OnLootOpened reads the loot source through Compat
 - Attribution: an unrelated player spell does not stamp a source
 - Attribution: Auction-House mail stamps AH, ordinary mail stamps MAIL
 - Attribution: taking a quest reward stamps QUEST
@@ -340,10 +358,12 @@ Total.
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
 - Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: read-side hooks are installed through Compat.HookSecure once
 - Attribution: a retired ENCOUNTER_START costs only itself (front gate)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
+- Attribution: ResetContexts clears every context field and leaves registrations
 
 ### test_attribution_out.lua (13)
 
@@ -465,7 +485,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (8)
+### test_reconciler.lua (10)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -475,6 +495,8 @@ Total.
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
+- Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
+- Reconciler: coalescing reads Database:History (session-aware)
 
 ### test_reconciler_rows.lua (33)
 
@@ -536,7 +558,7 @@ Total.
 - Escrow: a genesis pass resolves no exit, even with a sale mail live (LH-11)
 - Escrow: a sale mail for another item leaves the exit pending (LH-11)
 
-### test_database.lua (85)
+### test_database.lua (89)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -623,6 +645,10 @@ Total.
 - Migrate v12->v13: a day the rollup no longer holds is not recreated
 - Migrate v12->v13 (characterization): pairIds are <ts>:m<queue index>, halves pair first-come
 - Database: QueryList clause type gates (characterization)
+- Database: NS.SimStores is a host table whose fields default to live (nil)
+- Database: with NS.SimStores set, Add/Amend/History/Count/Delete act on the session table
+- Database: ActiveHistory is test records, then the session store, then live
+- Database: Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates still read the live store
 
 ### test_stats.lua (26)
 
@@ -752,6 +778,15 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
+### test_teststrip.lua (6)
+
+- test strip: test mode on shows the strip with its L text, shifts the panes and shows the badge
+- test strip: test mode off hides the strip and the badge and puts the panes back
+- test strip: Show while already in test mode reserves the space
+- test strip: the strip hangs under the filter bar, and hovering it explains test mode
+- test strip: the strip and the badge text come from NS.L
+- test strip: degraded (no Widgets): no strip, no shift, the badge still shows
+
 ### test_browsertable.lua (85)
 
 - BrowserTable: CellText renders each column
@@ -840,12 +875,15 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (32)
+### test_export.lua (35)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
 - Export: WowheadLink falls back to itemID, then empty
+- Export: WowheadLink stops at the declared bonus count when modifiers follow
+- Export: WowheadLink with a bare itemString or no link falls back to itemID
+- Export: WowheadLink reads bonuses through NS.Item.BonusIDsFromLink
 - Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last
 - Export: CSV auction/value columns — auction present and vendor fallback
 - Export: CSV emits picked price/tag + matching raw sub-columns for a nested auctionPrice map
@@ -922,6 +960,15 @@ Total.
 - launcher: Locked and Test mode are read on every show, never cached
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
+
+### test_keybinding.lua (6)
+
+- keybinding: Bindings.xml parses, names CLICK LootHistoryToggleWindow:LeftButton under header LOOTHISTORY, category ADDONS, no default attribute
+- keybinding: Bindings.xml is not listed in LootHistory.toc
+- keybinding: the button exists, is named, is not secure, registers AnyDown
+- keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set
+- keybinding: one press toggles once (open then close) through the toggle verb
+- keybinding: the button exists on a degraded install (no Launcher library)
 
 ### test_slash.lua (63)
 
@@ -1349,7 +1396,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (44)
+### test_panel.lua (45)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1383,6 +1430,7 @@ Total.
 - Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
+- options-ui-§19: releasing the Price-sources placeholder outside renderGeneral parks ctx._priHost on ctx.panel, hidden
 - Panel: the AH Price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
@@ -1469,7 +1517,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (31)
+### test_libka0s.lua (32)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1496,14 +1544,15 @@ Total.
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 - the Options descriptor passes addonName, the FOLDER name, to the library
-- the vendored info art the help mark points at is on disk
+- the vendored info art the help mark points at is declared and on disk
 - degraded install: NS.Format with a secret in a %d slot prints a line and raises nothing
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 - v1.69.0: the line chart is vendored and attached to the Widgets major
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 - v1.71.0: the vendored minors and the kit revision match the release
+- v1.75.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (15)
+### test_surface_parity.lua (16)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1520,8 +1569,9 @@ Total.
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
+- parity: the Sim session and seam stubs carry the whole live surface, both ways
 
-### test_disabled.lua (21)
+### test_disabled.lua (25)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
@@ -1537,6 +1587,8 @@ Total.
 - slash-commands-§7 step 7: the live set the COMMANDS table gates on IS the library's own
 - slash-commands-§7 step 7: both diagnostics forms write a full report while stood down
 - slash-commands-§7 step 8: the left click opens the panel and writes nothing; the menu grays every feature
+- slash-commands-§7 step 8: the key binding's press while disabled prints exactly one refusal line, writes nothing, shows nothing
+- slash-commands-§7 step 8: under the perf hold alone the press prints exactly one performance-capture line, never the disabled line, and toggles nothing
 - slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW
 - slash-commands-§7 step 10: releasing ONE hold does not resurrect an addon the other is still holding down
 - slash-commands-§7: the latch persists NOTHING, and the stored switch is the only thing that does
@@ -1544,6 +1596,8 @@ Total.
 - lifecycle: NS.StandUp reaches every surface exactly once, in order
 - lifecycle: with logging off, neither callback writes its [State] line
 - lifecycle: every step keeps its own nil-guard -- nothing built, both callbacks are no-ops
+- lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running
+- lifecycle: loginSettled flips at the 20 s deferral
 
 ### test_perf.lua (7)
 
@@ -1555,7 +1609,7 @@ Total.
 - perf: suspend and resume log to the console whatever the debug flag says
 - perf: /lh perf dispatches to the harness
 
-### test_diagnostics.lua (20)
+### test_diagnostics.lua (23)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -1577,8 +1631,11 @@ Total.
 - diagnostics: the browser section with no window and no table module
 - diagnostics: the browser section with a shown window, test records and saved views
 - diagnostics: the browser section with a hidden window, a descending sort and no view
+- diagnostics: the sim section while idle, with no stop on record
+- diagnostics: the sim section while a session runs, with its stores and the last stop
+- diagnostics: the live sim section names the real seam's wrapped count and guarded keys
 
-### test_debug_coverage.lua (21)
+### test_debug_coverage.lua (22)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
 - coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
@@ -1601,6 +1658,141 @@ Total.
 - coverage: N Insights recomputes with nothing changed log one [Insights] line
 - coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
+- coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
+
+### test_dispatch.lua (7)
+
+- Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reconciler
+- Dispatch: registered follows Enable/Disable, including trackLedger off
+- Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
+- Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
+- Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
+- Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
+
+### test_sim_seam.lua (11)
+
+- SimSeam: NS.SimSeam is the library's seam over NS.Compat, with the host table beside it
+- SimSeam: every non-PURE function member of NS.Compat is wrapped and Unwrapped() is empty after the whole addon loads
+- SimSeam: a member snapshot: a new Compat member must be classified
+- SimSeam: the seam is idle with no session: every wrapped member answers live
+- SimSeam: the degraded stub carries the instance surface (LibKa0s-Sim-1.0)
+- SimSeam: the seam stub carries the live seam surface, both ways
+- SimSeam: the session stub is inert and says the library is needed
+- SimSeam: degraded (no LibKa0s): NS.SimSeam is the inert stub and Compat is not wrapped
+- SimSeam: ListCurrencies never reaches C_CurrencyInfo.ExpandCurrencyList while a simulation runs
+- SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
+- SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
+
+### test_sim_session.lua (26)
+
+- Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
+- Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
+- Sim: the stood-down refusal names the disabled line while the addon is switched off
+- Sim: the ledger scenarios refuse while gains and losses are off; loot and key run either way
+- Sim: a start swaps in session stores, seeds the alt, resets the engine and prints its line
+- Sim: a stop clears contexts and Reconciler state, cancels R._pending, releases the stores and schedules the drift scan
+- Sim: a stop announces the history and each session holder through their one senders
+- Sim: a stand-down stop schedules no drift scan
+- Sim: joining a real group stops it
+- Sim: entering an instance stops it (zone change and entering the world)
+- Sim: a roster update or zone change that changes nothing real leaves it running
+- Sim: entering combat stops it
+- Sim: a real loot line stops it, then lands in the saved history
+- Sim: another player's loot line is absorbed, and so are bag and money events
+- Sim: a real hook call stops it, then runs live
+- Sim: the stand-down stops it first
+- Sim: a profile event stops it
+- Sim: test mode and the simulation exclude each other
+- Sim: /lh purge refuses while a simulation runs and raises no confirm
+- Sim: the settings panel's Purge history button refuses while a simulation runs
+- Sim: the purge confirm raised before the session refuses on accept
+- Sim: the ledger reset offer refuses while a simulation runs and raises no popup
+- Sim: the ledger reset popup and its confirm refuse on accept while a simulation runs
+- Sim: Forget this character refuses while a simulation runs
+- Sim: the History row's Delete refuses while a simulation runs
+- Sim: a retention change that would prune refuses and keeps the confirmed value
+
+### test_sim_world.lua (10)
+
+- SimWorld: the fixture world is deterministic for a seed
+- SimWorld: a world never mirrors the player's real bags
+- SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads
+- SimWorld: the fixture is Midnight's: items, currencies and the situation
+- SimWorld: the uncached fixture link falls back to the link's own name and color
+- SimWorld: the mutation helpers move stacks, money, mail and auctions
+- SimWorld: every provider answers from the world while active and live when idle
+- SimWorld: the item, spell and currency reads and the three world rules have no provider
+- SimWorld: SetProvider twice for one key raises
+- SimWorld: a start seeds the session world from the fixture and the session seed
+
+### test_sim_drivers.lua (7)
+
+- SimDrivers: a loot driver produces a line ParseSelfLoot accepts
+- SimDrivers: the currency and money lines parse
+- SimDrivers: each driver mutates the world before it fires
+- SimDrivers: a hook driver shows the client's pre-call world to the post-hook
+- SimDrivers: hook drivers reach the HOOK_ROWS fns through deliver
+- SimDrivers: LOOT_OPENED carries the provider GUID kind (Creature/GameObject/Item)
+- SimDrivers: with no session a driver changes nothing and fires nothing
+
+### test_sim_e2e.lua (17)
+
+- SimScenario: loot by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: loot by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: key by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: key by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: vendor by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: vendor by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: ah by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: ah by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: bank by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: bank by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: social by step writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: social by run writes exactly its rows, no duplicates, holdings as the world
+- SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps
+- SimScenario: key: the potion drunk in combat waits for the regen edge, and the gate stays open
+- SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes
+- SimScenario: the gate is closed by a pending flush, a settle hold and an out-of-combat deferral
+- SimScenario: with gains and losses off the ledger scenarios refuse, and loot and key run on the Collector
+
+### test_sim_store.lua (6)
+
+- SimStore: loot: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: key: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: vendor: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: ah: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
+
+### test_sim_panel.lua (15)
+
+- sim panel: the descriptor carries LootHistory's presentation fields and nothing else
+- sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
+- sim panel: idle, the rows preview the picked scenario's steps with their commands and tips
+- sim panel: the rows track the timeline, and a run step's tip names the rows it recorded
+- sim panel: `/lh sim loot` rows are never counted as rows the step before them recorded
+- sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it
+- sim panel: clicking a row ahead plays every step up to it, waiting out the ledger gate
+- sim panel: a typed `/lh sim step` repaints the shown panel
+- sim panel: while the ledger settles, the gate holds the next step and says so
+- sim panel: the controls run, pause, resume, restart and stop through the typed verbs
+- sim panel: the picker starts the chosen scenario
+- sim panel: a drag is remembered for the session only, and ResetPanelPosition redocks it
+- sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
+- sim marker: the stop takes the badge, the strip and the footer line down
+- sim marker: test mode and the simulation never show together
+
+### test_sim_slash.lua (8)
+
+- sim slash: NS.COMMANDS carries one `sim` row, and it is a feature verb
+- sim slash: bare `/lh sim` prints the status and the usage and opens the panel
+- sim slash: start, step, run, pause, resume, status, restart and stop each act
+- sim slash: a control with no session says so; an unknown word or `help` prints the usage
+- sim slash: `loot [n]` plays n self-loot lines from a kill into the session
+- sim slash: `loot` refuses a bad count, a word, and no session, each with its line
+- sim slash: refused while the addon is disabled, on the one line, and nothing starts
+- sim slash: with no LibKa0s-Sim-1.0 the stub answers the collection's line
 
 ### test_doc_structure.lua (8)
 
@@ -1688,7 +1880,7 @@ Total.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (22)
+### test_widgets.lua (27)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
@@ -1712,6 +1904,11 @@ Total.
 - seam: NS.MakeLineChart builds the library's chart and routes hover back to the host
 - seam: NS.MakeLineChart copies the host's opts rather than stamping them
 - seam: the chart draws Line regions, not textures
+- search: the filter bar's search is the library SearchBox when Widgets is present
+- search: typing filters and hides the hint; clearing restores it
+- search: Esc and Enter clear focus, and the focus line lights gold and returns to gray
+- search: the Autocomplete still attaches to the search box
+- search: degraded (no W.SearchBox): a plain box is built and filters
 
 ## Totals
 
@@ -1721,29 +1918,32 @@ Total.
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
-| test_itemsetup.lua | 7 |
+| test_itemsetup.lua | 8 |
 | test_util.lua | 47 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 66 |
+| test_compat.lua | 74 |
+| test_compat_routing.lua | 2 |
 | test_scanner.lua | 5 |
-| test_holdings.lua | 9 |
-| test_rollup.lua | 22 |
-| test_attribution.lua | 37 |
+| test_holdings.lua | 10 |
+| test_rollup.lua | 24 |
+| test_attribution.lua | 40 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 49 |
-| test_reconciler.lua | 8 |
+| test_reconciler.lua | 10 |
 | test_reconciler_rows.lua | 33 |
 | test_escrow.lua | 21 |
-| test_database.lua | 85 |
+| test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
+| test_teststrip.lua | 6 |
 | test_browsertable.lua | 85 |
-| test_export.lua | 32 |
+| test_export.lua | 35 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
+| test_keybinding.lua | 6 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
@@ -1757,17 +1957,26 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 44 |
+| test_panel.lua | 45 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 31 |
-| test_surface_parity.lua | 15 |
-| test_disabled.lua | 21 |
+| test_libka0s.lua | 32 |
+| test_surface_parity.lua | 16 |
+| test_disabled.lua | 25 |
 | test_perf.lua | 7 |
-| test_diagnostics.lua | 20 |
-| test_debug_coverage.lua | 21 |
+| test_diagnostics.lua | 23 |
+| test_debug_coverage.lua | 22 |
+| test_dispatch.lua | 7 |
+| test_sim_seam.lua | 11 |
+| test_sim_session.lua | 26 |
+| test_sim_world.lua | 10 |
+| test_sim_drivers.lua | 7 |
+| test_sim_e2e.lua | 17 |
+| test_sim_store.lua | 6 |
+| test_sim_panel.lua | 15 |
+| test_sim_slash.lua | 8 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1776,6 +1985,6 @@ Total.
 | test_layout_cap.lua | 13 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 22 |
+| test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1524** |
+| **Total** | **1685** |

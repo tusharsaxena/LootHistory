@@ -30,7 +30,7 @@ settings canvas with its tab strip and Master-controls composer, the settings sc
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
 the flat dropdowns and the Timeline's line chart (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because fourteen of its fifteen majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because sixteen of its seventeen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -40,9 +40,12 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 The authored files load in the fixed order `LootHistory.toc` sets: vendored `libs/` →
 `locales/` → `core/` (Compat first) → `defaults/` → `modules/` → `settings/` (last). The
 `core/*Setup.lua` files and three in `settings/` (`OptionsSetup.lua`, `Schema.lua`, `Slash.lua`) are
-the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, the
-holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
-its tabs, and every setting in one `settings/Schema.lua` row. A handful of TOC positions are
+the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, every
+capture registration and read-side hook in `core/Dispatch.lua`'s two row tables, the holdings ledger in `modules/Reconciler.lua` and its steps, the window in `modules/Browser.lua` and
+its tabs, and every setting in one `settings/Schema.lua` row. The in-game simulator is
+`core/SimSeam.lua` (the answer seam, straight after Compat), `modules/SimWorld.lua`, `SimDrivers.lua`,
+`SimScenario.lua`, `Sim.lua` (the session host) and `SimPanel.lua`, on `LibKa0s-Sim-1.0`
+([§ The simulator](#the-simulator)). A handful of TOC positions are
 load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
 `grep -c LOAD-BEARING LootHistory.toc`); every other position is conventional, and the TOC says so.
 
@@ -65,6 +68,8 @@ The full field table, the `SourceType` / `Confidence` enums, currency rows, the 
 **[schema.md](schema.md)**.
 
 Beside the loot log sits the **timeline ledger's** account-wide state (schema v11): `db.global.holdings` (what each character and the virtual `"§warband"` holder owns now, by container, with the time each container was last read), the sparse `daily` rollup the Timeline reads (written by `modules/Rollup.lua`, with its own retention `rollupRetentionDays`), and the `ledgerSince` / `resetPrompt` bookkeeping. Row fields `dir` / `kind` / `holder` / `from` / `to` are reserved and written from Phase 2. Shapes and writers are in [schema.md](schema.md#the-ledger-stores); the scan engine is in [data-flow.md](data-flow.md#holdings-scan).
+
+The capture paths reach all three stores through one accessor each (`Database`'s local `historyStore()`, `Holdings:Store()`, `Rollup:Store()`), which answers a simulation's session table from the host's `NS.SimStores` first and the saved store otherwise. Retention, purge, the storage summary, the bound repair, the migrations and the rollup's seed and prune stay on the saved stores. The table is in [data-flow.md](data-flow.md#capture-path-stores).
 
 ## Settings schema
 
@@ -109,7 +114,7 @@ CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing 
 | `Ka0s_LootHistory_RecordAdded` (`RECORD_ADDED`) | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (never counted: the rollup tallies from `Database:OnWrite`). Browser, Analytics and Timeline run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
 | `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
 | `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — eight `onChange` handlers, six reasons (enabled / quality / questfilter / currency / excludes, plus `chrome` from the Master controls tab's `scale` / `alpha` / `locked`), and `S:AdoptProfile` with the seventh, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`) |
-| `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, and `Reconciler:ForgetHolder` | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown) |
+| `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, `Reconciler:ForgetHolder`, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown) |
 
 A blacklist/whitelist edit re-caches the Collector by a direct call and broadcasts through
 `Database:FireHistoryChanged()`; `windowScale`, `rowHeight`, `retentionDays` and `minimap.shown` are
@@ -125,7 +130,7 @@ Settings panel on its landing page** by running the `config` verb (slash-command
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 **The slash surface is unchanged while the addon is disabled** (slash-commands-§2/§7): only the
-feature verbs `show` / `hide` / `toggle` / `test` / `purge` / `holdings` refuse, with the collection's one refusal
+feature verbs `show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
 line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-state.md).
 
 | Verb | Action |
@@ -146,8 +151,13 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. The run turns session logging on first when it is off (standard v2.71.0), and the console's **Diagnostics** link runs the same call. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the five in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
 | `test` | Toggle a synthetic preview dataset for the table, Insights, Holdings and the Timeline (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
-| `purge` | Delete ALL loot history (confirm dialog) |
+| `sim` | The in-game simulator, `LibKa0s-Sim-1.0`'s verb grammar (`NS.Sim:RunVerb`): bare prints status and usage and opens the panel; `start <scenario>`, `run` / `step` / `pause` / `resume` / `restart`, `stop`, `status`, `panel`, and the host verb `loot [n]`. A feature verb: refused while the addon is disabled. No launcher entry and no key binding. See [§ The simulator](#the-simulator) |
+| `purge` | Delete ALL loot history (confirm dialog). Refused while a simulation runs |
 | `help` | Print the generated command index |
+
+### The Show window key binding
+
+The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, under the `LOOTHISTORY` header in the `ADDONS` category with no default key (launcher-§6, anti-pattern #96): the player finds **Toggle Loot History window** under Key Bindings > AddOns > Ka0s Loot History. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
 
 ---
 
@@ -159,17 +169,39 @@ the switch arrives at `NS.Lifecycle:Set("disabled", …)`. Standing down unregis
 subscription and unit frame, cancels every deferral `NS.After` armed and hides the windows at the
 source (`B:VisibilityAllows`); `hooksecurefunc` is the one sanctioned gate. The slash surface, the
 settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
-is the conformance suite. The full account is in [disabled-state.md](disabled-state.md).
+is the conformance suite. The working-state wipes are callable apart from the stand-down, for the
+simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`
+and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
+The 20-second login deferral sets `NS.State.loginSettled`. The full account is in
+[disabled-state.md](disabled-state.md).
 
 ---
 
 ## Event subscriptions
 
+**One event table and one hook table** (`core/Dispatch.lua`, LootHistory#37). Every capture event
+below that is not the lifecycle's own `PLAYER_ENTERING_WORLD` or the window's `PLAYER_REGEN_*` pair
+is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `hooksecurefunc`
+row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The four capture modules append
+their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (nine
+`bus` rows, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
+hooks), Collector (three `bus` rows), Reconciler (fourteen `ledger` rows). Each module's Enable and
+Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
+hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
+per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
+`NS.Deliver(row, event, ...)` (hooks: `NS.DeliverHook`), whose one hook point, `NS.RealEventFilter`,
+is nil until the simulator sets it. `NS.DeliverAll(event, ...)` walks the registered rows (or
+`hook:<name>` the installed hook rows) in order under `pcall`, which is how a simulated event reaches
+exactly the handlers the client would call. `TRADE_ACCEPT_UPDATE` and the two
+`PLAYER_INTERACTION_MANAGER_FRAME_*` events have two rows each, on two targets, and `BuyMerchantItem`
+two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua` pins the
+(target, event) set against a pre-refactor snapshot.
+
 **Every row below is torn out, not gated, while the addon is disabled** — see
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
-The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.SafeRegisterEvent` on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
+The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
 | Event / hook | Handler | Module |
 |---|---|---|
@@ -215,14 +247,62 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `PLAYER_REGEN_ENABLED` | runs a login reconcile deferred by combat, else replays a deferred flush | `modules/Reconciler.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
-`core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code.
+`core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code. So is
+every read a simulated loot run has to answer — the loot window (`NumLootItems`, `LootSourceGUID`), the
+where-am-I stamp (`Zone`, `PlayerMapID`, which `NS.Zone`/`NS.PlayerMapID` forward to), the instance,
+group and combat reads, the class token, and every read-side hook (`HookSecure`/`HookSecureMember`) —
+because `LibKa0s-Sim-1.0`'s answer seam wraps Compat members and nothing else
+([compat-layer.md](compat-layer.md#the-simulator-relevant-reads); `tests/test_compat_routing.lua` pins it).
 
-**Every event row above registers through one per-event helper** (events-frames-taint-§1):
+**Every event row above registers through one per-event helper** (events-frames-taint-§1; for the
+capture rows, inside `NS.RegisterRows`):
 `NS.SafeRegisterEvent` / `NS.SafeRegisterUnitEvent` / `NS.SafeRegisterEvents`, `LibKa0s-Core-1.0`'s
 (Core minor 8) published by `core/CoreSetup.lua`, so a name the client refuses costs only itself. The
 refused names land on the addon's own `NS.RejectedEvents`, which `/lh debug events` prints and the
 diagnostics report carries;
 [midnight-quirks.md](midnight-quirks.md#unknown-event-names--one-refusal-costs-one-edge) records the trade.
+
+---
+
+## The simulator
+
+`/lh sim` (LootHistory#37, on `LibKa0s-Sim-1.0`, LibKa0s#53 and #54) runs the **real capture
+engine** against an invented world, solo and outside an instance. The edges are invented: the
+seam's providers answer the world reads, and the drivers fire the client's events and play its
+hooked calls as `hook:<name>`. Everything between the edges is the live code, so a simulated row's
+source or reason is the one `Attribution`, the `Collector`, the `Reconciler` and `Ledger.PickReason`
+decided. The simulator never writes a row, a source or a reason itself. Six scenarios ship (`loot`,
+`key`, `vendor`, `ah`, `bank`, `social`); the four that record through the ledger refuse while
+`settings.trackLedger` is off. Nothing a simulation records is saved: the capture paths write
+session stores, and the History, Insights, Holdings and Timeline tabs read them while it runs. The
+library owns the seam, the session, the step machine, the verb grammar and the step panel; this
+addon owns the world, the drivers, the scenarios, the store swap, the refusals and the marker, and
+keeps its own fields on `NS.SimHost` and `NS.SimStores`, never on the library instance. The data
+path is in [data-flow.md](data-flow.md#simulator); the design is
+`docs/superpowers/specs/2026-10-22-in-game-simulator-design.md`.
+
+The library's host contract, and where this addon meets each point:
+
+| Point | What it asks | Where it is met |
+|---|---|---|
+| H1 | Every client read the simulator answers is an `NS.Compat` member, read at call time | `core/Compat.lua` (`NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`, `InInstance`, `InGroup`, `PlayerInCombat`; read-side hooks through `HookSecure` / `HookSecureMember`); `tests/test_compat_routing.lua` |
+| H2 | The seam is built straight after the Compat file, and nothing escapes its wrap | `core/SimSeam.lua`, the LOAD-BEARING TOC line after `core\Compat.lua`; `tests/test_sim_seam.lua` asserts `NS.SimSeam:Unwrapped()` is empty |
+| H3 | One `deliver` that reaches the client's handlers, in the client's order, for any event name | `NS.DeliverAll` over `NS.EVENT_ROWS` / `NS.HOOK_ROWS` (`core/Dispatch.lua`, [§ Event subscriptions](#event-subscriptions)) |
+| H4 | Session-only storage for every capture-path write, proven byte-identical | `NS.SimStores` and one accessor per store ([§ Data model](#data-model)); `tests/test_sim_store.lua` |
+| H5 | The refusal covers stood-down, test mode and the world; test mode refuses while a simulation runs | `NS.SimHost.Refusal` (`modules/Sim.lua`) and `testModeRefusal` (`modules/BrowserTable.lua`) |
+| H6 | The stand-down stops it first; host reasons stop it | `call("SimStop")` first in `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua`); `NS.OnProfileEvent` (`profile`); the world watch (`group`, `instance`, `combat`); real interference (`world`) |
+| H7 | One feature-verb row, `sim`, refused while disabled, no launcher entry | `settings/Schema.lua`'s `NS.COMMANDS` row, not in `LIVE_WHILE_DISABLED`; no launcher entry and no key binding |
+| H8 | A preview-mode marker, a diagnostics section and a debug tag | The `SIMULATION` badge, strip and footer (`modules/Browser.lua`, [browser.md](browser.md)); the `sim` diagnostics section (`modules/Diagnostics.lua`); the `Sim` tag ([debug.md](debug.md)) |
+| H9 | An inert stub without the library, with surface parity | `NS.SimHost.NewSeamStub` / `NewSimStub` (`core/SimSeam.lua`); `tests/test_surface_parity.lua` |
+| H10 | The panel's position | Session-only by the owner's ruling (OWNER_SCOPE C.11): held in the library instance's memory, never a window-state key and never a schema row, so a simulation writes nothing to SavedVariables |
+
+**While a simulation runs**, a real event that interferes (the player's own loot, currency or
+money line, a loot window, an encounter or key start, a quest turn-in, a trade, a sent mail, an
+interaction frame, any real hook call) stops it with reason `world` and is then recorded live into
+the saved stores, so no real loot is lost; other real events are absorbed, and the stop's drift scan
+picks up what they changed. Joining a group, entering an instance or combat stops it too. The
+destructive surfaces (purge, the ledger reset, Forget this character, a row's Delete and a retention
+change that would prune) refuse with one line until it stops.
 
 ---
 
@@ -328,7 +408,7 @@ Ten such records are named below the table rather than carried in it.
 |---|---|---|---|---|
 | `architecture-§5` | The **`settings.auction.priority`** ordered cascade, neither a schema row nor registry membership, is written to the active profile (`NS.db.profile.settings.auction.priority`) directly rather than through `NS.Schema:Set`. It is seeded empty on first read by `NS.AuctionPrice:GetPriority` (`modules/AuctionPrice.lua:143`) and written by `ReconcilePriority` / `MovePriorityWithin` (`:151-207`); the global reset brings it back with the rest of the profile. | The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. `architecture-§5` makes that a **value**, not a registry, and a value with no row is what its **MUST NOT** leaves a register row for. No schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets and the named non-setting state left this row on 2026-09-12; see below. | 2026-07-17 | `settings.auction.priority` gains a schema row, an ordered-list row type or a whole-value row, and every write to it goes whole through `Schema:Set`. That retires this row. |
 | `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
-| `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but only a handful of strings route through `NS.L` (the Profiles page name, the `profile` and `diagnostics` help descriptions and the library-absent line) — every other label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
+| `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but only a handful of strings route through `NS.L` (the Profiles page name, the `profile` and `diagnostics` help descriptions, the library-absent line, and the History window's test-mode marks: the TEST MODE badge, the strip under the filter bar and the strip's tooltip lines, and the Show window key binding's row label and its performance-capture refusal) — every other label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
 | `localization-§4` | **Deconstruct attribution falls back to matching a localized spell name.** `Attribution:DeconstructSource` resolves a player cast by spell id first (`DECONSTRUCT_ID`, `modules/Attribution.lua:33-44`); on a miss it compares the cast's **client-locale name** against tokens derived from seed spell ids (`NAME_SEEDS`, `:54-60`; `seedToken` resolves each through `NS.Compat.GetSpellName` at `:65`; the substring match is `:95`), where §4 says a game entity is identified by id, never by a localized display string. The reasoning is at `:21-32`, which points at this row. | Modern retail splits Milling and Prospecting into generic, per-expansion and **per-herb / per-ore "Mass Mill" / "Mass Prospect"** spells, and that id set is **not enumerable**: it is too large and grows every patch, so an id-only table silently stops attributing each new variant. The compared names are **derived from ids on the same client** at match time, so no English literal is ever compared and the match is locale-correct by construction: "Milling" on enUS is "Mahlen" on deDE on both sides of the compare. Closed issue [#2](https://github.com/tusharsaxena/LootHistory/issues/2); audit finding `LH-74` in `docs/audits/2026-09-23/`. | 2026-09-24 | **Blizzard exposes a stable deconstruct token or category** on the cast (a spell category, a profession-action flag, anything id-shaped), **or the Mass Mill / Mass Prospect id set becomes enumerable** (a stable list or an API that returns it). Either one moves the fallback onto ids and retires the row. |
 
 - Narrowed on 2026-09-12 ([#30](https://github.com/tusharsaxena/LootHistory/issues/30)): `settings.window` and `savedView` left the `architecture-§5`
@@ -372,9 +452,9 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
-then `tests/test_browsertable.lua` at 1392 and `modules/BrowserTable.lua` at 1302 (`git ls-files '*.lua' |
-grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-07, after `modules/BrowserTable.lua`
-shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1231,
+then `tests/test_browsertable.lua` at 1392 and `modules/BrowserTable.lua` at 1305 (`git ls-files '*.lua' |
+grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-23, after `modules/BrowserTable.lua`
+shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1298,
 its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added characterization cases to
 `tests/test_browsertable.lua` and split the last five functions above CCN 15); the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
@@ -422,6 +502,12 @@ its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added
 - **Play elsewhere is `UNTRACKED`.** Changes made while the addon was not watching (disabled, not installed, or on another PC) are written as `UNTRACKED` rows: bags, gear, gold and currency at the next login or resume, the bank and warband tabs on the first read of the next banker visit ([data-flow.md](data-flow.md#login-and-resume-untracked)). Two PCs each running the addon keep separate SavedVariables, so each sees the other's play this way: holdings totals stay correct, but the reasons (loot, vendor, deposit) are lost. Cross-PC sync is out of scope.
 - **Insights' Transfers card depends on the Direction filter.** Insights reads its own filter (per tab since P11), so under its default view (Gains + Losses) the Transfers card reads 0 until Transfers is ticked.
 - **The Timeline starts at the upgrade.** A holder's line begins at its genesis, the first full scan after the ledger shipped, and there is no back-casting before it (ledger D5). Counts are per item id, not per variant (item level, bonus ids). A holder that has not logged in since the upgrade has no class, so it draws gray. Several Line-region facts can only be proved in the client (`Frame:CreateLine`, fractional thickness, the cursor-to-plot mapping, daylight-saving day labels); they are the TL-13 list in [smoke-tests.md](smoke-tests.md#timeline).
+- **The simulator runs on the real clock.** `time()` and `GetTime()` are never seamed, so the
+  Reconciler's 0.35 s debounce, its 1.5 s claim wait and its 6 s settle hold take real seconds, and
+  `/lh sim run` waits on them through the ledger gate rather than skipping them.
+- **Simulated items must be cached for full names.** The simulator's item, bind and price reads
+  answer live from the client; an item the client has not cached yet records with the link's own
+  name and color until it is.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [schema.md](schema.md).

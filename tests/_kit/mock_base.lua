@@ -441,6 +441,10 @@ local function registerEvent(self, event, handler, ...)
       .. method .. "' not found on self.", 2)
   end
   self.__events[event] = handler or true
+  -- Kit revision 39: the handler is ALSO kept where unregister never reaches, so that
+  -- `M.__fireUnconditional` can still find a method-name or function handler after a stand-down.
+  local mt = getmetatable(self.__events)
+  if mt then mt.__kitEver = mt.__kitEver or {}; mt.__kitEver[event] = method end
   local build = buildOf(self.__events)
   -- Recorded FIRST, then registered: CallbackHandler stores the callback before AceEvent's OnUsed
   -- asks the frame for the event, so an unknown event leaves its registration behind exactly as
@@ -484,7 +488,9 @@ end
 local function embedEvents(target, registry, build)
   registry[target] = registry[target] or {}
   target.__events = registry[target]
-  setmetatable(target.__events, { __kitBuild = build })
+  -- A second Embed in the same build keeps the never-cleared handler record (kit revision 39).
+  local old = getmetatable(target.__events)
+  setmetatable(target.__events, { __kitBuild = build, __kitEver = old and old.__kitEver })
   target.RegisterEvent = registerEvent
   target.UnregisterEvent = unregisterEvent
   target.UnregisterAllEvents = unregisterAllEvents

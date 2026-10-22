@@ -15,7 +15,7 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 10
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -222,10 +222,13 @@ local CLOSE_HOT  = { 1, 0.3, 0.3 }
 --- was copied into. Core cannot ask Media for a path without being told the answer to that, and it
 --- must not guess: a wrong texture path draws nothing and raises nothing.
 ---
---- The × is therefore not a legacy spelling to be migrated away from. It is what a caller that has
---- not been updated still gets, what a host without the Media module gets, and what every window
---- gets on an install missing the art -- all three of which are the same code path, which is why
---- there is no separate degraded branch to keep working.
+--- The × is therefore not a legacy spelling to be migrated away from. It is what a caller that
+--- passes no `addonName` gets and what a host without the Media module gets -- one code path, which
+--- is why there is no separate degraded branch to keep working. It is NOT what a host whose copy
+--- lacks the art gets: a host that passes its name but did not declare `close` on its
+--- `LibKa0s icons:` line gets a BLANK control, because `Media.Icon` answers a path and never checks
+--- that the file exists. That was so before pruning too: there never was a fallback for a missing
+--- file. Declare it (library-stack-§7's icon subset; docs/releasing.md's library-drawn table).
 ---
 --- @param parent table
 --- @param onClick function

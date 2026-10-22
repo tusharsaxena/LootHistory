@@ -487,3 +487,24 @@ test("coverage: test mode's start, combat stop and refusal are one [Table] line 
   assertEqual(count(lines, "[Table] test mode off (combat started)"), 1, table.concat(lines, "\n"))
   assertEqual(count(lines, "[Table] test mode refused: "), 1, table.concat(lines, "\n"))
 end)
+
+-- ── the simulator's [Sim] lines ──────────────────────────────────────────────────────────────
+
+test("coverage: a refused simulation start is one [Sim] line with logging on, and none with it off", function()
+  -- red under: an ungated debug() in modules/Sim.lua (a [Sim] line built with logging off), or
+  -- dropping the refusal line, which leaves a start that never happened unexplained in the log.
+  local saved = NS.State.loginSettled
+  NS.State.loginSettled = false
+  local lines = capture(function() quietChat(function() NS.Sim:Start({ scenario = "loot" }) end) end)
+  local savedDebug, tags = NS.Debug, {}
+  NS.Debug = function(tag) tags[#tags + 1] = tostring(tag) end
+  NS.State.debug = false
+  quietChat(function() NS.Sim:Start({ scenario = "loot" }) end)
+  NS.Debug = savedDebug
+  NS.State.loginSettled = saved
+  assertTrue(not NS.Sim:IsActive(), "the start was refused")
+  assertEqual(count(lines, "[Sim] refused: A simulation cannot start until login has settled"), 1,
+    table.concat(lines, "\n"))
+  assertEqual(#tags, 0, "a [Sim] line reached the sink with logging off: " .. table.concat(tags, ", "))
+end)
+

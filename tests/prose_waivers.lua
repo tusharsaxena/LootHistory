@@ -13,5 +13,8 @@ return {
     ["docs/compat-layer.md"] = { cancelled = true },   -- the shim row quotes the returned kind
     -- The mock mirrors the same two game strings: that subject text and the Enum member name.
     ["tests/wow_mock.lua"] = { cancelled = true, fulfil = true },
+    -- The simulator suites' clock reads the kit mock's timer field `cancelled` (AceTimer's own
+    -- name for it, set by tests/_kit/mock_record.lua): a library's field name, not authored prose.
+    ["tests/sim_support.lua"] = { cancelled = true },
   },
 }

@@ -106,7 +106,7 @@ The encounter and keystone detail is layered on by separate rolling-context stam
 
 ## Peripheral stampers
 
-Sources that arrive without a loot window (or whose window would mis-resolve) each stamp just before their resulting self-loot line. Registered in `Attribution:Enable` (`modules/Attribution.lua:412`) via events and `hooksecurefunc`:
+Sources that arrive without a loot window (or whose window would mis-resolve) each stamp just before their resulting self-loot line. Each is a row of `core/Dispatch.lua`'s `NS.EVENT_ROWS` (events) or `NS.HOOK_ROWS` (`hooksecurefunc` hooks), appended at file load by `modules/Attribution.lua` and registered by `Attribution:Enable` (`modules/Attribution.lua:447`) through `NS.RegisterRows` / `NS.InstallHookRows`:
 
 - **VENDOR** — `hooksecurefunc("BuyMerchantItem")` → `StampVendor` (`modules/Attribution.lua:300`).
 - **TRADE** — `TRADE_ACCEPT_UPDATE` → `OnTradeAcceptUpdate` (`modules/Attribution.lua:373`); stamps only when **both** `playerAccepted` and `targetAccepted` are `1` (trade actually completed).
@@ -141,7 +141,7 @@ Records that pass are assembled by `Collector:BuildRecord` (`modules/Collector.l
 
 ### Hot-path upvalues
 
-The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([disabled-state.md](disabled-state.md)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:90`) reloads them — and rewrites the one module-level `gateCfg` table that `OnChatMsgLoot` hands `ShouldRecord`, so a loot line sets only `gateCfg.itemID` and allocates no config table (`ShouldRecord` reads `cfg` and never keeps it) — and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:358`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
+The three gate settings are cached as file-local upvalues (`modules/Collector.lua`), not re-read from the DB on every loot line (standard events-frames-taint-§7). **`enabled` is no longer one of them, and its removal is the point rather than a tidy-up** — it used to be read at the top of `OnChatMsgLoot`, which is the DRAW GATE `anti-patterns #85` names: the handler stopped reacting and the addon never stopped watching, so the client walked the registration list, built the argument frame and entered Lua on every loot line in the raid for an addon the player had switched off. Disabling now tears `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` out entirely ([disabled-state.md](disabled-state.md)), so there is nothing left to gate — and a flag kept beside a real unregister is a second answer to “is this addon running” that can disagree with it. `Collector:RefreshUpvalues` (`modules/Collector.lua:90`) reloads them — and rewrites the one module-level `gateCfg` table that `OnChatMsgLoot` hands `ShouldRecord`, so a loot line sets only `gateCfg.itemID` and allocates no config table (`ShouldRecord` reads `cfg` and never keeps it) — and the collector subscribes to `Ka0s_LootHistory_SettingsChanged` to refresh on any settings write (`modules/Collector.lua:360`). That subscription registers on a **private** `NS.NewBusTarget()`, never the shared bus-as-self, so it doesn't clobber the Browser's handler for the same message — see [message-bus.md](message-bus.md).
 
 ## Wired vs enum'd sources
 
@@ -158,7 +158,7 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 A second, independent engine sits beside loot capture: the **Reconciler** (`modules/Reconciler.lua`) keeps `db.global.holdings` equal to what the account owns, using `NS.Scanner` for the reads and `NS.Holdings` for the writes (timeline-ledger spec §5.2). It never touches `CHAT_MSG_LOOT` or the attribution context; Phase 2 is where the two meet, as a diff of successive scans that the existing context then claims.
 
-**Events mark, `Flush` works.** Fourteen events register one by one on a private bus target, and only while `settings.trackLedger` is on. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
+**Events mark, `Flush` works.** Fourteen events register one by one on a private bus target, and only while `settings.trackLedger` is on. They are the Reconciler's fourteen `NS.EVENT_ROWS` rows (`core/Dispatch.lua`, target `ledger`), registered through `NS.RegisterRows` and unregistered through `NS.UnregisterRows`. A handler does nothing but set a dirty bit (`MarkDirty`) and, for the events that close a burst, arm a 0.35 s `NS.After` fuse:
 
 | Event | Marks | Arms the fuse |
 |---|---|---|
@@ -184,7 +184,7 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 
 **Login genesis and drift.** `LoginScan` marks everything dirty and flushes, then stamps `meta.genesis` and `meta.partial` on the character (and on the Warband when it already exists). The first login after v11 flushes `silent` (no rows: the snapshot is the genesis); every later login flushes with `forceReason = UNTRACKED`, so whatever changed while the addon was not watching is written as `UNTRACKED` rows with no hold and no claim consumed. `Enable` after a stand-down in a session that already logged in schedules the same scan a second later, so changes made while stood down land as `UNTRACKED` too. A login inside combat (a reload mid-pull) sets `loginPending` and defers both the read and the stamp to the regen edge, so genesis never lands on a holder that was not scanned. A fresh holder stays `partial` until its bank (for the Warband, its tabs) has been read once, which is why a new character's bank shows **never** until the first banker visit.
 
-**Turning it off.** Unticking `trackLedger` runs `DisableCapture`: the capture target is unregistered, dirty bits and `deferred` are cleared, and the `SettingsChanged` listener stays so re-ticking re-registers. `NS.StandDown` runs the full `Disable`. See [disabled-state.md](disabled-state.md).
+**Turning it off.** Unticking `trackLedger` runs `DisableCapture`: the capture target is unregistered, `Reconciler:ResetState` clears the dirty bits, `deferred` and the rest of the working state and cancels the two fuses, and the `SettingsChanged` listener stays so re-ticking re-registers. `NS.StandDown` runs the full `Disable`. See [disabled-state.md](disabled-state.md).
 ## The ledger: holdings diff + claims
 
 Phase 2 turns the holdings scan into the ledger's writer (timeline-ledger spec §5). The Reconciler still only *reads* the account; what changed is what it does with a difference. This section follows one `Flush` through its steps. Placement note: it sits after [Holdings scan](#holdings-scan) rather than directly after [The collector's gates](#the-collectors-gates), because it builds on the fuse, readability and combat rules stated there.
@@ -287,6 +287,73 @@ The Timeline reads `db.global.daily`, a sparse `["YYYY-MM-DD"][holder][thingKey]
 `TimelineModel.Build` walks the days of the chosen range, carries each holder's last close forward across days with no cell, ranks the holders of the thing by latest balance, caps them at `settings.timelineMaxLines` and adds a Total. A holder's line starts at its genesis (never before: back-casting is out of scope), is drawn dashed until `meta.completeAt` (its gate container's first read), and the ledger's `ledgerSince` is drawn as a dashed rule when the range reaches it.
 
 **Intraday.** Today and 7 d, when the range lies inside the retention and after `ledgerSince`, are rebuilt from event time rather than from daily points: `IntradaySeries` starts at the holder's balance *now* and undoes each history row of the thing, newest first, so it needs no stored snapshot. Two checks keep it honest. The balance it arrives at for the range start must not be negative, and it must equal the rollup's last close before that day when there is one. If either fails for any shown holder, the whole chart falls back to daily points (all holders or none, because mixing event-time and midnight points would make the Total add two clocks).
+
+## Capture-path stores
+
+Every write the capture paths make, and every read they make back, resolves through one accessor per store. Each accessor answers the simulator's session table when one is set in `NS.SimStores` (`core/State.lua`; a host table, never a field on the Sim-1.0 instance), and the saved store otherwise. Until a simulation runs, every field is `nil` and each accessor answers exactly the saved store (LootHistory#37).
+
+| Store | Accessor (session table first) | Read accessor | Live-only paths, always `NS.db.global` |
+|---|---|---|---|
+| history | `historyStore()`, local to `core/Database.lua`, behind `Database:Add`, `Amend`, `History`, `Count` and `Delete` | `Database:ActiveHistory()`: test mode's records, else `historyStore()` | `Purge`, `PruneOld`, `StorageStats`, `CountOlderThan`, `RepairBoundStates`, the migrations |
+| holdings | `Holdings:Store()` | `Holdings:ActiveStore()`: test mode's sample, else `Store()` | `Rollup:SeedOnce` reads `db.global.holdings` |
+| daily | `Rollup:Store()`, so `NoteClose`, `NoteFlow` and the `OnWrite` hook follow it | `Rollup:ActiveStore()`: test mode's sample, else `Store()` | `Rollup:SeedOnce`, `Rollup:Prune` |
+
+The Reconciler's 60 s [coalescing](#coalescing) check reads the row it would amend back through `Database:History()`, so during a simulation it finds the row in the session store it was written to. Write hooks need no change: `Rollup:OnWrite` writes `Rollup:Store()`. The live-only paths name the saved store explicitly, so a simulation can neither prune nor repair it, and the saved `history`, `holdings` and `daily` stores come out of a session byte-identical.
+
+## Simulator
+
+`/lh sim` (LootHistory#37, `LibKa0s-Sim-1.0`) drives everything above from an invented world. The rule
+is **edges invented, engine real**.
+
+**The edges.** `modules/SimWorld.lua` builds one session's world from the scenario's fixture (bags,
+bank, warband tabs, worn gear, purses, currencies, inbox, staged mail, owned auctions, the loot
+window, the situation, simulated combat, the trade partner, the quest) and answers the world reads
+through providers on `NS.SimSeam`, the answer seam `core/SimSeam.lua` wraps around `NS.Compat`. The
+item, spell and currency reads and the class token still answer live, because the simulated player
+is the real player. `modules/SimDrivers.lua` changes the world first and then fires what the client
+would: the chat lines written from the parser's own globals, `LOOT_OPENED` over a Creature,
+GameObject or Item GUID, the encounter and key events, the interaction frames, the bag, money and
+currency bursts, and each hooked call as `hook:<name>`. `NS.Sim:Fire` hands each to `NS.DeliverAll`
+(`core/Dispatch.lua`), which walks the registered `NS.EVENT_ROWS` (or the installed `NS.HOOK_ROWS`)
+in the order the client would call them. No simulator file calls a hooked client function, and none
+calls `Database:Add`, `Holdings:Apply*`, `Attribution:Stamp` or `R:Write`.
+
+**The engine.** From the handler on, nothing knows it is simulated: the single-slot context, the
+collector's gates, the claims, the scan, plan, hold and commit, escrow and the reason picker run as
+they do live. `modules/SimScenario.lua`'s ledger gate holds the next step while `R._pending`,
+`R._holdSince` or a deferred flush is set, so every step lands on a settled ledger.
+
+**The three session stores.** At start, `modules/Sim.lua` puts fresh `history`, `holdings` and `daily`
+tables into `NS.SimStores`, so every [capture-path accessor](#capture-path-stores) writes and reads
+the session. The one read the Reconciler made straight from the saved history, the coalescing check
+(`modules/Reconciler.lua:490`), goes through `Database:History()` and follows the session too. A
+simulated own alt, `Simalt-<realm>`, is seeded into the session holdings so the alt mail and alt trade
+paths see it. The start then runs `R:LoginScan()` with the seam on: the session holdings are empty, so
+that pass is a silent genesis and writes no rows.
+
+**Real input while it runs.** Every live handler goes through `NS.Deliver` / `NS.DeliverHook`, and
+the start sets their one hook point, `NS.RealEventFilter`, to `NS.SimHost.OnRealEvent`, which sorts
+what the real client delivers:
+
+| Class | Events | What happens |
+|---|---|---|
+| Interference | The player's own `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` or `CHAT_MSG_MONEY` line (by the self parse; another player's line is absorbed), `LOOT_OPENED`, `ENCOUNTER_START`, `CHALLENGE_MODE_START`, `QUEST_TURNED_IN`, `TRADE_ACCEPT_UPDATE`, `MAIL_SEND_SUCCESS`, `PLAYER_INTERACTION_MANAGER_FRAME_SHOW`, any real hook call | The simulation stops with reason `world`, then the event runs live into the saved stores, so no real loot is lost |
+| Setup | `ADDON_LOADED` (the guild bank frame's hook install) | Delivered live; no stop |
+| Absorbed | Everything else: bags, money, currency, equipment, bank, auctions, spell casts | Dropped; the stop's drift scan sees what they changed |
+| World watch | `GROUP_ROSTER_UPDATE`, `PLAYER_ENTERING_WORLD`, `ZONE_CHANGED_NEW_AREA`, `PLAYER_REGEN_DISABLED`, on a private target registered only while a session runs | Stops with `group` in a real group, `instance` in a real instance, `combat` on combat (the reads go through `NS.SimSeam:Live`, so they answer the real client) |
+
+The stand-down stops a simulation first (`standDown`), and a profile switch, copy or reset stops it
+(`profile`). `/reload` and logout end it, because nothing of it is saved.
+
+**The stop, and the drift scan after it.** The stop cancels the Reconciler's flush and recheck fuses
+by handle, resets the Reconciler and the attribution contexts (a simulated stamp or claim must never
+attribute the next real loot), puts `nil` back into `NS.SimStores` so every accessor answers the
+saved store again, drops the real-event filter and the world watch, and announces the swap to the
+window and the bus. Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
+second out: whatever really changed in the bags, purse or currencies while the simulation absorbed
+those events is written as [`UNTRACKED`](#login-and-resume-untracked) drift, the same answer the
+addon gives after a disable and enable. A stand-down needs no scan of its own, because the
+Reconciler's stand-up rescan covers it.
 
 ## Known limitation
 

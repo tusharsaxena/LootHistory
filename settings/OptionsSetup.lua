@@ -58,6 +58,9 @@ if not lib then
     Section = noop, AddSpacer = noop, AttachTooltip = noop, InlineButtonPair = noop,
     RenderField = noop, SessionCheckbox = noop, RenderRows = noop, RenderSchema = noop,
     RenderGrid = noop, SetRenderer = noop,
+    -- O.Drawer (LibKa0s v1.73.0, OptionsDrawer 1). No page here draws a drawer; a library-absent
+    -- build draws no panel, so the no-op is all the surface owes.
+    Drawer = noop,
     RegisterOptionsPage = noop, CreateOptionsPanel = noop,
     OpenOptionsPanel = function()
       NS.Print(NS.LIBKA0S_MISSING .. ", so the settings panel is unavailable.")
@@ -147,7 +150,7 @@ if not lib then
       "Not read while Use class color is on, except for its opacity, which always applies.",
 
     -- The strip's pure arithmetic. No call site in this addon reaches any of them —
-    -- `grep -rn "Options\.__\(layoutTabs\|tabPlacement\|bannerBand\|tabBand\|scrollTopInset\|releaseChrome\)" core settings modules`
+    -- `grep -rn "Options\.__\(layoutTabs\|tabPlacement\|bannerBand\|tabBand\|scrollTopInset\)" core settings modules`
     -- returns nothing — but they are surface all the same, and a stub that omits a member the
     -- live table has is how a degraded install finds a nil where the live one finds a function.
     -- Each answers the value a page with NO chrome produces rather than nil: zero rows, zero
@@ -158,7 +161,6 @@ if not lib then
     __tabPlacement   = function() return {}, 0 end,
     __bannerBand     = function() return 0 end,
     __tabBand        = function() return 0 end,
-    __releaseChrome  = noop,
     __scrollTopInset = function(ctx) return 8 + ((ctx and ctx.chromeHeight) or 0) end,
 
     ROW_VSPACER = 8, SECTION_HEADING_H = 26, BUTTON_PAIR_REL = 0.492,

@@ -3,6 +3,7 @@ NS.Browser = NS.Browser or {}
 local B = NS.Browser
 local frame
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
+local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip strings route through it
 
 -- The window CHROME this addon owns: the tab strip's two label colors and every height the layout
 -- is measured from. The window EDGE is NOT here — the dark flat background, the 1px black outer
@@ -131,12 +132,21 @@ local function BuildPane(name)
   if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
 end
 
--- One content pane, filling between the shared filter bar and the shared footer.
-local function CreatePane(name)
+-- Where a pane sits: between the shared filter bar and the shared footer, and below the test-mode
+-- strip while it is shown (LootHistory#36). Re-run on every pane by B:UpdateTestStrip.
+local function anchorPane(pane)
+  local strip = frame.testStrip
   local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
-  local pane = CreateFrame("Frame", nil, frame)
+    + ((strip and strip:IsShown()) and NS.TestStripReserve() or 0)
+  pane:ClearAllPoints()
   pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
   pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
+end
+
+-- One content pane, filling between the shared filter bar and the shared footer.
+local function CreatePane(name)
+  local pane = CreateFrame("Frame", nil, frame)
+  anchorPane(pane)
   pane:Hide(); frame.panes[name] = pane
 end
 
@@ -527,11 +537,22 @@ function B:ShowTimeline(key)
   if lastTab == "Timeline" and d and d.name then self:SetSearchText(d.name) end
 end
 
+-- True while a simulation runs (modules/Sim.lua's NS.Sim, or its inert stub without the library).
+local function simulating() return NS.Sim ~= nil and NS.Sim:IsActive() end
+
+-- While a simulation runs the footer leads with where it stands (preview-mode's footer marker):
+-- `Simulating: loot · step 2/3`, ahead of the usual count.
 function B:UpdateFooter()
   if not self._footer then return end
   local shown = (NS.BrowserTable and NS.BrowserTable.matchCount) or 0
   local total = #dataset()
-  self._footer:SetText(("Showing %d of %d"):format(shown, total))
+  local text = ("Showing %d of %d"):format(shown, total)
+  if simulating() then
+    local st = NS.Sim:Status()
+    text = L["Simulating: %s \194\183 step %d/%d"]:format(tostring(st.scenario), st.pos or 0, st.total or 0)
+      .. "  \194\183  " .. text
+  end
+  self._footer:SetText(text)
 end
 
 -- Estimated SavedVariables size of the stored history (the same estimate the settings panel
@@ -572,15 +593,36 @@ function B:OnDatasetChanged()
   self:ApplyView(initialFor(lastTab))
   self:UpdateFooter()
   self:UpdateDbSize()
-  self:UpdateTestBadge()
+  self:UpdateTestStrip()
   -- The Insights tab reads the same dataset; refresh it so a live Insights view reflects the swap.
   if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end
 end
 
--- Show/hide the bright-red "TEST MODE" badge beside the window title.
-function B:UpdateTestBadge()
+-- The two marks' words and colors: test mode's bright red, and the simulation's own cyan.
+local TEST_MARK = { badge = "TEST MODE", color = { 1, 0.15, 0.15 },
+  strip = "TEST MODE: a sample loot history, not yours. Combat ends it." }
+local SIM_MARK = { badge = "SIMULATION", color = { 0.3, 0.8, 1 },
+  strip = "SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it." }
+
+-- The preview marks (preview-mode): the badge beside the window title and the amber strip under
+-- the filter bar (LootHistory#36), for test mode or for a running simulation (LootHistory#37), which
+-- exclude each other (modules/Sim.lua refuses a start in test mode; BrowserTable refuses test mode
+-- while one runs), so the two are never shown together. The strip takes room, so every pane is
+-- re-anchored below it while it shows and back up when it goes. A degraded install has the badge
+-- only. A Sim listener (modules/SimPanel.lua) calls this on every simulation transition.
+function B:UpdateTestStrip()
   if not (frame and frame.testBadge) then return end
-  frame.testBadge:SetShown(NS.BrowserTable and NS.BrowserTable.testMode or false)
+  local sim = simulating()
+  local on = sim or (NS.BrowserTable and NS.BrowserTable.testMode) or false
+  local mark = sim and SIM_MARK or TEST_MARK
+  frame.testBadge:SetText(L[mark.badge])
+  frame.testBadge:SetTextColor(mark.color[1], mark.color[2], mark.color[3])
+  frame.testBadge:SetShown(on)
+  if frame.testStrip then
+    frame.testStrip.text:SetText(L[mark.strip])
+    frame.testStrip:SetShown(on)
+  end
+  for _, pane in pairs(frame.panes) do anchorPane(pane) end
 end
 
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
@@ -886,8 +928,8 @@ local function EnsureFrame()
   -- Bright-red badge beside the title, shown only while the table is in test mode.
   local testBadge = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   testBadge:SetPoint("LEFT", title, "RIGHT", 10, 0)
-  testBadge:SetText("TEST MODE")
-  testBadge:SetTextColor(1, 0.15, 0.15)
+  testBadge:SetText(L[TEST_MARK.badge])
+  testBadge:SetTextColor(TEST_MARK.color[1], TEST_MARK.color[2], TEST_MARK.color[3])
   testBadge:Hide()
   frame.testBadge = testBadge
 
@@ -918,6 +960,31 @@ local function EnsureFrame()
   filterHost:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -BAR_INSET, -barTop)
   filterHost:SetHeight(FILTERBAR_H)
   frame.filterHost = filterHost
+
+  -- The test-mode strip (LootHistory#36, LibKa0s#48): the library's amber band, hung 2px under the
+  -- filter bar and shown by B:UpdateTestStrip while test mode is on. nil on a degraded install,
+  -- where the title badge alone marks test mode. The library draws no tooltip, so it is hooked here.
+  local strip = NS.MakeTestStrip(frame, L[TEST_MARK.strip])
+  if strip then
+    strip:SetPoint("TOPLEFT",  filterHost, "BOTTOMLEFT",  0, -2)
+    strip:SetPoint("TOPRIGHT", filterHost, "BOTTOMRIGHT", 0, -2)
+    strip:EnableMouse(true)
+    strip:HookScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+      if simulating() then
+        GameTooltip:SetText(L["Simulation"])
+        GameTooltip:AddLine(L["Shows: what the real capture recorded from an invented world, this session only"], 1, 1, 1)
+        GameTooltip:AddLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"], 1, 1, 1)
+      else
+        GameTooltip:SetText(L["Test mode"])
+        GameTooltip:AddLine(L["Shows: sample loot, holdings and timeline"], 1, 1, 1)
+        GameTooltip:AddLine(L["Ended by: combat, /lh test, the launcher menu"], 1, 1, 1)
+      end
+      GameTooltip:Show()
+    end)
+    strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  frame.testStrip = strip
 
   -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
   -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
@@ -1062,9 +1129,9 @@ function B:VisibilityAllows(inCombat)
   -- A display decision, so never the combat-lockdown flag (events-frames-taint-§2):
   -- PLAYER_REGEN_DISABLED fires BEFORE lockdown engages, so at the pull the lockdown still reads
   -- false and "Only out of combat" would leave the window up for the whole fight. The edge itself
-  -- is the state; off an edge, UnitAffectingCombat("player") is the display-side read.
+  -- is the state; off an edge, Compat.PlayerInCombat() is the display-side read.
   if inCombat == nil then
-    inCombat = UnitAffectingCombat and UnitAffectingCombat("player") and true or false
+    inCombat = NS.Compat.PlayerInCombat()
   end
   if mode == "inCombat" then return inCombat end
   return not inCombat   -- "outOfCombat"
@@ -1109,7 +1176,7 @@ function B:Show()
   -- (issue #13) then reads correctly even when the window opens straight onto the Insights tab.
   BuildPane("History")
   B:SelectTab(lastTab)
-  B:UpdateTestBadge()
+  B:UpdateTestStrip()
 end
 
 function B:Hide()

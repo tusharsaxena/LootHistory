@@ -66,12 +66,16 @@ local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
   "test_ledger",
   "test_ledgerformat",
-  "test_compat", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
+  "test_compat", "test_compat_routing", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
-  "test_browser", "test_browsertable", "test_export", "test_debuglog",
+  "test_browser", "test_teststrip", "test_browsertable", "test_export", "test_debuglog",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
-  "test_launcher", "test_slash", "test_slash_degraded", "test_resetprompt",
+  "test_launcher",
+  -- The Show window key binding (launcher-§6): the root Bindings.xml and the button it clicks.
+  -- After test_launcher, beside the rest of the launcher's surface; it builds no window.
+  "test_keybinding",
+  "test_slash", "test_slash_degraded", "test_resetprompt",
   "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
@@ -94,6 +98,36 @@ local SUITES = {
   -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
   -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
   "test_debug_coverage",
+  -- core/Dispatch.lua's row tables (LootHistory#37). After test_debug_coverage, which leaves the
+  -- addon brought up: its cases read the live registration set and leave the addon up again.
+  "test_dispatch",
+  -- core/SimSeam.lua, LibKa0s-Sim-1.0's answer seam over NS.Compat (LootHistory#37). After
+  -- test_dispatch, with the whole addon loaded and brought up: its Unwrapped()-empty case then also
+  -- catches a suite before it that swapped a Compat member and never put the wrapper back.
+  "test_sim_seam",
+  -- modules/Sim.lua, the simulator's session host (LootHistory#37): refusals, start and stop, the
+  -- automatic stops, the real-event split and the destructive-surface guards. After test_sim_seam,
+  -- with the addon brought up; every case stops its session and leaves the addon up again.
+  "test_sim_session",
+  -- modules/SimWorld.lua, the simulator's seeded world and the seam's providers (LootHistory#37).
+  -- After test_sim_session, with the addon brought up; every case stops the session it starts.
+  "test_sim_world",
+  -- modules/SimDrivers.lua, the event and hook drivers (LootHistory#37). After test_sim_world.
+  "test_sim_drivers",
+  -- modules/SimScenario.lua end to end (LootHistory#37): the six scenarios through the real engine,
+  -- by step and by run, against the mock's solo answers (the DW-90 regression). After
+  -- test_sim_drivers, with the addon brought up; every case stops its session.
+  "test_sim_e2e",
+  -- The saved-data invariant: every scenario leaves db.global.history, .holdings and .daily
+  -- byte-identical (LootHistory#37, H4). After test_sim_e2e.
+  "test_sim_store",
+  -- modules/SimPanel.lua and the History window's simulation marker (LootHistory#37): the panel
+  -- descriptor, the library's panel driven through it, and the SIMULATION badge, strip and footer.
+  -- After test_sim_store, with the addon brought up; every case stops its session.
+  "test_sim_panel",
+  -- `/lh sim` (LootHistory#37): every verb, the host verb `loot [n]`, the disabled refusal and the
+  -- library-absent stub. After test_sim_panel; every case stops its session.
+  "test_sim_slash",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

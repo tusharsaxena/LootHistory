@@ -645,6 +645,64 @@ test("slash-commands-§7 step 8: the left click opens the panel and writes nothi
     setEnabled(true)
   end)
 
+--- The Show window key binding's button (launcher-§6), pressed the way the client presses it: the
+--- binding's CLICK runs the named button's OnClick with LeftButton, down.
+local function pressKey()
+  local b = M.__namedFrames.LootHistoryToggleWindow
+  assertTrue(b ~= nil, "core/LauncherSetup.lua creates the LootHistoryToggleWindow button at load")
+  return capture(function() b:GetScript("OnClick")(b, "LeftButton", true) end)
+end
+
+--- Whether the History window is up, without building it.
+local function windowShown()
+  local f = NS.Browser.GetWindow and NS.Browser:GetWindow()
+  return (f ~= nil and f:IsShown()) and true or false
+end
+
+test("slash-commands-§7 step 8: the key binding's press while disabled prints exactly one refusal line, "
+  .. "writes nothing, shows nothing", function()
+    -- launcher-§6: a key cannot be grayed the way the menu's Show window entry is, so the press
+    -- answers by its hold. Disabled, that is the dispatcher's own line, byte for byte.
+    -- red under: a silent press (B:Show's own refusal is silent), a second line, a press that
+    -- reached B:Toggle, or a write to SavedVariables on a disabled addon.
+    bringUp()
+    setEnabled(false)
+    local realToggle, toggles = NS.Browser.Toggle, 0
+    NS.Browser.Toggle = function() toggles = toggles + 1 end
+    M.__resetSvWrites()
+    local ok, out = pcall(pressKey)
+    NS.Browser.Toggle = realToggle
+    if not ok then setEnabled(true); error(out, 0) end
+    assertEqual(#out, 1, "exactly one line, got: " .. table.concat(out, " | "))
+    assertTrue(out[1]:find(NS.Slash.DisabledLine(), 1, true) ~= nil,
+      "the line is the disabled refusal: " .. tostring(out[1]))
+    assertEqual(toggles, 0, "the press must not reach the window")
+    assertEqual(windowShown(), false, "no window on a disabled addon")
+    assertEqual(#M.__svWrites(), 0, "the press wrote SavedVariables on a disabled addon")
+    setEnabled(true)
+  end)
+
+test("slash-commands-§7 step 8: under the perf hold alone the press prints exactly one performance-capture "
+  .. "line, never the disabled line, and toggles nothing", function()
+    -- The perf hold is a stand-down the dispatcher's gate does not see (it keys on the stored
+    -- switch), and B:Show refuses it silently -- so without the press asking NS.RefusalLine first,
+    -- the key would do nothing and say nothing, which launcher-§6 forbids.
+    bringUp()
+    local realToggle, toggles = NS.Browser.Toggle, 0
+    NS.Browser.Toggle = function() toggles = toggles + 1 end
+    NS.Lifecycle:Hold(NS.HOLD_PERF)
+    local ok, out = pcall(pressKey)
+    NS.Lifecycle:Release(NS.HOLD_PERF)
+    NS.Browser.Toggle = realToggle
+    if not ok then error(out, 0) end
+    assertEqual(#out, 1, "exactly one line, got: " .. table.concat(out, " | "))
+    assertTrue(out[1]:find("Not available during a performance capture.", 1, true) ~= nil,
+      "the line names the capture: " .. tostring(out[1]))
+    assertTrue(out[1]:find(NS.Slash.DisabledLine(), 1, true) == nil, "never the disabled line")
+    assertEqual(toggles, 0, "the press must not reach the window during a capture")
+    assertEqual(#NS.Lifecycle:Holds(), 0, "no hold outlives this case")
+  end)
+
 -- ── 9. restoration, from CURRENT state ────────────────────────────────────────────────────────
 
 test("slash-commands-§7 step 9: re-enabling restores the registration set, and from the settings as they are NOW",
@@ -739,7 +797,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "Rollup", "Export", "DebugLog", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -773,7 +831,7 @@ local function fillAll(log)
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
   NS.Export = recorder(log, "Export", { "Hide" })
   NS.DebugLog = recorder(log, "DebugLog", { "Hide" })
-  for _, k in ipairs({ "DropLedgerResetOffer", "CloseMenu" }) do
+  for _, k in ipairs({ "SimStop", "DropLedgerResetOffer", "CloseMenu" }) do
     NS[k] = function() log[#log + 1] = k end
   end
   NS.CancelDeferrals = function() log[#log + 1] = "CancelDeferrals"; return 3 end
@@ -790,6 +848,8 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
   withSurfaces(fillAll, function(log)
     NS.StandDown()
     assertEqual(table.concat(log, "\n"), table.concat({
+      -- H6: the simulation stops FIRST, while every module still holds its state.
+      "SimStop",
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
@@ -835,4 +895,54 @@ test("lifecycle: every step keeps its own nil-guard -- nothing built, both callb
     NS.StandDown(); NS.StandUp()
     assertEqual(table.concat(log, ","), "Attribution:Disable,CancelDeferrals")
   end)
+end)
+
+-- ── the simulator's host contract (LootHistory#37, req-lh-sim §3.4 and §5.1 item 9) ──────────
+
+--- Whether a queued kit timer is still armed: the kit's live set, rather than its own flag.
+local function isLive(t)
+  for _, x in ipairs(M.__timers()) do
+    if x == t then return true end
+  end
+  return false
+end
+
+--- Arm the login deferrals the way PLAYER_ENTERING_WORLD does, and hand back the queued 20 s one.
+local function armLogin()
+  setEnabled(false)
+  local before = #M.__timers()
+  bringUp()
+  NS.State.cleanupDone, NS.State.loginSettled = false, false
+  assertTrue(M.__fire("PLAYER_ENTERING_WORLD") > 0, "the login handler must be registered")
+  local settle
+  for _, t in ipairs(M.__timers) do
+    if t.delay == 20 and isLive(t) then settle = t end
+  end
+  assertTrue(settle ~= nil, "PLAYER_ENTERING_WORLD must arm the 20 s deferral")
+  return before, settle
+end
+
+test("lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running", function()
+  local _, settle = armLogin()
+  local live = #M.__timers()
+  local ran = false
+  local h = NS.After(30, function() ran = true end)
+  assertEqual(#M.__timers(), live + 1)
+  assertTrue(NS.CancelDeferral(h), "a live handle must report it was canceled")
+  assertTrue(h.canceled, "the handle must be flagged canceled")
+  assertEqual(#M.__timers(), live, "CancelDeferral touched a deferral other than its own")
+  assertTrue(isLive(settle), "CancelDeferral canceled a login deferral")
+  assertFalse(NS.CancelDeferral(h), "a second cancel of the same handle is a no-op")
+  assertFalse(NS.CancelDeferral(nil), "a nil handle (a deferral that ran straight through) is a no-op")
+  assertFalse(ran, "a canceled deferral ran")
+  setEnabled(true)
+end)
+
+test("lifecycle: loginSettled flips at the 20 s deferral", function()
+  local _, settle = armLogin()
+  assertFalse(NS.State.loginSettled, "loginSettled must stay false until the 20 s deferral runs")
+  settle.fn()
+  assertTrue(NS.State.loginSettled, "the 20 s deferral must set loginSettled")
+  setEnabled(false)
+  setEnabled(true)
 end)

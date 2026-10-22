@@ -636,7 +636,9 @@ end
 -- the player's flag, not the combat-lockdown flag: this is a display question
 -- (events-frames-taint-§2), and lockdown lags PLAYER_REGEN_DISABLED.
 local function testModeRefusal()
-  if UnitAffectingCombat and UnitAffectingCombat("player") then
+  -- Test mode and the simulator (modules/Sim.lua) exclude each other: each refuses while the other runs.
+  if NS.Sim and NS.Sim:IsActive() then return "a simulation is running (/lh sim stop ends it)." end
+  if NS.Compat.PlayerInCombat() then
     return "combat ends it, so it cannot start in combat."
   end
   if NS.Browser and NS.Browser.VisibilityAllows and not NS.Browser:VisibilityAllows() then
@@ -1244,6 +1246,7 @@ function BrowserTable:RowMenuItems(record)
         end
       end },
     { label = "|cffff5555Delete|r", icon = "clear", enabled = true, fn = function()
+        if NS.SimBlocks("Delete") then return end
         NS.Database:Delete(function(r) return r == record end) -- fires HistoryChanged
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
       end },

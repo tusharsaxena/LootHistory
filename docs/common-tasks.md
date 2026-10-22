@@ -79,12 +79,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS` table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no
   global `LootHistory` — nothing in `core/`, `modules/`, `settings/`, `defaults/`, or `locales/`
   reaches the addon through the global table.
-- **Which spelling of that header depends on whether the file reads the folder name.** Eight files
+- **Which spelling of that header depends on whether the file reads the folder name.** Eleven files
   do, and they name it: `local addonName, NS = ...` in `core/LootHistory.lua` (which hands it to
   `AceAddon:NewAddon(NS, addonName, …)` at `:4`), `core/Namespace.lua`, `core/CoreSetup.lua`,
-  `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `modules/AuctionPrice.lua`
-  and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
-  infer which folder this addon was copied into. **The other twenty write `local _, NS = ...`**,
+  `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `core/PerfSetup.lua`,
+  `core/LauncherSetup.lua`, `settings/OptionsSetup.lua`, `modules/AuctionPrice.lua` and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
+  infer which folder this addon was copied into. **The other forty-eight write `local _, NS = ...`**,
   because naming a local nothing reads is a warning the linter is right to raise. Three files
   (`core/ItemSetup.lua`, `core/PoolSetup.lua`, `core/WidgetsSetup.lua`) already spelled it that
   way; `M4c-06` removed the top-level `ignore` that had been hiding the other seventeen and
@@ -156,7 +156,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `excludedSources`, `excludeQuestItems` (`modules/Collector.lua:19`) — so the `CHAT_MSG_LOOT`
   handler reads locals, not a chain of table lookups, on every loot line (Ka0s standard events-frames-taint-§7). They
   are refreshed by `Collector:RefreshUpvalues()` on `Ka0s_LootHistory_SettingsChanged`
-  (`modules/Collector.lua:358`), which also rewrites the one module-level `gateCfg` table
+  (`modules/Collector.lua:360`), which also rewrites the one module-level `gateCfg` table
   (`modules/Collector.lua:29`) the handler passes to `ShouldRecord` — a loot line sets only
   `gateCfg.itemID`, never builds a config table. The quest-item gate keys on the locale-independent item class
   (`Constants.ITEMCLASS_QUEST`), never the localized `itemType` string.
@@ -184,7 +184,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Session-only debug
 
 - Debugging is a **session-only** flag, `NS.State.debug`, default `false`, reset every reload and
-  **never persisted** (`core/State.lua:15`) — it is deliberately *not* a schema row. When off,
+  **never persisted** (`core/State.lua:17`) — it is deliberately *not* a schema row. When off,
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug` in `libs/LibKa0s/DebugLog.lua`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
@@ -245,7 +245,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
   `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:63`, `core/CoreSetup.lua`); `modules/Browser.lua:15`’s own
+  `NS.ApplySkin` (`modules/Browser.lua:64`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
   `SKIN` table carries only the tab colors and layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
@@ -290,7 +290,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
 - **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
   only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:13`) that now belongs at the LibKa0s seam, not a
+  a tracked post-1.0.0 idea (`modules/Browser.lua:14`) that now belongs at the LibKa0s seam, not a
   gap to close now.
 
 ### Options UI: Blizzard canvas, never AceConfigDialog

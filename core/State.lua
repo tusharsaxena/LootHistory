@@ -12,11 +12,22 @@ State.keystone  = nil   -- { level }
 
 -- Session flags (runtime only; reset every load/reload — never persisted to SavedVariables).
 State.cleanupDone = false   -- retention prune runs once per session
+State.loginSettled = false  -- set by OnEnterWorld's 20 s deferral, after the login PruneOld /
+                            -- RepairBoundStates / Rollup:SeedOnce have run; /lh sim refuses until then
 State.debug = false         -- session-only logging flag; independent of window visibility. /lh debug on|off; default off
 State.testRecords = nil     -- session-only synthetic dataset published by /lh test; when set, all read-path
                             -- queries (table + Insights) resolve against it instead of the live history
 State.testHoldings = nil    -- its Holdings / Timeline half (modules/TestData.lua): db.global.holdings' and
 State.testDaily = nil       -- db.global.daily's shapes, read through Holdings/Rollup:ActiveStore, never written
+
+-- The simulator's session-only capture stores (req-lh-sim §4, LootHistory#37). A HOST table, never a
+-- field on the Sim-1.0 instance (OWNER_SCOPE C.4). Each field is nil while live; a simulation swaps a
+-- fresh table in and puts nil back at stop. Every capture-path accessor reads it first:
+--   history  -> core/Database.lua historyStore() (Add, Amend, History, Count, Delete, ActiveHistory)
+--   holdings -> Holdings:Store()      daily -> Rollup:Store()
+-- The live-only paths (Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates, the
+-- migrations, Rollup:SeedOnce / Prune) keep reading NS.db.global, so saved data stays untouched.
+NS.SimStores = NS.SimStores or { history = nil, holdings = nil, daily = nil }
 
 -- Outbound (loss-side) context for the ledger (timeline-ledger spec §5.4). A SECOND single slot
 -- beside lootContext, same TTL engine: one BuyMerchantItem must stamp an inbound VENDOR for the

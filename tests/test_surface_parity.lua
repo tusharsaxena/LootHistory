@@ -44,6 +44,8 @@
 -- so keeping them is now the host's decision (argued where they are written) instead of this file's.
 -- That is the collection's rule rather than this repo's preference: LibKa0s' own comment at O.__print
 -- says a degradation stub does not mirror an internal, and cites Kit.publicMembers by name.
+-- (Eleven since LibKa0s v1.75.0: OptionsTabs minor 9 took `__releaseChrome` off the instance, and
+-- the stub's mirror of it left in the same re-vendor.)
 --
 -- WHERE THE LIVE HALF COMES FROM. tests/run.lua registers it with Kit.setSurfaceSource, and it has
 -- to: both stubs mirror an INSTANCE — what `lib:New(descriptor)` returned — and not the library
@@ -223,9 +225,11 @@ end)
 test("parity: the Item stub carries the whole LibKa0s-Item-1.0 surface", function()
   -- Members from: grep -nE "^function lib\.[A-Za-z]" libs/LibKa0s/Item.lua
   -- core/ItemSetup.lua publishes the resolved major unchanged as NS.Item, so the stub mirrors the
-  -- library table and the by-name form is the right one. No ignore set: all four primitives are
+  -- library table and the by-name form is the right one. No ignore set: four primitives are
   -- called here (`grep -rnE "Item[.:](ItemIDFromLink|QualityFromLink|QualityLabel|LoadItem)" core
-  -- modules settings`), and a member the major adds later fails this case until the addon decides.
+  -- modules settings`), and the fifth, BonusIDsFromLink (Item minor 3, LibKa0s v1.75.0), is
+  -- mirrored with the library's own walk (tests/test_itemsetup.lua compares the two) ahead of its
+  -- call sites. A member the major adds later fails this case until the addon decides.
   T.assertSurfaceParity(degradedNS.Item, "LibKa0s-Item-1.0")
 end)
 
@@ -335,3 +339,21 @@ test("parity: the Perf stub carries every member the addon reads off NS.Perf", f
   end
   T.assertSurfaceParity(live, degraded, "Perf stub vs live instance")
 end)
+
+-- ── Sim (the session and its seam) ─────────────────────────────────────────────────────────────
+
+test("parity: the Sim session and seam stubs carry the whole live surface, both ways", function()
+  -- LibKa0s-Sim-1.0's H9. The live halves are the instance modules/Sim.lua builds (NS.Sim) and the
+  -- seam core/SimSeam.lua wraps NS.Compat with (NS.SimSeam); the degraded halves are the reference
+  -- stubs those two files publish when the major is absent. No manifest lists instance members,
+  -- because Sim:New builds them per host, so the four-argument form compares the two tables, and
+  -- both ways with no ignore set: a stub that carries a member the live surface lacks is as wrong as
+  -- one that is missing one. tests/test_sim_seam.lua pins the stubs member by member; this is the
+  -- collection's one place to ask whether every degradation stub is checked. `/lh sim` (the COMMANDS
+  -- row, settings/Schema.lua) and the History window's marker call NS.Sim on both paths.
+  T.assertSurfaceParity(NS.Sim, degradedNS.Sim, "Sim session stub", {})
+  T.assertSurfaceParity(degradedNS.Sim, NS.Sim, "Sim session stub carries nothing the instance lacks", {})
+  T.assertSurfaceParity(NS.SimSeam, degradedNS.SimSeam, "Sim seam stub", {})
+  T.assertSurfaceParity(degradedNS.SimSeam, NS.SimSeam, "Sim seam stub carries nothing the seam lacks", {})
+end)
+

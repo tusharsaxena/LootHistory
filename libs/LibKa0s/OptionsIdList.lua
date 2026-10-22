@@ -17,7 +17,9 @@ if not lib then return end
 -- Minor 2: a toggle asks the lock once, naming the entry, so a refusal is one Cfg line (gap G3).
 -- Minor 3: the help mark takes the descriptor's addonName only when the client reports that addon
 -- loaded, and a fall past that rung writes one Cfg line saying why (LibKa0s#42).
-local IDLIST_MINOR = 4
+-- Minor 5: comment-only; the help mark's art is the host's to declare, and a pruned copy draws it
+-- blank rather than falling back (LibKa0s#57). No member or behavior moves.
+local IDLIST_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -224,21 +226,23 @@ function lib.__AttachIdList(O, d, ids)
   -- h is, because the Remove button's own 0.20 is already out of the line. A host that wants help
   -- AND two columns draws the X (`removeStyle = "icon"`), and the O.IdList doc says so.
   local ID_HELP_REL      = 0.09
-  -- THE DEFAULT ART IS THIS LIBRARY'S OWN (minor 29). `media/icons/info.tga` ships inside the
-  -- vendored payload, is published as "info" in LibKa0s-Media-1.0's ICONS (Media.lua:92-96), and is
-  -- what ConsumableMaster already draws for this exact job (`KCM.Icon("info")`, its
-  -- settings/Category.lua:641). It is also WHITE with its shape entirely in the alpha channel
-  -- (Media.lua's "WHITE, AND THAT IS A CONTRACT"), which is what makes the tints above mean
-  -- anything: a texture is tinted by MULTIPLYING, so white art becomes gold or red, while the
-  -- Blizzard fallback below is a blue disc with its `i` baked into the color channels and can only
-  -- be darkened. The severity colors are muted on that rung, and saying so is the point of it.
+  -- THE DEFAULT ART IS THIS LIBRARY'S OWN (minor 29). `media/icons/info.tga` is published as "info"
+  -- in LibKa0s-Media-1.0's ICONS (Media.lua:92-99), but a pruned copy ships it only when the host
+  -- declares `info` on its `LibKa0s icons:` line (or passes its own `helpIcon`): undeclared, the path
+  -- still resolves and the mark draws BLANK, not the fallback below. It is what ConsumableMaster
+  -- already draws for this exact job (`KCM.Icon("info")`, its settings/Category.lua:654). It is also
+  -- WHITE with its shape entirely in the alpha channel (Media.lua's "WHITE, AND THAT IS A
+  -- CONTRACT"), which is what makes the tints above mean anything: a texture is tinted by
+  -- MULTIPLYING, so white art becomes gold or red, while the Blizzard fallback below is a blue disc
+  -- with its `i` baked into the color channels and can only be darkened. The severity colors are
+  -- muted on that rung, and saying so is the point of it.
   --
   -- REACHED ACROSS A MAJOR, WHICH IS WHY IT TAKES A NAME. `Media.Icon` builds an absolute
   -- `Interface\AddOns\<addon>\...` path and a VENDORED copy cannot know which addon folder it was
   -- copied into (Media.lua's "WHY THIS TAKES AN ADDON NAME"), so the host says: the Options
   -- descriptor's optional `addonName`, read through LibStub's silent form at draw time -- the same
-  -- bargain Core.MakeCloseButton (Core.lua:239-242) and DebugLog's makeIconButton
-  -- (DebugLog.lua:179-182) already strike for the same art. NOTHING IS COPIED ACROSS THE SEAM: this
+  -- bargain Core.MakeCloseButton (Core.lua:244-245) and DebugLog's makeIconButton
+  -- (DebugLog.lua:241-244) already strike for the same art. NOTHING IS COPIED ACROSS THE SEAM: this
   -- file names the major and asks, so a payload with Options and no Media is still a working
   -- payload. From minor 3 the name is CHECKED against the client's loaded addons before it is used,
   -- because a wrong one builds a path to nothing, and a list that falls past it writes one Cfg line
@@ -459,7 +463,7 @@ function lib.__AttachIdList(O, d, ids)
   --- RESOLVED ONCE PER INSTANCE, not per mark and not at file load. Per mark would repeat a LibStub
   --- lookup for every entry of every render for an answer that cannot change. At load it would
   --- assume a file order across two majors, which is the assumption Core.MakeCloseButton refuses
-  --- for the same art (LibKa0s/Core.lua:239-242). The consequence is that a Media major arriving
+  --- for the same art (LibKa0s/Core.lua:244-245). The consequence is that a Media major arriving
   --- AFTER the first helped list is drawn is not picked up until a reload -- true, and not a case:
   --- every file of this payload is loaded by one LibKa0s.xml before any panel exists.
   ---

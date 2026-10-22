@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1524%2F1524_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1685%2F1685_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -47,16 +47,18 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows. Combat switches it off, and it's never saved.
+There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip below the filter bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
 
 Reading back your loot happens in the History window, in this order:
 
-- Open the window. Right-click the minimap button and tick **Show window**, or type `/lh toggle`. A left-click on the button opens the settings instead. The window has four tabs: History, a table of every item you've recorded, Insights, Timeline and Holdings.
+- Open the window. Right-click the minimap button and tick **Show window**, type `/lh toggle`, or press a key you bind to **Toggle Loot History window** (Key Bindings > AddOns > Ka0s Loot History; it has no key until you pick one). A left-click on the button opens the settings instead. The window has four tabs: History, a table of every item you've recorded, Insights, Timeline and Holdings.
 - Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. Each tab (History, Insights, Timeline, Holdings) keeps its own filters. **Save** keeps the current tab's view as its default, **Clear** goes back to that saved view, and **Reset** forgets it and returns the tab to stock. Sorting and filters only carry over to your next session if you pressed Save.
 - Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
 - Open the Timeline. It charts one thing at a time (gold, a currency or an item) over time: a thick Total line plus a line per character or the Warband, with daily gained and lost bars underneath. Type in the search box to pick what to chart, and hover for the day's numbers. Right-click a History or Holdings row and choose **Show in Timeline** to jump straight to it. The Timeline starts at the upgrade; there is nothing to chart before it. **Keep Timeline days for** in Settings controls how long the daily balances are kept.
 - Switch to Insights. It breaks your loot down by source, value, quality and character, and gives currency a section of its own. Insights keeps its own filters, separate from History's, so narrowing one tab leaves the other's slice alone.
 - Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
+
+Want to see how a session would record without playing one? `/lh sim start loot` runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIMULATION while it runs. Nothing it records is saved, and `/lh sim stop` ends it. It only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
@@ -96,6 +98,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Do my filters and sorting stick between sessions? | Only if you save them. Each tab has its own: the filter bar's **Save** button stores the current tab's group, sort and filters as that tab's default view in your profile. **Clear** returns to that view, and **Reset** forgets it and goes back to stock. |
 | How do I wipe everything and start clean? | `/lh purge` deletes all history, and asks you to confirm first. To reset your settings but keep the history, use `/lh resetall`, or **Reset all settings** on the Master controls tab. Both reset only the profile you're on. |
 | What is `/lh test` for? | It turns on test mode, which loads a sample dataset into the window and Insights so you can see how they look before you have real loot. The **Test mode** checkbox on the Master controls tab is the same switch. It's never saved, and it clears when you run the command again, untick the box, or enter combat. |
+| Does `/lh sim` change my history? | No. A simulation records into a scratch copy that's thrown away when it stops, so your history, holdings and Timeline are exactly as they were. While it runs, purging, deleting a row and forgetting a character are refused. |
 | Does history survive reloads and relogs? | Yes. It's saved, and restored every time you log in. |
 
 ## Troubleshooting
@@ -143,6 +146,11 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 ## Credits
 
 The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
-licensed under the SIL Open Font License 1.1, and the History window's lock, dropdown and checkbox
-marks, the export icons and the settings page's info button are drawn from [Open Iconic](https://github.com/iconic/open-iconic) (MIT). Both ship inside the bundled LibKa0s payload,
-with their license text beside them.
+licensed under the SIL Open Font License 1.1.
+
+The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
+(MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
+Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
+info and drag-handle marks, the window close buttons, and the debug console's copy and clear
+buttons. Only the icons the addon draws are shipped. The font and the icons are bundled inside the
+LibKa0s payload, with their license text beside them.

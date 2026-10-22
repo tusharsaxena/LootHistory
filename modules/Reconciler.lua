@@ -480,13 +480,14 @@ function R.MakeRow(_, holder, kind, id, dir, reason, qty, now, from, to, pairId)
 end
 
 -- Write one ledger row, or amend the same-key row written under COALESCE_WINDOW seconds ago. An
--- amended row keeps the pairId it was written with.
+-- amended row keeps the pairId it was written with. The row is read back through Database:History,
+-- the session store during a simulation (req-lh-sim §4).
 function R:Write(holder, key, dir, reason, qty, now, from, to, pairId)
   local kind, id = L.ParseThingKey(key)
   if not kind or qty <= 0 or not rowAllowed(kind, id) then return nil end
   local ck = L.CoalesceKey(holder, key, dir, reason, from and (from .. ">" .. (to or "")) or nil)
   local recent = self.recent[ck]
-  if L.Amendable(recent, now) and NS.db.global.history[recent.index] == recent.row then
+  if L.Amendable(recent, now) and NS.Database:History()[recent.index] == recent.row then
     NS.Database:Amend(recent.index, qty)
     return recent.row
   end
@@ -571,6 +572,9 @@ end
 -- While holding, look again every CLAIM_WAIT seconds (bounded by SETTLE_TIMEOUT in ShouldHold).
 -- Events drive the real re-checks; this is the deadline. `_flushing` stops a deferral that runs
 -- straight through (no C_Timer) from re-entering Flush.
+-- `_recheck` holds the NS.After handle, so ResetState can cancel exactly this fuse; it is `true`
+-- only for the instant the deferral is being armed, which is what stops a straight-through run
+-- from arming a second one.
 function R:ScheduleRecheck()
   if self._recheck then return end
   self._recheck = true
@@ -578,7 +582,7 @@ function R:ScheduleRecheck()
     self._recheck = nil
     if not self._flushing then self:Flush() end
   end)
-  if h == nil then self._recheck = nil end
+  self._recheck = h
 end
 
 local function clearReadDirty(self)
@@ -686,12 +690,17 @@ function R:LoginScan()
   self:MarkLoginGenesis()
 end
 
-local EVENTS = {
+-- The fourteen capture rows (core/Dispatch.lua) on the private `__ev` target, appended at FILE LOAD
+-- so their order is TOC order. Each fn hands R:OnEvent the client's full payload; R:OnEvent keeps
+-- its (event, a1, _, a3, a4, a5) shape because the suites drive it directly.
+for _, event in ipairs({
   "BAG_UPDATE", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_MONEY", "ACCOUNT_MONEY",
   "CURRENCY_DISPLAY_UPDATE", "PLAYERBANKSLOTS_CHANGED", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED",
   "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "PLAYER_REGEN_ENABLED",
   "CURRENCY_TRANSFER_LOG_UPDATE", "MAIL_INBOX_UPDATE", "OWNED_AUCTIONS_UPDATED",
-}
+}) do
+  NS.EventRow("Reconciler", "ledger", event, function(ev, ...) return R:OnEvent(ev, ...) end)
+end
 
 local function trackLedgerOn()
   local s = NS.db and NS.db.profile and NS.db.profile.settings
@@ -711,10 +720,9 @@ function R:Enable()
   end
   if self.__ev or not trackLedgerOn() then return end
   self.__ev = NS.NewBusTarget()
-  -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
-  for _, ev in ipairs(EVENTS) do
-    NS.SafeRegisterEvent(self.__ev, ev, function(_, ...) self:OnEvent(ev, ...) end, NS.RejectedEvents)
-  end
+  -- Per event through Core's helper (events-frames-taint-§1, inside NS.RegisterRows): a refused
+  -- name costs only itself.
+  NS.RegisterRows("Reconciler", self.__ev, "ledger")
   self._enabled = true
   -- Back up after a stand-down (disable, perf suspend) in a session that already logged in: what
   -- changed while nothing was watching is drift, exactly like a login.
@@ -723,22 +731,43 @@ function R:Enable()
   end
 end
 
---- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
-function R:DisableCapture()
-  if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
+--- Every piece of working state, cleared WITHOUT unregistering (LootHistory#37, req-lh-sim §3.4):
+--- dirty bits, readable containers, claims, the coalescing map, memoized reasons, the currency
+--- accumulators, the settle hold, and the flush and recheck fuses, each canceled by its own handle
+--- (NS.CancelDeferral) so the login deferrals keep running. DisableCapture runs it on the way down;
+--- the simulator runs it at start and stop, so a simulated claim never attributes the next real loot.
+function R:ResetState()
+  NS.CancelDeferral(self._pending)
+  NS.CancelDeferral(self._recheck)
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil
+end
+
+--- Capture off (trackLedger unticked) while the module keeps listening for the setting coming back.
+function R:DisableCapture()
+  NS.UnregisterRows("Reconciler")
+  if self.__ev then self.__ev:UnregisterAllEvents(); self.__ev = nil end
+  self:ResetState()
   self._enabled = nil
 end
 
 --- The full stand-down (slash-commands-§7): the capture events AND the settings listener. Called
---- from NS.StandDown; `_pending`'s timer is canceled there by NS.CancelDeferrals.
+--- from NS.StandDown; DisableCapture's ResetState cancels the two fuses, and NS.CancelDeferrals
+--- (later in the same stand-down) everything else.
 function R:Disable()
   self:DisableCapture()
   if self._settings then self._settings:UnregisterAllMessages(); self._settings = nil end
+end
+
+--- Announce `holders` (a list of holder keys) as changed, once each. The simulator's stop calls it
+--- for its session store's holders (modules/Sim.lua), whose holdings every reader just stopped
+--- seeing; it goes through here because the Reconciler is HOLDINGS_CHANGED's one sender
+--- (docs/message-bus.md). Called as R:AnnounceHolders(holders); it reads no Reconciler state.
+function R.AnnounceHolders(_, holders)
+  for _, holder in ipairs(holders or {}) do NS.bus:SendMessage(NS.MSG.HOLDINGS_CHANGED, holder) end
 end
 
 -- "Forget this character" (spec §8.2): drop a character's holdings and its Timeline cells. History
@@ -747,6 +776,7 @@ end
 -- because it is HOLDINGS_CHANGED's one sender (docs/message-bus.md).
 -- Called as R:ForgetHolder(holder); it reads no Reconciler state, hence the `_` receiver.
 function R.ForgetHolder(_, holder)
+  if NS.SimBlocks("Forget this character") then return false, "simulation" end
   if holder == nil or holder == WARBAND then return false, "warband" end
   if holder == NS.Util.PlayerKey() then return false, "current" end
   local had = NS.Holdings:ForgetHolder(holder)

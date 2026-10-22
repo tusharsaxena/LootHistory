@@ -34,7 +34,7 @@ addon is on.
 
 **A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
 reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
-`show` / `hide` / `toggle` / `test` / `purge` / `holdings` answer one tagged line naming `/lh enable` and do
+`show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` answer one tagged line naming `/lh enable` and do
 nothing else. The gate is **one gate**, wrapped round each feature handler as `NS.COMMANDS` is built
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
@@ -75,10 +75,11 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
 | The Timeline tab's private bus target (`HOLDINGS_CHANGED` and `RECORD_ADDED`, one coalesced repaint) and any tooltip it owns | `Timeline:Disable`, from `NS.StandDown` |
 | The daily rollup's write hook (the `NS.Database:OnWrite` function; it holds no event and no bus target, so nothing in the event survey shows it, and the proof is behavioral: a row written while stood down tallies nothing) | `Rollup:Disable`, from `NS.StandDown`; `NS.StandUp` re-adds it. The login seed and prune are `NS.After` deferrals, so `NS.CancelDeferrals` drops them |
+| A running simulation (`/lh sim`: its session stores, its real-event split, its world-watch target and its timers) | `NS.SimStop`, the **first** `NS.StandDown` step, `call("SimStop")` at the head of `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua:174`; LibKa0s-Sim-1.0's H6, pinned by `tests/test_disabled.lua`): `NS.Sim:Stop("standDown")` runs while every module still holds its state, resets the Reconciler and the attribution contexts and releases the session stores, and schedules no drift scan |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
 | `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
-| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop) |
-| The Reconciler's ledger state: claims, recent-row coalescing map, memoized reasons, settle hold and recheck, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture` |
+| The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop); the clearing itself is `Attribution:ResetContexts` |
+| The Reconciler's ledger state: dirty bits, readable containers, claims, recent-row coalescing map, memoized reasons, settle hold, the flush and recheck fuses, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture`, both through `Reconciler:ResetState` |
 | The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
 | Every deferral the addon armed — the retention prune, the rollup seed and prune, the bound-state repair, the coalesced repaints (Browser, Insights, Timeline), the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
@@ -104,6 +105,30 @@ rather than tidy: the retention prune is a SavedVariables write on a five-second
 `PLAYER_ENTERING_WORLD`, and `C_Timer.After` cannot be put out. A player who switched the addon off
 inside those five seconds got the write anyway, from a game event, while it was disabled.
 
+## The reset steps, apart from the stand-down
+
+Three of the stand-down's steps are also callable on their own, without unregistering anything,
+because the in-game simulator (`/lh sim`, LootHistory#37) has to wipe working state at its start
+and stop while the addon stays up:
+
+- **`Reconciler:ResetState()`** clears the dirty bits, readable containers, claims, coalescing map,
+  memoized reasons, currency accumulators, `pendingTransfer`, `loginPending` and the settle hold,
+  and cancels the flush fuse (`_pending`) and the recheck fuse (`_recheck`) by handle.
+  `DisableCapture` calls it after unregistering.
+- **`Attribution:ResetContexts()`** clears every short-lived attribution context: `lootContext`,
+  `encounter`, `keystone`, `outContext`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`,
+  `craftUntil`, and empties `scopes` and `pendingPost` in place. `Attribution:Disable` and
+  `Attribution:DisableOut` both call it.
+- **`NS.CancelDeferral(h)`** cancels and forgets one `NS.After` handle and leaves every other armed,
+  so canceling the Reconciler's two fuses never takes the login deferrals down.
+  `NS.CancelDeferrals()` still drops them all on a stand-down.
+
+The 20-second login deferral also sets **`NS.State.loginSettled`** (declared `false` in
+`core/State.lua`). The simulator refuses to start until it is set, so the login `PruneOld`,
+`RepairBoundStates` and `Rollup:SeedOnce`, which read and write `NS.db.global` directly, have run
+before it swaps in its session stores. `tests/test_reconciler.lua`, `tests/test_attribution.lua` and
+`tests/test_disabled.lua` each pin one of these.
+
 ## What survives, because it is SETUP
 
 The chat command and the dispatcher; `NS.COMMANDS`; the settings-category registration and the panel
@@ -122,6 +147,17 @@ live and runs `/lh enable`. The gate is the library's, read from the descriptor'
 (`NS.AddonIsOff`), and a grayed entry writes no SavedVariables even when a client dispatches it.
 **The tooltip still shows while disabled** (Launcher minor 3, the library's own block): it reads
 `Enabled: No` under the same two fixed hints.
+
+**The Show window key binding refuses by its hold** (`launcher-§6`, anti-pattern #96). A key cannot
+be grayed the way the menu entry is, and a press that does nothing and says nothing is what §6
+forbids, so the `LootHistoryToggleWindow` button's click asks **`NS.RefusalLine()`**
+(`core/LifecycleSetup.lua`), the addon's one refusal-by-hold helper, before it runs `/lh toggle`.
+While the stored switch is off it answers the dispatcher's own line (`NS.Slash.DisabledLine()`,
+read at call time); under the perf hold alone it answers *Not available during a performance
+capture.*, never the disabled line; otherwise nil and the press toggles the window. The slash gate
+and `B:Show` keep their own behavior: the gate keys on the stored switch only, and `B:Show` refuses
+a stand-down silently, which is exactly why the press has to ask first. Step 8 of the suite below
+presses the button in both states.
 
 ## The conformance suite
 

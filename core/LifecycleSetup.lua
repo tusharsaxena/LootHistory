@@ -87,6 +87,19 @@ function NS.CancelDeferrals()
   return n
 end
 
+--- Drop ONE deferral and leave every other armed. The simulator's stop needs this (LootHistory#37,
+--- req-lh-sim §3.4): it must put out the Reconciler's flush and recheck fuses without taking the
+--- login deferrals (retention prune, rollup seed, bound-state repair, `loginSettled`) down with them,
+--- which is what NS.CancelDeferrals would do. A nil handle -- a deferral that ran straight through --
+--- and a handle already run or canceled are no-ops. Returns true when it canceled something.
+function NS.CancelDeferral(h)
+  if h == nil or not live[h] then return false end
+  h.canceled = true
+  if h.timer and h.timer.Cancel then h.timer:Cancel() end
+  live[h] = nil
+  return true
+end
+
 -- ── the two edge lines (debug-logging-§8, Diagnosis) ─────────────────────────────────────────
 --
 -- The EDGE is the library's line: from Lifecycle minor 3 (LibKa0s v1.65.0) the latch writes one
@@ -155,6 +168,10 @@ local function standUpLogStep()
 end
 
 local STAND_DOWN_STEPS = {
+  -- FIRST (LibKa0s-Sim-1.0's H6): a running simulation stops while every module still holds its
+  -- state, so its stop steps reset the Reconciler and release the session stores before the
+  -- modules below take themselves down. modules/Sim.lua's NS.SimStop, reason `standDown`.
+  call("SimStop"),
   -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
   -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
   -- does not touch messages, and this target subscribes to none.
@@ -248,6 +265,21 @@ end
 --- slash gate asks NS.AddonIsOff instead, because a perf capture is not a reason to refuse a verb.
 function NS.IsStoodDown()
   return NS.Lifecycle and NS.Lifecycle:IsDown() or false
+end
+
+--- The one line a press that cannot be grayed owes the player while the addon stands down, or nil
+--- when it may act: the addon's ONE refusal-by-hold helper (launcher-§6). Disabled answers the
+--- dispatcher's own line (NS.Slash.DisabledLine, read at call time); otherwise any hold left is
+--- the perf capture's, and that is its own line. The slash gate and B:Show keep their behavior: the
+--- gate keys on NS.AddonIsOff only and B:Show refuses a stand-down silently, so the Show window
+--- key binding (core/LauncherSetup.lua) asks HERE first, or under a capture it would do nothing and
+--- say nothing.
+function NS.RefusalLine()
+  if NS.AddonIsOff() then
+    return NS.Slash and NS.Slash.DisabledLine and NS.Slash.DisabledLine() or nil
+  end
+  if NS.IsStoodDown() then return NS.L["Not available during a performance capture."] end
+  return nil
 end
 
 --- The stored enable path, read through the Schema READ seam so the verbs, the Master controls

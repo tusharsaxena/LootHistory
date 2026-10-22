@@ -842,6 +842,7 @@ end
 -- nothing to confirm and never prunes. `restoring` keeps the decline's own write-back from raising
 -- a second confirm.
 local confirmedRetention, restoring = nil, false
+local writeRetentionQuietly   -- defined below; the simulation's refusal writes back through it too
 
 local function retentionLabel(days)
   for _, opt in ipairs(C.RETENTION_OPTIONS) do
@@ -873,11 +874,22 @@ function S:AdoptProfile()
   if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "profile") end
 end
 
+-- The last confirmed retention, else the shipped default: what a refused change writes back.
+local function keptRetention()
+  if confirmedRetention == nil then return GD.retentionDays end
+  return confirmedRetention
+end
+
+-- While a simulation runs (modules/Sim.lua), a change that would prune is refused with its one line
+-- and the kept value written back, so the stored retention never holds a value nobody confirmed.
+local PRUNE_REFUSED = "Shortening 'Keep history for'"
+
 --- The row's onChange. Prunes only once the player has confirmed, or when nothing can ask.
 function S:OnRetentionChanged(value)
   if restoring then return end
   local n = NS.Database and NS.Database.CountOlderThan and NS.Database:CountOlderThan(value) or 0
   if n == 0 then confirmedRetention = value; return end
+  if NS.SimBlocks(PRUNE_REFUSED) then writeRetentionQuietly(keptRetention()); return end
   if type(StaticPopup_Show) ~= "function" then
     if NS.Database.PruneOld then NS.Database:PruneOld() end
     confirmedRetention = value
@@ -887,7 +899,7 @@ function S:OnRetentionChanged(value)
 end
 
 --- Write `days` through the seam without re-entering OnRetentionChanged, then redraw the panel.
-local function writeRetentionQuietly(days)
+function writeRetentionQuietly(days)
   restoring = true
   local ok, err = pcall(S.Set, S, "settings.retentionDays", days)
   restoring = false
@@ -899,6 +911,7 @@ end
 --- may have moved while the popup was open) and prunes to it; decline restores the last confirmed
 --- one through the write seam and says so in one line.
 function S:ConfirmRetention(days, accepted)
+  if accepted and NS.SimBlocks(PRUNE_REFUSED) then writeRetentionQuietly(keptRetention()); return end
   if accepted then
     local stored = storedRetention()
     if stored ~= nil and stored ~= days then writeRetentionQuietly(days) end
@@ -906,8 +919,7 @@ function S:ConfirmRetention(days, accepted)
     confirmedRetention = days
     return
   end
-  local keep = confirmedRetention
-  if keep == nil then keep = GD.retentionDays end
+  local keep = keptRetention()
   writeRetentionQuietly(keep)
   NS.Format("retention kept at %s; no records were deleted.", retentionLabel(keep))
 end
@@ -1122,7 +1134,16 @@ NS.COMMANDS = gateFeatureVerbs{
       local on, switched = BT:ToggleTestMode()
       if switched then NS.Format("test mode %s", on and "on" or "off") end
     end },
+  -- The in-game simulator (LootHistory#37, LibKa0s-Sim-1.0's H7): one feature-verb row, so the gate
+  -- above refuses it while the addon is disabled (it is NOT on LIVE_WHILE_DISABLED). The grammar is
+  -- the library's (start, run, step, pause, resume, restart, stop, status, panel; no help verb) plus
+  -- the host verb `loot [n]` (modules/Sim.lua). Slash-only: no launcher entry, no key binding. With
+  -- no LibKa0s the session stub answers "The simulator needs LibKa0s-Sim-1.0.".
+  { "sim", NS.L["In-game simulator: /lh sim start <scenario>"], function(rest)
+      NS.Sim:RunVerb(rest or "")
+    end },
   { "purge", "Delete ALL loot history (asks to confirm)", function()
+      if NS.SimBlocks("Purge") then return end
       if type(StaticPopup_Show) == "function" then
         StaticPopup_Show("KA0S_LOOTHISTORY_PURGE")
       elseif NS.Database and NS.Database.Purge then

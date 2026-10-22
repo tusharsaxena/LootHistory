@@ -4,13 +4,14 @@
 -- across LibStub majors would let a host end up with a panel from one copy and a probe from another.
 -- The guard below is the standard multi-file idiom — if an older copy of Perf.lua won the LibStub
 -- race, or a newer panel is already attached, this file is a no-op.
+-- Duplicated on purpose: LibKa0s-Sim-1.0's SimPanel.lua keeps a private copy of this renderer (#53, minor 7).
 
 local lib = LibStub and LibStub("LibKa0s-Perf-1.0", true)
 if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 6
+local PANEL_MINOR = 7
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —

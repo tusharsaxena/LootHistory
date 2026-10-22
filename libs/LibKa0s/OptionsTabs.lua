@@ -48,7 +48,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 7: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
 -- Minor 8: RenderTabbedSchema's opt-in untabbedSkipRender, disabledReplaces (+ disabledNoticeFont)
 -- and rerender, for a host that composed the strip itself to get them (AbsorbTracker#32).
-local TABS_MINOR = 8
+-- Minor 9: the releaseChrome test seam on O, which no suite or consumer called, is no longer
+-- exported (LibKa0s#45); the local releaseChrome itself is unchanged.
+local TABS_MINOR = 9
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -633,7 +635,6 @@ function lib.__AttachTabs(O, d)
     ctx.__chromeKids = {}
     releaseTabs(ctx)
   end
-  O.__releaseChrome = releaseChrome
 
   --- Release a secondary strip's buttons. NOT folded into releaseChrome, because a sub-strip is not
   --- chrome: it is drawn INSIDE the scroll, parented to a frame the host added as an AceGUI child.

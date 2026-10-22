@@ -33,7 +33,11 @@ local function endPartial(e, holder, container, ts)
   end
 end
 
+-- The store every WRITE resolves against: the simulator's session table while one runs
+-- (NS.SimStores.holdings, core/State.lua; req-lh-sim §4), otherwise the saved account-wide store.
 function Holdings:Store()
+  local sim = NS.SimStores and NS.SimStores.holdings
+  if sim then return sim end
   local g = NS.db and NS.db.global
   if not g then return {} end
   g.holdings = g.holdings or {}

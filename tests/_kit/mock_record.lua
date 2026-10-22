@@ -611,6 +611,14 @@ return function(M, ctx)
   --- whose registration has been removed is what proves a survivor WOULD have been caught: the
   --- handler is still there, it is simply no longer reachable from the client, and this reaches it
   --- anyway. A suite that omits this step is asserting on its own silence.
+  ---
+  --- Answers how many handlers it reached, 1 or 0, and never raises. Through revision 38 an AceEvent
+  --- handler registered under a method name that is not the event (`RegisterEvent(e, "OnCombat")`)
+  --- or as a function could not be reached once unregistered, and the 0 that answered it looked like
+  --- a stood-down addon. From revision 39 `RegisterEvent` also keeps the handler where unregister
+  --- never reaches (`__kitEver` on the `__events` metatable, invisible to `pairs` and to
+  --- `M.__registrations`), and this reaches it. A suite proves reach by asserting the count: a 0
+  --- here means the harness had nothing to fire at, not that the addon is quiet.
   function M.__fireUnconditional(target, event, ...)
     if type(target) ~= "table" then return 0 end
     local scripts = rawget(target, "__scripts")
@@ -623,6 +631,16 @@ return function(M, ctx)
     if type(handler) == "function" then handler(event, ...); return 1 end
     if type(handler) == "string" and type(target[handler]) == "function" then
       target[handler](target, event, ...)
+      return 1
+    end
+    -- THE HANDLER OF THE LAST REGISTRATION, which unregister does not clear: the method name or
+    -- function the client would have called. Before the last resort below, because a method that
+    -- merely shares the event's name is not what the registration named.
+    local mt = events and getmetatable(events)
+    local ever = mt and mt.__kitEver and mt.__kitEver[event]
+    if type(ever) == "function" then ever(event, ...); return 1 end
+    if type(ever) == "string" and type(target[ever]) == "function" then
+      target[ever](target, event, ...)
       return 1
     end
     -- LAST RESORT: the method named for the event. AceEvent's default method IS the event's own

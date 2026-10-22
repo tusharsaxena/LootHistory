@@ -178,7 +178,7 @@ local function lootLine(self, msg)
   local itemLevel, bound, sellPrice, itemType, itemSubType = NS.Compat.GetItemExtras(link)
   local auctionPrice = NS.AuctionPrice:GatherAll(link, itemID)
   local zone, subzone = NS.Zone()
-  local classFile = select(2, UnitClass("player"))
+  local classFile = NS.Compat.PlayerClassFile()
   local record = self:BuildRecord(link, qty,
     { source = source, sourceDetail = sourceDetail, confidence = confidence },
     { ts = time(), char = NS.Util.PlayerKey(), classFile = classFile,
@@ -243,7 +243,7 @@ end
 local function currencyRecord(currencyID, name, qty, source, sourceDetail, confidence)
   local zone, subzone = NS.Zone()
   return {
-    ts = time(), char = NS.Util.PlayerKey(), classFile = select(2, UnitClass("player")),
+    ts = time(), char = NS.Util.PlayerKey(), classFile = NS.Compat.PlayerClassFile(),
     currencyID = currencyID, itemName = name,
     itemType = NS.Constants.CURRENCY_TYPE, itemSubType = NS.Compat.CurrencyCategory(currencyID),
     quality = NS.Compat.CurrencyQuality(currencyID),
@@ -335,18 +335,20 @@ function Collector:OnChatMsgMoney(_, msg)
   if t0 then Perf.Note("moneyLine", debugprofilestop() - t0) end
 end
 
+-- The capture rows (core/Dispatch.lua), appended at FILE LOAD so their order is TOC order. The Shape-A
+-- perf brackets stay inside the On* handlers (tests/perf.lua's _lootLine baseline).
+NS.EventRow("Collector", "bus", "CHAT_MSG_LOOT", function(_, msg) Collector:OnChatMsgLoot(_, msg) end)
+NS.EventRow("Collector", "bus", "CHAT_MSG_CURRENCY", function(_, msg) Collector:OnChatMsgCurrency(_, msg) end)
+NS.EventRow("Collector", "bus", "CHAT_MSG_MONEY", function(_, msg) Collector:OnChatMsgMoney(_, msg) end)
+
 function Collector:Enable()
   local bus = NS.addon
   if not bus or self._enabled then return end
   self._enabled = true
   self:RefreshUpvalues()
-  -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
-  NS.SafeRegisterEvent(bus, "CHAT_MSG_LOOT", function(_, msg) self:OnChatMsgLoot(_, msg) end,
-    NS.RejectedEvents)
-  NS.SafeRegisterEvent(bus, "CHAT_MSG_CURRENCY",
-    function(_, msg) self:OnChatMsgCurrency(_, msg) end, NS.RejectedEvents)
-  NS.SafeRegisterEvent(bus, "CHAT_MSG_MONEY", function(_, msg) self:OnChatMsgMoney(_, msg) end,
-    NS.RejectedEvents)
+  -- The three chat rows (above), per event through Core's helper (events-frames-taint-§1, inside
+  -- NS.RegisterRows): a refused name costs only itself.
+  NS.RegisterRows("Collector", bus, "bus")
   -- Message subscriptions use a private bus target (never the shared bus-as-self) so they don't
   -- clobber the Browser's SettingsChanged handler on the same bus. See NS.NewBusTarget.
   -- No `or bus` tail: NS.NewBusTarget returns nil ONLY when AceEvent-3.0 is unresolvable, and
@@ -368,12 +370,7 @@ end
 --- `_enabled` is cleared last, so Enable rebuilds on the way back up.
 function Collector:Disable()
   if not self._enabled then return end
-  local bus = NS.addon
-  if bus and bus.UnregisterEvent then
-    bus:UnregisterEvent("CHAT_MSG_LOOT")
-    bus:UnregisterEvent("CHAT_MSG_CURRENCY")
-    bus:UnregisterEvent("CHAT_MSG_MONEY")
-  end
+  NS.UnregisterRows("Collector")
   if self.__ev then
     self.__ev:UnregisterAllMessages()
     self.__ev:UnregisterAllEvents()

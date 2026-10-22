@@ -610,9 +610,8 @@ return function(Kit, fail)
   end
 
   --- What `framework.lua` needs back: the path helpers its suite loader and shard partitioner
-  --- call, the `--list` renderer `Kit.run` hands the registry to (kit revision 38), and the decline
-  --- reader and gate table it exposes to the kit's own self-tests (`Kit.__deviationRows`,
-  --- `Kit.__declineFor`, `Kit.__kitGateRule`).
+  --- call, the `--list` renderer `Kit.run` hands the registry to (kit revision 38), and the gate
+  --- table it exposes to the kit's own self-tests (`Kit.__kitGateRule`).
   return {
     fileExists    = fileExists,
     normDir       = normDir,
@@ -620,8 +619,6 @@ return function(Kit, fail)
     resolveDir    = resolveDir,
     adviceDir     = adviceDir,
     suiteEntry    = suiteEntry,
-    deviationRows = deviationRows,
-    declineFor    = declineFor,
     kitGateRule   = KIT_GATE_RULE,
     renderInventory = renderInventory,
   }
