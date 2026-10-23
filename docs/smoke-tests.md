@@ -1823,7 +1823,7 @@ resize. No Lua error. Result: pass (owner-marked 2026-10-10)
 **DEGRADED-13. The title badge marks test mode when there is no strip.** `/lh test` → no strip under
 the window's header, nothing shifted down, and the bright-red **TEST MODE** word beside the window
 title. `/lh test` again → the word goes. (No simulation can run without the library, so the cyan
-`SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result:
+`SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result: pass (owner, 2026-10-23)
 
 ## Non-English client
 
@@ -1871,4 +1871,4 @@ On 2026-10-10 the owner marked every check in this file as passed, recorded on i
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
 
-- [DEGRADED-13](#degraded-install): the title badge marks test mode when there is no strip (LH-10, 2026-10-23).
+None.
