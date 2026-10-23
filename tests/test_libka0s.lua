@@ -684,8 +684,19 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   -- SimPanel 2: it moved again to carry LK-27 (the picker reads its scenario at use).
   assertEqual(sim.Sim, 2)
   assertEqual(sim.SimTimeline, 2)
-  assertEqual(sim.SimPanel, 2)
+  assertTrue(sim.SimPanel >= 2) -- 3 since v1.75.1, pinned there
   assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
   assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
+  assertEqual(T.KIT_VERSION, 41)
+end)
+
+-- v1.75.1: SimPanel 3 (a disabled step row or control still shows its tip: the played steps' tips,
+-- this addon's `/lh sim` loot step among them, drew nothing in game); nothing else moves.
+test("v1.75.1: the vendored minors and the kit revision match the release", function()
+  local S = T.mocks.LibStub("LibKa0s-Sim-1.0", true)
+  assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.75.1")
+  assertEqual(S.MODULES.SimPanel, 3)
+  assertEqual(S.MODULES.Sim, 2)
+  assertEqual(S.MODULES.SimTimeline, 2)
   assertEqual(T.KIT_VERSION, 41)
 end)
