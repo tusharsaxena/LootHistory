@@ -55,7 +55,7 @@ NS.SimHost = NS.SimHost or {}
 local Host = NS.SimHost
 local L = NS.L
 
--- The pause after each step before `run` (the panel's Run all) plays the next one: the profile
+-- The pause after each step before a playing simulation plays the next one (its pace): the profile
 -- setting `settings.sim.stepDelay`, 1 s by default, 0.5 to 10 in steps of 0.5. It was a fixed 1.5 s
 -- constant under OWNER_SCOPE C.11 until the owner's simulator feedback (2026-10-23) asked for one
 -- second, configurable. The player writes it, never the simulation, so a session still writes
@@ -72,7 +72,7 @@ function Host.ValidStepDelay(v)
   return n == math.floor(n)
 end
 
---- The seconds Run all waits between steps now: the setting, or the default when the stored value
+--- The seconds a playing simulation waits between steps now: the setting, or the default when the stored value
 --- is not one the setting takes. The descriptor's `stepDelay` calls it as each next step is set, so
 --- a change applies from the next step.
 function Host.StepDelay()

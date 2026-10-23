@@ -36,7 +36,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
-| SIM-1 to 7 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused |
+| SIM-1 to 11 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -1658,12 +1658,13 @@ losses first.*; tick it again. With the addon disabled (`/lh disable`), `/lh sim
 the one disabled line; `/lh enable` after. (SM-LH-21) Result: pass (owner-marked 2026-10-23)
 
 **SIM-3. Every scenario end to end.** For each of `loot`, `key`, `vendor`, `ah`, `bank` and `social`:
-`/lh sim start <name>`, press **Run all** on the panel and wait for the last row to finish → the rows
+`/lh sim start <name>` and let it play on its own until the last row finishes → the rows
 the scenario names appear in History (sources and reasons, for example Kill, Container and Quest for
 `loot`; Mythic+ and Bonus Roll for `key`; Sell, Buy, Repair, Destroy and Disenchant for `vendor`;
 AH post fee, AH buy and AH sold for `ah`; warband deposit and withdraw for `bank`; alt mail, trades
 and the currency transfer for `social`), the Holdings tab shows the session's holders, and the
-Timeline charts them. `/lh sim stop` between scenarios. (SM-LH-22) Result: pass (owner-marked 2026-10-23)
+Timeline charts them. `/lh sim stop` between scenarios. (procedure amended for auto-play, LH-01,
+2026-10-23) (SM-LH-22) Result: pass (owner-marked 2026-10-23)
 
 **SIM-4. A real loot stops it.** `/lh sim start loot`, then kill and loot a real mob before the run
 ends → the simulation stops with *Simulation stopped: something real happened (a loot, a trade, a
@@ -1695,16 +1696,26 @@ the window again, open `/lh sim` (the panel floats with no window) and press the
 the panel's **Start** row → the window opens. A refused start (in combat, at a target dummy) opens
 nothing. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
-**SIM-9. Run all's step delay.** Settings → General → Interface → the **Simulator** heading shows
-**Simulation step delay** at **1**. `/lh sim start loot`, press **Run all** → about one second
+**SIM-9. The step delay.** Settings → General → Interface → the **Simulator** heading shows
+**Simulation step delay** at **1**. `/lh sim start loot` (it plays on its own) → about one second
 between steps while the ledger is quiet. `/lh set settings.sim.stepDelay 3` during the run → the
 steps after the next one come about three seconds apart, and the slider reads 3. `/lh set
 settings.sim.stepDelay 1.2` → refused (not a half step), the value stays 3. `/lh reset
-settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
+settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23; procedure amended for
+auto-play, LH-01, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-10. The picker's scenario dropdown fits.** `/lh sim` with no simulation running → the
 picker's scenario dropdown on the bottom left is wide enough for the longest scenario name on one
 line (no wrap). (LibKa0s v1.75.2, SimPanel minor 4) Result: pass (owner-marked 2026-10-23)
+
+**SIM-11. A started simulation plays on its own; Run all is gone.** `/lh sim start loot` → the
+History window and the step panel open, the panel's footer shows **Pause**, **Restart** and
+**Stop** (the Run all button is gone), and the steps play about one second apart on their own, each waiting
+for the ledger to settle, to the finished line. `/lh sim restart`, and mid-run click the next row →
+the run pauses (the first button reads **Resume**) and that one step plays; press **Resume** → it
+plays on to the end. Press **Restart** → it starts again from the first step with a fresh seed and
+plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimPanel 5; LH-01;
+SM-LH-01, SM-LH-02) Result:
 
 ## Vendored icons
 
@@ -1833,7 +1844,9 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-None. On 2026-10-10 the owner marked every check in this file as passed, recorded on its
+On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
+
+- [SIM-11](#simulator): a started simulation plays on its own; Run all is gone (LH-01, 2026-10-23).

@@ -504,7 +504,7 @@ its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added
 - **The Timeline starts at the upgrade.** A holder's line begins at its genesis, the first full scan after the ledger shipped, and there is no back-casting before it (ledger D5). Counts are per item id, not per variant (item level, bonus ids). A holder that has not logged in since the upgrade has no class, so it draws gray. Several Line-region facts can only be proved in the client (`Frame:CreateLine`, fractional thickness, the cursor-to-plot mapping, daylight-saving day labels); they are the TL-13 list in [smoke-tests.md](smoke-tests.md#timeline).
 - **The simulator runs on the real clock.** `time()` and `GetTime()` are never seamed, so the
   Reconciler's 0.35 s debounce, its 1.5 s claim wait and its 6 s settle hold take real seconds, and
-  `/lh sim run` waits on them through the ledger gate rather than skipping them.
+  a playing simulation waits on them through the ledger gate rather than skipping them.
 - **Simulated items must be cached for full names.** The simulator's item, bind and price reads
   answer live from the client; an item the client has not cached yet records with the link's own
   name and color until it is.

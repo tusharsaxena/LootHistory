@@ -1768,7 +1768,7 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (24)
+### test_sim_panel.lua (25)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
@@ -1777,9 +1777,10 @@ Total.
 - sim panel: `/lh sim loot` rows are never counted as rows the step before them recorded
 - sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it
 - sim panel: clicking a row ahead plays every step up to it, waiting out the ledger gate
+- sim panel: clicking a row ahead while it plays holds the run and plays up to the row
 - sim panel: a typed `/lh sim step` repaints the shown panel
 - sim panel: while the ledger settles, the gate holds the next step and says so
-- sim panel: the controls run, pause, resume, restart and stop through the typed verbs
+- sim panel: the controls are Pause/Resume, Restart and Stop, and Restart plays on its own
 - sim panel: the picker starts the chosen scenario
 - sim panel: a drag is remembered for the session only, and ResetPanelPosition redocks it
 - sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
@@ -1795,10 +1796,12 @@ Total.
 - sim step delay: an untouched setting runs the steps one second apart
 - sim step delay: a run waits the set delay, and a change takes effect from the next step
 
-### test_sim_slash.lua (8)
+### test_sim_slash.lua (10)
 
 - sim slash: NS.COMMANDS carries one `sim` row, and it is a feature verb
 - sim slash: bare `/lh sim` prints the status and the usage and opens the panel
+- sim slash: a typed start plays on its own to the end
+- sim slash: a typed step while it plays holds the run and plays one step
 - sim slash: start, step, run, pause, resume, status, restart and stop each act
 - sim slash: a control with no session says so; an unknown word or `help` prints the usage
 - sim slash: `loot [n]` plays n self-loot lines from a kill into the session
@@ -1987,8 +1990,8 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 24 |
-| test_sim_slash.lua | 8 |
+| test_sim_panel.lua | 25 |
+| test_sim_slash.lua | 10 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1999,4 +2002,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1697** |
+| **Total** | **1700** |

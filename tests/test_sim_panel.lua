@@ -189,6 +189,22 @@ test("sim panel: clicking a row ahead plays every step up to it, waiting out the
   end)
 end)
 
+test("sim panel: clicking a row ahead while it plays holds the run and plays up to the row", function()
+  clean(function()
+    slash("sim start loot")
+    assertTrue(Sim:ShowPanel())
+    assertTrue(Sim:Status().playing, "the typed start plays")
+    local buttons = panel().__rowButtons
+    buttons[3]:__fire("OnClick")   -- Start, Kill, [Lockbox]: the second step
+    assertTrue(until_(function() return Sim:Status().pos == 2 and not Sim:Status().playing end),
+      "the click-ahead reached the clicked row: " .. Sim:Status().pos)
+    assertTrue(Sim:Status().paused, "the run is held")
+    H.advance(5)
+    assertEqual(Sim:Status().pos, 2, "and stays at the clicked row")
+    assertEqual(buttons[4].__state, "ready", "the next row waits for a click or Resume")
+  end)
+end)
+
 test("sim panel: a typed `/lh sim step` repaints the shown panel", function()
   clean(function()
     start("loot")
@@ -217,22 +233,28 @@ test("sim panel: while the ledger settles, the gate holds the next step and says
   end)
 end)
 
-test("sim panel: the controls run, pause, resume, restart and stop through the typed verbs", function()
+test("sim panel: the controls are Pause/Resume, Restart and Stop, and Restart plays on its own", function()
   clean(function()
-    start("loot")
+    start("loot")   -- the member: starts a session and plays nothing
     assertTrue(Sim:ShowPanel())
     local c = panel().controls
     assertTrue(c:IsShown(), "running: the controls")
     assertFalse(panel().picker:IsShown(), "running: no picker")
-    -- LibKa0s v1.76.0 (SimPanel 5) drops Run all: the first control reads Resume while nothing
-    -- plays and sends `run`. Minimum re-true at the re-vendor (LH-RV); LH-01 rewrites this case.
-    assertTrue(c.run == nil, "Run all is gone")
+    -- LibKa0s v1.76.0 (SimPanel 5): Run all is gone (OWNER_SCOPE A.1, C.1).
+    assertTrue(c.run == nil, "no Run all control")
+    assertFalse(Sim:Status().playing, "a member start waits")
+    assertEqual(c.pause.__label, "Resume", "nothing plays: the button reads Resume")
+    assertEqual(c.pause.__verb, "run", "and, with nothing paused, sends `run`")
     c.pause:__fire("OnClick")
     assertTrue(Sim:Status().playing, "Resume plays")
+    assertEqual(c.pause.__label, "Pause", "playing: the button reads Pause")
     c.pause:__fire("OnClick")
     assertTrue(Sim:Status().paused, "Pause pauses")
+    assertEqual(c.pause.__label, "Resume")
+    assertEqual(c.pause.__verb, "resume", "paused: it sends `resume`")
     c.pause:__fire("OnClick")
     assertFalse(Sim:Status().paused, "the same button resumes")
+    assertTrue(Sim:Status().playing)
     assertTrue(until_(function() return not Sim:Status().playing end), "the run finishes")
     assertEqual(Sim:Status().pos, Sim:Status().total, "every step ran")
     local seed = Sim:Status().seed
@@ -240,6 +262,7 @@ test("sim panel: the controls run, pause, resume, restart and stop through the t
     assertTrue(Sim:IsActive(), "Restart starts again")
     assertEqual(Sim:Status().pos, 0, "from the first step")
     assertTrue(Sim:Status().seed ~= seed, "with a fresh seed")
+    assertTrue(Sim:Status().playing, "and plays on its own")
     c.stop:__fire("OnClick")
     assertFalse(Sim:IsActive(), "Stop ends it")
     assertTrue(panel().picker:IsShown(), "idle again: the picker")
@@ -399,12 +422,12 @@ test("sim window: a refused start leaves the window closed", function()
   end)
 end)
 
--- ── Run all's step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──
+-- ── the step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──────
 
 local DELAY = "settings.sim.stepDelay"
 
 -- A three-step scenario whose steps do nothing, so the ledger gate never holds and the clock alone
--- decides when Run all plays the next step.
+-- decides when a playing run plays the next step.
 local function withQuietScenario(body)
   local sc = Host.SCENARIOS
   sc.names[#sc.names + 1] = "lhdelay"
@@ -451,6 +474,9 @@ function()
     assertEqual(row.label, "Simulation step delay")
     assertEqual(row.page, "General"); assertEqual(row.group, "Interface"); assertEqual(row.subgroup, "Simulator")
     assertEqual(row.min, 0.5); assertEqual(row.max, 10); assertEqual(row.step, 0.5)
+    -- A started simulation plays on its own (LibKa0s v1.76.0): the tooltip names no Run all (LH-01).
+    assertEqual(row.tooltip, "How many seconds the simulator waits between steps as it plays. "
+      .. "A change takes effect from the next step.")
     slash("set " .. DELAY .. " 11")
     assertEqual(NS.Schema:Get(DELAY), 10, "the slash parser clamps to the row's range")
     slash("set " .. DELAY .. " 1.5")

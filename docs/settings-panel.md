@@ -62,7 +62,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 * **Window scale** — resize the History window from 0.6× to 1.6×, on top of **Master scale**. Its position and size are remembered separately from this.
 * **Row height** — how tall one row of the History table is, from 14 to 28 pixels (default **18**). Lower fits more rows on screen.
 * **Timeline lines** — how many characters the Timeline draws as their own line besides the Total, from 2 to 16 (default **8**). The ones holding the most of the charted item, currency or gold are shown first; the Character filter narrows the field before the cap applies.
-* **Simulation step delay** (under a **Simulator** heading; `settings.sim.stepDelay`) — how many seconds the simulator's automatic run (**Run all** on the simulation panel, `/lh sim run`) waits between steps, from 0.5 to 10 in steps of 0.5 (default **1**). `/lh set settings.sim.stepDelay <n>` reaches it too (the slash parser clamps a number outside the range to it, and refuses one that is not a half step). A change takes effect from the next step of a running simulation. It was a fixed 1.5 s until the owner's simulator feedback (2026-10-23).
+* **Simulation step delay** (under a **Simulator** heading; `settings.sim.stepDelay`) — how many seconds a playing simulation waits between steps (a started simulation plays on its own), from 0.5 to 10 in steps of 0.5 (default **1**). `/lh set settings.sim.stepDelay <n>` reaches it too (the slash parser clamps a number outside the range to it, and refuses one that is not a half step). A change takes effect from the next step of a running simulation. It was a fixed 1.5 s until the owner's simulator feedback (2026-10-23).
 
 **History** — what is kept, and how to be rid of it
 
