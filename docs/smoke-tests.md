@@ -418,11 +418,11 @@ menu`; move off → it goes. Result: pass (owner-marked 2026-10-23)
 **STATE-17. The strip is the test-mode marker; no title badge.** `/lh test` → the amber strip sits
 under the filter bar and there is **no** red **TEST MODE** beside the window title. Open each tab
 (History, Insights, Timeline, Holdings) → each pane starts under the strip. Hover the strip → its
-tooltip is titled `Test mode`. (OWNER_SCOPE A; LH-10; SM-LH-10) Result:
+tooltip is titled `Test mode`. (OWNER_SCOPE A; LH-10; SM-LH-10) Result: pass (owner-marked 2026-10-23)
 
 **STATE-18. Combat takes the strip down, and no header word appears.** In test mode, enter combat
 (hit a target dummy) → test mode ends, the strip goes, every tab's pane moves back up under the
-filter bar, and no `TEST MODE` word appears beside the title at any point. (LH-10; SM-LH-12) Result:
+filter bar, and no `TEST MODE` word appears beside the title at any point. (LH-10; SM-LH-12) Result: pass (owner-marked 2026-10-23)
 
 **TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
 held by four sample characters and the Warband (expand one to see the holders; the Character list
@@ -1725,14 +1725,14 @@ for the ledger to settle, to the finished line. `/lh sim restart`, and mid-run c
 the run pauses (the first button reads **Resume**) and that one step plays; press **Resume** → it
 plays on to the end. Press **Restart** → it starts again from the first step with a fresh seed and
 plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimPanel 5; LH-01;
-SM-LH-01, SM-LH-02) Result:
+SM-LH-01, SM-LH-02) Result: pass (owner-marked 2026-10-23)
 
 **SIM-12. The simulation's own cyan strip; no title word.** `/lh sim start loot` → a **cyan** strip
 (not amber) under the filter bar reads *SIMULATION: an invented world drives the real capture;
 nothing is saved. /lh sim stop ends it.*, there is **no** `SIMULATION` word beside the window title,
 and every tab's pane starts under the strip. Hover the strip → its tooltip is titled `Simulation`.
 `/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
-LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result:
+LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
 ## Vendored icons
 
@@ -1871,8 +1871,4 @@ On 2026-10-10 the owner marked every check in this file as passed, recorded on i
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
 
-- [SIM-11](#simulator): a started simulation plays on its own; Run all is gone (LH-01, 2026-10-23).
-- [STATE-17](#enabled-state-lock-and-test-mode): the strip is the test-mode marker; no title badge (LH-10, 2026-10-23).
-- [STATE-18](#enabled-state-lock-and-test-mode): combat takes the strip down, and no header word appears (LH-10, 2026-10-23).
-- [SIM-12](#simulator): the simulation's own cyan strip; no title word (LH-10, 2026-10-23).
 - [DEGRADED-13](#degraded-install): the title badge marks test mode when there is no strip (LH-10, 2026-10-23).
