@@ -97,9 +97,11 @@
 -- makePlainSearch), which filters exactly as the box did before the library had one, without the
 -- gold focus line.
 --
--- NS.MakeTestStrip answers nil for the same reason, and test mode is still marked: the red TEST MODE
--- badge beside the window title does not depend on the library, so a degraded window shows the badge,
--- draws no strip and reserves no space for one (NS.TestStripReserve answers 0).
+-- NS.MakeTestStrip answers nil for the same reason, and the mode is still marked: the badge beside
+-- the window title (red TEST MODE, or cyan SIMULATION) does not depend on the library. It marks a mode
+-- only on such a degraded install, where the window draws no strip and reserves no space for one
+-- (NS.TestStripReserve answers 0); while a strip exists the strip is the marker and the badge stays
+-- hidden (the preview-mode header-word rule, standard v2.87.0).
 
 local _, NS = ...
 
@@ -275,21 +277,24 @@ function NS.MakeAutocomplete(editBox, opts)
   return W.Autocomplete(editBox, o)
 end
 
---- The test-mode strip under the filter bar, or nil when the library (or its TestStrip) is absent.
+--- A mode strip under the filter bar, or nil when the library (or its TestStrip) is absent.
 ---
---- LibKa0s#48 / LootHistory#36: an amber band with the info mark saying the rows under it are a
---- sample. Born hidden and unanchored; modules/Browser.lua anchors it under the filter bar, hooks
---- its tooltip and shows it while test mode is on. The `info` art is resolved here, once, like the
+--- LibKa0s#48 / LootHistory#36: a band with the info mark saying the rows under it are not the
+--- player's live history, in the library's test flavor (amber) or, from Widgets minor 14
+--- (LibKa0s v1.76.0), its simulation flavor (cyan, `kind = "sim"`). Born hidden and unanchored;
+--- modules/Browser.lua builds one of each kind, anchors them under the filter bar, hooks a per-kind
+--- tooltip and shows the one whose mode is on. The `info` art is resolved here, once, like the
 --- dropdown's chevron, which is why `info` is on this addon's `LibKa0s icons:` line.
 ---
---- NIL IS A REAL ANSWER: no strip, no reserve, and the title badge still marks test mode.
+--- NIL IS A REAL ANSWER: no strip, no reserve, and the title badge marks the mode instead.
 ---
 --- @param parent table  the frame to parent it to
 --- @param text string   the localized line, set once at birth
---- @return table|nil    the library's strip, with `strip.text`
-function NS.MakeTestStrip(parent, text)
+--- @param kind string|nil  "test" (the default) or "sim"; the library maps anything else to "test"
+--- @return table|nil    the library's strip, with `strip.text` and `strip.kind`
+function NS.MakeTestStrip(parent, text, kind)
   if not (W and W.TestStrip) then return nil end
-  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info") })
+  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind })
 end
 
 -- The gap this addon leaves above and below the strip: 2 px under the filter bar, 2 px over the

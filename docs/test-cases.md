@@ -778,13 +778,14 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
-### test_teststrip.lua (6)
+### test_teststrip.lua (7)
 
-- test strip: test mode on shows the strip with its L text, shifts the panes and shows the badge
+- test strip: test mode on shows the strip with its L text, shifts the panes and hides the badge
 - test strip: test mode off hides the strip and the badge and puts the panes back
 - test strip: Show while already in test mode reserves the space
 - test strip: the strip hangs under the filter bar, and hovering it explains test mode
-- test strip: the strip and the badge text come from NS.L
+- test strip: each mode strip hangs under the filter bar and explains its own mode
+- test strip: the strip text comes from NS.L
 - test strip: degraded (no Widgets): no strip, no shift, the badge still shows
 
 ### test_browsertable.lua (85)
@@ -1768,7 +1769,7 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (25)
+### test_sim_panel.lua (26)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
@@ -1783,9 +1784,10 @@ Total.
 - sim panel: the controls are Pause/Resume, Restart and Stop, and Restart plays on its own
 - sim panel: the picker starts the chosen scenario
 - sim panel: a drag is remembered for the session only, and ResetPanelPosition redocks it
-- sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
+- sim marker: while a session runs the window wears the sim strip and the footer, no badge
 - sim marker: the stop takes the badge, the strip and the footer line down
 - sim marker: test mode and the simulation never show together
+- sim marker: degraded (no sim strip), a session wears SIMULATION in cyan beside the title
 - sim window: `/lh sim start` opens the History window
 - sim window: the panel's Start row and the picker's Start button open it too
 - sim window: a panel floating before the start docks beside the window the start opened
@@ -1953,7 +1955,7 @@ Total.
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
-| test_teststrip.lua | 6 |
+| test_teststrip.lua | 7 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
@@ -1990,7 +1992,7 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 25 |
+| test_sim_panel.lua | 26 |
 | test_sim_slash.lua | 10 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
@@ -2002,4 +2004,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1700** |
+| **Total** | **1702** |
