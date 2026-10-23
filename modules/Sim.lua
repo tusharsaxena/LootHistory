@@ -55,10 +55,32 @@ NS.SimHost = NS.SimHost or {}
 local Host = NS.SimHost
 local L = NS.L
 
--- The pause after each step before `run` plays the next one: a fixed constant, never a schema row
--- (OWNER_SCOPE C.11). The host gate (modules/SimScenario.lua) holds the next step while the ledger
--- settles, so this only paces the run for the eye.
-local SIM_STEP_DELAY = 1.5
+-- The pause after each step before `run` (the panel's Run all) plays the next one: the profile
+-- setting `settings.sim.stepDelay`, 1 s by default, 0.5 to 10 in steps of 0.5. It was a fixed 1.5 s
+-- constant under OWNER_SCOPE C.11 until the owner's simulator feedback (2026-10-23) asked for one
+-- second, configurable. The player writes it, never the simulation, so a session still writes
+-- nothing to SavedVariables. The host gate (modules/SimScenario.lua) holds the next step while the
+-- ledger settles, so this only paces the run for the eye. settings/Schema.lua's row reads the range
+-- and the validator below (modules load before settings in the TOC).
+Host.STEP_DELAY = NS.defaults.profile.settings.sim.stepDelay
+Host.STEP_DELAY_MIN, Host.STEP_DELAY_MAX, Host.STEP_DELAY_STEP = 0.5, 10, 0.5
+
+--- Whether `v` is a step delay the setting takes (pure): a number from 0.5 to 10, in steps of 0.5.
+function Host.ValidStepDelay(v)
+  if type(v) ~= "number" or v ~= v or v < Host.STEP_DELAY_MIN or v > Host.STEP_DELAY_MAX then return false end
+  local n = v / Host.STEP_DELAY_STEP
+  return n == math.floor(n)
+end
+
+--- The seconds Run all waits between steps now: the setting, or the default when the stored value
+--- is not one the setting takes. The descriptor's `stepDelay` calls it as each next step is set, so
+--- a change applies from the next step.
+function Host.StepDelay()
+  local s = NS.db and NS.db.profile and NS.db.profile.settings
+  local v = s and type(s.sim) == "table" and s.sim.stepDelay
+  if Host.ValidStepDelay(v) then return v end
+  return Host.STEP_DELAY
+end
 
 --- The scenarios, filled in place at file load by modules/SimScenario.lua (the library reads them
 --- at call time): { names = { ordered }, defs = { [name] = def } }.
@@ -220,9 +242,22 @@ local function datasetChanged()
   if NS.Browser and NS.Browser.OnDatasetChanged then NS.Browser:OnDatasetChanged() end
 end
 
+-- Every start opens the History window (the owner's simulator feedback, 2026-10-23): the typed
+-- verb, the panel's Start row and the picker's Start button all reach the library's Start, and so
+-- this prepare; a refused start never does. B:Show keeps its own refusals (stood down, the
+-- visibility setting). A panel already shown is placed again, so it docks beside the window this
+-- opened unless the player dragged it this session.
+local function openWindow()
+  local B = NS.Browser
+  if not (B and B.Show) then return end
+  B:Show()
+  local sim = NS.Sim
+  if sim and sim:IsPanelShown() then sim:ShowPanel() end
+end
+
 --- Build the session: the host fields (the world seeded from the def's fixture and the session's
 --- seed, modules/SimWorld.lua), the session stores, a clean engine, the real-event split, the
---- world watch and the session's genesis, then ready. The seam is already on.
+--- world watch, the session's genesis and the History window, then ready. The seam is already on.
 function Host.Prepare(_, def, opts, ready)
   local World = Host.World
   Host.world = World and World.New(def and def.fixture, opts and opts.seed) or {}
@@ -237,6 +272,7 @@ function Host.Prepare(_, def, opts, ready)
   -- The session holdings are empty, so this first pass is a silent genesis: no rows.
   if NS.Reconciler._enabled then NS.Reconciler:LoginScan() end
   datasetChanged()
+  openWindow()
   ready()
 end
 
@@ -332,7 +368,7 @@ if Lib then
     play = play,
     refusal = function(opts) return Host.Refusal(opts) end,
     gate = function(session) if Host.Gate then return Host.Gate(session) end return true end,
-    stepDelay = SIM_STEP_DELAY,
+    stepDelay = function() return Host.StepDelay() end,
     verbs = Host.VERBS,
     why = Host.WHY,
     usage = Host.USAGE,

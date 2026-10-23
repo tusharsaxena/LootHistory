@@ -360,13 +360,13 @@ local ROWS = {
   -- is the History window's own scale and multiplies on top of them (options-ui-§15). The two size
   -- sliders pair on one line so a reader compares them across rather than down.
   --
-  -- THE SUBSECTION HEADINGS ARE GONE, and their reason went with the row that caused them. The tab
-  -- carried `Window` and `Minimap` because its three rows were two SUBJECTS: two that sized the
-  -- History window and one that governed the minimap button, a different surface entirely
-  -- (options-ui-§7). The minimap row is the Master controls tab's "Minimap button" now, where
-  -- launcher-§3 and options-ui-§15 put it, so what is left is two rows of ONE subject -- and a lone
-  -- `Window` heading over a tab whose every row is about the window repeats the tab's own name,
-  -- which §7 forbids in as many words.
+  -- TWO SUBJECTS, SO TWO SUBSECTION HEADINGS (options-ui-§7). The tab carried `Window` and
+  -- `Minimap` while the minimap row lived here, and dropped both when that row moved to Master
+  -- controls (launcher-§3, options-ui-§15): a lone `Window` heading over a tab whose every row is
+  -- about the window repeats the tab's own name. The simulator's step delay (the owner's simulator
+  -- feedback, 2026-10-23) is a second subject again, so the window rows are `Window` and the delay
+  -- is `Simulator`. It lives here rather than on a tab of its own because a one-row tab is what
+  -- "no tab holds fewer than two controls" forbids (tests/test_schema.lua).
   { path = "settings.windowScale", default = PD.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
     -- `step` is not decoration. `SetSliderValues(min, max, row.step or 1)` means a row with no
@@ -374,7 +374,7 @@ local ROWS = {
     -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
     -- (no snap when absent), so every scale ever saved is still reachable and still legal.
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    page = "General", group = "Interface", label = "Window scale",
+    page = "General", group = "Interface", subgroup = "Window", label = "Window scale",
     tooltip = "Scale of the History browser window.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
@@ -387,7 +387,7 @@ local ROWS = {
   { path = "settings.rowHeight", default = PD.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
-    page = "General", group = "Interface", label = "Row height",
+    page = "General", group = "Interface", subgroup = "Window", label = "Row height",
     tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
     onChange = function()
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
@@ -397,12 +397,25 @@ local ROWS = {
   -- charted thing win the slots; the Character filter narrows the field first.
   { path = "settings.timelineMaxLines", default = PD.settings.timelineMaxLines, type = "number",
     min = 2, max = 16, step = 1, widget = "Slider", fmt = "%d",
-    page = "General", group = "Interface", label = "Timeline lines",
+    page = "General", group = "Interface", subgroup = "Window", label = "Timeline lines",
     tooltip = "How many characters the Timeline draws as their own line, besides the Total. "
       .. "The ones holding the most of the charted item, currency or gold are shown first.",
     onChange = function()
       if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
     end },
+
+  -- Run all's pace (`/lh sim run`, the simulation panel's Run all): the seconds between two steps.
+  -- The range and the validator are the simulator host's (modules/Sim.lua, which loads before this
+  -- file); the descriptor's `stepDelay` reads the stored value at use, falling back to the default
+  -- when it is not one this row takes, so a change applies from the next step. No onChange: nothing
+  -- else caches it.
+  { path = "settings.sim.stepDelay", default = PD.settings.sim.stepDelay, type = "number",
+    min = NS.SimHost.STEP_DELAY_MIN, max = NS.SimHost.STEP_DELAY_MAX, step = NS.SimHost.STEP_DELAY_STEP,
+    widget = "Slider", fmt = "%.1fs",
+    validate = function(v) return NS.SimHost.ValidStepDelay(v) end,
+    page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay",
+    tooltip = "How many seconds the simulator's automatic run (Run all, /lh sim run) waits between "
+      .. "steps. A change takes effect from the next step." },
 
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once

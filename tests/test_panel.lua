@@ -327,11 +327,10 @@ local SUBGROUPS = {
   ["Capture"]         = {},
   ["Filters"]         = {},
   ["AH Price"]        = { "Pricing", "Price sources" },
-  -- Interface declares NONE now. It carried `Window` / `Minimap` while its three rows were two
-  -- subjects; the minimap row moved to Master controls with the launcher adoption, so the two that
-  -- remain are one subject -- and a lone `Window` heading over a tab whose every row is about the
-  -- window repeats the tab's own name, which §7 forbids outright.
-  ["Interface"]       = {},
+  -- Interface is two subjects again: the window rows and the simulator's step delay (the owner's
+  -- simulator feedback, 2026-10-23). It carried `Window` / `Minimap` until the minimap row moved to
+  -- Master controls with the launcher adoption, and drew none while every row was about the window.
+  ["Interface"]       = { "Window", "Simulator" },
   ["History"]         = {},
 }
 

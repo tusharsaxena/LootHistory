@@ -1688,6 +1688,24 @@ this character**, confirm → *Forget this character is not available while a si
 nothing forgotten; History → right-click a row → **Delete** →
 *Delete is not available while a simulation runs.*, the row stays. (SM-LH-26) Result:
 
+**SIM-8. Starting opens the window.** Close the History window, then `/lh sim start loot` → the
+History window opens with the `SIMULATION` badge and the panel docks beside it. `/lh sim stop`, close
+the window again, open `/lh sim` (the panel floats with no window) and press the picker's **Start**
+→ the window opens and the panel moves beside it. `/lh sim stop`, close the window, and start from
+the panel's **Start** row → the window opens. A refused start (in combat, at a target dummy) opens
+nothing. (owner simulator feedback, 2026-10-23) Result:
+
+**SIM-9. Run all's step delay.** Settings → General → Interface → the **Simulator** heading shows
+**Simulation step delay** at **1**. `/lh sim start loot`, press **Run all** → about one second
+between steps while the ledger is quiet. `/lh set settings.sim.stepDelay 3` during the run → the
+steps after the next one come about three seconds apart, and the slider reads 3. `/lh set
+settings.sim.stepDelay 1.2` → refused (not a half step), the value stays 3. `/lh reset
+settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23) Result:
+
+**SIM-10. The picker's scenario dropdown fits.** `/lh sim` with no simulation running → the
+picker's scenario dropdown on the bottom left is wide enough for the longest scenario name on one
+line (no wrap). (LibKa0s v1.75.2, SimPanel minor 4) Result:
+
 ## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
