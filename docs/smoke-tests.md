@@ -400,19 +400,19 @@ keeps the old size); untick → the grip resizes again and `/reload` keeps the n
 **STATE-13. The test-mode strip (LootHistory#36).** `/lh test` → an amber strip with the info mark
 reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits under the filter bar,
 the History table starts under it, and the red **TEST MODE** badge is still beside the title.
-Result:
+Result: pass (owner-marked 2026-10-23)
 
 **STATE-14. Every tab makes room for the strip.** Still in test mode, open **Insights**,
 **Timeline** and **Holdings** → each starts under the strip, shifted down the same way as History,
-with nothing hidden behind it. Result:
+with nothing hidden behind it. Result: pass (owner-marked 2026-10-23)
 
 **STATE-15. The strip goes with test mode.** Enter combat (hit a target dummy) → test mode ends, and
 the strip and the badge both go and every tab moves back up under the filter bar. Turn it on again
-and `/lh test` → the same. Result:
+and `/lh test` → the same. Result: pass (owner-marked 2026-10-23)
 
 **STATE-16. The strip's tooltip.** In test mode, hover the strip → a tooltip titled `Test mode`,
 then `Shows: sample loot, holdings and timeline` and `Ended by: combat, /lh test, the launcher
-menu`; move off → it goes. Result:
+menu`; move off → it goes. Result: pass (owner-marked 2026-10-23)
 
 **TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
 held by four sample characters and the Warband (expand one to see the holders; the Character list
@@ -589,14 +589,14 @@ pruned. Result: pass (owner-marked 2026-10-10)
 open a lockbox, take an item from mail and buy from a vendor → the rows record with the same sources
 as before: **Kill** with the npc id in the detail, **Container**, **Mail** and **Vendor**; the Zone and
 Subzone columns still fill. The loot-window, zone, map, class and hook reads now go through
-`core/Compat.lua` members so the simulator can answer them. Result:
+`core/Compat.lua` members so the simulator can answer them. Result: pass (owner-marked 2026-10-23)
 
 **CAP-34. One dispatch table (regression, LootHistory#37).** Play one ordinary session: loot a mob,
 sell to and buy from a merchant, take mail, post an auction, deposit to the bank → History records
 the same rows, with the same sources and reasons, as before the dispatch refactor. Then `/lh disable`
 and `/lh enable` → capture resumes (loot a mob: a row appears). Untick **Track holdings and losses** (General → Capture) →
 only loot rows appear (no ledger rows for a vendor sale or a bank deposit); tick it again. Every
-capture event and read-side hook now comes from `core/Dispatch.lua`'s row tables. Result:
+capture event and read-side hook now comes from `core/Dispatch.lua`'s row tables. Result: pass (owner-marked 2026-10-23)
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -797,7 +797,7 @@ every tab first opens on the one view you had saved. Result: pass (owner-marked 
 it has focus; press **Esc**, click in again and press **Enter** → each time focus leaves and the
 outline returns to the dropdowns' gray. Type a few letters → the `Search items…` hint hides while
 text is present and the view filters as before; clear the text → the hint comes back. The
-autocomplete list (AC-1) still opens under the box. Result:
+autocomplete list (AC-1) still opens under the box. Result: pass (owner-marked 2026-10-23)
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1066,20 +1066,20 @@ stays (a display offers its own per-plugin toggle). Result: pass (owner-marked 2
 **LAUNCH-11. The Show window key binding is listed (launcher-§6).** Esc > Options > Keybindings >
 AddOns > Ka0s Loot History lists `Toggle Loot History window` with no key. Bind one and press it
 twice → the History window opens, then closes.
-Result:
+Result: pass (owner-marked 2026-10-23)
 
 **LAUNCH-12. The key refuses while disabled.** `/lh disable`, press the key → exactly one disabled
 refusal line, no window. `/lh enable`.
-Result:
+Result: pass (owner-marked 2026-10-23)
 
 **LAUNCH-13. The key refuses during a perf capture.** During `/lh perf start` (the perf hold only),
 press the key → exactly one `Not available during a performance capture.` line and no window; never
 the disabled line.
-Result:
+Result: pass (owner-marked 2026-10-23)
 
 **LAUNCH-14. The key works in combat.** In combat, press the key → the History window toggles (it is
 not a secure frame), subject to the **General visibility** setting's own refusal line.
-Result:
+Result: pass (owner-marked 2026-10-23)
 
 ## Debug console and diagnostics
 
@@ -1648,14 +1648,14 @@ docked beside the History window, titled *Ka0s Loot History - Simulation*; one c
 History window's title badge reads `SIMULATION` in cyan, the strip under the filter bar reads
 *SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it.*, and
 the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the badge,
-strip and footer prefix go; the panel shows the scenario picker. (SM-LH-20) Result:
+strip and footer prefix go; the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
 
 **SIM-2. Refusals.** Each of these prints its own one line and starts nothing: `/lh sim start loot`
 in combat (a target dummy); inside an instance; in a group; with `/lh test` on; with the mailbox
 open; and within a few seconds of `/reload` (login not yet settled). Then untick **Track holdings
 and losses** and `/lh sim start ah` → *These steps record through the ledger, so turn on gains and
 losses first.*; tick it again. With the addon disabled (`/lh disable`), `/lh sim start loot` prints
-the one disabled line; `/lh enable` after. (SM-LH-21) Result:
+the one disabled line; `/lh enable` after. (SM-LH-21) Result: pass (owner-marked 2026-10-23)
 
 **SIM-3. Every scenario end to end.** For each of `loot`, `key`, `vendor`, `ah`, `bank` and `social`:
 `/lh sim start <name>`, press **Run all** on the panel and wait for the last row to finish → the rows
@@ -1663,48 +1663,48 @@ the scenario names appear in History (sources and reasons, for example Kill, Con
 `loot`; Mythic+ and Bonus Roll for `key`; Sell, Buy, Repair, Destroy and Disenchant for `vendor`;
 AH post fee, AH buy and AH sold for `ah`; warband deposit and withdraw for `bank`; alt mail, trades
 and the currency transfer for `social`), the Holdings tab shows the session's holders, and the
-Timeline charts them. `/lh sim stop` between scenarios. (SM-LH-22) Result:
+Timeline charts them. `/lh sim stop` between scenarios. (SM-LH-22) Result: pass (owner-marked 2026-10-23)
 
 **SIM-4. A real loot stops it.** `/lh sim start loot`, then kill and loot a real mob before the run
 ends → the simulation stops with *Simulation stopped: something real happened (a loot, a trade, a
 mail or a window), and it is recorded as usual.*, and the real item appears in History as a normal
-row. (SM-LH-23) Result:
+row. (SM-LH-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-5. Saved data untouched.** After SIM-1 to SIM-4, `/reload` → `/run
 print(#LootHistoryDB.global.history)` prints the count noted before SIM-1, plus only the real rows
 SIM-4 recorded; History, Holdings and the Timeline show your real data and no simulated row
-(no Rookery Bat kill, no Simalt holder). (SM-LH-24) Result:
+(no Rookery Bat kill, no Simalt holder). (SM-LH-24) Result: pass (owner-marked 2026-10-23)
 
 **SIM-6. The panel.** `/lh sim start vendor` → the panel's rows follow the run as steps play;
 click a row three ahead → the steps in between run in order; during the merchant steps a step waits
 while the panel shows the ledger settling, then continues; hover a done row → its tooltip says what
 it injected and which rows it recorded. Drag the panel somewhere else, `/lh sim stop`, `/reload`,
 `/lh sim` → the panel opens at its default place beside the window (its position is never saved).
-(SM-LH-25) Result:
+(SM-LH-25) Result: pass (owner-marked 2026-10-23)
 
 **SIM-7. Destructive surfaces refuse.** With a simulation running: `/lh purge` → *Purge is not
 available while a simulation runs.* and no confirm; Holdings → right-click a character → **Forget
 this character**, confirm → *Forget this character is not available while a simulation runs.*,
 nothing forgotten; History → right-click a row → **Delete** →
-*Delete is not available while a simulation runs.*, the row stays. (SM-LH-26) Result:
+*Delete is not available while a simulation runs.*, the row stays. (SM-LH-26) Result: pass (owner-marked 2026-10-23)
 
 **SIM-8. Starting opens the window.** Close the History window, then `/lh sim start loot` → the
 History window opens with the `SIMULATION` badge and the panel docks beside it. `/lh sim stop`, close
 the window again, open `/lh sim` (the panel floats with no window) and press the picker's **Start**
 → the window opens and the panel moves beside it. `/lh sim stop`, close the window, and start from
 the panel's **Start** row → the window opens. A refused start (in combat, at a target dummy) opens
-nothing. (owner simulator feedback, 2026-10-23) Result:
+nothing. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-9. Run all's step delay.** Settings → General → Interface → the **Simulator** heading shows
 **Simulation step delay** at **1**. `/lh sim start loot`, press **Run all** → about one second
 between steps while the ledger is quiet. `/lh set settings.sim.stepDelay 3` during the run → the
 steps after the next one come about three seconds apart, and the slider reads 3. `/lh set
 settings.sim.stepDelay 1.2` → refused (not a half step), the value stays 3. `/lh reset
-settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23) Result:
+settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-10. The picker's scenario dropdown fits.** `/lh sim` with no simulation running → the
 picker's scenario dropdown on the bottom left is wide enough for the longest scenario name on one
-line (no wrap). (LibKa0s v1.75.2, SimPanel minor 4) Result:
+line (no wrap). (LibKa0s v1.75.2, SimPanel minor 4) Result: pass (owner-marked 2026-10-23)
 
 ## Vendored icons
 
@@ -1714,26 +1714,26 @@ Lua error and every suite green, so these checks are the only witness. Each fail
 square or a missing mark where the art should be.
 
 **ICON-1. Window close marks.** `/lh toggle` → the title-bar close mark draws on the History window;
-open the Export window → its close mark draws. Result:
+open the Export window → its close mark draws. Result: pass (owner-marked 2026-10-23)
 
 **ICON-2. Debug console and perf panel marks.** `/lh debug` → the console's close, copy and clear
-marks draw; open the `/lh perf` panel → its close mark draws. Result:
+marks draw; open the `/lh perf` panel → its close mark draws. Result: pass (owner-marked 2026-10-23)
 
 **ICON-3. Row menu marks.** Right-click a History row → Link to chat, Show in Timeline, Blacklist
 item (or Blacklist currency on a currency row) and Delete each show their mark; right-click a
-Holdings row → Show in Timeline and Forget this character show theirs. Result:
+Holdings row → Show in Timeline and Forget this character show theirs. Result: pass (owner-marked 2026-10-23)
 
 **ICON-4. Table marks.** In the History and Holdings tables, sort a column both ways → the up and
 down arrows draw; collapse and expand a group header → the right and down chevrons draw; the Bound
-lock draws in the History table and in its legend. Result:
+lock draws in the History table and in its legend. Result: pass (owner-marked 2026-10-23)
 
 **ICON-5. Dropdown and export marks.** Open a filter-bar dropdown → its chevron draws, and a
 multi-select entry shows its tick when selected; the Export window's Export to CSV button shows its
-spreadsheet mark. Result:
+spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 
 **ICON-6. Settings marks.** Settings → AH Price tab → each row's leading tick (circle-check, or ban
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
-list shows its info help mark. Result:
+list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
 ## Degraded install
 
@@ -1833,15 +1833,7 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-On 2026-10-10 the owner marked every check in this file as passed, recorded on its
+None. On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
-
-- ICON-1 to ICON-6 (added 2026-10-22 with the LibKa0s v1.75.0 re-vendor and its icon prune).
-- STATE-13 to STATE-16 (added 2026-10-22 with the test-mode strip, LootHistory#36).
-- LAUNCH-11 to LAUNCH-14 (added 2026-10-22 with the Show window key binding, launcher-§6).
-- CAP-33 (added 2026-10-22 with the Compat-routed capture reads, LootHistory#37).
-- CAP-34 (added 2026-10-22 with the one dispatch table, LootHistory#37; the item's SM-LH-19).
-- SIM-1 to SIM-7 (added 2026-10-23 with the in-game simulator, LootHistory#37; the items' SM-LH-20
-  to SM-LH-26).
