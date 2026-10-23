@@ -36,3 +36,23 @@ pins on Widgets, SimTimeline and SimPanel to floors and adds a v1.76.0 case pinn
 **Gates.** `luacheck .` (bounded): 0 warnings / 0 errors in 138 files. `lua tests/run.lua`
 (bounded): 1697 passed, 0 failed, 1 skipped. In-client smoke for the adoptions is the owner's,
 under LH-01 and LH-10.
+
+## Amendment: the tag moved for LK-91 (item LH-RV2)
+
+The LOCAL annotated tag v1.76.0 moved `9949368` -> `7e81ff7` to carry LK-91 (a long step-panel
+label ran under the command column: BankLedger's `/bl sim` "Deposit 1 x Flask ..." step). Both
+payloads were replaced whole again from `git -C ../LibKa0s archive v1.76.0 LibKa0s testkit` and
+pruned with the tag's `tools/prune-icons.lua` (16 declared, 17 kept, 5,823 removed, the same set,
+so no icon change). Files that changed: `libs/LibKa0s/PerfPanel.lua` (PerfPanel 7 -> 8) and
+`libs/LibKa0s/SimPanel.lua` (same minor 5; the library bumped it already in the unpublished
+v1.76.0). Each now anchors the row label LEFT at the label column and RIGHT 8 px short of the
+command, word wrap off, so a long label truncates with an ellipsis. `tests/_kit/` and every other
+file are unchanged; kit revision 41. The provenance line already read v1.76.0 and is kept.
+`diff -r` against the tag copy shows only the pruned icons.
+
+Ripple: `tests/test_libka0s.lua` relaxes the v1.75.0 PerfPanel pin to a floor (`>= 7`) and pins
+PerfPanel 8 in the v1.76.0 case. No case added or renamed, so `docs/test-cases.md` and the README
+badge are unchanged. Nothing to adopt: the fix is delivered for free to `/lh sim`'s step panel.
+
+Gates: `luacheck .` 0 warnings / 0 errors in 138 files; `lua tests/run.lua` 1702 passed, 0 failed,
+1 skipped (`test_vendor_sync` against the moved tag).

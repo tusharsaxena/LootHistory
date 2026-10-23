@@ -121,6 +121,7 @@ local ROW_W, ROW_H, GAP = 360, 22, 4
 local DOT_X, DOT = 8, 8        -- column 1: status dot
 local LABEL_X   = 26           -- column 2: step name
 local CMD_PAD   = 10           -- column 3: slash command, right-aligned
+local LABEL_GAP = 8            -- the label stops this far short of the command column
 local TITLE_H = 24
 local PAD = 8
 
@@ -297,13 +298,15 @@ local function StepPanel(d)
       b.check:SetTexture(d.check)
       b.check:Hide()
     end
-    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.text:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
-    b.text:SetJustifyH("LEFT")
     b.cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     b.cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     b.cmd:SetJustifyH("RIGHT")
     setColor(b.cmd, CMD_COLOR)
+    -- One line, bounded on both sides (LK-91), so a long label truncates with an ellipsis instead
+    -- of running under the command; the right bound is set by paintRow (anchorLabel).
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.text:SetJustifyH("LEFT")
+    b.text:SetWordWrap(false)
     b.__index = index
     hoverWhileDisabled(b)
     b:SetScript("OnEnter", onEnter)
@@ -312,9 +315,26 @@ local function StepPanel(d)
     return b
   end
 
+  --- Bound the label: LEFT at LABEL_X, RIGHT LABEL_GAP short of the command's natural-width left
+  --- edge, or at the row's right inset when the row has no command. Anchors rather than a width, so
+  --- a resize moves the bound with the row. Re-anchored only when the command appears or goes.
+  local function anchorLabel(b, command)
+    local toCmd = command ~= nil and command ~= ""
+    if b.__labelToCmd == toCmd then return end
+    b.__labelToCmd = toCmd
+    b.text:ClearAllPoints()
+    b.text:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
+    if toCmd then
+      b.text:SetPoint("RIGHT", b.cmd, "LEFT", -LABEL_GAP, 0)
+    else
+      b.text:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
+    end
+  end
+
   local function paintRow(b, row)
     b.__row = row
     local c = colorOf(row.state)
+    anchorLabel(b, row.command)
     b.text:SetText(row.label)
     b.cmd:SetText(row.command)
     setColor(b.text, c)

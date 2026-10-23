@@ -11,7 +11,7 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 7
+local PANEL_MINOR = 8
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —
@@ -34,6 +34,7 @@ local ROW_W, ROW_H, GAP = 360, 22, 4
 local DOT_X, DOT = 8, 8        -- column 1: status dot
 local LABEL_X   = 26           -- column 2: step name
 local CMD_PAD   = 10           -- column 3: slash command, right-aligned
+local LABEL_GAP = 8            -- the label stops this far short of the command column
 local TITLE_H = 24
 local PAD = 8
 
@@ -119,17 +120,23 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     dot:SetPoint("LEFT", b, "LEFT", DOT_X, 0)
     b.dot = dot
 
-    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fs:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
-    fs:SetJustifyH("LEFT")
-    b.text = fs
-
     local cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     cmd:SetJustifyH("RIGHT")
     cmd:SetText(P.slash .. " " .. step.command)
     cmd:SetTextColor(CMD_COLOR[1], CMD_COLOR[2], CMD_COLOR[3])
     b.cmd = cmd
+
+    -- Bounded on both sides with word wrap off (panel minor 8), so a label a locale makes long
+    -- truncates with an ellipsis LABEL_GAP short of the command instead of running under it. Every
+    -- step has a command, so the right bound is always the command's natural-width left edge, and
+    -- the anchors (not a width) follow a resize.
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fs:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
+    fs:SetPoint("RIGHT", cmd, "LEFT", -LABEL_GAP, 0)
+    fs:SetJustifyH("LEFT")
+    fs:SetWordWrap(false)
+    b.text = fs
 
     b.step = step
 
