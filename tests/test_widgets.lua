@@ -130,7 +130,13 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- with the same values (20px, the same fill and line colors). Dropdown, CloseMenu, CopyWindow and
   -- ReorderList keep every member and opts field. Nothing to change on the re-vendor; the two new
   -- widgets are adopted in their own commits.
-  assertEqual(lib.MODULES.Widgets, 13, "this adoption is written against Widgets minor 13")
+  --
+  -- Minor 14 (LibKa0s v1.76.0, docs/api/Widgets/version-14.1.4.3.2-docs.md) gives TestStrip an
+  -- optional `kind` ("test", the default, or "sim" for the simulation cyan) and a read-only
+  -- strip.kind. No member is added, and Dropdown, CloseMenu, CopyWindow, ReorderList, SearchBox and
+  -- every existing TestStrip call are unchanged. Nothing to change on the re-vendor; the sim strip
+  -- is adopted in its own commit (LH-10).
+  assertEqual(lib.MODULES.Widgets, 14, "this adoption is written against Widgets minor 14")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

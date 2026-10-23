@@ -28,12 +28,15 @@
 --                settling (the gate is closed: its line or SETTLING printed, pos not advanced).
 --                On success: pos advances, play runs under pcall, the step is stamped, STEP_LINE
 --                printed, listeners told. A play error counts the step as run with detail ERROR,
---                pauses the run and prints STEP_FAILED, answering nil, "failed".
+--                pauses the run and prints STEP_FAILED, answering nil, "failed". A playing run is
+--                HELD first (minor 3, below), and the run is left paused while steps remain.
 --   Run()     -> true | false, code   notRunning, building, playing, done. Clears paused and plays
 --                to the end: each tick checks the gate; closed re-polls after GATE_POLL without
 --                advancing, open plays a step and sets the next tick after stepDelay(step).
---   Pause()   -> notPlaying; cancels the pending tick (no orphan timer).
---   Resume()  -> notPaused; calls Run.
+--   Pause()   -> notPlaying; cancels the pending tick (no orphan timer). An armed run still
+--                building pauses too, and its first tick is then never scheduled.
+--   Resume()  -> notPaused, then Run's blocked codes (building, done) with `paused` kept (minor
+--                3: a refused Resume no longer loses the flag); else clears paused and calls Run.
 --   Restart() -> notRunning; Stop("restart"), then Start{scenario, size} with a fresh seed, and
 --                with the host's extra start fields the session was started with (minor 2). A
 --                refusal is printed by Start and answered false, "refused".
@@ -42,15 +45,35 @@
 --                section below). The click path is the typed path: the panel calls RunVerb, or
 --                RunTo, which prints the same per-step lines.
 --
+-- THE AUTO-RUN (minor 3). The VERB layer arms a run; the members do not. A typed `start` (and so
+-- the panel picker's Start) and a typed `restart` (and so the controls' Restart) arm the new
+-- session's run once the member answers true: `playing` is true from then on, the building phase
+-- included, and the first tick is scheduled through the session's After(0) as soon as ready() has
+-- fired (at once if it already has; else from the listener this file registers first at attach,
+-- when ready() notifies). After(0) is the next frame, so no step ever plays inside the host's
+-- prepare or inside a listener loop. Every later tick waits stepDelay, as Run's do. The members
+-- `sim:Start(opts)` and `sim:Restart()` arm nothing: they are the scripting layer host code and
+-- host suites drive, and a session they start plays on Run (or the panel's Resume, which sends
+-- `run` for it).
+--
+-- THE HOLD RULE (minor 3). A manual act takes over a playing run: Step and the click-ahead first
+-- HOLD it (cancel the pending tick or poll; playing false, paused true), then act. A hold happens
+-- only when the act can proceed past its blocked codes, so a `step` refused as building leaves an
+-- armed run armed. After a manual act the run stays paused while steps remain, so Resume (or
+-- `run`) is always what continues it; finishing the last step clears paused. Host verbs (d.verbs)
+-- do not hold: they inject beside the timeline and are not steps.
+--
 -- When a step that plays is the last one, FINISHED is printed (formatted with d.slash) and
 -- listeners are told, whichever of Step, Run or RunTo played it.
 --
 -- RunTo IS SIM-INTERNAL (OWNER_SCOPE C.7). It is a file-local function handed to SimPanel.lua as
 -- ctx.runTo, never an instance member: it plays every step up to and including `index`, back to
 -- back with no stepDelay, polling a closed gate the way Run does, and is synchronous while the gate
--- stays open. A step failure or a done / notRunning answer ends it. It occupies Run's `playing`
--- slot (C.2): while a RunTo poll is pending, Run and a second RunTo answer "playing", and Pause and
--- Stop cancel it.
+-- stays open. A step failure or a done / notRunning answer ends it, and ending short of the last
+-- step leaves the run paused (minor 3). It occupies Run's `playing` slot (C.2): while a RunTo poll
+-- is pending, Run answers "playing", and Pause and Stop cancel it. A RunTo while anything plays
+-- (a Run, an armed run, or a polling RunTo) holds it and retargets (minor 3; it used to answer
+-- "playing").
 --
 -- THE SESSION TOKEN (C.1). Step, every Run tick and RunTo capture the session before play and bail
 -- if it changed during play (a Stop, or a Restart, from inside the host's play): no stamp, no
@@ -62,7 +85,7 @@
 local lib = LibStub and LibStub("LibKa0s-Sim-1.0", true)
 if not lib then return end
 
-local TIMELINE_MINOR = 2
+local TIMELINE_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own, as Perf's attach files are: a step
 -- machine attached to an older shell would read ctx fields that shell may not hand over.
 if lib.__timelineMinor and lib.__timelineMinor >= TIMELINE_MINOR
@@ -106,8 +129,8 @@ for key, line in pairs({
   STATE_DONE     = "finished",
   VERB_FAILED    = "Simulation verb '%s' failed. The debug log has the error.",
   USAGE_BARE     = "%s: the status, this usage and the step panel.",
-  USAGE_START    = "%s start <scenario> [size]: start a simulation.",
-  USAGE_RUN      = "%s run: play every step, pausing between them.",
+  USAGE_START    = "%s start <scenario> [size]: start a simulation. It plays at once; pause it to step by hand.",
+  USAGE_RUN      = "%s run: play the remaining steps (the same as resume).",
   USAGE_STEP     = "%s step: play the next step.",
   USAGE_PAUSE    = "%s pause: pause a run.",
   USAGE_RESUME   = "%s resume: resume a paused run.",
@@ -142,7 +165,7 @@ local function current(T)
   local R = T.R
   if not R or R.session ~= session then
     R = { session = session, steps = buildSteps(ctx, session), pos = 0,
-      playing = false, paused = false, settling = false, timer = nil, said = false }
+      playing = false, paused = false, settling = false, awaiting = false, timer = nil, said = false }
     T.R = R
   end
   return R
@@ -199,7 +222,7 @@ end
 --- The run is over: clear the playing slot and say so.
 local function finish(T, R)
   cancelTimer(R)
-  R.playing, R.settling = false, false
+  R.playing, R.settling, R.paused, R.awaiting = false, false, false, false
   T.ctx.print(T.ctx.tr("FINISHED"):format(tostring(T.ctx.d.slash)))
   T.ctx.notify()
 end
@@ -288,7 +311,31 @@ local function tick(T, R)
   if step then schedule(T, R, delayAfter(T, step), tick) end
 end
 
---- One RunTo pass: steps back to back up to R.target, polling a closed gate.
+--- Hold a playing run (a Run, an armed run or a RunTo): no tick, not playing, paused (minor 3).
+local function hold(T, R)
+  cancelTimer(R)
+  R.playing, R.paused, R.settling, R.awaiting, R.target = false, true, false, false, nil
+  T.ctx.notify()
+end
+
+--- Schedule an armed run's first tick once the world is ready. After(0), never inside prepare.
+local function kick(T, R)
+  if not (R and R.awaiting and R.playing and live(T, R) and T.ctx.ready()) then return end
+  R.awaiting = false
+  schedule(T, R, 0, tick)
+end
+
+--- Arm the live session's run: playing from now, its first step on the frame after ready().
+local function arm(T)
+  local R = current(T)
+  if not R then return end
+  R.paused, R.playing, R.target, R.awaiting = false, true, nil, true
+  T.ctx.notify()
+  kick(T, R)
+end
+
+--- One RunTo pass: steps back to back up to R.target, polling a closed gate. Ending live and short
+--- of the last step leaves the run paused (minor 3).
 local function runToPass(T, R)
   while live(T, R) and R.playing and R.pos < R.target do
     local step, code = stepOnce(T, R, false)
@@ -296,17 +343,19 @@ local function runToPass(T, R)
     if not step then return end   -- failed (paused), done, or the session changed
   end
   if live(T, R) and R.playing then
-    R.playing, R.settling = false, false
+    R.playing, R.settling, R.target = false, false, nil
+    if R.pos < #R.steps then R.paused = true end
     T.ctx.notify()
   end
 end
 
---- RunTo: Sim-internal, handed to the panel as ctx.runTo (OWNER_SCOPE C.7).
+--- RunTo: Sim-internal, handed to the panel as ctx.runTo (OWNER_SCOPE C.7). A playing run is held
+--- first, so a second RunTo retargets (minor 3).
 local function runTo(T, index)
   local R = current(T)
   local code = blocked(T, R)
   if code then return false, code end
-  if R.playing then return false, "playing" end
+  if R.playing then hold(T, R) end
   index = floor(tonumber(index) or 0)
   if index > #R.steps then index = #R.steps end
   if index <= R.pos then return false, "done" end
@@ -326,7 +375,11 @@ local function installStep(sim, T)
   end
 
   function sim.Step()
-    return stepOnce(T, current(T), true)
+    local R = current(T)
+    if R and R.playing and not blocked(T, R) then hold(T, R) end
+    local step, code = stepOnce(T, R, true)
+    if R and live(T, R) and not R.playing and R.pos < #R.steps and T.ctx.ready() then R.paused = true end
+    return step, code
   end
 end
 
@@ -347,7 +400,7 @@ local function installRun(sim, T)
     local R = current(T)
     if not R or not R.playing then return false, "notPlaying" end
     cancelTimer(R)
-    R.playing, R.paused, R.settling = false, true, false
+    R.playing, R.paused, R.settling, R.awaiting = false, true, false, false
     T.ctx.notify()
     return true
   end
@@ -355,6 +408,8 @@ local function installRun(sim, T)
   function sim.Resume()
     local R = current(T)
     if not R or not R.paused then return false, "notPaused" end
+    local code = blocked(T, R)
+    if code then return false, code end   -- paused kept (minor 3)
     R.paused = false
     return sim:Run()
   end
@@ -480,16 +535,20 @@ local function scenarioNamed(ctx, name)
   return name
 end
 
---- `start <name> [size]`.
-local function verbStart(sim, ctx, words)
+--- `start <name> [size]`: the member's start, then the run armed (minor 3).
+local function verbStart(T, words)
+  local sim, ctx = T.sim, T.ctx
   if not words[2] then return printUsage(ctx) end
   local ok = sim:Start({ scenario = scenarioNamed(ctx, words[2]), size = tonumber(words[3]) })
   if not ok then return false, "refused" end   -- Start printed its line
+  arm(T)
   return true
 end
 
---- One of the six controls, with a session live: its own lines, then its WHY line on a failure.
-local function verbControl(sim, ctx, verb)
+--- One of the six controls, with a session live: its own lines, then its WHY line on a failure. A
+--- typed restart arms the new session's run (minor 3).
+local function verbControl(T, verb)
+  local sim, ctx = T.sim, T.ctx
   local a, code
   if verb == "stop" then
     a = sim:Stop("stop")
@@ -497,13 +556,15 @@ local function verbControl(sim, ctx, verb)
   else
     a, code = sim[CONTROLS[verb]](sim)
   end
+  if a and verb == "restart" then arm(T) end
   if a then return true end
   if not (verb == "step" and code == "settling") then why(ctx, code) end   -- Step printed the gate's line
   return false, code
 end
 
 --- A host verb from d.verbs: the free rule, parse, then run, each under pcall.
-local function verbHost(sim, ctx, spec, words)
+local function verbHost(T, spec, words)
+  local sim, ctx = T.sim, T.ctx
   if not spec.free and not sim:IsActive() then
     why(ctx, "notRunning")
     return false, "notRunning"
@@ -523,7 +584,8 @@ local function verbHost(sim, ctx, spec, words)
 end
 
 --- RunVerb's body: the generic grammar, then the host's verbs, then the usage.
-local function runVerb(sim, ctx, line)
+local function runVerb(T, line)
+  local sim, ctx = T.sim, T.ctx
   local words = wordsOf(line)
   local verb = words[1]
   if not verb then
@@ -534,18 +596,18 @@ local function runVerb(sim, ctx, line)
   end
   if verb == "status" then return printStatus(sim, ctx) end
   if verb == "panel" then sim:TogglePanel(); return true end
-  if verb == "start" then return verbStart(sim, ctx, words) end
+  if verb == "start" then return verbStart(T, words) end
   if CONTROLS[verb] then
     if not sim:IsActive() then
       why(ctx, "notRunning")
       return false, "notRunning"
     end
-    return verbControl(sim, ctx, verb)
+    return verbControl(T, verb)
   end
   local host = ctx.d.verbs
   local spec = type(host) == "table" and rawget(host, verb) or nil
   if type(spec) == "table" and type(spec.parse) == "function" and type(spec.run) == "function" then
-    return verbHost(sim, ctx, spec, words)
+    return verbHost(T, spec, words)
   end
   return printUsage(ctx)
 end
@@ -556,7 +618,11 @@ function lib.__AttachTimeline(sim, ctx)
   local T = { sim = sim, ctx = ctx, R = nil }
   installStep(sim, T)
   installRun(sim, T)
-  function sim.RunVerb(_, line) return runVerb(sim, ctx, line) end
+  function sim.RunVerb(_, line) return runVerb(T, line) end
+
+  -- The auto-run's ready hook (minor 3): the first listener registered, so an armed run's first
+  -- tick is scheduled before the panel or the host hear the ready() notification.
+  sim:AddListener(function() kick(T, T.R) end)
 
   -- Stop's step (1): cancel the pending tick or poll and forget the run.
   ctx.cancelRun = function()
@@ -564,7 +630,7 @@ function lib.__AttachTimeline(sim, ctx)
     T.R = nil
     if R then
       cancelTimer(R)
-      R.playing, R.paused, R.settling = false, false, false
+      R.playing, R.paused, R.settling, R.awaiting = false, false, false, false
     end
   end
 

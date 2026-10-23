@@ -110,6 +110,9 @@ end)
 test("sim slash: `loot [n]` plays n self-loot lines from a kill into the session", function()
   clean(function()
     slash("sim start loot")
+    -- A typed start plays on its own since LibKa0s v1.76.0 (SimTimeline 3): let the scenario's
+    -- run finish before counting the loot verb's rows (minimum re-true at the re-vendor, LH-RV).
+    assertTrue(until_(function() return not Sim:Status().playing end), "the started run finishes")
     assertTrue(until_(H.settled))
     local before = #NS.Database:History()
     slash("sim loot 2")

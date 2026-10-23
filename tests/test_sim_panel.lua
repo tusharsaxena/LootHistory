@@ -224,8 +224,11 @@ test("sim panel: the controls run, pause, resume, restart and stop through the t
     local c = panel().controls
     assertTrue(c:IsShown(), "running: the controls")
     assertFalse(panel().picker:IsShown(), "running: no picker")
-    c.run:__fire("OnClick")
-    assertTrue(Sim:Status().playing, "Run all plays")
+    -- LibKa0s v1.76.0 (SimPanel 5) drops Run all: the first control reads Resume while nothing
+    -- plays and sends `run`. Minimum re-true at the re-vendor (LH-RV); LH-01 rewrites this case.
+    assertTrue(c.run == nil, "Run all is gone")
+    c.pause:__fire("OnClick")
+    assertTrue(Sim:Status().playing, "Resume plays")
     c.pause:__fire("OnClick")
     assertTrue(Sim:Status().paused, "Pause pauses")
     c.pause:__fire("OnClick")
