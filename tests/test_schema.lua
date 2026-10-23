@@ -597,6 +597,9 @@ test("Schema: every setting round-trips through Set then Get", function()
       elseif row.type == "number" then
         local probe = row.values and row.values[#row.values].value
           or (row.min and (row.min + row.max) / 2) or 7
+        -- A row that validates its steps (settings.sim.stepDelay: half seconds) is probed one step
+        -- above its floor when the midpoint is not a value it takes.
+        if row.validate and not row.validate(probe) then probe = row.min + row.step end
         S:Set(row.path, probe)
         assertEqual(S:Get(row.path), probe, row.path .. " did not round-trip")
       end
@@ -654,7 +657,7 @@ end)
 local PARTITION = {
   ["General"] = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH Price", 2 },
-    { "Interface", 3 }, { "History", 3 },
+    { "Interface", 4 }, { "History", 3 },
   },
 }
 
@@ -802,7 +805,7 @@ end)
 local NUMBER_WORD = {
   ten = 10, eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15,
   sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
-  ["twenty-one"] = 21, ["twenty-two"] = 22,
+  ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23,
 }
 
 local COUNT_CLAIMS = {

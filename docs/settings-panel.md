@@ -28,7 +28,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 | **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, the minimap button, test mode, reset position, reset all settings |
 | **Capture** | What gets recorded: minimum quality, currency, quest items, and the per-source on/off picker |
 | **AH Price** | Where item values come from: the AH pricing master toggle and the ranked price-source table |
-| **Interface** | How much room the History window takes, and how many lines the Timeline draws: window scale, row height, Timeline lines |
+| **Interface** | How much room the History window takes, how many lines the Timeline draws, and the simulator's pace: window scale, row height, Timeline lines, simulation step delay |
 | **History** | What is kept and how to be rid of it: retention, Timeline retention, transfers default, the storage readout, purge |
 | **Filters** | Items and currencies you never, or always, want tracked: blacklist, whitelist, currency blacklist |
 
@@ -62,6 +62,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 * **Window scale** — resize the History window from 0.6× to 1.6×, on top of **Master scale**. Its position and size are remembered separately from this.
 * **Row height** — how tall one row of the History table is, from 14 to 28 pixels (default **18**). Lower fits more rows on screen.
 * **Timeline lines** — how many characters the Timeline draws as their own line besides the Total, from 2 to 16 (default **8**). The ones holding the most of the charted item, currency or gold are shown first; the Character filter narrows the field before the cap applies.
+* **Simulation step delay** (under a **Simulator** heading; `settings.sim.stepDelay`) — how many seconds the simulator's automatic run (**Run all** on the simulation panel, `/lh sim run`) waits between steps, from 0.5 to 10 in steps of 0.5 (default **1**). `/lh set settings.sim.stepDelay <n>` reaches it too (the slash parser clamps a number outside the range to it, and refuses one that is not a half step). A change takes effect from the next step of a running simulation. It was a fixed 1.5 s until the owner's simulator feedback (2026-10-23).
 
 **History** — what is kept, and how to be rid of it
 
@@ -106,14 +107,14 @@ The **row vocabulary is LibKa0s's** (`O.RenderField` and the flow engine in `lib
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Twenty-two rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
+**Twenty-three rows ship today**, on one schema-backed page across five schema tabs (the sixth tab, Filters, holds no rows at all):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 8 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode` |
 | General | **Capture** | 6 | `settings.qualityThreshold`, `settings.recordCurrency`, `settings.trackLedger`, `settings.recordGold`, `settings.excludeQuestItems`, `settings.excludedSources` |
 | General | **AH Price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
-| General | **Interface** | 3 | `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines` |
+| General | **Interface** | 4 | `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines`, `settings.sim.stepDelay` |
 | General | **History** | 3 | `settings.retentionDays`, `settings.rollupRetentionDays`, `settings.showTransfers` |
 
 The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`libs/LibKa0s/OptionsCompose.lua`) emits the canonical block — eight rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Profile.lua` stays the one declaration site for every shipped value, and the two session rows default to `false`), both reset handlers, `minimapPath = "minimap.shown"` (verbatim and unprefixed; the row path is in the row's own sense and the one stored key underneath is `minimap.hide`, because LibDBIcon's own table lives in the **global** store outside the block's `settings.` prefix — launcher-§3) and `testModePath = "state.testMode"`, which are what add the `Minimap button` and `Test mode` rows; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, the two session toggles' `get`/`set`, and the test-mode row's own tooltip — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
@@ -154,7 +155,7 @@ The General page is **six tabs**, and it is the whole panel: every page in this 
 | **Master controls** | schema rows + the composer's closing button pair | 6 |
 | **Capture** | schema rows + the host-drawn inverted source picker | 6 |
 | **AH Price** | schema toggle + the pooled price-source reorder table | 2 |
-| **Interface** | schema rows | 3 |
+| **Interface** | schema rows | 4 |
 | **History** | schema rows + the storage readout and **Purge history…** | 3 |
 | **Filters** | bespoke: a **secondary strip** over three id-lists | 0 |
 
@@ -172,7 +173,7 @@ Six things about the strip are worth writing down because each is a decision tha
 * **Master controls is first, under that exact name** (options-ui-§15). It is simultaneously the rows' `group`, the tab's label and the `afterGroup` key its closing button pair hangs off — the group name *is* the hook key, so renaming the group detaches the hook and nothing errors. `settings/Schema.lua` publishes both ends (`S.MASTER_GROUP`, `S.MasterAfterGroup`) rather than spelling the literal twice.
 * **`afterGroup` is where a host-drawn block goes, not the renderer's tail.** A block appended after the rows would land at the bottom of *every* tab rather than inside the one it belongs to. Four tabs have one: Master controls (the reset pair, the composer's own), Capture (the muted-source picker), AH Price (the price table) and History (the storage readout + purge).
 * **`pairWith` is gone.** Its one entry attached **Reset Everything** to the right half of the `settings.windowScale` row, and the hook only fires while its path is the lone widget on its line. That button is the Master controls tab's **Reset all settings** now, drawn by the composer's own hook.
-* **Subsection headings are not suppressed.** `noHeadings` suppresses the *group* heading, because under a strip the tab is it — but a tab that mixes control types has no tab left to name each kind with (options-ui-§7). Two tabs are mixed and each carries two headings, every one of them declared by a row: **AH Price** (**Pricing** above the toggle, **Price sources** above the table) and **Interface** (**Window** over the two sliders that size the History window, **Minimap** over the button toggle — a different surface, so a second subject under one label). No other tab is a mix: `tests/test_panel.lua` states the expected heading list for all six, empty lists included, so a heading that appears where none belongs is as red as one that vanishes.
+* **Subsection headings are not suppressed.** `noHeadings` suppresses the *group* heading, because under a strip the tab is it — but a tab that mixes control types has no tab left to name each kind with (options-ui-§7). Two tabs are mixed and each carries two headings, every one of them declared by a row: **AH Price** (**Pricing** above the toggle, **Price sources** above the table) and **Interface** (**Window** over the three sliders that size the History window and its Timeline, **Simulator** over the simulation step delay — a different subject, so a second heading; the tab carried **Window** / **Minimap** until the minimap row moved to Master controls, and none while every row was about the window). No other tab is a mix: `tests/test_panel.lua` states the expected heading list for all six, empty lists included, so a heading that appears where none belongs is as red as one that vanishes.
 * **The wrap is selection-invariant, and this page proves it rather than assuming the library does.** Six labels is wide enough to wrap on a narrowed Settings window, and options-ui-§13 makes the invariant a testing MUST: the reserved band and every tab's y offset are the same numbers for every value of the selection, or the whole page shifts under the player on each click. The geometry is `O.TabStrip`'s, but the strip is this page's, so `tests/test_panel.lua` pins it here — forcing a two-row wrap and comparing the band and all six anchors across all six selections, and separately pinning that the row pitch comes from the **unselected** tab art. The half that makes it mean anything is in `tests/wow_mock.lua`, which answers a **taller** height for the selected-state atlas; §13 says in as many words that a harness answering one height for every atlas "is green against nothing".
 
 * **No banner and no page-header block (options-ui-§14).** The page edits one thing, the active profile, and the profile is chosen on the Profiles page, as in every Ka0s addon with profiles; there is no per-window or per-unit state for a banner to be a picker *for*, and nothing on the page applies to every tab. `O.PageBanner` and `O.PageHeader` are stubbed on the degraded path for surface parity and neither is called on the live one.

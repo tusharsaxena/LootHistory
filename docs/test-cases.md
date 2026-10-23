@@ -1517,7 +1517,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (33)
+### test_libka0s.lua (34)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1552,6 +1552,7 @@ Total.
 - v1.71.0: the vendored minors and the kit revision match the release
 - v1.75.0: the vendored minors and the kit revision match the release
 - v1.75.1: the vendored minors and the kit revision match the release
+- v1.75.2: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (16)
 
@@ -1766,7 +1767,7 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (15)
+### test_sim_panel.lua (24)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
@@ -1783,6 +1784,15 @@ Total.
 - sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
 - sim marker: the stop takes the badge, the strip and the footer line down
 - sim marker: test mode and the simulation never show together
+- sim window: `/lh sim start` opens the History window
+- sim window: the panel's Start row and the picker's Start button open it too
+- sim window: a panel floating before the start docks beside the window the start opened
+- sim window: a refused start leaves the window closed
+- sim step delay: one second by default, read from the setting; a bad value falls back
+- sim step delay: ValidStepDelay takes 0.5 to 10 in steps of 0.5
+- sim step delay: the row sits on General > Interface, and `/lh set` clamps and refuses a quarter step
+- sim step delay: an untouched setting runs the steps one second apart
+- sim step delay: a run waits the set delay, and a change takes effect from the next step
 
 ### test_sim_slash.lua (8)
 
@@ -1963,7 +1973,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 33 |
+| test_libka0s.lua | 34 |
 | test_surface_parity.lua | 16 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -1976,7 +1986,7 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 15 |
+| test_sim_panel.lua | 24 |
 | test_sim_slash.lua | 8 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
@@ -1988,4 +1998,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1686** |
+| **Total** | **1696** |

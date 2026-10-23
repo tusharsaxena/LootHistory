@@ -55,7 +55,7 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 3
+local SIM_PANEL_MINOR = 4
 
 --- Close Widgets' shared dropdown menu. The picker's dropdowns drop that process-wide popup, which
 --- no owner's Hide reaches (Widgets.lua's CloseMenu contract), so every non-click way the picker
@@ -417,7 +417,10 @@ local DOCK_GAP = 8
 local FLOAT_X = 420
 local BAR_H = 22                   -- the picker, or the controls, under the rows
 local BUTTON_W, BUTTON_GAP = 84, 6
-local SCENARIO_W, SIZE_W = 140, 120
+-- The scenario dropdown takes what the bar leaves: everything left of START, less the size
+-- dropdown and its gap while that is shown (paintPicker).
+local SIZE_W = 90
+local SCENARIO_W = ROW_W - BUTTON_W - BUTTON_GAP
 local WIDTH = ROW_W + PAD * 2
 
 -- What an internal click-ahead's failure code prints (the verbs' WHY lines, SimTimeline.lua).
@@ -683,6 +686,9 @@ local function buildPicker(P, f)
   local pk = bar(f)
   pk.scenario = W.Dropdown(pk, SCENARIO_W)
   pk.scenario:SetPoint("LEFT", pk, "LEFT", 0, 0)
+  -- One line: a label too long for the width truncates rather than wrapping out of the box.
+  local label = pk.scenario.text
+  if type(label) == "table" and type(label.SetWordWrap) == "function" then label:SetWordWrap(false) end
   pk.scenario.onSelect = function(v)
     if defOf(P, v) then P.choice.scenario = v end
     P.refresh()
@@ -728,7 +734,12 @@ local function paintPicker(P, f)
   if name == nil then pk.scenario:SetValue(nil, "") else pk.scenario:SelectValue(name) end
   pk.size:SetOptions(sizeOptions(P, def))
   pk.size:SelectValue(tonumber(P.choice.size) or 0)
-  pk.size:SetShown(def ~= nil and def.sizes ~= nil)
+  local sized = def ~= nil and def.sizes ~= nil
+  pk.size:SetShown(sized)
+  local w = sized and SCENARIO_W - SIZE_W - BUTTON_GAP or SCENARIO_W
+  pk.scenario:SetWidth(w)
+  pk.size:ClearAllPoints()
+  pk.size:SetPoint("LEFT", pk, "LEFT", w + BUTTON_GAP, 0)
   setEnabled(pk.start, name ~= nil)
 end
 

@@ -53,7 +53,7 @@ Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game chec
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.75.1 (MIT).
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.75.2 (MIT).
 LibKa0s icons: ban, chat, chevron-down, chevron-right, circle-check, clear, close, confirm, copy, graph, info, lock, segment, sort-down, sort-up, spreadsheet.
 
 That is the Ka0s-owned shared library behind the chat printer, the debug console, the

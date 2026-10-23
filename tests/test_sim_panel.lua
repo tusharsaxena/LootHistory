@@ -337,3 +337,157 @@ test("sim marker: test mode and the simulation never show together", function()
     BT:SetTestMode(false)
   end)
 end)
+
+-- ── starting opens the History window (the owner's simulator feedback, 2026-10-23) ───────────
+
+-- Host.Prepare (modules/Sim.lua) shows the window, so every start route reaches it: the typed verb,
+-- the panel's Start row and the picker's Start button all end in the library's Start, which calls
+-- the descriptor's prepare. A refused start never reaches prepare, so it opens nothing.
+local function shown() local f = B:GetWindow(); return f ~= nil and f:IsShown() end
+
+test("sim window: `/lh sim start` opens the History window", function()
+  clean(function()
+    B:Hide()
+    assertFalse(shown(), "closed before the start")
+    slash("sim start loot")
+    assertTrue(Sim:IsActive(), "the start went ahead")
+    -- red under: a Host.Prepare that never shows the window, which leaves it closed here
+    assertTrue(shown(), "the start opened the History window")
+  end)
+end)
+
+test("sim window: the panel's Start row and the picker's Start button open it too", function()
+  clean(function()
+    B:Hide()
+    assertTrue(Sim:ShowPanel())
+    panel().__rowButtons[1]:__fire("OnClick")
+    assertTrue(Sim:IsActive(), "the Start row starts it")
+    assertTrue(shown(), "the Start row's start opened the window")
+    Sim:Stop("stop")
+    B:Hide()
+    local pk = panel().picker
+    pk.scenario.onSelect("key")
+    pk.start:__fire("OnClick")
+    assertTrue(Sim:IsActive(), "the picker starts it")
+    assertTrue(shown(), "the picker's start opened the window")
+  end)
+end)
+
+test("sim window: a panel floating before the start docks beside the window the start opened", function()
+  clean(function()
+    B:Hide()
+    assertTrue(Sim:ShowPanel())
+    assertEqual(panel().__dock, "float", "no window: the panel floats")
+    start("loot")
+    assertTrue(shown())
+    assertEqual(panel().__dock, "right", "re-placed beside the window the start opened")
+  end)
+end)
+
+test("sim window: a refused start leaves the window closed", function()
+  clean(function()
+    B:Hide()
+    M.__inCombat = true
+    local ok = Sim:Start({ scenario = "loot", seed = 7 })
+    M.__inCombat = false
+    assertFalse(ok, "refused in combat")
+    assertFalse(Sim:IsActive())
+    assertFalse(shown(), "a refused start opens nothing")
+  end)
+end)
+
+-- ── Run all's step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──
+
+local DELAY = "settings.sim.stepDelay"
+
+-- A three-step scenario whose steps do nothing, so the ledger gate never holds and the clock alone
+-- decides when Run all plays the next step.
+local function withQuietScenario(body)
+  local sc = Host.SCENARIOS
+  sc.names[#sc.names + 1] = "lhdelay"
+  sc.defs.lhdelay = { label = "Delay", timeline = function()
+    return { { kind = "noop", label = "A" }, { kind = "noop", label = "B" }, { kind = "noop", label = "C" } }
+  end }
+  local ok, err = pcall(body)
+  sc.defs.lhdelay = nil
+  for i = #sc.names, 1, -1 do if sc.names[i] == "lhdelay" then table.remove(sc.names, i) end end
+  NS.Schema:Set(DELAY, Host.STEP_DELAY)
+  if not ok then error(err, 0) end
+end
+
+test("sim step delay: one second by default, read from the setting; a bad value falls back", function()
+  local stored = NS.db.profile.settings.sim
+  -- red under: the fixed `SIM_STEP_DELAY = 1.5` this setting replaced (no Host.STEP_DELAY at all)
+  assertEqual(Host.STEP_DELAY, 1)
+  assertEqual(NS.defaults.profile.settings.sim.stepDelay, Host.STEP_DELAY, "the default is the profile's")
+  assertEqual(NS.Schema:Default(DELAY), Host.STEP_DELAY, "and the row's")
+  assertEqual(Host.StepDelay(), 1)
+  stored.stepDelay = 4.5
+  assertEqual(Host.StepDelay(), 4.5, "a stored value is used")
+  stored.stepDelay = 0.2
+  assertEqual(Host.StepDelay(), 1, "out of range: the default")
+  stored.stepDelay = 1.3
+  assertEqual(Host.StepDelay(), 1, "not a half step: the default")
+  stored.stepDelay = "fast"
+  assertEqual(Host.StepDelay(), 1, "not a number: the default")
+  stored.stepDelay = 1
+end)
+
+test("sim step delay: ValidStepDelay takes 0.5 to 10 in steps of 0.5", function()
+  for _, v in ipairs({ 0.5, 1, 2, 7.5, 10 }) do assertTrue(Host.ValidStepDelay(v), tostring(v)) end
+  for _, v in ipairs({ 0, 0.4, 1.3, 10.5, 0 / 0, "2", nil }) do
+    assertFalse(Host.ValidStepDelay(v), tostring(v))
+  end
+end)
+
+test("sim step delay: the row sits on General > Interface, and `/lh set` clamps and refuses a quarter step",
+function()
+  withQuietScenario(function()
+    local row = NS.Schema:FindRow(DELAY)
+    assertTrue(row ~= nil, "a schema row")
+    assertEqual(row.label, "Simulation step delay")
+    assertEqual(row.page, "General"); assertEqual(row.group, "Interface"); assertEqual(row.subgroup, "Simulator")
+    assertEqual(row.min, 0.5); assertEqual(row.max, 10); assertEqual(row.step, 0.5)
+    slash("set " .. DELAY .. " 11")
+    assertEqual(NS.Schema:Get(DELAY), 10, "the slash parser clamps to the row's range")
+    slash("set " .. DELAY .. " 1.5")
+    assertEqual(NS.Schema:Get(DELAY), 1.5)
+    slash("set " .. DELAY .. " 1.2")
+    assertEqual(NS.Schema:Get(DELAY), 1.5, "not a half step: refused")
+  end)
+end)
+
+test("sim step delay: an untouched setting runs the steps one second apart", function()
+  clean(function()
+    withQuietScenario(function()
+      assertTrue(Sim:Start({ scenario = "lhdelay" }))
+      assertTrue(Sim:Run())
+      assertEqual(Sim:Status().pos, 1, "the first step at once")
+      H.advance(0.75)
+      assertEqual(Sim:Status().pos, 1, "three quarters of a second: not yet")
+      -- red under: the 1.5 s constant, which leaves the run on step 1 here
+      H.advance(0.25)
+      assertEqual(Sim:Status().pos, 2, "one second: the next step")
+    end)
+  end)
+end)
+
+test("sim step delay: a run waits the set delay, and a change takes effect from the next step", function()
+  clean(function()
+    withQuietScenario(function()
+      NS.Schema:Set(DELAY, 3)
+      assertTrue(Sim:Start({ scenario = "lhdelay" }))
+      assertTrue(Sim:Run())
+      H.advance(2.75)
+      assertEqual(Sim:Status().pos, 1, "three seconds, not the default one")
+      H.advance(0.25)
+      assertEqual(Sim:Status().pos, 2)
+      NS.Schema:Set(DELAY, 0.5)
+      -- The step already set keeps its three seconds; the setting is read as each next one is set.
+      H.advance(2.75)
+      assertEqual(Sim:Status().pos, 2, "the tick already set keeps its delay")
+      H.advance(0.25)
+      assertEqual(Sim:Status().pos, 3, "then the next step")
+    end)
+  end)
+end)

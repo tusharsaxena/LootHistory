@@ -695,7 +695,18 @@ end)
 test("v1.75.1: the vendored minors and the kit revision match the release", function()
   local S = T.mocks.LibStub("LibKa0s-Sim-1.0", true)
   assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.75.1")
-  assertEqual(S.MODULES.SimPanel, 3)
+  assertTrue(S.MODULES.SimPanel >= 3) -- 4 since v1.75.2, pinned there
+  assertEqual(S.MODULES.Sim, 2)
+  assertEqual(S.MODULES.SimTimeline, 2)
+  assertEqual(T.KIT_VERSION, 41)
+end)
+
+-- v1.75.2: SimPanel 4 (the picker's scenario dropdown takes the width the bar leaves, so a long
+-- scenario name no longer wraps); nothing else moves.
+test("v1.75.2: the vendored minors and the kit revision match the release", function()
+  local S = T.mocks.LibStub("LibKa0s-Sim-1.0", true)
+  assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.75.2")
+  assertEqual(S.MODULES.SimPanel, 4)
   assertEqual(S.MODULES.Sim, 2)
   assertEqual(S.MODULES.SimTimeline, 2)
   assertEqual(T.KIT_VERSION, 41)
