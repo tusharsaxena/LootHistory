@@ -49,9 +49,9 @@ NS.defaults.profile = {
     -- ships as the same 18, so a player who never touches it sees the table it always drew.
     rowHeight        = 18,
     timelineMaxLines = 8,      -- lines besides the Total on the Timeline (2-16)
-    -- The simulator's Run all pace (`/lh sim run`, the panel's Run all): seconds between steps,
-    -- 0.5-10 in steps of 0.5 (modules/Sim.lua Host.StepDelay). A new key with a default, so AceDB
-    -- merges it into every existing profile and no migration is owed.
+    -- The pace of a playing simulation: seconds between steps, 0.5-10 in steps of 0.5
+    -- (modules/Sim.lua Host.StepDelay). A new key with a default, so AceDB merges it into every
+    -- existing profile and no migration is owed.
     sim              = { stepDelay = 1 },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)

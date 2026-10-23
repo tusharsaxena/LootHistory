@@ -778,13 +778,14 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
-### test_teststrip.lua (6)
+### test_teststrip.lua (7)
 
-- test strip: test mode on shows the strip with its L text, shifts the panes and shows the badge
+- test strip: test mode on shows the strip with its L text, shifts the panes and hides the badge
 - test strip: test mode off hides the strip and the badge and puts the panes back
 - test strip: Show while already in test mode reserves the space
 - test strip: the strip hangs under the filter bar, and hovering it explains test mode
-- test strip: the strip and the badge text come from NS.L
+- test strip: each mode strip hangs under the filter bar and explains its own mode
+- test strip: the strip text comes from NS.L
 - test strip: degraded (no Widgets): no strip, no shift, the badge still shows
 
 ### test_browsertable.lua (85)
@@ -1517,7 +1518,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (34)
+### test_libka0s.lua (35)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1553,6 +1554,7 @@ Total.
 - v1.75.0: the vendored minors and the kit revision match the release
 - v1.75.1: the vendored minors and the kit revision match the release
 - v1.75.2: the vendored minors and the kit revision match the release
+- v1.76.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (16)
 
@@ -1767,7 +1769,7 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (24)
+### test_sim_panel.lua (26)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
@@ -1776,14 +1778,16 @@ Total.
 - sim panel: `/lh sim loot` rows are never counted as rows the step before them recorded
 - sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` toggles it
 - sim panel: clicking a row ahead plays every step up to it, waiting out the ledger gate
+- sim panel: clicking a row ahead while it plays holds the run and plays up to the row
 - sim panel: a typed `/lh sim step` repaints the shown panel
 - sim panel: while the ledger settles, the gate holds the next step and says so
-- sim panel: the controls run, pause, resume, restart and stop through the typed verbs
+- sim panel: the controls are Pause/Resume, Restart and Stop, and Restart plays on its own
 - sim panel: the picker starts the chosen scenario
 - sim panel: a drag is remembered for the session only, and ResetPanelPosition redocks it
-- sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer
+- sim marker: while a session runs the window wears the sim strip and the footer, no badge
 - sim marker: the stop takes the badge, the strip and the footer line down
 - sim marker: test mode and the simulation never show together
+- sim marker: degraded (no sim strip), a session wears SIMULATION in cyan beside the title
 - sim window: `/lh sim start` opens the History window
 - sim window: the panel's Start row and the picker's Start button open it too
 - sim window: a panel floating before the start docks beside the window the start opened
@@ -1794,10 +1798,12 @@ Total.
 - sim step delay: an untouched setting runs the steps one second apart
 - sim step delay: a run waits the set delay, and a change takes effect from the next step
 
-### test_sim_slash.lua (8)
+### test_sim_slash.lua (10)
 
 - sim slash: NS.COMMANDS carries one `sim` row, and it is a feature verb
 - sim slash: bare `/lh sim` prints the status and the usage and opens the panel
+- sim slash: a typed start plays on its own to the end
+- sim slash: a typed step while it plays holds the run and plays one step
 - sim slash: start, step, run, pause, resume, status, restart and stop each act
 - sim slash: a control with no session says so; an unknown word or `help` prints the usage
 - sim slash: `loot [n]` plays n self-loot lines from a kill into the session
@@ -1949,7 +1955,7 @@ Total.
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 96 |
-| test_teststrip.lua | 6 |
+| test_teststrip.lua | 7 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
@@ -1973,7 +1979,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 34 |
+| test_libka0s.lua | 35 |
 | test_surface_parity.lua | 16 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -1986,8 +1992,8 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 24 |
-| test_sim_slash.lua | 8 |
+| test_sim_panel.lua | 26 |
+| test_sim_slash.lua | 10 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -1998,4 +2004,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1696** |
+| **Total** | **1702** |

@@ -18,7 +18,7 @@ free number in its theme.
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
 | PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
-| STATE-1 to 16 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip |
+| STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
@@ -31,12 +31,12 @@ free number in its theme.
 | LAUNCH-1 to 14 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
-| DEGRADED-1 to 12 | [Degraded install](#degraded-install) | LibKa0s missing from the install |
+| DEGRADED-1 to 13 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
 | LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
-| SIM-1 to 7 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused |
+| SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -378,9 +378,9 @@ and pull the resize grip → nothing moves or resizes; untick → both drag and 
 **STATE-7. Test mode from the slash.** `/lh hide`, `/lh test` → `test mode on`, the window opens by
 itself; close it, `/lh test` → `test mode off`, the window stays closed. Result: pass (owner-marked 2026-10-10)
 
-**STATE-8. What test mode shows.** With test mode on → a bright-red **TEST MODE** badge beside the
-window title; synthetic rows across several synthetic characters; the filter dropdowns rebuilt from
-them; the view on stock + all players; Insights on the same dataset. Turn it off → badge gone, the
+**STATE-8. What test mode shows.** With test mode on → the amber test-mode strip under the filter
+bar (no badge beside the window title since LH-10; see STATE-17); synthetic rows across several synthetic characters; the filter dropdowns rebuilt from
+them; the view on stock + all players; Insights on the same dataset. Turn it off → strip gone, the
 live history, the saved view and the current player back. Result: pass (owner-marked 2026-10-10)
 
 **STATE-9. The Test mode box.** Master controls: tick **Test mode** → the window opens in test mode;
@@ -399,20 +399,30 @@ keeps the old size); untick → the grip resizes again and `/reload` keeps the n
 
 **STATE-13. The test-mode strip (LootHistory#36).** `/lh test` → an amber strip with the info mark
 reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits under the filter bar,
-the History table starts under it, and the red **TEST MODE** badge is still beside the title.
-Result: pass (owner-marked 2026-10-23)
+the History table starts under it. (Procedure amended by LH-10, 2026-10-23: the red **TEST MODE**
+badge no longer shows beside the title while the strip does; STATE-17 checks that.) Result: pass
+(owner-marked 2026-10-23)
 
 **STATE-14. Every tab makes room for the strip.** Still in test mode, open **Insights**,
 **Timeline** and **Holdings** → each starts under the strip, shifted down the same way as History,
 with nothing hidden behind it. Result: pass (owner-marked 2026-10-23)
 
 **STATE-15. The strip goes with test mode.** Enter combat (hit a target dummy) → test mode ends, and
-the strip and the badge both go and every tab moves back up under the filter bar. Turn it on again
+the strip goes and every tab moves back up under the filter bar. Turn it on again
 and `/lh test` → the same. Result: pass (owner-marked 2026-10-23)
 
 **STATE-16. The strip's tooltip.** In test mode, hover the strip → a tooltip titled `Test mode`,
 then `Shows: sample loot, holdings and timeline` and `Ended by: combat, /lh test, the launcher
 menu`; move off → it goes. Result: pass (owner-marked 2026-10-23)
+
+**STATE-17. The strip is the test-mode marker; no title badge.** `/lh test` → the amber strip sits
+under the filter bar and there is **no** red **TEST MODE** beside the window title. Open each tab
+(History, Insights, Timeline, Holdings) → each pane starts under the strip. Hover the strip → its
+tooltip is titled `Test mode`. (OWNER_SCOPE A; LH-10; SM-LH-10) Result: pass (owner-marked 2026-10-23)
+
+**STATE-18. Combat takes the strip down, and no header word appears.** In test mode, enter combat
+(hit a target dummy) → test mode ends, the strip goes, every tab's pane moves back up under the
+filter bar, and no `TEST MODE` word appears beside the title at any point. (LH-10; SM-LH-12) Result: pass (owner-marked 2026-10-23)
 
 **TM-1. Test mode fills Holdings and Timeline too.** `/lh test`, open **Holdings** → sample things
 held by four sample characters and the Warband (expand one to see the holders; the Character list
@@ -1645,10 +1655,10 @@ count (`/run print(#LootHistoryDB.global.history)`) for SIM-5. A check fails on 
 **SIM-1. Start and stop.** `/lh toggle`, then `/lh sim start loot` → the simulation panel opens
 docked beside the History window, titled *Ka0s Loot History - Simulation*; one chat line reads
 *Simulation started (loot): nothing is saved; your history and holdings are not touched.*; the
-History window's title badge reads `SIMULATION` in cyan, the strip under the filter bar reads
+History window's strip under the filter bar reads
 *SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it.*, and
-the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the badge,
-strip and footer prefix go; the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
+the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the strip and
+footer prefix go (procedure amended by LH-10, 2026-10-23: no `SIMULATION` title badge; SIM-12); the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
 
 **SIM-2. Refusals.** Each of these prints its own one line and starts nothing: `/lh sim start loot`
 in combat (a target dummy); inside an instance; in a group; with `/lh test` on; with the mailbox
@@ -1658,12 +1668,13 @@ losses first.*; tick it again. With the addon disabled (`/lh disable`), `/lh sim
 the one disabled line; `/lh enable` after. (SM-LH-21) Result: pass (owner-marked 2026-10-23)
 
 **SIM-3. Every scenario end to end.** For each of `loot`, `key`, `vendor`, `ah`, `bank` and `social`:
-`/lh sim start <name>`, press **Run all** on the panel and wait for the last row to finish → the rows
+`/lh sim start <name>` and let it play on its own until the last row finishes → the rows
 the scenario names appear in History (sources and reasons, for example Kill, Container and Quest for
 `loot`; Mythic+ and Bonus Roll for `key`; Sell, Buy, Repair, Destroy and Disenchant for `vendor`;
 AH post fee, AH buy and AH sold for `ah`; warband deposit and withdraw for `bank`; alt mail, trades
 and the currency transfer for `social`), the Holdings tab shows the session's holders, and the
-Timeline charts them. `/lh sim stop` between scenarios. (SM-LH-22) Result: pass (owner-marked 2026-10-23)
+Timeline charts them. `/lh sim stop` between scenarios. (procedure amended for auto-play, LH-01,
+2026-10-23) (SM-LH-22) Result: pass (owner-marked 2026-10-23)
 
 **SIM-4. A real loot stops it.** `/lh sim start loot`, then kill and loot a real mob before the run
 ends → the simulation stops with *Simulation stopped: something real happened (a loot, a trade, a
@@ -1689,22 +1700,39 @@ nothing forgotten; History → right-click a row → **Delete** →
 *Delete is not available while a simulation runs.*, the row stays. (SM-LH-26) Result: pass (owner-marked 2026-10-23)
 
 **SIM-8. Starting opens the window.** Close the History window, then `/lh sim start loot` → the
-History window opens with the `SIMULATION` badge and the panel docks beside it. `/lh sim stop`, close
+History window opens with the cyan simulation strip and the panel docks beside it. `/lh sim stop`, close
 the window again, open `/lh sim` (the panel floats with no window) and press the picker's **Start**
 → the window opens and the panel moves beside it. `/lh sim stop`, close the window, and start from
 the panel's **Start** row → the window opens. A refused start (in combat, at a target dummy) opens
 nothing. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
-**SIM-9. Run all's step delay.** Settings → General → Interface → the **Simulator** heading shows
-**Simulation step delay** at **1**. `/lh sim start loot`, press **Run all** → about one second
+**SIM-9. The step delay.** Settings → General → Interface → the **Simulator** heading shows
+**Simulation step delay** at **1**. `/lh sim start loot` (it plays on its own) → about one second
 between steps while the ledger is quiet. `/lh set settings.sim.stepDelay 3` during the run → the
 steps after the next one come about three seconds apart, and the slider reads 3. `/lh set
 settings.sim.stepDelay 1.2` → refused (not a half step), the value stays 3. `/lh reset
-settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
+settings.sim.stepDelay` after. (owner simulator feedback, 2026-10-23; procedure amended for
+auto-play, LH-01, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-10. The picker's scenario dropdown fits.** `/lh sim` with no simulation running → the
 picker's scenario dropdown on the bottom left is wide enough for the longest scenario name on one
 line (no wrap). (LibKa0s v1.75.2, SimPanel minor 4) Result: pass (owner-marked 2026-10-23)
+
+**SIM-11. A started simulation plays on its own; Run all is gone.** `/lh sim start loot` → the
+History window and the step panel open, the panel's footer shows **Pause**, **Restart** and
+**Stop** (the Run all button is gone), and the steps play about one second apart on their own, each waiting
+for the ledger to settle, to the finished line. `/lh sim restart`, and mid-run click the next row →
+the run pauses (the first button reads **Resume**) and that one step plays; press **Resume** → it
+plays on to the end. Press **Restart** → it starts again from the first step with a fresh seed and
+plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimPanel 5; LH-01;
+SM-LH-01, SM-LH-02) Result: pass (owner-marked 2026-10-23)
+
+**SIM-12. The simulation's own cyan strip; no title word.** `/lh sim start loot` → a **cyan** strip
+(not amber) under the filter bar reads *SIMULATION: an invented world drives the real capture;
+nothing is saved. /lh sim stop ends it.*, there is **no** `SIMULATION` word beside the window title,
+and every tab's pane starts under the strip. Hover the strip → its tooltip is titled `Simulation`.
+`/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
+LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
 ## Vendored icons
 
@@ -1738,7 +1766,7 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
-to DEGRADED-11; rename it back and `/reload` when done.
+to DEGRADED-13; rename it back and `/reload` when done.
 
 **DEGRADED-1. No Lua error.** Load and play → not one Lua error. Result: pass (owner-marked 2026-10-10)
 
@@ -1792,6 +1820,11 @@ hatch (two pixels inside the corner, no pressed art) and resizes, and `/reload` 
 **Lock frame** ticked (set on a working install first, since the degraded panel cannot) it does not
 resize. No Lua error. Result: pass (owner-marked 2026-10-10)
 
+**DEGRADED-13. The title badge marks test mode when there is no strip.** `/lh test` → no strip under
+the window's header, nothing shifted down, and the bright-red **TEST MODE** word beside the window
+title. `/lh test` again → the word goes. (No simulation can run without the library, so the cyan
+`SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result:
+
 ## Non-English client
 
 Run on a client set to **deDE or frFR**, the two locales ConsumableMaster LOC-1 and KickCD LOC-1 use.
@@ -1833,7 +1866,9 @@ Fail: any Lua error, which here means a localized string reached code that assum
 
 ## Pending sign-off
 
-None. On 2026-10-10 the owner marked every check in this file as passed, recorded on its
+On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
+
+- [DEGRADED-13](#degraded-install): the title badge marks test mode when there is no strip (LH-10, 2026-10-23).

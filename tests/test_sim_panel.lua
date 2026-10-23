@@ -189,6 +189,22 @@ test("sim panel: clicking a row ahead plays every step up to it, waiting out the
   end)
 end)
 
+test("sim panel: clicking a row ahead while it plays holds the run and plays up to the row", function()
+  clean(function()
+    slash("sim start loot")
+    assertTrue(Sim:ShowPanel())
+    assertTrue(Sim:Status().playing, "the typed start plays")
+    local buttons = panel().__rowButtons
+    buttons[3]:__fire("OnClick")   -- Start, Kill, [Lockbox]: the second step
+    assertTrue(until_(function() return Sim:Status().pos == 2 and not Sim:Status().playing end),
+      "the click-ahead reached the clicked row: " .. Sim:Status().pos)
+    assertTrue(Sim:Status().paused, "the run is held")
+    H.advance(5)
+    assertEqual(Sim:Status().pos, 2, "and stays at the clicked row")
+    assertEqual(buttons[4].__state, "ready", "the next row waits for a click or Resume")
+  end)
+end)
+
 test("sim panel: a typed `/lh sim step` repaints the shown panel", function()
   clean(function()
     start("loot")
@@ -217,19 +233,28 @@ test("sim panel: while the ledger settles, the gate holds the next step and says
   end)
 end)
 
-test("sim panel: the controls run, pause, resume, restart and stop through the typed verbs", function()
+test("sim panel: the controls are Pause/Resume, Restart and Stop, and Restart plays on its own", function()
   clean(function()
-    start("loot")
+    start("loot")   -- the member: starts a session and plays nothing
     assertTrue(Sim:ShowPanel())
     local c = panel().controls
     assertTrue(c:IsShown(), "running: the controls")
     assertFalse(panel().picker:IsShown(), "running: no picker")
-    c.run:__fire("OnClick")
-    assertTrue(Sim:Status().playing, "Run all plays")
+    -- LibKa0s v1.76.0 (SimPanel 5): Run all is gone (OWNER_SCOPE A.1, C.1).
+    assertTrue(c.run == nil, "no Run all control")
+    assertFalse(Sim:Status().playing, "a member start waits")
+    assertEqual(c.pause.__label, "Resume", "nothing plays: the button reads Resume")
+    assertEqual(c.pause.__verb, "run", "and, with nothing paused, sends `run`")
+    c.pause:__fire("OnClick")
+    assertTrue(Sim:Status().playing, "Resume plays")
+    assertEqual(c.pause.__label, "Pause", "playing: the button reads Pause")
     c.pause:__fire("OnClick")
     assertTrue(Sim:Status().paused, "Pause pauses")
+    assertEqual(c.pause.__label, "Resume")
+    assertEqual(c.pause.__verb, "resume", "paused: it sends `resume`")
     c.pause:__fire("OnClick")
     assertFalse(Sim:Status().paused, "the same button resumes")
+    assertTrue(Sim:Status().playing)
     assertTrue(until_(function() return not Sim:Status().playing end), "the run finishes")
     assertEqual(Sim:Status().pos, Sim:Status().total, "every step ran")
     local seed = Sim:Status().seed
@@ -237,6 +262,7 @@ test("sim panel: the controls run, pause, resume, restart and stop through the t
     assertTrue(Sim:IsActive(), "Restart starts again")
     assertEqual(Sim:Status().pos, 0, "from the first step")
     assertTrue(Sim:Status().seed ~= seed, "with a fresh seed")
+    assertTrue(Sim:Status().playing, "and plays on its own")
     c.stop:__fire("OnClick")
     assertFalse(Sim:IsActive(), "Stop ends it")
     assertTrue(panel().picker:IsShown(), "idle again: the picker")
@@ -286,18 +312,32 @@ end)
 
 local SIM_STRIP = "SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it."
 
-test("sim marker: while a session runs the window wears SIMULATION in cyan, the strip and the footer", function()
+-- The pane's TOPLEFT y offset, from the mock's recorded anchors (the last TOPLEFT wins).
+local function paneTop(pane)
+  local y
+  for _, p in ipairs(pane.__points or {}) do
+    if p.point == "TOPLEFT" then y = p.y end
+  end
+  return y
+end
+
+test("sim marker: while a session runs the window wears the sim strip and the footer, no badge", function()
   clean(function()
     B:Show()
     local f = B:GetWindow()
     assertFalse(f.testBadge:IsShown(), "idle: no badge")
+    assertFalse(f.simStrip:IsShown(), "idle: no sim strip")
+    local base = {}
+    for name, pane in pairs(f.panes) do base[name] = paneTop(pane) end
     start("loot")
-    assertTrue(f.testBadge:IsShown(), "running: the badge")
-    assertEqual(f.testBadge:GetText(), "SIMULATION")
-    local r, g, b = f.testBadge:GetTextColor()
-    assertEqual(("%.1f,%.1f,%.1f"):format(r, g, b), "0.3,0.8,1.0", "in its own color")
-    assertTrue(f.testStrip:IsShown(), "the strip")
-    assertEqual(f.testStrip.text:GetText(), SIM_STRIP)
+    assertTrue(f.simStrip:IsShown(), "running: the sim strip")
+    assertEqual(f.simStrip.kind, "sim", "the library's simulation flavor")
+    assertEqual(f.simStrip.text:GetText(), SIM_STRIP)
+    assertFalse(f.testStrip:IsShown(), "running: no test strip")
+    assertFalse(f.testBadge:IsShown(), "running: the strip is the marker, so no title badge")
+    for name, pane in pairs(f.panes) do
+      assertEqual(paneTop(pane), base[name] - NS.TestStripReserve(), name .. " pane moves under the strip")
+    end
     assertEqual(B._footer:GetText():match("^Simulating: loot \194\183 step 0/3"), "Simulating: loot \194\183 step 0/3")
     Sim:Step()
     assertTrue(B._footer:GetText():find("step 1/3", 1, true) ~= nil, "a step repaints the footer: "
@@ -312,7 +352,8 @@ test("sim marker: the stop takes the badge, the strip and the footer line down",
     start("loot")
     Sim:Stop("stop")
     assertFalse(f.testBadge:IsShown(), "no badge")
-    assertFalse(f.testStrip:IsShown(), "no strip")
+    assertFalse(f.testStrip:IsShown(), "no test strip")
+    assertFalse(f.simStrip:IsShown(), "no sim strip")
     assertTrue(B._footer:GetText():find("^Showing") ~= nil, "the footer is the count again: " .. B._footer:GetText())
   end)
 end)
@@ -331,10 +372,32 @@ test("sim marker: test mode and the simulation never show together", function()
     local r = f.testBadge:GetTextColor()
     assertEqual(r, 1, "in its red")
     assertEqual(f.testStrip.text:GetText(), "TEST MODE: a sample loot history, not yours. Combat ends it.")
+    assertTrue(f.testStrip:IsShown(), "test mode: the test strip")
+    assertFalse(f.simStrip:IsShown(), "test mode: no sim strip")
+    assertFalse(f.testBadge:IsShown(), "test mode: no title badge beside its strip")
     local ok = Sim:Start({ scenario = "loot", seed = 7 })
     assertFalse(ok, "a simulation is refused in test mode")
     assertEqual(f.testBadge:GetText(), "TEST MODE")
     BT:SetTestMode(false)
+  end)
+end)
+
+test("sim marker: degraded (no sim strip), a session wears SIMULATION in cyan beside the title", function()
+  clean(function()
+    B:Show()
+    local f = B:GetWindow()
+    local simStrip = f.simStrip
+    f.simStrip = nil   -- the strip a degraded install never builds; restored below
+    local ok, err = pcall(function()
+      start("loot")
+      assertTrue(f.testBadge:IsShown(), "no strip for the mode: the badge marks it")
+      assertEqual(f.testBadge:GetText(), "SIMULATION")
+      local r, g, b = f.testBadge:GetTextColor()
+      assertEqual(("%.1f,%.1f,%.1f"):format(r, g, b), "0.3,0.8,1.0", "in its own color")
+      assertFalse(f.testStrip:IsShown(), "and never the test strip")
+    end)
+    f.simStrip = simStrip
+    if not ok then error(err, 0) end
   end)
 end)
 
@@ -396,12 +459,12 @@ test("sim window: a refused start leaves the window closed", function()
   end)
 end)
 
--- ── Run all's step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──
+-- ── the step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──────
 
 local DELAY = "settings.sim.stepDelay"
 
 -- A three-step scenario whose steps do nothing, so the ledger gate never holds and the clock alone
--- decides when Run all plays the next step.
+-- decides when a playing run plays the next step.
 local function withQuietScenario(body)
   local sc = Host.SCENARIOS
   sc.names[#sc.names + 1] = "lhdelay"
@@ -448,6 +511,9 @@ function()
     assertEqual(row.label, "Simulation step delay")
     assertEqual(row.page, "General"); assertEqual(row.group, "Interface"); assertEqual(row.subgroup, "Simulator")
     assertEqual(row.min, 0.5); assertEqual(row.max, 10); assertEqual(row.step, 0.5)
+    -- A started simulation plays on its own (LibKa0s v1.76.0): the tooltip names no Run all (LH-01).
+    assertEqual(row.tooltip, "How many seconds the simulator waits between steps as it plays. "
+      .. "A change takes effect from the next step.")
     slash("set " .. DELAY .. " 11")
     assertEqual(NS.Schema:Get(DELAY), 10, "the slash parser clamps to the row's range")
     slash("set " .. DELAY .. " 1.5")

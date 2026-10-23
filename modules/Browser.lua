@@ -132,12 +132,14 @@ local function BuildPane(name)
   if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
 end
 
--- Where a pane sits: between the shared filter bar and the shared footer, and below the test-mode
--- strip while it is shown (LootHistory#36). Re-run on every pane by B:UpdateTestStrip.
+-- Where a pane sits: between the shared filter bar and the shared footer, and below the mode strip
+-- (test or simulation) while one is shown (LootHistory#36). Re-run on every pane by B:UpdateTestStrip.
+local function stripShown(strip) return strip ~= nil and strip:IsShown() end
+
 local function anchorPane(pane)
-  local strip = frame.testStrip
+  local shown = stripShown(frame.testStrip) or stripShown(frame.simStrip)
   local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
-    + ((strip and strip:IsShown()) and NS.TestStripReserve() or 0)
+    + (shown and NS.TestStripReserve() or 0)
   pane:ClearAllPoints()
   pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
   pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
@@ -598,30 +600,37 @@ function B:OnDatasetChanged()
   if NS.Analytics and NS.Analytics.Refresh then NS.Analytics:Refresh() end
 end
 
--- The two marks' words and colors: test mode's bright red, and the simulation's own cyan.
-local TEST_MARK = { badge = "TEST MODE", color = { 1, 0.15, 0.15 },
+-- The two marks' words, colors and strip flavors: test mode's bright red badge and amber strip, and
+-- the simulation's own cyan for both.
+local TEST_MARK = { badge = "TEST MODE", color = { 1, 0.15, 0.15 }, kind = "test",
   strip = "TEST MODE: a sample loot history, not yours. Combat ends it." }
-local SIM_MARK = { badge = "SIMULATION", color = { 0.3, 0.8, 1 },
+local SIM_MARK = { badge = "SIMULATION", color = { 0.3, 0.8, 1 }, kind = "sim",
   strip = "SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it." }
 
--- The preview marks (preview-mode): the badge beside the window title and the amber strip under
--- the filter bar (LootHistory#36), for test mode or for a running simulation (LootHistory#37), which
--- exclude each other (modules/Sim.lua refuses a start in test mode; BrowserTable refuses test mode
--- while one runs), so the two are never shown together. The strip takes room, so every pane is
--- re-anchored below it while it shows and back up when it goes. A degraded install has the badge
--- only. A Sim listener (modules/SimPanel.lua) calls this on every simulation transition.
+-- The strip that marks a mode: the simulation's own strip, or test mode's. nil on a degraded install.
+local function modeStripFor(sim)
+  if sim then return frame.simStrip end
+  return frame.testStrip
+end
+
+-- The preview marks (preview-mode): one strip per mode under the filter bar (LootHistory#36), the
+-- library's amber test flavor or its cyan simulation flavor (LootHistory#37), and the badge beside
+-- the window title, which is drawn only when the mode's strip does not exist (a degraded install;
+-- the header-word rule, standard v2.87.0). The modes exclude each other (modules/Sim.lua refuses a
+-- start in test mode; BrowserTable refuses test mode while one runs), so at most one strip shows. A
+-- strip takes room, so every pane is re-anchored below it while it shows and back up when it goes.
+-- A Sim listener (modules/SimPanel.lua) calls this on every simulation transition.
 function B:UpdateTestStrip()
   if not (frame and frame.testBadge) then return end
   local sim = simulating()
   local on = sim or (NS.BrowserTable and NS.BrowserTable.testMode) or false
   local mark = sim and SIM_MARK or TEST_MARK
+  local strip = modeStripFor(sim)
   frame.testBadge:SetText(L[mark.badge])
   frame.testBadge:SetTextColor(mark.color[1], mark.color[2], mark.color[3])
-  frame.testBadge:SetShown(on)
-  if frame.testStrip then
-    frame.testStrip.text:SetText(L[mark.strip])
-    frame.testStrip:SetShown(on)
-  end
+  frame.testBadge:SetShown(on and strip == nil)
+  if frame.testStrip then frame.testStrip:SetShown(on and not sim) end
+  if frame.simStrip then frame.simStrip:SetShown(on and sim) end
   for _, pane in pairs(frame.panes) do anchorPane(pane) end
 end
 
@@ -879,6 +888,36 @@ B:RegisterTab{ name = "Insights", order = 20,
 
 -- ── Frame construction ─────────────────────────────────────────────────────────
 
+-- Each mode strip's tooltip: what the rows under it are and what ends the mode.
+local function testTip()
+  GameTooltip:SetText(L["Test mode"])
+  GameTooltip:AddLine(L["Shows: sample loot, holdings and timeline"], 1, 1, 1)
+  GameTooltip:AddLine(L["Ended by: combat, /lh test, the launcher menu"], 1, 1, 1)
+end
+
+local function simTip()
+  GameTooltip:SetText(L["Simulation"])
+  GameTooltip:AddLine(L["Shows: what the real capture recorded from an invented world, this session only"], 1, 1, 1)
+  GameTooltip:AddLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"], 1, 1, 1)
+end
+
+-- One mode strip of `mark`'s kind and text, hung 2px under the filter bar with `tip` on hover; nil
+-- on a degraded install (no Widgets library).
+local function buildModeStrip(filterHost, mark, tip)
+  local strip = NS.MakeTestStrip(frame, L[mark.strip], mark.kind)
+  if not strip then return nil end
+  strip:SetPoint("TOPLEFT",  filterHost, "BOTTOMLEFT",  0, -2)
+  strip:SetPoint("TOPRIGHT", filterHost, "BOTTOMRIGHT", 0, -2)
+  strip:EnableMouse(true)
+  strip:HookScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    tip()
+    GameTooltip:Show()
+  end)
+  strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  return strip
+end
+
 local function EnsureFrame()
   if frame then return frame end
 
@@ -925,7 +964,8 @@ local function EnsureFrame()
   title:SetText("Ka0s Loot History")
   frame.title = title
 
-  -- Bright-red badge beside the title, shown only while the table is in test mode.
+  -- The badge beside the title: bright-red TEST MODE or cyan SIMULATION, shown only while that mode
+  -- is on and its strip does not exist (a degraded install); otherwise the strip is the marker.
   local testBadge = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   testBadge:SetPoint("LEFT", title, "RIGHT", 10, 0)
   testBadge:SetText(L[TEST_MARK.badge])
@@ -961,30 +1001,12 @@ local function EnsureFrame()
   filterHost:SetHeight(FILTERBAR_H)
   frame.filterHost = filterHost
 
-  -- The test-mode strip (LootHistory#36, LibKa0s#48): the library's amber band, hung 2px under the
-  -- filter bar and shown by B:UpdateTestStrip while test mode is on. nil on a degraded install,
-  -- where the title badge alone marks test mode. The library draws no tooltip, so it is hooked here.
-  local strip = NS.MakeTestStrip(frame, L[TEST_MARK.strip])
-  if strip then
-    strip:SetPoint("TOPLEFT",  filterHost, "BOTTOMLEFT",  0, -2)
-    strip:SetPoint("TOPRIGHT", filterHost, "BOTTOMRIGHT", 0, -2)
-    strip:EnableMouse(true)
-    strip:HookScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-      if simulating() then
-        GameTooltip:SetText(L["Simulation"])
-        GameTooltip:AddLine(L["Shows: what the real capture recorded from an invented world, this session only"], 1, 1, 1)
-        GameTooltip:AddLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"], 1, 1, 1)
-      else
-        GameTooltip:SetText(L["Test mode"])
-        GameTooltip:AddLine(L["Shows: sample loot, holdings and timeline"], 1, 1, 1)
-        GameTooltip:AddLine(L["Ended by: combat, /lh test, the launcher menu"], 1, 1, 1)
-      end
-      GameTooltip:Show()
-    end)
-    strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
-  end
-  frame.testStrip = strip
+  -- The mode strips (LootHistory#36 #37, LibKa0s#48): one per mode, the library's amber test band
+  -- and its cyan simulation band, each hung 2px under the filter bar and shown by B:UpdateTestStrip
+  -- while its mode is on. nil on a degraded install, where the title badge alone marks the mode.
+  -- The library draws no tooltip, so each strip's is hooked here.
+  frame.testStrip = buildModeStrip(filterHost, TEST_MARK, testTip)
+  frame.simStrip = buildModeStrip(filterHost, SIM_MARK, simTip)
 
   -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
   -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the

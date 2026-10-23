@@ -1,8 +1,9 @@
 -- tests/test_teststrip.lua — the History window's test-mode strip (LootHistory#36, LibKa0s#48).
 --
 -- While test mode is on, the window wears the library's W.TestStrip under the filter bar (through
--- NS.MakeTestStrip, core/WidgetsSetup.lua) and every pane moves down by NS.TestStripReserve(); the
--- red TEST MODE badge beside the title stays. Both strings route through NS.L. Its own suite
+-- NS.MakeTestStrip, core/WidgetsSetup.lua) and every pane moves down by NS.TestStripReserve(). The
+-- red TEST MODE badge beside the title marks test mode only on a degraded install, where there is no
+-- strip (the preview-mode header-word rule, v2.87.0). Both strings route through NS.L. Its own suite
 -- rather than more cases in tests/test_browser.lua, which sits just under layout-§1's cap.
 local T = _G.LH_TEST
 local NS = T.NS
@@ -38,7 +39,7 @@ local function withWindow(ns, fn)
   if not ok then error(err, 0) end
 end
 
-test("test strip: test mode on shows the strip with its L text, shifts the panes and shows the badge",
+test("test strip: test mode on shows the strip with its L text, shifts the panes and hides the badge",
   function()
     withWindow(NS, function(_, f, BT)
       local base = {}
@@ -48,7 +49,9 @@ test("test strip: test mode on shows the strip with its L text, shifts the panes
       assertTrue(BT:SetTestMode(true), "test mode must start")
       assertTrue(f.testStrip:IsShown(), "on: the strip is shown")
       assertEqual(f.testStrip.text:GetText(), STRIP_TEXT)
-      assertTrue(f.testBadge:IsShown(), "on: the title badge stays")
+      assertEqual(f.testStrip.kind, "test", "the strip is the library's test flavor")
+      assertFalse(f.simStrip:IsShown(), "test mode: no simulation strip")
+      assertFalse(f.testBadge:IsShown(), "on: the strip is the marker, so no title badge")
       local reserve = NS.TestStripReserve()
       assertTrue(reserve > 0, "a present library reserves room")
       for name, pane in pairs(f.panes) do
@@ -65,6 +68,7 @@ test("test strip: test mode off hides the strip and the badge and puts the panes
     assertTrue(BT:SetTestMode(false))
     assertFalse(f.testStrip:IsShown(), "off: the strip is hidden")
     assertFalse(f.testBadge:IsShown(), "off: the badge is hidden")
+    assertFalse(f.simStrip:IsShown(), "off: no simulation strip")
     for name, pane in pairs(f.panes) do
       assertEqual(paneTop(pane), base[name], name .. " pane is back at its base")
     end
@@ -114,6 +118,27 @@ test("test strip: the strip hangs under the filter bar, and hovering it explains
   end)
 end)
 
+test("test strip: each mode strip hangs under the filter bar and explains its own mode", function()
+  withWindow(NS, function(_, f)
+    assertEqual(f.simStrip.kind, "sim", "the simulation strip is the library's sim flavor")
+    local byPoint = {}
+    for _, p in ipairs(f.simStrip.__points or {}) do byPoint[p.point] = p end
+    assertTrue(byPoint.TOPLEFT and byPoint.TOPLEFT.relativeTo == f.filterHost, "anchored under the filter bar")
+    assertEqual(byPoint.TOPRIGHT and byPoint.TOPRIGHT.y, -2)
+    local tip = T.mocks.GameTooltip
+    local stockSet = tip.SetText
+    local titles = {}
+    rawset(tip, "SetText", function(_, line) titles[#titles + 1] = line end)
+    local ok, err = pcall(function()
+      f.simStrip:__fire("OnEnter"); f.simStrip:__fire("OnLeave")
+      f.testStrip:__fire("OnEnter"); f.testStrip:__fire("OnLeave")
+    end)
+    rawset(tip, "SetText", stockSet)
+    if not ok then error(err, 0) end
+    assertEqual(table.concat(titles, "|"), "Simulation|Test mode", "each strip's tooltip names its mode")
+  end)
+end)
+
 -- A second, complete environment (library + addon), so a window can be built AFTER an NS.L
 -- override: the strip and the badge take their text once, when the window is first built.
 local function freshEnv(withLibrary)
@@ -130,18 +155,17 @@ local function freshEnv(withLibrary)
   return ns
 end
 
-test("test strip: the strip and the badge text come from NS.L", function()
+test("test strip: the strip text comes from NS.L", function()
   local ns = freshEnv(true)
   ns.L[STRIP_TEXT] = "STRIP override"
-  ns.L["TEST MODE"] = "BADGE override"
   withWindow(ns, function(_, f)
     assertEqual(f.testStrip.text:GetText(), "STRIP override")
-    assertEqual(f.testBadge:GetText(), "BADGE override")
   end)
 end)
 
 test("test strip: degraded (no Widgets): no strip, no shift, the badge still shows", function()
   local ns = freshEnv(false)
+  ns.L["TEST MODE"] = "BADGE override"
   assertEqual(ns.MakeTestStrip(nil, "x"), nil, "no library: the seam answers nil")
   assertEqual(ns.TestStripReserve(), 0, "no library: nothing reserved")
   -- The SavedVariables global is the shared suite's, so its history is parked: a degraded row has
@@ -153,10 +177,12 @@ test("test strip: degraded (no Widgets): no strip, no shift, the badge still sho
     local base = {}
     for name, pane in pairs(f.panes) do base[name] = paneTop(pane) end
     assertEqual(f.testStrip, nil, "a degraded window has no strip")
+    assertEqual(f.simStrip, nil, "nor a simulation strip")
     -- The flag and the repaint B:OnDatasetChanged makes, without the sample rows (see above).
     BT.testMode = true
     B:UpdateTestStrip()
     assertTrue(f.testBadge:IsShown(), "the badge still marks it")
+    assertEqual(f.testBadge:GetText(), "BADGE override", "the badge text comes from NS.L")
     for name, pane in pairs(f.panes) do assertEqual(paneTop(pane), base[name], name .. " does not move") end
     BT.testMode = false
   end)

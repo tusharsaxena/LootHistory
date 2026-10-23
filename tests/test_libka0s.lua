@@ -664,7 +664,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertEqual(media.Media, 5)
   assertEqual(media.MediaIcons, 1)
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 13)
+  assertTrue(widgets.Widgets >= 13) -- 14 since v1.76.0, pinned there
   assertTrue(widgets.WidgetsStepPanel == nil, "W.StepPanel was withdrawn before v1.75.0 shipped")
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertEqual(debugLog.DebugLog, 20)
@@ -678,12 +678,12 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertTrue(type(NS.Options.Drawer) == "function", "O.Drawer missing: OptionsDrawer did not attach")
   local perf = modules("LibKa0s-Perf-1.0")
   assertEqual(perf.Perf, 15)
-  assertEqual(perf.PerfPanel, 7)
+  assertTrue(perf.PerfPanel >= 7) -- 8 since v1.76.0 (LK-91), pinned there
   local sim, S = modules("LibKa0s-Sim-1.0")
   -- Sim 2 / SimTimeline 2: the local v1.75.0 tag moved to carry LK-26 (Start reads scenarios live).
   -- SimPanel 2: it moved again to carry LK-27 (the picker reads its scenario at use).
   assertEqual(sim.Sim, 2)
-  assertEqual(sim.SimTimeline, 2)
+  assertTrue(sim.SimTimeline >= 2) -- 3 since v1.76.0, pinned there
   assertTrue(sim.SimPanel >= 2) -- 3 since v1.75.1, pinned there
   assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
   assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
@@ -697,7 +697,7 @@ test("v1.75.1: the vendored minors and the kit revision match the release", func
   assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.75.1")
   assertTrue(S.MODULES.SimPanel >= 3) -- 4 since v1.75.2, pinned there
   assertEqual(S.MODULES.Sim, 2)
-  assertEqual(S.MODULES.SimTimeline, 2)
+  assertTrue(S.MODULES.SimTimeline >= 2) -- 3 since v1.76.0, pinned there
   assertEqual(T.KIT_VERSION, 41)
 end)
 
@@ -706,8 +706,30 @@ end)
 test("v1.75.2: the vendored minors and the kit revision match the release", function()
   local S = T.mocks.LibStub("LibKa0s-Sim-1.0", true)
   assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.75.2")
-  assertEqual(S.MODULES.SimPanel, 4)
+  assertTrue(S.MODULES.SimPanel >= 4) -- 5 since v1.76.0, pinned there
   assertEqual(S.MODULES.Sim, 2)
-  assertEqual(S.MODULES.SimTimeline, 2)
+  assertTrue(S.MODULES.SimTimeline >= 2) -- 3 since v1.76.0, pinned there
+  assertEqual(T.KIT_VERSION, 41)
+end)
+
+-- v1.76.0: SimTimeline 3 and SimPanel 5 (a typed or clicked start plays on its own; Run all is gone,
+-- the controls are Pause/Resume, Restart and Stop), Widgets 14 (W.TestStrip's `kind = "sim"`
+-- flavor, strip.kind); Sim 2 and every other file unchanged, kit revision 41 unchanged. The local
+-- tag then moved for LK-91 (9949368 -> 7e81ff7): PerfPanel 8 and a same-minor SimPanel 5 bound a
+-- step-panel label short of the command column, so a long label truncates instead of overlapping.
+test("v1.76.0: the vendored minors and the kit revision match the release", function()
+  local S = T.mocks.LibStub("LibKa0s-Sim-1.0", true)
+  assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.76.0")
+  assertEqual(S.MODULES.Sim, 2)
+  assertEqual(S.MODULES.SimTimeline, 3)
+  assertEqual(S.MODULES.SimPanel, 5)
+  assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
+  assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
+  local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  assertTrue(W ~= nil and type(W.MODULES) == "table", "Widgets missing: re-vendor v1.76.0")
+  assertEqual(W.MODULES.Widgets, 14)
+  local P = T.mocks.LibStub("LibKa0s-Perf-1.0", true)
+  assertTrue(P ~= nil and type(P.MODULES) == "table", "Perf missing: re-vendor v1.76.0")
+  assertEqual(P.MODULES.PerfPanel, 8)
   assertEqual(T.KIT_VERSION, 41)
 end)

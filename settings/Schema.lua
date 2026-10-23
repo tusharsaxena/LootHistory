@@ -404,7 +404,7 @@ local ROWS = {
       if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
     end },
 
-  -- Run all's pace (`/lh sim run`, the simulation panel's Run all): the seconds between two steps.
+  -- The pace of a playing simulation: the seconds between two steps.
   -- The range and the validator are the simulator host's (modules/Sim.lua, which loads before this
   -- file); the descriptor's `stepDelay` reads the stored value at use, falling back to the default
   -- when it is not one this row takes, so a change applies from the next step. No onChange: nothing
@@ -414,8 +414,8 @@ local ROWS = {
     widget = "Slider", fmt = "%.1fs",
     validate = function(v) return NS.SimHost.ValidStepDelay(v) end,
     page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay",
-    tooltip = "How many seconds the simulator's automatic run (Run all, /lh sim run) waits between "
-      .. "steps. A change takes effect from the next step." },
+    tooltip = "How many seconds the simulator waits between steps as it plays. "
+      .. "A change takes effect from the next step." },
 
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once

@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1696%2F1696_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1702%2F1702_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -58,7 +58,7 @@ Reading back your loot happens in the History window, in this order:
 - Switch to Insights. It breaks your loot down by source, value, quality and character, and gives currency a section of its own. Insights keeps its own filters, separate from History's, so narrowing one tab leaves the other's slice alone.
 - Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
 
-Want to see how a session would record without playing one? `/lh sim start loot` opens the window and runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIMULATION while it runs. The panel's Run all plays the steps one second apart; **Interface ▸ Simulation step delay** in the settings changes the pace. Nothing it records is saved, and `/lh sim stop` ends it. It only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
+Want to see how a session would record without playing one? `/lh sim start loot` opens the window and runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIMULATION while it runs. Once started it plays on its own, a second between steps; Pause holds it, and clicking a row plays it by hand. **Interface ▸ Simulation step delay** in the settings changes the pace. Nothing it records is saved, and `/lh sim stop` ends it. It only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 

@@ -1,6 +1,6 @@
 -- LibKa0s-Widgets-1.0 — the collection's flat dropdown, the one popup menu every instance of it
--- drops, the flat search box a filter bar puts beside it, and the test-mode strip a window lays
--- over sample data (minor 13).
+-- drops, the flat search box a filter bar puts beside it, and the mode strip (test mode or a
+-- simulation) a window lays over data that is not the player's (minor 14).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT A COPY ──────────────────────────────────────────────────────
 --
@@ -15,6 +15,13 @@
 -- word in two of them and a title suffix in the third, which a hidden header hides with it. The
 -- owner's 2026-10-22 ruling promoted DropWatcher's strip so all four say "this is not your data"
 -- with one band, in one color, at one height.
+--
+-- The same strip marks a simulation (`opts.kind = "sim"`, minor 14): a flavor of `TestStrip`, with
+-- its own cyan tint, and not a new function. The owner's 2026-10-23 ruling asked for the strip to
+-- be made generic so a simulation is marked the way test mode is. A `ModeStrip` constructor with
+-- `TestStrip` kept as an alias was REJECTED: it is a second name for one function, a member added
+-- purely for naming, and the four existing hosts would keep calling `TestStrip` anyway. Re-check
+-- trigger: a third kind is asked for.
 --
 -- ── WHY IT DOES NOT DEPEND ON LibKa0s-Media-1.0 ───────────────────────────────────────────────
 --
@@ -46,7 +53,8 @@
 --
 -- The test-mode strip is a band, a mark and a line of text, and deliberately nothing more. It has
 -- no tooltip option (three hosts, three tooltip renderers; a host enables the mouse and hooks
--- OnEnter itself), no color option (the sameness is the point), no wrap, no measuring and no
+-- OnEnter itself), no color option (the sameness is the point: the two fixed flavors, test and
+-- sim, are the library's, and a host still cannot pass a color), no wrap, no measuring and no
 -- `Height()` (one host wraps, and one must never measure), no test-mode state (the host decides
 -- when it shows and what it says), no placement and no body shift (that is host layout; a host
 -- leaves its own gap around `TEST_STRIP.HEIGHT`), and no icon fallback (no icon is a valid state:
@@ -59,7 +67,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 13
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -771,10 +779,15 @@ function lib.CopyWindow(d)
   return win
 end
 
--- ── the test-mode strip ──────────────────────────────────────────────────────────────────────
+-- ── the mode strip (test mode or a simulation) ───────────────────────────────────────────────
 
--- DropWatcher's C.TONE.warn (1, 0.65, 0.15) at 12%. FILE-LOCAL, like SKIN: there is no color option.
-local STRIP_FILL = { 1.00, 0.65, 0.15, 0.12 }
+-- One fill per kind. FILE-LOCAL, like SKIN: there is no color option, only these two flavors.
+--   test: DropWatcher's C.TONE.warn (1, 0.65, 0.15) at 12%.
+--   sim:  the collection's simulation cyan (DropWatcher TB.SIM_TONE, LootHistory SIM_MARK) at 12%.
+local STRIP_FILL = {
+  test = { 1.00, 0.65, 0.15, 0.12 },
+  sim  = { 0.35, 0.80, 1.00, 0.12 },
+}
 local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
 
 --- Read-only layout figures, so a host lays out around the strip's own height rather than copying
@@ -782,8 +795,9 @@ local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
 --- table moves nothing: the constructor reads the file-local.
 lib.TEST_STRIP = { HEIGHT = STRIP_H }
 
---- Build the test-mode strip: a full-width band a window lays between its chrome and its data,
---- saying the data under it is not real. It draws itself and nothing else.
+--- Build the mode strip: a full-width band a window lays between its chrome and its data, saying
+--- the data under it is not real, in test mode (amber, the default) or a simulation
+--- (`kind = "sim"`, cyan). It draws itself and nothing else.
 ---
 --- Born HIDDEN, UNANCHORED and `TEST_STRIP.HEIGHT` tall, with the mouse never enabled. After this
 --- returns the strip never anchors, shows, hides, re-measures or changes its height or its text's
@@ -793,18 +807,22 @@ lib.TEST_STRIP = { HEIGHT = STRIP_H }
 --- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
 ---
 --- @param parent table     the frame to parent it to
---- @param opts table|nil   { text = string|nil, icon = path|fileID|nil }; text is the host's
----                         localized line ('' when absent), and no icon puts the text at LEFT+6
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil }; text is the host's localized
+---                         line ('' when absent), no icon puts the text at LEFT+6, and any kind
+---                         but exactly "sim" (nil, a non-string, "Sim", "preview") is "test"
 --- @return table  the Frame, with `strip.text` (FontString, OVERLAY, GameFontNormalSmall, LEFT at
 ---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
+---                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
+---                repaints nothing
 function lib.TestStrip(parent, opts)
   opts = type(opts) == "table" and opts or {}
+  local kind = opts.kind == "sim" and "sim" or "test"
   local s = CreateFrame("Frame", nil, parent)
   s:SetHeight(STRIP_H)   -- the local, not lib.TEST_STRIP: a host write cannot move it
 
   local fill = s:CreateTexture(nil, "BACKGROUND")
   fill:SetAllPoints(s)
-  fill:SetColorTexture(unpack(STRIP_FILL))
+  fill:SetColorTexture(unpack(STRIP_FILL[kind]))
   s.__fill = fill
 
   local icon = opts.icon
@@ -828,6 +846,7 @@ function lib.TestStrip(parent, opts)
   text:SetWordWrap(false)   -- with both anchors, a long line truncates with an ellipsis
   text:SetText(type(opts.text) == "string" and opts.text or "")
   s.text = text
+  s.kind = kind
 
   s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
   return s

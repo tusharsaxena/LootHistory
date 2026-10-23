@@ -30,7 +30,15 @@
 -- or before the session's ready(). Start is ready while idle, busy until ready, then done; Stop is
 -- cancel while running, the only time it acts. A click re-composes from the live model and
 -- re-checks the clicked index, so a stale row never acts, and every action is `RunVerb` or the
--- click-ahead: the click path is the typed path.
+-- click-ahead: the click path is the typed path. A click on a step row while the run plays holds
+-- the run first and then acts, which is the timeline's rule for every manual act (SimTimeline
+-- minor 3), so the run is left paused and Resume continues it.
+--
+-- Controls (minor 5): Pause/Resume, Restart and Stop, three equal buttons spanning the bar. There
+-- is no Run all: a start from the picker or a Restart plays on its own. The first button reads
+-- PAUSE while the run plays; otherwise RESUME, sending `resume` when the run is paused and `run`
+-- when it is merely waiting (a session a host started through the member), and enabled while the
+-- world is ready and steps remain.
 --
 -- Idle, the rows preview the picked scenario's `timeline(def, opts)` at pos 0, all locked.
 --
@@ -55,7 +63,7 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 4
+local SIM_PANEL_MINOR = 5
 
 --- Close Widgets' shared dropdown menu. The picker's dropdowns drop that process-wide popup, which
 --- no owner's Hide reaches (Widgets.lua's CloseMenu contract), so every non-click way the picker
@@ -87,7 +95,6 @@ for key, line in pairs({
   PANEL_START = "Start: %s",
   START       = "Start",
   PANEL_STOP  = "Stop simulation",
-  RUN_ALL     = "Run all",
   PAUSE       = "Pause",
   RESUME      = "Resume",
   RESTART     = "Restart",
@@ -114,6 +121,7 @@ local ROW_W, ROW_H, GAP = 360, 22, 4
 local DOT_X, DOT = 8, 8        -- column 1: status dot
 local LABEL_X   = 26           -- column 2: step name
 local CMD_PAD   = 10           -- column 3: slash command, right-aligned
+local LABEL_GAP = 8            -- the label stops this far short of the command column
 local TITLE_H = 24
 local PAD = 8
 
@@ -290,13 +298,15 @@ local function StepPanel(d)
       b.check:SetTexture(d.check)
       b.check:Hide()
     end
-    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.text:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
-    b.text:SetJustifyH("LEFT")
     b.cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     b.cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     b.cmd:SetJustifyH("RIGHT")
     setColor(b.cmd, CMD_COLOR)
+    -- One line, bounded on both sides (LK-91), so a long label truncates with an ellipsis instead
+    -- of running under the command; the right bound is set by paintRow (anchorLabel).
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    b.text:SetJustifyH("LEFT")
+    b.text:SetWordWrap(false)
     b.__index = index
     hoverWhileDisabled(b)
     b:SetScript("OnEnter", onEnter)
@@ -305,9 +315,26 @@ local function StepPanel(d)
     return b
   end
 
+  --- Bound the label: LEFT at LABEL_X, RIGHT LABEL_GAP short of the command's natural-width left
+  --- edge, or at the row's right inset when the row has no command. Anchors rather than a width, so
+  --- a resize moves the bound with the row. Re-anchored only when the command appears or goes.
+  local function anchorLabel(b, command)
+    local toCmd = command ~= nil and command ~= ""
+    if b.__labelToCmd == toCmd then return end
+    b.__labelToCmd = toCmd
+    b.text:ClearAllPoints()
+    b.text:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
+    if toCmd then
+      b.text:SetPoint("RIGHT", b.cmd, "LEFT", -LABEL_GAP, 0)
+    else
+      b.text:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
+    end
+  end
+
   local function paintRow(b, row)
     b.__row = row
     local c = colorOf(row.state)
+    anchorLabel(b, row.command)
     b.text:SetText(row.label)
     b.cmd:SetText(row.command)
     setColor(b.text, c)
@@ -417,6 +444,8 @@ local DOCK_GAP = 8
 local FLOAT_X = 420
 local BAR_H = 22                   -- the picker, or the controls, under the rows
 local BUTTON_W, BUTTON_GAP = 84, 6
+-- The running controls (Pause/Resume, Restart, Stop) share the bar's width equally (minor 5).
+local CONTROL_W = floor((ROW_W - 2 * BUTTON_GAP) / 3)
 -- The scenario dropdown takes what the bar leaves: everything left of START, less the size
 -- dropdown and its gap while that is shown (paintPicker).
 local SIZE_W = 90
@@ -715,12 +744,12 @@ local function buildControls(P, f)
     if key == "pause" then return c.pause.__verb or "pause" end
     return key
   end
-  local list = { { "run", "RUN_ALL" }, { "pause", "PAUSE" }, { "restart", "RESTART" }, { "stop", "STOP" } }
+  local list = { { "pause", "PAUSE" }, { "restart", "RESTART" }, { "stop", "STOP" } }
   for i, spec in ipairs(list) do
     local key = spec[1]
-    local b = makeButton(c, BUTTON_W, P.ctx.tr(spec[2]), function() P.sim:RunVerb(verbOf(key)) end,
+    local b = makeButton(c, CONTROL_W, P.ctx.tr(spec[2]), function() P.sim:RunVerb(verbOf(key)) end,
       function() return slashOf(P, verbOf(key)) end)
-    b:SetPoint("LEFT", c, "LEFT", (i - 1) * (BUTTON_W + BUTTON_GAP), 0)
+    b:SetPoint("LEFT", c, "LEFT", (i - 1) * (CONTROL_W + BUTTON_GAP), 0)
     c[key] = b
   end
   f.controls = c
@@ -746,15 +775,16 @@ end
 local function paintControls(P, f)
   local c, st = f.controls, P.sim:Status()
   local left = st.ready and (st.pos or 0) < (st.total or 0)
-  setEnabled(c.run, left and not st.playing)
-  if st.paused then
-    c.pause.__verb = "resume"
-    setLabel(c.pause, P.ctx.tr("RESUME"))
-    setEnabled(c.pause, left)
-  else
+  if st.playing then
     c.pause.__verb = "pause"
     setLabel(c.pause, P.ctx.tr("PAUSE"))
-    setEnabled(c.pause, st.playing)
+    setEnabled(c.pause, true)
+  else
+    -- Resume continues a paused run; a waiting one (a member start) has nothing to resume, so the
+    -- same button sends `run` (minor 5, which dropped Run all).
+    c.pause.__verb = st.paused and "resume" or "run"
+    setLabel(c.pause, P.ctx.tr("RESUME"))
+    setEnabled(c.pause, left and true or false)
   end
   setEnabled(c.restart, true)
   setEnabled(c.stop, true)
