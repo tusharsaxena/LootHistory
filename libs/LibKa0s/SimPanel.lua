@@ -55,7 +55,7 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 2
+local SIM_PANEL_MINOR = 3
 
 --- Close Widgets' shared dropdown menu. The picker's dropdowns drop that process-wide popup, which
 --- no owner's Hide reaches (Widgets.lua's CloseMenu contract), so every non-click way the picker
@@ -74,6 +74,13 @@ lib.MODULES = lib.MODULES or {}
 lib.MODULES.SimPanel = SIM_PANEL_MINOR
 
 local type, tostring, tonumber, pcall, ipairs, floor = type, tostring, tonumber, pcall, ipairs, math.floor
+
+--- Keep a button's OnEnter and OnLeave running while it is disabled. The client runs neither on a
+--- disabled Button by default, and the panel disables every row it will not act on (a played step,
+--- the started Start row) and every control with nothing to do, each of which still has a tip.
+local function hoverWhileDisabled(b)
+  if type(b.SetMotionScriptsWhileDisabled) == "function" then b:SetMotionScriptsWhileDisabled(true) end
+end
 
 lib.STRINGS = lib.STRINGS or {}
 for key, line in pairs({
@@ -291,6 +298,7 @@ local function StepPanel(d)
     b.cmd:SetJustifyH("RIGHT")
     setColor(b.cmd, CMD_COLOR)
     b.__index = index
+    hoverWhileDisabled(b)
     b:SetScript("OnEnter", onEnter)
     b:SetScript("OnLeave", onLeave)
     b:SetScript("OnClick", onClick)
@@ -625,6 +633,7 @@ local function makeButton(parent, width, text, onClick, typed)
   b.label:SetText(text)
   setColor(b.label, REST)
   b.__label = text
+  hoverWhileDisabled(b)
   b:SetScript("OnEnter", function()
     if b:IsEnabled() then setColor(b.label, HOT) end
     showTip(b, { label = b.__label, tip = { { typed() } } })
