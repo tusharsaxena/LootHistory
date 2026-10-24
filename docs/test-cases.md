@@ -1077,7 +1077,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (69)
+### test_schema.lua (70)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1148,6 +1148,7 @@ Total.
 - Retention: re-showing the confirm over an open one does not run the decline
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
+- Schema: the stored settings (path, type, default, range) are the pinned set
 
 ### test_schema_stub.lua (9)
 
@@ -1987,7 +1988,7 @@ Total.
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 69 |
+| test_schema.lua | 70 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |
@@ -2028,4 +2029,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1718** |
+| **Total** | **1719** |

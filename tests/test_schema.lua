@@ -1203,3 +1203,59 @@ test("Retention: a value that would delete nothing raises no confirm and prunes 
     assertEqual(NS.Database:CountOlderThan(nil), 0)
   end)
 end)
+
+-- ── The stored-setting guard (item 020, settings layout) ──────────────────────────────────────
+--
+-- Item 020 moves, regroups and relabels rows, and nothing else: no stored path, no default, no
+-- range and no type may move with them (the owner's rule for that item). Every row's path, type,
+-- default and slider range, pinned as they stood BEFORE the layout pass, sorted by path so a row
+-- that moves between tabs leaves this list alone. A layout change that also renamed a key, shifted
+-- a default or retuned a range is a named failure here rather than a silent migration.
+-- red under: renaming a stored path, changing any default (a scalar, or a key of a table default),
+-- changing a slider's min/max/step, adding or removing a setting.
+local function serialize(v)
+  if type(v) ~= "table" then return type(v) == "string" and string.format("%q", v) or tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local parts = {}
+  for _, k in ipairs(keys) do parts[#parts + 1] = tostring(k) .. "=" .. serialize(v[k]) end
+  return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local STORED_SETTINGS = [[
+minimap.shown | bool | true | nil | nil | nil
+settings.alpha | number | 1 | 0 | 1 | 0.05
+settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
+settings.auction.enabled | bool | true | nil | nil | nil
+settings.enabled | bool | true | nil | nil | nil
+settings.excludeQuestItems | bool | true | nil | nil | nil
+settings.excludedSources | table | {} | nil | nil | nil
+settings.locked | bool | false | nil | nil | nil
+settings.qualityThreshold | number | 1 | nil | nil | nil
+settings.recordCurrency | bool | true | nil | nil | nil
+settings.recordGold | bool | true | nil | nil | nil
+settings.retentionDays | number | 30 | nil | nil | nil
+settings.rollupRetentionDays | number | 0 | nil | nil | nil
+settings.rowHeight | number | 18 | 14 | 28 | 1
+settings.scale | number | 1 | 0.5 | 2 | 0.05
+settings.showTransfers | bool | true | nil | nil | nil
+settings.sim.stepDelay | number | 1 | 0.5 | 10 | 0.5
+settings.timelineMaxLines | number | 8 | 2 | 16 | 1
+settings.trackLedger | bool | true | nil | nil | nil
+settings.visibility | string | "always" | nil | nil | nil
+settings.windowScale | number | 1 | 0.6 | 1.6 | 0.05
+state.debugConsole | bool | false | nil | nil | nil
+state.testMode | bool | false | nil | nil | nil
+]]
+
+test("Schema: the stored settings (path, type, default, range) are the pinned set", function()
+  local lines = {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    lines[#lines + 1] = table.concat({ row.path, tostring(row.type), serialize(row.default),
+      tostring(row.min), tostring(row.max), tostring(row.step) }, " | ")
+  end
+  table.sort(lines)
+  local got = table.concat(lines, "\n") .. "\n"
+  assertEqual(got, STORED_SETTINGS, "a stored setting's path, type, default or range moved")
+end)
