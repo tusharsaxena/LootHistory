@@ -928,7 +928,8 @@ end
 --   Capture         — the muted-source picker. The `settings.excludedSources` row it represents is
 --                     walked by the generic path and produces no widget (type = "table"; see
 --                     makeMultiCheck above), so this lands exactly where that path would have put
---                     it: after the group's last row, on a fresh line.
+--                     it: after that row, on a fresh line, which ends the first of the tab's two
+--                     slices (CAPTURE_CUT below), under Loot and above Ledger.
 --   AH Price        — the pooled price-source table, under the "Price sources" subsection heading
 --                     the `settings.auction.capture` row declares.
 --   History         — the storage readout and "Purge history…".
@@ -999,6 +1000,29 @@ local function rowsOfGroup(group)
   return out
 end
 
+-- Where a tab's rows are cut into two O.RenderRows slices, keyed by group: the path of the LAST row
+-- of the first slice. Capture's source picker belongs to its Loot subsection, above Ledger (item
+-- 020, LOO-L04), and afterGroup is the only seam that survives a tab click -- but it fires after a
+-- RenderRows call's last row. So the first slice ends on `settings.excludedSources`, its afterGroup
+-- hook draws the picker there, and the second slice (the Ledger rows) follows it. ctx.lastSubgroup
+-- carries across the two calls, so Ledger's heading still opens on its first row.
+local CAPTURE_CUT = { ["Capture"] = "settings.excludedSources" }
+
+--- Render one schema tab's rows: one RenderRows call, or two around a CAPTURE_CUT.
+local function renderGroupRows(ctx, group)
+  local head, tail = {}, {}
+  local into, cut = head, CAPTURE_CUT[group]
+  for _, row in ipairs(rowsOfGroup(group)) do
+    into[#into + 1] = row
+    if row.path == cut then into = tail end
+  end
+  -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab IS the
+  -- group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives the Capture,
+  -- AH price and Interface tabs their subsection headings.
+  O.RenderRows(ctx, head, AFTER_GROUP, nil, { noHeadings = true })
+  if #tail > 0 then O.RenderRows(ctx, tail, nil, nil, { noHeadings = true }) end
+end
+
 -- ── Renderers ───────────────────────────────────────────────────────────────────
 --
 -- Each is declared through O.SetRenderer, which owns WHEN it runs: the page's first show, and again
@@ -1056,10 +1080,7 @@ local function renderGeneral(ctx)
       if tab.build then
         tab.build(ctx)
       else
-        -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab
-        -- IS the group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives
-        -- the AH Price tab its two subsection headings.
-        O.RenderRows(ctx, rowsOfGroup(tab.key), AFTER_GROUP, nil, { noHeadings = true })
+        renderGroupRows(ctx, tab.key)
       end
     end
   end

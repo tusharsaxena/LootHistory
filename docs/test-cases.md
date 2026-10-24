@@ -1077,7 +1077,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (70)
+### test_schema.lua (71)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1149,6 +1149,7 @@ Total.
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
 - Schema: the stored settings (path, type, default, range) are the pinned set
+- Schema: the Capture tooltips name the controls a player can find (item 020)
 
 ### test_schema_stub.lua (9)
 
@@ -1410,7 +1411,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (45)
+### test_panel.lua (46)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1420,6 +1421,7 @@ Total.
 - Panel: the Master controls tab holds the canonical rows and the closing button pair
 - Panel: Reset position drives the window carve-out, Reset all settings the §12 popup
 - Panel: the Capture tab holds the capture rules and nothing else
+- Panel: Capture draws Loot, then the source picker, then Ledger
 - Panel: the Interface tab holds the two size sliders, and the minimap toggle is gone
 - Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a burst of RecordAdded collapses to ONE StorageStats pass
@@ -1988,7 +1990,7 @@ Total.
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 70 |
+| test_schema.lua | 71 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |
@@ -1998,7 +2000,7 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 45 |
+| test_panel.lua | 46 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 6 |
@@ -2029,4 +2031,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1719** |
+| **Total** | **1721** |

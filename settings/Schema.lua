@@ -274,11 +274,16 @@ local ROWS = {
   -- a `group` and never a stored path, so this was a rename and owed no migration
   -- (options-ui-§15).
   --
-  -- Row order drives the two-column panel pairing, so declaration order IS the layout: the quality
-  -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
-  -- and the wide source picker lands under both from `afterGroup`.
+  -- TWO SUBJECTS, SO TWO SUBSECTION HEADINGS (options-ui-§7; item 020, LOO-L04): `Loot` is what a
+  -- loot record keeps, `Ledger` is the holdings ledger. Row order drives the two-column pairing, so
+  -- declaration order IS the layout: under Loot, Minimum quality pairs with Exclude quest items (the
+  -- two item-level gates) on the first line, Record currency opens the second, and the wide source
+  -- picker lands under it -- Record currency obeys that picker, so they sit together. Under Ledger,
+  -- Track holdings and losses pairs with Record gold, the parent left of its dependant. The picker is
+  -- host-drawn from `afterGroup`, which fires after a slice's last row, so settings/Panel.lua renders
+  -- this tab as two O.RenderRows slices cut after `settings.excludedSources` (CAPTURE_CUT there).
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Capture", label = "Minimum quality (detailed records)", values = C.QUALITY_OPTIONS,
+    page = "General", group = "Capture", subgroup = "Loot", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
       "Every item is still tracked in the ledger; History hides items below this quality until you " ..
       "pick qualities in its Quality filter.",
@@ -286,46 +291,46 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
 
-  { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Record currency",
-    tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
-      "Obeys the per-source mute list; ignores the minimum-quality filter.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
-    end },
-
-  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Track holdings and losses",
-    tooltip = "Keep a ledger of what every character and your warband holds, and (from the next " ..
-      "update) every gain, loss and transfer. Off = record loot gains only, as before.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
-    end },
-
-  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Record gold",
-    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
-      "mail, guild bank). Holdings keep counting gold either way.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
-    end },
-
   { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Exclude quest items",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter") end
     end },
 
+  { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record currency",
+    tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
+      "Obeys Record data from; ignores Minimum quality.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
+    end },
+
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
   -- (invert=true) as "Record data from" so a checked box means "record this source". It is the
-  -- LAST row of its group on purpose: it is full-width and host-drawn from `afterGroup`, which
-  -- fires after the group's last row is flushed.
+  -- LAST row of the Loot slice on purpose: it is full-width and host-drawn from `afterGroup`, which
+  -- fires after the slice's last row is flushed (settings/Panel.lua, CAPTURE_CUT).
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
-    page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "excludes") end
+    end },
+
+  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Ledger", label = "Track holdings and losses",
+    tooltip = "Keep a ledger of what every character and your warband holds, and every gain, loss " ..
+      "and transfer. Off = record loot gains only, as before.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
+  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Ledger", label = "Record gold",
+    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
+      "mail, guild bank). Holdings keep counting gold either way. Needs Track holdings and losses.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
     end },
 
   -- ── General ▸ AH Price ──

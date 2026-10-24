@@ -1259,3 +1259,22 @@ test("Schema: the stored settings (path, type, default, range) are the pinned se
   local got = table.concat(lines, "\n") .. "\n"
   assertEqual(got, STORED_SETTINGS, "a stored setting's path, type, default or range moved")
 end)
+
+test("Schema: the Capture tooltips name the controls a player can find (item 020)", function()
+  -- LOO-L05/L06/L07: one name per control, the dependency said in words, no stale "next update".
+  local function tip(path) return NS.Schema:FindRow(path).tooltip end
+  assertTrue(tip("settings.recordGold"):find("Needs Track holdings and losses.", 1, true) ~= nil,
+    "Record gold must say what it needs")
+  assertTrue(tip("settings.trackLedger"):find("next update", 1, true) == nil,
+    "the trackLedger tooltip still promises a shipped update")
+  assertTrue(tip("settings.recordCurrency"):find("Obeys Record data from; ignores Minimum quality.", 1, true)
+    ~= nil, "Record currency must name the two controls by their labels")
+  assertEqual(NS.Schema:FindRow("settings.qualityThreshold").label, "Minimum quality")
+  for _, path in ipairs({ "settings.qualityThreshold", "settings.excludeQuestItems",
+                          "settings.recordCurrency", "settings.excludedSources" }) do
+    assertEqual(NS.Schema:FindRow(path).subgroup, "Loot", path .. " subsection")
+  end
+  for _, path in ipairs({ "settings.trackLedger", "settings.recordGold" }) do
+    assertEqual(NS.Schema:FindRow(path).subgroup, "Ledger", path .. " subsection")
+  end
+end)

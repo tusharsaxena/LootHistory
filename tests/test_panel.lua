@@ -112,7 +112,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
       assertEqual(btn.type, "Button")
     end
     -- The half that makes this a partition rather than a list: another tab's rows must NOT be here.
-    for _, label in ipairs({ "Minimum quality (detailed records)", "Window scale", "Keep history for" }) do
+    for _, label in ipairs({ "Minimum quality", "Window scale", "Keep history for" }) do
       assertTrue(findByLabel(created, label) == nil,
         label .. " belongs to another tab and must not be drawn on Master controls")
     end
@@ -145,10 +145,10 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
   assertEqual(ctx.activeTab, "Capture", "tab 2 is Capture")
 
-  for _, label in ipairs({ "Minimum quality (detailed records)", "Record currency", "Exclude quest items" }) do
+  for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
   end
-  local quality = findByLabel(created, "Minimum quality (detailed records)")
+  local quality = findByLabel(created, "Minimum quality")
   assertEqual(quality.relativeWidth, 0.5, "schema widgets take the honest half")
 
   -- MOVED, not copied: the master switch is on Master controls now and must not also be here.
@@ -156,6 +156,35 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
                            "Debug console", "Keep history for" }) do
     assertTrue(findByLabel(created, label) == nil,
       label .. " belongs to another tab and must not be drawn on Capture")
+  end
+  homeTab(ctx)
+end)
+
+test("Panel: Capture draws Loot, then the source picker, then Ledger", function()
+  -- Item 020 (LOO-L04): the picker belongs to the Loot subsection (Record currency obeys it), so it
+  -- sits between the two headings rather than at the bottom of the tab. The page renders Capture
+  -- as two O.RenderRows slices with the picker's afterGroup hook closing the first.
+  -- red under: one RenderRows over the whole group (the picker lands after Record gold), or a
+  -- subgroup missing from a row (its heading moves or vanishes).
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
+  local function at(pred, what)
+    for i, w in ipairs(created) do if pred(w) then return i end end
+    assertTrue(false, what .. " was not drawn")
+  end
+  local function heading(text)
+    return at(function(w) return w.type == "Heading" and w.text == text end, "heading " .. text)
+  end
+  local function label(text)
+    return at(function(w) return w == findByLabel(created, text) end, text)
+  end
+  local order = {
+    heading("Loot"), label("Minimum quality"), label("Exclude quest items"), label("Record currency"),
+    at(function(w) return w.type == "InlineGroup" end, "the Record data from picker"),
+    heading("Ledger"), label("Track holdings and losses"), label("Record gold"),
+  }
+  for i = 2, #order do
+    assertTrue(order[i] > order[i - 1], "Capture element " .. i .. " is out of order")
   end
   homeTab(ctx)
 end)
@@ -179,7 +208,7 @@ test("Panel: the Interface tab holds the two size sliders, and the minimap toggl
   -- this whole pass exists to remove.
   assertTrue(findByLabel(created, "Debug console") == nil,
     "the debug console toggle belongs to Master controls now")
-  assertTrue(findByLabel(created, "Minimum quality (detailed records)") == nil,
+  assertTrue(findByLabel(created, "Minimum quality") == nil,
     "Capture's rows must not follow the reader onto Interface")
   homeTab(ctx)
 end)
@@ -264,7 +293,7 @@ test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slide
     assertEqual(findByLabel(master, "General visibility").type, "Dropdown")
     assertEqual(findByLabel(master, "Master scale").type, "Slider")
     assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture")),
-      "Minimum quality (detailed records)").type, "Dropdown")
+      "Minimum quality").type, "Dropdown")
     homeTab(ctx)
   end)
 
@@ -324,7 +353,8 @@ end)
 -- failure rather than two derivations agreeing with each other.
 local SUBGROUPS = {
   ["Master controls"] = {},
-  ["Capture"]         = {},
+  -- Capture is two subjects (item 020, LOO-L04): what a loot record keeps, then the ledger.
+  ["Capture"]         = { "Loot", "Ledger" },
   ["Filters"]         = {},
   ["AH Price"]        = { "Pricing", "Price sources" },
   -- Interface is two subjects again: the window rows and the simulator's step delay (the owner's
@@ -424,7 +454,7 @@ test("Panel: the Test mode checkbox starts test mode, and a refused start redraw
 test("Panel: choosing a dropdown entry writes the stored value", function()
   local ctx = NS.Panel.general
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
-  local dd = findByLabel(created, "Minimum quality (detailed records)")
+  local dd = findByLabel(created, "Minimum quality")
   dd:__fire("OnValueChanged", 4)
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 4)
   NS.Schema:Set("settings.qualityThreshold", 1)
