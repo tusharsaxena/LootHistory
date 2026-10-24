@@ -1090,7 +1090,7 @@ Total.
 - Schema: setting debugConsole toggles the window, never writes the store
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row writes the active profile
-- Schema: auction rows exist with the AH Price group and defaults
+- Schema: auction rows exist with the AH price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
@@ -1411,7 +1411,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (46)
+### test_panel.lua (47)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1443,11 +1443,12 @@ Total.
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
 - Panel: the General Defaults click logs ONE [Set] reset profile line and no per-row [Set]
-- Panel: the AH Price tab draws one reusable row slot per known price source
+- Panel: the AH price tab draws one reusable row slot per known price source
+- Panel: the price table's column headers are sentence case (item 020)
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
 - options-ui-§19: releasing the Price-sources placeholder outside renderGeneral parks ctx._priHost on ctx.panel, hidden
-- Panel: the AH Price tab renders its own schema row and no other tab's
+- Panel: the AH price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
 - Panel: a drag is one splice to index, and it repaints
@@ -2002,7 +2003,7 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 46 |
+| test_panel.lua | 47 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 6 |
@@ -2033,4 +2034,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1723** |
+| **Total** | **1724** |

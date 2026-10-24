@@ -556,8 +556,8 @@ local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"    -- fallback for 
 -- Shared column x-offsets, in px from each ROW's content origin — which is the far side of the drag
 -- handle's gutter, not the row's left edge: the handle owns a fixed-width gutter at the far left and
 -- row contents start beyond it (options-ui-§18). Headers and every cell add the same gutter, so the
--- columns line up: [handle] [tick] [Addon] [Price Module] [On ☑] [Status]. The ⓘ is NOT a fixed
--- column — it trails each row's Price Module text (positioned per-row in the refresh).
+-- columns line up: [handle] [tick] [Addon] [Price module] [On ☑] [Status]. The ⓘ is NOT a fixed
+-- column — it trails each row's Price module text (positioned per-row in the refresh).
 --
 -- The old `order` column is gone with the arrows it held.
 local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
@@ -709,7 +709,7 @@ local function paintAuctionRow(r, tag, capture)
 
   local mg = live and 0.9 or 0.5
   r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
-  -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
+  -- ⓘ trails the Price module text with a small gap (per-row, since the text width varies).
   local mw = r.module:GetStringWidth() or 0
   r.info:ClearAllPoints()
   r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
@@ -777,7 +777,7 @@ local function refreshAuctionTable(ctx)
   if list then list:Finish(hf) end
 end
 
--- Build the unified AH Price table: gold left-aligned column headers and 11 reusable row slots (one
+-- Build the unified AH price table: gold left-aligned column headers and 11 reusable row slots (one
 -- per known price source). Slots + their frames are created ONCE here; refreshAuctionTable repaints
 -- them in place on every enable-toggle / drag / Defaults, so no frame is ever re-allocated. Native
 -- FontStrings carry all text; only the checkbox, the ⓘ and the library's handle are frames.
@@ -833,7 +833,7 @@ local function buildAuctionTable(ctx)
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
       fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
     end
-    header(ACOL.addon, "Addon"); header(ACOL.module, "Price Module")
+    header(ACOL.addon, "Addon"); header(ACOL.module, "Price module")
     header(ACOL.enabled, "On"); header(ACOL.status, "Status")
 
     -- Reusable row slots (created once). Each is a real Frame, because that is what ReorderList
@@ -940,7 +940,7 @@ end
 --                     makeMultiCheck above), so this lands exactly where that path would have put
 --                     it: after that row, on a fresh line, which ends the first of the tab's two
 --                     slices (CAPTURE_CUT below), under Loot and above Ledger.
---   AH Price        — the pooled price-source table, under the "Price sources" subsection heading
+--   AH price        — the pooled price-source table, under the "Price sources" subsection heading
 --                     the `settings.auction.capture` row declares.
 --   History         — the storage readout and "Purge history…".
 --
@@ -953,16 +953,16 @@ local AFTER_GROUP = {
     local scroll = O.EnsureScroll(ctx)
     if row and scroll then makeMultiCheck(ctx, row, scroll) end
   end,
-  ["AH Price"]   = buildAuctionTable,
+  ["AH price"]   = buildAuctionTable,
   ["History"] = renderHistory,
 }
 AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 
 -- ── The General page's strip ────────────────────────────────────────────────────
 --
--- ONE page now. Filters and AH Price were canvas sub-pages of their own until R6 deprecated them
+-- ONE page now. Filters and AH price were canvas sub-pages of their own until R6 deprecated them
 -- into General: three pages, each with its own strip, made a player hunt for which of the three
--- held the setting they wanted, and one of the three (AH Price) drew no strip at all.
+-- held the setting they wanted, and one of the three (AH price) drew no strip at all.
 --
 -- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
 -- seven tabs (Filters and the library's Keybindings) hold no schema rows to partition.
@@ -972,12 +972,14 @@ AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
 -- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
 -- to the schema and not to this list cannot go unnoticed.
--- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH
--- Price: Master controls, Capture, Interface, History, Filters. The two addons keep the same shape
--- of record and a player compares their panels directly, so one subject carries one name across
--- both — Collection became Capture, Maintenance became History, and Filters moved from third to
--- last so the five shared tabs sit in the shared order. AH Price is this addon's alone and goes
--- directly after Capture, which is the tab it qualifies: it prices what capture recorded.
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these seven minus AH
+-- price: Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the
+-- same shape of record and a player compares their panels directly, so one subject carries one name
+-- across both — Collection became Capture and Maintenance became History. Filters was moved last
+-- once so the shared tabs sat in the shared order; item 020 (LOO-L08 with Bank Ledger's BAN-L-new1,
+-- XC-26) moved it back to third IN BOTH, so "what gets recorded" is two adjacent tabs (Capture,
+-- then the lists that override it) instead of four tabs apart. AH price is this addon's alone and
+-- directly follows the two recording tabs it qualifies: it prices what capture recorded.
 --
 -- A tab name is a `group`, never a stored path, so the convergence was a rename throughout and
 -- carried no migration (options-ui-§15).
@@ -985,10 +987,13 @@ local GENERAL_TABS = {
   -- options-ui-§15: the FIRST tab, under that exact name, in every Ka0s addon.
   { key = "Master controls" },
   { key = "Capture" },
-  { key = "AH Price" },
+  { key = FILTERS_TAB, build = buildFiltersTab },
+  -- "AH price", sentence case (item 020, LOO-L10; XC-06). It is the schema GROUP of the two auction
+  -- rows and the AFTER_GROUP key above as well, so all three move together; a group is never a
+  -- stored path, so no SavedVariables key is involved.
+  { key = "AH price" },
   { key = "Interface" },
   { key = "History" },
-  { key = FILTERS_TAB, build = buildFiltersTab },
 }
 
 -- options-ui-§20: the Keybindings tab, LAST, after every other tab. The library's own entry
@@ -1133,7 +1138,7 @@ function P:Register()
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- TWO sub-pages: General, then Profiles. Filters and AH Price were sub-pages of their own until R6
+  -- TWO sub-pages: General, then Profiles. Filters and AH price were sub-pages of their own until R6
   -- folded them into General's strip; their bodies are unchanged and their two registrations are
   -- gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)

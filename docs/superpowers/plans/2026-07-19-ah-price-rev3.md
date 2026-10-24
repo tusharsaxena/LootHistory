@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`).
 
-**Goal:** Overhaul the "AH Price" settings sub-page (rename; nested per-provider Data Collection with info tooltips; priority rows with texture arrows, two label columns, an enable checkbox, and a collected/not-collected status icon + legend; explanatory text) plus inject sample auction data into the AI template.
+**Goal:** Overhaul the "AH price" settings sub-page (rename; nested per-provider Data Collection with info tooltips; priority rows with texture arrows, two label columns, an enable checkbox, and a collected/not-collected status icon + legend; explanatory text) plus inject sample auction data into the AI template.
 
 **Architecture:** Add a `priorityDisabled` carve-out (Pick skips disabled tags). Extend `C.AUCTION_KEYS` with provider display names, short data labels, and info-tooltip text. Rebuild the two panel sections as custom AceGUI, using Blizzard textures (no media). Script-inject `a`/`val` into eligible template sample rows.
 
@@ -90,7 +90,7 @@ end
 
 ---
 
-## Task R3-2: panel — rename tab to "AH Price" + rebuild the Priority section
+## Task R3-2: panel — rename tab to "AH price" + rebuild the Priority section
 
 **Files:** `settings/Panel.lua` (the auction subcategory ~732-760; `buildAuctionPriority`/`rebuildPriorityList` ~530-606; the Defaults handler ~735-749), `settings/Schema.lua` (the `group = "Auction House Price"` strings on the auction rows).
 
@@ -98,7 +98,7 @@ end
 - Small local helper `iconButton(image, size, tooltipLabel, tooltipBody, onClick, disabled)` → `AceGUI:Create("Icon")` with `SetImage(image)`, `SetImageSize(size,size)`, `SetLabel("")`, `SetWidth(size+8)`, OnClick, and GameTooltip on OnEnter/OnLeave (SetOwner(widget.frame,"ANCHOR_RIGHT"); SetText(label,1,1,1); AddLine(body,nil,nil,nil,true)); when `disabled`, dim via `widget.image:SetVertexColor(0.4,0.4,0.4)` and skip the OnClick.
 - Status ✓/✗ via inline markup in a Label: `"|TInterface\\RaidFrame\\ReadyCheck-Ready:16|t"` / `"...ReadyCheck-NotReady:16|t"`.
 
-- [ ] **Step 1: Rename the subcategory.** In `settings/Panel.lua`, change the three `"Auction House Price"` strings for the auction page: `createPanel("LootHistoryAuctionPanel", "AH Price", ...)`, `Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "AH Price")`, and the Defaults handler's `if r.group == "Auction House Price"` and `renderSchema(...,{ skip = { ["Auction House Price"] = true } })` and `{ only = "Auction House Price" }`. In `settings/Schema.lua`, change the auction rows' `group = "Auction House Price"` → `group = "AH Price"`. (Update ALL occurrences consistently — grep `"Auction House Price"` and `"AH Price"` after.)
+- [ ] **Step 1: Rename the subcategory.** In `settings/Panel.lua`, change the three `"Auction House Price"` strings for the auction page: `createPanel("LootHistoryAuctionPanel", "AH price", ...)`, `Settings.RegisterCanvasLayoutSubcategory(mainCategory, actx.panel, "AH price")`, and the Defaults handler's `if r.group == "Auction House Price"` and `renderSchema(...,{ skip = { ["Auction House Price"] = true } })` and `{ only = "Auction House Price" }`. In `settings/Schema.lua`, change the auction rows' `group = "Auction House Price"` → `group = "AH price"`. (Update ALL occurrences consistently — grep `"Auction House Price"` and `"AH price"` after.)
 
 - [ ] **Step 2: Rebuild `rebuildPriorityList`** so each row is `[status] [addon] [data] [▲] [▼] [☑]`:
 
@@ -160,7 +160,7 @@ Add the `iconButton` helper (per Design above) as a file-local function before `
 
 - [ ] **Step 5: Verify** — `luacheck .` 0/0; `lua tests/run.lua` green (Panel loads). Grep confirms no `"Auction House Price"` remains for the panel/schema and no `\226\150\178`/`\226\150\188` text-arrow bytes remain in the priority rows. In-game smoke deferred.
 
-- [ ] **Step 6: Commit** — `git commit -am "feat(settings): AH Price tab; priority rows with texture arrows, addon/data columns, enable + status"`
+- [ ] **Step 6: Commit** — `git commit -am "feat(settings): AH price tab; priority rows with texture arrows, addon/data columns, enable + status"`
 
 ---
 

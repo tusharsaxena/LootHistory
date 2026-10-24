@@ -42,7 +42,7 @@ test("AuctionPrice: the shipped cascade reaches a non-default-collected key with
   function()
     -- LH-R-01. defaults/Global.lua used to ship only the 7 default-collected tags, so a fresh
     -- install's stored cascade could not name tsm:dbhistorical at all: `/lh set` on that key
-    -- captured a price that Pick then refused to select, until opening the AH Price page ran
+    -- captured a price that Pick then refused to select, until opening the AH price page ran
     -- ReconcilePriority and appended the missing four. The stored default now IS the one
     -- declaration, so the key is reachable with the panel never opened.
     local shipped = {}

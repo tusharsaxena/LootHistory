@@ -95,7 +95,7 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- assertion exists.
   --
   -- Minor 8 added `ReorderList` and this addon did not call it. Minor 9 is the release this addon
-  -- ADOPTS it in: the AH Price tab's cascade is dragged now instead of clicked up and down
+  -- ADOPTS it in: the AH price tab's cascade is dragged now instead of clicked up and down
   -- (settings/Panel.lua, options-ui-§18), through the seam below. What minor 9 changes on top of 8
   -- is the chrome the widget owns -- `lib.ROW_BOX`, the bounded box behind every row, the `dimmed`
   -- variant for an inert one, and a `handleSize` default that moved 24 -> ROW_BOX.HANDLE_W. All

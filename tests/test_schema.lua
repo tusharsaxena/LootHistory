@@ -232,11 +232,11 @@ test("Schema: a normal (persisted) row writes the active profile", function()
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
 
-test("Schema: auction rows exist with the AH Price group and defaults", function()
+test("Schema: auction rows exist with the AH price group and defaults", function()
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.enabled")
   assertTrue(row ~= nil, "settings.auction.enabled row missing")
-  assertEqual(row.group, "AH Price")
+  assertEqual(row.group, "AH price")
   assertEqual(NS2.Schema:Default("settings.auction.enabled"), true)
 end)
 
@@ -244,7 +244,7 @@ test("Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows 
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.capture")
   assertTrue(row ~= nil, "settings.auction.capture row missing")
-  assertEqual(row.group, "AH Price")
+  assertEqual(row.group, "AH price")
   assertEqual(row.widget, "MultiCheck")
   assertEqual(NS2.Schema:Default("settings.auction.capture")["tsm:dbmarket"], true)
 
@@ -656,7 +656,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 8 }, { "Capture", 6 }, { "AH Price", 2 },
+    { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
     { "Interface", 4 }, { "History", 3 },
   },
 }
@@ -670,7 +670,7 @@ test("Schema: every page's tabs are the designed ones, in order, at the designed
     if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
   end
   assertEqual(#pages, 1,
-    "ONE schema-backed page: R6 deprecated the Filters and AH Price sub-pages into General")
+    "ONE schema-backed page: R6 deprecated the Filters and AH price sub-pages into General")
 
   for _, page in ipairs(pages) do
     assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
@@ -731,7 +731,7 @@ end)
 
 test("Schema: a tab name never repeats the page it sits on", function()
   -- On a page called Bars, "Bar background" carries nothing the strip has not already said. There
-  -- is no exemption left: "AH Price" used to be a page whose one group had the same name, and the
+  -- is no exemption left: "AH price" used to be a page whose one group had the same name, and the
   -- merge into General removed the collision rather than excusing it.
   for _, row in ipairs(S.Schema) do
     assertFalse(row.group:lower():find(row.page:lower(), 1, true) ~= nil,

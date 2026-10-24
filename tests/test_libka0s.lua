@@ -522,7 +522,7 @@ test("every seam file resolves its major with the silent flag", function()
 end)
 
 test("the Options page registry built every page this addon declares", function()
-  -- TWO sub-pages, General then Profiles LAST (options-ui-§3). The Filters and AH Price sub-pages
+  -- TWO sub-pages, General then Profiles LAST (options-ui-§3). The Filters and AH price sub-pages
   -- are tabs on General's strip since R6, so their registrations are gone rather than failing.
   -- Profiles "builds" headless too: its builder answers nil without AceDBOptions, which the
   -- registry counts as a page that opted out, not one that failed. Asserted as an exact, ordered

@@ -33,7 +33,7 @@ local GD = NS.defaults.global
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
---         — because R6 deprecated the Filters and AH Price sub-pages into it. It is what the
+--         — because R6 deprecated the Filters and AH price sub-pages into it. It is what the
 --         descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
 -- `group` names the TAB within that page. settings/Panel.lua partitions the page's rows by group
 --         IN DECLARATION ORDER, so the order of this array is the order of the strip and a group's
@@ -333,17 +333,18 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
     end },
 
-  -- ── General ▸ AH Price ──
+  -- ── General ▸ AH price ──
   -- Was its own canvas sub-page until R6 deprecated it into General (options-ui-§13: a Ka0s page
   -- is a strip, and three sub-pages of two tabs each is three strips a player has to find). It is
   -- a TAB now, and the tab body is still the pooled price table settings/Panel.lua draws.
   --
-  -- The tab mixes a plain toggle with an eleven-row reorder table, so it carries SUBSECTION
-  -- headings (options-ui-§7): both are declared by a row, never drawn by the builder, which is
-  -- what keeps the tab list derivable from `group` alone.
+  -- The tab mixes a plain toggle with an eleven-row reorder table. The toggle is the tab's LEADING
+  -- MASTER SWITCH and sits unheaded above the one subsection (options-ui-§7, U-05(b); item 020,
+  -- LOO-L10): its old one-row "Pricing" heading restated the tab by its stem. "Price sources" is
+  -- declared by a row, never drawn by the builder, which keeps the tab list derivable from `group`.
   { path = "settings.auction.enabled", default = PD.settings.auction.enabled, type = "bool",
     widget = "CheckBox",
-    page = "General", group = "AH Price", subgroup = "Pricing", label = "Enable AH pricing",
+    page = "General", group = "AH price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   -- skipRender: the tab renders this as the unified price table's per-row Enabled checkboxes
   -- (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
@@ -355,7 +356,7 @@ local ROWS = {
   -- the table below it gets a heading without a builder drawing one (options-ui-§7).
   { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
     widget = "MultiCheck", wide = true, skipRender = true,
-    page = "General", group = "AH Price", subgroup = "Price sources",
+    page = "General", group = "AH price", subgroup = "Price sources",
     label = "Collect & rank these prices",
     values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
@@ -424,7 +425,8 @@ local ROWS = {
 
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
-  -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
+  -- and leaves; only the library's Keybindings tab follows it on the strip. Filters, which declares
+  -- no rows at all, sits third, after Capture (item 020, LOO-L08). Called
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
   -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
   -- ledger added "Show transfers by default", and was the sanctioned exemption from the

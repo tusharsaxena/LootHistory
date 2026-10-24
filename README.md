@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1723%2F1723_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1724%2F1724_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -78,7 +78,7 @@ Where an item came from is half of what the addon reads when it arrives. The oth
 
 If you have **Auctionator**, **TSM** or **OribosExchange** installed, the addon reads an auction price for each item the moment you loot it. One of them is enough. With none installed, it skips pricing.
 
-You decide which prices count. The **AH Price** tab in the settings lists every price your installed addons can supply in one table (TSM's market value alongside its region average, for instance). Tick the ones you want and drag them by the handle on each row into the order you trust them in. When more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, drop to the bottom.
+You decide which prices count. The **AH price** tab in the settings lists every price your installed addons can supply in one table (TSM's market value alongside its region average, for instance). Tick the ones you want and drag them by the handle on each row into the order you trust them in. When more than one has a price for an item, the highest-ranked ticked source wins. Unticked sources, and any whose addon isn't installed, drop to the bottom.
 
 The value shown throughout the History table and Insights is the higher of an item's vendor sell price and its auction price. Nothing ever shows as worth less than a vendor would pay for it.
 
@@ -108,7 +108,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Nothing is being recorded. | Check that **Master controls ▸ Enable Loot History** is on. If you expect grays or whites, lower **Capture ▸ Minimum quality**. The source may be turned off under **Record data from**. Quest items are skipped by default, so uncheck **Capture ▸ Exclude quest items** if you want them. The item may also be blacklisted on the **Filters** tab. |
 | The minimap button is gone. | It's hidden. Tick **Master controls ▸ Minimap button** back on, or open the window with `/lh toggle`. |
 | An item landed under the wrong source (or "Other"). | When nothing tells the addon where an item came from, it falls back to **Other** / **Inferred**. Open the debug console with `/lh debug` to see how an item was filed. |
-| The AH Price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM** or **OribosExchange** installed, **AH Price ▸ Enable AH pricing** on, and at least one price source ticked. Even then, a price only shows up once that addon actually has one for the item, which is usually after its next scan. Until then the value falls back to the vendor sell price. |
+| The AH price / value column is blank, or just matches the vendor price. | You need **Auctionator**, **TSM** or **OribosExchange** installed, **AH price ▸ Enable AH pricing** on, and at least one price source ticked. Even then, a price only shows up once that addon actually has one for the item, which is usually after its next scan. Until then the value falls back to the vendor sell price. |
 | I clicked Export to CSV but nothing was copied. | The addon can't write to your system clipboard. A box opens with the text already selected: press **Ctrl+C** to copy, then **Esc** to close. |
 | An item I don't want keeps being recorded. | Blacklist it on the **Filters** tab. Type its id or name, or shift-click its link into the box. Future loots are skipped, and rows you already have stay until you delete them. |
 | Rows are missing from the table. | A column filter or the search box is probably narrowing it. Press **Clear** on the filter bar to go back to your saved view, or **Reset** to drop it and every filter. Filters and sorting only carry over between sessions if you pressed **Save**. |

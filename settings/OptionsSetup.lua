@@ -19,7 +19,7 @@ local addonName, NS = ...
 --    generic path because it is `type = "table"` and `O.RenderField` returns nil for a type it does
 --    not know — not because it carries `skipRender`, which it does not.
 --
--- 2. NOTHING ANY MORE, on the renderer. The AH Price page used to keep its own `OnShow` rather than
+-- 2. NOTHING ANY MORE, on the renderer. The AH price page used to keep its own `OnShow` rather than
 --    going through `SetRenderer`: the library's renderer contract is "re-run me and I redraw the
 --    page", which means a `ClearScroll` releasing every AceGUI child back to the pool, and that page
 --    parented eleven reusable row slots of raw FontStrings and Buttons to an AceGUI SimpleGroup's

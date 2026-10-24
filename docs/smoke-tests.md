@@ -16,7 +16,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH Price |
+| PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
@@ -100,7 +100,7 @@ then `/reload` → no Lua error at login or after the reload. Result: pass (owne
 **INSTALL-2. TOC load order.** The TOC order is Libraries → Locales → Core (Compat first) → Defaults →
 Modules (Attribution before Collector) → Settings, so `settings/` loads after `modules/`. After
 login run `/lh help` and open Esc → Options → AddOns → the help index prints, and **Ka0s Loot
-History** is in the list with two sub-pages, **General** and **Profiles** (Filters and AH Price are
+History** is in the list with two sub-pages, **General** and **Profiles** (Filters and AH price are
 tabs on General, not pages). Result: pass (owner-marked 2026-10-10)
 
 **INSTALL-3. Fresh SavedVariables shape.** After INSTALL-1's `/reload`, `/dump
@@ -147,7 +147,7 @@ Each row is a gold `/lh <verb>`, an em dash and a white description; every line 
 raw key such as `HELP_HEADER` shows; the window does not open. Result: pass (owner-marked 2026-10-10)
 
 **SLASH-3. `/lh list`.** `/lh resetall` (the profile back to its defaults), then `/lh list` → an
-`Available settings` header, then rows grouped under `[Master controls]`, `[Capture]`, `[AH Price]`,
+`Available settings` header, then rows grouped under `[Master controls]`, `[Capture]`, `[AH price]`,
 `[Interface]`, `[History]` in strip order (a `[Collection]` or `[Maintenance]` header is a missed
 rename), every schema row present, with the defaults `settings.enabled = true`,
 `settings.qualityThreshold = 1`, `settings.windowScale = 1.00x`, `settings.excludeQuestItems = true`,
@@ -197,11 +197,11 @@ not white-wrapped, and a white description. Result: pass (owner-marked 2026-10-1
 
 **PANEL-3. General header and strip.** Open **General** → header `Ka0s Loot History ▸ General`, a
 gold divider under it, a **Defaults** button top-right whose tooltip ends *Key bindings are not
-changed.*, and seven tabs: Master controls, Capture, AH Price, Interface, History, Filters,
+changed.*, and seven tabs: Master controls, Capture, AH price, Interface, History, Filters,
 Keybindings, opening on Master controls; the selected tab cannot be clicked. Click each: no section
-heading appears, except AH Price's **Pricing** (above the toggle) and **Price sources** (above the
+heading appears, except AH price's **Pricing** (above the toggle) and **Price sources** (above the
 table) subsection headings. Open **Ka0s Bank Ledger** beside it → the same names in the same order,
-without AH Price (Keybindings last there too once its own tab lands). (Procedure amended by LH-KB,
+without AH price (Keybindings last there too once its own tab lands). (Procedure amended by LH-KB,
 2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.)
 Result:
 
@@ -212,7 +212,7 @@ whichever tab is selected. Result: pass (owner-marked 2026-10-10)
 **PANEL-5. Per-tab layout.** Walk the tabs → **Master controls**: Enable Loot History | General
 visibility, Master scale | Master opacity, Lock frame | Debug console, Minimap button | Test mode, then
 the **Reset position** | **Reset all settings** pair. **Capture**: Minimum quality | Record currency,
-Exclude quest items alone, then the full-width **Record data from** grid. **AH Price**: *Pricing*,
+Exclude quest items alone, then the full-width **Record data from** grid. **AH price**: *Pricing*,
 Enable AH pricing, *Price sources*, the eleven-row table. **Interface**: Window scale | Row height.
 **History**: Keep history for, then the storage readout | **Purge history…**. (Label amended by
 LH-RV2, 2026-10-24: LibKa0s OptionsCompose minor 9 renames *Master alpha* to *Master opacity*;
@@ -221,7 +221,7 @@ the 2026-10-10 pass saw *Master alpha*.) Result: pass (owner-marked 2026-10-10)
 **PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all seven tabs three
 times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
 tab shows its own label, the pressed tab is the selected one, and the band height does not move;
-the AH Price rows are intact after the third pass. Fail: a label carried over from the previous
+the AH price rows are intact after the third pass. Fail: a label carried over from the previous
 tab, a highlight on the wrong button, a body under the wrong tab, or a band that changes height.
 (The headless case measures a mock that answers 0 for every height.) (Procedure amended by LH-KB,
 2026-10-24: seven tabs with Keybindings; the 2026-10-10 pass covered six.) Result:
@@ -269,13 +269,13 @@ draws no scrollbar; it is not part of this check.) Result: pass (owner-marked 20
 history…** → each draws its full right border (not shaved by the scroll gutter) and lines up with its
 left-hand neighbor, with nothing spilling past the panel edge. Result: pass (owner-marked 2026-10-10)
 
-**PANEL-17. AH Price does not freeze.** On AH Price, click away and back several times, then close
+**PANEL-17. AH price does not freeze.** On AH price, click away and back several times, then close
 and reopen the panel → the table draws correctly, tick and status columns right, and leaving the
 tab is instant (no ~1.7s hitch). Result: pass (owner-marked 2026-10-10)
 
-**PANEL-18. AH Price marks.** On AH Price → each row whose Status reads *Collecting data* has a
+**PANEL-18. AH price marks.** On AH price → each row whose Status reads *Collecting data* has a
 **green** leading mark, every other row a **red** one (a `ban`, a slash through a circle, by design);
-every row has an ⓘ after its Price Module text, bright on a collecting row and dimmed otherwise,
+every row has an ⓘ after its Price module text, bright on a collecting row and dimmed otherwise,
 whose hover shows the key's label and description. Untick a collecting row's **On** → its mark turns
 red in place and agrees with Status. Fail: a white or missing mark, a missing ⓘ, or a mark that
 does not follow the box. Result: pass (owner-marked 2026-10-10)
@@ -284,7 +284,7 @@ does not follow the box. Result: pass (owner-marked 2026-10-10)
 **Defaults**; on General and Profiles → every checkbox, dropdown and slider label is English, with no
 all-caps underscored key. Result: pass (owner-marked 2026-10-10)
 
-**PANEL-20. AH Price reorder still drags.** On AH Price, drag a price source by its handle two rows
+**PANEL-20. AH price reorder still drags.** On AH price, drag a price source by its handle two rows
 down and drop it → the ghost follows the cursor, the row lands where dropped, and closing and
 reopening the panel shows the new order. Fail: no ghost, a row that snaps back, or a Lua error.
 Result: pass (owner, 2026-10-02)
@@ -1366,7 +1366,7 @@ change. `/lh set settings.trackLedger false` and `true` do the same. Result: pas
 minimum size on the **Holdings** tab with a few items of different qualities, one currency and gold
 listed, and check each of these:
 
-- The header row reads exactly `Name · iLvl · Quality · Type · SubType · AH Price · Total · Value`,
+- The header row reads exactly `Name · iLvl · Quality · Type · SubType · AH price · Total · Value`,
   gold, one line each, over the right columns. **No other text sits in the header row.**
 - **No stray text after the Timeline (P5); closed 2026-10-07, not an addon bug.** The owner saw
   faint green text (`Cou…`, `Coun… <Tr…`) over the Holdings header near **Total** and over History
@@ -1383,7 +1383,7 @@ listed, and check each of these:
   that is not its own. Text that moves with the camera, or goes away when nameplates are toggled
   off, is the world showing through the window, not a failure; anything else, hover it with
   `/fstack` and record the frame path.
-- Widen and narrow the window. The optional columns hide right to left (AH Price first, iLvl
+- Widen and narrow the window. The optional columns hide right to left (AH price first, iLvl
   last), and Name, Total and Value always stay.
 - Every other item line has the faint stripe. Expand a striped item and the holder lines under it
   have the same stripe. Expand an unstriped one and its holder lines are unstriped too.
@@ -1815,7 +1815,7 @@ lock draws in the History table and in its legend. Result: pass (owner-marked 20
 multi-select entry shows its tick when selected; the Export window's Export to CSV button shows its
 spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 
-**ICON-6. Settings marks.** Settings → AH Price tab → each row's leading tick (circle-check, or ban
+**ICON-6. Settings marks.** Settings → AH price tab → each row's leading tick (circle-check, or ban
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
 list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 

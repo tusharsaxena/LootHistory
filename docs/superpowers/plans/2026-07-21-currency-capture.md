@@ -393,7 +393,7 @@ In `settings/Schema.lua`, in the `-- ── Data Collection ──` group, immed
 In `docs/settings-panel.md`, find the line starting `Ten rows ship today (`Schema.lua:11`):` and change `Ten rows` to `Eleven rows`, and insert `settings.recordCurrency` into the listed Data-Collection paths (after `settings.excludeQuestItems`):
 
 ```markdown
-Eleven rows ship today (`Schema.lua:11`): `settings.enabled`, `minimap.hide`, `state.debugConsole`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.recordCurrency`, `settings.retentionDays`, `settings.excludedSources` (Data Collection); `settings.auction.enabled`, `settings.auction.capture` (AH Price — the latter carries `panelSkip`, driven by the price table rather than a rendered widget).
+Eleven rows ship today (`Schema.lua:11`): `settings.enabled`, `minimap.hide`, `state.debugConsole`, `settings.windowScale` (Master Controls); `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.recordCurrency`, `settings.retentionDays`, `settings.excludedSources` (Data Collection); `settings.auction.enabled`, `settings.auction.capture` (AH price — the latter carries `panelSkip`, driven by the price table rather than a rendered widget).
 ```
 
 - [ ] **Step 7: Run the tests to verify they pass**

@@ -71,7 +71,7 @@
 -- NS.CloseMenu is then a no-op, because there is no menu that could be open.
 --
 -- NS.MakeReorderList answers nil for the same reason, and its caller degrades DIFFERENTLY on
--- purpose: the AH Price tab still draws its eleven price rows, just without a handle, without the
+-- purpose: the AH price tab still draws its eleven price rows, just without a handle, without the
 -- bounded box and without a way to re-rank them. That is the accepted cosmetic degradation
 -- options-ui-§18 names, and it is stated there precisely so nobody re-adds up/down arrows as a
 -- fallback -- a host-drawn affordance beside the library's is the drift the shared widget ends.

@@ -38,7 +38,7 @@ meaningful against a red tree.
 
 **Setup.** A **fresh** SavedVariables for this addon: log out, delete
 `SavedVariables/LootHistory.lua`, log back in. Do **not** open the settings panel yet — the point of
-this test is that the fix works without the AH Price page ever having repaired anything. TSM
+this test is that the fix works without the AH price page ever having repaired anything. TSM
 installed and its price data loaded.
 
 **Steps.**
@@ -74,11 +74,11 @@ default behavior.
 **Steps.**
 1. Watch the chat frame during login.
 2. `/lh get settings.auction.capture` and `/lh list`.
-3. Open **Esc → Options → AddOns → Ka0s Loot History → AH Price**.
+3. Open **Esc → Options → AddOns → Ka0s Loot History → AH price**.
 4. Count the rows in the price table and read the Order column for the four TSM entries that are
    *not* collected by default (Historical, Recent, Region historical, Region sale avg).
 
-**Expected.** No `[LH] schema path missing default: …` line at login. The AH Price table shows 11
+**Expected.** No `[LH] schema path missing default: …` line at login. The AH price table shows 11
 rows. The four uncollected TSM entries appear in the "Not collecting data" group, below the
 collecting ones, in that order.
 
@@ -183,7 +183,7 @@ would have broken.
 | R1 | `/reload` with the window open on the History tab | Window returns closed; no error; `/lh show` restores position, size, scale and saved view |
 | R2 | First login on a **fresh** SavedVariables | Defaults populate; `/lh list` prints every row with a value; no error at `ADDON_LOADED` → `PLAYER_LOGIN` → `PLAYER_ENTERING_WORLD` |
 | R3 | Wait ~25s after login on a profile with a few hundred rows | The two deferred passes (`+5s` prune + bound repair, `+20s` bound repair) run without a visible hitch; with `/lh debug on`, a `[Migrate] bound repair: …` line appears |
-| R4 | Open every settings page: landing, General, Filters, AH Price; toggle **every** control once | No error; each toggle is reflected by `/lh get <path>`; navigating away from AH Price does not stall the client |
+| R4 | Open every settings page: landing, General, Filters, AH price; toggle **every** control once | No error; each toggle is reflected by `/lh get <path>`; navigating away from AH price does not stall the client |
 | R5 | Enter combat on a dummy with the History window and the settings panel both open; leave combat | No `Interface action failed because of an AddOn`; `/lh config` while in combat refuses with a chat line rather than opening or erroring |
 | R6 | Minimap button: left-click, right-click, then tick **Hide minimap button** | Left opens the window, right opens settings, ticking hides the button immediately (no reload); tooltip record count matches the footer |
 | R7 | `/lh test` on → browse both tabs → `/lh test` off | Synthetic dataset appears with a Test-Mode badge; real history is untouched (record count returns to its prior value) |

@@ -83,7 +83,7 @@ library repo and not a documentation-and-tooling repo.
 
 ### options-ui
 - Library instance `NS.Options` from `settings/OptionsSetup.lua`; landing page + one `General` subcategory drawn with the
-  library's `O.TabStrip` — tabs **Master controls · Capture · AH Price · Interface · History · Filters**; Filters carries a
+  library's `O.TabStrip` — tabs **Master controls · Capture · AH price · Interface · History · Filters**; Filters carries a
   secondary strip (`O.SubTabStrip`) in the scroll.
 - Master controls composed by `O.MasterControls` with `testModePath`, `debugConsolePath` and `minimapPath` — the full
   canonical set (not frameless: two `SetMovable` frames). No color rows, no `disabledIf`, no LSM rows, no arrow

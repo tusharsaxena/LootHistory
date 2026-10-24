@@ -200,9 +200,9 @@ Rename it back and `/reload`.
 
 **Steps:**
 1. `/lh get settings.auction.capture` — note the tags.
-2. `/lh config` → **AH Price**. Read the price-source table top to bottom and note the **Order**.
+2. `/lh config` → **AH price**. Read the price-source table top to bottom and note the **Order**.
 3. `/lh reset settings.auction.capture`, then `/lh get settings.auction.capture` again.
-4. Click the AH Price page's **Defaults** button. Re-read the Order.
+4. Click the AH price page's **Defaults** button. Re-read the Order.
 5. `/reload`, then inspect `LootHistoryDB.global.schemaVersion` in the saved file.
 
 **Expected:**

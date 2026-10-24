@@ -29,7 +29,7 @@ local tabAt         = S.tabAt
 -- ── registration ─────────────────────────────────────────────────────────────────────────────
 
 test("Panel: the parent category and its ONE sub-page are registered", function()
-  -- R6: Filters and AH Price were canvas sub-pages of their own until this pass and are tabs on
+  -- R6: Filters and AH price were canvas sub-pages of their own until this pass and are tabs on
   -- General's strip now. Asserted as an exact set — a leftover registration is a page nobody draws
   -- and a presence check could never see one.
   assertTrue(mocks.__mainPanel ~= nil, "the landing canvas must be registered as the parent")
@@ -37,7 +37,7 @@ test("Panel: the parent category and its ONE sub-page are registered", function(
   for name in pairs(mocks.__subcategories) do names[#names + 1] = name end
   table.sort(names)
   assertEqual(table.concat(names, " | "), "General",
-    "Filters and AH Price must NOT still be subcategories of their own")
+    "Filters and AH price must NOT still be subcategories of their own")
 end)
 
 test("Panel: registration is idempotent", function()
@@ -356,7 +356,8 @@ local SUBGROUPS = {
   -- Capture is two subjects (item 020, LOO-L04): what a loot record keeps, then the ledger.
   ["Capture"]         = { "Loot", "Ledger" },
   ["Filters"]         = {},
-  ["AH Price"]        = { "Pricing", "Price sources" },
+  -- The lead switch sits unheaded above the one subsection (item 020, LOO-L10; XC-22, U-05(b)).
+  ["AH price"]        = { "Price sources" },
   -- Interface is two subjects again: the window rows and the simulator's step delay (the owner's
   -- simulator feedback, 2026-10-23). It carried `Window` / `Minimap` until the minimap row moved to
   -- Master controls with the launcher adoption, and drew none while every row was about the window.
@@ -370,7 +371,7 @@ test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its S
   function()
     -- options-ui-§7. Under a strip the tab IS the group's heading, so the group heading is
     -- suppressed — but `subgroup` is deliberately NOT suppressed, because a tab that mixes control
-    -- types has no tab left to name each kind with. ONE tab is mixed: AH Price, a plain toggle above
+    -- types has no tab left to name each kind with. ONE tab is mixed: AH price, a plain toggle above
     -- an eleven-row reorder table. Interface was the second until the minimap row moved to Master
     -- controls (launcher-§3), and its headings went with it rather than being kept for symmetry.
     -- red under: passing `noHeadings` for subgroups too, or dropping any `subgroup` field — either
@@ -394,7 +395,7 @@ test("Panel: a subgroup heading never repeats its own tab's name (options-ui-§7
   -- The one thing §7 forbids outright about a subsection name, and the easiest to get wrong when a
   -- tab is later renamed to match the subject its first block already named.
   -- red under: reviving `subgroup = "Window"` on the Interface tab now that every row there is
-  -- about the window, or renaming the AH Price tab to
+  -- about the window, or renaming the AH price tab to
   -- "Pricing".
   for _, row in ipairs(NS.Schema.Schema) do
     if row.subgroup then
@@ -558,7 +559,7 @@ end)
 test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade",
   function()
     -- options-ui-§13: a per-page Defaults button's blast radius must not narrow to the visible tab.
-    -- Filters and AH Price are tabs of this page now, so what their own Defaults buttons used to
+    -- Filters and AH price are tabs of this page now, so what their own Defaults buttons used to
     -- own — the three id-lists (a structural registry) and the cascade array (a ratified
     -- carve-out) — belongs to this one button. Neither has a schema row; both live in the profile,
     -- and the button is options-ui-§12's profile reset, which is what reaches them.
@@ -671,23 +672,31 @@ test("Panel: the General Defaults click logs ONE [Set] reset profile line and no
     end
   end)
 
--- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────
+-- ── the AH price tab ─────────────────────────────────────────────────────────────────────────
 
---- Render the AH Price tab and hand back its context.
+--- Render the AH price tab and hand back its context.
 local function ahTab()
   local ctx = NS.Panel.general
-  clickTab(mocks.__subcategories["General"], ctx, tabAt("AH Price"))
+  clickTab(mocks.__subcategories["General"], ctx, tabAt("AH price"))
   return ctx
 end
 
-test("Panel: the AH Price tab draws one reusable row slot per known price source", function()
+test("Panel: the AH price tab draws one reusable row slot per known price source", function()
   local ctx = ahTab()
-  assertEqual(ctx.activeTab, "AH Price", "tab 4 is AH Price")
+  assertEqual(ctx.activeTab, "AH price", "tab 4 is AH price")
   assertTrue(ctx._priRows ~= nil, "the row slots must be created")
   assertEqual(#ctx._priRows, #NS.Constants.AUCTION_KEYS,
     "one slot per key, created ONCE and repainted in place — this page froze the client at ~213 " ..
     "frames before the slots were pooled (docs/settings-panel.md)")
   homeTab(ctx)
+end)
+
+test("Panel: the price table's column headers are sentence case (item 020)", function()
+  -- LOO-L11 (XC-06): "Price module", like every other label on the panel. The headers are raw
+  -- FontStrings on the pooled host, which the headless mock does not read back, so the source is.
+  local src = Loader.readFile("settings/Panel.lua")
+  assertTrue(src:find('header(ACOL.module, "Price module")', 1, true) ~= nil, "Price module header")
+  assertTrue(src:find('"Price Module"', 1, true) == nil, "a Title Case header is left")
 end)
 
 test("Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing",
@@ -743,7 +752,7 @@ test("options-ui-§19: releasing the Price-sources placeholder outside renderGen
   rawset(host, "SetParent", nil); rawset(host, "GetParent", nil); host.__lhParent = nil
 end)
 
-test("Panel: the AH Price tab renders its own schema row and no other tab's", function()
+test("Panel: the AH price tab renders its own schema row and no other tab's", function()
   local ctx = ahTab()
   local created = {}
   for _, w in ipairs(AceGUI.__created) do created[#created + 1] = w end

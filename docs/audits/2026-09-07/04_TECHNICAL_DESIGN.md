@@ -96,7 +96,7 @@ so the decision has one home.
 
 **LH-47 — resolve the unregistered decline.** Two acceptable outcomes; pick one and write it down.
 
-- *If the decline still stands* — the AH Price tab keeps its own pooled row host outside the
+- *If the decline still stands* — the AH price tab keeps its own pooled row host outside the
   library's `ClearScroll` lifecycle — add a row citing `options-ui-§1`, Why citing issue #21 and the
   measured ~1.7 s tab-transition freeze, Decided 2026-08-01 (the original decision date, not today),
   and a trigger naming what would end it (`RenderGrid`/the renderer contract gaining a `parent`, or

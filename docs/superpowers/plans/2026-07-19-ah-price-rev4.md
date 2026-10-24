@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`).
 
-**Goal:** Polish the "AH Price" settings page: Data Collection layout (indent, spacing, info-follows-text, addon-not-detected muting) and Priority list (closer columns, column headers, show all sources with uncollected sunk to the bottom).
+**Goal:** Polish the "AH price" settings page: Data Collection layout (indent, spacing, info-follows-text, addon-not-detected muting) and Priority list (closer columns, column headers, show all sources with uncollected sunk to the bottom).
 
 **Tech Stack:** Lua 5.1 (Ace3/AceGUI), luacheck. Panel is smoke-tested in-game (not unit-tested); the data/helper layer IS unit-tested.
 

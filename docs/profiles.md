@@ -10,7 +10,7 @@ changes, and how the old account-wide settings got into a profile. The stored sh
 
 | Scope | Where | What |
 |---|---|---|
-| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` and `settings.rollupRetentionDays` (the Master controls, Capture, AH Price and Interface tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved views, one per browser tab (`savedViews[tab]`, schema v14; the Timeline's can also be created by it remembering its thing, as a copy of its stock view; see [schema.md](schema.md#state-outside-the-rows)) and the History window's geometry (`settings.window`) |
+| **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` and `settings.rollupRetentionDays` (the Master controls, Capture, AH price and Interface tabs), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved views, one per browser tab (`savedViews[tab]`, schema v14; the Timeline's can also be created by it remembering its thing, as a copy of its stock view; see [schema.md](schema.md#state-outside-the-rows)) and the History window's geometry (`settings.window`) |
 | **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it; **Keep history for** (`retentionDays`, the row `settings.retentionDays`), the setting that governs what the prune deletes from that history; the Timeline's daily rollup (`daily`, with its bookkeeping `rollupSeeded`) and **Keep Timeline days for** (`rollupRetentionDays`, the row `settings.rollupRetentionDays`), which governs it the same way; LibDBIcon's `minimap` table (whether the button is shown, and where), the `schemaVersion` stamp |
 | **Session only** | `NS.State`, the modules | Test mode, the debug console window, the debug logging flag, each browser tab's live filter state and character scope (P11) |
 
@@ -70,7 +70,7 @@ reset. `NS.BindLifecycle` (`core/LifecycleSetup.lua`) registers all three onto *
      gates and id lists) and the Browser (chrome and visibility) already listen to
      (`message-bus.md`). There is no retention step: the retention is account-wide, so the new
      profile brings none of its own.
-   - **Every settings panel** re-renders, so the Filters tab's lists and the AH Price table redraw
+   - **Every settings panel** re-renders, so the Filters tab's lists and the AH price table redraw
      from the new profile's tables.
 
 The loot history is not touched by any of this (D6). Nothing on this path prunes, counts records

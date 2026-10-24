@@ -148,7 +148,7 @@ Because the help index, the landing page and the dispatcher all read the same ta
 - **`bool`** — `true`/`1`/`on`/`yes` and `false`/`0`/`off`/`no`. Anything else is **refused** rather than silently stored as `false`: `/lh set settings.enabled maybe` → `Invalid value for settings.enabled` / `  expected true/false/on/off/1/0/yes/no`.
 - **`number`, plain (a `Slider` row)** — **clamped** to the row's `min`/`max`, because a user typing a scale larger than the panel allows means "as large as it goes". `/lh set settings.windowScale 99` stores `1.6` and echoes `settings.windowScale = 1.60x`.
 - **`number`, enumerated (a `Dropdown` row with `values`)** — **constrained**, not clamped: clamping would land between two entries and the renderer would have no label for what is stored. `/lh set settings.qualityThreshold 9` → `Invalid value for settings.qualityThreshold` / `  allowed values: 0, 1, 2, 3, 4, 5, 7`.
-- **`table`** (the two set-valued rows, `settings.excludedSources` and `settings.auction.capture`) — readable but not writable from the CLI; the parser answers `unknown setting type 'table'`. They are edited from the settings panel's General ▸ Capture and General ▸ AH Price tabs.
+- **`table`** (the two set-valued rows, `settings.excludedSources` and `settings.auction.capture`) — readable but not writable from the CLI; the parser answers `unknown setting type 'table'`. They are edited from the settings panel's General ▸ Capture and General ▸ AH price tabs.
 
 ## Session-only `debug`
 

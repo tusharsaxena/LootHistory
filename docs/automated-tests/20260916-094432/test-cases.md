@@ -603,7 +603,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
-- Schema: auction rows exist with the AH Price group and defaults
+- Schema: auction rows exist with the AH price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
@@ -757,10 +757,10 @@ badge and any count quoted in the docs must agree with it.
 - Panel: Filters: currency names resolve through the loot history, and a refusal says where names work
 - Panel: Filters: the candidates are the lists, then the loot history newest first, each id once
 - Panel: Filters: each add box's tooltip ends with the hint its refusal ends with
-- Panel: the AH Price tab draws one reusable row slot per known price source
+- Panel: the AH price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
-- Panel: the AH Price tab renders its own schema row and no other tab's
+- Panel: the AH price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
 - Panel: a drag is one splice to index, and it repaints

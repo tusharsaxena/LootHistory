@@ -76,7 +76,7 @@ rule set applies.
   "`Reconciler:Flush` only" but two other writers exist (LH-86).
 
 ### settings / options-ui
-- One `General` page drawn through the library's `O.TabStrip` with tabs Master controls, Capture, AH Price,
+- One `General` page drawn through the library's `O.TabStrip` with tabs Master controls, Capture, AH price,
   Interface, History, Filters (`settings/Panel.lua:986-993`); plus the AceDBOptions `Profiles` sub-page and the landing
   page. First tab is `Master controls`. No color rows, no shared-media rows, no arrow-reorder art, no host
   `OpenToCategory`/`HideUIPanel`. Options descriptor passes `addonName` (`settings/OptionsSetup.lua:178`, v2.75.0 MUST).

@@ -9,7 +9,7 @@ not candidates and are not repeated here.
 ## Class A: delivered on the copy, nothing to adopt
 
 - **Options 29: a structural refresh keeps the page's scroll offset.** Every page this addon
-  refreshes (the Filters id lists, the AH Price tab) now stays where the player was.
+  refreshes (the Filters id lists, the AH price tab) now stays where the player was.
 - **Core 11, DebugLog 20, OptionsIdList 5, PerfPanel 7:** comment corrections only.
 - **DebugLogDiagnostics 3:** the diagnostics report's `LibKa0s running:` line lists Glow, Sim,
   SimTimeline and SimPanel when they are loaded. This addon does not parse its own report.

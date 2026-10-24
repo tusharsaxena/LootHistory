@@ -82,7 +82,7 @@ decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
 Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose seven tabs are
-Master controls, Capture, AH Price, Interface, History, Filters and Keybindings, the last two holding
+Master controls, Capture, AH price, Interface, History, Filters and Keybindings, the last two holding
 no rows (Keybindings is the library's, options-ui-§20).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
@@ -455,7 +455,7 @@ Ten such records are named below the table rather than carried in it.
   `standalone-windows` gives a library-drawn window's close control to the library.
 - Never a row: the pricing shims outside `core/Compat.lua`, a gap in the standard rather than a
   deviation ([`compat-layer.md`](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)).
-- Never a row: the AH Price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
+- Never a row: the AH price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
   reasoning is at `settings/Panel.lua:774-779` (`LH-47` in `docs/audits/2026-09-07/`).
 

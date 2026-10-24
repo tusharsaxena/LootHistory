@@ -1,4 +1,4 @@
--- tests/test_panel_auction.lua — the AH Price table's repaint, every row (characterization).
+-- tests/test_panel_auction.lua — the AH price table's repaint, every row (characterization).
 --
 -- Pinned before settings/Panel.lua's refreshAuctionTable, CCN 36 once lizard could see it, was
 -- split into a partition, a per-row paint and the reorder registration (GI-LH-02). tests/test_panel.lua
@@ -20,7 +20,7 @@ local function rgb(c) return c and (num(c[1]) .. "," .. num(c[2]) .. "," .. num(
 
 local function fsText(f) return ("%q/%s"):format(tostring(f.__text), rgb(f.__color)) end
 
---- Render the AH Price tab under a provider-availability stub and a capture set, with the ⓘ
+--- Render the AH price tab under a provider-availability stub and a capture set, with the ⓘ
 --- textures recording their tint, and describe every row and the reorder controller.
 local function paint(available, capture)
   local ctx = NS.Panel.general
@@ -29,13 +29,13 @@ local function paint(available, capture)
   NS.AuctionPrice.IsProviderAvailable = function(_, prov) return available[prov] == true end
   NS.Schema:Set("settings.auction.capture", capture)
   local ok, out = pcall(function()
-    clickTab(mocks.__subcategories["General"], ctx, tabAt("AH Price"))
+    clickTab(mocks.__subcategories["General"], ctx, tabAt("AH price"))
     for _, r in ipairs(ctx._priRows) do
       rawset(r.info.tex, "SetVertexColor", function(self, a, b, c) self.__vc = { a, b, c }; return self end)
     end
     -- Repaint with the recorders in place: a second visit re-runs the same refresh.
     homeTab(ctx)
-    clickTab(mocks.__subcategories["General"], ctx, tabAt("AH Price"))
+    clickTab(mocks.__subcategories["General"], ctx, tabAt("AH price"))
     local lines = {}
     local list = ctx._priList
     lines[#lines + 1] = ("list boundary=%s rows=%d handles=%d"):format(tostring(list.boundary),

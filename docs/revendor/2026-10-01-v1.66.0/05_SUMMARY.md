@@ -12,7 +12,7 @@ PerfSampler 1, PerfCommands 1. No blocker. No base correction. Span bundle
 - Declined: none. Unreached: B1 to B3 (`02_CANDIDATES.md`).
 - Consumer pins moved: `tests/test_libka0s.lua` (28 -> 32 library files) and `tests/test_widgets.lua`
   (Widgets minor 12).
-- New in-client check: PANEL-20, the AH Price reorder drag (`ReorderList` now loads from
+- New in-client check: PANEL-20, the AH price reorder drag (`ReorderList` now loads from
   `WidgetsReorder.lua`).
 
 Gate after the copy (all through `ka0s-bounded`):

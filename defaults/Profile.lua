@@ -65,7 +65,7 @@ NS.defaults.profile = {
       -- from its ONE declaration, core/Constants.lua's AUCTION_PRIORITY_DEFAULT — never restated
       -- here. A second literal drifted: this file shipped the 7 default-collected tags while the
       -- constant carried all 11, so `AuctionPrice:Pick` walked a cascade that could not reach the
-      -- four non-default sources until the AH Price page's ReconcilePriority happened to run.
+      -- four non-default sources until the AH price page's ReconcilePriority happened to run.
       priority = {},
     },
   },

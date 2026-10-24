@@ -33,7 +33,7 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     local panel = mocks.__subcategories["General"]
     local ctx = NS.Panel.general
     clickTab(panel, ctx, tabAt("Filters"))
-    assertEqual(ctx.activeTab, "Filters", "the last tab is Filters")
+    assertEqual(ctx.activeTab, "Filters", "tab 3 is Filters, directly after Capture")
     assertTrue(ctx.__subTabKids ~= nil and #ctx.__subTabKids == 3, "one sub-tab per list")
     assertEqual(ctx.activeSubTab["Filters"], "blacklist", "the sub-strip opens on the first list")
 
@@ -42,7 +42,7 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     ctx.__subTabKids[3]:__fire("OnClick")
     local created = {}
     for i = before + 1, #AceGUI.__created do created[#created + 1] = AceGUI.__created[i] end
-    assertEqual(ctx.activeSubTab["Filters"], "currencyBlacklist", "sub-tab 3 is Currencies")
+    assertEqual(ctx.activeSubTab["Filters"], "currencyBlacklist", "sub-tab 3 is Currency blacklist")
     local boxes = widgetsOfType(created, "EditBox")
     assertEqual(#boxes, 1, "exactly one add-row is on screen")
     assertEqual(boxes[1].labelText, "Add currency id, link or name",
