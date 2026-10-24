@@ -34,7 +34,8 @@ local widgets = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 20
+-- Minor 21: the console is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 21
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -103,6 +104,13 @@ lib.TIME_COPY = false
 -- fix: minor 9 dropped it, and its close silently fell back to the multiplication sign.
 function lib.MakeCloseButton(parent, onClick, addonName)
   return core.MakeCloseButton(parent, onClick, addonName)
+end
+
+-- Minor 21: re-raise any shown StaticPopup when the console shows, so a confirmation shown first
+-- stays on top of it (XS-08). Read at call time and guarded, not a Core floor raise: an older Core
+-- without the helper raises nothing. The copy window is not toplevel and does not call this (XS-12).
+local function raisePopups()
+  if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
 end
 
 -- ── strings ────────────────────────────────────────────────────────────────────────────────
@@ -534,6 +542,7 @@ function lib:New(d)
     frame:SetSize(CONSOLE_W, CONSOLE_H)
     frame:SetPoint("CENTER", 220, -80)
     frame:SetFrameStrata("DIALOG")
+    frame:SetToplevel(true)
     frame:EnableMouse(true)
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)
@@ -668,7 +677,7 @@ function lib:New(d)
     local function visibilityChanged()
       if type(d.onVisibilityChanged) == "function" then d.onVisibilityChanged() end
     end
-    frame:HookScript("OnShow", function() D:RefreshHeader(); visibilityChanged() end)
+    frame:HookScript("OnShow", function() D:RefreshHeader(); raisePopups(); visibilityChanged() end)
     frame:HookScript("OnHide", visibilityChanged)
     D:RefreshHeader()
 

@@ -1,6 +1,7 @@
 -- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
--- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, and from minor 4
--- an opt-in host hook that places the tooltip (`tooltipPlace`).
+-- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, from minor 4
+-- an opt-in host hook that places the tooltip (`tooltipPlace`), and from minor 5 an opt-in frame
+-- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -46,7 +47,9 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local DRAG_MINOR = 4
+-- Minor 5: `spec.level` (an offset over the parent's frame level, applied at birth before the
+-- marks are built), `handle:ApplyLevel()` and `spec.ignoreParentAlpha` (frame-layering-§2, §3).
+local DRAG_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -561,7 +564,35 @@ local function dhSetDragScripts(handle, spec)
   end)
 end
 
---- The four methods a host calls. Attached per instance, because every field of the spec is.
+--- THE LEVEL (minor 5). With a numeric `spec.level`, the handle's frame level becomes the parent's
+--- level plus that offset, read through the host's numeric guard: a secret or non-number answer
+--- reads 0 and is never computed on. Answers the level written, or nil when there was nothing to
+--- write -- no spec.level, or a client without the methods. `parent` is the constructor's at birth
+--- and the handle's CURRENT parent (GetParent) in ApplyLevel, so a re-parented strip follows.
+---
+--- WHY AN OFFSET. A child is born at its parent's level + 1, and a display that builds its content
+--- after its strip, or raises its content's levels, draws that content OVER the strip a player must
+--- find to drag it (frame-layering-§2, XS-05). An offset over the parent survives the parent
+--- moving; an absolute number does not.
+local function dhLevel(handle, spec, parent)
+  if type(spec.level) ~= "number" then return nil end
+  if not handle.SetFrameLevel then return nil end
+  local raw = parent and parent.GetFrameLevel and parent:GetFrameLevel()
+  local base = dhNumber(spec, raw, 0)
+  if type(base) ~= "number" then base = 0 end
+  local lvl = base + spec.level
+  handle:SetFrameLevel(lvl)
+  return lvl
+end
+
+--- PARENT ALPHA (minor 5). A display that fades its content does not fade the strip: true calls
+--- SetIgnoreParentAlpha(true) on the handle, and the marks are its children and follow it.
+local function dhParentAlpha(handle, spec)
+  if spec.ignoreParentAlpha ~= true then return end
+  if type(handle.SetIgnoreParentAlpha) == "function" then handle:SetIgnoreParentAlpha(true) end
+end
+
+--- The methods a host calls. Attached per instance, because every field of the spec is.
 local function dhAttachMethods(handle, spec)
   --- Re-text the strip. The width is NOT applied here: a host decides when it may touch geometry.
   function handle:SetLabel(text)
@@ -592,6 +623,19 @@ local function dhAttachMethods(handle, spec)
     local w = math.max(self:Measure(), dhNumber(spec, minWidth, 0))
     self:SetWidth(w)
     return w
+  end
+
+  --- Re-apply `spec.level` (minor 5) over the parent's CURRENT level, and set both marks to the
+  --- handle's level + 1 explicitly. A host calls it after it re-levels or re-parents the handle's
+  --- parent -- SetParent re-derives levels (XS-18) -- never only in a memoized restyle that may
+  --- skip it. Without a numeric spec.level it writes nothing and answers false.
+  function handle:ApplyLevel()
+    local lvl = dhLevel(self, spec, self.GetParent and self:GetParent())
+    if not lvl then return false end
+    for _, mark in ipairs({ self.help, self.close }) do
+      if mark and mark.SetFrameLevel then mark:SetFrameLevel(lvl + 1) end
+    end
+    return true
   end
 end
 
@@ -645,6 +689,13 @@ end
 ---   number      function|nil      number(v, fallback) -- a secret-safe numeric guard.
 ---   labelFont   string|nil        the font object the label is DRAWN in AND measured in.
 ---                                 Defaults to "GameFontNormalSmall".
+---   level       number|nil        minor 5. The handle's frame level as an OFFSET over
+---                                 parent:GetFrameLevel(), applied at birth before the help and
+---                                 close marks are built, so the marks are born at handle + 1. nil
+---                                 keeps minor 4's implicit parent + 1. See handle:ApplyLevel().
+---   ignoreParentAlpha boolean|nil minor 5. true calls SetIgnoreParentAlpha(true) on the handle, so
+---                                 a display that fades its content does not fade the strip a
+---                                 player must find. The marks are its children and follow it.
 --- @return table|nil handle  nil with no parent and nil in a process with no CreateFrame
 function lib.DragHandle(parent, spec)
   spec = spec or {}
@@ -653,6 +704,9 @@ function lib.DragHandle(parent, spec)
   local handle = CreateFrame("Button", spec.name, parent)
   if not (handle and handle.SetHeight) then return nil end
   handle:SetHeight(lib.DRAG_HANDLE.HEIGHT)
+  -- Before anything is built on it: the marks are born at the handle's level + 1.
+  dhLevel(handle, spec, parent)
+  dhParentAlpha(handle, spec)
   dhBuildChrome(handle, spec)
   dhBuildLabel(handle, spec)
 

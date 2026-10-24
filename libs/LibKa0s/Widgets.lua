@@ -1,6 +1,6 @@
 -- LibKa0s-Widgets-1.0 — the collection's flat dropdown, the one popup menu every instance of it
 -- drops, the flat search box a filter bar puts beside it, and the mode strip (test mode or a
--- simulation) a window lays over data that is not the player's (minor 14).
+-- simulation) a window lays over data that is not the player's (minor 15).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT A COPY ──────────────────────────────────────────────────────
 --
@@ -67,7 +67,9 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 14
+-- Minor 15: the shared dropdown menu is clamped to the screen (EnsureMenu), so a dropdown near a
+-- screen edge drops a menu that stays on screen (frame-layering-§4; XS-22).
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -223,6 +225,8 @@ local function EnsureMenu()
   if menu then return menu end
   menu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
   menu:SetFrameStrata("FULLSCREEN_DIALOG")
+  -- Minor 15: a dropdown near the bottom or right edge would otherwise drop rows off the screen.
+  menu:SetClampedToScreen(true)
   menu:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
   menu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
   menu:SetBackdropBorderColor(0, 0, 0, 1)

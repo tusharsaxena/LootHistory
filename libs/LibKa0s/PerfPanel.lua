@@ -11,7 +11,12 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 8
+local PANEL_MINOR = 9
+-- Minor 9: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
+-- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
+local function raisePopups()
+  if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
+end
 -- Paired on the PROBE's minor as well as the panel's own. The panel counter alone is not enough:
 -- two vendored copies can ship the same panel minor over different Perf.lua minors, and then the
 -- higher probe wins the LibStub race while the first-loaded copy's panel stays attached to it —
@@ -184,6 +189,8 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     frame:SetSize(width, height)
     frame:SetPoint("CENTER", -320, 0)
     frame:SetFrameStrata("DIALOG")
+    frame:SetToplevel(true)
+    frame:HookScript("OnShow", raisePopups)
     frame:EnableMouse(true)
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)

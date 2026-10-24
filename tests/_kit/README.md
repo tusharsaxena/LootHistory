@@ -30,6 +30,9 @@ broken in the other twelve.
 | `mock_resize.lua` | A frame's resize surface: `SetResizable` / `IsResizable`, `SetResizeBounds` / `GetResizeBounds`, `StartSizing`, `StopMovingOrSizing` and `SetUserPlaced` / `IsUserPlaced`, recorded, with `StartSizing` and `StartMoving` marking the frame user-placed as the client does; `mock_base.lua` loads it from its own folder (kit revision 33) |
 | `mock_lines.lua` | Line regions: `CreateLine` on every tracked frame answers a distinct, recording Line (`__madeLines` on the frame; both ends, thickness, color and shown state answered back), and any method a Line does not have raises; `mock_base.lua` loads it from its own folder (kit revision 37) |
 | `mock_ids.lua` | Opt-in id lookups, installed on a finished mock |
+| `mock_bindings.lua` | Opt-in binding mock, installed on a finished mock (`dofile("tests/_kit/mock_bindings.lua")(M[, { clientChordHelpers = true }])`): two binding sets and the live tables, `GetBindingKey` (every key, in bind order) / `GetBindingAction` (`""` when free) / `SetBinding` / `SaveBindings` / `LoadBindings` / `GetCurrentBindingSet` / `GetBindingText` / `GetBindingName`, combat refusals recorded in `__bindingRefusals`, a one-shot `__bindingFailNext`, `UPDATE_BINDINGS` fired through `M.__fire` and counted in `__bindingFires`, the client's binding constants and `Enum.BindingSet`, the four modifier reads with `M.setModifiers`, and `M.bindKey` / `M.clearBindings`; fills only names the mock lacks (kit revision 42) |
+| `mock_layers.lua` | Opt-in frame-layer recorder (`local restore = dofile("tests/_kit/mock_layers.lua")(M)`): wraps `M.CreateFrame` so every later frame, and `M.UIParent`, answers strata and level (inherited through parents; `SetParent` drops an explicit level), fixed strata and level, toplevel, clamp, parent alpha, counted `Raise` / `Lower` and `GetParent`, with the survey `M.__layers(frame)`; an unknown strata raises (kit revision 42) |
+| `bindings_xml.lua` | `Kit.assertBindingsXml(path, opts)`, the `launcher-§6` Bindings.xml shape check: comments stripped, every Binding in `opts.category`, no `header=` or `default=`, names equal to `opts.commands` in order (strings or `NS.BINDINGS` records), each `BINDING_NAME_` global a non-empty string (equal to `opts.labels` where given) and the category global the brand; answers the list. Also `Kit.keybindThroughTab(row, slot, key, mods)`, the `options-ui-§20` Keybindings tab driven as a player drives it: a left click on the row's slot, then `key` (with `mods` held through `M.setModifiers`) run through `lib.__keybindListener`'s `OnKeyDown`; answers the row's outcome line. Both published by `Kit.expose`. `framework.lua` loads it from its own folder; nothing else does (kit revision 42) |
 | `vendor_sync.lua` | The consumer-side vendoring gate |
 | `run-automated-tests.sh` | The consolidated automated-test runner |
 | `test_eol.lua` | The line-ending gates, a kit suite |
@@ -43,7 +46,7 @@ broken in the other twelve.
 | `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
 | `README.md` | This file |
 
-They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `mock_record.lua`,
+They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `bindings_xml.lua`, `mock_record.lua`,
 `mock_events.lua`, `mock_resize.lua`, `mock_lines.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua` or
 `lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
 runner's complexity suite is a skip.

@@ -17,7 +17,7 @@ local Kit = {}
 --- cannot answer on its own: *which* kit is a given consumer holding? Before this, "AbsorbTracker's
 --- kit is stale" was only reachable by diffing against this repo at the right commit. Now the
 --- consumer can say so itself, and its API document has a name.
-Kit.VERSION = 41
+Kit.VERSION = 42
 
 -- ── the resource guard (kit revision 23) ───────────────────────────────────────────────────────
 --
@@ -240,6 +240,7 @@ end
 local asserts = dofile(kitFolder() .. "asserts.lua")(Kit)
 dofile(kitFolder() .. "secrets.lua")(Kit)   -- Kit.secret and its siblings (kit revision 38)
 dofile(kitFolder() .. "latch.lua")(Kit)     -- Kit.assertLatchHoldOrder (kit revision 39)
+dofile(kitFolder() .. "bindings_xml.lua")(Kit)   -- Kit.assertBindingsXml, Kit.keybindThroughTab (kit revision 42)
 local fail = asserts.fail
 
 --- Merge the registry and assertions into the host's `_G.<X>_TEST` table and return it, so a repo
@@ -263,6 +264,8 @@ function Kit.expose(t)
   t.publicMembers        = Kit.publicMembers
   t.setSurfaceSource     = Kit.setSurfaceSource
   t.assertLatchHoldOrder = Kit.assertLatchHoldOrder
+  t.assertBindingsXml    = Kit.assertBindingsXml
+  t.keybindThroughTab    = Kit.keybindThroughTab
 
   -- The by-name form needs somewhere to look, and every harness in this collection that stubs a
   -- LIBRARY TABLE already has it: the mock it just built. Wired here rather than demanded of the
@@ -271,6 +274,8 @@ function Kit.expose(t)
   -- same LibStub is always recorded as `assertLibraryConstant`'s fallback, since such a repo's
   -- source answers an instance, and a lib-level constant is not on it.
   local mock = t.mocks or t.mock
+  -- Kit.keybindThroughTab reads the harness's mock for M.setModifiers and LibStub (revision 42).
+  if type(mock) == "table" then Kit.__exposedMock = mock end
   local ls = t.LibStub or (type(mock) == "table" and mock.LibStub) or nil
   if ls then asserts.setLibraryFallback(ls) end
   if ls and asserts.surfaceSource() == nil then Kit.setSurfaceSource(ls) end

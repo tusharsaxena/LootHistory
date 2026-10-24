@@ -26,7 +26,9 @@ if not lib then return end
 -- Minor 1: the id surface's resolution, suggestions and input, moved here from OptionsWidgets.lua
 -- (issue #32) with no change in behavior.
 -- Minor 2: a refused host callback is named "id list change", for the shell's Cfg line (gap G3).
-local IDS_MINOR = 2
+-- Minor 3: O.__closeOwnedSuggest, which OptionsCombat.lua's O.__releaseOwnedFocus calls at the
+-- start of combat, closes a suggestion list one of the instance's pages opened (BAN-S11).
+local IDS_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idsMinor and lib.__idsMinor >= IDS_MINOR
@@ -927,6 +929,20 @@ function lib.__AttachIds(O, w)
     if suggest.owner ~= parts then return end
     suggest.owner = nil
     if suggest.frame then suggest.frame:Hide() end
+  end
+
+  --- At the start of combat (OptionsCombat.lua's O.__releaseOwnedFocus, minor 3), close the list
+  --- when the box that owns it sits under one of `panels` (the instance's pages). The list is
+  --- parented to UIParent, so the cover over a page cannot reach it, and a pick from it in combat
+  --- would be refused by the write seam anyway. A box under none of them is not this release's: its
+  --- list is left alone. Leaving combat reopens nothing; the box's next keystroke does.
+  function O.__closeOwnedSuggest(panels)
+    local owner = suggest.owner
+    local frame = owner and owner.edit and owner.edit.frame
+    if not frame or type(lib.__descendsFrom) ~= "function" then return end
+    for _, ctx in ipairs(panels or {}) do
+      if lib.__descendsFrom(frame, ctx.panel) then return closeSuggest(owner) end
+    end
   end
 
   --- The id a picked row adds: a based host kind's own `resolve` is asked about it first, as its

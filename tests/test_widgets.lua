@@ -136,7 +136,10 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- strip.kind. No member is added, and Dropdown, CloseMenu, CopyWindow, ReorderList, SearchBox and
   -- every existing TestStrip call are unchanged. Nothing to change on the re-vendor; the sim strip
   -- is adopted in its own commit (LH-10).
-  assertEqual(lib.MODULES.Widgets, 14, "this adoption is written against Widgets minor 14")
+  --
+  -- Minor 15 (LibKa0s v1.77.0, docs/api/Widgets/version-15.1.5.3.3-docs.md) clamps the dropdown
+  -- menu to the screen (frame-layering-§4). No member or opts field moves; nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 15, "this adoption is written against Widgets minor 15")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

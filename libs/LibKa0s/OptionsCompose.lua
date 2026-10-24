@@ -26,7 +26,9 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 7
+local COMPOSE_MINOR = 8
+-- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
+-- (frame-layering-§1, options-ui-§16).
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -54,6 +56,43 @@ local MASTER_GROUP = "Master controls"
 -- something untrue (options-ui-§17, anti-patterns #74).
 local CLASS_COLOR_NOTE =
   "Not read while Use class color is on, except for its opacity, which always applies."
+
+-- What a player strata row's tooltip says, in three parts (frame-layering-§1, player-chosen
+-- strata). Written once here so no host restates the tiers: BASE always, DIALOG when the row offers
+-- Dialog or above, POPUP when it offers Fullscreen Dialog or Tooltip. ASCII only, and US English.
+local STRATA_TEXT = {
+  BASE   = "The layer this frame draws in. Background and Low draw under most of the interface, Medium is the default for displays, and High draws over other windows, in the same layer as the game's Settings window.",
+  DIALOG = " Dialog and above also cover confirmation dialogs, this addon's debug console and the Settings window, so a frame placed there can hide them.",
+  POPUP  = " Fullscreen Dialog and Tooltip can also cover dropdown menus and tooltips.",
+}
+
+-- The offered strata that earn each appended part. DIALOG and above for the DIALOG sentence; the
+-- two that also cover dropdown menus and tooltips for the POPUP one.
+local STRATA_DIALOG_UP = { DIALOG = true, FULLSCREEN = true, FULLSCREEN_DIALOG = true, TOOLTIP = true }
+local STRATA_POPUP_UP  = { FULLSCREEN_DIALOG = true, TOOLTIP = true }
+
+--- The strata keys a row offers: the strings of an array, or the keys of a map such as a dropdown's
+--- `{ DIALOG = "Dialog", ... }`. A non-table offers none.
+local function offeredStrata(values)
+  local offered = {}
+  if type(values) ~= "table" then return offered end
+  for k, v in pairs(values) do
+    if type(k) == "number" then
+      if type(v) == "string" then offered[v] = true end
+    else
+      offered[k] = true
+    end
+  end
+  return offered
+end
+
+--- True when any key of `set` is in `offered`.
+local function offersAny(offered, set)
+  for key in pairs(set) do
+    if offered[key] then return true end
+  end
+  return false
+end
 
 -- The font flag combinations the client accepts, and the order they are offered in. A key map plus
 -- an explicit `sorting`, which is the shape the flow engine and the CLI parser both already read;
@@ -281,6 +320,31 @@ function lib.__AttachCompose(O, d)
   O.VISIBILITY_SORT    = VISIBILITY_SORT
   O.MASTER_GROUP       = MASTER_GROUP
   O.CLASS_COLOR_NOTE   = CLASS_COLOR_NOTE
+
+  --- The one tooltip a player strata row carries (frame-layering-§1, player-chosen strata: a MUST
+  --- for every such row; options-ui-§16). Since compose minor 8.
+  ---
+  --- `values` is the row's own value table: an array of strata keys, or the dropdown's map keyed by
+  --- strata key. Returns one string: BASE always; DIALOG appended when the row offers DIALOG,
+  --- FULLSCREEN, FULLSCREEN_DIALOG or TOOLTIP; POPUP appended when it offers FULLSCREEN_DIALOG or
+  --- TOOLTIP. A non-table offers nothing and answers BASE alone.
+  ---
+  --- `strings` (optional `{ BASE =, DIALOG =, POPUP = }`) overrides each part. The library carries
+  --- no locale, so a host with one passes its own L's three strings through here. No value set is
+  --- published: each knob keeps the values it stores, because changing a stored value set is a
+  --- migration, not a tooltip.
+  function O.StrataTooltip(values, strings)
+    local S = type(strings) == "table" and strings or EMPTY
+    local offered = offeredStrata(values)
+    local text = S.BASE or STRATA_TEXT.BASE
+    if offersAny(offered, STRATA_DIALOG_UP) then
+      text = text .. (S.DIALOG or STRATA_TEXT.DIALOG)
+    end
+    if offersAny(offered, STRATA_POPUP_UP) then
+      text = text .. (S.POPUP or STRATA_TEXT.POPUP)
+    end
+    return text
+  end
 
   --- A color swatch and its "use class color" companion, as exactly two adjacent rows
   --- (options-ui-§17). The primitive the three group composers below are built out of, and the one

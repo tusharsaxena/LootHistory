@@ -119,6 +119,18 @@ if not lib then
     -- NavRail, new at LibKa0s v1.61.0 (OptionsNav minor 1): drawn only by a page render, and no
     -- page here draws a rail, so the same inert no-op applies.
     NavRail = noop,
+    -- The Keybindings tab (LibKa0s v1.77.0, OptionsKeybinds minor 2; options-ui-§20). On this path
+    -- RenderTabbedSchema answers no tabs and EnsureScroll answers nil, so the entry is inert and
+    -- KeybindRows answers nil, which is what the live one answers when it cannot draw.
+    -- KEYBINDS_UNCHANGED is a STRING on the live instance (the Defaults tooltip's closing sentence).
+    KeybindingsTab = function(spec)
+      return { key = (spec and spec.key) or "Keybindings", label = "Keybindings", render = noop }
+    end,
+    KeybindRows = function() return nil end,
+    KEYBINDS_UNCHANGED = "Key bindings are not changed.",
+    -- O.StrataTooltip (LibKa0s v1.77.0, OptionsCompose minor 8): pure on the live instance and
+    -- answers a string, so the stub answers an empty one; no panel row reads it on this path.
+    StrataTooltip = function() return "" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
