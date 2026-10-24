@@ -1077,7 +1077,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (72)
+### test_schema.lua (73)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1151,6 +1151,7 @@ Total.
 - Schema: the stored settings (path, type, default, range) are the pinned set
 - Schema: the Capture tooltips name the controls a player can find (item 020)
 - Schema: Interface and History read as item 020 laid them out
+- Schema: Test mode keeps the composed tooltip and appends the host's note (item 020)
 
 ### test_schema_stub.lua (9)
 
@@ -1493,7 +1494,7 @@ Total.
 - AH table: every provider present and nothing captured
 - AH table: no provider present
 
-### test_panel_keybinds.lua (6)
+### test_panel_keybinds.lua (7)
 
 - Keybindings tab: the General strip ends in Keybindings, the library's own entry
 - Keybindings tab: its rows are NS.BINDINGS in order, labeled with the BINDING_NAME_ text
@@ -1501,6 +1502,7 @@ Total.
 - Keybindings tab: a key set outside the tab (SetBinding) shows in it after UPDATE_BINDINGS
 - Keybindings tab: in combat the tab refuses, and no key is written
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
+- Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
 ### test_profiles.lua (31)
 
@@ -1994,7 +1996,7 @@ Total.
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 72 |
+| test_schema.lua | 73 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |
@@ -2007,7 +2009,7 @@ Total.
 | test_panel.lua | 47 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
-| test_panel_keybinds.lua | 6 |
+| test_panel_keybinds.lua | 7 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 36 |
@@ -2035,4 +2037,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1725** |
+| **Total** | **1727** |

@@ -1142,12 +1142,14 @@ function P:Register()
   -- folded them into General's strip; their bodies are unchanged and their two registrations are
   -- gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
-    -- The Defaults tooltip ends with O.KEYBINDS_UNCHANGED (options-ui-§20): the reset is the active
-    -- profile's, and a key is the client's, never a setting this addon stores.
+    -- The Defaults button IS options-ui-§12's global reset (P:RestoreDefaults -> CliResetAll), so
+    -- its tooltip is Reset all settings' own, read from the descriptor by O.ResetAllTooltip exactly
+    -- as the composed button reads it (U-04; item 020, LOO-L-new4), and no host words sit around
+    -- it. O.KEYBINDS_UNCHANGED follows (options-ui-§20): the reset is the active profile's, and a
+    -- key is the client's, never a setting this addon stores.
     local ctx = O.CreatePanel(nil, "General", {
       pageKey = "General", defaultsButton = true,
-      defaultsTooltip = NS.L["Puts every setting in the active profile back to its default, as Reset all settings does."]
-        .. " " .. O.KEYBINDS_UNCHANGED,
+      defaultsTooltip = O.ResetAllTooltip(O.KEYBINDS_UNCHANGED),
     })
     P.general = ctx
     ctx.rebuilders = {}

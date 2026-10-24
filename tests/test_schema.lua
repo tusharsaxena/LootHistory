@@ -140,8 +140,10 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
     assertEqual(S:Default("state.testMode"), false)
     assertTrue(type(row.get) == "function" and type(row.set) == "function",
       "the host binds get/set, as it does for the console row")
-    assertTrue(type(row.tooltip) == "string" and row.tooltip:find("/lh test", 1, true) ~= nil,
-      "the tooltip is this addon's own, not the composer's generic one: " .. tostring(row.tooltip))
+    -- The composer's words, then this addon's note through MasterControls `notes` (item 020,
+    -- LOO-L19): a host never replaces a composed tooltip (XC-04).
+    assertTrue(type(row.tooltip) == "string" and row.tooltip:find("History, Insights, Holdings and "
+      .. "Timeline.", 1, true) ~= nil, "the composed tooltip carries the host's note: " .. tostring(row.tooltip))
   end)
 
 test("Schema: Test mode is never written to the store, and ships no stored default", function()
@@ -1308,4 +1310,14 @@ test("Schema: Interface and History read as item 020 laid them out", function()
   local keep = row("settings.retentionDays").tooltip
   assertTrue(keep:find("'Always' keeps everything", 1, true) ~= nil, "the tooltip names the Always option")
   assertTrue(keep:find("'Never'", 1, true) == nil, "the tooltip names an option the dropdown lacks")
+end)
+
+test("Schema: Test mode keeps the composed tooltip and appends the host's note (item 020)", function()
+  -- LOO-L19 (XC-04, U-01): the composer is the only writer of a Master controls row's words; the
+  -- host extends them only through MasterControls' `notes`. The stamp no longer overrides it.
+  -- red under: a host `tooltip` stamped onto state.testMode again.
+  local tip = NS.Schema:FindRow("state.testMode").tooltip
+  assertEqual(tip, "Show placeholder content, so the display can be seen and placed without waiting "
+    .. "for the real thing. It fills every tab of the History window: History, Insights, Holdings and "
+    .. "Timeline.")
 end)

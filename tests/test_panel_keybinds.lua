@@ -142,3 +142,13 @@ test("Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_
   local tail = NS.Options.KEYBINDS_UNCHANGED
   assertEqual(tip:sub(-#tail), tail, "it ends with the library's sentence: " .. tostring(tip))
 end)
+
+test("Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)",
+  function()
+    -- LOO-L-new4 (U-04, options-ui-§12): the header Defaults IS the global reset, so it reads the
+    -- reset's words from O.ResetAllTooltip -- the same descriptor read the composed button makes --
+    -- with O.KEYBINDS_UNCHANGED after it, and no host wording around the member.
+    -- red under: a host-written lead in front of the library's text, or the two tooltips drifting.
+    local O = NS.Options
+    assertEqual(NS.Panel.general.panel.defaultsTooltip, O.ResetAllTooltip(O.KEYBINDS_UNCHANGED))
+  end)

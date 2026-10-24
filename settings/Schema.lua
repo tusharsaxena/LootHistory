@@ -82,6 +82,14 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- a session-only `Test mode` checkbox on its own line below Lock frame / Debug console
   -- (options-ui-§15, preview-mode; LibKa0s compose minor 6). Verbatim, like the console path.
   testModePath     = "state.testMode",
+  -- THE HOST'S ONE SENTENCE AFTER THE COMPOSED WORDS (compose minor 9, options-ui-§15; item 020,
+  -- LOO-L19). The composer is the only writer of a Master controls row's label and tooltip; the
+  -- canonical Test mode text is generic, and `notes` is how this addon says what its test mode
+  -- fills. It replaced a host `tooltip` stamped over the composed one, which is the drift XC-04
+  -- names.
+  notes = {
+    testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline.",
+  },
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
   -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
@@ -245,9 +253,7 @@ stamp(MASTER_ROWS, {
   -- refused start (window not allowed on screen, or in combat) redraws the box unticked.
   ["state.testMode"] = {
     widget = "CheckBox",
-    tooltip = "Fill the History window and Insights with a sample loot history, so you can see "
-      .. "and place the window before you have loot of your own. Never saved. Combat ends it. "
-      .. "The same as /lh test.",
+    -- No `tooltip` here: the words are the composer's, with the host note passed above.
     get = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
     set = function(v)
       local BT = NS.BrowserTable
