@@ -954,7 +954,8 @@ AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 -- held the setting they wanted, and one of the three (AH Price) drew no strip at all.
 --
 -- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
--- six tabs hold no schema rows to partition. RenderTabbedSchema derives its tab list from `group`,
+-- seven tabs (Filters and the library's Keybindings) hold no schema rows to partition.
+-- RenderTabbedSchema derives its tab list from `group`,
 -- which is exactly right for a page whose every section is rows — and cannot name a tab whose body
 -- is a dynamic list of item ids. So the tab list is declared here, each entry is either a schema
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)

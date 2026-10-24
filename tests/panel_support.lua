@@ -98,9 +98,10 @@ end
 -- The strip, in order. Stated here rather than derived from the thing the assertion reads, so a tab
 -- that moves is a NAMED failure rather than a shorter list that still agrees with itself.
 --
--- Six tabs, five of them schema groups and one of them a bespoke body — which is why the page draws
--- its strip by hand instead of through O.RenderTabbedSchema: that one derives its tab list from
--- `group`, and a dynamic list of item ids has no rows to declare one.
+-- Seven tabs, five of them schema groups and two of them bodies with no rows (Filters' and the
+-- library's Keybindings) — which is why the page draws its strip by hand instead of through
+-- O.RenderTabbedSchema: that one derives its tab list from `group`, and neither body has rows to
+-- declare one.
 --
 -- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH Price
 -- — Master controls, Capture, Interface, History, Filters. The two addons keep the same shape of

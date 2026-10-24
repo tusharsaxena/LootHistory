@@ -934,8 +934,8 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
     local ctx = NS.Panel.general
     show(mocks.__subcategories["General"])
 
-    -- Force a real wrap. Six tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
-    -- the strip lays out in two rows — one row would make "every row's y offset" a claim about a
+    -- Force a real wrap. Seven tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
+    -- the strip lays out in three rows — one row would make "every row's y offset" a claim about a
     -- single number and the case would pass on a strip that never wrapped at all.
     local chromeW = ctx.chrome:GetWidth()
     ctx.chrome:SetWidth(200)

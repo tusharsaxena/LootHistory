@@ -216,12 +216,13 @@ Exclude quest items alone, then the full-width **Record data from** grid. **AH P
 Enable AH pricing, *Price sources*, the eleven-row table. **Interface**: Window scale | Row height.
 **History**: Keep history for, then the storage readout | **Purge history…**. Result: pass (owner-marked 2026-10-10)
 
-**PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all six tabs three
+**PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all seven tabs three
 times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
 tab shows its own label, the pressed tab is the selected one, and the band height does not move;
 the AH Price rows are intact after the third pass. Fail: a label carried over from the previous
 tab, a highlight on the wrong button, a body under the wrong tab, or a band that changes height.
-(The headless case measures a mock that answers 0 for every height.) Result: pass (owner-marked 2026-10-10)
+(The headless case measures a mock that answers 0 for every height.) (Procedure amended by LH-KB,
+2026-10-24: seven tabs with Keybindings; the 2026-10-10 pass covered six.) Result:
 
 **PANEL-7. Master scale and alpha.** Drag **Master scale** → the History window and the export window
 both resize, and **Window scale** (Interface) still multiplies on top; drag **Master alpha** → both
