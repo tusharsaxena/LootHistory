@@ -91,10 +91,22 @@ toggleButton:SetScript("OnClick", function()
   runVerb("toggle")
 end)
 
--- The Key Bindings page's labels: the header row (the brand, as the launcher's broker label) and
--- the binding's own row. The second name carries a space and a colon, so it is set through rawset.
+-- The labels Options -> Keybindings shows (launcher-§6, standard v2.88.0). Every <Binding> in
+-- Bindings.xml sits in category BINDING_HEADER_LOOTHISTORY and carries no header=, so the client
+-- gives this addon a section of its own titled with this global: the brand, as the launcher's broker
+-- label, assigned at file scope because the client reads it at registration. The row says what it
+-- toggles and no brand, since the section title carries it. Its name holds a space and a colon, so
+-- it is set through rawset. A key is stored against the binding's NAME, so the move out of the
+-- shared ADDONS category unbound nobody's key.
 BINDING_HEADER_LOOTHISTORY = NS.BRAND
-rawset(_G, "BINDING_NAME_CLICK LootHistoryToggleWindow:LeftButton", NS.L["Toggle Loot History window"])
+rawset(_G, "BINDING_NAME_CLICK LootHistoryToggleWindow:LeftButton", NS.L["Toggle history browser"])
+
+-- The ONE bindings table (launcher-§6): Bindings.xml order, Show window first. The General page's
+-- Keybindings tab (settings/Panel.lua, O.KeybindingsTab; options-ui-§20) draws one row per entry, and
+-- tests/test_keybinding.lua checks it against Bindings.xml through Kit.assertBindingsXml.
+NS.BINDINGS = {
+  { command = "CLICK LootHistoryToggleWindow:LeftButton", tooltip = NS.L["Shows or hides the history browser."] },
+}
 
 if not Launcher then
   -- Degrade by ABSENCE, which is this seam's shape rather than the stub table every other

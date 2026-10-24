@@ -28,7 +28,7 @@ free number in its theme.
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
-| LAUNCH-1 to 14 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding |
+| LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 13 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
@@ -196,11 +196,14 @@ one row per command; each row uses the chat help's format: single spaces around 
 not white-wrapped, and a white description. Result: pass (owner-marked 2026-10-10)
 
 **PANEL-3. General header and strip.** Open **General** → header `Ka0s Loot History ▸ General`, a
-gold divider under it, a **Defaults** button top-right, and six tabs: Master controls, Capture, AH
-Price, Interface, History, Filters, opening on Master controls; the selected tab cannot be clicked.
-Click each: no section heading appears, except AH Price's **Pricing** (above the toggle) and **Price
-sources** (above the table) subsection headings. Open **Ka0s Bank Ledger** beside it → the same
-names in the same order, without AH Price. Result: pass (owner-marked 2026-10-10)
+gold divider under it, a **Defaults** button top-right whose tooltip ends *Key bindings are not
+changed.*, and seven tabs: Master controls, Capture, AH Price, Interface, History, Filters,
+Keybindings, opening on Master controls; the selected tab cannot be clicked. Click each: no section
+heading appears, except AH Price's **Pricing** (above the toggle) and **Price sources** (above the
+table) subsection headings. Open **Ka0s Bank Ledger** beside it → the same names in the same order,
+without AH Price (Keybindings last there too once its own tab lands). (Procedure amended by LH-KB,
+2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.)
+Result:
 
 **PANEL-4. Strip wraps without overlap.** Narrow the Settings window until the strip wraps to a
 second row → the first control row still starts below the strip, and rows sit at the same height
@@ -1075,7 +1078,9 @@ stays (a display offers its own per-plugin toggle). Result: pass (owner-marked 2
 
 **LAUNCH-11. The Show window key binding is listed (launcher-§6).** Esc > Options > Keybindings >
 AddOns > Ka0s Loot History lists `Toggle Loot History window` with no key. Bind one and press it
-twice → the History window opens, then closes.
+twice → the History window opens, then closes. (Procedure amended by LH-KB, 2026-10-24: the binding
+now sits in a section of its own, Options -> Keybindings -> Ka0s Loot History, and reads `Toggle
+history browser`; LAUNCH-15 checks that.)
 Result: pass (owner-marked 2026-10-23)
 
 **LAUNCH-12. The key refuses while disabled.** `/lh disable`, press the key → exactly one disabled
@@ -1090,6 +1095,27 @@ Result: pass (owner-marked 2026-10-23)
 **LAUNCH-14. The key works in combat.** In combat, press the key → the History window toggles (it is
 not a secure frame), subject to the **General visibility** setting's own refusal line.
 Result: pass (owner-marked 2026-10-23)
+
+**LAUNCH-15. A Keybindings section of its own (launcher-§6, standard v2.88.0).** Esc > Options >
+Keybindings → a section titled **Ka0s Loot History** (no longer under AddOns) holds one row,
+`Toggle history browser`, and no blank spacer row above or below it. A key bound before this change
+is still bound. (LH-KB; SM-LH-KB1)
+Result:
+
+**LAUNCH-16. The General page's Keybindings tab follows the client's page (options-ui-§20).**
+`/lh config` → General → the last tab is **Keybindings**: the intro line, one row
+`Toggle history browser` with **Key 1**, **Key 2** and **Clear**, then *Saved for: all characters*
+(or *this character only*). Bind a key in Key 1 → Options -> Keybindings -> Ka0s Loot History shows
+it; set Key 2 there → the tab shows it when looked at again. Tick **Character Specific Keybindings**
+and repeat → the set line says *this character only* and both surfaces agree. Untick it again
+afterwards. (LH-KB; SM-LH-KB2)
+Result:
+
+**LAUNCH-17. The tab's key works; Escape cancels; combat refuses (options-ui-§20).** Bind a key on
+the Keybindings tab, close Settings, press it twice → the History window opens, then closes. On the
+tab, click Key 1, press Escape → the capture cancels and Settings stays open. In combat, click Key 1
+or Clear → *Key bindings can be changed after combat.* and no key changes. (LH-KB; SM-LH-KB3)
+Result:
 
 ## Debug console and diagnostics
 
@@ -1871,4 +1897,5 @@ On 2026-10-10 the owner marked every check in this file as passed, recorded on i
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
 
-None.
+- LAUNCH-15, LAUNCH-16, LAUNCH-17 (LH-KB, 2026-10-24: the Keybindings section and tab).
+- PANEL-3 (procedure amended by LH-KB, 2026-10-24: the strip is seven tabs, Keybindings last).

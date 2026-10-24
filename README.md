@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1703%2F1703_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1710%2F1710_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -51,7 +51,7 @@ There's nothing to set up. Install it, log in, and it's already recording. At fi
 
 Reading back your loot happens in the History window, in this order:
 
-- Open the window. Right-click the minimap button and tick **Show window**, type `/lh toggle`, or press a key you bind to **Toggle Loot History window** (Key Bindings > AddOns > Ka0s Loot History; it has no key until you pick one). A left-click on the button opens the settings instead. The window has four tabs: History, a table of every item you've recorded, Insights, Timeline and Holdings.
+- Open the window. Right-click the minimap button and tick **Show window**, type `/lh toggle`, or press a key you bind to **Toggle history browser**. Set it in Options -> Keybindings -> Ka0s Loot History, or on the Keybindings tab of General in this addon's settings; it has no key until you pick one. A left-click on the button opens the settings instead. The window has four tabs: History, a table of every item you've recorded, Insights, Timeline and Holdings.
 - Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. Each tab (History, Insights, Timeline, Holdings) keeps its own filters. **Save** keeps the current tab's view as its default, **Clear** goes back to that saved view, and **Reset** forgets it and returns the tab to stock. Sorting and filters only carry over to your next session if you pressed Save.
 - Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
 - Open the Timeline. It charts one thing at a time (gold, a currency or an item) over time: a thick Total line plus a line per character or the Warband, with daily gained and lost bars underneath. Type in the search box to pick what to chart, and hover for the day's numbers. Right-click a History or Holdings row and choose **Show in Timeline** to jump straight to it. The Timeline starts at the upgrade; there is nothing to chart before it. **Keep Timeline days for** in Settings controls how long the daily balances are kept.

@@ -109,6 +109,10 @@ end
 -- alone, sits directly after Capture.
 local STRIP = {
   "Master controls", "Capture", "AH Price", "Interface", "History", "Filters",
+  -- options-ui-§20: the LAST tab of every General page whose addon ships a key binding. The
+  -- library draws it (O.KeybindingsTab); it is not a schema group and not shared with Bank Ledger's
+  -- order above, which it follows.
+  "Keybindings",
 }
 
 --- The strip position of a named tab, so a case can say WHICH tab it means and still click by

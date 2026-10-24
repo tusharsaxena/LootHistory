@@ -20,7 +20,12 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 --   "Shows: sample loot, holdings and timeline"                      ...and its two lines
 --   "Ended by: combat, /lh test, the launcher menu"
 -- and the Show window key binding (core/LauncherSetup.lua, core/LifecycleSetup.lua; launcher-§6) --
---   "Toggle Loot History window"                  the binding's row on the Key Bindings page
+--   "Toggle history browser"                      the binding's row in Options -> Keybindings and
+--                                                 the General page's Keybindings tab
+--   "Shows or hides the history browser."         that row's tooltip in the Keybindings tab (NS.BINDINGS)
+-- and the General page's Defaults tooltip (settings/Panel.lua; options-ui-§20), followed there by
+-- the library's O.KEYBINDS_UNCHANGED --
+--   "Puts every setting in the active profile back to its default, as Reset all settings does."
 --   "Not available during a performance capture."  NS.RefusalLine's answer under the perf hold
 
 -- ── the disabled refusal is NOT one of them, and that is the rule rather than an omission ─────

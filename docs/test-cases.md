@@ -962,9 +962,10 @@ Total.
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_keybinding.lua (6)
+### test_keybinding.lua (7)
 
-- keybinding: Bindings.xml parses, names CLICK LootHistoryToggleWindow:LeftButton under header LOOTHISTORY, category ADDONS, no default attribute
+- keybinding: Bindings.xml has the launcher-§6 shape: one CLICK LootHistoryToggleWindow:LeftButton in category BINDING_HEADER_LOOTHISTORY, no header, no default, labeled
+- keybinding: NS.BINDINGS is one table, Bindings.xml order, Show window first, each with a tooltip
 - keybinding: Bindings.xml is not listed in LootHistory.toc
 - keybinding: the button exists, is named, is not secure, registers AnyDown
 - keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set
@@ -1474,6 +1475,15 @@ Total.
 - AH table: every provider present and nothing captured
 - AH table: no provider present
 
+### test_panel_keybinds.lua (6)
+
+- Keybindings tab: the General strip ends in Keybindings, the library's own entry
+- Keybindings tab: its rows are NS.BINDINGS in order, labeled with the BINDING_NAME_ text
+- Keybindings tab: a key bound through the tab is the client's key (GetBindingKey)
+- Keybindings tab: a key set outside the tab (SetBinding) shows in it after UPDATE_BINDINGS
+- Keybindings tab: in combat the tab refuses, and no key is written
+- Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -1961,7 +1971,7 @@ Total.
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
 | test_launcher.lua | 22 |
-| test_keybinding.lua | 6 |
+| test_keybinding.lua | 7 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
@@ -1978,6 +1988,7 @@ Total.
 | test_panel.lua | 45 |
 | test_panel_filters.lua | 20 |
 | test_panel_auction.lua | 3 |
+| test_panel_keybinds.lua | 6 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 36 |
@@ -2005,4 +2016,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1703** |
+| **Total** | **1710** |

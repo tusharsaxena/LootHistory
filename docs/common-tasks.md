@@ -296,7 +296,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Options UI: Blizzard canvas, never AceConfigDialog
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
-  plus **one** `RegisterCanvasLayoutSubcategory` body — General, a six-tab strip — built lazily from
+  plus **one** `RegisterCanvasLayoutSubcategory` body — General, a seven-tab strip — built lazily from
   raw AceGUI widgets. There were three sub-pages until R6 folded Filters and AH Price into tabs. The
   canvas shell, the page registry, the lazy Defaults button, the five widget makers, the two-column
   flow engine and the schema composers are LibKa0s-Options-1.0's, wired in

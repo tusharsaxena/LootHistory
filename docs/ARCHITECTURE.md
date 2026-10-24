@@ -81,8 +81,9 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
-Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
+Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose seven tabs are
+Master controls, Capture, AH Price, Interface, History, Filters and Keybindings, the last two holding
+no rows (Keybindings is the library's, options-ui-§20).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -157,7 +158,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 
 ### The Show window key binding
 
-The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, under the `LOOTHISTORY` header in the `ADDONS` category with no default key (launcher-§6, anti-pattern #96): the player finds **Toggle Loot History window** under Key Bindings > AddOns > Ka0s Loot History. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
+The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, in the addon's own category `BINDING_HEADER_LOOTHISTORY` with no `header` and no default key (launcher-§6, anti-pattern #96): the player finds **Toggle history browser** in Options -> Keybindings -> Ka0s Loot History, a section of its own titled with the brand, and on the General page's **Keybindings** tab, which the library draws from `NS.BINDINGS` (`O.KeybindingsTab`, options-ui-§20). `NS.BINDINGS`, the one bindings table, is declared beside the button; `tests/test_keybinding.lua` checks it against `Bindings.xml` through `Kit.assertBindingsXml`. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
 
 ---
 

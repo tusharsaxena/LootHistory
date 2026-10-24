@@ -4,7 +4,8 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 -- ── The Show window key binding (launcher-§6, anti-pattern #96, LibKa0s#58) ────────────────────
 --
--- A root Bindings.xml declares ONE binding, `CLICK LootHistoryToggleWindow:LeftButton`, and the
+-- A root Bindings.xml declares ONE binding, `CLICK LootHistoryToggleWindow:LeftButton`, in the
+-- addon's own category `BINDING_HEADER_LOOTHISTORY` (standard v2.88.0), and the
 -- client fires it by clicking the button of that global name. So the contract is two halves that
 -- must agree by NAME: the XML, which the client reads on its own (it is never a TOC line), and the
 -- plain button core/LauncherSetup.lua creates at load. The button's click is the launcher's own
@@ -22,24 +23,42 @@ local function readBindings()
   return text
 end
 
-test("keybinding: Bindings.xml parses, names CLICK LootHistoryToggleWindow:LeftButton under header "
-  .. "LOOTHISTORY, category ADDONS, no default attribute", function()
-  -- red under: a renamed button (the binding then clicks nothing and raises nothing), a header the
-  -- BINDING_HEADER_ global does not label, a `default` key that would take a key from the player,
-  -- or Lua inside the binding (the click IS the action; a body would be a second handler).
+test("keybinding: Bindings.xml has the launcher-§6 shape: one CLICK LootHistoryToggleWindow:LeftButton "
+  .. "in category BINDING_HEADER_LOOTHISTORY, no header, no default, labeled", function()
+  -- The kit's shared check (Kit.assertBindingsXml, kit revision 42): every <Binding> carries
+  -- category="BINDING_HEADER_LOOTHISTORY" (its own section in Options -> Keybindings, titled with
+  -- the brand) and no header= (a header inside a category draws as a blank spacer row); no default
+  -- key; the names equal NS.BINDINGS' commands in order; each has a BINDING_NAME_ label; and the
+  -- category global is the brand.
+  -- red under: the shared ADDONS category or a header= coming back, a renamed button (the binding
+  -- then clicks nothing and every player's saved key is lost), a `default` key, or NS.BINDINGS and
+  -- the file disagreeing.
+  local list = T.assertBindingsXml("Bindings.xml", {
+    category = "BINDING_HEADER_LOOTHISTORY",
+    commands = NS.BINDINGS,
+    brand    = NS.BRAND,
+    labels   = { [BINDING] = "Toggle history browser" },
+  })
+  assertEqual(#list, 1, "exactly one <Binding>")
+  assertEqual(list[1].name, BINDING, "the binding's name never changes: saved keys survive")
+  -- No Lua in the element: the click IS the action, and a body would be a second handler.
   local text = readBindings()
-  assertTrue(text:match("^%s*<Bindings>") ~= nil, "the file opens with <Bindings>")
-  assertTrue(text:match("</Bindings>%s*$") ~= nil, "the file closes with </Bindings>")
-  local tags = {}
-  for tag in text:gmatch("<Binding%s[^>]*>") do tags[#tags + 1] = tag end
-  assertEqual(#tags, 1, "exactly one <Binding>")
-  local tag = tags[1]
-  assertEqual(tag:match('name="([^"]*)"'), BINDING, "the binding's name")
-  assertEqual(tag:match('header="([^"]*)"'), "LOOTHISTORY", "the binding's header")
-  assertEqual(tag:match('category="([^"]*)"'), "ADDONS", "the binding's category")
-  assertTrue(tag:match("%sdefault%s*=") == nil, "no default key: the player chooses one")
-  assertTrue(tag:match("/>$") ~= nil, "self-closing: the binding carries no Lua")
+  for tag in text:gmatch("<Binding%s[^>]*>") do
+    assertTrue(tag:match("/>$") ~= nil, "self-closing: the binding carries no Lua")
+  end
 end)
+
+test("keybinding: NS.BINDINGS is one table, Bindings.xml order, Show window first, each with a tooltip",
+  function()
+    -- launcher-§6's one bindings table, read by the Keybindings tab (options-ui-§20) and this suite.
+    -- red under: a second list somewhere else, the Show window binding not first, or a row with no
+    -- tooltip (the tab's label would hover blank).
+    assertEqual(type(NS.BINDINGS), "table", "NS.BINDINGS is declared")
+    assertEqual(#NS.BINDINGS, 1, "one binding")
+    assertEqual(NS.BINDINGS[1].command, BINDING, "Show window first")
+    assertEqual(NS.BINDINGS[1].tooltip, NS.L["Shows or hides the history browser."], "its tooltip")
+    assertEqual(NS.BINDINGS[1].tooltip, "Shows or hides the history browser.", "the English")
+  end)
 
 test("keybinding: Bindings.xml is not listed in LootHistory.toc", function()
   -- The client reads a root Bindings.xml by itself; listing it in the TOC loads it a second time as
@@ -67,12 +86,13 @@ end)
 
 test("keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set",
   function()
-    -- The Key Bindings page shows the header and the row by these two globals; unset, it prints
-    -- the raw token.
+    -- Options -> Keybindings titles the section with the category global and the row with the
+    -- BINDING_NAME_ one; unset, it prints the raw token. The row says what it toggles and no brand:
+    -- the section title already carries it (launcher-§6).
     assertEqual(_G.BINDING_HEADER_LOOTHISTORY, NS.BRAND, "the header label is the brand name")
-    assertEqual(rawget(_G, "BINDING_NAME_" .. BINDING), NS.L["Toggle Loot History window"],
+    assertEqual(rawget(_G, "BINDING_NAME_" .. BINDING), NS.L["Toggle history browser"],
       "the binding's row label")
-    assertEqual(rawget(_G, "BINDING_NAME_" .. BINDING), "Toggle Loot History window", "the English")
+    assertEqual(rawget(_G, "BINDING_NAME_" .. BINDING), "Toggle history browser", "the English")
   end)
 
 test("keybinding: one press toggles once (open then close) through the toggle verb", function()

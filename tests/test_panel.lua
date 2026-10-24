@@ -332,6 +332,8 @@ local SUBGROUPS = {
   -- Master controls with the launcher adoption, and drew none while every row was about the window.
   ["Interface"]       = { "Window", "Simulator" },
   ["History"]         = {},
+  -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
+  ["Keybindings"]     = {},
 }
 
 test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS",

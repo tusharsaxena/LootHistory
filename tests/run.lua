@@ -77,6 +77,8 @@ local SUITES = {
   "test_keybinding",
   "test_slash", "test_slash_degraded", "test_resetprompt",
   "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
+  -- The General page's Keybindings tab (options-ui-§20). After the panel suites, which build the page.
+  "test_panel_keybinds",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

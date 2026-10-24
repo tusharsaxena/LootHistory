@@ -979,6 +979,16 @@ local GENERAL_TABS = {
   { key = FILTERS_TAB, build = buildFiltersTab },
 }
 
+-- options-ui-§20: the Keybindings tab, LAST, after every other tab. The library's own entry
+-- (O.KeybindingsTab): its key, its label and tooltip, and its render, which draws the rows of
+-- NS.BINDINGS (core/LauncherSetup.lua) through O.KeybindRows. Nothing here draws a row or holds a key:
+-- both surfaces, this tab and Options -> Keybindings, read and write the client's one store. On the
+-- degraded path the stub's entry draws nothing, and the tab is still there.
+do
+  local kb = O.KeybindingsTab({ bindings = NS.BINDINGS })
+  GENERAL_TABS[#GENERAL_TABS + 1] = { key = kb.key, label = kb.label, tooltip = kb.tooltip, build = kb.render }
+end
+
 --- The rows of one schema group, in declaration order.
 local function rowsOfGroup(group)
   local out = {}
@@ -1023,7 +1033,9 @@ local function renderGeneral(ctx)
   if not known then ctx.activeTab = GENERAL_TABS[1].key end
 
   local tabs = {}
-  for i, tab in ipairs(GENERAL_TABS) do tabs[i] = { key = tab.key, label = tab.key } end
+  for i, tab in ipairs(GENERAL_TABS) do
+    tabs[i] = { key = tab.key, label = tab.label or tab.key, tooltip = tab.tooltip }
+  end
   O.TabStrip(ctx, {
     tabs  = tabs,
     value = ctx.activeTab,
@@ -1093,7 +1105,13 @@ function P:Register()
   -- folded them into General's strip; their bodies are unchanged and their two registrations are
   -- gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
-    local ctx = O.CreatePanel(nil, "General", { pageKey = "General", defaultsButton = true })
+    -- The Defaults tooltip ends with O.KEYBINDS_UNCHANGED (options-ui-§20): the reset is the active
+    -- profile's, and a key is the client's, never a setting this addon stores.
+    local ctx = O.CreatePanel(nil, "General", {
+      pageKey = "General", defaultsButton = true,
+      defaultsTooltip = NS.L["Puts every setting in the active profile back to its default, as Reset all settings does."]
+        .. " " .. O.KEYBINDS_UNCHANGED,
+    })
     P.general = ctx
     ctx.rebuilders = {}
     ctx.panel.defaultsOnClick = function() P:RestoreDefaults() end
