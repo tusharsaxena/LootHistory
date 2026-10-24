@@ -205,7 +205,7 @@ Interface's **History window** and **Simulator**. Open **Ka0s Bank Ledger** besi
 names in the same order, without AH price, Keybindings last. (Procedure amended by LH-KB,
 2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.
 Amended again by LH-LY, 2026-10-24, item 020: Filters third, AH price relabeled, the headings.)
-Result:
+Result: pass (owner, 2026-10-24)
 
 **PANEL-4. Strip wraps without overlap.** Narrow the Settings window until the strip wraps to a
 second row → the first control row still starts below the strip, and rows sit at the same height
@@ -222,7 +222,7 @@ default, then *Simulator*, Simulation step delay (seconds). **History**: Keep hi
 Timeline history for, then the storage readout | **Purge history…**. (Label amended by LH-RV2,
 2026-10-24: LibKa0s OptionsCompose minor 9 renames *Master alpha* to *Master opacity*; the
 2026-10-10 pass saw *Master alpha*. Procedure rewritten by LH-LY, 2026-10-24, item 020: the
-2026-10-10 pass saw the old layout.) Result:
+2026-10-10 pass saw the old layout.) Result: pass (owner, 2026-10-24)
 
 **PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all seven tabs three
 times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
@@ -230,7 +230,7 @@ tab shows its own label, the pressed tab is the selected one, and the band heigh
 the AH price rows are intact after the third pass. Fail: a label carried over from the previous
 tab, a highlight on the wrong button, a body under the wrong tab, or a band that changes height.
 (The headless case measures a mock that answers 0 for every height.) (Procedure amended by LH-KB,
-2026-10-24: seven tabs with Keybindings; the 2026-10-10 pass covered six.) Result:
+2026-10-24: seven tabs with Keybindings; the 2026-10-10 pass covered six.) Result: pass (owner, 2026-10-24)
 
 **PANEL-7. Master scale and opacity.** Drag **Master scale** → the History window and the export window
 both resize, and **Window scale** (Interface) still multiplies on top; drag **Master opacity** (*Master alpha*
@@ -309,7 +309,7 @@ History, Insights, Holdings and Timeline.*; the header **Defaults** reads the sa
 settings**, then *Key bindings are not changed.* `/lh list` → Show transfers is listed under
 `[Interface]` now, and every row prints the value it had. Change two values on different tabs,
 `/reload` → both survive. Fail: a value back at its default, a setting gone or on two tabs, or a
-Lua error. Result:
+Lua error. Result: pass (owner, 2026-10-24)
 
 ## Profiles
 
@@ -841,28 +841,28 @@ autocomplete list (AC-1) still opens under the box. Result: pass (owner-marked 2
 **HIST-38. The row menu closes with its window (LH-ZS, LOO-Z01).** `/lh show`, right-click a History
 row so its menu opens, press **Esc** → the window and the menu both close. Click anywhere in the
 world → the click lands (nothing invisible eats it). Repeat with `/lh hide`, then with the Holdings
-tab's row menu. Result:
+tab's row menu. Result: pass (owner, 2026-10-24)
 
 **HIST-39. One press dismisses the row menu and acts (LH-ZS, LOO-Z02).** Right-click a History row,
 then left-click the **Quality** dropdown → the row menu closes and the Quality menu opens on that
 same click. Right-click a row, then right-click a different row → the menu moves to the second row.
 Right-click a row and pick **Link to chat** → the action still runs. Open **Export** so its copy
 window shows, then right-click a row and click the copy window → the row menu closes and the copy
-window takes the click. Result:
+window takes the click. Result: pass (owner, 2026-10-24)
 
 **HIST-40. The window comes up over Settings (LH-ZS, LOO-Z03).** Open Esc > Options > AddOns > Ka0s
 Loot History, then press the Show window key (or tick **Test mode** on Master controls) → the
 History window opens on top of the Settings panel where the two overlap. Click the Settings panel →
-it comes to the front; click the History window → it is back on top. Result:
+it comes to the front; click the History window → it is back on top. Result: pass (owner, 2026-10-24)
 
 **HIST-41. The Export modal raises on click (LH-ZS, LOO-Z04).** `/lh debug` to open the debug
 console, then open **Export** from the History window and drag the two so they overlap. Click the
 console → it comes to the front; click the Export modal → it is back on top. Both stay over the
-History window, and the copy window opened from Export draws over both. Result:
+History window, and the copy window opened from Export draws over both. Result: pass (owner, 2026-10-24)
 
 **HIST-42. The row menu stays on screen (LH-ZS, LOO-Z08).** Drag the History window down until its
 last rows sit at the bottom edge of the screen and right-click the lowest row → the whole menu is on
-screen (pushed up if needed), on History and on Holdings. Result:
+screen (pushed up if needed), on History and on Holdings. Result: pass (owner, 2026-10-24)
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -992,12 +992,12 @@ description, then the add box and list, then **Clear all…** last. Each descrip
 to future loots only; rows already recorded stay.*, and Blacklist and Whitelist add *An item can be
 on one list only; adding it here takes it off the other.* Leave for another tab and back → the same
 sub-tab; `/reload` → back on Blacklist. (Procedure amended by LH-LY, 2026-10-24, item 020: tab
-position, sub-tab name, Clear all… placement and the closing sentences.) Result:
+position, sub-tab name, Clear all… placement and the closing sentences.) Result: pass (owner, 2026-10-24)
 
 **FILT-2. Blacklist from a row.** In History, right-click a row → **Blacklist item** → the chat line
 `Manage in Settings > General > Filters > Blacklist.` ("blacklisted …"), a gold-bordered popup, and the
 row stays in the table. **Blacklist currency** on a currency row names **> Currency blacklist.**
-(Procedure amended by LH-LY, 2026-10-24, item 020: ASCII " > " and the renamed sub-tab.) Result:
+(Procedure amended by LH-LY, 2026-10-24, item 020: ASCII " > " and the renamed sub-tab.) Result: pass (owner, 2026-10-24)
 
 **FILT-3. The blacklist stops future capture.** Loot the blacklisted item again → no new row (with
 debug on, `[Drop] … reason=blacklist`); its old rows are untouched. Result: pass (owner-marked 2026-10-10)
@@ -1157,7 +1157,7 @@ Result: pass (owner-marked 2026-10-23)
 Keybindings → a section titled **Ka0s Loot History** (no longer under AddOns) holds one row,
 `Toggle history browser`, and no blank spacer row above or below it. A key bound before this change
 is still bound. (LH-KB; SM-LH-KB1)
-Result:
+Result: pass (owner, 2026-10-24)
 
 **LAUNCH-16. The General page's Keybindings tab follows the client's page (options-ui-§20).**
 `/lh config` → General → the last tab is **Keybindings**: the intro line, one row
@@ -1169,14 +1169,14 @@ page. Right-click the button → the key it shows clears and the second key move
 key again on the game's page, then **Clear** → both keys go. Tick **Character Specific Keybindings**
 and repeat → the set line says *this character only* and both surfaces agree. Untick it again
 afterwards. (LH-KB, rewritten by LH-RV3 2026-10-24 for the one key button; SM-LH-KB2, SM-LH-RV3)
-Result:
+Result: pass (owner, 2026-10-24)
 
 **LAUNCH-17. The tab's key works; Escape cancels; combat refuses (options-ui-§20).** Bind a key on
 the Keybindings tab, close Settings, press it twice → the History window opens, then closes. On the
 tab, click the key button, press Escape → the capture cancels and Settings stays open. In combat,
 click the key button or Clear → *Key bindings can be changed after combat.* and no key changes.
 (LH-KB, rewritten by LH-RV3 2026-10-24 for the one key button; SM-LH-KB3, SM-LH-RV3)
-Result:
+Result: pass (owner, 2026-10-24)
 
 ## Debug console and diagnostics
 
@@ -1958,10 +1958,7 @@ On 2026-10-10 the owner marked every check in this file as passed, recorded on i
 keeps it. A check added or rewritten after that date is listed here until its `Result:` line records
 a pass.
 
-- LAUNCH-15, LAUNCH-16, LAUNCH-17 (LH-KB, 2026-10-24: the Keybindings section and tab).
-- LAUNCH-16, LAUNCH-17 (procedure rewritten by LH-RV3, 2026-10-24: one key button and Clear per
-  row, `<key> +1` with a tooltip when the game's page holds a second key; SM-LH-RV3).
-- PANEL-3 (procedure amended by LH-KB, 2026-10-24: the strip is seven tabs, Keybindings last).
-- HIST-38, HIST-39, HIST-40, HIST-41, HIST-42 (LH-ZS, 2026-10-24: frame layering, SM-LH-ZS).
-- PANEL-3, PANEL-5, PANEL-21, FILT-1, FILT-2 (LH-LY, 2026-10-24: the item 020 settings layout,
-  SM-LH-LY).
+On 2026-10-24 the owner reported that every check of the keybindings, settings layout and frame
+layering run passed (LH-KB, LH-RV3, LH-LY and LH-ZS: PANEL-3, PANEL-5, PANEL-6, PANEL-21, HIST-38 to
+HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` line as
+`pass (owner, 2026-10-24)`. No sign-off is owed.
