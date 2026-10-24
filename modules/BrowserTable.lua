@@ -1248,16 +1248,15 @@ function BrowserTable:RowMenuItems(record)
     -- them. Manage the list in Settings ▸ General ▸ Filters ▸ Blacklist.
     { label = "Blacklist item", icon = "ban", enabled = record.itemID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddBlacklist(record.itemID) and NS.Print then
-          NS.Print(("blacklisted %s. Manage in Settings \226\150\184 General \226\150\184 Filters "
-            .. "\226\150\184 Blacklist."):format(
+          NS.Print(("blacklisted %s. Manage in Settings > General > Filters > Blacklist."):format(
             record.itemName or ("item " .. tostring(record.itemID))))
         end
       end },
     -- Blacklist this currency: stop recording future loots of this currency id. Point-in-time.
     { label = "Blacklist currency", icon = "ban", enabled = record.currencyID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddCurrencyBlacklist(record.currencyID) and NS.Print then
-          NS.Print(("blacklisted %s. Manage in Settings \226\150\184 General \226\150\184 Filters "
-            .. "\226\150\184 Currencies."):format(
+          NS.Print(("blacklisted %s. Manage in Settings > General > Filters > Currency "
+            .. "blacklist."):format(
             record.itemName or ("currency " .. tostring(record.currencyID))))
         end
       end },

@@ -202,9 +202,10 @@ end
 
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page, three TABS (item blacklist, item whitelist, currency blacklist), one on screen.
--- Each: a short description, a confirm-gated Clear all, then one LibKa0s-Options IdList: an add box
--- (an id, a shift-clicked link, or a name, with matching names listed as the player types) over one
--- line per stored id with Remove. The lists are core app logic and act point-in-time: blacklisted ids are
+-- Each: a short description, then one LibKa0s-Options IdList -- an add box (an id, a shift-clicked
+-- link, or a name, with matching names listed as the player types) over one line per stored id with
+-- Remove -- then a confirm-gated Clear all… LAST, the shape Ka0s Bank Ledger's Filters tab shares
+-- (item 020, XC-26). The lists are core app logic and act point-in-time: blacklisted ids are
 -- dropped at loot time and whitelisted ids are always recorded — neither list ever hides or
 -- restores an already-stored row.
 --
@@ -270,13 +271,15 @@ local function filterCandidates(tab)
   return out
 end
 
--- Bulk "Clear all" for one list (confirm-gated). The list repaints itself through the
--- HistoryChanged listener Filters:ClearList fires, so the button only shows the popup.
+-- Bulk "Clear all…" for one list (confirm-gated; the ellipsis says it opens a dialog, XC-17). The
+-- list repaints itself through the HistoryChanged listener Filters:ClearList fires, so the button
+-- only shows the popup. Drawn AFTER the IdList (item 020, LOO-L-new2): the list is what the tab is
+-- for, and the destructive bulk act closes it rather than standing between the reader and it.
 local function addClearAll(scroll, tab)
   local clearRow = NS.AceGUI:Create("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
   local clearBtn = NS.AceGUI:Create("Button")
-  clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
+  clearBtn:SetText("Clear all\226\128\166"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
     if type(StaticPopup_Show) == "function" then
       StaticPopup_Show(tab.popup)
@@ -285,11 +288,11 @@ local function addClearAll(scroll, tab)
     end
   end)
   clearRow:AddChild(clearBtn)
+  O.AddSpacer(scroll, 6)
   scroll:AddChild(clearRow)
-  O.AddSpacer(scroll, 4)
 end
 
--- One list: its description, Clear all, then the IdList (the add box and the entries).
+-- One list: its description, then the IdList (the add box and the entries), then Clear all….
 local function makeFilterSection(ctx, tab)
   local scroll = O.EnsureScroll(ctx)
   -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
@@ -298,7 +301,6 @@ local function makeFilterSection(ctx, tab)
   descLabel:SetFullWidth(true); descLabel:SetText(tab.desc)
   scroll:AddChild(descLabel)
   O.AddSpacer(scroll, 6)
-  addClearAll(scroll, tab)
 
   -- `columns` (LibKa0s v1.47.0, OptionsWidgets minor 24; fitted to the canvas since v1.50.0,
   -- minor 27) comes from the LIST, not from here. All three ask for two.
@@ -348,6 +350,7 @@ local function makeFilterSection(ctx, tab)
     removeStyle = "icon",
     columns     = tab.columns,
   })
+  addClearAll(scroll, tab)
 
   -- A structural rebuild (lines added/removed), so it registers as a *rebuilder*: it runs on an
   -- on-screen edit and on the next OnShow after an off-screen change — never on every OnShow. The
@@ -358,9 +361,14 @@ local function makeFilterSection(ctx, tab)
 end
 
 -- The Filters TAB's three SUB-tabs, in strip order. The tab is called Filters, so none of them
--- repeats the word: "Blacklisted currencies" is Currencies here, because the only currency list
--- there is IS a blacklist and the qualifier was carrying nothing. Items first (both item lists
--- adjacent, because they are read together — an id on one is off the other), currencies last.
+-- repeats the word. Blacklist and Whitelist name the list type, as Ka0s Bank Ledger's two do; the
+-- third was Currencies, which named the object type instead, and is Currency blacklist since item
+-- 020 (LOO-L17) so all three name a list. Items first (both item lists adjacent, because they are
+-- read together — an id on one is off the other), the currency list last.
+--
+-- Each description closes with the shared sentences (item 020, XC-26), word for word as Bank
+-- Ledger's: the point-in-time rule on all three, and the one-list rule only on the two item lists,
+-- whose add path really enforces it (NS.Filters:_move); the currency list has no sibling.
 --
 -- SECONDARY, not primary (options-ui-§13). Filters was its own canvas sub-page with its own
 -- three-tab strip until R6 deprecated it into General; three id-lists are a list of like subjects
@@ -410,22 +418,24 @@ local CURRENCY_STRINGS = {
 -- beside the `removeStyle` the trade depends on.
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
-    desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
-      .. "(this only affects future loots — delete old rows from the history table if you want them gone).",
+    desc = "Items here are never recorded when looted. Applies to future loots only; rows already "
+      .. "recorded stay. An item can be on one list only; adding it here takes it off the other.",
     kind = "item", set = "Blacklist", add = "AddBlacklist", remove = "RemoveBlacklist",
     popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST",
     addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "whitelist", label = "Whitelist",
-    desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
-      .. "muted source, or are quest items. Adding an id to one list removes it from the other.",
+    desc = "Items here are always recorded, even if they fall below Minimum quality, come from a "
+      .. "source unticked under Capture > Record data from, or are quest items. Applies to future loots "
+      .. "only; rows already recorded stay. An item can be on one list only; adding it here takes it "
+      .. "off the other.",
     kind = "item", set = "Whitelist", add = "AddWhitelist", remove = "RemoveWhitelist",
     popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST",
     addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
-  { key = "currencyBlacklist", label = "Currencies",
-    desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
-      .. "Point-in-time — existing rows are left untouched.",
+  { key = "currencyBlacklist", label = "Currency blacklist",
+    desc = "Currencies here are never recorded when looted (Valorstones, crests, Honor, etc.). "
+      .. "Applies to future loots only; rows already recorded stay.",
     kind = "currency", set = "CurrencyBlacklist", add = "AddCurrencyBlacklist",
     remove = "RemoveCurrencyBlacklist", popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY",
     addLabel = "Add currency id, link or name",

@@ -53,6 +53,67 @@ test("Panel: the Filters tab draws a SECONDARY strip and renders only the select
     homeTab(ctx)
   end)
 
+test("Panel: Filters: each list reads description, list, then Clear all… (item 020)", function()
+  -- LOO-L15/L16/L17/L-new2 (XC-26): the sub-tabs are Blacklist | Whitelist | Currency blacklist;
+  -- each draws its description, then the IdList, then the confirm-gated "Clear all…" LAST, and each
+  -- description closes with the shared sentences. The one-list sentence is said only where the add
+  -- path enforces it (the two item lists, NS.Filters:_move).
+  -- red under: Clear all drawn above the list again, the ellipsis dropped, a description without its
+  -- closing sentence, or the third sub-tab still called Currencies.
+  NS.Filters:ClearAll()
+  local panel = mocks.__subcategories["General"]
+  local ctx = NS.Panel.general
+  -- The strip's labels are read off the spec the page hands the library: the headless tab buttons
+  -- carry no FontString to read them back from.
+  local O, realStrip, labels = NS.Options, NS.Options.SubTabStrip, {}
+  O.SubTabStrip = function(c, parent, spec)
+    for i, tab in ipairs(spec.tabs) do labels[i] = tab.label end
+    return realStrip(c, parent, spec)
+  end
+  local ok, err = pcall(clickTab, panel, ctx, tabAt("Filters"))
+  O.SubTabStrip = realStrip
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(labels, " | "), "Blacklist | Whitelist | Currency blacklist", "sub-tab labels")
+  local FUTURE = "Applies to future loots only; rows already recorded stay."
+  local ONE    = "An item can be on one list only; adding it here takes it off the other."
+  -- Whitelist, Currency blacklist, then Blacklist: the strip opens on Blacklist, and a click on the
+  -- sub-tab already selected redraws nothing.
+  local oneListOn = { true, true, false }
+  for _, i in ipairs({ 2, 3, 1 }) do
+    local oneList = oneListOn[i]
+    local before = #AceGUI.__created
+    ctx.__subTabKids[i]:__fire("OnClick")
+    local created = {}
+    for j = before + 1, #AceGUI.__created do created[#created + 1] = AceGUI.__created[j] end
+    local desc, box, clear
+    for j, w in ipairs(created) do
+      if not desc and w.type == "Label" and type(w.text) == "string" and w.text:find(FUTURE, 1, true) then desc = j end
+      if not box and w.type == "EditBox" then box = j end
+      if w.type == "Button" and w.text == "Clear all\226\128\166" then clear = j end
+    end
+    assertTrue(desc ~= nil, labels[i] .. ": the description must close with the future-loots sentence")
+    assertTrue(box ~= nil and clear ~= nil, labels[i] .. ": the add box and Clear all\226\128\166 are drawn")
+    assertTrue(desc < box and box < clear, labels[i] .. ": description, then the list, then Clear all")
+    local text = created[desc].text
+    assertEqual(text:find(ONE, 1, true) ~= nil, oneList, labels[i] .. ": the one-list sentence")
+  end
+  homeTab(ctx)
+end)
+
+test("Panel: Filters: the Whitelist names the controls it overrides by their labels", function()
+  -- LOO-L07 (b), XC-12: one name per control, and an ASCII " > " location string.
+  -- Read with each `" .. "` join removed, so a sentence the source wraps across lines still matches.
+  local function joined(path) return (Loader.readFile(path):gsub('"%s*%.%.%s*"', "")) end
+  local src = joined("settings/Panel.lua")
+  assertTrue(src:find("fall below Minimum quality, come from a source unticked under Capture > "
+    .. "Record data from", 1, true) ~= nil, "the Whitelist description still says 'quality threshold'")
+  local bt = joined("modules/BrowserTable.lua")
+  assertTrue(bt:find("Manage in Settings > General > Filters > Currency blacklist.", 1, true) ~= nil,
+    "the currency blacklist chat hint must name the renamed sub-tab, with ASCII ' > '")
+  assertTrue(bt:find("Manage in Settings > General > Filters > Blacklist.", 1, true) ~= nil,
+    "the item blacklist chat hint must use ASCII ' > '")
+end)
+
 -- ── the Filters tab's load checks ─────────────────────────────────────────────────────────────
 --
 -- An IdList asks LibKa0s-Item-1.0 to load an item it cannot name yet, batched per page (LibKa0s

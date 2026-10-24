@@ -1460,9 +1460,11 @@ Total.
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colors are saturated, not muted
 
-### test_panel_filters.lua (20)
+### test_panel_filters.lua (22)
 
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
+- Panel: Filters: each list reads description, list, then Clear all… (item 020)
+- Panel: Filters: the Whitelist names the controls it overrides by their labels
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
 - Panel: every filter list packs two entries to a line
@@ -2001,7 +2003,7 @@ Total.
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
 | test_panel.lua | 46 |
-| test_panel_filters.lua | 20 |
+| test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 6 |
 | test_profiles.lua | 31 |
@@ -2031,4 +2033,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1721** |
+| **Total** | **1723** |
