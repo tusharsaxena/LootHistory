@@ -163,9 +163,9 @@ routes through `O.RefreshAllPanels` (whose refresh context sets `_dirty` on ever
 than writing a host-private field; `:146`'s clear and the field itself are deleted.
 
 The host's `rebuilders` list then says only *what* to draw and the library owns *when* — which is
-what `options-ui-§11` describes and what the AH price page's own `OnShow` opt-out
+what `options-ui-§11` describes and what the AH Price page's own `OnShow` opt-out
 (`settings/OptionsSetup.lua:22-29`) is deliberately carved out of. **Check that carve-out is
-unaffected**: the AH price page does not go through `SetRenderer`, so it must not start depending on
+unaffected**: the AH Price page does not go through `SetRenderer`, so it must not start depending on
 `_dirty` either.
 
 **Test.** Pin the outcome, never the flag: edit a filter list while the Filters page is hidden, show

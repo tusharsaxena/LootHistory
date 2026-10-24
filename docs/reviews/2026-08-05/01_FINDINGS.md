@@ -75,13 +75,13 @@ protocol) are deliberately absent here — they are in `03_SMOKE_TESTS.md`.
   AceDB seeds `db.global.settings.auction.priority` from the *defaults* file, so a fresh install
   stores seven. `AuctionPrice:Pick` walks exactly that stored array.
 - **Impact:** a user who enables one of the four missing keys with `/lh set
-  settings.auction.capture …` — i.e. without opening the AH price settings page, which is the only
+  settings.auction.capture …` — i.e. without opening the AH Price settings page, which is the only
   caller of `ReconcilePriority` (`settings/Panel.lua:431`) and therefore the only thing that repairs
   the array — gets that price **gathered and stored** (`GatherAll`, `AuctionPrice.lua:70-83`) but
   **never selected**: `Pick` returns nil for it, so the Value column, `NS.Util.RecordValue`, the
   Insights value charts and the CSV `value`/`auctionPrice`/`auctionSource` columns all behave as if
   the price does not exist. Only the raw `auc_<provider>_<key>` CSV column shows it. Silent, no
-  error, and self-healing the moment the user happens to open the AH price page — which is the worst
+  error, and self-healing the moment the user happens to open the AH Price page — which is the worst
   shape a bug can take for reproduction.
 - **Coverage:** the suite has a case for exactly this class of drift —
   `tests/test_schema.lua:140-148`, *"the shipped default equals the schema's declared default"* —

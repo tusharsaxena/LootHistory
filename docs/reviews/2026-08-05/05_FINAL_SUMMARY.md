@@ -46,7 +46,7 @@ shipped default was rewritten so it can actually fire — its condition required
 from defaults *and* to have declared no default of its own, which no row ever does.
 
 **Why it mattered.** A user who enabled `tsm:dbhistorical`, `tsm:dbrecent`,
-`tsm:dbregionhistorical` or `tsm:dbregionsaleavg` with `/lh set` — without opening the AH price
+`tsm:dbregionhistorical` or `tsm:dbregionsaleavg` with `/lh set` — without opening the AH Price
 settings page, which was the only thing that repaired the stored priority list — had that price
 gathered and written into every record, and then skipped by `AuctionPrice:Pick`. The Value column,
 the Insights value charts and the CSV `value` / `auctionPrice` / `auctionSource` columns all behaved
@@ -152,9 +152,9 @@ One seeding change, which needs no migration:
 | Existing profiles | untouched by AceDB (key already present) | untouched |
 
 Existing users auto-migrate in the sense that nothing needs to happen: `AuctionPrice:ReconcilePriority`
-already appends any unknown-to-the-array tag in `AUCTION_KEYS` order when the AH price page is
+already appends any unknown-to-the-array tag in `AUCTION_KEYS` order when the AH Price page is
 opened, and it did so before this change too. No `/lh reset` is required. Users who had hit F-001
-(a CLI-enabled key that was never picked) can either open the AH price page once or run
+(a CLI-enabled key that was never picked) can either open the AH Price page once or run
 `/lh reset settings.auction.capture` and re-enable from the panel.
 
 ## Performance impact
@@ -215,7 +215,7 @@ falsifiability and three places where a label or comment did not match the code.
 High
   F-001  The AH price priority cascade was declared twice — 7 entries in
          defaults/Global.lua, 11 in core/Constants.lua. A price key enabled with
-         `/lh set settings.auction.capture` (i.e. without opening the AH price
+         `/lh set settings.auction.capture` (i.e. without opening the AH Price
          page, the only caller of ReconcilePriority) was gathered and stored but
          never selected by AuctionPrice:Pick, so it reached no computed value,
          no chart and no CSV value column. defaults/Global.lua now copies the

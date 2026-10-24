@@ -21,7 +21,7 @@ can pick them up; nothing here is adopted or declined.
 | # | Candidate | Evidence | Would touch | Recommendation | Blast radius |
 |---|---|---|---|---|---|
 | B1 | Slash `textOf` resolver: the host's `L` can word `ERR_BOOL` ... `NONE` | CHANGELOG v1.66.0 "Slash minor 19"; `docs/api/Slash/version-19.1-docs.md` | `locales/*.lua`, `settings/Slash.lua` | Low value: this addon's `L` carries none of those keys, and the library's English is already what it would say | additive |
-| B2 | `O.RenderGrid(ctx, items, parent, opts)` with `opts.gap` | CHANGELOG "OptionsWidgets minor 34"; `docs/api/Options/version-27.2.34.2.2.7.1.7.4.2-docs.md` | none today (no `RenderGrid` call) | No: the AH price table is a pooled host-drawn table, not a grid | additive |
+| B2 | `O.RenderGrid(ctx, items, parent, opts)` with `opts.gap` | CHANGELOG "OptionsWidgets minor 34"; `docs/api/Options/version-27.2.34.2.2.7.1.7.4.2-docs.md` | none today (no `RenderGrid` call) | No: the AH Price table is a pooled host-drawn table, not a grid | additive |
 | B3 | `RenderTabbedSchema` opts (`untabbedSkipRender`, `disabledReplaces`, `rerender`) | CHANGELOG "OptionsTabs minor 8" | none today (the General strip is the schema's own tab strip) | No candidate today | additive |
 
 ## Class C: whole-module adoption

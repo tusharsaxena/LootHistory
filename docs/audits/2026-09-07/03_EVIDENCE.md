@@ -226,7 +226,7 @@ survives (anti-pattern #62 clear). No `docs/pending/` directory exists.
 ```
 $ gh issue view 21 --json body --jq .body
 ### Why this will not be done
-`SetRenderer` is **declined on the AH price page alone** …
+`SetRenderer` is **declined on the AH Price page alone** …
 ### Provenance
 Migrated from `docs/pending/LEDGER.md` row `LIBKA0S-15` … decided 2026-08-01. This issue is
 **closed by design**: it records a settled refusal …
@@ -306,7 +306,7 @@ section already spilled — the shape `AUDIT.md` says to report and not to file.
 
 **(a) Every page draws a tab strip.** One non-exempt page, `General`. Its distinct `group` values in
 declaration order come from `settings/Schema.lua:313-315` splicing `MASTER_ROWS` ahead of `ROWS`:
-**Master controls → Capture → AH price → Interface → History** (`GENERAL_TABS`, rendered at
+**Master controls → Capture → AH Price → Interface → History** (`GENERAL_TABS`, rendered at
 `settings/Panel.lua:903` through `O.TabStrip`). The landing page (`P.BuildMain`,
 `settings/Panel.lua:933`) is the host's own `buildMain` and is mandated in that shape; there is no
 AceConfig Profiles sub-page. `renderGeneral` has no untabbed fallback and no early return that skips

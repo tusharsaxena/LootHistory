@@ -68,7 +68,7 @@ S0 decides. **One commit each** — none of them may ride inside another's diff.
       **outcome**, never `_dirty`.
       — `LH-27`
 - [ ] **S1.7** — Route `settings/Panel.lua:329`'s hidden branch through `O.RefreshAllPanels`; delete
-      `ctx.dirty` and its clear at `:146`. Verify the AH price page's `SetRenderer` opt-out
+      `ctx.dirty` and its clear at `:146`. Verify the AH Price page's `SetRenderer` opt-out
       (`settings/OptionsSetup.lua:22-29`) is unaffected.
       — `LH-27`
 - [ ] **S1.8** — Add the degraded-load case: load the addon with AceEvent-3.0 absent and assert no

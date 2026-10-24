@@ -542,7 +542,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
-- Schema: auction rows exist with the AH price group and defaults
+- Schema: auction rows exist with the AH Price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
@@ -654,12 +654,12 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the muted-source picker is INVERTED — a ticked box means 'record this source'
 - Panel: the Defaults button is built on first OnShow, not at registration
 - Panel: the General page's Defaults click restores every schema default
-- Panel: the AH price page's Defaults click restores the capture set AND the priority order
+- Panel: the AH Price page's Defaults click restores the capture set AND the priority order
 - Panel: the Filters page lists the ids on each list and can remove one
 - Panel: a blacklist change while the Filters page is hidden repaints it on the next OnShow
 - Panel: the Filters page's Defaults click clears every id list
-- Panel: the AH price page draws one reusable row slot per known price source
-- Panel: the AH price page renders only its own schema group
+- Panel: the AH Price page draws one reusable row slot per known price source
+- Panel: the AH Price page renders only its own schema group
 - Panel: the landing page renders one label per slash command, through the ONE row formatter
 - Panel: the landing page shows the tagline
 - Panel: Open refuses during combat and never defers-and-replays

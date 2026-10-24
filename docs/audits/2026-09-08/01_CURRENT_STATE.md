@@ -99,7 +99,7 @@ the host's own `buildMain` (options-ui-§5) and is exempt from the strip; there 
 because the addon is account-wide by design.
 
 **Tab strip:** six tabs, `Master controls` first under that exact literal (`settings/Panel.lua:889`),
-then `Capture`, `AH price`, `Interface`, `History`, `Filters` (`:887-894`). The Master controls block is
+then `Capture`, `AH Price`, `Interface`, `History`, `Filters` (`:887-894`). The Master controls block is
 **composed** through the library — `O.MasterControls{…}` at `settings/Schema.lua:68-101` — and spliced at
 the head of `S.Schema` so the strip's order is the array's order (`:310-315`).
 

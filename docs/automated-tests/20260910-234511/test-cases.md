@@ -577,7 +577,7 @@ badge and any count quoted in the docs must agree with it.
 - Schema: setting debugConsole toggles the window, never writes db.global
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row still writes db.global
-- Schema: auction rows exist with the AH price group and defaults
+- Schema: auction rows exist with the AH Price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
@@ -713,10 +713,10 @@ badge and any count quoted in the docs must agree with it.
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
-- Panel: the AH price tab draws one reusable row slot per known price source
+- Panel: the AH Price tab draws one reusable row slot per known price source
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
-- Panel: the AH price tab renders its own schema row and no other tab's
+- Panel: the AH Price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
 - Panel: a drag is one splice to index, and it repaints

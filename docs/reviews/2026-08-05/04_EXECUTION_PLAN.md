@@ -13,7 +13,7 @@ tests/run.lua`** (`testing-§4`, `anti-patterns #23`). A task that moves the pas
 ## Milestone M1 — The functional defect
 
 **Done when:** a fresh install stores all 11 priority tags, a CLI-enabled price key is selectable
-without ever opening the AH price page, `Schema:Register`'s check can fail, and the suite has cases
+without ever opening the AH Price page, `Schema:Register`'s check can fail, and the suite has cases
 for both.
 
 | Task | Owner role | Implements | Files touched |

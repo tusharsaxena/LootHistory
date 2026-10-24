@@ -410,7 +410,7 @@ the data says" report):
 
 ---
 
-# Revision 3 — AH price settings UX overhaul + template auction data
+# Revision 3 — AH Price settings UX overhaul + template auction data
 
 **Date:** 2026-07-19
 **Status:** Approved for planning
@@ -419,7 +419,7 @@ the data says" report):
 textures referenced by name (no bundled media), reused here by name.
 
 ## R3.1 Settings sub-page rename
-"Auction House Price" subcategory → **"AH price"** (the canvas subcategory display name, the schema
+"Auction House Price" subcategory → **"AH Price"** (the canvas subcategory display name, the schema
 `group` string, the General-skip filter, and the Defaults handler's group check).
 
 ## R3.2 Icons (all Blizzard textures, no media copied)
@@ -482,10 +482,10 @@ The sample `H` block is not byte-verified by the assembler, so this is safe.
 
 ---
 
-# Revision 4 — AH price settings UI polish
+# Revision 4 — AH Price settings UI polish
 
 **Date:** 2026-07-19
-**Status:** Approved for planning (batch of visual refinements on the Rev-3 "AH price" page).
+**Status:** Approved for planning (batch of visual refinements on the Rev-3 "AH Price" page).
 **Note:** all icons remain Blizzard textures (no media). In-game rendering is smoke-tested only, so exact
 px values are best-effort and refined during the user's smoke pass.
 

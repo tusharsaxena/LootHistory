@@ -58,7 +58,7 @@ The one close-button wrapper is `core/CoreSetup.lua:168`; every call site reache
 
 One canvas sub-page, `General`, registered through `O.RegisterOptionsPage` (`settings/Panel.lua:985`)
 and drawn by `O.SetRenderer(ctx, renderGeneral)` (`:990`). The page draws a primary tab strip via
-`O.TabStrip` (`settings/Panel.lua:903`) over five tabs — **Master controls**, Capture, AH price,
+`O.TabStrip` (`settings/Panel.lua:903`) over five tabs — **Master controls**, Capture, AH Price,
 Interface, History — with `Master controls` first because `settings/Schema.lua:313-315` splices the
 composed block at the head of the array. The block itself comes from `O.MasterControls{…}`
 (`settings/Schema.lua:68`), so the canonical row set is composed, not hand-written.

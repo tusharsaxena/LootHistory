@@ -245,7 +245,7 @@ modules/Browser.lua:939:  frame:SetMovable(true)
 modules/Export.lua:439:  frame:EnableMouse(true); frame:SetMovable(true); frame:SetClampedToScreen(true)
 ```
 
-Page → tabs: General → Master controls · Capture · AH price · Interface · History · Filters (`settings/Panel.lua:953`
+Page → tabs: General → Master controls · Capture · AH Price · Interface · History · Filters (`settings/Panel.lua:953`
 `local GENERAL_TABS = {`, drawn by `O.TabStrip` at `:1006`); Filters' secondary strip `O.SubTabStrip` at `:453`, in the scroll.
 Master controls composed at `settings/Schema.lua:68` `local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{` with
 `testModePath = "state.testMode"` (`:76`) and `minimapPath = "minimap.hide"` (`:91`). Reset popup wording

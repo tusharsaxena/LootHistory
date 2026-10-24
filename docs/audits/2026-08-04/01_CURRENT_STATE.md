@@ -139,14 +139,14 @@ options-ui-§1 and deliberately **not** flagged.
 
 Category registration is **eager**, from `OnInitialize` (`core/LootHistory.lua:34` →
 `settings/Panel.lua:698-785`), never deferred to `/lh config`. Three subcategories (General, Filters,
-AH price), all with `defaultsButton = true` and a parked `defaultsOnClick`
+AH Price), all with `defaultsButton = true` and a parked `defaultsOnClick`
 (`settings/Panel.lua:712-765`); the Defaults widget is built lazily via `O.EnsureDefaultsButton` in
 the panel's `OnShow` (`settings/Panel.lua:769`). Bodies render lazily through `O.SetRenderer` or a
 guarded first-`OnShow`. Combat gating lives inside the library's `OpenOptionsPanel`
 (`settings/Panel.lua:787-792`); the host adds no second un-gated open path. Scalar refresh is in
 place via `O.RefreshScalars` (`settings/Panel.lua:684-686`).
 
-The AH price page keeps its **own** `OnShow` rather than `O.SetRenderer`, with a measured
+The AH Price page keeps its **own** `OnShow` rather than `O.SetRenderer`, with a measured
 justification recorded in comments (`settings/OptionsSetup.lua:20-27`, `settings/Panel.lua:738-747`):
 its eleven pooled raw row slots would be orphaned by the renderer contract's `ClearScroll`.
 

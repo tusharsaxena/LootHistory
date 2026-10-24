@@ -103,7 +103,7 @@ value-for-value.
   × on **its own** windows, and `core/DebugLogSetup.lua:125-130` deliberately declines to push it
   onto the library's console — the exact split the section draws. This is a **compliance result**,
   not a deviation.
-- **The AH price page opting out of `O.SetRenderer`** (`settings/Panel.lua:738-747`) is a documented
+- **The AH Price page opting out of `O.SetRenderer`** (`settings/Panel.lua:738-747`) is a documented
   deviation with a measured justification (~1.7 s freeze from an AceGUI teardown of eleven pooled raw
   row slots). Recorded as an observation; not raised.
 - **`preview-mode` is N/A** (no positionable display) and **`public-api` is N/A** (no public
