@@ -82,8 +82,8 @@ decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
 Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose seven tabs are
-Master controls, Capture, AH price, Interface, History, Filters and Keybindings, the last two holding
-no rows (Keybindings is the library's, options-ui-§20).
+Master controls, Capture, Filters, AH price, Interface, History and Keybindings; Filters and
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the

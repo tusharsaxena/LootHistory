@@ -16,7 +16,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 20 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price |
+| PANEL-1 to 21 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
@@ -197,12 +197,14 @@ not white-wrapped, and a white description. Result: pass (owner-marked 2026-10-1
 
 **PANEL-3. General header and strip.** Open **General** → header `Ka0s Loot History ▸ General`, a
 gold divider under it, a **Defaults** button top-right whose tooltip ends *Key bindings are not
-changed.*, and seven tabs: Master controls, Capture, AH price, Interface, History, Filters,
+changed.*, and seven tabs: Master controls, Capture, Filters, AH price, Interface, History,
 Keybindings, opening on Master controls; the selected tab cannot be clicked. Click each: no section
-heading appears, except AH price's **Pricing** (above the toggle) and **Price sources** (above the
-table) subsection headings. Open **Ka0s Bank Ledger** beside it → the same names in the same order,
-without AH price (Keybindings last there too once its own tab lands). (Procedure amended by LH-KB,
-2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.)
+heading appears, except the subsection headings Capture's **Loot** and **Ledger**, AH price's
+**Price sources** (above the table; the Enable AH pricing switch above it has none), and
+Interface's **History window** and **Simulator**. Open **Ka0s Bank Ledger** beside it → the same
+names in the same order, without AH price, Keybindings last. (Procedure amended by LH-KB,
+2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.
+Amended again by LH-LY, 2026-10-24, item 020: Filters third, AH price relabeled, the headings.)
 Result:
 
 **PANEL-4. Strip wraps without overlap.** Narrow the Settings window until the strip wraps to a
@@ -211,12 +213,16 @@ whichever tab is selected. Result: pass (owner-marked 2026-10-10)
 
 **PANEL-5. Per-tab layout.** Walk the tabs → **Master controls**: Enable Loot History | General
 visibility, Master scale | Master opacity, Lock frame | Debug console, Minimap button | Test mode, then
-the **Reset position** | **Reset all settings** pair. **Capture**: Minimum quality | Record currency,
-Exclude quest items alone, then the full-width **Record data from** grid. **AH price**: *Pricing*,
-Enable AH pricing, *Price sources*, the eleven-row table. **Interface**: Window scale | Row height.
-**History**: Keep history for, then the storage readout | **Purge history…**. (Label amended by
-LH-RV2, 2026-10-24: LibKa0s OptionsCompose minor 9 renames *Master alpha* to *Master opacity*;
-the 2026-10-10 pass saw *Master alpha*.) Result: pass (owner-marked 2026-10-10)
+the **Reset position** | **Reset all settings** pair. **Capture**: *Loot*, Minimum quality | Exclude
+quest items, Record currency alone, the full-width **Record data from** grid, then *Ledger*, Track
+holdings and losses | Record gold. **Filters**: see FILT-1. **AH price**: Enable AH pricing (no
+heading), *Price sources*, the eleven-row table with the columns Addon, Price module, On, Status.
+**Interface**: *History window*, Window scale | Row height, Timeline lines | Show transfers by
+default, then *Simulator*, Simulation step delay (seconds). **History**: Keep history for | Keep
+Timeline history for, then the storage readout | **Purge history…**. (Label amended by LH-RV2,
+2026-10-24: LibKa0s OptionsCompose minor 9 renames *Master alpha* to *Master opacity*; the
+2026-10-10 pass saw *Master alpha*. Procedure rewritten by LH-LY, 2026-10-24, item 020: the
+2026-10-10 pass saw the old layout.) Result:
 
 **PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all seven tabs three
 times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
@@ -288,6 +294,22 @@ all-caps underscored key. Result: pass (owner-marked 2026-10-10)
 down and drop it → the ghost follows the cursor, the row lands where dropped, and closing and
 reopening the panel shows the new order. Fail: no ghost, a row that snaps back, or a Lua error.
 Result: pass (owner, 2026-10-02)
+
+**PANEL-21. The item 020 layout keeps every setting (LH-LY; SM-LH-LY).** Before updating, note a
+handful of non-default values: Minimum quality, Record gold off, a ticked-off source under Record
+data from, Show transfers by default off, Row height 22, Keep Timeline history for 90 days, and an
+id on each Filters list. Update, `/reload`, `/lh config` → General → each value reads as you left
+it, on its new tab: Show transfers by default is on **Interface** under *History window*, beside
+Timeline lines; nothing is missing and nothing is duplicated. Hover → Record gold ends *Needs Track
+holdings and losses.*; Record currency reads *Obeys Record data from; ignores Minimum quality.*;
+Window scale ends *Multiplied by Master scale on General > Master controls.*; both keep-for rows
+open *Account-wide: shared by every profile.* (Keep history for names *'Always'*); Simulation step
+delay (seconds) opens *Paces /lh sim:*; Test mode ends *It fills every tab of the History window:
+History, Insights, Holdings and Timeline.*; the header **Defaults** reads the same as **Reset all
+settings**, then *Key bindings are not changed.* `/lh list` → Show transfers is listed under
+`[Interface]` now, and every row prints the value it had. Change two values on different tabs,
+`/reload` → both survive. Fail: a value back at its default, a setting gone or on two tabs, or a
+Lua error. Result:
 
 ## Profiles
 
@@ -963,14 +985,19 @@ pass (owner, 2026-10-02)
 
 Filtering is point-in-time: a list changes what happens to future loot and never touches stored rows.
 
-**FILT-1. The Filters tab and its sub-strip.** `/lh config` → General → **Filters** (the last tab) →
-it opens on **Blacklist** in a secondary strip (Blacklist, Whitelist, Currencies) that scrolls with
-the content; one list and one add box show at a time. Leave for another tab and back → the same
-sub-tab; `/reload` → back on Blacklist. Result: pass (owner-marked 2026-10-10)
+**FILT-1. The Filters tab and its sub-strip.** `/lh config` → General → **Filters** (the third tab,
+after Capture) → it opens on **Blacklist** in a secondary strip (Blacklist, Whitelist, Currency
+blacklist) that scrolls with the content; one list and one add box show at a time, each as its
+description, then the add box and list, then **Clear all…** last. Each description ends *Applies
+to future loots only; rows already recorded stay.*, and Blacklist and Whitelist add *An item can be
+on one list only; adding it here takes it off the other.* Leave for another tab and back → the same
+sub-tab; `/reload` → back on Blacklist. (Procedure amended by LH-LY, 2026-10-24, item 020: tab
+position, sub-tab name, Clear all… placement and the closing sentences.) Result:
 
 **FILT-2. Blacklist from a row.** In History, right-click a row → **Blacklist item** → the chat line
-`Manage in Settings ▸ General ▸ Filters ▸ Blacklist` ("blacklisted …"), a gold-bordered popup, and the
-row stays in the table. **Blacklist currency** on a currency row names **▸ Currencies**. Result: pass (owner-marked 2026-10-10)
+`Manage in Settings > General > Filters > Blacklist.` ("blacklisted …"), a gold-bordered popup, and the
+row stays in the table. **Blacklist currency** on a currency row names **> Currency blacklist.**
+(Procedure amended by LH-LY, 2026-10-24, item 020: ASCII " > " and the renamed sub-tab.) Result:
 
 **FILT-3. The blacklist stops future capture.** Loot the blacklisted item again → no new row (with
 debug on, `[Drop] … reason=blacklist`); its old rows are untouched. Result: pass (owner-marked 2026-10-10)
@@ -1016,15 +1043,15 @@ can find. Names work for items you carry (or carried this session), items in you
 ones on these lists; otherwise use the id or shift-click a link.`; hovering the box ends with the
 same sentence; nothing prints to chat. Result: pass (owner-marked 2026-10-10)
 
-**FILT-15. Currencies.** On **Currencies**, add by id and by shift-clicked currency link → each shows
+**FILT-15. Currencies.** On **Currency blacklist**, add by id and by shift-clicked currency link → each shows
 its name; type a looted currency → it is suggested and adds by name; type one never looted and not
 listed (`Honor`) → refused with `No currency named '<name>' that this page knows. Currency names work
 for currencies in your loot history and ones on this list; otherwise use the id or shift-click a
 currency link.` Result: pass (owner-marked 2026-10-10)
 
 **FILT-16. The currency blacklist.** Right-click a currency row → **Blacklist currency**; loot it again
-→ no new row; on Currencies it shows its name, an X on the left and no Remove button; click X, loot
-→ it records. Re-add it, **Clear all** → a confirm; Accept → the list empties and loot records.
+→ no new row; on Currency blacklist it shows its name, an X on the left and no Remove button; click X, loot
+→ it records. Re-add it, **Clear all…** → a confirm; Accept → the list empties and loot records.
 Result: pass (owner-marked 2026-10-10)
 
 **FILT-17. Lists never touch stored rows.** To remove existing rows use the row's **Delete**; the
@@ -1052,14 +1079,14 @@ item lists draw one full-width column, with no icons stacked over wrapped names 
 of its own; widen and reopen → two columns. If you cannot get that narrow, record that. Result: pass (owner-marked 2026-10-10)
 
 **FILT-24. Blacklist and Whitelist Clear all ask.** With ids on **Blacklist**, click its **Clear
-all** → a popup reads `Clear ALL item ids from the blacklist? Future loots of them will be recorded
-again; your existing history is unaffected.`; **No** → the ids stay; **Clear all** again, **Yes** →
+all…** (under the list) → a popup reads `Clear ALL item ids from the blacklist? Future loots of them will be recorded
+again; your existing history is unaffected.`; **No** → the ids stay; **Clear all…** again, **Yes** →
 the list empties and chat prints `blacklist cleared (N ids).` On **Whitelist** the same → `Clear ALL
-item ids from the whitelist?`, then `whitelist cleared (N ids).` The Currencies list's Clear all is
+item ids from the whitelist?`, then `whitelist cleared (N ids).` The Currency blacklist's Clear all… is
 FILT-16. Result: pass (owner-marked 2026-10-10)
 
 **FILT-25. The item lists draw as before.** `/lh debug on`, then `/lh config` → General → **Filters**
-→ step through **Blacklist**, **Whitelist** and **Currencies** → every list renders exactly as before
+→ step through **Blacklist**, **Whitelist** and **Currency blacklist** → every list renders exactly as before
 (no help marks: no entry here carries help), with no Lua error and no `[Cfg] help art:` line in the
 console. Result: pass (owner-marked 2026-10-10)
 
@@ -1629,7 +1656,7 @@ thing → **Show in Timeline**. Both land on the Timeline charting that thing. R
 confirm. The alt leaves Holdings and the Timeline; its History rows remain. The option is grayed on
 the logged-in character and on the Warband. Result: pass (owner-marked 2026-10-10)
 
-**TL-11. Rollup retention.** Set **Keep Timeline days for** to 90 days and `/reload` → after about
+**TL-11. Rollup retention.** Set **Keep Timeline history for** to 90 days and `/reload` → after about
 five seconds the older days are gone (**All** starts no more than 90 days back) and every line still
 starts at its carried value. Result: pass (owner-marked 2026-10-10)
 
@@ -1763,7 +1790,7 @@ the panel's **Start** row → the window opens. A refused start (in combat, at a
 nothing. (owner simulator feedback, 2026-10-23) Result: pass (owner-marked 2026-10-23)
 
 **SIM-9. The step delay.** Settings → General → Interface → the **Simulator** heading shows
-**Simulation step delay** at **1**. `/lh sim start loot` (it plays on its own) → about one second
+**Simulation step delay (seconds)** at **1** (label amended by LH-LY, 2026-10-24, item 020). `/lh sim start loot` (it plays on its own) → about one second
 between steps while the ledger is quiet. `/lh set settings.sim.stepDelay 3` during the run → the
 steps after the next one come about three seconds apart, and the slider reads 3. `/lh set
 settings.sim.stepDelay 1.2` → refused (not a half step), the value stays 3. `/lh reset
@@ -1930,3 +1957,5 @@ a pass.
 - LAUNCH-15, LAUNCH-16, LAUNCH-17 (LH-KB, 2026-10-24: the Keybindings section and tab).
 - PANEL-3 (procedure amended by LH-KB, 2026-10-24: the strip is seven tabs, Keybindings last).
 - HIST-38, HIST-39, HIST-40, HIST-41, HIST-42 (LH-ZS, 2026-10-24: frame layering, SM-LH-ZS).
+- PANEL-3, PANEL-5, PANEL-21, FILT-1, FILT-2 (LH-LY, 2026-10-24: the item 020 settings layout,
+  SM-LH-LY).
