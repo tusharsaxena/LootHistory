@@ -202,9 +202,10 @@ end
 
 -- ── Filters sub-page: blacklist / whitelist item-id management ────────────────────
 -- A single sub-page, three TABS (item blacklist, item whitelist, currency blacklist), one on screen.
--- Each: a short description, a confirm-gated Clear all, then one LibKa0s-Options IdList: an add box
--- (an id, a shift-clicked link, or a name, with matching names listed as the player types) over one
--- line per stored id with Remove. The lists are core app logic and act point-in-time: blacklisted ids are
+-- Each: a short description, then one LibKa0s-Options IdList -- an add box (an id, a shift-clicked
+-- link, or a name, with matching names listed as the player types) over one line per stored id with
+-- Remove -- then a confirm-gated Clear all… LAST, the shape Ka0s Bank Ledger's Filters tab shares
+-- (item 020, XC-26). The lists are core app logic and act point-in-time: blacklisted ids are
 -- dropped at loot time and whitelisted ids are always recorded — neither list ever hides or
 -- restores an already-stored row.
 --
@@ -270,13 +271,15 @@ local function filterCandidates(tab)
   return out
 end
 
--- Bulk "Clear all" for one list (confirm-gated). The list repaints itself through the
--- HistoryChanged listener Filters:ClearList fires, so the button only shows the popup.
+-- Bulk "Clear all…" for one list (confirm-gated; the ellipsis says it opens a dialog, XC-17). The
+-- list repaints itself through the HistoryChanged listener Filters:ClearList fires, so the button
+-- only shows the popup. Drawn AFTER the IdList (item 020, LOO-L-new2): the list is what the tab is
+-- for, and the destructive bulk act closes it rather than standing between the reader and it.
 local function addClearAll(scroll, tab)
   local clearRow = NS.AceGUI:Create("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
   local clearBtn = NS.AceGUI:Create("Button")
-  clearBtn:SetText("Clear all"); clearBtn:SetRelativeWidth(0.30)
+  clearBtn:SetText("Clear all\226\128\166"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
     if type(StaticPopup_Show) == "function" then
       StaticPopup_Show(tab.popup)
@@ -285,11 +288,11 @@ local function addClearAll(scroll, tab)
     end
   end)
   clearRow:AddChild(clearBtn)
+  O.AddSpacer(scroll, 6)
   scroll:AddChild(clearRow)
-  O.AddSpacer(scroll, 4)
 end
 
--- One list: its description, Clear all, then the IdList (the add box and the entries).
+-- One list: its description, then the IdList (the add box and the entries), then Clear all….
 local function makeFilterSection(ctx, tab)
   local scroll = O.EnsureScroll(ctx)
   -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
@@ -298,7 +301,6 @@ local function makeFilterSection(ctx, tab)
   descLabel:SetFullWidth(true); descLabel:SetText(tab.desc)
   scroll:AddChild(descLabel)
   O.AddSpacer(scroll, 6)
-  addClearAll(scroll, tab)
 
   -- `columns` (LibKa0s v1.47.0, OptionsWidgets minor 24; fitted to the canvas since v1.50.0,
   -- minor 27) comes from the LIST, not from here. All three ask for two.
@@ -348,6 +350,7 @@ local function makeFilterSection(ctx, tab)
     removeStyle = "icon",
     columns     = tab.columns,
   })
+  addClearAll(scroll, tab)
 
   -- A structural rebuild (lines added/removed), so it registers as a *rebuilder*: it runs on an
   -- on-screen edit and on the next OnShow after an off-screen change — never on every OnShow. The
@@ -358,9 +361,14 @@ local function makeFilterSection(ctx, tab)
 end
 
 -- The Filters TAB's three SUB-tabs, in strip order. The tab is called Filters, so none of them
--- repeats the word: "Blacklisted currencies" is Currencies here, because the only currency list
--- there is IS a blacklist and the qualifier was carrying nothing. Items first (both item lists
--- adjacent, because they are read together — an id on one is off the other), currencies last.
+-- repeats the word. Blacklist and Whitelist name the list type, as Ka0s Bank Ledger's two do; the
+-- third was Currencies, which named the object type instead, and is Currency blacklist since item
+-- 020 (LOO-L17) so all three name a list. Items first (both item lists adjacent, because they are
+-- read together — an id on one is off the other), the currency list last.
+--
+-- Each description closes with the shared sentences (item 020, XC-26), word for word as Bank
+-- Ledger's: the point-in-time rule on all three, and the one-list rule only on the two item lists,
+-- whose add path really enforces it (NS.Filters:_move); the currency list has no sibling.
 --
 -- SECONDARY, not primary (options-ui-§13). Filters was its own canvas sub-page with its own
 -- three-tab strip until R6 deprecated it into General; three id-lists are a list of like subjects
@@ -410,22 +418,24 @@ local CURRENCY_STRINGS = {
 -- beside the `removeStyle` the trade depends on.
 local FILTER_TABS = {
   { key = "blacklist", label = "Blacklist",
-    desc = "Items here are never recorded when looted from now on. Existing rows are left untouched "
-      .. "(this only affects future loots — delete old rows from the history table if you want them gone).",
+    desc = "Items here are never recorded when looted. Applies to future loots only; rows already "
+      .. "recorded stay. An item can be on one list only; adding it here takes it off the other.",
     kind = "item", set = "Blacklist", add = "AddBlacklist", remove = "RemoveBlacklist",
     popup = "KA0S_LOOTHISTORY_CLEAR_BLACKLIST",
     addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
   { key = "whitelist", label = "Whitelist",
-    desc = "Items here are always recorded, even if they fall below your quality threshold, come from a "
-      .. "muted source, or are quest items. Adding an id to one list removes it from the other.",
+    desc = "Items here are always recorded, even if they fall below Minimum quality, come from a "
+      .. "source unticked under Capture > Record data from, or are quest items. Applies to future loots "
+      .. "only; rows already recorded stay. An item can be on one list only; adding it here takes it "
+      .. "off the other.",
     kind = "item", set = "Whitelist", add = "AddWhitelist", remove = "RemoveWhitelist",
     popup = "KA0S_LOOTHISTORY_CLEAR_WHITELIST",
     addLabel = ITEM_ADD_LABEL, addTooltip = ITEM_ADD_TOOLTIP, strings = ITEM_STRINGS, columns = 2,
     candidateSets = { "Blacklist", "Whitelist" }, historyField = "itemID" },
-  { key = "currencyBlacklist", label = "Currencies",
-    desc = "Currencies here are never recorded when looted from now on (Valorstones, crests, Honor, etc.). "
-      .. "Point-in-time — existing rows are left untouched.",
+  { key = "currencyBlacklist", label = "Currency blacklist",
+    desc = "Currencies here are never recorded when looted (Valorstones, crests, Honor, etc.). "
+      .. "Applies to future loots only; rows already recorded stay.",
     kind = "currency", set = "CurrencyBlacklist", add = "AddCurrencyBlacklist",
     remove = "RemoveCurrencyBlacklist", popup = "KA0S_LOOTHISTORY_CLEAR_CURRENCY",
     addLabel = "Add currency id, link or name",
@@ -546,8 +556,8 @@ local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"    -- fallback for 
 -- Shared column x-offsets, in px from each ROW's content origin — which is the far side of the drag
 -- handle's gutter, not the row's left edge: the handle owns a fixed-width gutter at the far left and
 -- row contents start beyond it (options-ui-§18). Headers and every cell add the same gutter, so the
--- columns line up: [handle] [tick] [Addon] [Price Module] [On ☑] [Status]. The ⓘ is NOT a fixed
--- column — it trails each row's Price Module text (positioned per-row in the refresh).
+-- columns line up: [handle] [tick] [Addon] [Price module] [On ☑] [Status]. The ⓘ is NOT a fixed
+-- column — it trails each row's Price module text (positioned per-row in the refresh).
 --
 -- The old `order` column is gone with the arrows it held.
 local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
@@ -699,7 +709,7 @@ local function paintAuctionRow(r, tag, capture)
 
   local mg = live and 0.9 or 0.5
   r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
-  -- ⓘ trails the Price Module text with a small gap (per-row, since the text width varies).
+  -- ⓘ trails the Price module text with a small gap (per-row, since the text width varies).
   local mw = r.module:GetStringWidth() or 0
   r.info:ClearAllPoints()
   r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
@@ -767,7 +777,7 @@ local function refreshAuctionTable(ctx)
   if list then list:Finish(hf) end
 end
 
--- Build the unified AH Price table: gold left-aligned column headers and 11 reusable row slots (one
+-- Build the unified AH price table: gold left-aligned column headers and 11 reusable row slots (one
 -- per known price source). Slots + their frames are created ONCE here; refreshAuctionTable repaints
 -- them in place on every enable-toggle / drag / Defaults, so no frame is ever re-allocated. Native
 -- FontStrings carry all text; only the checkbox, the ⓘ and the library's handle are frames.
@@ -823,7 +833,7 @@ local function buildAuctionTable(ctx)
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
       fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
     end
-    header(ACOL.addon, "Addon"); header(ACOL.module, "Price Module")
+    header(ACOL.addon, "Addon"); header(ACOL.module, "Price module")
     header(ACOL.enabled, "On"); header(ACOL.status, "Status")
 
     -- Reusable row slots (created once). Each is a real Frame, because that is what ReorderList
@@ -928,8 +938,9 @@ end
 --   Capture         — the muted-source picker. The `settings.excludedSources` row it represents is
 --                     walked by the generic path and produces no widget (type = "table"; see
 --                     makeMultiCheck above), so this lands exactly where that path would have put
---                     it: after the group's last row, on a fresh line.
---   AH Price        — the pooled price-source table, under the "Price sources" subsection heading
+--                     it: after that row, on a fresh line, which ends the first of the tab's two
+--                     slices (CAPTURE_CUT below), under Loot and above Ledger.
+--   AH price        — the pooled price-source table, under the "Price sources" subsection heading
 --                     the `settings.auction.capture` row declares.
 --   History         — the storage readout and "Purge history…".
 --
@@ -942,30 +953,33 @@ local AFTER_GROUP = {
     local scroll = O.EnsureScroll(ctx)
     if row and scroll then makeMultiCheck(ctx, row, scroll) end
   end,
-  ["AH Price"]   = buildAuctionTable,
+  ["AH price"]   = buildAuctionTable,
   ["History"] = renderHistory,
 }
 AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 
 -- ── The General page's strip ────────────────────────────────────────────────────
 --
--- ONE page now. Filters and AH Price were canvas sub-pages of their own until R6 deprecated them
+-- ONE page now. Filters and AH price were canvas sub-pages of their own until R6 deprecated them
 -- into General: three pages, each with its own strip, made a player hunt for which of the three
--- held the setting they wanted, and one of the three (AH Price) drew no strip at all.
+-- held the setting they wanted, and one of the three (AH price) drew no strip at all.
 --
 -- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
--- six tabs hold no schema rows to partition. RenderTabbedSchema derives its tab list from `group`,
+-- seven tabs (Filters and the library's Keybindings) hold no schema rows to partition.
+-- RenderTabbedSchema derives its tab list from `group`,
 -- which is exactly right for a page whose every section is rows — and cannot name a tab whose body
 -- is a dynamic list of item ids. So the tab list is declared here, each entry is either a schema
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
 -- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
 -- to the schema and not to this list cannot go unnoticed.
--- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH
--- Price: Master controls, Capture, Interface, History, Filters. The two addons keep the same shape
--- of record and a player compares their panels directly, so one subject carries one name across
--- both — Collection became Capture, Maintenance became History, and Filters moved from third to
--- last so the five shared tabs sit in the shared order. AH Price is this addon's alone and goes
--- directly after Capture, which is the tab it qualifies: it prices what capture recorded.
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these seven minus AH
+-- price: Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the
+-- same shape of record and a player compares their panels directly, so one subject carries one name
+-- across both — Collection became Capture and Maintenance became History. Filters was moved last
+-- once so the shared tabs sat in the shared order; item 020 (LOO-L08 with Bank Ledger's BAN-L-new1,
+-- XC-26) moved it back to third IN BOTH, so "what gets recorded" is two adjacent tabs (Capture,
+-- then the lists that override it) instead of four tabs apart. AH price is this addon's alone and
+-- directly follows the two recording tabs it qualifies: it prices what capture recorded.
 --
 -- A tab name is a `group`, never a stored path, so the convergence was a rename throughout and
 -- carried no migration (options-ui-§15).
@@ -973,11 +987,24 @@ local GENERAL_TABS = {
   -- options-ui-§15: the FIRST tab, under that exact name, in every Ka0s addon.
   { key = "Master controls" },
   { key = "Capture" },
-  { key = "AH Price" },
+  { key = FILTERS_TAB, build = buildFiltersTab },
+  -- "AH price", sentence case (item 020, LOO-L10; XC-06). It is the schema GROUP of the two auction
+  -- rows and the AFTER_GROUP key above as well, so all three move together; a group is never a
+  -- stored path, so no SavedVariables key is involved.
+  { key = "AH price" },
   { key = "Interface" },
   { key = "History" },
-  { key = FILTERS_TAB, build = buildFiltersTab },
 }
+
+-- options-ui-§20: the Keybindings tab, LAST, after every other tab. The library's own entry
+-- (O.KeybindingsTab): its key, its label and tooltip, and its render, which draws the rows of
+-- NS.BINDINGS (core/LauncherSetup.lua) through O.KeybindRows. Nothing here draws a row or holds a key:
+-- both surfaces, this tab and Options -> Keybindings, read and write the client's one store. On the
+-- degraded path the stub's entry draws nothing, and the tab is still there.
+do
+  local kb = O.KeybindingsTab({ bindings = NS.BINDINGS })
+  GENERAL_TABS[#GENERAL_TABS + 1] = { key = kb.key, label = kb.label, tooltip = kb.tooltip, build = kb.render }
+end
 
 --- The rows of one schema group, in declaration order.
 local function rowsOfGroup(group)
@@ -986,6 +1013,29 @@ local function rowsOfGroup(group)
     if row.page == "General" and row.group == group then out[#out + 1] = row end
   end
   return out
+end
+
+-- Where a tab's rows are cut into two O.RenderRows slices, keyed by group: the path of the LAST row
+-- of the first slice. Capture's source picker belongs to its Loot subsection, above Ledger (item
+-- 020, LOO-L04), and afterGroup is the only seam that survives a tab click -- but it fires after a
+-- RenderRows call's last row. So the first slice ends on `settings.excludedSources`, its afterGroup
+-- hook draws the picker there, and the second slice (the Ledger rows) follows it. ctx.lastSubgroup
+-- carries across the two calls, so Ledger's heading still opens on its first row.
+local CAPTURE_CUT = { ["Capture"] = "settings.excludedSources" }
+
+--- Render one schema tab's rows: one RenderRows call, or two around a CAPTURE_CUT.
+local function renderGroupRows(ctx, group)
+  local head, tail = {}, {}
+  local into, cut = head, CAPTURE_CUT[group]
+  for _, row in ipairs(rowsOfGroup(group)) do
+    into[#into + 1] = row
+    if row.path == cut then into = tail end
+  end
+  -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab IS the
+  -- group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives the Capture,
+  -- AH price and Interface tabs their subsection headings.
+  O.RenderRows(ctx, head, AFTER_GROUP, nil, { noHeadings = true })
+  if #tail > 0 then O.RenderRows(ctx, tail, nil, nil, { noHeadings = true }) end
 end
 
 -- ── Renderers ───────────────────────────────────────────────────────────────────
@@ -1023,7 +1073,9 @@ local function renderGeneral(ctx)
   if not known then ctx.activeTab = GENERAL_TABS[1].key end
 
   local tabs = {}
-  for i, tab in ipairs(GENERAL_TABS) do tabs[i] = { key = tab.key, label = tab.key } end
+  for i, tab in ipairs(GENERAL_TABS) do
+    tabs[i] = { key = tab.key, label = tab.label or tab.key, tooltip = tab.tooltip }
+  end
   O.TabStrip(ctx, {
     tabs  = tabs,
     value = ctx.activeTab,
@@ -1043,10 +1095,7 @@ local function renderGeneral(ctx)
       if tab.build then
         tab.build(ctx)
       else
-        -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab
-        -- IS the group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives
-        -- the AH Price tab its two subsection headings.
-        O.RenderRows(ctx, rowsOfGroup(tab.key), AFTER_GROUP, nil, { noHeadings = true })
+        renderGroupRows(ctx, tab.key)
       end
     end
   end
@@ -1089,11 +1138,19 @@ function P:Register()
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- TWO sub-pages: General, then Profiles. Filters and AH Price were sub-pages of their own until R6
+  -- TWO sub-pages: General, then Profiles. Filters and AH price were sub-pages of their own until R6
   -- folded them into General's strip; their bodies are unchanged and their two registrations are
   -- gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
-    local ctx = O.CreatePanel(nil, "General", { pageKey = "General", defaultsButton = true })
+    -- The Defaults button IS options-ui-§12's global reset (P:RestoreDefaults -> CliResetAll), so
+    -- its tooltip is Reset all settings' own, read from the descriptor by O.ResetAllTooltip exactly
+    -- as the composed button reads it (U-04; item 020, LOO-L-new4), and no host words sit around
+    -- it. O.KEYBINDS_UNCHANGED follows (options-ui-§20): the reset is the active profile's, and a
+    -- key is the client's, never a setting this addon stores.
+    local ctx = O.CreatePanel(nil, "General", {
+      pageKey = "General", defaultsButton = true,
+      defaultsTooltip = O.ResetAllTooltip(O.KEYBINDS_UNCHANGED),
+    })
     P.general = ctx
     ctx.rebuilders = {}
     ctx.panel.defaultsOnClick = function() P:RestoreDefaults() end

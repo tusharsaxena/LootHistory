@@ -937,6 +937,17 @@ Total.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
+### test_layers.lua (8)
+
+- Layers: NS.Constants.LAYERS names its strata by the standard's tier keys
+- Layers: no strata literal and no absolute level in the addon's own code
+- Layers: the History window is the on-demand window tier, toplevel and clamped
+- Layers: the Export modal is the modal tier, toplevel and clamped
+- Layers: the row menu is a clamped popup with no full-screen catcher
+- Layers: an outside press dismisses the row menu through GLOBAL_MOUSE_DOWN
+- Layers: the row menu closes when the History window hides
+- Layers: BrowserTable:HideMenu is safe before the menu exists
+
 ### test_launcher.lua (22)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
@@ -962,9 +973,10 @@ Total.
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
 
-### test_keybinding.lua (6)
+### test_keybinding.lua (7)
 
-- keybinding: Bindings.xml parses, names CLICK LootHistoryToggleWindow:LeftButton under header LOOTHISTORY, category ADDONS, no default attribute
+- keybinding: Bindings.xml has the launcher-§6 shape: one CLICK LootHistoryToggleWindow:LeftButton in category BINDING_HEADER_LOOTHISTORY, no header, no default, labeled
+- keybinding: NS.BINDINGS is one table, Bindings.xml order, Show window first, each with a tooltip
 - keybinding: Bindings.xml is not listed in LootHistory.toc
 - keybinding: the button exists, is named, is not secure, registers AnyDown
 - keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set
@@ -1065,7 +1077,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (69)
+### test_schema.lua (73)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1078,7 +1090,7 @@ Total.
 - Schema: setting debugConsole toggles the window, never writes the store
 - Schema: getting debugConsole reflects the window visibility
 - Schema: a normal (persisted) row writes the active profile
-- Schema: auction rows exist with the AH Price group and defaults
+- Schema: auction rows exist with the AH price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Constants: CURRENCY_TYPE is "Currency"
@@ -1136,6 +1148,10 @@ Total.
 - Retention: re-showing the confirm over an open one does not run the decline
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
+- Schema: the stored settings (path, type, default, range) are the pinned set
+- Schema: the Capture tooltips name the controls a player can find (item 020)
+- Schema: Interface and History read as item 020 laid them out
+- Schema: Test mode keeps the composed tooltip and appends the host's note (item 020)
 
 ### test_schema_stub.lua (9)
 
@@ -1397,7 +1413,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (45)
+### test_panel.lua (47)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1407,6 +1423,7 @@ Total.
 - Panel: the Master controls tab holds the canonical rows and the closing button pair
 - Panel: Reset position drives the window carve-out, Reset all settings the §12 popup
 - Panel: the Capture tab holds the capture rules and nothing else
+- Panel: Capture draws Loot, then the source picker, then Ledger
 - Panel: the Interface tab holds the two size sliders, and the minimap toggle is gone
 - Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a burst of RecordAdded collapses to ONE StorageStats pass
@@ -1428,11 +1445,12 @@ Total.
 - Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade
 - Panel: the General Defaults click does NOT move the window
 - Panel: the General Defaults click logs ONE [Set] reset profile line and no per-row [Set]
-- Panel: the AH Price tab draws one reusable row slot per known price source
+- Panel: the AH price tab draws one reusable row slot per known price source
+- Panel: the price table's column headers are sentence case (item 020)
 - Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing
 - Panel: the price host is parked off the page while another tab is on screen
 - options-ui-§19: releasing the Price-sources placeholder outside renderGeneral parks ctx._priHost on ctx.panel, hidden
-- Panel: the AH Price tab renders its own schema row and no other tab's
+- Panel: the AH price tab renders its own schema row and no other tab's
 - Panel: the cascade is a reorder list — a handle per draggable row, a box under every row
 - Panel: the host draws no row chrome of its own — the library owns the box and the handle
 - Panel: a drag is one splice to index, and it repaints
@@ -1445,9 +1463,11 @@ Total.
 - Panel: a WRAPPED strip reserves the same band and the same row offsets on every tab
 - Panel: the AH status colors are saturated, not muted
 
-### test_panel_filters.lua (20)
+### test_panel_filters.lua (22)
 
 - Panel: the Filters tab draws a SECONDARY strip and renders only the selected list
+- Panel: Filters: each list reads description, list, then Clear all… (item 020)
+- Panel: Filters: the Whitelist names the controls it overrides by their labels
 - Panel: the Filters tab lists the ids on each list and can remove one
 - Panel: a blacklist change while the page is hidden repaints it on the next OnShow
 - Panel: every filter list packs two entries to a line
@@ -1473,6 +1493,17 @@ Total.
 - AH table: two providers present, some sources collecting, one captured but absent
 - AH table: every provider present and nothing captured
 - AH table: no provider present
+
+### test_panel_keybinds.lua (8)
+
+- Keybindings tab: the General strip ends in Keybindings, the library's own entry
+- Keybindings tab: its rows are NS.BINDINGS in order, labeled with the BINDING_NAME_ text
+- Keybindings tab: a key bound through the tab is the client's key (GetBindingKey)
+- Keybindings tab: one key button and Clear per row; a second key reads '<key> +1'
+- Keybindings tab: a key set outside the tab (SetBinding) shows in it after UPDATE_BINDINGS
+- Keybindings tab: in combat the tab refuses, and no key is written
+- Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
+- Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
 ### test_profiles.lua (31)
 
@@ -1518,7 +1549,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (35)
+### test_libka0s.lua (36)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1555,6 +1586,7 @@ Total.
 - v1.75.1: the vendored minors and the kit revision match the release
 - v1.75.2: the vendored minors and the kit revision match the release
 - v1.76.0: the vendored minors and the kit revision match the release
+- v1.77.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (16)
 
@@ -1959,12 +1991,13 @@ Total.
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
+| test_layers.lua | 8 |
 | test_launcher.lua | 22 |
-| test_keybinding.lua | 6 |
+| test_keybinding.lua | 7 |
 | test_slash.lua | 63 |
 | test_slash_degraded.lua | 15 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 69 |
+| test_schema.lua | 73 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |
@@ -1974,12 +2007,13 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 45 |
-| test_panel_filters.lua | 20 |
+| test_panel.lua | 47 |
+| test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
+| test_panel_keybinds.lua | 8 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 35 |
+| test_libka0s.lua | 36 |
 | test_surface_parity.lua | 16 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2004,4 +2038,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1702** |
+| **Total** | **1728** |

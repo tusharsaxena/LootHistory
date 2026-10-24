@@ -2,14 +2,14 @@
 -- button, and the reset/refresh trio every Ka0s addon's options UI runs on. The page registry it
 -- attaches is OptionsRegistry.lua's.
 --
--- Eleven files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
+-- Twelve files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
 -- category it registers and its combat park; OptionsWidgets.lua is the schema-row -> AceGUI
 -- translation and the flow engine; OptionsIds.lua / OptionsIdList.lua the id input and list;
 -- OptionsCombat.lua the combat lock's event frame, dispatcher and cover; OptionsTabs.lua the page's
 -- chrome (tab strip, banner, header block, secondary strip); OptionsCompose.lua the composers;
 -- OptionsScroll.lua the always-shown scrollbar patch and the font preload; OptionsNav.lua the nav
 -- rail a page may lead with (minor 25 reads its inset); OptionsDrawer.lua the drawer (minor 29
--- attaches it). They are one major because they are one feature: a host that ended up with a shell
+-- attaches it); OptionsKeybinds.lua the Keybindings tab (minor 30 attaches it). They are one major because they are one feature: a host that ended up with a shell
 -- from one vendored copy and a flow engine from another would build panels that lay out wrong, and
 -- there is no version negotiation that would catch it.
 --
@@ -33,7 +33,8 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- host's FOLDER name, and is checked against the client's loaded addons there (LibKa0s#42).
 -- Minor 29: lib:New attaches OptionsDrawer.lua, and RefreshPanel takes a drawer's body ctx back to
 -- the page it is drawn on.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 29
+-- Minor 30: lib:New attaches OptionsKeybinds.lua, the Keybindings tab (options-ui-§20).
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 30
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1301,14 +1302,19 @@ function lib:New(d)
   -- them on the same instance the shell lives on. Both are guarded: a file that failed to load
   -- leaves its half absent rather than erroring at :New, which is why the shell's own members
   -- reach for O.AttachTooltip and O.PatchAlwaysShowScrollbar at CALL time and never at load time.
-  if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
-  -- After the widgets, because the chrome half's RenderTabbedSchema replaces the widget half's
-  -- untabbed fallback. The descriptor reaches it for `rowsForPage` alone (OptionsTabs minor 4).
-  if lib.__AttachTabs    then lib.__AttachTabs(O, d)    end
-  if lib.__AttachCompose then lib.__AttachCompose(O, d) end
-  if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
-  if lib.__AttachNav     then lib.__AttachNav(O)        end
-  if lib.__AttachDrawer  then lib.__AttachDrawer(O)     end
+  -- A function of its own (minor 30) so lib:New stays under automated-tests-§3's CCN 15 ceiling.
+  local function attachHalves()
+    if lib.__AttachWidgets then lib.__AttachWidgets(O, d) end
+    -- After the widgets, because the chrome half's RenderTabbedSchema replaces the widget half's
+    -- untabbed fallback. The descriptor reaches it for `rowsForPage` alone (OptionsTabs minor 4).
+    if lib.__AttachTabs    then lib.__AttachTabs(O, d)    end
+    if lib.__AttachCompose then lib.__AttachCompose(O, d) end
+    if lib.__AttachScroll  then lib.__AttachScroll(O, d)  end
+    if lib.__AttachNav     then lib.__AttachNav(O)        end
+    if lib.__AttachDrawer  then lib.__AttachDrawer(O)     end
+    if lib.__AttachKeybinds then lib.__AttachKeybinds(O, d) end
+  end
+  attachHalves()
 
   return O
 end

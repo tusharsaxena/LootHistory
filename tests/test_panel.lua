@@ -29,7 +29,7 @@ local tabAt         = S.tabAt
 -- ── registration ─────────────────────────────────────────────────────────────────────────────
 
 test("Panel: the parent category and its ONE sub-page are registered", function()
-  -- R6: Filters and AH Price were canvas sub-pages of their own until this pass and are tabs on
+  -- R6: Filters and AH price were canvas sub-pages of their own until this pass and are tabs on
   -- General's strip now. Asserted as an exact set — a leftover registration is a page nobody draws
   -- and a presence check could never see one.
   assertTrue(mocks.__mainPanel ~= nil, "the landing canvas must be registered as the parent")
@@ -37,7 +37,7 @@ test("Panel: the parent category and its ONE sub-page are registered", function(
   for name in pairs(mocks.__subcategories) do names[#names + 1] = name end
   table.sort(names)
   assertEqual(table.concat(names, " | "), "General",
-    "Filters and AH Price must NOT still be subcategories of their own")
+    "Filters and AH price must NOT still be subcategories of their own")
 end)
 
 test("Panel: registration is idempotent", function()
@@ -103,7 +103,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
     -- settings — and they are drawn by the composer's own afterGroup hook.
     local created = show(mocks.__subcategories["General"])
     for _, label in ipairs({ "Enable Loot History", "General visibility", "Master scale",
-                             "Master alpha", "Lock frame", "Debug console", "Test mode" }) do
+                             "Master opacity", "Lock frame", "Debug console", "Test mode" }) do
       assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
     end
     for _, text in ipairs({ "Reset position", "Reset all settings" }) do
@@ -112,7 +112,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
       assertEqual(btn.type, "Button")
     end
     -- The half that makes this a partition rather than a list: another tab's rows must NOT be here.
-    for _, label in ipairs({ "Minimum quality (detailed records)", "Window scale", "Keep history for" }) do
+    for _, label in ipairs({ "Minimum quality", "Window scale", "Keep history for" }) do
       assertTrue(findByLabel(created, label) == nil,
         label .. " belongs to another tab and must not be drawn on Master controls")
     end
@@ -145,10 +145,10 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
   assertEqual(ctx.activeTab, "Capture", "tab 2 is Capture")
 
-  for _, label in ipairs({ "Minimum quality (detailed records)", "Record currency", "Exclude quest items" }) do
+  for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
   end
-  local quality = findByLabel(created, "Minimum quality (detailed records)")
+  local quality = findByLabel(created, "Minimum quality")
   assertEqual(quality.relativeWidth, 0.5, "schema widgets take the honest half")
 
   -- MOVED, not copied: the master switch is on Master controls now and must not also be here.
@@ -156,6 +156,35 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
                            "Debug console", "Keep history for" }) do
     assertTrue(findByLabel(created, label) == nil,
       label .. " belongs to another tab and must not be drawn on Capture")
+  end
+  homeTab(ctx)
+end)
+
+test("Panel: Capture draws Loot, then the source picker, then Ledger", function()
+  -- Item 020 (LOO-L04): the picker belongs to the Loot subsection (Record currency obeys it), so it
+  -- sits between the two headings rather than at the bottom of the tab. The page renders Capture
+  -- as two O.RenderRows slices with the picker's afterGroup hook closing the first.
+  -- red under: one RenderRows over the whole group (the picker lands after Record gold), or a
+  -- subgroup missing from a row (its heading moves or vanishes).
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
+  local function at(pred, what)
+    for i, w in ipairs(created) do if pred(w) then return i end end
+    assertTrue(false, what .. " was not drawn")
+  end
+  local function heading(text)
+    return at(function(w) return w.type == "Heading" and w.text == text end, "heading " .. text)
+  end
+  local function label(text)
+    return at(function(w) return w == findByLabel(created, text) end, text)
+  end
+  local order = {
+    heading("Loot"), label("Minimum quality"), label("Exclude quest items"), label("Record currency"),
+    at(function(w) return w.type == "InlineGroup" end, "the Record data from picker"),
+    heading("Ledger"), label("Track holdings and losses"), label("Record gold"),
+  }
+  for i = 2, #order do
+    assertTrue(order[i] > order[i - 1], "Capture element " .. i .. " is out of order")
   end
   homeTab(ctx)
 end)
@@ -179,7 +208,7 @@ test("Panel: the Interface tab holds the two size sliders, and the minimap toggl
   -- this whole pass exists to remove.
   assertTrue(findByLabel(created, "Debug console") == nil,
     "the debug console toggle belongs to Master controls now")
-  assertTrue(findByLabel(created, "Minimum quality (detailed records)") == nil,
+  assertTrue(findByLabel(created, "Minimum quality") == nil,
     "Capture's rows must not follow the reader onto Interface")
   homeTab(ctx)
 end)
@@ -264,7 +293,7 @@ test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slide
     assertEqual(findByLabel(master, "General visibility").type, "Dropdown")
     assertEqual(findByLabel(master, "Master scale").type, "Slider")
     assertEqual(findByLabel(clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture")),
-      "Minimum quality (detailed records)").type, "Dropdown")
+      "Minimum quality").type, "Dropdown")
     homeTab(ctx)
   end)
 
@@ -324,23 +353,28 @@ end)
 -- failure rather than two derivations agreeing with each other.
 local SUBGROUPS = {
   ["Master controls"] = {},
-  ["Capture"]         = {},
+  -- Capture is two subjects (item 020, LOO-L04): what a loot record keeps, then the ledger.
+  ["Capture"]         = { "Loot", "Ledger" },
   ["Filters"]         = {},
-  ["AH Price"]        = { "Pricing", "Price sources" },
+  -- The lead switch sits unheaded above the one subsection (item 020, LOO-L10; XC-22, U-05(b)).
+  ["AH price"]        = { "Price sources" },
   -- Interface is two subjects again: the window rows and the simulator's step delay (the owner's
   -- simulator feedback, 2026-10-23). It carried `Window` / `Minimap` until the minimap row moved to
   -- Master controls with the launcher adoption, and drew none while every row was about the window.
-  ["Interface"]       = { "Window", "Simulator" },
+  -- The window subsection names its window (item 020, LOO-L03).
+  ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
+  -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
+  ["Keybindings"]     = {},
 }
 
 test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS",
   function()
     -- options-ui-§7. Under a strip the tab IS the group's heading, so the group heading is
     -- suppressed — but `subgroup` is deliberately NOT suppressed, because a tab that mixes control
-    -- types has no tab left to name each kind with. ONE tab is mixed: AH Price, a plain toggle above
-    -- an eleven-row reorder table. Interface was the second until the minimap row moved to Master
-    -- controls (launcher-§3), and its headings went with it rather than being kept for symmetry.
+    -- types or subjects has no tab left to name each kind with. THREE tabs draw subsections (item
+    -- 020): Capture (Loot / Ledger), AH price (an unheaded lead toggle above the Price sources
+    -- reorder table) and Interface (History window / Simulator). SUBGROUPS above is the full list.
     -- red under: passing `noHeadings` for subgroups too, or dropping any `subgroup` field — either
     -- shortens a list here — and equally under adding one to a tab that is a single subject.
     local ctx = NS.Panel.general
@@ -362,7 +396,7 @@ test("Panel: a subgroup heading never repeats its own tab's name (options-ui-§7
   -- The one thing §7 forbids outright about a subsection name, and the easiest to get wrong when a
   -- tab is later renamed to match the subject its first block already named.
   -- red under: reviving `subgroup = "Window"` on the Interface tab now that every row there is
-  -- about the window, or renaming the AH Price tab to
+  -- about the window, or renaming the AH price tab to
   -- "Pricing".
   for _, row in ipairs(NS.Schema.Schema) do
     if row.subgroup then
@@ -422,7 +456,7 @@ test("Panel: the Test mode checkbox starts test mode, and a refused start redraw
 test("Panel: choosing a dropdown entry writes the stored value", function()
   local ctx = NS.Panel.general
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
-  local dd = findByLabel(created, "Minimum quality (detailed records)")
+  local dd = findByLabel(created, "Minimum quality")
   dd:__fire("OnValueChanged", 4)
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 4)
   NS.Schema:Set("settings.qualityThreshold", 1)
@@ -526,7 +560,7 @@ end)
 test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade",
   function()
     -- options-ui-§13: a per-page Defaults button's blast radius must not narrow to the visible tab.
-    -- Filters and AH Price are tabs of this page now, so what their own Defaults buttons used to
+    -- Filters and AH price are tabs of this page now, so what their own Defaults buttons used to
     -- own — the three id-lists (a structural registry) and the cascade array (a ratified
     -- carve-out) — belongs to this one button. Neither has a schema row; both live in the profile,
     -- and the button is options-ui-§12's profile reset, which is what reaches them.
@@ -639,23 +673,31 @@ test("Panel: the General Defaults click logs ONE [Set] reset profile line and no
     end
   end)
 
--- ── the AH Price tab ─────────────────────────────────────────────────────────────────────────
+-- ── the AH price tab ─────────────────────────────────────────────────────────────────────────
 
---- Render the AH Price tab and hand back its context.
+--- Render the AH price tab and hand back its context.
 local function ahTab()
   local ctx = NS.Panel.general
-  clickTab(mocks.__subcategories["General"], ctx, tabAt("AH Price"))
+  clickTab(mocks.__subcategories["General"], ctx, tabAt("AH price"))
   return ctx
 end
 
-test("Panel: the AH Price tab draws one reusable row slot per known price source", function()
+test("Panel: the AH price tab draws one reusable row slot per known price source", function()
   local ctx = ahTab()
-  assertEqual(ctx.activeTab, "AH Price", "tab 4 is AH Price")
+  assertEqual(ctx.activeTab, "AH price", "tab 4 is AH price")
   assertTrue(ctx._priRows ~= nil, "the row slots must be created")
   assertEqual(#ctx._priRows, #NS.Constants.AUCTION_KEYS,
     "one slot per key, created ONCE and repainted in place — this page froze the client at ~213 " ..
     "frames before the slots were pooled (docs/settings-panel.md)")
   homeTab(ctx)
+end)
+
+test("Panel: the price table's column headers are sentence case (item 020)", function()
+  -- LOO-L11 (XC-06): "Price module", like every other label on the panel. The headers are raw
+  -- FontStrings on the pooled host, which the headless mock does not read back, so the source is.
+  local src = Loader.readFile("settings/Panel.lua")
+  assertTrue(src:find('header(ACOL.module, "Price module")', 1, true) ~= nil, "Price module header")
+  assertTrue(src:find('"Price Module"', 1, true) == nil, "a Title Case header is left")
 end)
 
 test("Panel: the pooled slots survive the tab strip — a second visit re-allocates nothing",
@@ -711,7 +753,7 @@ test("options-ui-§19: releasing the Price-sources placeholder outside renderGen
   rawset(host, "SetParent", nil); rawset(host, "GetParent", nil); host.__lhParent = nil
 end)
 
-test("Panel: the AH Price tab renders its own schema row and no other tab's", function()
+test("Panel: the AH price tab renders its own schema row and no other tab's", function()
   local ctx = ahTab()
   local created = {}
   for _, w in ipairs(AceGUI.__created) do created[#created + 1] = w end
@@ -932,8 +974,8 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
     local ctx = NS.Panel.general
     show(mocks.__subcategories["General"])
 
-    -- Force a real wrap. Six tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
-    -- the strip lays out in two rows — one row would make "every row's y offset" a claim about a
+    -- Force a real wrap. Seven tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
+    -- the strip lays out in three rows — one row would make "every row's y offset" a claim about a
     -- single number and the case would pass on a strip that never wrapped at all.
     local chromeW = ctx.chrome:GetWidth()
     ctx.chrome:SetWidth(200)

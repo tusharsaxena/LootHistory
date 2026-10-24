@@ -31,11 +31,11 @@ local DRAWN = {
   -- this addon's own art
   "chevron-down", "chevron-right", "confirm", "lock", "sort-down", "sort-up",
   "ban", "chat", "clear", "graph", "spreadsheet",
-  -- the AH Price table's leading tick and its per-row info button (settings/Panel.lua). The
+  -- the AH price table's leading tick and its per-row info button (settings/Panel.lua). The
   -- tick's OFF half is `ban`, already listed above because the row menu draws it too -- a name
   -- earns one entry, not one per drawing site.
   "circle-check", "info",
-  -- the reorder handle on the AH Price tab's cascade, resolved host-side and passed to
+  -- the reorder handle on the AH price tab's cascade, resolved host-side and passed to
   -- LibKa0s-Widgets-1.0's ReorderList (core/WidgetsSetup.lua) for the reason every other mark is:
   -- a vendored library cannot know which addon folder it was copied into.
   "segment",

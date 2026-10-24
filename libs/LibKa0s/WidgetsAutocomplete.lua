@@ -45,7 +45,9 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local AUTOCOMPLETE_MINOR = 2
+-- Minor 3: the list is clamped to the screen (ensureList), so a box near the bottom edge keeps its
+-- suggestions on screen (frame-layering-§4; XS-22).
+local AUTOCOMPLETE_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -159,6 +161,8 @@ local function ensureList(h)
   local box = h.__box
   local list = CreateFrame("Frame", nil, box, "BackdropTemplate")
   list:SetFrameStrata(h.__strata)
+  -- Minor 3: clamped, so a box near the bottom edge keeps its suggestions on screen.
+  list:SetClampedToScreen(true)
   list:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 0, AC.OVERLAP)
   list:SetPoint("TOPRIGHT", box, "BOTTOMRIGHT", 0, AC.OVERLAP)
   list:EnableMouse(true)

@@ -47,7 +47,7 @@ local MASTER_ROWS = {
   { "settings.enabled",    "Enable Loot History" },
   { "settings.visibility", "General visibility" },
   { "settings.scale",      "Master scale" },
-  { "settings.alpha",      "Master alpha" },
+  { "settings.alpha",      "Master opacity" }, -- "Master alpha" before OptionsCompose 9
   { "settings.locked",     "Lock frame" },
   { "state.debugConsole",  "Debug console" },
   -- The launcher-§3 row, composed from `minimapPath` since LibKa0s v1.39.0. It opens the FOURTH
@@ -140,8 +140,10 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
     assertEqual(S:Default("state.testMode"), false)
     assertTrue(type(row.get) == "function" and type(row.set) == "function",
       "the host binds get/set, as it does for the console row")
-    assertTrue(type(row.tooltip) == "string" and row.tooltip:find("/lh test", 1, true) ~= nil,
-      "the tooltip is this addon's own, not the composer's generic one: " .. tostring(row.tooltip))
+    -- The composer's words, then this addon's note through MasterControls `notes` (item 020,
+    -- LOO-L19): a host never replaces a composed tooltip (XC-04).
+    assertTrue(type(row.tooltip) == "string" and row.tooltip:find("History, Insights, Holdings and "
+      .. "Timeline.", 1, true) ~= nil, "the composed tooltip carries the host's note: " .. tostring(row.tooltip))
   end)
 
 test("Schema: Test mode is never written to the store, and ships no stored default", function()
@@ -232,11 +234,11 @@ test("Schema: a normal (persisted) row writes the active profile", function()
   NS.Schema:Set("settings.enabled", true) -- restore default
 end)
 
-test("Schema: auction rows exist with the AH Price group and defaults", function()
+test("Schema: auction rows exist with the AH price group and defaults", function()
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.enabled")
   assertTrue(row ~= nil, "settings.auction.enabled row missing")
-  assertEqual(row.group, "AH Price")
+  assertEqual(row.group, "AH price")
   assertEqual(NS2.Schema:Default("settings.auction.enabled"), true)
 end)
 
@@ -244,7 +246,7 @@ test("Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows 
   local NS2 = NS
   local row = NS2.Schema:FindRow("settings.auction.capture")
   assertTrue(row ~= nil, "settings.auction.capture row missing")
-  assertEqual(row.group, "AH Price")
+  assertEqual(row.group, "AH price")
   assertEqual(row.widget, "MultiCheck")
   assertEqual(NS2.Schema:Default("settings.auction.capture")["tsm:dbmarket"], true)
 
@@ -656,8 +658,9 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 8 }, { "Capture", 6 }, { "AH Price", 2 },
-    { "Interface", 4 }, { "History", 3 },
+    { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
+    -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
+    { "Interface", 5 }, { "History", 2 },
   },
 }
 
@@ -670,7 +673,7 @@ test("Schema: every page's tabs are the designed ones, in order, at the designed
     if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
   end
   assertEqual(#pages, 1,
-    "ONE schema-backed page: R6 deprecated the Filters and AH Price sub-pages into General")
+    "ONE schema-backed page: R6 deprecated the Filters and AH price sub-pages into General")
 
   for _, page in ipairs(pages) do
     assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
@@ -731,7 +734,7 @@ end)
 
 test("Schema: a tab name never repeats the page it sits on", function()
   -- On a page called Bars, "Bar background" carries nothing the strip has not already said. There
-  -- is no exemption left: "AH Price" used to be a page whose one group had the same name, and the
+  -- is no exemption left: "AH price" used to be a page whose one group had the same name, and the
   -- merge into General removed the collision rather than excusing it.
   for _, row in ipairs(S.Schema) do
     assertFalse(row.group:lower():find(row.page:lower(), 1, true) ~= nil,
@@ -1202,4 +1205,119 @@ test("Retention: a value that would delete nothing raises no confirm and prunes 
     assertEqual(NS.Database:CountOlderThan(0), 0, "Always counts nothing")
     assertEqual(NS.Database:CountOlderThan(nil), 0)
   end)
+end)
+
+-- ── The stored-setting guard (item 020, settings layout) ──────────────────────────────────────
+--
+-- Item 020 moves, regroups and relabels rows, and nothing else: no stored path, no default, no
+-- range and no type may move with them (the owner's rule for that item). Every row's path, type,
+-- default and slider range, pinned as they stood BEFORE the layout pass, sorted by path so a row
+-- that moves between tabs leaves this list alone. A layout change that also renamed a key, shifted
+-- a default or retuned a range is a named failure here rather than a silent migration.
+-- red under: renaming a stored path, changing any default (a scalar, or a key of a table default),
+-- changing a slider's min/max/step, adding or removing a setting.
+local function serialize(v)
+  if type(v) ~= "table" then return type(v) == "string" and string.format("%q", v) or tostring(v) end
+  local keys = {}
+  for k in pairs(v) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local parts = {}
+  for _, k in ipairs(keys) do parts[#parts + 1] = tostring(k) .. "=" .. serialize(v[k]) end
+  return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local STORED_SETTINGS = [[
+minimap.shown | bool | true | nil | nil | nil
+settings.alpha | number | 1 | 0 | 1 | 0.05
+settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
+settings.auction.enabled | bool | true | nil | nil | nil
+settings.enabled | bool | true | nil | nil | nil
+settings.excludeQuestItems | bool | true | nil | nil | nil
+settings.excludedSources | table | {} | nil | nil | nil
+settings.locked | bool | false | nil | nil | nil
+settings.qualityThreshold | number | 1 | nil | nil | nil
+settings.recordCurrency | bool | true | nil | nil | nil
+settings.recordGold | bool | true | nil | nil | nil
+settings.retentionDays | number | 30 | nil | nil | nil
+settings.rollupRetentionDays | number | 0 | nil | nil | nil
+settings.rowHeight | number | 18 | 14 | 28 | 1
+settings.scale | number | 1 | 0.5 | 2 | 0.05
+settings.showTransfers | bool | true | nil | nil | nil
+settings.sim.stepDelay | number | 1 | 0.5 | 10 | 0.5
+settings.timelineMaxLines | number | 8 | 2 | 16 | 1
+settings.trackLedger | bool | true | nil | nil | nil
+settings.visibility | string | "always" | nil | nil | nil
+settings.windowScale | number | 1 | 0.6 | 1.6 | 0.05
+state.debugConsole | bool | false | nil | nil | nil
+state.testMode | bool | false | nil | nil | nil
+]]
+
+test("Schema: the stored settings (path, type, default, range) are the pinned set", function()
+  local lines = {}
+  for _, row in ipairs(NS.Schema.Schema) do
+    lines[#lines + 1] = table.concat({ row.path, tostring(row.type), serialize(row.default),
+      tostring(row.min), tostring(row.max), tostring(row.step) }, " | ")
+  end
+  table.sort(lines)
+  local got = table.concat(lines, "\n") .. "\n"
+  assertEqual(got, STORED_SETTINGS, "a stored setting's path, type, default or range moved")
+end)
+
+test("Schema: the Capture tooltips name the controls a player can find (item 020)", function()
+  -- LOO-L05/L06/L07: one name per control, the dependency said in words, no stale "next update".
+  local function tip(path) return NS.Schema:FindRow(path).tooltip end
+  assertTrue(tip("settings.recordGold"):find("Needs Track holdings and losses.", 1, true) ~= nil,
+    "Record gold must say what it needs")
+  assertTrue(tip("settings.trackLedger"):find("next update", 1, true) == nil,
+    "the trackLedger tooltip still promises a shipped update")
+  assertTrue(tip("settings.recordCurrency"):find("Obeys Record data from; ignores Minimum quality.", 1, true)
+    ~= nil, "Record currency must name the two controls by their labels")
+  assertEqual(NS.Schema:FindRow("settings.qualityThreshold").label, "Minimum quality")
+  for _, path in ipairs({ "settings.qualityThreshold", "settings.excludeQuestItems",
+                          "settings.recordCurrency", "settings.excludedSources" }) do
+    assertEqual(NS.Schema:FindRow(path).subgroup, "Loot", path .. " subsection")
+  end
+  for _, path in ipairs({ "settings.trackLedger", "settings.recordGold" }) do
+    assertEqual(NS.Schema:FindRow(path).subgroup, "Ledger", path .. " subsection")
+  end
+end)
+
+test("Schema: Interface and History read as item 020 laid them out", function()
+  -- LOO-L01/L02/L03/L12/L13/L-new1/L-new3: placement, labels and tooltip words only.
+  local function row(path) return NS.Schema:FindRow(path) end
+  local order = {}
+  for _, r in ipairs(NS.Schema.Schema) do
+    if r.group == "Interface" then order[#order + 1] = r.path end
+  end
+  assertEqual(table.concat(order, " "), "settings.windowScale settings.rowHeight "
+    .. "settings.timelineMaxLines settings.showTransfers settings.sim.stepDelay",
+    "Show transfers by default follows Timeline lines on Interface")
+  for _, path in ipairs({ "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
+                          "settings.showTransfers" }) do
+    assertEqual(row(path).subgroup, "History window", path .. " subsection")
+  end
+  assertEqual(row("settings.windowScale").tooltip,
+    "Scale of the History window. Multiplied by Master scale on General > Master controls.")
+  assertEqual(row("settings.sim.stepDelay").label, "Simulation step delay (seconds)")
+  assertEqual(row("settings.sim.stepDelay").fmt, "%.1fs", "the readout format stays")
+  assertTrue(row("settings.sim.stepDelay").tooltip:find("Paces /lh sim: ", 1, true) == 1,
+    "the simulator tooltip opens with the slash verb")
+  assertEqual(row("settings.rollupRetentionDays").label, "Keep Timeline history for")
+  for _, path in ipairs({ "settings.retentionDays", "settings.rollupRetentionDays" }) do
+    assertTrue(row(path).tooltip:find("Account-wide: shared by every profile.", 1, true) == 1,
+      path .. ": the tooltip opens with the account-wide sentence")
+  end
+  local keep = row("settings.retentionDays").tooltip
+  assertTrue(keep:find("'Always' keeps everything", 1, true) ~= nil, "the tooltip names the Always option")
+  assertTrue(keep:find("'Never'", 1, true) == nil, "the tooltip names an option the dropdown lacks")
+end)
+
+test("Schema: Test mode keeps the composed tooltip and appends the host's note (item 020)", function()
+  -- LOO-L19 (XC-04, U-01): the composer is the only writer of a Master controls row's words; the
+  -- host extends them only through MasterControls' `notes`. The stamp no longer overrides it.
+  -- red under: a host `tooltip` stamped onto state.testMode again.
+  local tip = NS.Schema:FindRow("state.testMode").tooltip
+  assertEqual(tip, "Show placeholder content, so the display can be seen and placed without waiting "
+    .. "for the real thing. It fills every tab of the History window: History, Insights, Holdings and "
+    .. "Timeline.")
 end)

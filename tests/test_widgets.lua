@@ -95,7 +95,7 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- assertion exists.
   --
   -- Minor 8 added `ReorderList` and this addon did not call it. Minor 9 is the release this addon
-  -- ADOPTS it in: the AH Price tab's cascade is dragged now instead of clicked up and down
+  -- ADOPTS it in: the AH price tab's cascade is dragged now instead of clicked up and down
   -- (settings/Panel.lua, options-ui-§18), through the seam below. What minor 9 changes on top of 8
   -- is the chrome the widget owns -- `lib.ROW_BOX`, the bounded box behind every row, the `dimmed`
   -- variant for an inert one, and a `handleSize` default that moved 24 -> ROW_BOX.HANDLE_W. All
@@ -136,7 +136,10 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- strip.kind. No member is added, and Dropdown, CloseMenu, CopyWindow, ReorderList, SearchBox and
   -- every existing TestStrip call are unchanged. Nothing to change on the re-vendor; the sim strip
   -- is adopted in its own commit (LH-10).
-  assertEqual(lib.MODULES.Widgets, 14, "this adoption is written against Widgets minor 14")
+  --
+  -- Minor 15 (LibKa0s v1.77.0, docs/api/Widgets/version-15.1.5.3.3-docs.md) clamps the dropdown
+  -- menu to the screen (frame-layering-§4). No member or opts field moves; nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 15, "this adoption is written against Widgets minor 15")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end
@@ -427,21 +430,22 @@ test("Widgets: the export modal's close path closes the shared popup", function(
 end)
 
 test("Widgets: every frame that owns a dropdown sits below the menu's FULLSCREEN_DIALOG", function()
-  -- The popup is at FULLSCREEN_DIALOG and its click-catcher one strata below, at FULLSCREEN. A
-  -- host frame at or above either would swallow the outside click that is meant to close the menu.
+  -- The popup is at FULLSCREEN_DIALOG (it has had no click-catcher since Widgets minor 5). A host
+  -- frame at or above that strata could draw over the menu it dropped (frame-layering-§1: a window
+  -- that wants a pullout to open over it stays at or below FULLSCREEN). The two hosts read their
+  -- strata from NS.Constants.LAYERS, so the tier is checked there and the call sites are checked
+  -- to read it.
   local RANK = { BACKGROUND = 1, LOW = 2, MEDIUM = 3, HIGH = 4, DIALOG = 5,
                  FULLSCREEN = 6, FULLSCREEN_DIALOG = 7, TOOLTIP = 8 }
   local checked = 0
-  for path, pattern in pairs({
-    ["modules/Browser.lua"] = 'frame:SetFrameStrata%("([A-Z_]+)"%)',
-    ["modules/Export.lua"]  = 'frame:SetFrameStrata%("([A-Z_]+)"%)',
-  }) do
-    for strata in Loader.readFile(path):gmatch(pattern) do
-      checked = checked + 1
-      assertTrue(RANK[strata] ~= nil, path .. " names an unknown strata: " .. strata)
-      assertTrue(RANK[strata] < RANK.FULLSCREEN,
-        path .. " parks a dropdown host at " .. strata .. ", at or above the menu's catcher")
-    end
+  for path, key in pairs({ ["modules/Browser.lua"] = "WINDOW", ["modules/Export.lua"] = "MODAL" }) do
+    local strata = NS.Constants.LAYERS.STRATA[key]
+    assertTrue(Loader.readFile(path):find("frame:SetFrameStrata(NS.Constants.LAYERS.STRATA." .. key .. ")",
+      1, true) ~= nil, path .. " does not set its frame to LAYERS.STRATA." .. key)
+    checked = checked + 1
+    assertTrue(RANK[strata] ~= nil, key .. " names an unknown strata: " .. tostring(strata))
+    assertTrue(RANK[strata] < RANK.FULLSCREEN_DIALOG,
+      path .. " parks a dropdown host at " .. strata .. ", at or above the menu's strata")
   end
   assertTrue(checked >= 2, "the derivation found no strata calls and is asserting nothing")
 end)

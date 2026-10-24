@@ -472,5 +472,11 @@ return function()
   M.AUCTION_REMOVED_MAIL_SUBJECT = "Auction cancelled: %s"
   M.AUCTION_WON_MAIL_SUBJECT = "Auction won: %s"
 
+  -- ── the client's key-binding API (kit revision 42, opt-in) ───────────────────
+  -- GetBindingKey with two slots, GetBindingAction, SetBinding/SaveBindings (refusing in combat),
+  -- GetCurrentBindingSet, GetBindingName and the modifier state: what the General page's
+  -- Keybindings tab (options-ui-§20) and Kit.keybindThroughTab read and write.
+  dofile("tests/_kit/mock_bindings.lua")(M)
+
   return M
 end

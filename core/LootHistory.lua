@@ -102,7 +102,7 @@ function NS.OnProfileEvent(event, key)
   -- The one SettingsChanged("profile") every setting's reactor already listens to
   -- (docs/message-bus.md). Through the Schema module, the message's one sender.
   if NS.Schema and NS.Schema.AdoptProfile then NS.Schema:AdoptProfile() end
-  -- STRUCTURAL: the Filters tab's lists and the AH Price table are drawn off the profile's tables.
+  -- STRUCTURAL: the Filters tab's lists and the AH price table are drawn off the profile's tables.
   if NS.Options and NS.Options.RefreshAllPanels then NS.Options.RefreshAllPanels() end
 end
 

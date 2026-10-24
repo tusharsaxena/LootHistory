@@ -33,7 +33,7 @@ local GD = NS.defaults.global
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
---         — because R6 deprecated the Filters and AH Price sub-pages into it. It is what the
+--         — because R6 deprecated the Filters and AH price sub-pages into it. It is what the
 --         descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
 -- `group` names the TAB within that page. settings/Panel.lua partitions the page's rows by group
 --         IN DECLARATION ORDER, so the order of this array is the order of the strip and a group's
@@ -82,6 +82,14 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- a session-only `Test mode` checkbox on its own line below Lock frame / Debug console
   -- (options-ui-§15, preview-mode; LibKa0s compose minor 6). Verbatim, like the console path.
   testModePath     = "state.testMode",
+  -- THE HOST'S ONE SENTENCE AFTER THE COMPOSED WORDS (compose minor 9, options-ui-§15; item 020,
+  -- LOO-L19). The composer is the only writer of a Master controls row's label and tooltip; the
+  -- canonical Test mode text is generic, and `notes` is how this addon says what its test mode
+  -- fills. It replaced a host `tooltip` stamped over the composed one, which is the drift XC-04
+  -- names.
+  notes = {
+    testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline.",
+  },
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
   -- and this one lives in the GLOBAL store, which is where launcher-§3 fixes LibDBIcon's own table.
@@ -245,9 +253,7 @@ stamp(MASTER_ROWS, {
   -- refused start (window not allowed on screen, or in combat) redraws the box unticked.
   ["state.testMode"] = {
     widget = "CheckBox",
-    tooltip = "Fill the History window and Insights with a sample loot history, so you can see "
-      .. "and place the window before you have loot of your own. Never saved. Combat ends it. "
-      .. "The same as /lh test.",
+    -- No `tooltip` here: the words are the composer's, with the host note passed above.
     get = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
     set = function(v)
       local BT = NS.BrowserTable
@@ -274,11 +280,16 @@ local ROWS = {
   -- a `group` and never a stored path, so this was a rename and owed no migration
   -- (options-ui-§15).
   --
-  -- Row order drives the two-column panel pairing, so declaration order IS the layout: the quality
-  -- gate pairs with "Record currency" on the first line, "Exclude quest items" opens the second,
-  -- and the wide source picker lands under both from `afterGroup`.
+  -- TWO SUBJECTS, SO TWO SUBSECTION HEADINGS (options-ui-§7; item 020, LOO-L04): `Loot` is what a
+  -- loot record keeps, `Ledger` is the holdings ledger. Row order drives the two-column pairing, so
+  -- declaration order IS the layout: under Loot, Minimum quality pairs with Exclude quest items (the
+  -- two item-level gates) on the first line, Record currency opens the second, and the wide source
+  -- picker lands under it -- Record currency obeys that picker, so they sit together. Under Ledger,
+  -- Track holdings and losses pairs with Record gold, the parent left of its dependant. The picker is
+  -- host-drawn from `afterGroup`, which fires after a slice's last row, so settings/Panel.lua renders
+  -- this tab as two O.RenderRows slices cut after `settings.excludedSources` (CAPTURE_CUT there).
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
-    page = "General", group = "Capture", label = "Minimum quality (detailed records)", values = C.QUALITY_OPTIONS,
+    page = "General", group = "Capture", subgroup = "Loot", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
       "Every item is still tracked in the ledger; History hides items below this quality until you " ..
       "pick qualities in its Quality filter.",
@@ -286,59 +297,60 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "quality") end
     end },
 
-  { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Record currency",
-    tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
-      "Obeys the per-source mute list; ignores the minimum-quality filter.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
-    end },
-
-  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Track holdings and losses",
-    tooltip = "Keep a ledger of what every character and your warband holds, and (from the next " ..
-      "update) every gain, loss and transfer. Off = record loot gains only, as before.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
-    end },
-
-  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Record gold",
-    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
-      "mail, guild bank). Holdings keep counting gold either way.",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
-    end },
-
   { path = "settings.excludeQuestItems", default = PD.settings.excludeQuestItems, type = "bool", widget = "CheckBox",
-    page = "General", group = "Capture", label = "Exclude quest items",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Exclude quest items",
     tooltip = "Skip items of the Quest type (transient quest objects).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter") end
     end },
 
+  { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record currency",
+    tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..
+      "Obeys Record data from; ignores Minimum quality.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
+    end },
+
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
   -- (invert=true) as "Record data from" so a checked box means "record this source". It is the
-  -- LAST row of its group on purpose: it is full-width and host-drawn from `afterGroup`, which
-  -- fires after the group's last row is flushed.
+  -- LAST row of the Loot slice on purpose: it is full-width and host-drawn from `afterGroup`, which
+  -- fires after the slice's last row is flushed (settings/Panel.lua, CAPTURE_CUT).
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
-    page = "General", group = "Capture", label = "Record data from", values = C.SOURCE_OPTIONS,
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record data from", values = C.SOURCE_OPTIONS,
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "excludes") end
     end },
 
-  -- ── General ▸ AH Price ──
+  { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Ledger", label = "Track holdings and losses",
+    tooltip = "Keep a ledger of what every character and your warband holds, and every gain, loss " ..
+      "and transfer. Off = record loot gains only, as before.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
+  { path = "settings.recordGold", default = PD.settings.recordGold, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Ledger", label = "Record gold",
+    tooltip = "Write a History row for every gold gain and loss (loot, vendor, repairs, auction house, " ..
+      "mail, guild bank). Holdings keep counting gold either way. Needs Track holdings and losses.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
+    end },
+
+  -- ── General ▸ AH price ──
   -- Was its own canvas sub-page until R6 deprecated it into General (options-ui-§13: a Ka0s page
   -- is a strip, and three sub-pages of two tabs each is three strips a player has to find). It is
   -- a TAB now, and the tab body is still the pooled price table settings/Panel.lua draws.
   --
-  -- The tab mixes a plain toggle with an eleven-row reorder table, so it carries SUBSECTION
-  -- headings (options-ui-§7): both are declared by a row, never drawn by the builder, which is
-  -- what keeps the tab list derivable from `group` alone.
+  -- The tab mixes a plain toggle with an eleven-row reorder table. The toggle is the tab's LEADING
+  -- MASTER SWITCH and sits unheaded above the one subsection (options-ui-§7, U-05(b); item 020,
+  -- LOO-L10): its old one-row "Pricing" heading restated the tab by its stem. "Price sources" is
+  -- declared by a row, never drawn by the builder, which keeps the tab list derivable from `group`.
   { path = "settings.auction.enabled", default = PD.settings.auction.enabled, type = "bool",
     widget = "CheckBox",
-    page = "General", group = "AH Price", subgroup = "Pricing", label = "Enable AH pricing",
+    page = "General", group = "AH price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   -- skipRender: the tab renders this as the unified price table's per-row Enabled checkboxes
   -- (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
@@ -350,7 +362,7 @@ local ROWS = {
   -- the table below it gets a heading without a builder drawing one (options-ui-§7).
   { path = "settings.auction.capture", default = NS.Constants.AUCTION_CAPTURE_DEFAULT, type = "table",
     widget = "MultiCheck", wide = true, skipRender = true,
-    page = "General", group = "AH Price", subgroup = "Price sources",
+    page = "General", group = "AH price", subgroup = "Price sources",
     label = "Collect & rank these prices",
     values = NS.Constants.AUCTION_CAPTURE_OPTIONS },
 
@@ -364,8 +376,9 @@ local ROWS = {
   -- `Minimap` while the minimap row lived here, and dropped both when that row moved to Master
   -- controls (launcher-§3, options-ui-§15): a lone `Window` heading over a tab whose every row is
   -- about the window repeats the tab's own name. The simulator's step delay (the owner's simulator
-  -- feedback, 2026-10-23) is a second subject again, so the window rows are `Window` and the delay
-  -- is `Simulator`. It lives here rather than on a tab of its own because a one-row tab is what
+  -- feedback, 2026-10-23) is a second subject again, so the window rows are `History window` --
+  -- named after the window they shape (item 020, LOO-L03), so the heading cannot be read as the
+  -- export or copy window -- and the delay is `Simulator`. It lives here rather than on a tab of its own because a one-row tab is what
   -- "no tab holds fewer than two controls" forbids (tests/test_schema.lua).
   { path = "settings.windowScale", default = PD.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
@@ -374,8 +387,8 @@ local ROWS = {
     -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
     -- (no snap when absent), so every scale ever saved is still reachable and still legal.
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    page = "General", group = "Interface", subgroup = "Window", label = "Window scale",
-    tooltip = "Scale of the History browser window.",
+    page = "General", group = "Interface", subgroup = "History window", label = "Window scale",
+    tooltip = "Scale of the History window. Multiplied by Master scale on General > Master controls.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
     end },
@@ -387,7 +400,7 @@ local ROWS = {
   { path = "settings.rowHeight", default = PD.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
-    page = "General", group = "Interface", subgroup = "Window", label = "Row height",
+    page = "General", group = "Interface", subgroup = "History window", label = "Row height",
     tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
     onChange = function()
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
@@ -397,11 +410,23 @@ local ROWS = {
   -- charted thing win the slots; the Character filter narrows the field first.
   { path = "settings.timelineMaxLines", default = PD.settings.timelineMaxLines, type = "number",
     min = 2, max = 16, step = 1, widget = "Slider", fmt = "%d",
-    page = "General", group = "Interface", subgroup = "Window", label = "Timeline lines",
+    page = "General", group = "Interface", subgroup = "History window", label = "Timeline lines",
     tooltip = "How many characters the Timeline draws as their own line, besides the Total. "
       .. "The ones holding the most of the charted item, currency or gold are shown first.",
     onChange = function()
       if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
+    end },
+
+  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
+  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
+  -- A view default for the window, so it sits with the window's rows, beside Timeline lines (item
+  -- 020, LOO-L02); it was on History, which is otherwise about how long data is kept.
+  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "History window", label = "Show transfers by default",
+    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
     end },
 
   -- The pace of a playing simulation: the seconds between two steps.
@@ -413,18 +438,20 @@ local ROWS = {
     min = NS.SimHost.STEP_DELAY_MIN, max = NS.SimHost.STEP_DELAY_MAX, step = NS.SimHost.STEP_DELAY_STEP,
     widget = "Slider", fmt = "%.1fs",
     validate = function(v) return NS.SimHost.ValidStepDelay(v) end,
-    page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay",
-    tooltip = "How many seconds the simulator waits between steps as it plays. "
+    page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay (seconds)",
+    tooltip = "Paces /lh sim: how many seconds the simulator waits between steps as it plays. "
       .. "A change takes effect from the next step." },
 
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
-  -- and leaves; the Filters tab that follows it on the strip declares no rows at all. Called
+  -- and leaves; only the library's Keybindings tab follows it on the strip. Filters, which declares
+  -- no rows at all, sits third, after Capture (item 020, LOO-L08). Called
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
   -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
   -- ledger added "Show transfers by default", and was the sanctioned exemption from the
-  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, so
-  -- the exemption is gone: tests/test_schema.lua binds every tab by the same rule. The rest of the
+  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, and
+  -- item 020 (LOO-L02) moved Show transfers to Interface, leaving the two keep-for rows: still two,
+  -- so tests/test_schema.lua binds every tab by the same rule with no exemption. The rest of the
   -- tab is bespoke -- the live storage readout and "Purge history…" -- controls with no path,
   -- which no partition test can count.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
@@ -438,9 +465,8 @@ local ROWS = {
   -- storage, like `minimap.shown`).
   { path = "settings.retentionDays", default = GD.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything. "
-      .. "Account-wide: one setting for every profile, and switching, copying or resetting a "
-      .. "profile never changes it.",
+    tooltip = "Account-wide: shared by every profile. Automatically drop records older than this. "
+      .. "'Always' keeps everything. Switching, copying or resetting a profile never changes it.",
     get = function()
       local g = NS.db and NS.db.global
       return g and g.retentionDays
@@ -456,11 +482,11 @@ local ROWS = {
   -- the prune runs once per session from the login deferral (core/LootHistory.lua), so the new
   -- window takes effect at the next login, which the tooltip says.
   { path = "settings.rollupRetentionDays", default = GD.rollupRetentionDays, type = "number",
-    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline days for",
+    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline history for",
     values = C.ROLLUP_RETENTION_OPTIONS,
-    tooltip = "How long the Timeline keeps its daily balances. 'Always' keeps every day. A shorter "
-      .. "window is applied at your next login; each line still starts from its last known value. "
-      .. "Account-wide.",
+    tooltip = "Account-wide: shared by every profile. How long the Timeline keeps its daily balances. "
+      .. "'Always' keeps every day. A shorter window is applied at your next login; each line still "
+      .. "starts from its last known value.",
     get = function()
       local g = NS.db and NS.db.global
       return g and g.rollupRetentionDays
@@ -468,15 +494,6 @@ local ROWS = {
     set = function(days)
       local g = NS.db and NS.db.global
       if g then g.rollupRetentionDays = days end
-    end },
-  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
-  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
-  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
-    page = "General", group = "History", label = "Show transfers by default",
-    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
-      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
     end },
 }
 

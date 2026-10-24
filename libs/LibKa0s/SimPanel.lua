@@ -63,7 +63,12 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 5
+local SIM_PANEL_MINOR = 6
+-- Minor 6: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
+-- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
+local function raisePopups()
+  if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
+end
 
 --- Close Widgets' shared dropdown menu. The picker's dropdowns drop that process-wide popup, which
 --- no owner's Hide reaches (Widgets.lua's CloseMenu contract), so every non-click way the picker
@@ -209,6 +214,8 @@ end
 --- The frame chrome: Perf's backdrop, strata, drag, title and close mark.
 local function buildChrome(frame, d, panel, showClose)
   frame:SetFrameStrata("DIALOG")
+  frame:SetToplevel(true)
+  if type(frame.HookScript) == "function" then frame:HookScript("OnShow", raisePopups) end
   frame:EnableMouse(true)
   frame:SetMovable(true)
   frame:SetClampedToScreen(true)

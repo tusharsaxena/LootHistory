@@ -224,7 +224,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   or no such name. Every call site therefore keeps the Blizzard rung it drew before, underneath —
   the client lock-atlas ladder in `modules/BrowserTable.lua`, and — for the dropdown chevron and
   the multi-select tick — the ladder inside `LibKa0s-Widgets-1.0` itself, which falls to
-  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons. The AH Price table's leading tick and its
+  `Arrow-Down-Up` and `UI-CheckBox-Check` when `core/WidgetsSetup.lua` hands it a nil path, `UI-Plus/MinusButton-Up` behind the group chevrons. The AH price table's leading tick and its
   per-row ⓘ joined that ladder in `M4-23` — `circle-check`, `ban` and `info`, over the
   `ReadyCheck-Ready` / `ReadyCheck-NotReady` / `FriendsFrame\InformationIcon` they used to draw
   outright (`settings/Panel.lua`). **The tick is tinted and has to be**: catalog art is white by
@@ -296,8 +296,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Options UI: Blizzard canvas, never AceConfigDialog
 
 - The settings panel is a Blizzard `Settings.RegisterCanvasLayoutCategory` parent (the landing page)
-  plus **one** `RegisterCanvasLayoutSubcategory` body — General, a six-tab strip — built lazily from
-  raw AceGUI widgets. There were three sub-pages until R6 folded Filters and AH Price into tabs. The
+  plus **one** `RegisterCanvasLayoutSubcategory` body — General, a seven-tab strip — built lazily from
+  raw AceGUI widgets. There were three sub-pages until R6 folded Filters and AH price into tabs. The
   canvas shell, the page registry, the lazy Defaults button, the five widget makers, the two-column
   flow engine and the schema composers are LibKa0s-Options-1.0's, wired in
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.

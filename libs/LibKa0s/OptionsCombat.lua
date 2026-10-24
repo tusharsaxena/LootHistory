@@ -27,7 +27,9 @@ if not lib then return end
 
 -- Minor 1: the combat lock's page chrome, moved here from OptionsTabs.lua (its minors 2 and 3)
 -- with no change in behavior.
-local COMBAT_MINOR = 1
+-- Minor 2: O.__releaseOwnedFocus also closes an IdList suggestion list one of the instance's pages
+-- opened (OptionsIds minor 3's O.__closeOwnedSuggest), after the pullout rather than instead of it.
+local COMBAT_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__combatMinor and lib.__combatMinor >= COMBAT_MINOR
@@ -234,16 +236,20 @@ function lib.__AttachCombat(O)
   --- instance's pages). AceGUI marks an open dropdown as its focused widget, and ClearFocus closes
   --- the pullout -- which is parented to UIParent, so the cover cannot reach it. Only a widget
   --- under one of these pages: another addon's dropdown is not the library's to close. A color
-  --- picker is Blizzard's frame and is left alone; the write seam refuses what it commits.
+  --- picker is Blizzard's frame and is left alone; the write seam refuses what it commits. It also
+  --- closes an IdList suggestion list one of these pages opened (minor 2): it is parented to
+  --- UIParent, so the cover cannot reach it either. The pullout is not a reason to skip the list.
   function O.__releaseOwnedFocus(panels)
     local AceGUI = O.AceGUI
     local w = AceGUI and AceGUI.FocusedWidget
-    if not (w and w.frame and type(AceGUI.ClearFocus) == "function") then return end
-    for _, ctx in ipairs(panels) do
-      if lib.__descendsFrom(w.frame, ctx.panel) then
-        pcall(AceGUI.ClearFocus, AceGUI)
-        return
+    if w and w.frame and type(AceGUI.ClearFocus) == "function" then
+      for _, ctx in ipairs(panels) do
+        if lib.__descendsFrom(w.frame, ctx.panel) then
+          pcall(AceGUI.ClearFocus, AceGUI)
+          break
+        end
       end
     end
+    if O.__closeOwnedSuggest then O.__closeOwnedSuggest(panels) end
   end
 end

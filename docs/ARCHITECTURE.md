@@ -81,8 +81,9 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose six tabs are
-Master controls, Capture, AH Price, Interface, History and Filters, the last holding no rows.
+Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose seven tabs are
+Master controls, Capture, Filters, AH price, Interface, History and Keybindings; Filters and
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -157,7 +158,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 
 ### The Show window key binding
 
-The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, under the `LOOTHISTORY` header in the `ADDONS` category with no default key (launcher-§6, anti-pattern #96): the player finds **Toggle Loot History window** under Key Bindings > AddOns > Ka0s Loot History. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
+The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, in the addon's own category `BINDING_HEADER_LOOTHISTORY` with no `header` and no default key (launcher-§6, anti-pattern #96): the player finds **Toggle history browser** in Options -> Keybindings -> Ka0s Loot History, a section of its own titled with the brand, and on the General page's **Keybindings** tab, which the library draws from `NS.BINDINGS` (`O.KeybindingsTab`, options-ui-§20). `NS.BINDINGS`, the one bindings table, is declared beside the button; `tests/test_keybinding.lua` checks it against `Bindings.xml` through `Kit.assertBindingsXml`. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
 
 ---
 
@@ -315,6 +316,19 @@ History row's right-click action list stays hand-rolled because it needs per-row
 
 ---
 
+## Frame layering
+
+Every strata this addon writes is read from the one layers table, `NS.Constants.LAYERS` in
+`core/Constants.lua` (frame-layering-§5), whose header comment states the whole stack, the library's
+and Blizzard's tiers included. The addon owns three tiers, by the standard's keys: `WINDOW` (HIGH:
+the History window, toplevel and clamped, every pane inside it inherited), `MODAL` (DIALOG: the
+Export modal, toplevel and clamped) and `POPUP` (FULLSCREEN_DIALOG: the row context menu, clamped,
+dismissed by `GLOBAL_MOUSE_DOWN` with no click catcher, closed by the window's `OnHide` and the
+disable ladder). It writes no frame level; the library's grip (+10) is the only explicit band in a
+window. `tests/test_layers.lua` pins all of it through the kit's layer recorder.
+
+---
+
 ## Taint notes
 
 - The **browser is a plain non-secure `CreateFrame`** (per standalone-windows) — it touches no protected
@@ -441,7 +455,7 @@ Ten such records are named below the table rather than carried in it.
   `standalone-windows` gives a library-drawn window's close control to the library.
 - Never a row: the pricing shims outside `core/Compat.lua`, a gap in the standard rather than a
   deviation ([`compat-layer.md`](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)).
-- Never a row: the AH Price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
+- Never a row: the AH price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
   reasoning is at `settings/Panel.lua:774-779` (`LH-47` in `docs/audits/2026-09-07/`).
 

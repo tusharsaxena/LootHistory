@@ -184,7 +184,7 @@ local STAND_DOWN_STEPS = {
   cancelDeferralsStep,
   -- Hidden here as well as refused in the ladder, and both are needed: the ladder stops the window
   -- coming back, this takes down the one that is already up.
-  call("CloseMenu"),
+  call("CloseMenu"), method("BrowserTable", "HideMenu"),
   method("Browser", "Hide"), method("Export", "Hide"),
   -- The debug console is a diagnostic surface and `/lh debug` keeps answering while the addon is
   -- off (slash-commands-§7), so this hides the window without gating the verb that reopens it.

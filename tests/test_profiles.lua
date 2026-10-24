@@ -332,7 +332,7 @@ test("Profiles: a switch re-applies every setting through the one adopt path", f
 end)
 
 test("Profiles: a switch, a copy and a reset each refresh every open settings panel once", function()
-  -- The Filters tab's id lists and the AH Price table are drawn off the profile's own tables, so an
+  -- The Filters tab's id lists and the AH price table are drawn off the profile's own tables, so an
   -- open panel has to be re-rendered against the new profile (options-ui: a profile callback
   -- refreshes an open panel).
   -- red under: an adopt path that drops the NS.Options.RefreshAllPanels call, which would leave an

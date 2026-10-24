@@ -98,17 +98,23 @@ end
 -- The strip, in order. Stated here rather than derived from the thing the assertion reads, so a tab
 -- that moves is a NAMED failure rather than a shorter list that still agrees with itself.
 --
--- Six tabs, five of them schema groups and one of them a bespoke body — which is why the page draws
--- its strip by hand instead of through O.RenderTabbedSchema: that one derives its tab list from
--- `group`, and a dynamic list of item ids has no rows to declare one.
+-- Seven tabs, five of them schema groups and two of them bodies with no rows (Filters' and the
+-- library's Keybindings) — which is why the page draws its strip by hand instead of through
+-- O.RenderTabbedSchema: that one derives its tab list from `group`, and neither body has rows to
+-- declare one.
 --
--- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these six minus AH Price
--- — Master controls, Capture, Interface, History, Filters. The two addons keep the same shape of
--- record and a player compares their panels directly, so a subject carries one name across both:
--- Collection became Capture and Maintenance became History, and AH Price, which is this addon's
--- alone, sits directly after Capture.
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these minus AH price —
+-- Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the same
+-- shape of record and a player compares their panels directly, so a subject carries one name across
+-- both: Collection became Capture and Maintenance became History. Filters follows Capture since
+-- item 020 (LOO-L08 with BAN-L-new1, XC-26), so "what gets recorded" is two adjacent tabs, and
+-- AH price, which is this addon's alone, sits directly after them.
 local STRIP = {
-  "Master controls", "Capture", "AH Price", "Interface", "History", "Filters",
+  "Master controls", "Capture", "Filters", "AH price", "Interface", "History",
+  -- options-ui-§20: the LAST tab of every General page whose addon ships a key binding. The
+  -- library draws it (O.KeybindingsTab); it is not a schema group and not shared with Bank Ledger's
+  -- order above, which it follows.
+  "Keybindings",
 }
 
 --- The strip position of a named tab, so a case can say WHICH tab it means and still click by

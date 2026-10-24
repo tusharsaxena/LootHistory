@@ -69,6 +69,9 @@ local SUITES = {
   "test_compat", "test_compat_routing", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
   "test_browser", "test_teststrip", "test_browsertable", "test_export", "test_debuglog",
+  -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
+  -- Builds its own layer-recording instance, so its slot is free.
+  "test_layers",
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
   "test_launcher",
@@ -77,6 +80,8 @@ local SUITES = {
   "test_keybinding",
   "test_slash", "test_slash_degraded", "test_resetprompt",
   "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
+  -- The General page's Keybindings tab (options-ui-§20). After the panel suites, which build the page.
+  "test_panel_keybinds",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

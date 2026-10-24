@@ -89,6 +89,9 @@ local LIB_FILES = {
   -- New in v1.73.0: O.Drawer (OptionsDrawer 1), an eleventh file of LibKa0s-Options-1.0. No page
   -- here draws a drawer; settings/OptionsSetup.lua's stub carries it as a no-op for parity.
   "libs/LibKa0s/OptionsDrawer.lua",
+  -- New in v1.77.0: the Keybindings tab (OptionsKeybinds 4), a twelfth file of LibKa0s-Options-1.0.
+  -- The stub in settings/OptionsSetup.lua carries its three members for parity.
+  "libs/LibKa0s/OptionsKeybinds.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
@@ -519,7 +522,7 @@ test("every seam file resolves its major with the silent flag", function()
 end)
 
 test("the Options page registry built every page this addon declares", function()
-  -- TWO sub-pages, General then Profiles LAST (options-ui-§3). The Filters and AH Price sub-pages
+  -- TWO sub-pages, General then Profiles LAST (options-ui-§3). The Filters and AH price sub-pages
   -- are tabs on General's strip since R6, so their registrations are gone rather than failing.
   -- Profiles "builds" headless too: its builder answers nil without AceDBOptions, which the
   -- registry counts as a page that opted out, not one that failed. Asserted as an exact, ordered
@@ -636,7 +639,7 @@ test("v1.71.0: the vendored minors and the kit revision match the release", func
   local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(W ~= nil and type(W.MODULES) == "table", "Widgets missing: re-vendor v1.71.0")
   assertEqual(W.MODULES.WidgetsLineChart, 3)
-  assertEqual(W.MODULES.WidgetsAutocomplete, 2)
+  assertTrue(W.MODULES.WidgetsAutocomplete >= 2) -- 3 since v1.77.0, pinned there
   local S = T.mocks.LibStub("LibKa0s-Slash-1.0", true)
   assertEqual(S.MODULES.Slash, 20)
   assertEqual(S.MODULES.SlashParse, 2)
@@ -657,7 +660,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.75.0")
     return lib.MODULES, lib
   end
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 11)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 11) -- 12 since v1.77.0, pinned there
   assertEqual(modules("LibKa0s-Item-1.0").Item, 3)
   assertEqual(modules("LibKa0s-Glow-1.0").Glow, 1)
   local media = modules("LibKa0s-Media-1.0")
@@ -667,10 +670,10 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertTrue(widgets.Widgets >= 13) -- 14 since v1.76.0, pinned there
   assertTrue(widgets.WidgetsStepPanel == nil, "W.StepPanel was withdrawn before v1.75.0 shipped")
   local debugLog = modules("LibKa0s-DebugLog-1.0")
-  assertEqual(debugLog.DebugLog, 20)
+  assertTrue(debugLog.DebugLog >= 20) -- 21 since v1.77.0, pinned there
   assertEqual(debugLog.DebugLogDiagnostics, 3)
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.Options, 29)
+  assertTrue(options.Options >= 29) -- 30 since v1.77.0, pinned there
   assertEqual(options.OptionsIdList, 5)
   assertEqual(options.OptionsTabs, 9)
   assertEqual(options.OptionsDrawer, 1)
@@ -687,7 +690,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertTrue(sim.SimPanel >= 2) -- 3 since v1.75.1, pinned there
   assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
   assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
-  assertEqual(T.KIT_VERSION, 41)
+  assertTrue(T.KIT_VERSION >= 41) -- 42 since v1.77.0, pinned there
 end)
 
 -- v1.75.1: SimPanel 3 (a disabled step row or control still shows its tip: the played steps' tips,
@@ -698,7 +701,7 @@ test("v1.75.1: the vendored minors and the kit revision match the release", func
   assertTrue(S.MODULES.SimPanel >= 3) -- 4 since v1.75.2, pinned there
   assertEqual(S.MODULES.Sim, 2)
   assertTrue(S.MODULES.SimTimeline >= 2) -- 3 since v1.76.0, pinned there
-  assertEqual(T.KIT_VERSION, 41)
+  assertTrue(T.KIT_VERSION >= 41) -- 42 since v1.77.0, pinned there
 end)
 
 -- v1.75.2: SimPanel 4 (the picker's scenario dropdown takes the width the bar leaves, so a long
@@ -709,7 +712,7 @@ test("v1.75.2: the vendored minors and the kit revision match the release", func
   assertTrue(S.MODULES.SimPanel >= 4) -- 5 since v1.76.0, pinned there
   assertEqual(S.MODULES.Sim, 2)
   assertTrue(S.MODULES.SimTimeline >= 2) -- 3 since v1.76.0, pinned there
-  assertEqual(T.KIT_VERSION, 41)
+  assertTrue(T.KIT_VERSION >= 41) -- 42 since v1.77.0, pinned there
 end)
 
 -- v1.76.0: SimTimeline 3 and SimPanel 5 (a typed or clicked start plays on its own; Run all is gone,
@@ -722,14 +725,53 @@ test("v1.76.0: the vendored minors and the kit revision match the release", func
   assertTrue(S ~= nil and type(S.MODULES) == "table", "Sim missing: re-vendor v1.76.0")
   assertEqual(S.MODULES.Sim, 2)
   assertEqual(S.MODULES.SimTimeline, 3)
-  assertEqual(S.MODULES.SimPanel, 5)
+  assertTrue(S.MODULES.SimPanel >= 5) -- 6 since v1.77.0, pinned there
   assertEqual(S.__timelineShellMinor, S.MINOR, "SimTimeline is not paired on the Sim shell's minor")
   assertEqual(S.__panelShellMinor, S.MINOR, "SimPanel is not paired on the Sim shell's minor")
   local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(W ~= nil and type(W.MODULES) == "table", "Widgets missing: re-vendor v1.76.0")
-  assertEqual(W.MODULES.Widgets, 14)
+  assertTrue(W.MODULES.Widgets >= 14) -- 15 since v1.77.0, pinned there
   local P = T.mocks.LibStub("LibKa0s-Perf-1.0", true)
   assertTrue(P ~= nil and type(P.MODULES) == "table", "Perf missing: re-vendor v1.76.0")
-  assertEqual(P.MODULES.PerfPanel, 8)
-  assertEqual(T.KIT_VERSION, 41)
+  assertTrue(P.MODULES.PerfPanel >= 8) -- 9 since v1.77.0, pinned there
+  assertTrue(T.KIT_VERSION >= 41) -- 42 since v1.77.0, pinned there
+end)
+
+-- v1.77.0: Core 12 (Core.RaiseStaticPopups), DebugLog 21, PerfPanel 9 and SimPanel 6 (the debug
+-- console, perf panel and sim panel are toplevel and re-raise a shown StaticPopup), Widgets 15 and
+-- WidgetsAutocomplete 3 (menus clamped to the screen), WidgetsDragHandle 5 (a level offset and
+-- parent alpha), Options 30 with OptionsIds 3, OptionsCombat 2, OptionsCompose 11 (O.StrataTooltip at
+-- 8; Master controls notes and the Master opacity label at 9, group tooltips at 10, O.ResetAllTooltip
+-- at 11, when the tag moved for the settings layout)
+-- and the new twelfth file OptionsKeybinds 4 (the Keybindings tab; one key button and Clear per row
+-- at 4, when the tag moved again for the owner's follow-up), and kit revision 42 (binding mock,
+-- frame-layer recorder, Bindings.xml check). Every other file unchanged.
+test("v1.77.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.77.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 12)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLog, 21)
+  assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 9)
+  local sim = modules("LibKa0s-Sim-1.0")
+  assertEqual(sim.Sim, 2)
+  assertEqual(sim.SimTimeline, 3)
+  assertEqual(sim.SimPanel, 6)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 15)
+  assertEqual(widgets.WidgetsDragHandle, 5)
+  assertEqual(widgets.WidgetsAutocomplete, 3)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.Options, 30)
+  assertEqual(options.OptionsIds, 3)
+  assertEqual(options.OptionsCombat, 2)
+  assertEqual(options.OptionsCompose, 11)
+  assertEqual(options.OptionsKeybinds, 4)
+  -- The tab's members and the strata tooltip attach to each instance lib:New builds.
+  assertTrue(type(NS.Options.KeybindingsTab) == "function", "O.KeybindingsTab missing: OptionsKeybinds did not attach")
+  assertTrue(type(NS.Options.StrataTooltip) == "function", "O.StrataTooltip missing: OptionsCompose 8 did not attach")
+  assertTrue(type(NS.Options.ResetAllTooltip) == "function", "O.ResetAllTooltip missing: OptionsCompose 11 did not attach")
+  assertEqual(T.KIT_VERSION, 42)
 end)

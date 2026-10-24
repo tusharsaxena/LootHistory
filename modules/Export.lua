@@ -463,9 +463,11 @@ local function EnsureFrame()
   frame = CreateFrame("Frame", "LootHistoryExportWindow", UIParent, "BackdropTemplate")
   frame:SetSize(372, 150)
   frame:SetPoint("CENTER")
-  -- DIALOG (below the dropdown menu's FULLSCREEN catcher) so an outside click closes the Data Set
-  -- menu; the copy window (FULLSCREEN) still opens above this modal.
-  frame:SetFrameStrata("DIALOG")
+  -- DIALOG: above the HIGH History window that opens it, below the FULLSCREEN copy window it opens
+  -- (the modal tier, NS.Constants.LAYERS). Toplevel, so a click raises it among its DIALOG peers --
+  -- the debug console, the perf and sim panels and Blizzard's confirmations (frame-layering-§4).
+  frame:SetFrameStrata(NS.Constants.LAYERS.STRATA.MODAL)
+  frame:SetToplevel(true)
   frame:EnableMouse(true); frame:SetMovable(true); frame:SetClampedToScreen(true)
 
   -- Built FIRST, before any other child, so that a seam which somehow answers nil despite the

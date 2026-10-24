@@ -33,7 +33,7 @@ HT.COLUMNS = {
     desc = "Item type; Currency or Gold for those." },
   { key = "subtype", label = "SubType", width = 100, align = "LEFT", drop = 4,
     desc = "Item subtype; a currency's category." },
-  { key = "ah", label = "AH Price", width = 80, align = "RIGHT", drop = 5,
+  { key = "ah", label = "AH price", width = 80, align = "RIGHT", drop = 5,
     desc = "Auction-house price per unit, chosen by your price-priority order." },
   { key = "total", label = "Total", width = 110, align = "RIGHT",
     desc = "How many you hold across the shown characters; a holder line shows that holder's count." },

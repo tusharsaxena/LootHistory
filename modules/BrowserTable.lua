@@ -1189,29 +1189,45 @@ function BrowserTable:BindRow(row, entry, absIndex)
 end
 
 -- ── Row context menu (right-click) ───────────────────────────────────────────────
--- A tiny flat-skin popup with per-row actions; an outside-click catcher dismisses it.
+-- A tiny flat-skin popup with per-row actions, in the popup tier (frame-layering-§4: FULLSCREEN_DIALOG,
+-- clamped). An outside press dismisses it the way the library's dropdown menu is dismissed: it
+-- LISTENS for GLOBAL_MOUSE_DOWN while shown rather than laying a full-screen catcher behind itself.
+-- The catcher it had until item 030 sat at FULLSCREEN and swallowed the press that dismissed, so a
+-- right-click on a row followed by a click on a filter dropdown opened nothing (LOO-S02), and it tied
+-- with the library's FULLSCREEN copy window (LOO-S03). Now one press both closes the menu and reaches
+-- what is under the cursor: a press on another row closes it and that row's RightButtonUp opens it
+-- there. With no catcher nothing else hides it, so the window's OnHide and the disable ladder call
+-- BrowserTable:HideMenu (LOO-S01).
 local WHITE8X8 = "Interface\\Buttons\\WHITE8X8"
 local rowMenu
 local function EnsureRowMenu()
   if rowMenu then return rowMenu end
   rowMenu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-  rowMenu:SetFrameStrata("FULLSCREEN_DIALOG")
+  rowMenu:SetFrameStrata(C.LAYERS.STRATA.POPUP)
+  rowMenu:SetClampedToScreen(true)  -- a right-click near the screen's edge keeps every row on it
   rowMenu:SetBackdrop({ bgFile = WHITE8X8, edgeFile = WHITE8X8, edgeSize = 1 })
   rowMenu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
   rowMenu:SetBackdropBorderColor(0.62, 0.5, 0.18, 1)  -- muted gold edge (reads against the world without glaring)
   rowMenu:Hide()
   rowMenu.buttons = {}
 
-  local catcher = CreateFrame("Button", nil, UIParent)
-  catcher:SetAllPoints(UIParent)
-  catcher:SetFrameStrata("FULLSCREEN")
-  catcher:Hide()
-  catcher:SetScript("OnClick", function() rowMenu:Hide() end)
-  catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  rowMenu.catcher = catcher
-  rowMenu:SetScript("OnHide", function() catcher:Hide() end)
+  -- A press ON the menu is not outside: the item's OnClick needs the release that follows it.
+  -- Registered while shown and dropped on hide, so no handler runs on every press in the game.
+  rowMenu:SetScript("OnEvent", function(self, event)
+    if event == "GLOBAL_MOUSE_DOWN" and not self:IsMouseOver() then self:Hide() end
+  end)
+  rowMenu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
   return rowMenu
 end
+
+--- Hide the row context menu, if it was ever built. Called beside NS.CloseMenu wherever the window
+--- closes (its OnHide, which Escape and B:Hide reach) and by the disable ladder.
+function BrowserTable:HideMenu()
+  if rowMenu then rowMenu:Hide() end
+end
+
+--- The row menu frame, or nil before the first right-click (tests/test_layers.lua reads it).
+function BrowserTable:MenuFrame() return rowMenu end
 
 -- The History row's context entries, as data (tests/test_browsertable.lua reads them).
 -- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
@@ -1232,16 +1248,15 @@ function BrowserTable:RowMenuItems(record)
     -- them. Manage the list in Settings ▸ General ▸ Filters ▸ Blacklist.
     { label = "Blacklist item", icon = "ban", enabled = record.itemID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddBlacklist(record.itemID) and NS.Print then
-          NS.Print(("blacklisted %s. Manage in Settings \226\150\184 General \226\150\184 Filters "
-            .. "\226\150\184 Blacklist."):format(
+          NS.Print(("blacklisted %s. Manage in Settings > General > Filters > Blacklist."):format(
             record.itemName or ("item " .. tostring(record.itemID))))
         end
       end },
     -- Blacklist this currency: stop recording future loots of this currency id. Point-in-time.
     { label = "Blacklist currency", icon = "ban", enabled = record.currencyID ~= nil, fn = function()
         if NS.Filters and NS.Filters:AddCurrencyBlacklist(record.currencyID) and NS.Print then
-          NS.Print(("blacklisted %s. Manage in Settings \226\150\184 General \226\150\184 Filters "
-            .. "\226\150\184 Currencies."):format(
+          NS.Print(("blacklisted %s. Manage in Settings > General > Filters > Currency "
+            .. "blacklist."):format(
             record.itemName or ("currency " .. tostring(record.currencyID))))
         end
       end },
@@ -1296,7 +1311,7 @@ function BrowserTable:ShowMenu(anchor, items)
   m:SetSize(W, #items * MENU_ROW_H + 8)
   m:ClearAllPoints()
   m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 4, 0)
-  m.catcher:Show()
+  m:RegisterEvent("GLOBAL_MOUSE_DOWN")
   m:Show()
 end
 

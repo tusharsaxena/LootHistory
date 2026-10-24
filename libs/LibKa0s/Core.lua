@@ -15,7 +15,9 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 11
+-- Minor 12: lib.RaiseStaticPopups, the library half of frame-layering-§4's "a destructive
+-- confirmation is never buried by a window shown after it" (XS-08), called by the three tool windows.
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -267,6 +269,30 @@ function lib.MakeCloseButton(parent, onClick, addonName)
 
   b:SetScript("OnClick", onClick)
   return b
+end
+
+--- Raise every Blizzard StaticPopup that is shown, so a tool window shown after a confirmation does
+--- not cover it (frame-layering-§4; XS-08). Public rather than file-local because three majors call
+--- it from their windows' OnShow (DebugLog's console, Perf's panel, Sim's panel), each guarded so an
+--- older Core without it raises nothing.
+---
+--- It only RAISES: it never shows, hides, re-stratas or SetToplevels a Blizzard frame (XS-21), and
+--- Raise on a StaticPopup is a C method on an unprotected frame. Each Raise is pcall'd, so a frame
+--- that refuses costs nothing but its own raise. A client without the StaticPopupN globals (or with
+--- something else under those names) raises nothing.
+---
+--- @return number  how many popups were raised
+function lib.RaiseStaticPopups()
+  local n = type(STATICPOPUP_NUMDIALOGS) == "number" and STATICPOPUP_NUMDIALOGS or 4
+  local raised = 0
+  for i = 1, n do
+    local p = _G["StaticPopup" .. i]
+    if type(p) == "table" and type(p.IsShown) == "function" and type(p.Raise) == "function"
+      and p:IsShown() and pcall(p.Raise, p) then
+      raised = raised + 1
+    end
+  end
+  return raised
 end
 
 -- ── the stored-color reader ────────────────────────────────────────────────────────────────

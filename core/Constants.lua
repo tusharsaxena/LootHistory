@@ -179,7 +179,7 @@ for _, q in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do
   }
 end
 
--- Retention presets; 0 means "Never" (cleanup disabled).
+-- Retention presets; 0 is "Always" (keep everything: cleanup disabled).
 C.RETENTION_OPTIONS = {
   { value = 7,   text = "7 days" },
   { value = 14,  text = "14 days" },
@@ -364,4 +364,36 @@ C.TIMELINE = {
   TOTAL_W = 2.5,
   LINE_W  = 2,
   PX_PER_POINT = 6,    -- chart point spacing: fewer, longer segments read smoother
+}
+
+-- ── Frame layering (frame-layering-§5) ───────────────────────────────────────────────────────
+-- The addon's ONE layers table: every SetFrameStrata in core/, modules/ and settings/ reads it, and
+-- the keys are frame-layering-§1's tier keys, so "the window tier" is spelled as in every Ka0s addon.
+--
+-- The whole stack, bottom to top, the tiers this addon borrows included:
+--   MEDIUM             LibDBIcon minimap button (the library's, fixed).
+--   HIGH     WINDOW    the History window, toplevel and clamped; every pane, table, chart and strip
+--                      in it inherits. Shares HIGH with Blizzard's Settings panel; both are
+--                      toplevel, so the last one clicked is on top.
+--   DIALOG   MODAL     the Export modal, toplevel and clamped. Peers by the library's and Blizzard's
+--                      choice: the debug console, perf panel and sim panel (toplevel from LibKa0s
+--                      v1.77.0) and the StaticPopup confirmations.
+--   FULLSCREEN         the library's CopyWindow (the export output), one strata over the modal that
+--                      opens it. The addon sets no CHILD strata of its own.
+--   FULLSCREEN_DIALOG POPUP  the History / Holdings row context menu, clamped, dismissed by
+--                      GLOBAL_MOUSE_DOWN (no click catcher), closed with its window. Peers: the
+--                      library's dropdown menu, the Search autocomplete and the IdList suggestions.
+--   TOOLTIP            GameTooltip and the library's reorder drag ghost.
+--
+-- LEVEL is empty on purpose: the addon writes no frame level of its own. Every child takes the
+-- client's parent + 1, and the library's bands are the only explicit ones in its map -- the resize
+-- grip at window + 10, the reorder drop line at + 20 and the reorder box at - 1 -- so a window's
+-- own content stays at or below + 8 (frame-layering-§3).
+C.LAYERS = {
+  STRATA = {
+    WINDOW = "HIGH",
+    MODAL  = "DIALOG",
+    POPUP  = "FULLSCREEN_DIALOG",
+  },
+  LEVEL = {},
 }

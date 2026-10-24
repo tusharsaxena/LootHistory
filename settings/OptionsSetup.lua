@@ -19,7 +19,7 @@ local addonName, NS = ...
 --    generic path because it is `type = "table"` and `O.RenderField` returns nil for a type it does
 --    not know — not because it carries `skipRender`, which it does not.
 --
--- 2. NOTHING ANY MORE, on the renderer. The AH Price page used to keep its own `OnShow` rather than
+-- 2. NOTHING ANY MORE, on the renderer. The AH price page used to keep its own `OnShow` rather than
 --    going through `SetRenderer`: the library's renderer contract is "re-run me and I redraw the
 --    page", which means a `ClearScroll` releasing every AceGUI child back to the pool, and that page
 --    parented eleven reusable row slots of raw FontStrings and Buttons to an AceGUI SimpleGroup's
@@ -119,6 +119,22 @@ if not lib then
     -- NavRail, new at LibKa0s v1.61.0 (OptionsNav minor 1): drawn only by a page render, and no
     -- page here draws a rail, so the same inert no-op applies.
     NavRail = noop,
+    -- The Keybindings tab (LibKa0s v1.77.0, OptionsKeybinds minor 2; options-ui-§20). On this path
+    -- RenderTabbedSchema answers no tabs and EnsureScroll answers nil, so the entry is inert and
+    -- KeybindRows answers nil, which is what the live one answers when it cannot draw.
+    -- KEYBINDS_UNCHANGED is a STRING on the live instance (the Defaults tooltip's closing sentence).
+    KeybindingsTab = function(spec)
+      return { key = (spec and spec.key) or "Keybindings", label = "Keybindings", render = noop }
+    end,
+    KeybindRows = function() return nil end,
+    KEYBINDS_UNCHANGED = "Key bindings are not changed.",
+    -- O.StrataTooltip (LibKa0s v1.77.0, OptionsCompose minor 8): pure on the live instance and
+    -- answers a string, so the stub answers an empty one; no panel row reads it on this path.
+    StrataTooltip = function() return "" end,
+    -- O.ResetAllTooltip (LibKa0s v1.77.0, OptionsCompose minor 11): the reset's tooltip for the
+    -- General page's header Defaults. Pure on the live instance; the stub answers the tail alone
+    -- (the library's suggested stub), and no panel reads it on this path.
+    ResetAllTooltip = function(tail) return type(tail) == "string" and tail or "" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
