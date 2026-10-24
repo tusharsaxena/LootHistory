@@ -179,7 +179,7 @@ for _, q in ipairs({ 0, 1, 2, 3, 4, 5, 7 }) do
   }
 end
 
--- Retention presets; 0 means "Never" (cleanup disabled).
+-- Retention presets; 0 is "Always" (keep everything: cleanup disabled).
 C.RETENTION_OPTIONS = {
   { value = 7,   text = "7 days" },
   { value = 14,  text = "14 days" },

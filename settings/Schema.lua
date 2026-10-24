@@ -370,8 +370,9 @@ local ROWS = {
   -- `Minimap` while the minimap row lived here, and dropped both when that row moved to Master
   -- controls (launcher-§3, options-ui-§15): a lone `Window` heading over a tab whose every row is
   -- about the window repeats the tab's own name. The simulator's step delay (the owner's simulator
-  -- feedback, 2026-10-23) is a second subject again, so the window rows are `Window` and the delay
-  -- is `Simulator`. It lives here rather than on a tab of its own because a one-row tab is what
+  -- feedback, 2026-10-23) is a second subject again, so the window rows are `History window` --
+  -- named after the window they shape (item 020, LOO-L03), so the heading cannot be read as the
+  -- export or copy window -- and the delay is `Simulator`. It lives here rather than on a tab of its own because a one-row tab is what
   -- "no tab holds fewer than two controls" forbids (tests/test_schema.lua).
   { path = "settings.windowScale", default = PD.settings.windowScale, type = "number",
     min = 0.6, max = 1.6, step = 0.05, widget = "Slider",
@@ -380,8 +381,8 @@ local ROWS = {
     -- to its two ends. Stored values are untouched: the commit path snaps against `row.step or 0`
     -- (no snap when absent), so every scale ever saved is still reachable and still legal.
     fmt = "%.2fx",  -- scale → "1.00x" in slash list/get (slash-commands-§5 value formatting)
-    page = "General", group = "Interface", subgroup = "Window", label = "Window scale",
-    tooltip = "Scale of the History browser window.",
+    page = "General", group = "Interface", subgroup = "History window", label = "Window scale",
+    tooltip = "Scale of the History window. Multiplied by Master scale on General > Master controls.",
     onChange = function(v)
       if NS.Browser and NS.Browser.SetScale then NS.Browser:SetScale(v) end
     end },
@@ -393,7 +394,7 @@ local ROWS = {
   { path = "settings.rowHeight", default = PD.settings.rowHeight, type = "number",
     min = 14, max = 28, step = 1, widget = "Slider",
     fmt = "%dpx",
-    page = "General", group = "Interface", subgroup = "Window", label = "Row height",
+    page = "General", group = "Interface", subgroup = "History window", label = "Row height",
     tooltip = "Height of one row in the History table, in pixels. Lower fits more on screen.",
     onChange = function()
       if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
@@ -403,11 +404,23 @@ local ROWS = {
   -- charted thing win the slots; the Character filter narrows the field first.
   { path = "settings.timelineMaxLines", default = PD.settings.timelineMaxLines, type = "number",
     min = 2, max = 16, step = 1, widget = "Slider", fmt = "%d",
-    page = "General", group = "Interface", subgroup = "Window", label = "Timeline lines",
+    page = "General", group = "Interface", subgroup = "History window", label = "Timeline lines",
     tooltip = "How many characters the Timeline draws as their own line, besides the Total. "
       .. "The ones holding the most of the charted item, currency or gold are shown first.",
     onChange = function()
       if NS.Timeline and NS.Timeline.RefreshIfShown then NS.Timeline:RefreshIfShown() end
+    end },
+
+  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
+  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
+  -- A view default for the window, so it sits with the window's rows, beside Timeline lines (item
+  -- 020, LOO-L02); it was on History, which is otherwise about how long data is kept.
+  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "History window", label = "Show transfers by default",
+    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
     end },
 
   -- The pace of a playing simulation: the seconds between two steps.
@@ -419,8 +432,8 @@ local ROWS = {
     min = NS.SimHost.STEP_DELAY_MIN, max = NS.SimHost.STEP_DELAY_MAX, step = NS.SimHost.STEP_DELAY_STEP,
     widget = "Slider", fmt = "%.1fs",
     validate = function(v) return NS.SimHost.ValidStepDelay(v) end,
-    page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay",
-    tooltip = "How many seconds the simulator waits between steps as it plays. "
+    page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay (seconds)",
+    tooltip = "Paces /lh sim: how many seconds the simulator waits between steps as it plays. "
       .. "A change takes effect from the next step." },
 
   -- ── General ▸ History ──
@@ -430,8 +443,9 @@ local ROWS = {
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
   -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
   -- ledger added "Show transfers by default", and was the sanctioned exemption from the
-  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, so
-  -- the exemption is gone: tests/test_schema.lua binds every tab by the same rule. The rest of the
+  -- two-controls-per-tab rule. The Timeline's rollup retention row made it three stored rows, and
+  -- item 020 (LOO-L02) moved Show transfers to Interface, leaving the two keep-for rows: still two,
+  -- so tests/test_schema.lua binds every tab by the same rule with no exemption. The rest of the
   -- tab is bespoke -- the live storage readout and "Purge history…" -- controls with no path,
   -- which no partition test can count.
   -- ("Reset Everything" used to be the third; it is the Master controls tab's "Reset all settings"
@@ -445,9 +459,8 @@ local ROWS = {
   -- storage, like `minimap.shown`).
   { path = "settings.retentionDays", default = GD.retentionDays, type = "number", widget = "Dropdown",
     page = "General", group = "History", label = "Keep history for", values = C.RETENTION_OPTIONS,
-    tooltip = "Automatically drop records older than this. 'Never' keeps everything. "
-      .. "Account-wide: one setting for every profile, and switching, copying or resetting a "
-      .. "profile never changes it.",
+    tooltip = "Account-wide: shared by every profile. Automatically drop records older than this. "
+      .. "'Always' keeps everything. Switching, copying or resetting a profile never changes it.",
     get = function()
       local g = NS.db and NS.db.global
       return g and g.retentionDays
@@ -463,11 +476,11 @@ local ROWS = {
   -- the prune runs once per session from the login deferral (core/LootHistory.lua), so the new
   -- window takes effect at the next login, which the tooltip says.
   { path = "settings.rollupRetentionDays", default = GD.rollupRetentionDays, type = "number",
-    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline days for",
+    widget = "Dropdown", page = "General", group = "History", label = "Keep Timeline history for",
     values = C.ROLLUP_RETENTION_OPTIONS,
-    tooltip = "How long the Timeline keeps its daily balances. 'Always' keeps every day. A shorter "
-      .. "window is applied at your next login; each line still starts from its last known value. "
-      .. "Account-wide.",
+    tooltip = "Account-wide: shared by every profile. How long the Timeline keeps its daily balances. "
+      .. "'Always' keeps every day. A shorter window is applied at your next login; each line still "
+      .. "starts from its last known value.",
     get = function()
       local g = NS.db and NS.db.global
       return g and g.rollupRetentionDays
@@ -475,15 +488,6 @@ local ROWS = {
     set = function(days)
       local g = NS.db and NS.db.global
       if g then g.rollupRetentionDays = days end
-    end },
-  -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
-  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
-  { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
-    page = "General", group = "History", label = "Show transfers by default",
-    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
-      "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
-    onChange = function()
-      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
     end },
 }
 

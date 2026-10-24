@@ -657,7 +657,8 @@ end)
 local PARTITION = {
   ["General"] = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
-    { "Interface", 4 }, { "History", 3 },
+    -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
+    { "Interface", 5 }, { "History", 2 },
   },
 }
 
@@ -1277,4 +1278,34 @@ test("Schema: the Capture tooltips name the controls a player can find (item 020
   for _, path in ipairs({ "settings.trackLedger", "settings.recordGold" }) do
     assertEqual(NS.Schema:FindRow(path).subgroup, "Ledger", path .. " subsection")
   end
+end)
+
+test("Schema: Interface and History read as item 020 laid them out", function()
+  -- LOO-L01/L02/L03/L12/L13/L-new1/L-new3: placement, labels and tooltip words only.
+  local function row(path) return NS.Schema:FindRow(path) end
+  local order = {}
+  for _, r in ipairs(NS.Schema.Schema) do
+    if r.group == "Interface" then order[#order + 1] = r.path end
+  end
+  assertEqual(table.concat(order, " "), "settings.windowScale settings.rowHeight "
+    .. "settings.timelineMaxLines settings.showTransfers settings.sim.stepDelay",
+    "Show transfers by default follows Timeline lines on Interface")
+  for _, path in ipairs({ "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
+                          "settings.showTransfers" }) do
+    assertEqual(row(path).subgroup, "History window", path .. " subsection")
+  end
+  assertEqual(row("settings.windowScale").tooltip,
+    "Scale of the History window. Multiplied by Master scale on General > Master controls.")
+  assertEqual(row("settings.sim.stepDelay").label, "Simulation step delay (seconds)")
+  assertEqual(row("settings.sim.stepDelay").fmt, "%.1fs", "the readout format stays")
+  assertTrue(row("settings.sim.stepDelay").tooltip:find("Paces /lh sim: ", 1, true) == 1,
+    "the simulator tooltip opens with the slash verb")
+  assertEqual(row("settings.rollupRetentionDays").label, "Keep Timeline history for")
+  for _, path in ipairs({ "settings.retentionDays", "settings.rollupRetentionDays" }) do
+    assertTrue(row(path).tooltip:find("Account-wide: shared by every profile.", 1, true) == 1,
+      path .. ": the tooltip opens with the account-wide sentence")
+  end
+  local keep = row("settings.retentionDays").tooltip
+  assertTrue(keep:find("'Always' keeps everything", 1, true) ~= nil, "the tooltip names the Always option")
+  assertTrue(keep:find("'Never'", 1, true) == nil, "the tooltip names an option the dropdown lacks")
 end)

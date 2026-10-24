@@ -361,7 +361,8 @@ local SUBGROUPS = {
   -- Interface is two subjects again: the window rows and the simulator's step delay (the owner's
   -- simulator feedback, 2026-10-23). It carried `Window` / `Minimap` until the minimap row moved to
   -- Master controls with the launcher adoption, and drew none while every row was about the window.
-  ["Interface"]       = { "Window", "Simulator" },
+  -- The window subsection names its window (item 020, LOO-L03).
+  ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},

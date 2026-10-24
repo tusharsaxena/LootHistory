@@ -508,11 +508,11 @@ function()
   withQuietScenario(function()
     local row = NS.Schema:FindRow(DELAY)
     assertTrue(row ~= nil, "a schema row")
-    assertEqual(row.label, "Simulation step delay")
+    assertEqual(row.label, "Simulation step delay (seconds)")
     assertEqual(row.page, "General"); assertEqual(row.group, "Interface"); assertEqual(row.subgroup, "Simulator")
     assertEqual(row.min, 0.5); assertEqual(row.max, 10); assertEqual(row.step, 0.5)
     -- A started simulation plays on its own (LibKa0s v1.76.0): the tooltip names no Run all (LH-01).
-    assertEqual(row.tooltip, "How many seconds the simulator waits between steps as it plays. "
+    assertEqual(row.tooltip, "Paces /lh sim: how many seconds the simulator waits between steps as it plays. "
       .. "A change takes effect from the next step.")
     slash("set " .. DELAY .. " 11")
     assertEqual(NS.Schema:Get(DELAY), 10, "the slash parser clamps to the row's range")
