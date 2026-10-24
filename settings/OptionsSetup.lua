@@ -131,6 +131,10 @@ if not lib then
     -- O.StrataTooltip (LibKa0s v1.77.0, OptionsCompose minor 8): pure on the live instance and
     -- answers a string, so the stub answers an empty one; no panel row reads it on this path.
     StrataTooltip = function() return "" end,
+    -- O.ResetAllTooltip (LibKa0s v1.77.0, OptionsCompose minor 11): the reset's tooltip for the
+    -- General page's header Defaults. Pure on the live instance; the stub answers the tail alone
+    -- (the library's suggested stub), and no panel reads it on this path.
+    ResetAllTooltip = function(tail) return type(tail) == "string" and tail or "" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.

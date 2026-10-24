@@ -26,9 +26,17 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 8
+local COMPOSE_MINOR = 11
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
+-- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
+-- host extends the composed words; the alpha row reads Master opacity (stored leaf unchanged); and
+-- with Lock frame omitted, Minimap button packs beside Debug console (options-ui-§15, v2.88.0).
+-- Minor 10: the group composers take `tooltips` beside `labels`, replacing a leaf's tooltip where the
+-- canonical words misdescribe the host's wiring; a swatch keeps its class-color sentence after it,
+-- and MasterControls ignores the field (options-ui-§16, v2.88.0).
+-- Minor 11: O.ResetAllTooltip(tail), the Reset all settings tooltip for the General page's header
+-- Defaults, read from the descriptor exactly as the button reads it (options-ui-§12, U-04).
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -180,6 +188,18 @@ local function bindRow(bind, row, field)
   return row
 end
 
+--- Replace `row`'s tooltip with the host's own words (compose minor 10, options-ui-§16), for a
+--- composed group whose canonical tooltip misdescribes the host's wiring -- a *Bar opacity* applied
+--- to the whole frame rather than the fill. Only a non-empty string does anything. A color swatch
+--- keeps CLASS_COLOR_NOTE after the host's words, because that sentence is options-ui-§17's and
+--- describes the pair, not the wiring; its companion takes the words as given. The label is not
+--- touched: a host that needs other words for the label passes `labels`, as before.
+local function withTooltip(row, tip)
+  if type(tip) ~= "string" or tip == "" then return end
+  if row.type == "color" then tip = tip .. " " .. CLASS_COLOR_NOTE end
+  row.tooltip = tip
+end
+
 --- Append one canonical row to `rows`, unless the caller omitted that leaf.
 ---
 --- Everything a caller can override is applied HERE and nowhere else — the path leaf, the label, the
@@ -192,12 +212,16 @@ end
 ---
 --- Under `spec.bind` the same key becomes the row's record `field` instead of its path (see the arm
 --- above); nothing else in this function looks at the bind.
+---
+--- `spec.tooltips` (compose minor 10, options-ui-§16) is read here too, keyed by the canonical LEAF
+--- exactly as `labels` is, never by a `keys` rename: see withTooltip below for what it does.
 local function emit(spec, rows, leaf, row)
   local omit = spec.omit or EMPTY
   if omit[leaf] then return nil end
 
   local keys     = spec.keys or EMPTY
   local labels   = spec.labels or EMPTY
+  local tooltips = spec.tooltips or EMPTY
   local defaults = spec.defaults or EMPTY
 
   local key = row.path or ((spec.prefix or "") .. (keys[leaf] or leaf))
@@ -208,6 +232,7 @@ local function emit(spec, rows, leaf, row)
   row.order    = (tonumber(spec.order) or 0) + (#rows * ORDER_STEP)
   if labels[leaf]   ~= nil then row.label   = labels[leaf]   end
   if defaults[leaf] ~= nil then row.default = defaults[leaf] end
+  withTooltip(row, tooltips[leaf])
 
   rows[#rows + 1] = row
   return row
@@ -307,6 +332,135 @@ local function resetAllTooltip(desc)
   return S.RESET_ALL_TIP_PROFILE
 end
 
+-- The Lock frame tooltip for an addon whose unlocked view IS its test mode (compose minor 9,
+-- options-ui-§15). The standard quotes this sentence, so it is written once, here, and a host
+-- passes `lockIsPreview` rather than a copy of it.
+local LOCK_PREVIEW_TIP = "Stop the frame being dragged. While it is unlocked the display shows placeholder content, so it can be seen and placed; this is the addon's test mode."
+
+--- `text` with the host's one-sentence note after it, or `text` alone when the note is not a
+--- non-empty string. The note never replaces the canonical words; it only follows them.
+local function withNote(text, note)
+  if type(note) == "string" and note ~= "" then return text .. " " .. note end
+  return text
+end
+
+--- Emit one canonical Master controls row and append the host's note for that LEAF -- the canonical
+--- name, never the `keys` rename. An omitted row takes no note.
+local function emitNoted(ms, rows, notes, leaf, row)
+  local out = emit(ms, rows, leaf, row)
+  if out then out.tooltip = withNote(out.tooltip, notes[leaf]) end
+  return out
+end
+
+--- The canonical rows of the Master controls tab, in order, then the host's extras.
+---
+--- THE FRAMELESS PACKING (compose minor 9, options-ui-§15, U-09c). With Lock frame omitted -- the
+--- frameless set, or a host that omits it -- Minimap button leaves the first column and sits beside
+--- Debug console, so no line holds a lone control; Test mode then opens a line of its own. With Lock
+--- frame present, minor 7's shape stands: Minimap button opens the line and Test mode pairs beside
+--- it. The composer lays out the rows the spec asks for and does not police which ones it asks for.
+local function masterRows(ms, spec, notes)
+  local rows = {}
+  emitNoted(ms, rows, notes, "enabled", {
+    type = "bool", label = "Enable " .. tostring(spec.addonName or "this addon"),
+    tooltip = "Turn the addon off without unloading it.", default = true, startsLine = true,
+  })
+  emitNoted(ms, rows, notes, "visibility", {
+    type = "string", label = "General visibility",
+    tooltip = "When this addon's display is shown at all.",
+    values = VISIBILITY_VALUES, sorting = VISIBILITY_SORT, default = "always",
+  })
+  emitNoted(ms, rows, notes, "scale", {
+    type = "number", label = "Master scale", tooltip = "Scales the whole addon's display.",
+    min = 0.5, max = 2, step = 0.05, default = 1, startsLine = true,
+  })
+  -- Labeled Master opacity since compose minor 9 (owner call CALL-02, options-ui-§21): only the
+  -- label moved, so the stored leaf is still `alpha` and nothing migrates.
+  emitNoted(ms, rows, notes, "alpha", {
+    type = "number", label = "Master opacity", tooltip = "Opacity of the whole addon's display.",
+    isPercent = true, min = 0, max = 1, step = 0.05, default = 1,
+  })
+  emitNoted(ms, rows, notes, "locked", {
+    type = "bool", label = "Lock frame",
+    tooltip = spec.lockIsPreview and LOCK_PREVIEW_TIP or "Stop the frame being dragged.",
+    default = false, startsLine = true,
+  })
+  local consoleRow = emitNoted(ms, rows, notes, "debugConsole", {
+    path = spec.debugConsolePath or "state.debugConsole",
+    type = "bool", label = "Debug console", tooltip = "Show this session's developer log window.",
+    -- Session state, never persisted: a console left open is not a setting the next character
+    -- inherits.
+    sessionOnly = true,
+  })
+  -- THE FOURTH LINE OF THE CANONICAL SET: [Minimap button] [Test mode] (options-ui-§15, compose
+  -- minor 7). Which of the two opens the line is not a preference and not a tidy-up: EVERY addon
+  -- has a minimap button and only SOME have a test mode, so the always-present row takes column 1
+  -- and the optional one pairs beside it. Put the other way round, an addon with no test mode
+  -- draws a hole in the first column with a lone control to its right.
+  --
+  -- Both are opt-in HERE even so, because this composer cannot know whether the host has adopted
+  -- the launcher yet (launcher-§5) -- and either row alone must still open its own line, which is
+  -- what `startsLine` below is computed from rather than declared.
+  local minimapRow
+  if spec.minimapPath then
+    -- STORED, not session: `sessionOnly` is deliberately absent. The console and the test mode are
+    -- both things a reload ends; a hidden minimap button is furniture the player arranged, and
+    -- launcher-§3 puts it in the GLOBAL store precisely so it survives a profile switch and
+    -- options-ui-§12's reset. The default is the row's own sense -- SHOWN -- and the host inverts
+    -- onto LibDBIcon's `hide` at its write seam.
+    minimapRow = emitNoted(ms, rows, notes, "minimap", {
+      path = spec.minimapPath,
+      type = "bool", label = "Minimap button",
+      tooltip = "Show this addon's button on the minimap.",
+      default = true,
+      -- The frameless packing: beside Debug console when Lock frame is omitted and the console
+      -- row was emitted; otherwise the first column of its own line, as at minor 7.
+      startsLine = not (ms.omit.locked and consoleRow) or nil,
+    })
+  end
+  -- The test mode, for an addon whose preview has a switch of its own (options-ui-§15, compose
+  -- minor 6). Session state like the console row, and absent unless the host names its path: a
+  -- checkbox shows whether the mode is on, which a button beside the resets could not.
+  if spec.testModePath then
+    emitNoted(ms, rows, notes, "testMode", {
+      path = spec.testModePath,
+      type = "bool", label = "Test mode",
+      tooltip = "Show placeholder content, so the display can be seen and placed without waiting for the real thing.",
+      -- `or nil` rather than `false`: a row that pairs beside Minimap button carries no
+      -- `startsLine` key at all, which is the shape every other second-column row in this file
+      -- has, and the shape the flow engine's `opensLine` reads. It opens its own line when there
+      -- is no minimap row, or when the minimap row has packed beside the console.
+      sessionOnly = true, startsLine = (not minimapRow or not minimapRow.startsLine) or nil,
+    })
+  end
+  return appendExtra(ms, rows)
+end
+
+--- The two closing buttons' specs. Reset position is nil for a frameless addon.
+---
+--- BOTH ARE BUILT UNCONDITIONALLY, handler or no handler. That is deliberate -- the pair is the
+--- canonical shape §15 fixes, and a composer that silently dropped a reset because the host forgot
+--- to pass its callback would make the gap look like a layout decision. The gap is named instead:
+--- InlineButtonPair reports lib.STRINGS.DEAD_BUTTON at build time for a spec with no onClick, and
+--- draws the button anyway.
+local function masterButtons(spec, notes, desc)
+  local resetAll = {
+    text    = "Reset all settings",
+    tooltip = withNote(resetAllTooltip(desc), notes.resetAll),
+    onClick = spec.onResetAll,
+  }
+  if spec.frameless then return resetAll, nil end
+  -- The one canonical text that has to name the addon's own frames, so the host may replace it
+  -- (compose minor 9, options-ui-§15); a note then follows the replacement.
+  local own = spec.resetPositionTooltip
+  local tip = (type(own) == "string" and own ~= "") and own or "Move the frame back to where it started."
+  return resetAll, {
+    text    = "Reset position",
+    tooltip = withNote(tip, notes.resetPosition),
+    onClick = spec.onResetPosition,
+  }
+end
+
 --- `d` is the instance's descriptor, handed through by lib:New since Options minor 18. A shell
 --- older than that passes none, and every descriptor read below then answers as absent.
 function lib.__AttachCompose(O, d)
@@ -346,12 +500,26 @@ function lib.__AttachCompose(O, d)
     return text
   end
 
+  --- The tooltip *Reset all settings* carries, for the General page's header Defaults where that
+  --- button is the global reset (options-ui-§12, U-04). Since compose minor 11.
+  ---
+  --- Reads the descriptor at call time through the same resetAllTooltip MasterControls uses, so the
+  --- two controls for one act can never describe it two ways. `tail` (optional) follows after one
+  --- space when it is a non-empty string; an addon with key bindings passes O.KEYBINDS_UNCHANGED
+  --- (options-ui-§20). MasterControls' `notes.resetAll` is that button's own and never appears here.
+  function O.ResetAllTooltip(tail)
+    local text = resetAllTooltip(desc)
+    if type(tail) == "string" and tail ~= "" then text = text .. " " .. tail end
+    return text
+  end
+
   --- A color swatch and its "use class color" companion, as exactly two adjacent rows
   --- (options-ui-§17). The primitive the three group composers below are built out of, and the one
   --- a host calls directly for a standalone swatch.
   ---
-  --- `spec` takes the common fields (prefix, page, group, subgroup, order, keys, labels, defaults,
-  --- omit, classColor, extra) plus:
+  --- `spec` takes the common fields (prefix, page, group, subgroup, order, keys, labels, tooltips,
+  --- defaults, omit, classColor, extra; `tooltips` since compose minor 10, a swatch's override keeping
+  --- the class-color sentence after it) plus:
   ---   key           string   the swatch's leaf. Defaults to "color".
   ---   companionKey  string   the companion's leaf. Defaults to "useClassColor<Key>".
   ---   label         string   the swatch's label. Defaults to "Color".
@@ -474,7 +642,7 @@ function lib.__AttachCompose(O, d)
   --- The canonical MASTER CONTROLS block (options-ui-§15), and the button pair that closes it.
   ---
   ---   [Enable <AddonName>]   [General visibility]
-  ---   [Master scale]         [Master alpha]
+  ---   [Master scale]         [Master opacity]
   ---   [Lock frame]           [Debug console]
   ---   [Minimap button]       [Test mode]
   ---   [Reset position]       [Reset all settings]
@@ -482,7 +650,7 @@ function lib.__AttachCompose(O, d)
   --- `spec` additionally takes:
   ---   addonName        string    for the Enable row's label. Required in practice.
   ---   frameless        boolean   the addon draws no positionable frame at all, so it omits EXACTLY
-  ---                              master scale, master alpha, lock frame and reset position — and
+  ---                              master scale, master opacity, lock frame and reset position — and
   ---                              nothing else. It MUST NOT invent a movable frame to fill the tab.
   ---   debugConsolePath string    the console toggle's stored path, VERBATIM and unprefixed:
   ---                              session state lives outside the block's own prefix. Defaults to
@@ -509,6 +677,33 @@ function lib.__AttachCompose(O, d)
   ---                              one-shot test action is not one. The host binds get/set.
   ---   leadButton       table     { text, tooltip, onClick } — ONE act of the host's own, closing
   ---                              the tab beside the resets. Since compose minor 2.
+  ---   notes            table     since compose minor 9: { <leaf> = "One sentence." }, appended after
+  ---                              the canonical tooltip of that row or button, with one space. The
+  ---                              leaves are enabled, visibility, scale, alpha, locked, debugConsole,
+  ---                              minimap and testMode, and the buttons resetPosition and resetAll.
+  ---                              Keyed by the CANONICAL leaf, so a `keys` rename keeps its note. A
+  ---                              note for an omitted row, or one that is not a non-empty string,
+  ---                              does nothing; `extra` rows are the host's and take none. This is
+  ---                              the only way a host extends the composed words (options-ui-§15).
+  ---                              The group composers' `tooltips` (compose minor 10) is not read
+  ---                              here; `labels` keeps its behavior.
+  ---   resetPositionTooltip string since compose minor 9: replaces the Reset position tooltip, the
+  ---                              one canonical text that has to name the addon's own frames.
+  ---                              notes.resetPosition then follows it. No effect when frameless.
+  ---   lockIsPreview    boolean   since compose minor 9: the addon's unlocked view IS its test mode,
+  ---                              so Lock frame's tooltip becomes the library's one sentence for it
+  ---                              (LOCK_PREVIEW_TIP), notes.locked after it. Such an addon has no
+  ---                              Test mode row, so passing testModePath as well is an error. A
+  ---                              frameless spec emits no Lock frame row and ignores the field.
+  ---
+  --- THE FRAMELESS PACKING (compose minor 9, U-09c): with Lock frame omitted, Minimap button sits
+  --- beside Debug console and Test mode, when there is one, opens its own line:
+  ---
+  ---   frameless:            [Enable <AddonName>] [General visibility]
+  ---                         [Debug console]      [Minimap button]
+  ---                         [Reset all settings]
+  ---   framed, omit.locked:  ... [Debug console] [Minimap button]
+  ---                         [Test mode]
   ---
   --- `leadButton` exists because §15 fixes the reset buttons' WORDING. An addon with a verb of its
   --- own to put beside them could not draw the pair itself without keeping a second copy of "Reset
@@ -521,6 +716,9 @@ function lib.__AttachCompose(O, d)
   --- @return function afterGroup the hook for this group, drawing the closing button pair
   function O.MasterControls(spec)
     spec = spec or EMPTY
+    if spec.lockIsPreview and spec.testModePath then
+      error("LibKa0s-Options: MasterControls lockIsPreview is for an addon whose unlocked view is its test mode, so it takes no testModePath (options-ui section 15)", 2)
+    end
 
     -- The frame-only rows are dropped through the SAME `omit` table a caller uses, so there is one
     -- code path rather than a `frameless` branch per row.
@@ -530,95 +728,18 @@ function lib.__AttachCompose(O, d)
     end
     -- The group defaults to the canonical literal without writing to the caller's table. `__index`
     -- rather than a copy so that every other field is read straight off the spec.
-    local ms = setmetatable({ group = spec.group or MASTER_GROUP, omit = omit }, { __index = spec })
+    -- `tooltips = EMPTY` shadows the spec's own: the group composers' tooltip override never reaches
+    -- this tab, whose only route to its words is `notes` (options-ui-§15, compose minor 10).
+    local ms = setmetatable({ group = spec.group or MASTER_GROUP, omit = omit, tooltips = EMPTY },
+      { __index = spec })
+    local notes = type(spec.notes) == "table" and spec.notes or EMPTY
 
-    local rows = {}
-    emit(ms, rows, "enabled", {
-      type = "bool", label = "Enable " .. tostring(spec.addonName or "this addon"),
-      tooltip = "Turn the addon off without unloading it.", default = true, startsLine = true,
-    })
-    emit(ms, rows, "visibility", {
-      type = "string", label = "General visibility",
-      tooltip = "When this addon's display is shown at all.",
-      values = VISIBILITY_VALUES, sorting = VISIBILITY_SORT, default = "always",
-    })
-    emit(ms, rows, "scale", {
-      type = "number", label = "Master scale", tooltip = "Scales the whole addon's display.",
-      min = 0.5, max = 2, step = 0.05, default = 1, startsLine = true,
-    })
-    emit(ms, rows, "alpha", {
-      type = "number", label = "Master alpha", tooltip = "Opacity of the whole addon's display.",
-      isPercent = true, min = 0, max = 1, step = 0.05, default = 1,
-    })
-    emit(ms, rows, "locked", {
-      type = "bool", label = "Lock frame", tooltip = "Stop the frame being dragged.",
-      default = false, startsLine = true,
-    })
-    emit(ms, rows, "debugConsole", {
-      path = spec.debugConsolePath or "state.debugConsole",
-      type = "bool", label = "Debug console", tooltip = "Show this session's developer log window.",
-      -- Session state, never persisted: a console left open is not a setting the next character
-      -- inherits.
-      sessionOnly = true,
-    })
-    -- THE FOURTH LINE OF THE CANONICAL SET: [Minimap button] [Test mode] (options-ui-§15, compose
-    -- minor 7). Which of the two opens the line is not a preference and not a tidy-up: EVERY addon
-    -- has a minimap button and only SOME have a test mode, so the always-present row takes column 1
-    -- and the optional one pairs beside it. Put the other way round, an addon with no test mode
-    -- draws a hole in the first column with a lone control to its right.
-    --
-    -- Both are opt-in HERE even so, because this composer cannot know whether the host has adopted
-    -- the launcher yet (launcher-§5) -- and either row alone must still open its own line, which is
-    -- what `startsLine` below is computed from rather than declared.
-    local minimapRow
-    if spec.minimapPath then
-      -- STORED, not session: `sessionOnly` is deliberately absent. The console and the test mode are
-      -- both things a reload ends; a hidden minimap button is furniture the player arranged, and
-      -- launcher-§3 puts it in the GLOBAL store precisely so it survives a profile switch and
-      -- options-ui-§12's reset. The default is the row's own sense -- SHOWN -- and the host inverts
-      -- onto LibDBIcon's `hide` at its write seam.
-      minimapRow = emit(ms, rows, "minimap", {
-        path = spec.minimapPath,
-        type = "bool", label = "Minimap button",
-        tooltip = "Show this addon's button on the minimap.",
-        default = true, startsLine = true,
-      })
-    end
-    -- The test mode, for an addon whose preview has a switch of its own (options-ui-§15, compose
-    -- minor 6). Session state like the console row, and absent unless the host names its path: a
-    -- checkbox shows whether the mode is on, which a button beside the resets could not.
-    if spec.testModePath then
-      emit(ms, rows, "testMode", {
-        path = spec.testModePath,
-        type = "bool", label = "Test mode",
-        tooltip = "Show placeholder content, so the display can be seen and placed without waiting for the real thing.",
-        -- `or nil` rather than `false`: a row that pairs beside Minimap button carries no
-        -- `startsLine` key at all, which is the shape every other second-column row in this file
-        -- has, and the shape the flow engine's `opensLine` reads.
-        sessionOnly = true, startsLine = (not minimapRow) or nil,
-      })
-    end
-    appendExtra(ms, rows)
+    local rows = masterRows(ms, spec, notes)
 
     -- The two resets are the tab's closing BUTTON PAIR (options-ui-§8), not schema rows: they are
     -- acts rather than settings. A frameless addon draws "Reset all settings" alone, which is the
     -- one shape InlineButtonPair's nil right-hand spec exists for.
-    --
-    -- BOTH ARE BUILT UNCONDITIONALLY, handler or no handler. That is deliberate -- the pair is
-    -- the canonical shape §15 fixes, and a composer that silently dropped a reset because the
-    -- host forgot to pass its callback would make the gap look like a layout decision. The
-    -- gap is named instead: InlineButtonPair reports lib.STRINGS.DEAD_BUTTON at build time
-    -- for a spec with no onClick, and draws the button anyway.
-    local resetAll = {
-      text    = "Reset all settings",
-      tooltip = resetAllTooltip(desc),
-      onClick = spec.onResetAll,
-    }
-    local resetPosition = not spec.frameless and {
-      text    = "Reset position",
-      tooltip = "Move the frame back to where it started.",
-      onClick = spec.onResetPosition,
-    } or nil
+    local resetAll, resetPosition = masterButtons(spec, notes, desc)
 
     -- WHERE THE HOST'S VERB GOES, and the two cases are not a preference. A frameless addon's pair
     -- has ONE empty cell — the right half §15 leaves when there is no Reset position — so the verb

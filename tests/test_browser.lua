@@ -607,7 +607,7 @@ end)
 -- ── Master controls: the addon-wide chrome (options-ui-§15) ───────────────────
 --
 -- Four settings arrived on the Master controls tab that this addon had never had: General
--- visibility, Master scale, Master alpha and Lock frame. A setting that is DECLARED and not
+-- visibility, Master scale, Master opacity (Master alpha before LibKa0s OptionsCompose 9) and Lock frame. A setting that is DECLARED and not
 -- HONORED is worse than one that is absent, so each is pinned against the code that reads it
 -- rather than against the schema that declares it.
 

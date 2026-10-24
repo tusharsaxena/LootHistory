@@ -47,7 +47,7 @@ local MASTER_ROWS = {
   { "settings.enabled",    "Enable Loot History" },
   { "settings.visibility", "General visibility" },
   { "settings.scale",      "Master scale" },
-  { "settings.alpha",      "Master alpha" },
+  { "settings.alpha",      "Master opacity" }, -- "Master alpha" before OptionsCompose 9
   { "settings.locked",     "Lock frame" },
   { "state.debugConsole",  "Debug console" },
   -- The launcher-§3 row, composed from `minimapPath` since LibKa0s v1.39.0. It opens the FOURTH

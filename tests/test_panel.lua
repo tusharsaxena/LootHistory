@@ -103,7 +103,7 @@ test("Panel: the Master controls tab holds the canonical rows and the closing bu
     -- settings — and they are drawn by the composer's own afterGroup hook.
     local created = show(mocks.__subcategories["General"])
     for _, label in ipairs({ "Enable Loot History", "General visibility", "Master scale",
-                             "Master alpha", "Lock frame", "Debug console", "Test mode" }) do
+                             "Master opacity", "Lock frame", "Debug console", "Test mode" }) do
       assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
     end
     for _, text in ipairs({ "Reset position", "Reset all settings" }) do

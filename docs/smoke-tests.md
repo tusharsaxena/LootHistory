@@ -210,11 +210,13 @@ second row → the first control row still starts below the strip, and rows sit 
 whichever tab is selected. Result: pass (owner-marked 2026-10-10)
 
 **PANEL-5. Per-tab layout.** Walk the tabs → **Master controls**: Enable Loot History | General
-visibility, Master scale | Master alpha, Lock frame | Debug console, Minimap button | Test mode, then
+visibility, Master scale | Master opacity, Lock frame | Debug console, Minimap button | Test mode, then
 the **Reset position** | **Reset all settings** pair. **Capture**: Minimum quality | Record currency,
 Exclude quest items alone, then the full-width **Record data from** grid. **AH Price**: *Pricing*,
 Enable AH pricing, *Price sources*, the eleven-row table. **Interface**: Window scale | Row height.
-**History**: Keep history for, then the storage readout | **Purge history…**. Result: pass (owner-marked 2026-10-10)
+**History**: Keep history for, then the storage readout | **Purge history…**. (Label amended by
+LH-RV2, 2026-10-24: LibKa0s OptionsCompose minor 9 renames *Master alpha* to *Master opacity*;
+the 2026-10-10 pass saw *Master alpha*.) Result: pass (owner-marked 2026-10-10)
 
 **PANEL-6. The pooled strip survives re-dressing.** `/lh config` → General; cycle all seven tabs three
 times ending on Master controls, then cycle the Filters sub-strip three times → on every pass each
@@ -224,9 +226,10 @@ tab, a highlight on the wrong button, a body under the wrong tab, or a band that
 (The headless case measures a mock that answers 0 for every height.) (Procedure amended by LH-KB,
 2026-10-24: seven tabs with Keybindings; the 2026-10-10 pass covered six.) Result:
 
-**PANEL-7. Master scale and alpha.** Drag **Master scale** → the History window and the export window
-both resize, and **Window scale** (Interface) still multiplies on top; drag **Master alpha** → both
-fade together. Result: pass (owner-marked 2026-10-10)
+**PANEL-7. Master scale and opacity.** Drag **Master scale** → the History window and the export window
+both resize, and **Window scale** (Interface) still multiplies on top; drag **Master opacity** (*Master alpha*
+before LibKa0s OptionsCompose minor 9; label amended by LH-RV2, 2026-10-24) → both fade together.
+Result: pass (owner-marked 2026-10-10)
 
 **PANEL-8. Window scale slider steps.** Drag **Window scale** → it moves smoothly in 0.05 steps
 across 0.6 to 1.6 (not only to the two ends). Result: pass (owner-marked 2026-10-10)

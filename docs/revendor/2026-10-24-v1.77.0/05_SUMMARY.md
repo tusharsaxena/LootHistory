@@ -36,3 +36,37 @@ kit's binding checks (LH-KB), the strata changes (LH-ZS). **Deferred (run 2026-1
 **Gates.** `luacheck .` (bounded): 0 warnings / 0 errors in 138 files. `lua tests/run.lua`
 (bounded): 1703 passed, 0 failed, 1 skipped. In-client smoke for the adoptions is the owner's,
 under LH-KB and LH-ZS.
+
+## Re-vendor after the tag moved (M3)
+
+LK-95 moved the local annotated tag v1.77.0 to carry the settings-layout surfaces of the run's item
+020. Old: the commit `78240f7b2d69df27b74fc9280cbfbf7b95dd4f1f` the first copy took. New: tag object
+`b2b8ee25c5f9fa26db146254bf786b366dec986b`, peeling to commit
+`afae2f75cb7ff61c57156d9a3d8a6b2b9f4c5e10` (`git -C ../LibKa0s rev-parse v1.77.0^{}`). Both payloads
+were copied whole again from `git archive v1.77.0 LibKa0s testkit` (plus `tools` for the prune).
+
+**Per-file minors that moved:** OptionsCompose 8 -> 11 (minor 9: Master controls `notes`,
+`resetPositionTooltip`, `lockIsPreview`, the *Master opacity* label and the frameless packing;
+minor 10: `tooltips` on the group composers; minor 11: `O.ResetAllTooltip`). Every other file,
+and the test kit (revision 42), is byte-identical to the first copy; `LibKa0s/OptionsCompose.lua`
+is the only file the diff named. Before the prune both payloads matched the tag under `diff -r`.
+
+**Prune.** `LibKa0s icons:` line unchanged (16 names); the tag's `tools/prune-icons.lua` kept 17
+files and removed 5,823, the same set, so no icon file changes in git. Provenance line stays
+v1.77.0 (it records no sha or kit revision).
+
+**Contract blockers:** two, both fixed in the commit. `Kit.assertSurfaceParity` went red on
+`ResetAllTooltip`: `settings/OptionsSetup.lua`'s stub carries it as the library's suggested inert
+member (answers the tail alone). The composed alpha row now reads *Master opacity* (stored path
+`settings.alpha` unchanged): `tests/test_panel.lua` and `tests/test_schema.lua` pin the new label,
+`docs/settings-panel.md` and smoke PANEL-5 / PANEL-7 name it (procedure wording only; their
+2026-10-10 results stand). `tests/test_libka0s.lua`'s v1.77.0 case pins OptionsCompose 11 and
+`O.ResetAllTooltip`. This addon is not frameless and omits no `locked` row, so the frameless
+packing changes nothing here.
+
+**Adopted:** none. `notes`, `resetPositionTooltip`, `lockIsPreview`, group `tooltips` and
+`O.ResetAllTooltip` are LH-LY's to adopt. **Standards half:** no drift (WS-95 closed rulings inside
+v2.88.0, which this addon already cites).
+
+**Gates.** `luacheck .` (bounded): 0 warnings / 0 errors in 140 files. `lua tests/run.lua`
+(bounded): 1718 passed, 0 failed, 1 skipped; `docs/test-cases.md` regenerates unchanged.

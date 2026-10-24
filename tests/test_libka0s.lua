@@ -740,7 +740,9 @@ end)
 -- v1.77.0: Core 12 (Core.RaiseStaticPopups), DebugLog 21, PerfPanel 9 and SimPanel 6 (the debug
 -- console, perf panel and sim panel are toplevel and re-raise a shown StaticPopup), Widgets 15 and
 -- WidgetsAutocomplete 3 (menus clamped to the screen), WidgetsDragHandle 5 (a level offset and
--- parent alpha), Options 30 with OptionsIds 3, OptionsCombat 2, OptionsCompose 8 (O.StrataTooltip)
+-- parent alpha), Options 30 with OptionsIds 3, OptionsCombat 2, OptionsCompose 11 (O.StrataTooltip at
+-- 8; Master controls notes and the Master opacity label at 9, group tooltips at 10, O.ResetAllTooltip
+-- at 11, when the tag moved for the settings layout)
 -- and the new twelfth file OptionsKeybinds 3 (the Keybindings tab), and kit revision 42 (binding
 -- mock, frame-layer recorder, Bindings.xml check). Every other file unchanged.
 test("v1.77.0: the vendored minors and the kit revision match the release", function()
@@ -764,10 +766,11 @@ test("v1.77.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.Options, 30)
   assertEqual(options.OptionsIds, 3)
   assertEqual(options.OptionsCombat, 2)
-  assertEqual(options.OptionsCompose, 8)
+  assertEqual(options.OptionsCompose, 11)
   assertEqual(options.OptionsKeybinds, 3)
   -- The tab's members and the strata tooltip attach to each instance lib:New builds.
   assertTrue(type(NS.Options.KeybindingsTab) == "function", "O.KeybindingsTab missing: OptionsKeybinds did not attach")
   assertTrue(type(NS.Options.StrataTooltip) == "function", "O.StrataTooltip missing: OptionsCompose 8 did not attach")
+  assertTrue(type(NS.Options.ResetAllTooltip) == "function", "O.ResetAllTooltip missing: OptionsCompose 11 did not attach")
   assertEqual(T.KIT_VERSION, 42)
 end)
