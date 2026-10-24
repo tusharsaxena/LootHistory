@@ -1494,11 +1494,12 @@ Total.
 - AH table: every provider present and nothing captured
 - AH table: no provider present
 
-### test_panel_keybinds.lua (7)
+### test_panel_keybinds.lua (8)
 
 - Keybindings tab: the General strip ends in Keybindings, the library's own entry
 - Keybindings tab: its rows are NS.BINDINGS in order, labeled with the BINDING_NAME_ text
 - Keybindings tab: a key bound through the tab is the client's key (GetBindingKey)
+- Keybindings tab: one key button and Clear per row; a second key reads '<key> +1'
 - Keybindings tab: a key set outside the tab (SetBinding) shows in it after UPDATE_BINDINGS
 - Keybindings tab: in combat the tab refuses, and no key is written
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
@@ -2009,7 +2010,7 @@ Total.
 | test_panel.lua | 47 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
-| test_panel_keybinds.lua | 7 |
+| test_panel_keybinds.lua | 8 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 36 |
@@ -2037,4 +2038,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1727** |
+| **Total** | **1728** |

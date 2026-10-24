@@ -1,6 +1,6 @@
 -- LibKa0s-Options-1.0 -- the Keybindings tab's model: the settings-panel editor for the key
--- bindings a host declares in its own Bindings.xml (launcher-§6), two slots per action as in the
--- client's Options -> Keybindings page, saved by the game to whichever set is in force. This file
+-- bindings a host declares in its own Bindings.xml (launcher-§6), the client's two slots per action
+-- under one key button per row, saved by the game to whichever set is in force. This file
 -- holds the headless half: lib.__keybindSet / lib.__keybindClear (write a key with the client's own
 -- slot semantics, refuse in combat, save once), lib.__keyChord (a key press to the client's chord
 -- string), lib.__keybindSetName and the words, lib.KEYBIND_STRINGS. From minor 2 it also holds the
@@ -8,7 +8,9 @@
 -- O.KEYBINDS_UNCHANGED, attached through lib.__AttachKeybinds, and the one capture listener every
 -- host shares, lib.__keybindListener. From minor 3 the tab follows Options -> Keybindings: one
 -- library frame, lib.__keybindEventFrame, hears UPDATE_BINDINGS while a keybind row is on screen
--- and repaints once per frame, and the page's OnShow re-reads every key.
+-- and repaints once per frame, and the page's OnShow re-reads every key. From minor 4 a row is one
+-- key button and Clear (options-ui-§20): the button binds slot 1 and shows the first key, and a
+-- second key, set on the client's page, is counted on it ("F5 +1") and named in its tooltip.
 --
 -- A twelfth file of the Options major (minor 1), guarded with the same multi-file idiom as
 -- OptionsDrawer.lua; Options minor 30 attaches it. It loads after OptionsCombat.lua, because every
@@ -54,7 +56,12 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- SafeRegisterEvent only while a keybind row is on screen (lib.__keybindEventFrame,
 -- lib.__keybindLive, lib.__syncKeybindEvents), one debounced repaint per frame
 -- (lib.__OnKeybindEvent), and the page's OnShow re-reading every key.
-local KEYBINDS_MINOR = 3
+-- Minor 4: one key button and Clear per row, the owner's follow-up to 015 -- the button binds and
+-- right-click clears slot 1 (a second key moves up), reads "<first key> +N" when the action holds
+-- more, and its tooltip, read at hover, names every key and says where the others were set. The
+-- second slot widget and the KEY1 / KEY2 words are gone; KEY, KEY_MORE, KEYS_ALL and KEYS_OTHER
+-- are new, and CLEAR_TIP says every key.
+local KEYBINDS_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__keybindsMinor and lib.__keybindsMinor >= KEYBINDS_MINOR
   and lib.__keybindsShellMinor == lib.MINOR then return end
@@ -76,10 +83,12 @@ lib.KEYBIND_STRINGS = {
   INTRO         = "Key bindings are saved by the game, not in your profile. Defaults and Reset " ..
                   "all settings leave them alone.",
   UNCHANGED     = "Key bindings are not changed.",
-  KEY1          = "Key 1",
-  KEY2          = "Key 2",
+  KEY           = "Key binding",
+  KEY_MORE      = "%s +%d",
+  KEYS_ALL      = "Keys: %s",
+  KEYS_OTHER    = "The others were set on the game's Key Bindings page (Options -> Keybindings).",
   CLEAR         = "Clear",
-  CLEAR_TIP     = "Remove both keys from this action.",
+  CLEAR_TIP     = "Remove every key from this action.",
   SLOT_TIP      = "Click, then press a key or a mouse button to bind it. Esc cancels. " ..
                   "Right-click removes this key.",
   LISTENING     = "Press a key...",
@@ -304,7 +313,8 @@ end
 -- calls SetPropagateKeyboardInput (protected in combat), and it is never left enabled: every stop
 -- turns all three off, hides it, clears its points and parents it back to UIParent.
 --
--- lib.__keybindCapture is nil or { view = <the rows' view>, row = <row record>, slot = 1|2 }.
+-- lib.__keybindCapture is nil or { view = <the rows' view>, row = <row record>, slot = 1 }. From
+-- minor 4 the tab only ever listens for slot 1; the field stays so the write path is the model's.
 
 --- The listener, made on first use. nil without CreateFrame.
 function lib.__keybindEnsureListener()
@@ -349,8 +359,8 @@ function lib.__keybindStop(repaint)
   return cap
 end
 
---- Start listening for `row`'s `slot`, stopping any other capture first. The caller has already
---- asked the combat lock. Answers false when there is no listener to listen with.
+--- Start listening for `row`'s `slot` (1, the key button), stopping any other capture first. The
+--- caller has already asked the combat lock. Answers false when there is no listener to listen with.
 function lib.__keybindStart(view, row, slot)
   lib.__keybindStop()
   local f = lib.__keybindEnsureListener()
@@ -574,7 +584,8 @@ end
 
 -- ── the attach ───────────────────────────────────────────────────────────────────────────────
 
--- The row's column widths, relative, summing below 1 for the clip inset (options-ui-§8).
+-- The row's column widths, relative, summing below 1 for the clip inset (options-ui-§8). Minor 4
+-- dropped the second slot and kept the others' widths, so the label and the key line up as before.
 local W_LABEL, W_SLOT, W_CLEAR = 0.40, 0.22, 0.12
 
 --- lib.KEYBIND_STRINGS with a host's translations over it, as a fresh table.
@@ -596,6 +607,23 @@ local function slotText(key)
     if type(t) == "string" and t ~= "" then return t end
   end
   return key
+end
+
+-- Every key the command holds, in slot order, with no hole.
+local function boundKeys(command)
+  local keys = {}
+  if type(GetBindingKey) ~= "function" then return keys end
+  for _, k in ipairs({ GetBindingKey(command) }) do
+    if k ~= nil and k ~= "" then keys[#keys + 1] = k end
+  end
+  return keys
+end
+
+-- The key button's text: the first key, counted with the rest ("F5 +1"), or NOT_BOUND.
+local function buttonText(S, keys)
+  local first = slotText(keys[1])
+  if #keys > 1 then return S.KEY_MORE:format(first, #keys - 1) end
+  return first
 end
 
 local function setLineText(S)
@@ -634,23 +662,13 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     return w
   end
 
-  --- The view's painters: one row's slots (the listening slot is left saying so), every row and the
+  --- The view's painters: one row's key button (left saying so while it listens), every row and the
   --- set line, and the outcome line. Nothing is cached; every paint reads GetBindingKey.
   local function painters(view)
     function view.paintRow(row)
-      local list = {}
-      if type(GetBindingKey) == "function" then list = { GetBindingKey(row.command) } end
-      local keys = {}
-      for i = 1, 2 do
-        local k = list[i]
-        if k ~= nil and k ~= "" then keys[#keys + 1] = k end
-      end
       local cap = lib.__keybindCapture
-      for slot = 1, 2 do
-        if not (cap and cap.row == row and cap.slot == slot) then
-          row.slots[slot]:SetText(slotText(keys[slot]))
-        end
-      end
+      if cap and cap.row == row then return end
+      row.slots[1]:SetText(buttonText(view.S, boundKeys(row.command)))
     end
     function view.repaint()
       for _, row in ipairs(view.rows) do view.paintRow(row) end
@@ -690,9 +708,31 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     view.repaint()
   end
 
-  --- A slot: an AceGUI Button that takes both mouse buttons, handed back to the pool as it came
-  --- (options-ui-§19): its one OnRelease restores LeftButtonUp and stops a capture it holds.
-  local function makeSlot(view, row, slot, tip)
+  --- The key button's tooltip, read at hover: the how-to line, and with more than one key every key
+  --- and where the others were set, so a key set on the client's page is never hidden.
+  local function keyTooltip(view, row, btn)
+    local S = view.S
+    local anchor = btn.frame or btn
+    btn:SetCallback("OnEnter", function()
+      if not GameTooltip then return end
+      GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
+      GameTooltip:SetText(S.KEY, 1, 1, 1)
+      GameTooltip:AddLine(S.SLOT_TIP, nil, nil, nil, true)
+      local keys = boundKeys(row.command)
+      if #keys > 1 then
+        local names = {}
+        for i, k in ipairs(keys) do names[i] = slotText(k) end
+        GameTooltip:AddLine(S.KEYS_ALL:format(table.concat(names, ", ")), nil, nil, nil, true)
+        GameTooltip:AddLine(S.KEYS_OTHER, nil, nil, nil, true)
+      end
+      GameTooltip:Show()
+    end)
+    btn:SetCallback("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  end
+
+  --- The key button: an AceGUI Button that takes both mouse buttons, handed back to the pool as it
+  --- came (options-ui-§19): its one OnRelease restores LeftButtonUp and stops a capture it holds.
+  local function makeSlot(view, row, slot)
     local btn = O.AceGUI:Create("Button")
     btn:SetRelativeWidth(W_SLOT)
     if btn.frame and btn.frame.RegisterForClicks then
@@ -704,12 +744,12 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
       local cap = lib.__keybindCapture
       if cap and cap.row.slots[cap.slot] == w then lib.__keybindStop(false) end
     end)
-    O.AttachTooltip(btn, view.S["KEY" .. slot], tip)
+    keyTooltip(view, row, btn)
     if view.ctx.__renderDisabled then btn:SetDisabled(true) end
     return btn
   end
 
-  --- One action's row: label, Key 1, Key 2, Clear, in a full-width Flow group.
+  --- One action's row: label, the key button, Clear, in a full-width Flow group.
   local function makeRow(view, binding)
     local AceGUI, S = O.AceGUI, view.S
     local row = { command = binding.command, status = view.status, slots = {}, view = view }
@@ -729,10 +769,8 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     label:SetRelativeWidth(W_LABEL)
     O.AttachTooltip(label, name, binding.tooltip)
     group:AddChild(label)
-    for slot = 1, 2 do
-      row.slots[slot] = makeSlot(view, row, slot, S.SLOT_TIP)
-      group:AddChild(row.slots[slot])
-    end
+    row.slots[1] = makeSlot(view, row, 1)
+    group:AddChild(row.slots[1])
     local clear = AceGUI:Create("Button")
     clear:SetText(S.CLEAR)
     clear:SetRelativeWidth(W_CLEAR)
@@ -775,7 +813,7 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
   end
 
   --- Draw the Keybindings rows into `parent` (default: the page's scroll). Answers the row records
-  --- `{ command, label, group, slots = { w1, w2 }, clear, status }`, or nil when degraded.
+  --- `{ command, label, group, slots = { key button }, clear, status, view }`, or nil when degraded.
   --- `spec`: bindings ({ { command, tooltip } }, row order), intro (one host line under the fixed
   --- intro), strings (translations of lib.KEYBIND_STRINGS keys); key and before are the tab's.
   function O.KeybindRows(ctx, spec, parent)

@@ -89,7 +89,7 @@ local LIB_FILES = {
   -- New in v1.73.0: O.Drawer (OptionsDrawer 1), an eleventh file of LibKa0s-Options-1.0. No page
   -- here draws a drawer; settings/OptionsSetup.lua's stub carries it as a no-op for parity.
   "libs/LibKa0s/OptionsDrawer.lua",
-  -- New in v1.77.0: the Keybindings tab (OptionsKeybinds 3), a twelfth file of LibKa0s-Options-1.0.
+  -- New in v1.77.0: the Keybindings tab (OptionsKeybinds 4), a twelfth file of LibKa0s-Options-1.0.
   -- The stub in settings/OptionsSetup.lua carries its three members for parity.
   "libs/LibKa0s/OptionsKeybinds.lua",
   "libs/LibKa0s/Perf.lua",
@@ -743,8 +743,9 @@ end)
 -- parent alpha), Options 30 with OptionsIds 3, OptionsCombat 2, OptionsCompose 11 (O.StrataTooltip at
 -- 8; Master controls notes and the Master opacity label at 9, group tooltips at 10, O.ResetAllTooltip
 -- at 11, when the tag moved for the settings layout)
--- and the new twelfth file OptionsKeybinds 3 (the Keybindings tab), and kit revision 42 (binding
--- mock, frame-layer recorder, Bindings.xml check). Every other file unchanged.
+-- and the new twelfth file OptionsKeybinds 4 (the Keybindings tab; one key button and Clear per row
+-- at 4, when the tag moved again for the owner's follow-up), and kit revision 42 (binding mock,
+-- frame-layer recorder, Bindings.xml check). Every other file unchanged.
 test("v1.77.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -767,7 +768,7 @@ test("v1.77.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsIds, 3)
   assertEqual(options.OptionsCombat, 2)
   assertEqual(options.OptionsCompose, 11)
-  assertEqual(options.OptionsKeybinds, 3)
+  assertEqual(options.OptionsKeybinds, 4)
   -- The tab's members and the strata tooltip attach to each instance lib:New builds.
   assertTrue(type(NS.Options.KeybindingsTab) == "function", "O.KeybindingsTab missing: OptionsKeybinds did not attach")
   assertTrue(type(NS.Options.StrataTooltip) == "function", "O.StrataTooltip missing: OptionsCompose 8 did not attach")

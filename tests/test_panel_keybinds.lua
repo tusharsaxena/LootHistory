@@ -94,7 +94,41 @@ test("Keybindings tab: a key bound through the tab is the client's key (GetBindi
     local status = T.keybindThroughTab(rows[1], 1, "K", { shift = true })
     assertEqual(mocks.GetBindingKey(BINDING), "SHIFT-K", "the client's store holds the key")
     assertEqual(status, mocks.KEY_BOUND, "the outcome line says so, in the client's words")
-    assertEqual(rows[1].slots[1].text, "SHIFT-K", "and Key 1 shows it")
+    assertEqual(rows[1].slots[1].text, "SHIFT-K", "and the key button shows it")
+  end)
+end)
+
+--- The key button's tooltip, read by firing its OnEnter with GameTooltip's SetText and AddLine
+--- spied (the tooltip is built at each hover, so nothing on the widget holds it).
+local function keyTip(widget)
+  local tip, seen = mocks.GameTooltip, {}
+  local savedSet, savedAdd = rawget(tip, "SetText"), rawget(tip, "AddLine")
+  rawset(tip, "SetText", function(_, text) seen[#seen + 1] = text end)
+  rawset(tip, "AddLine", function(_, text) seen[#seen + 1] = text end)
+  local ok, err = pcall(widget.callbacks.OnEnter, widget)
+  rawset(tip, "SetText", savedSet)
+  rawset(tip, "AddLine", savedAdd)
+  if not ok then error(err, 0) end
+  return table.concat(seen, "\n")
+end
+
+test("Keybindings tab: one key button and Clear per row; a second key reads '<key> +1'", function()
+  -- The owner's follow-up to item 015 (OptionsKeybinds minor 4): the row is the label, ONE key
+  -- button and Clear. A second key is set on the client's Options -> Keybindings page (the kit's
+  -- slot-2 route writes it as that page would); the button then reads "<first> +1" and its tooltip
+  -- names both keys and where the other was set, so nothing is hidden.
+  -- red under: a row that still draws a Key 2 slot, or a button that hides the second key.
+  onTab(function(_, rows)
+    local KS = OptionsLib.KEYBIND_STRINGS
+    assertEqual(#rows[1].slots, 1, "one key button")
+    assertEqual(rows[1].slots[2], nil, "no Key 2 slot on the tab")
+    T.keybindThroughTab(rows[1], 1, "K", { shift = true })
+    local status = T.keybindThroughTab(rows[1], 2, "J", { ctrl = true })
+    assertEqual(status, mocks.KEY_BOUND, "the game page's second key is bound")
+    assertEqual(rows[1].slots[1].text, "SHIFT-K +1", "the button counts the second key")
+    local tip = keyTip(rows[1].slots[1])
+    assertTrue(tip:find(KS.KEYS_ALL:format("SHIFT-K, CTRL-J"), 1, true) ~= nil, "every key: " .. tip)
+    assertTrue(tip:find(KS.KEYS_OTHER, 1, true) ~= nil, "where the other was set: " .. tip)
   end)
 end)
 

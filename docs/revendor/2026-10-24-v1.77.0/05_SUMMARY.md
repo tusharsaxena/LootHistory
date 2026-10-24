@@ -70,3 +70,44 @@ v2.88.0, which this addon already cites).
 
 **Gates.** `luacheck .` (bounded): 0 warnings / 0 errors in 140 files. `lua tests/run.lua`
 (bounded): 1718 passed, 0 failed, 1 skipped; `docs/test-cases.md` regenerates unchanged.
+
+## Re-vendor after the tag moved again (one key button)
+
+LK-96 moved the local annotated tag v1.77.0 again to carry OptionsKeybinds minor 4, the owner's
+follow-up to item 015 (one key button and Clear per row on the in-addon Keybindings tab; the client's
+Options -> Keybindings page untouched). Old: tag object `b2b8ee25c5f9fa26db146254bf786b366dec986b`,
+peeling to commit `afae2f75cb7ff61c57156d9a3d8a6b2b9f4c5e10` (the M3 copy above). New: tag object
+`e9b126d961c2970e5b14d0566480f7c1d8b5e5e8`, peeling to commit
+`2f2b2e22b4c9219cd8a4101d7e894681c7aea16e` (`git -C ../LibKa0s rev-parse v1.77.0 v1.77.0^{}`).
+Both payloads were copied whole again from `git archive v1.77.0 LibKa0s testkit` (plus `tools` for
+the prune), per the installed `/dev-copilot:wow-revendor-libka0s` 2.4.0 procedure.
+
+**Per-file minors that moved:** OptionsKeybinds 3 -> 4 (one key button showing the first key, or
+`<key> +1` with a tooltip naming every key when the game's page holds a second; right-click clears
+the key shown; Clear removes every key; `KEYBIND_STRINGS` drops `KEY1` / `KEY2` and gains `KEY`,
+`KEY_MORE`, `KEYS_ALL`, `KEYS_OTHER`). The Options version key is now 30.2.34.3.5.9.2.11.4.2.1.4.
+Test kit: still revision 42; `bindings_xml.lua` (`Kit.keybindThroughTab` writes slot 2 through the
+model on a one-button row) and `tests/_kit/README.md` changed. Those three files are the only ones
+the diff named; before the prune both payloads matched the tag under `diff -r`.
+
+**Prune.** `LibKa0s icons:` line unchanged (16 names); the tag's `tools/prune-icons.lua` kept 17
+files and removed 5,823, the same set, so no icon file changes in git. Provenance line stays
+v1.77.0.
+
+**Contract blockers:** none for the stub (no Options member added or removed, so
+`settings/OptionsSetup.lua` is unchanged and `Kit.assertSurfaceParity` stays green). The visible
+change is owed by docs and tests: `tests/test_libka0s.lua`'s v1.77.0 case pins OptionsKeybinds 4;
+`tests/test_panel_keybinds.lua` adds a case pinning one key button per row, the `<key> +1` text and
+the tooltip naming both keys and the game's page, driven through the kit's slot-2 route (red against
+the minor-3 payload: `one key button (expected 1, got 2)`), and its slot-1 case says "key button"
+for "Key 1". No addon test drove slot 2 through the tab before. `docs/settings-panel.md`,
+`docs/testing.md` and smoke LAUNCH-16 / LAUNCH-17 describe the one key button and Clear; both
+checks stay pending (no owner mark had been recorded) and are listed again under Pending sign-off
+with SM-LH-RV3. `Bindings.xml`, `NS.BINDINGS` and the labels are untouched.
+
+**Adopted:** none (nothing opt-in arrived). **Standards half:** no drift (WS-41 records
+OptionsKeybinds minor 4 inside v2.88.0, which this addon already cites).
+
+**Gates.** `luacheck .` (bounded): 0 warnings / 0 errors. `lua tests/run.lua` (bounded): 1728
+passed, 0 failed, 1 skipped; `docs/test-cases.md` regenerated (Total 1728) and the README badge
+moves to 1728/1728.

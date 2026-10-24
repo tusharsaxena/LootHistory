@@ -34,8 +34,9 @@
 --
 --   Kit.keybindThroughTab(row, slot, key, mods) -> the row's outcome line
 --
---     row    a row record O.KeybindRows answered ({ command, slots = { w1, w2 }, status, ... })
---     slot   1 or 2 (default 1)
+--     row    a row record O.KeybindRows answered ({ command, slots = { key button }, status, ... })
+--     slot   1 (default): the row's key button; 2: the second key, the one a player sets on the
+--            client's Options -> Keybindings page
 --     key    the key press, as the client's OnKeyDown hands it ("K", "F5", "ESCAPE", ...)
 --     mods   optional { alt =, ctrl =, shift =, meta = }, set through the binding mock's
 --            M.setModifiers for the press and put back to what they were after it
@@ -48,6 +49,15 @@
 --   tab is wired. The mock is the one the harness handed Kit.expose (`mocks` or `mock`), else _G.
 --   It fails naming options-ui-§20 when the row, the slot, the listener or its script is missing,
 --   or `mods` is given with no M.setModifiers (install tests/_kit/mock_bindings.lua first).
+--
+--   SLOT 2 (OptionsKeybinds minor 4, still kit revision 42). From that minor a row has ONE key button,
+--   and a second key is set on the client's own page. With no slot-2 widget on the row, slot 2 is
+--   written through the library's model, as that page would: lib.__keyChord(key) with `mods` held,
+--   then lib.__keybindSet(row.command, 2, chord), then the row's view repainted (the
+--   UPDATE_BINDINGS sync's work, done now); it answers the client's KEY_BOUND line, or the
+--   library's words for a refusal. A press with no chord (ESCAPE, a modifier alone, an ignored
+--   key) writes nothing and answers the row's own outcome line, in combat or out. A row drawn by an older minor (two slot widgets) is still
+--   clicked, as before.
 --
 -- SHAPE. Returns `function(Kit)`, which installs the members on the kit table it is handed.
 -- `framework.lua` loads it once, from its own folder, beside `latch.lua`; it is not a module a
@@ -174,9 +184,13 @@ return function(Kit)
     return nil
   end
 
+  local function noRow(row)
+    return type(row) ~= "table" or type(row.slots) ~= "table"
+  end
+
   --- The slot widget to click, or nil and the problem.
   local function slotWidget(row, slot)
-    if type(row) ~= "table" or type(row.slots) ~= "table" then
+    if noRow(row) then
       return nil, "no row record from O.KeybindRows (options-ui-§20)"
     end
     local w = row.slots[slot]
@@ -202,9 +216,55 @@ return function(Kit)
     return f, onKey
   end
 
+  --- Hold `mods` through M.setModifiers, run `fn`, put the old state back; raises what fn raised.
+  --- `level` is the fail level that reaches the suite's line.
+  local function withMods(M, mods, prefix, level, fn)
+    local prev
+    if mods ~= nil then
+      if type(M.setModifiers) ~= "function" then
+        fail(prefix .. "mods given but no setModifiers: install tests/_kit/mock_bindings.lua (options-ui-§20)", level)
+      end
+      prev = M.__modifiers
+      M.setModifiers(mods)
+    end
+    local ok, out = pcall(fn)
+    if mods ~= nil then M.setModifiers(prev) end
+    if not ok then error(out, 0) end
+    return out
+  end
+
+  --- Slot 2 on a one-button row: the second key, written through the model as the client's page
+  --- would write it, and the row repainted. Answers the outcome words. A press with no chord
+  --- (ESCAPE, a modifier alone, an ignored key) writes nothing and answers the row's own line,
+  --- as slot 1's capture leaves it on Escape, in combat or out.
+  local function modelSlot2(row, key, mods, prefix)
+    local M = env()
+    local lib = optionsLib(M)
+    if noRow(row) or type(row.command) ~= "string" then
+      fail(prefix .. "no row record from O.KeybindRows (options-ui-§20)", 3)
+    end
+    if not lib or type(lib.__keybindSet) ~= "function" or type(lib.__keyChord) ~= "function" then
+      fail(prefix .. "no lib.__keybindSet to write slot 2 through (options-ui-§20)", 3)
+    end
+    local chord = withMods(M, mods, prefix, 4, function() return lib.__keyChord(key) or false end)
+    if not chord then return statusText(row) end
+    local ok, _, _, why = withMods(M, mods, prefix, 4, function()
+      return lib.__keybindSet(row.command, 2, chord)
+    end)
+    local view = row.view
+    if type(view) == "table" and type(view.repaint) == "function" then view.repaint() end
+    if ok then return lib.__keybindClientString("KEY_BOUND") end
+    local S = lib.KEYBIND_STRINGS or {}
+    return (why == "combat" and S.COMBAT) or (why == "unavailable" and S.UNAVAILABLE) or S.FAILED
+  end
+
   function Kit.keybindThroughTab(row, slot, key, mods)
     local prefix = "keybindThroughTab: "
     slot = slot or 1
+    if slot == 2 and not noRow(row) and row.slots[2] == nil then
+      local words = modelSlot2(row, key, mods, prefix)   -- not a tail call: fail levels count it
+      return words
+    end
     local w, problem = slotWidget(row, slot)
     if not w then fail(prefix .. problem, 2) end
     local M = env()
@@ -214,17 +274,7 @@ return function(Kit)
     if not f then
       fail(prefix .. "no lib.__keybindListener OnKeyDown to press the key into (options-ui-§20)", 2)
     end
-    local prev
-    if mods ~= nil then
-      if type(M.setModifiers) ~= "function" then
-        fail(prefix .. "mods given but no setModifiers: install tests/_kit/mock_bindings.lua (options-ui-§20)", 2)
-      end
-      prev = M.__modifiers
-      M.setModifiers(mods)
-    end
-    local ok, err = pcall(onKey, f, key)
-    if mods ~= nil then M.setModifiers(prev) end
-    if not ok then error(err, 0) end
+    withMods(M, mods, prefix, 3, function() return onKey(f, key) end)
     return statusText(row)
   end
 end

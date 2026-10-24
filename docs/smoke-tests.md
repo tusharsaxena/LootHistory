@@ -1161,17 +1161,21 @@ Result:
 
 **LAUNCH-16. The General page's Keybindings tab follows the client's page (options-ui-§20).**
 `/lh config` → General → the last tab is **Keybindings**: the intro line, one row
-`Toggle history browser` with **Key 1**, **Key 2** and **Clear**, then *Saved for: all characters*
-(or *this character only*). Bind a key in Key 1 → Options -> Keybindings -> Ka0s Loot History shows
-it; set Key 2 there → the tab shows it when looked at again. Tick **Character Specific Keybindings**
+`Toggle history browser` with **one key button** and **Clear**, then *Saved for: all
+characters* (or *this character only*). Bind a key with the key button → Options -> Keybindings ->
+Ka0s Loot History shows it; set a second key there → the tab's button reads `<key> +1` when looked
+at again, and hovering it names both keys and says the other was set on the game's Key Bindings
+page. Right-click the button → the key it shows clears and the second key moves up; set the second
+key again on the game's page, then **Clear** → both keys go. Tick **Character Specific Keybindings**
 and repeat → the set line says *this character only* and both surfaces agree. Untick it again
-afterwards. (LH-KB; SM-LH-KB2)
+afterwards. (LH-KB, rewritten by LH-RV3 2026-10-24 for the one key button; SM-LH-KB2, SM-LH-RV3)
 Result:
 
 **LAUNCH-17. The tab's key works; Escape cancels; combat refuses (options-ui-§20).** Bind a key on
 the Keybindings tab, close Settings, press it twice → the History window opens, then closes. On the
-tab, click Key 1, press Escape → the capture cancels and Settings stays open. In combat, click Key 1
-or Clear → *Key bindings can be changed after combat.* and no key changes. (LH-KB; SM-LH-KB3)
+tab, click the key button, press Escape → the capture cancels and Settings stays open. In combat,
+click the key button or Clear → *Key bindings can be changed after combat.* and no key changes.
+(LH-KB, rewritten by LH-RV3 2026-10-24 for the one key button; SM-LH-KB3, SM-LH-RV3)
 Result:
 
 ## Debug console and diagnostics
@@ -1955,6 +1959,8 @@ keeps it. A check added or rewritten after that date is listed here until its `R
 a pass.
 
 - LAUNCH-15, LAUNCH-16, LAUNCH-17 (LH-KB, 2026-10-24: the Keybindings section and tab).
+- LAUNCH-16, LAUNCH-17 (procedure rewritten by LH-RV3, 2026-10-24: one key button and Clear per
+  row, `<key> +1` with a tooltip when the game's page holds a second key; SM-LH-RV3).
 - PANEL-3 (procedure amended by LH-KB, 2026-10-24: the strip is seven tabs, Keybindings last).
 - HIST-38, HIST-39, HIST-40, HIST-41, HIST-42 (LH-ZS, 2026-10-24: frame layering, SM-LH-ZS).
 - PANEL-3, PANEL-5, PANEL-21, FILT-1, FILT-2 (LH-LY, 2026-10-24: the item 020 settings layout,
