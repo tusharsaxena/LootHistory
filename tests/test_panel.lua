@@ -372,9 +372,9 @@ test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its S
   function()
     -- options-ui-§7. Under a strip the tab IS the group's heading, so the group heading is
     -- suppressed — but `subgroup` is deliberately NOT suppressed, because a tab that mixes control
-    -- types has no tab left to name each kind with. ONE tab is mixed: AH price, a plain toggle above
-    -- an eleven-row reorder table. Interface was the second until the minimap row moved to Master
-    -- controls (launcher-§3), and its headings went with it rather than being kept for symmetry.
+    -- types or subjects has no tab left to name each kind with. THREE tabs draw subsections (item
+    -- 020): Capture (Loot / Ledger), AH price (an unheaded lead toggle above the Price sources
+    -- reorder table) and Interface (History window / Simulator). SUBGROUPS above is the full list.
     -- red under: passing `noHeadings` for subgroups too, or dropping any `subgroup` field — either
     -- shortens a list here — and equally under adding one to a tab that is a single subject.
     local ctx = NS.Panel.general
