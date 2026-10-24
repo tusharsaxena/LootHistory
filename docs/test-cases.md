@@ -937,6 +937,17 @@ Total.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
+### test_layers.lua (8)
+
+- Layers: NS.Constants.LAYERS names its strata by the standard's tier keys
+- Layers: no strata literal and no absolute level in the addon's own code
+- Layers: the History window is the on-demand window tier, toplevel and clamped
+- Layers: the Export modal is the modal tier, toplevel and clamped
+- Layers: the row menu is a clamped popup with no full-screen catcher
+- Layers: an outside press dismisses the row menu through GLOBAL_MOUSE_DOWN
+- Layers: the row menu closes when the History window hides
+- Layers: BrowserTable:HideMenu is safe before the menu exists
+
 ### test_launcher.lua (22)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
@@ -1970,6 +1981,7 @@ Total.
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
+| test_layers.lua | 8 |
 | test_launcher.lua | 22 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 63 |
@@ -2016,4 +2028,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1710** |
+| **Total** | **1718** |

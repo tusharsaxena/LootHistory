@@ -798,7 +798,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
   "Timeline", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
-  "SafeRegisterEvent", "DebugAtEnable", "Debug" }
+  "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
   local saved, savedDebug = {}, NS.State.debug
@@ -830,6 +830,7 @@ local function fillAll(log)
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
   NS.Export = recorder(log, "Export", { "Hide" })
+  NS.BrowserTable = recorder(log, "BrowserTable", { "HideMenu" })
   NS.DebugLog = recorder(log, "DebugLog", { "Hide" })
   for _, k in ipairs({ "SimStop", "DropLedgerResetOffer", "CloseMenu" }) do
     NS[k] = function() log[#log + 1] = k end
@@ -857,7 +858,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "DropLedgerResetOffer",
       "CancelDeferrals",
       "Debug:State:stand-down: capture unregistered, 3 deferral(s) canceled",
-      "CloseMenu",
+      "CloseMenu", "BrowserTable:HideMenu",
       "Browser:Hide", "Export:Hide", "DebugLog:Hide",
     }, "\n"))
   end)

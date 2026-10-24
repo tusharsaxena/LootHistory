@@ -933,7 +933,11 @@ local function EnsureFrame()
   local minH = SKIN.minH
   B._minW, B._minH = minW, minH
   frame:SetSize(minW, SKIN.defaultH)  -- open at the (taller) default; can shrink to minH
-  frame:SetFrameStrata("HIGH")
+  -- The on-demand window tier (frame-layering-§1, NS.Constants.LAYERS): HIGH, the Settings panel's
+  -- strata. Toplevel, so it is raised when shown and when clicked, and comes up over Settings when
+  -- Test mode or the key binding opens it with Settings already up (frame-layering-§4).
+  frame:SetFrameStrata(NS.Constants.LAYERS.STRATA.WINDOW)
+  frame:SetToplevel(true)
   frame:EnableMouse(true)   -- capture clicks over the whole window; no click-through to the world
   frame:SetMovable(true)
   frame:SetClampedToScreen(true)
@@ -1075,8 +1079,10 @@ local function EnsureFrame()
   end)
   frame:HookScript("OnHide", function()
     -- The popup is a process-wide singleton parented to UIParent; this frame's own Hide cannot
-    -- reach it. This is also the Escape / UISpecialFrames path.
+    -- reach it. This is also the Escape / UISpecialFrames path. The row context menu is the same
+    -- shape (a UIParent child) and closes here too, so neither popup outlives its window.
     NS.CloseMenu()
+    if NS.BrowserTable and NS.BrowserTable.HideMenu then NS.BrowserTable:HideMenu() end
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window hidden") end
   end)
 
@@ -1207,6 +1213,7 @@ function B:Hide()
   -- below reaches the popup through it. That hook is what covers Escape and every other close
   -- path; this call only covers the case where the frame was never built.
   NS.CloseMenu()
+  if NS.BrowserTable and NS.BrowserTable.HideMenu then NS.BrowserTable:HideMenu() end
   if frame then frame:Hide() end
 end
 

@@ -316,6 +316,19 @@ History row's right-click action list stays hand-rolled because it needs per-row
 
 ---
 
+## Frame layering
+
+Every strata this addon writes is read from the one layers table, `NS.Constants.LAYERS` in
+`core/Constants.lua` (frame-layering-§5), whose header comment states the whole stack, the library's
+and Blizzard's tiers included. The addon owns three tiers, by the standard's keys: `WINDOW` (HIGH:
+the History window, toplevel and clamped, every pane inside it inherited), `MODAL` (DIALOG: the
+Export modal, toplevel and clamped) and `POPUP` (FULLSCREEN_DIALOG: the row context menu, clamped,
+dismissed by `GLOBAL_MOUSE_DOWN` with no click catcher, closed by the window's `OnHide` and the
+disable ladder). It writes no frame level; the library's grip (+10) is the only explicit band in a
+window. `tests/test_layers.lua` pins all of it through the kit's layer recorder.
+
+---
+
 ## Taint notes
 
 - The **browser is a plain non-secure `CreateFrame`** (per standalone-windows) — it touches no protected

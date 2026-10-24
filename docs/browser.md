@@ -6,7 +6,7 @@ The standalone loot browser is a single non-secure window with two views — **H
 
 `EnsureFrame` (`Browser.lua:855`) builds one plain `CreateFrame("Frame", "LootHistoryWindow", UIParent, "BackdropTemplate")` — the Ka0s Standard standalone-windows pattern for standalone data browsers, of which this addon is the reference implementation. It is **non-secure by design**: no `SecureFrameTemplate`, no `InCombatLockdown` gate, so the window opens and repaints freely in combat. (The *settings* panel is separately options-ui-§2 combat-gated; the browser is not.)
 
-The frame is `HIGH` strata, mouse-enabled (no click-through to the world), movable and `SetClampedToScreen(true)` (`Browser.lua:870-873`), and resizable from a bottom-right grip built by `Core.MakeResizable` through the `NS.MakeResizable` seam (`Browser.lua:991`; on a degraded install, the pre-library grip in `core/CoreSetup.lua`). The grip is bounded at `B:MinWidth()` × `SKIN.minH`, passed explicitly because the library's default floor is the current (700px) height; Lock frame gates it through `canResize = not B:IsLocked()`, which leaves it drawn and inert. Four standalone-windows obligations are wired in `EnsureFrame`:
+The frame is `HIGH` strata (`NS.Constants.LAYERS.STRATA.WINDOW`) and toplevel, so it is raised when shown and when clicked, even over the Settings panel that shares its strata; it is mouse-enabled (no click-through to the world), movable and `SetClampedToScreen(true)` (`Browser.lua:870-873`), and resizable from a bottom-right grip built by `Core.MakeResizable` through the `NS.MakeResizable` seam (`Browser.lua:991`; on a degraded install, the pre-library grip in `core/CoreSetup.lua`). The grip is bounded at `B:MinWidth()` × `SKIN.minH`, passed explicitly because the library's default floor is the current (700px) height; Lock frame gates it through `canResize = not B:IsLocked()`, which leaves it drawn and inert. Four standalone-windows obligations are wired in `EnsureFrame`:
 
 - **ESC to close** — `LootHistoryWindow` is appended to `UISpecialFrames` (`Browser.lua:1034`), so Escape hides it via the stock path. Because that path calls `frame:Hide()` directly (not `B:Hide()`), an `OnHide` hook closes any open dropdown menu (`Browser.lua:1021`).
 - **Persisted position / size** — `SaveWindow` / `RestoreWindow` (`Browser.lua:89-113`) write `settings.window = { point, x, y, w, h }` to the active profile (`NS.db.profile`) on drag-stop and once per resize release (the grip's `onResizeStop`; never per size step, and never after a press Lock frame refused), and restore it on open and on every profile event (`B:AdoptProfile`). Restore floors width/height at the frame minimums (`B._minW`/`B._minH`). This geometry is an architecture-§5 carve-out: it is written straight to the profile, **not** through `Schema:Set` (see [settings-panel.md](settings-panel.md)).
@@ -304,7 +304,12 @@ chat, blacklist, delete) rather than changing a setting. It also needs **per-row
 "Link to chat" is dead without an `itemLink`, "Blacklist item" without an `itemID` — and per-row
 disable is a *documented, deliberate absence* from the major: `opt.isActive` reports a state, it
 does not gate a click. Converting it would mean either losing the disable or growing the library a
-feature no consumer has asked for. It keeps its own small popup and its own catcher.
+feature no consumer has asked for. It keeps its own small popup, in the same popup tier as the
+library's (`NS.Constants.LAYERS.STRATA.POPUP`, clamped to the screen), and since item 030 the same
+dismissal: no catcher, a `GLOBAL_MOUSE_DOWN` listener while shown that hides it on a press outside
+it, so a right-click on a row followed by a click on a filter dropdown opens the dropdown in one
+press. Because nothing else closes it, the window's `OnHide`, `Browser:Hide` and the disable ladder
+call `BrowserTable:HideMenu()` beside `NS.CloseMenu()`.
 
 ## Test mode (`/lh test`) — synthetic preview
 

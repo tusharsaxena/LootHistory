@@ -23,7 +23,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 37 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views |
+| HIST-1 to 42 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking) |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
@@ -812,6 +812,32 @@ it has focus; press **Esc**, click in again and press **Enter** → each time fo
 outline returns to the dropdowns' gray. Type a few letters → the `Search items…` hint hides while
 text is present and the view filters as before; clear the text → the hint comes back. The
 autocomplete list (AC-1) still opens under the box. Result: pass (owner-marked 2026-10-23)
+
+**HIST-38. The row menu closes with its window (LH-ZS, LOO-Z01).** `/lh show`, right-click a History
+row so its menu opens, press **Esc** → the window and the menu both close. Click anywhere in the
+world → the click lands (nothing invisible eats it). Repeat with `/lh hide`, then with the Holdings
+tab's row menu. Result:
+
+**HIST-39. One press dismisses the row menu and acts (LH-ZS, LOO-Z02).** Right-click a History row,
+then left-click the **Quality** dropdown → the row menu closes and the Quality menu opens on that
+same click. Right-click a row, then right-click a different row → the menu moves to the second row.
+Right-click a row and pick **Link to chat** → the action still runs. Open **Export** so its copy
+window shows, then right-click a row and click the copy window → the row menu closes and the copy
+window takes the click. Result:
+
+**HIST-40. The window comes up over Settings (LH-ZS, LOO-Z03).** Open Esc > Options > AddOns > Ka0s
+Loot History, then press the Show window key (or tick **Test mode** on Master controls) → the
+History window opens on top of the Settings panel where the two overlap. Click the Settings panel →
+it comes to the front; click the History window → it is back on top. Result:
+
+**HIST-41. The Export modal raises on click (LH-ZS, LOO-Z04).** `/lh debug` to open the debug
+console, then open **Export** from the History window and drag the two so they overlap. Click the
+console → it comes to the front; click the Export modal → it is back on top. Both stay over the
+History window, and the copy window opened from Export draws over both. Result:
+
+**HIST-42. The row menu stays on screen (LH-ZS, LOO-Z08).** Drag the History window down until its
+last rows sit at the bottom edge of the screen and right-click the lowest row → the whole menu is on
+screen (pushed up if needed), on History and on Holdings. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1900,3 +1926,4 @@ a pass.
 
 - LAUNCH-15, LAUNCH-16, LAUNCH-17 (LH-KB, 2026-10-24: the Keybindings section and tab).
 - PANEL-3 (procedure amended by LH-KB, 2026-10-24: the strip is seven tabs, Keybindings last).
+- HIST-38, HIST-39, HIST-40, HIST-41, HIST-42 (LH-ZS, 2026-10-24: frame layering, SM-LH-ZS).
