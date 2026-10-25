@@ -10,10 +10,11 @@ local B = NS.Browser
 -- browser state, so it loads directly ABOVE modules/Browser.lua, which binds these as file-scope
 -- locals at load; modules/BrowserFilterBar.lua binds them from NS.Browser the same way.
 
--- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
+-- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable: the
+-- skin's q.* override where it sets one, else the client's color (NS.QualityColor, core/SkinSetup.lua).
 local function qualityColor(q)
-  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-  if c then return { c.r, c.g, c.b } end
+  local r, g, b = NS.QualityColor(q)
+  if r then return { r, g, b } end
   return nil
 end
 
@@ -210,6 +211,15 @@ local function boundOptions()
     if present[k] then items[#items + 1] = { value = k, label = BOUND_LABEL[k] } end
   end
   return items
+end
+
+-- The quality options carry their tint, baked when the list is built, so a skin change rebuilds the
+-- built bar's list (the refresh the minimum-quality setting makes, modules/Browser.lua) and a skin's
+-- q.* override reaches it. Nothing to do before the bar exists.
+if NS.Skin then
+  NS.Skin.OnLooksChanged(function()
+    if B._dd and B._dd.quality then B._dd.quality:SetOptions(qualityOptions()) end
+  end)
 end
 
 -- Published for modules/Browser.lua and modules/BrowserFilterBar.lua (bound at their load) and for

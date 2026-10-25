@@ -92,6 +92,10 @@ local SUITES = {
   -- today's values, a switch repaints live. Builds fresh windows under the kit's paint recorder and
   -- puts the session's back; leaves the skin on Ka0s Default.
   "test_skin_chrome",
+  -- The History table on the skin (LH-03): header, arrows, pooled rows, row menu, scroll bar and
+  -- tooltips; Ka0s Default draws today's values, a switch repaints live. Attaches a fresh table
+  -- under the kit's paint recorder and puts the session's back; leaves the skin on Ka0s Default.
+  "test_skin_table",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

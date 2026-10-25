@@ -261,13 +261,13 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/' | xargs grep -n 'Interface\\'
   ```
 
-  It prints 25 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
+  It prints 24 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
 
   | # | Class | Where |
   |---|---|---|
-  | 7 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:184` (the degraded facade's flat button), `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:95`, `:1191`, `modules/Timeline.lua:25` |
-  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:120`, `:326`, `:327`, `:1168`, `:1169`, `modules/HoldingsTab.lua:304`, `:305`, `:428`, `:429`, `settings/Panel.lua:541`, `:542`, `:543` |
-  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:139` (the class-circle sheet, under the `classicon-` atlas) |
+  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:235` (the degraded facade's flat button and row menu), `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101`, `modules/Timeline.lua:25` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:305`, `:306`, `:429`, `:430`, `settings/Panel.lua:541`, `:542`, `:543` |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
   The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the

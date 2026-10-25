@@ -20,6 +20,10 @@ local addonName, NS = ...
 --   NS.SKIN_FALLBACK        the host copy of the Ka0s Default tokens the degraded facade answers.
 --   NS.SkinColor(name)      a color token as a call site writes it (three components when opaque),
 --                           so a literal that became a token keeps its arity on Ka0s Default.
+--   NS.SkinEscape(name)     a color token as a "|cffrrggbb" escape, rounded to the byte, so markup
+--                           written as a literal keeps its bytes on Ka0s Default (|cffff5555).
+--   NS.QualityColor(q)      an item quality's r, g, b: the skin's q.* token where it sets one (a
+--                           legibility override), else the client's ITEM_QUALITY_COLORS; nil for none.
 --
 -- ── WHERE IT LOADS ───────────────────────────────────────────────────────────────────────────
 --
@@ -73,6 +77,25 @@ NS.SKIN_FALLBACK = {
   ["input.border"]  = { 0.24, 0.24, 0.27, 0.9 },
   ["text.disabled"] = { 0.5, 0.5, 0.5, 1 },
   ["gtip.body"]     = { 0.9, 0.9, 0.9, 1 },
+  -- The History table (LH-03): its header labels, arrows and chevrons, the pooled rows' stripe and
+  -- hover, the cells' default text, the row menu (its edge is the muted-gold borderAlt), the
+  -- tooltips' title and hint lines, the padlock's five bind states and the destructive entry.
+  ["list.header.text"] = { 1, 0.82, 0, 1 },
+  ["list.stripe"]   = { 1, 1, 1, 0.03 },
+  ["list.hover"]    = { 1, 0.82, 0, 0.10 },
+  ["text.body"]     = { 0.9, 0.9, 0.9, 1 },
+  ["menu.bg"]       = { 0.06, 0.06, 0.08, 0.98 },
+  ["menu.border"]   = { 0, 0, 0, 1 },
+  ["menu.borderAlt"] = { 0.62, 0.5, 0.18, 1 },
+  ["menu.hover"]    = { 1, 0.82, 0, 0.15 },
+  ["gtip.title"]    = { 1, 0.82, 0, 1 },
+  ["gtip.muted"]    = { 0.5, 0.5, 0.5, 1 },
+  ["sem.boundNone"] = { 0.60, 0.60, 0.60, 0.40 },
+  ["sem.boundBoE"]  = { 0.92, 0.92, 0.92, 0.95 },
+  ["sem.boundBoP"]  = { 0.30, 0.82, 0.42, 1 },
+  ["sem.boundWarband"] = { 0.30, 0.58, 0.98, 1 },
+  ["sem.boundWarbandUE"] = { 0.95, 0.52, 0.12, 1 },
+  ["sem.danger"]    = { 1, 1 / 3, 1 / 3, 1 },
 }
 
 --- A color token's components AS A CALL SITE WRITES THEM: r, g, b for an opaque color and r, g, b,
@@ -84,6 +107,34 @@ function NS.SkinColor(name)
   if r == nil then return nil end
   if a == nil or a == 1 then return r, g, b end
   return r, g, b, a
+end
+
+--- A color token as a "|cffrrggbb" escape, each channel rounded to the nearest byte (1/3 is 55,
+--- .5 is 80), so markup a call site wrote as a literal keeps its bytes on Ka0s Default. nil for a
+--- token the skin leaves alone.
+function NS.SkinEscape(name)
+  local r, g, b = NS.Skin.Color(name)
+  if r == nil then return nil end
+  local function byte(v) return math.floor(v * 255 + 0.5) end
+  return ("|cff%02x%02x%02x"):format(byte(r), byte(g), byte(b))
+end
+
+-- The six qualities the skin schema names (q.poor .. q.legendary); every other quality (artifact,
+-- heirloom, token) is the client's color under every skin.
+local QUALITY_TOKEN = { [0] = "q.poor", "q.common", "q.uncommon", "q.rare", "q.epic", "q.legendary" }
+
+--- An item quality's r, g, b. The q.* tokens are legibility overrides only: Ka0s Default sets none
+--- (the client's own colors), a light skin darkens the ones it must. nil for a quality the client
+--- has no color for, so a caller keeps its own fallback.
+function NS.QualityColor(q)
+  local name = QUALITY_TOKEN[q]
+  if name then
+    local r, g, b = NS.Skin.Color(name)
+    if r ~= nil then return r, g, b end
+  end
+  local c = ITEM_QUALITY_COLORS and q ~= nil and ITEM_QUALITY_COLORS[q]
+  if c then return c.r, c.g, c.b end
+  return nil
 end
 
 NS.SKIN_SOURCE_OPTIONS = {
@@ -126,7 +177,7 @@ if not Skin then
   local function noop() end
   local S = { owner = addonName, apiVersion = 3, FROM_SKIN = "@skin" }
   -- Every vocabulary name answers, and a primitive with no host meaning is a no-op that never
-  -- raises (Shell, TitleBar, Divider, Button and Text draw today's look from the host copy). The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
+  -- raises (Shell, TitleBar, Divider, Button, MenuFrame and Text draw today's look from the host copy). The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
   -- to the live facade key for key.
   for _, name in ipairs({
     "Shell", "Panel", "Inset", "FadeRegions", "FadeNineSlice", "Button", "WhiteButtonLabel",
@@ -196,6 +247,14 @@ if not Skin then
       btn:HookScript("OnEnter", function() fs:SetTextColor(NS.SkinColor("btn.hover")) end)
       btn:HookScript("OnLeave", function() fs:SetTextColor(NS.SkinColor("btn.text")) end)
     end
+  end
+  -- The History row menu (modules/BrowserTable.lua EnsureRowMenu) as it was drawn before the skin
+  -- engine: the WHITE8X8 box with no insets, its fill, and the muted-gold edge (`alt`).
+  S.MenuFrame = function(frame, opts)
+    if type(frame) ~= "table" or type(frame.SetBackdrop) ~= "function" then return end
+    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+    frame:SetBackdropColor(color("menu.bg"))
+    frame:SetBackdropBorderColor(color(type(opts) == "table" and opts.alt and "menu.borderAlt" or "menu.border"))
   end
   S.GetPanelColor = function() return color("win.bg") end
   S.GetFont = function() return STANDARD_TEXT_FONT end

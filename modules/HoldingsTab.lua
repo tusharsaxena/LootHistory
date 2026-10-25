@@ -281,7 +281,8 @@ function HT.RowActions(line)
     local h = line.holder
     local forgettable = not NS.State.testHoldings
       and h ~= NS.Constants.WARBAND_HOLDER and h ~= NS.Util.PlayerKey()
-    items[#items + 1] = { label = "|cffff5555Forget this character|r", icon = "clear", enabled = forgettable,
+    items[#items + 1] = { label = NS.BrowserTable.DangerLabel("Forget this character"), icon = "clear",
+      enabled = forgettable,
       fn = function()
         if type(StaticPopup_Show) == "function" then
           StaticPopup_Show("KA0S_LOOTHISTORY_FORGET_HOLDER", h, nil, { holder = h })

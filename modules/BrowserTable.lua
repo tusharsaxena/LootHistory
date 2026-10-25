@@ -27,10 +27,11 @@ local rowHeight = BrowserTable.RowHeight
 local HEADER_H = 20
 local ITEM_MIN = 150  -- minimum width of the flex (Item) column
 local COL_GAP = 8     -- horizontal space between columns
--- Blizzard header gold. One value for the column labels, the sort arrows, the Bound
--- header's lock and the group-header row, so a header reads as one color rather than a
--- gold word beside a white mark.
-local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
+-- The header color, the skin's list.header.text (Blizzard header gold on Ka0s Default). One value
+-- for the column labels, the sort arrows, the Bound header's lock and the group-header row and its
+-- chevron, so a header reads as one color rather than a gold word beside a white mark. Read at call
+-- time (three components when opaque), so a skin switch reaches every one of them (Reskin, below).
+local function headerRGB() return NS.SkinColor("list.header.text") end
 -- The Bound lock, one size for the header and the rows. They were 14 and briefly disagreed; a
 -- column label and the cells beneath it drawing the same mark at two sizes reads as two marks.
 local LOCK_SIZE = 11
@@ -40,15 +41,20 @@ local LOCK_SIZE = 11
 -- three glyphs and draws boxes, so only the glyph takes C.FONT_MONO; the label stays in the row font
 -- so it reads like every other cell. Both take one color (paintDirectionCell).
 local ARROW_SIZE, ARROW_GAP = 12, 2
--- Every row shows a lock; color + opacity encode the binding state. {r, g, b, alpha}
--- Hues drawn from WoW's palette (Blizzard gold, legendary orange, rare blue), muted a touch.
-local BOUND_STYLE = {
-  UNBOUND    = { 0.60, 0.60, 0.60, 0.40 }, -- not bound: faint gray
-  BOE        = { 0.92, 0.92, 0.92, 0.95 }, -- bind on equip: off-white
-  BOP        = { 0.30, 0.82, 0.42, 1.00 }, -- bind on pickup: green
-  WARBAND    = { 0.30, 0.58, 0.98, 1.00 }, -- warbound: blue
-  WARBAND_UE = { 0.95, 0.52, 0.12, 1.00 }, -- warbound until equipped: orange
+-- Every row shows a lock; color + opacity encode the binding state. The colors are the skin's
+-- sem.bound* tokens, whose Ka0s Default values are the ones this table always drew (hues from WoW's
+-- palette, muted a touch): not bound faint gray at .4, bind on equip off-white at .95, bind on
+-- pickup green, warbound blue, warbound until equipped orange. Insights draws three of them in a
+-- split of its own (the sem.bound*Alt tokens); the two are not reconciled in leg 1.
+local BOUND_TOKEN = {
+  UNBOUND = "sem.boundNone", BOE = "sem.boundBoE", BOP = "sem.boundBoP",
+  WARBAND = "sem.boundWarband", WARBAND_UE = "sem.boundWarbandUE",
 }
+-- A binding state's r, g, b, alpha (an unknown or nil state reads as not bound).
+local function boundColor(state)
+  local r, g, b, a = NS.Skin.Color(BOUND_TOKEN[state] or BOUND_TOKEN.UNBOUND)
+  return r, g, b, a or 1
+end
 -- The one ladder for the binding states: filter menu, legend and column sort all read this order.
 -- Warbound sits second-to-last and warbound-until-equipped last.
 local BOUND_RANK = { UNBOUND = 1, BOE = 2, BOP = 3, WARBAND = 4, WARBAND_UE = 5 }
@@ -81,7 +87,7 @@ end
 -- The shared `lock` mark first; the client-atlas ladder and the solid chip stay BELOW it, because
 -- nil is a real answer (no library) and the column must never come up blank. The comment on the
 -- chip used to read "pending a real lock atlas" -- this is that lock, and it ships WHITE, so the
--- per-state BOUND_STYLE tint every caller applies still multiplies the way it always did.
+-- per-state bind tint (sem.bound*) every caller applies still multiplies the way it always did.
 local function applyLockTexture(tex)
   local path = NS.Icon and NS.Icon("lock")
   if path then
@@ -96,8 +102,9 @@ local function applyLockTexture(tex)
   end
 end
 
--- Inline colored lock (or chip) for tooltip text, tinted to a BOUND_STYLE color.
-local function lockMarkup(style)
+-- Inline colored lock (or chip) for tooltip text, tinted to a binding state's color.
+local function lockMarkup(state)
+  local style = { boundColor(state) }
   local r = math.floor((style[1] or 1) * 255)
   local g = math.floor((style[2] or 1) * 255)
   local b = math.floor((style[3] or 1) * 255)
@@ -130,7 +137,8 @@ local BOUND_LEGEND = {
 }
 function BrowserTable:AddBoundLegend(tooltip)
   for _, entry in ipairs(BOUND_LEGEND) do
-    tooltip:AddLine(lockMarkup(BOUND_STYLE[entry[1]]) .. " - " .. entry[2], 0.9, 0.9, 0.9)
+    local r, g, b = NS.SkinColor("gtip.body")
+    tooltip:AddLine(lockMarkup(entry[1]) .. " - " .. entry[2], r, g, b)
   end
 end
 
@@ -321,10 +329,16 @@ BrowserTable.sortAsc = false
 -- degraded rung -- they ship in every flavor -- and the same two names serve four states, because
 -- the grouped column's group-order arrow reads from them too (UpdateHeaderArrows).
 --
--- The arrows are TINTED to the header gold. An inline texture ignores the FontString's color, so
--- an untinted arrow reads white beside a gold label -- two colors for one word.
-local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, GOLD_R, GOLD_G, GOLD_B)
-local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+-- The arrows are TINTED to the header color. An inline texture ignores the FontString's color, so
+-- an untinted arrow reads white beside a gold label -- two colors for one word. Markup is baked, so
+-- the pair is REBUILT on a skin change (Reskin, below) before the header is repainted.
+local ARROW_ASC, ARROW_DESC
+local function buildArrows()
+  local r, g, b = headerRGB()
+  ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
+  ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
+end
+buildArrows()
 
 -- groupBy mode → the table column it corresponds to (drives the header arrow + group-order
 -- toggle). The human prefix each group header shows sits beside the grouping, in
@@ -715,10 +729,17 @@ end
 
 -- ── Pooled rows ─────────────────────────────────────────────────────────────────
 
+-- The quality text: the skin's q.* override where it sets one, else the client's color (NS.QualityColor).
 local function qualityColor(q)
-  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
-  if c then return c.r, c.g, c.b end
+  local r, g, b = NS.QualityColor(q or 1)
+  if r then return r, g, b end
   return 1, 1, 1
+end
+
+-- One tooltip line in a gtip.* token, as { text, r, g, b }.
+local function tipLine(text, token)
+  local r, g, b = NS.SkinColor(token)
+  return { text, r, g, b }
 end
 
 -- Test mode's rows carry no item link (the sample's names are made up), so a hover gets a plain
@@ -729,11 +750,11 @@ function BrowserTable.ShowSampleTooltip(owner, r)
   local lines = { { r.itemName or "?", qr, qg, qb } }
   if r.itemType and r.itemType ~= "" then
     local _, label = NS.LedgerFormat.TypeSub(r.itemType, r.itemSubType)
-    lines[#lines + 1] = { label, 0.9, 0.9, 0.9 }
+    lines[#lines + 1] = tipLine(label, "gtip.body")
   end
-  if r.confidence == "INFERRED" then lines[#lines + 1] = { "Source inferred (uncertain).", 0.62, 0.62, 0.62 } end
-  lines[#lines + 1] = { "Test-mode sample", 0.5, 0.5, 0.5 }
-  lines[#lines + 1] = { "Right-click for options", 0.5, 0.5, 0.5 }
+  if r.confidence == "INFERRED" then lines[#lines + 1] = tipLine("Source inferred (uncertain).", "gtip.muted") end
+  lines[#lines + 1] = tipLine("Test-mode sample", "gtip.muted")
+  lines[#lines + 1] = tipLine("Right-click for options", "gtip.muted")
   return NS.Compat.ShowTintedTooltip(owner, lines)
 end
 
@@ -750,12 +771,15 @@ function BrowserTable:BuildRow()
 
   local stripe = row:CreateTexture(nil, "BACKGROUND")
   stripe:SetAllPoints()
-  stripe:SetColorTexture(1, 1, 1, 0.03)
+  stripe:SetColorTexture(NS.SkinColor("list.stripe"))
   row.stripe = stripe
 
+  -- The stripe and the hover are colored here, once per pooled row, and recolored on a skin change
+  -- by the walk over BOTH pool lists (Reskin, below), so a parked row never comes back in the old skin.
   local hl = row:CreateTexture(nil, "HIGHLIGHT")
   hl:SetAllPoints()
-  hl:SetColorTexture(1, 0.82, 0, 0.10)
+  hl:SetColorTexture(NS.SkinColor("list.hover"))
+  row.hl = hl
 
   -- One FontString per data column, laid out left→right with the Item column flexing.
   row.cells = {}
@@ -787,7 +811,7 @@ function BrowserTable:BuildRow()
   -- Group-header styling (used in 3.4); hidden for data rows.
   local header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   header:SetPoint("LEFT", 4, 0)
-  header:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+  header:SetTextColor(headerRGB())
   header:Hide()
   row.header = header
 
@@ -817,10 +841,11 @@ function BrowserTable:BuildRow()
       BrowserTable.ShowSampleTooltip(self2, r)
     end
     if shown then
+      local mr, mg, mb = NS.SkinColor("gtip.muted")
       if r.confidence == "INFERRED" then
-        GameTooltip:AddLine("Source inferred (uncertain).", 0.62, 0.62, 0.62)
+        GameTooltip:AddLine("Source inferred (uncertain).", mr, mg, mb)
       end
-      GameTooltip:AddLine("Shift-click to link · right-click for options", 0.5, 0.5, 0.5)
+      GameTooltip:AddLine("Shift-click to link · right-click for options", mr, mg, mb)
       GameTooltip:Show()
     end
   end)
@@ -919,6 +944,10 @@ function BrowserTable:Attach(pane)
   header:SetPoint("TOPRIGHT", -24, 0)
   header:SetHeight(HEADER_H)
   self.headerFrame = header
+  -- The header band: list.header.bg behind the labels, which Ka0s Default leaves unset (no band, as
+  -- before). The labels, the lock and the arrows take list.header.text here, not through the
+  -- primitive, so each keeps the call it always made.
+  NS.Skin.SortHeaderBar(header)
 
   -- FauxScrollFrame drives the scrollbar + offset. Pooled rows live in a sibling overlay
   -- (rowHost) aligned with the scroll viewport, so the ScrollFrame never clips them.
@@ -931,6 +960,10 @@ function BrowserTable:Attach(pane)
   end)
   scroll:SetScript("OnSizeChanged", function() BrowserTable:Bind() end)
   self.scroll = scroll
+  -- The template's bar (its `ScrollBar` parentKey): stock on Ka0s Default, the skin's thumb and
+  -- track elsewhere.
+  local bar = rawget(scroll, "ScrollBar")
+  if bar then NS.Skin.ScrollBar(bar) end
 
   local host = CreateFrame("Frame", nil, pane)
   host:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
@@ -942,6 +975,7 @@ function BrowserTable:Attach(pane)
   -- Empty-state text.
   local empty = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   empty:SetPoint("CENTER", scroll, "CENTER", 0, 0)
+  NS.Skin.Text(empty, "disabled")
   empty:Hide()
   self.emptyText = empty
 
@@ -950,7 +984,7 @@ function BrowserTable:Attach(pane)
   self:Refresh()
 end
 
--- Build one header button per column (text label, or a gold lock for the icon column).
+-- Build one header button per column (text label, or a header-colored lock for the icon column).
 -- Each shows a tooltip describing the column and sorts by that column on click.
 function BrowserTable:MakeHeaderButton(col)
   local btn = CreateFrame("Button", nil, self.headerFrame)
@@ -960,24 +994,26 @@ function BrowserTable:MakeHeaderButton(col)
     tex:SetSize(LOCK_SIZE, LOCK_SIZE)
     tex:SetPoint("CENTER")
     applyLockTexture(tex)
-    -- Gold, like every other column label: the lock IS this column's label.
-    tex:SetVertexColor(GOLD_R, GOLD_G, GOLD_B)
+    -- The header color, like every other column label: the lock IS this column's label.
+    tex:SetVertexColor(headerRGB())
     btn.tex = tex
   else
     local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     fs:SetPoint("LEFT", 0, 0)
     fs:SetJustifyH(col.align)
     fs:SetText(col.label)
-    fs:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+    fs:SetTextColor(headerRGB())
     btn.fs = fs
   end
   btn:SetScript("OnEnter", function(self2)
     GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
-    GameTooltip:AddLine(col.label ~= "" and col.label or "Bound", 1, 0.82, 0)
+    local tr, tg, tb = NS.SkinColor("gtip.title")
+    GameTooltip:AddLine(col.label ~= "" and col.label or "Bound", tr, tg, tb)
     if col.icon then
       BrowserTable:AddBoundLegend(GameTooltip)
     elseif col.desc then
-      GameTooltip:AddLine(col.desc, 0.9, 0.9, 0.9, true)
+      local r, g, b = NS.SkinColor("gtip.body")
+      GameTooltip:AddLine(col.desc, r, g, b, true)
     end
     GameTooltip:Show()
   end)
@@ -1143,11 +1179,11 @@ function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
   elseif colKey == "char" then
     local cf = holderClassFile(r)
     local cc = RAID_CLASS_COLORS and cf and RAID_CLASS_COLORS[cf]
-    if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(0.9, 0.9, 0.9) end
+    if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(NS.SkinColor("text.body")) end
   elseif colKey == "qty" then
     fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
   else
-    fs:SetTextColor(0.9, 0.9, 0.9)
+    fs:SetTextColor(NS.SkinColor("text.body"))
   end
 end
 
@@ -1164,13 +1200,15 @@ function BrowserTable:BindRow(row, entry, absIndex)
     -- carries `add` (a plus) but no minus, so the Blizzard +/- pair cannot be reproduced in the
     -- shared vocabulary -- and the chevron pair IS that vocabulary for collapsed/expanded, in both
     -- directions, at line height. The +/- textures stay as the degraded rung.
-    -- Tinted to the gold the header text carries: SetTextColor does not reach an inline texture,
-    -- so an untinted chevron reads white in front of a gold label.
+    -- Tinted to the header color the text carries: SetTextColor does not reach an inline texture,
+    -- so an untinted chevron reads white in front of a gold label. The count is text.disabled (the
+    -- |cff808080 it always was, on Ka0s Default). Both are built at bind time, so they follow the skin.
+    local hr, hg, hb = headerRGB()
     local arrow = entry.collapsed
-      and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
-      or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+      and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, hr, hg, hb)
+      or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, hr, hg, hb)
     row.header:SetText(arrow .. "  " .. (entry.label or "")
-      .. "  |cff808080(" .. (entry.count or 0) .. ")|r")
+      .. "  " .. (NS.SkinEscape("text.disabled") or "") .. "(" .. (entry.count or 0) .. ")|r")
     return
   end
 
@@ -1182,9 +1220,9 @@ function BrowserTable:BindRow(row, entry, absIndex)
   end
 
   -- Bound lock icon (always shown): blue = warbound, white = soulbound, faint gray = unbound.
-  local style = BOUND_STYLE[r.bound] or BOUND_STYLE.UNBOUND
-  row.boundIcon:SetVertexColor(style[1], style[2], style[3])
-  row.boundIcon:SetAlpha(style[4])
+  local br, bg, bb, ba = boundColor(r.bound)
+  row.boundIcon:SetVertexColor(br, bg, bb)
+  row.boundIcon:SetAlpha(ba)
   row.boundIcon:Show()
 end
 
@@ -1198,16 +1236,19 @@ end
 -- what is under the cursor: a press on another row closes it and that row's RightButtonUp opens it
 -- there. With no catcher nothing else hides it, so the window's OnHide and the disable ladder call
 -- BrowserTable:HideMenu (LOO-S01).
-local WHITE8X8 = "Interface\\Buttons\\WHITE8X8"
+--
+-- It stays this addon's own frame, never the library's shared popup menu (Holdings shares it). Its
+-- look is the skin's MenuFrame with the `alt` edge: menu.bg under menu.borderAlt, which Ka0s Default
+-- keeps at the muted gold this menu always wore (it reads against the world without glaring), the
+-- WHITE8X8 box with no insets, call for call the backdrop it drew before. The primitive records the
+-- frame, so a skin switch repaints it; its items' hover is recolored by Reskin, their text per open.
 local rowMenu
 local function EnsureRowMenu()
   if rowMenu then return rowMenu end
   rowMenu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
   rowMenu:SetFrameStrata(C.LAYERS.STRATA.POPUP)
   rowMenu:SetClampedToScreen(true)  -- a right-click near the screen's edge keeps every row on it
-  rowMenu:SetBackdrop({ bgFile = WHITE8X8, edgeFile = WHITE8X8, edgeSize = 1 })
-  rowMenu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
-  rowMenu:SetBackdropBorderColor(0.62, 0.5, 0.18, 1)  -- muted gold edge (reads against the world without glaring)
+  NS.Skin.MenuFrame(rowMenu, { alt = true })
   rowMenu:Hide()
   rowMenu.buttons = {}
 
@@ -1228,6 +1269,13 @@ end
 
 --- The row menu frame, or nil before the first right-click (tests/test_layers.lua reads it).
 function BrowserTable:MenuFrame() return rowMenu end
+--- Swap the row menu out (tests/test_skin_table.lua builds a fresh one under the paint recorder) and
+--- answer the one it replaced.
+function BrowserTable:_SwapMenuForTest(m) local old = rowMenu; rowMenu = m; return old end
+
+--- A destructive menu entry's label (Delete here, Forget on Holdings): the text in sem.danger, a
+--- function rather than a literal so it follows the skin; |cffff5555 on Ka0s Default.
+function BrowserTable.DangerLabel(text) return (NS.SkinEscape("sem.danger") or "") .. text .. "|r" end
 
 -- The History row's context entries, as data (tests/test_browsertable.lua reads them).
 -- EVERY LABEL STAYS. A 150px row holds a 14px mark and the words after it, and three of these
@@ -1260,7 +1308,7 @@ function BrowserTable:RowMenuItems(record)
             record.itemName or ("currency " .. tostring(record.currencyID))))
         end
       end },
-    { label = "|cffff5555Delete|r", icon = "clear", enabled = true, fn = function()
+    { label = BrowserTable.DangerLabel("Delete"), icon = "clear", enabled = true, fn = function()
         if NS.SimBlocks("Delete") then return end
         NS.Database:Delete(function(r) return r == record end) -- fires HistoryChanged
         BrowserTable:Refresh() -- repaint immediately (in case nothing else listens)
@@ -1285,7 +1333,8 @@ function BrowserTable:ShowMenu(anchor, items)
       b.fs = fs
       local hl = b:CreateTexture(nil, "HIGHLIGHT")
       hl:SetAllPoints()
-      hl:SetColorTexture(1, 0.82, 0, 0.15)
+      hl:SetColorTexture(NS.SkinColor("menu.hover"))
+      b.hl = hl
       m.buttons[i] = b
     end
     b:SetWidth(W)
@@ -1297,11 +1346,11 @@ function BrowserTable:ShowMenu(anchor, items)
     local mark = item.icon and NS.Icon and NS.Icon(item.icon)
     b.fs:SetText((mark and ("|T" .. mark .. ":14:14|t ") or "") .. item.label)
     if item.enabled then
-      b.fs:SetTextColor(0.9, 0.9, 0.9)
+      b.fs:SetTextColor(NS.SkinColor("text.body"))
       b:EnableMouse(true)
       b:SetScript("OnClick", function() m:Hide(); item.fn() end)
     else
-      b.fs:SetTextColor(0.5, 0.5, 0.5)
+      b.fs:SetTextColor(NS.SkinColor("text.disabled"))
       b:EnableMouse(false)
       b:SetScript("OnClick", nil)
     end
@@ -1318,3 +1367,36 @@ end
 function BrowserTable:ShowRowMenu(anchor, record)
   self:ShowMenu(anchor, self:RowMenuItems(record))
 end
+
+-- ── the skin (LH-03) ─────────────────────────────────────────────────────────────────────────
+--
+-- What a skin switch repaints that the library's own repaint does not reach. The header band, the
+-- scroll bar, the empty line and the row menu's backdrop are recorded frames the library repaints
+-- itself; this walk covers what the table colors at build time: the sort-arrow markup (rebuilt),
+-- the header labels and lock, every pooled row's stripe, hover and group-header text on the active
+-- AND the free list (a parked row comes back in the new skin), and the row menu's item hover. The
+-- rebind then repaints the cells, the padlocks, the quality text and the chevrons. Fires after the
+-- new skin is resolved (NS.Skin.OnLooksChanged); a no-op walk before the table is attached.
+local function paintRowChrome(row)
+  row.stripe:SetColorTexture(NS.SkinColor("list.stripe"))
+  row.hl:SetColorTexture(NS.SkinColor("list.hover"))
+  row.header:SetTextColor(headerRGB())
+end
+
+function BrowserTable:Reskin()
+  buildArrows()
+  local header = self.headerFrame
+  for _, btn in pairs(header and header.buttons or {}) do
+    if btn.tex then btn.tex:SetVertexColor(headerRGB()) end
+    if btn.fs then btn.fs:SetTextColor(headerRGB()) end
+  end
+  local pool = self.rowPool
+  if pool then
+    for _, row in ipairs(pool.active) do paintRowChrome(row) end
+    for _, row in ipairs(pool.free) do paintRowChrome(row) end
+  end
+  for _, b in ipairs(rowMenu and rowMenu.buttons or {}) do b.hl:SetColorTexture(NS.SkinColor("menu.hover")) end
+  if self.frame then self:Bind() end
+end
+
+if NS.Skin then NS.Skin.OnLooksChanged(function() BrowserTable:Reskin() end) end

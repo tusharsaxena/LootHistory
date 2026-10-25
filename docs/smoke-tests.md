@@ -897,6 +897,24 @@ Holdings repaint in later items (LH-03, LH-04), so their look is not part of thi
 surface that keeps the old skin until `/reload`, a missing divider line under the title bar, a
 changed look on Ka0s Default, or a Lua error. Result:
 
+**HIST-44. The History table follows the skin (LH-03; SK-LH-TABLE, SK-06).** On **Ka0s Default**,
+`/lh show` with some history (or `/lh test`) → the table looks exactly as before the skinning run:
+gold column labels, gold Bound lock and gold sort arrow, the faint stripe on every other row and the
+gold wash under the pointer, white-gray cell text, quality-colored item names, class-colored
+characters, the five padlock colors (gray, off-white, green, blue, orange; hover the Bound header for
+the legend), and with **Group** set, gold group rows with a gold chevron and a gray count. Right-click
+a row → the dark menu with its muted gold edge, gold wash under the pointer, gray disabled entries and
+a red **Delete**; on the Holdings tab the same menu with a red **Forget this character**. Hover a
+column header and a row → the tooltip lines read as before. Pick **Azeroth** on Settings → General →
+**Appearance** with the window open → with no reload the labels, arrow, lock, stripes, hover, padlocks,
+group rows, cell text and scroll bar take Azeroth's colors; scroll the table so rows leave and come
+back, change **Group** and right-click a row → every row and the menu are in Azeroth (no row keeps the
+old stripe or hover), **Delete** in Azeroth's red. Walk the other skins the same way (High Contrast:
+black, white and yellow, larger Atkinson text, the hovered row highlighted; there is no selected-row
+state, so no outline): every word and padlock stays readable, nothing moves. Pick **Ka0s Default**
+again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
+until `/reload`, a changed look on Ka0s Default, or a Lua error. Result:
+
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
 (about 6 px), with **Export** and **Clear** flush to that margin. Drag the window wider, then
@@ -1997,4 +2015,5 @@ HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` 
 `pass (owner, 2026-10-24)`.
 
 Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab),
-PANEL-22 (new, LH-01: the Appearance tab) and HIST-43 (new, LH-02: the window chrome on the skin).
+PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrome on the skin) and
+HIST-44 (new, LH-03: the History table on the skin).
