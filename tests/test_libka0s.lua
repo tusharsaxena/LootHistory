@@ -38,7 +38,7 @@ local LIB_FILES = {
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
   -- New in v1.78.0: LibKa0s-Skin-1.0, the skin engine (Skin 4) and its seven paired files, in XML
-  -- order: the nine skins (SkinDefs 5), the paint primitives (SkinPaint 2, SkinPaintExtras 1,
+  -- order: the nine skins (SkinDefs 6), the paint primitives (SkinPaint 2, SkinPaintExtras 1,
   -- SkinPaintControls 1), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 1).
   -- Loading them builds no frame, timer or event until a host calls Skin:RegisterOwner.
   "libs/LibKa0s/Skin.lua",
@@ -803,9 +803,10 @@ end)
 -- OptionsCombat 3, OptionsCompose 12 (fromSkin), OptionsScroll 6, OptionsNav 3, OptionsDrawer 2,
 -- OptionsKeybinds 5 and the new thirteenth file OptionsAppearance 1 (the Appearance tab);
 -- PerfPanel 10 and SimPanel 7 (the tool windows follow their owner); kit revision 43 (the paint
--- recorder). Every other file unchanged. The local tag was re-cut twice before it shipped
--- (fb7b7a3 -> a3790f4 -> 7ec0e0a): Media 7 skips a key LibSharedMedia already holds (LK-A1), and
--- SkinDefs 5 adds the bind-state and danger Semantic tokens (LK-A2). The kit stays at 43.
+-- recorder). Every other file unchanged. The local tag was re-cut three times before it shipped
+-- (fb7b7a3 -> a3790f4 -> 7ec0e0a -> 65a23cb): Media 7 skips a key LibSharedMedia already holds
+-- (LK-A1), SkinDefs 5 adds the bind-state and danger Semantic tokens (LK-A2), and SkinDefs 6 adds
+-- eleven tokens for the rest of LootHistory's constants (LK-A3). The kit stays at 43.
 test("v1.78.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -818,7 +819,7 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(media.MediaIcons, 1)
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 4)
-  assertEqual(skin.SkinDefs, 5)
+  assertEqual(skin.SkinDefs, 6)
   assertEqual(skin.SkinPaint, 2)
   assertEqual(skin.SkinPaintExtras, 1)
   assertEqual(skin.SkinPaintControls, 1)

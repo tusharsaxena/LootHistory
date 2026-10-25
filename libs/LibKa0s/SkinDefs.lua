@@ -46,7 +46,12 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- menu item, so LootHistory's padlocks and row menu follow a skin with Ka0s Default's pixels
 -- unchanged (LK-A2 of the skinning run). The dark skins inherit them; Azeroth and High Contrast
 -- override for legibility.
-local DEFS_MINOR = 5
+-- Minor 6: eleven tokens for the rest of LootHistory's constants, each where no older token held
+-- the exact value (LK-A3 of the skinning run, one sweep of the surfaces still to be skinned):
+-- `text.value`, `text.bodyAlt`, `text.subtle`, `text.highlight`, `gtip.value`, `gtip.subtle`,
+-- `icon.dim`, `sem.goodAlt`, `sem.badAlt`, `sem.warbandAlt` and `sem.unknown`. The dark skins
+-- inherit them; Azeroth sets every window one in ink, and no skin darkens a gtip one.
+local DEFS_MINOR = 6
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -69,7 +74,8 @@ local GROUPS = {
   { "Text", "text.body:color text.muted:color text.heading:color text.headingAlt:color "
     .. "text.accent:color text.disabled:color text.link:color text.linkHot:color "
     .. "gtip.title:color gtip.body:color gtip.muted:color text.faint:color log.ts:color "
-    .. "log.tag:color log.text:color log.count:color" },
+    .. "log.tag:color log.text:color log.count:color text.value:color text.bodyAlt:color "
+    .. "text.subtle:color text.highlight:color gtip.value:color gtip.subtle:color" },
   { "Buttons", "btn.bg:color btn.bgTop:color? btn.bgBottom:color? btn.border:color "
     .. "btn.borderSize:number? btn.borderStyle:string? btn.text:color btn.hover:color "
     .. "btn.icon:color btn.radius:number btnPrimary.bg:color btnPrimary.bgTop:color? "
@@ -100,7 +106,7 @@ local GROUPS = {
     .. "list.hover:color list.sel:color? list.selOutline:color? card.bg:color card.border:color "
     .. "panel.bg:color panel.border:color section.rule:color icon.tint:color icon.hot:color "
     .. "handle.bg:color handle.edge:color handle.rest:color list.dropLine:color list.ghostBg:color "
-    .. "list.box:color list.boxDim:color list.boxEdge:color list.boxEdgeDim:color" },
+    .. "list.box:color list.boxDim:color list.boxEdge:color list.boxEdgeDim:color icon.dim:color" },
   { "Overlays", "popup.bg:color popup.border:color? popup.borderSize:number? "
     .. "popup.borderStyle:string? popup.radius:number tooltip.bg:color? tooltip.border:color? "
     .. "strip.test:color strip.sim:color cover.dim:color cover.text:color" },
@@ -117,7 +123,8 @@ local GROUPS = {
     .. "sem.stepReady:color sem.stepBusy:color sem.stepLocked:color sem.stepCancel:color "
     .. "sem.stepCancelHot:color sem.boundNone:color sem.boundBoE:color sem.boundBoP:color "
     .. "sem.boundWarband:color sem.boundWarbandUE:color sem.boundBoPAlt:color sem.boundBoEAlt:color "
-    .. "sem.boundNoneAlt:color sem.danger:color" },
+    .. "sem.boundNoneAlt:color sem.danger:color sem.goodAlt:color sem.badAlt:color "
+    .. "sem.warbandAlt:color sem.unknown:color" },
 }
 
 local function buildSchema()
@@ -176,6 +183,13 @@ local KA0S = {
   ["text.faint"] = { 0.45, 0.45, 0.48, 1 },
   ["log.ts"] = { 0x6f / 255, 0x8f / 255, 0xaf / 255, 1 }, ["log.tag"] = { 0xc9 / 255, 0xa6 / 255, 0x6b / 255, 1 },
   ["log.text"] = WHITE, ["log.count"] = { 0.6, 0.6, 0.62, 1 },
+  -- LootHistory's other text grays (minor 6): Insights' value and legend column (AnalyticsCharts),
+  -- the AH table's live addon name (Panel), Holdings' holder total and fresh age, and its cells'
+  -- white default; the GameTooltip value column (Compat, Timeline, Insights) and the launcher's
+  -- record-count line.
+  ["text.value"] = { 0.8, 0.8, 0.82, 1 }, ["text.bodyAlt"] = { 0.86, 0.86, 0.86, 1 },
+  ["text.subtle"] = { 0.85, 0.85, 0.85, 1 }, ["text.highlight"] = WHITE,
+  ["gtip.value"] = WHITE, ["gtip.subtle"] = { 0.7, 0.7, 0.7, 1 },
   -- Buttons: LootHistory's flat buttons (BrowserFilterBar, Export, Timeline). No primary today.
   ["btn.bg"] = CTL_FILL, ["btn.border"] = CTL_LINE, ["btn.borderSize"] = 1,
   ["btn.borderStyle"] = "flat", ["btn.text"] = WHITE, ["btn.hover"] = GOLD,
@@ -225,6 +239,8 @@ local KA0S = {
   ["list.dropLine"] = { 1, 0.82, 0, 0.9 }, ["list.ghostBg"] = { 0.12, 0.12, 0.12, 0.95 },
   ["list.box"] = { 1, 1, 1, 0.06 }, ["list.boxDim"] = { 1, 1, 1, 0.03 },
   ["list.boxEdge"] = { 1, 1, 1, 0.12 }, ["list.boxEdgeDim"] = { 1, 1, 1, 0.06 },
+  -- The AH table's info icon on an inactive row (LootHistory Panel; a live one is icon.hot).
+  ["icon.dim"] = { 0.55, 0.55, 0.55, 1 },
   -- Overlays: OptionsIds' suggestion popup, Widgets STRIP_FILL, OptionsCombat's cover.
   ["popup.bg"] = { 0, 0, 0, 0.92 }, ["popup.radius"] = 0,
   ["strip.test"] = { 1, 0.65, 0.15, 0.12 }, ["strip.sim"] = { 0.35, 0.8, 1, 0.12 },
@@ -263,6 +279,10 @@ local KA0S = {
   ["sem.boundBoPAlt"] = { 0.85, 0.45, 0.45, 1 }, ["sem.boundBoEAlt"] = { 0.55, 0.80, 0.60, 1 },
   ["sem.boundNoneAlt"] = { 0.60, 0.60, 0.65, 1 },
   ["sem.danger"] = { 1, 1 / 3, 1 / 3, 1 },
+  -- LedgerFormat's signed counts and money (|cff40ff40 / |cffff4040, not C.DirRGB), Holdings'
+  -- Warband label (not C.TIMELINE.WARBAND) and Insights' no-quality fallback gray.
+  ["sem.goodAlt"] = { 0.25, 1, 0.25, 1 }, ["sem.badAlt"] = { 1, 0.25, 0.25, 1 },
+  ["sem.warbandAlt"] = { 0.4, 0.78, 1, 1 }, ["sem.unknown"] = { 0.6, 0.6, 0.6, 1 },
 }
 
 lib:RegisterSkin({
@@ -532,6 +552,12 @@ register("azeroth", "Azeroth", "Parchment and leather, Cinzel titles, red wax-se
     ["sem.boundWarbandUE"] = hex("#A65A00"), ["sem.boundBoPAlt"] = hex("#B3261E"),
     ["sem.boundBoEAlt"] = hex("#1C6B12"), ["sem.boundNoneAlt"] = hex("#6A5233"),
     ["sem.danger"] = hex("#B3261E"),
+    -- LootHistory's other grays, signed figures and Warband label in ink on parchment; its gtip
+    -- value and launcher lines stay light, on Blizzard's dark tooltip.
+    ["text.value"] = hex("#4A3418"), ["text.bodyAlt"] = hex("#3A2412"),
+    ["text.subtle"] = hex("#3A2412"), ["text.highlight"] = INK, ["icon.dim"] = hex("#7A6A50"),
+    ["sem.goodAlt"] = hex("#1C7B22"), ["sem.badAlt"] = hex("#B3261E"),
+    ["sem.warbandAlt"] = hex("#00519E"), ["sem.unknown"] = hex("#5A5A5A"),
     ["chart.axis"] = rgba(58, 36, 18, 0.6), ["chart.axisAlt"] = rgba(58, 36, 18, 0.75),
     ["chart.grid"] = rgba(58, 36, 18, 0.12), ["chart.crosshair"] = rgba(58, 36, 18, 0.45),
     ["chart.marker"] = rgba(58, 36, 18, 0.5), ["chart.line"] = hex("#00519E"),
@@ -633,6 +659,9 @@ register("contrast", "High Contrast", "Black and white with yellow focus, 2px ed
     -- No faint or translucent bind state: the gray and off-white ones in the palette, opaque.
     ["sem.boundNone"] = hex("#B0B0B0"), ["sem.boundBoE"] = HC_WHITE,
     ["sem.boundNoneAlt"] = hex("#B0B0B0"),
+    -- LootHistory's other grays in the palette's own (white stays white).
+    ["text.value"] = hex("#E0E0E0"), ["text.bodyAlt"] = HC_WHITE, ["text.subtle"] = HC_WHITE,
+    ["icon.dim"] = hex("#B0B0B0"), ["sem.unknown"] = hex("#B0B0B0"), ["gtip.subtle"] = hex("#E0E0E0"),
   })
 
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Cinzel titles over the client body.
