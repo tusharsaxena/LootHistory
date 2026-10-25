@@ -697,6 +697,7 @@ test("launcher: the descriptor answers the library's questions, and every toggle
       },
       BrowserTable = { testMode = false },
       Database = { Count = function() return 3 end },
+      SkinColor = NS.SkinColor,
       COMMANDS = { verb("show"), verb("toggle"), verb("enable"), verb("disable"), verb("test") },
     }
     Loader.load("core/LauncherSetup.lua", ns, mocks)
@@ -747,8 +748,15 @@ test("launcher: the descriptor answers the library's questions, and every toggle
     assertEqual(captured.isTestMode(), true, "isTestMode reads BrowserTable.testMode on every call")
 
     -- The host hook draws the addon's OWN line and nothing else.
-    local drawn = {}
-    captured.onTooltipShow({ AddLine = function(_, text) drawn[#drawn + 1] = text end })
+    local drawn, rgb = {}, nil
+    captured.onTooltipShow({ AddLine = function(_, text, r, g, b)
+      drawn[#drawn + 1] = text
+      rgb = ("%.3f,%.3f,%.3f"):format(r or -1, g or -1, b or -1)
+    end })
     assertEqual(#drawn, 1, "onTooltipShow draws one line: " .. table.concat(drawn, " / "))
     assertEqual(drawn[1], "3 records", "the record count is the addon's own line")
+    -- Its gray is the skin's gtip.subtle (LH-05), and on Ka0s Default the .7 it always drew.
+    local r, g, b = NS.SkinColor("gtip.subtle")
+    assertEqual(rgb, ("%.3f,%.3f,%.3f"):format(r, g, b), "the record line reads gtip.subtle")
+    assertEqual(rgb, "0.700,0.700,0.700", "Ka0s Default keeps the line's .7 gray")
   end)

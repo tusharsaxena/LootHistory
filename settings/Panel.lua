@@ -353,7 +353,9 @@ local function makeFilterSection(ctx, tab)
     label     = tab.addLabel,
     tooltip   = tab.addTooltip,
     strings   = tab.strings,
-    emptyText = "|cff808080(none)|r",
+    -- The empty-list line's gray is the skin's text.disabled (|cff808080 on Ka0s Default), read on
+    -- every render so a skin switch reaches it with the page's own re-render (LH-05).
+    emptyText = NS.SkinEscape("text.disabled") .. "(none)|r",
     entries   = function() return filterEntries(tab) end,
     candidates = function() return filterCandidates(tab) end,
     onAdd     = function(id) filterWrite(ctx, tab.add, id) end,

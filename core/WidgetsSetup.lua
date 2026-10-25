@@ -106,8 +106,9 @@
 local addonName, NS = ...
 
 -- THE SKIN OWNER. Every factory below that builds window chrome (the dropdown and the shared menu
--- it drops, the search box, its suggestion list and the mode strips) names this addon's folder as
--- the widget's skin `owner` (LibKa0s-Widgets-1.0 minor 16): the library paints it for the owner
+-- it drops, the search box, its suggestion list, the mode strips, the line chart and the AH drag
+-- list) names this addon's folder as the widget's skin `owner` (LibKa0s-Widgets-1.0 minor 16; the
+-- copy window's owner is its descriptor's `addonName`): the library paints it for the owner
 -- core/SkinSetup.lua registered, so it wears the player's skin and follows a switch. On Ka0s
 -- Default it is the widget it always was; without the Skin major the field is ignored.
 
@@ -199,6 +200,9 @@ function NS.MakeReorderList(opts)
     local o = {}
     for k, v in pairs(opts or {}) do o[k] = v end
     o.handleIcon = NS.Icon and NS.Icon("segment")
+    -- The skin owner (WidgetsReorder minor 2, LH-05): the row boxes, the handle's two tints and the
+    -- drag ghost come from this addon's skin, resolved once per controller (one per render).
+    o.owner = addonName
     return W.ReorderList(o)
 end
 

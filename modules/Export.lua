@@ -347,9 +347,15 @@ end
 -- Export's own read-only copy window: Ctrl+C to copy, Esc to close.
 --
 -- The FRAME is LibKa0s-Widgets-1.0's now, leased through core/WidgetsSetup.lua. What stays here is
--- the DESCRIPTOR: the global name, the monospace face, the title, the skin and the anchor -- the
--- things a vendored library cannot work out for itself. The fifty-two lines it replaced were,
+-- the DESCRIPTOR: the global name, the monospace face, the title and the anchor -- the things a
+-- vendored library cannot work out for itself. The fifty-two lines it replaced were,
 -- character for character with the addon name substituted, BankLedger's fifty-two.
+--
+-- NO `applySkin` (LH-05). `addonName` is the window's skin OWNER (Widgets minor 16), which the
+-- library honors only when the host passes no applySkin of its own: then Core.ApplySkin paints the
+-- window for "LootHistory", and the scroll bar and the dense fill (`win.bgDense`, Ka0s Default the
+-- .95 below) follow every skin switch. The hook this file passed (B:ApplySkin) kept both on the
+-- constants. tests/test_skin_tools.lua pins it absent.
 --
 -- WHAT IS DELIBERATELY NOT PASSED: width, height, editWidth and backdrop. The library's defaults
 -- ARE the constants this file used to spell out -- 640x420, a 590 fallback edit width, and the
@@ -370,7 +376,6 @@ local function ensureCopyWindow()
     title     = "Export \226\128\148 Ctrl+C, then Esc",
     font      = NS.Constants.FONT_MONO,
     fontSize  = 10,
-    applySkin = function(f) if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(f) end end,
     -- Consulted on EVERY show rather than once at build: the popup has to land over the History
     -- window wherever the user has since dragged it, and over the screen when it is not up.
     anchorTo  = function()

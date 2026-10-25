@@ -5,8 +5,9 @@ History window, the settings panel, the minimap button, combat locks and what th
 pure logic is covered by `lua tests/run.lua` and `luacheck .` (see [testing.md](testing.md)). Run the
 suite on the live Retail client (Midnight 12.1.5, Interface 120105) before tagging a release, after a
 `## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
-change done (see *Which themes to run* below). Start each theme from a clean `/reload` with debug
-logging off unless a step turns it on. Record each check on its `Result:` line (pass, or what you
+change done (see *Which themes to run* below). **Fully exit and restart the WoW client after
+checking out the branch** (new font and texture files are not seen by `/reload`); later steps may
+`/reload`. Start each theme from a clean `/reload` with debug logging off unless a step turns it on. Record each check on its `Result:` line (pass, or what you
 saw). IDs are `<THEME>-<n>`: an ID is never renumbered or reused, and a new check takes the next
 free number in its theme.
 
@@ -36,11 +37,16 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
+| SKIN-1 to 18 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged, the Appearance tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
 
+- **A fresh client start, not `/reload`, after checking out a branch or refreshing `libs/`** that
+  adds media (a LibKa0s re-vendor with new fonts or textures): the client discovers font and texture
+  files only at start, so a `/reload` leaves the new skins' fonts as fallback squares and their
+  textures blank. Later steps may `/reload`.
 - **`/reload`** means `/console reloadui`. **BugSack / BugGrabber** (or `/console scriptErrors 1`) is
   the main regression signal: every check also fails on any Lua error.
 - Every line the addon prints starts with a cyan `[LH]`. A missing or doubled banner is a failure.
@@ -89,6 +95,9 @@ free number in its theme.
   `SimDrivers.lua`, `SimScenario.lua`, `SimPanel.lua`, a `libs/LibKa0s/Sim*.lua` refresh): SIM, then
   CAP-33 and CAP-34 (the live capture the simulator shares), STATE-13 to STATE-16 (the strip it
   reuses) and DEGRADED-1.
+- Skins (`core/SkinSetup.lua`, a `NS.Skin` / `NS.SkinColor` call site, an `owner` passed to a
+  LibKa0s factory, a `libs/LibKa0s/Skin*.lua` refresh): SKIN, then HIST-43, HIST-44, INS-23, TL-18,
+  LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
 - Release or `## Interface:` bump: every theme, then the headless gate green.
 
 ## Install and upgrade
@@ -1934,6 +1943,96 @@ and every tab's pane starts under the strip. Hover the strip → its tooltip is 
 `/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
+## Skins
+
+The skinning run's checks, leg 1 (Ka0sAddonsCommonTasks `docs/2026-10-25-SKINNING/`, its
+`06_SMOKE_TESTS.md` SK rows mirrored here; each row names the SK id and the items it verifies). Start
+from a **fresh client start** after checking out the branch (see *Before you start*). Pick skins on
+`/lh config` → General → **Appearance**. Every check also fails on a Lua error or a taint warning.
+
+**SKIN-1. Ka0s Default looks as before (SK-01; LH-01 to LH-06).** With the skin on **Ka0s Default**,
+open the History window and walk its tabs, the Export modal and its copy window, Insights, the
+Timeline, Holdings and every settings page → each looks exactly as before the skinning run. Fail: any
+changed color, edge, font or spacing. Result:
+
+**SKIN-2. The Appearance tab (SK-02; LH-01).** Settings → General → **Appearance** → it sits second to
+last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches,
+**Copy to every Ka0s addon…** and the note that skins change every visual element. Result:
+
+**SKIN-3. Each skin, live (SK-03; LH-02, LH-03, LH-04).** With the History window open, pick each skin
+in turn: Obsidian, Azeroth, Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW Forever, then
+Ka0s Default again → with **no reload** the window, the table rows (scroll to reach pooled rows), the
+tabs, buttons, search box, a dropdown and its menu, the footer, Export, Insights cards and charts, the
+Timeline and Holdings all repaint, and text stays readable. Fail: a surface that keeps the old skin
+until `/reload`. Result:
+
+**SKIN-4. Other addons stay stock (SK-04; LH-06).** With a non-default skin, open LootHistory's
+settings pages, then another Ka0s addon's (for example BankLedger) and another AceGUI addon's, and
+flip between them a few times → LootHistory's nav rail, tabs, headings, check boxes, sliders,
+dropdowns, edit boxes and drawers are skinned; the other addons' pages are **stock** every time (the
+AceGUI pool leak check). Result:
+
+**SKIN-5. WoW Forever (SK-05; LH-02).** Pick **WoW Forever** → warm charcoal panels, black title bars
+with centered white titles, a tan accent, gold headings, thin borders, and Barlow on the text the skin
+primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls). The table,
+Insights, Timeline and Holdings body text keeps the client font by design (ARCHITECTURE.md, Skins:
+intentional exceptions). Result:
+
+**SKIN-6. High Contrast (SK-06; LH-03).** Pick **High Contrast** → black, white and yellow, larger
+Atkinson text on the primitives' text, and the History row whose right-click menu is open is outlined
+in yellow. Result:
+
+**SKIN-7. Fonts (SK-07; LK fonts).** On an English client the Barlow, Cinzel and Atkinson faces render
+(no fallback squares) on the skins that use them, and
+`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Barlow")` prints `true`. Result:
+
+**SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
+(Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
+(`/lh perf`), the sim panel and its strip (`/lh sim start loot`, then `/lh sim stop`), the test strip
+(`/lh test`, then `/lh test` again) and the Export copy window (History → Export → Export to CSV) →
+each wears LootHistory's skin: the window edge and title, the console's log lines, line counter and
+scroll bar, the copy windows' scroll bar and dense fill, the panels' buttons. Switch back to **Ka0s
+Default** with the console open → its lines recolor with no reload, and every window looks as before
+the run. Fail: a window, log line or scroll bar on the old colors, or a Lua error. Result:
+
+**SKIN-9. EllesmereUI on (SK-09; LK EUI).** With EllesmereUI loaded, its third-party skinning on and
+LootHistory on in its Third-Party list → Appearance → **Skin source** offers **EllesmereUI**; choosing
+it repaints the window in the EllesmereUI look, live. Result:
+
+**SKIN-10. EllesmereUI off (SK-10; LK EUI).** Turn LootHistory off in EllesmereUI's Third-Party list
+(or disable EllesmereUI) and `/reload` → the EllesmereUI choice is disabled, the failing condition
+and its fix are listed, and LootHistory wears its Ka0s skin. Result:
+
+**SKIN-11. Back from EllesmereUI needs a reload (SK-11; LK EUI).** With EllesmereUI as the source,
+pick **Ka0s skins** → a reload is offered; after the reload the Ka0s skin shows. Result:
+
+**SKIN-12. Copy to every Ka0s addon (SK-12; LK-10).** With LootHistory the only adopter → the button
+is disabled with the hint *No other loaded Ka0s addon uses skins yet.*; nothing else changes. Result:
+
+**SKIN-13. Profiles (SK-13; LH-01).** Give two profiles different skins, switch between them on
+LootHistory's Profiles page, then reset one → the skin follows the profile each time, with no
+reload. Result:
+
+**SKIN-14. Combat (SK-14).** Change the skin in combat (on a target dummy) → no Lua error and no taint
+warning; the settings page behaves as it does for any other setting in combat. Result:
+
+**SKIN-15. The minimap button (SK-15; LH-05).** Under every skin, hover the minimap button → the
+button and its tooltip look as before the run (the record count in the same gray); no Lua error.
+Result:
+
+**SKIN-16. Tooltips and popups (SK-16; LH-03, LH-04).** Under **Azeroth** and **High Contrast**, hover
+a History row, an Insights bar and a Timeline point → the tooltip lines are readable and the tooltip
+frame itself is Blizzard's; the reset and purge confirmation popups are stock. Result:
+
+**SKIN-17. The AH price table (SK-17; LH-04, LH-05).** Settings → General → **AH price** under a
+non-default skin → the table follows the skin, and dragging a collecting row shows the drag ghost,
+row boxes and handle in the skin's colors. Result:
+
+**SKIN-18. Other Ka0s addons unchanged (CT-01, the leg-2 deferral row; LK-90).** With LootHistory on
+a non-default skin, open two other Ka0s addons' windows, debug consoles, sim panels or test strips and
+settings pages → each looks and behaves exactly as before this run. Then disable LootHistory,
+`/reload` and compare → still unchanged. Result:
+
 ## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
@@ -2080,4 +2179,5 @@ Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the e
 PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrome on the skin),
 HIST-44 (new, LH-03: the History table on the skin), and INS-23, TL-18, LED-13 and PANEL-23 (new,
 LH-04: Insights, the Timeline, Holdings and the AH price table on the skin), and PANEL-24 (new,
-LH-06: the panel's own controls and the Profiles page on the skin).
+LH-06: the panel's own controls and the Profiles page on the skin), and SKIN-1 to SKIN-18 (new,
+LH-05: the skinning run's checks, CT-01's SK rows).

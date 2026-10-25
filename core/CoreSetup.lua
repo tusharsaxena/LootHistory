@@ -54,7 +54,10 @@ NS.LIBKA0S_MISSING = "The LibKa0s library is missing from this installation of K
 -- is: a host copy on the path where the library IS present is the copy that drifts. This one runs
 -- only when the library is absent, and it is byte-for-byte the button modules/Browser.lua built
 -- before the seam existed -- a 24x24 multiplication sign, gray at rest, the player's class color
--- on hover -- so a degraded install's windows still close the way they always did.
+-- on hover -- so a degraded install's windows still close the way they always did. The rest gray is
+-- the skin's `btn.icon` (Ka0s Default .85, the value it drew), read through NS.SkinColor at build
+-- and hover time: core/SkinSetup.lua loads below this file, and every window is built after both.
+-- On a degraded install that is the host copy of Ka0s Default (NS.SKIN_FALLBACK).
 local function fallbackCloseButton(parent, onClick)
   if type(CreateFrame) ~= "function" then return nil end
   local close = CreateFrame("Button", nil, parent)
@@ -63,11 +66,11 @@ local function fallbackCloseButton(parent, onClick)
   x:SetFont(STANDARD_TEXT_FONT, 24, "")
   x:SetPoint("CENTER", close, "CENTER", 0, 2)  -- the x sits low in its font box; nudge up
   x:SetText("\195\151")  -- multiplication sign (thin, ElvUI-like)
-  x:SetTextColor(0.85, 0.85, 0.85)
+  x:SetTextColor(NS.SkinColor("btn.icon"))
   local _, class = UnitClass("player")
   local cc = (class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]) or { r = 1, g = 0.82, b = 0 }
   close:SetScript("OnEnter", function() x:SetTextColor(cc.r, cc.g, cc.b) end)
-  close:SetScript("OnLeave", function() x:SetTextColor(0.85, 0.85, 0.85) end)
+  close:SetScript("OnLeave", function() x:SetTextColor(NS.SkinColor("btn.icon")) end)
   close:SetScript("OnClick", onClick)
   return close
 end

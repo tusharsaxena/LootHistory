@@ -104,6 +104,13 @@ local SUITES = {
   -- placeholder's chained release, the held AH check boxes and the Profiles tree; Ka0s Default paints
   -- nothing. Renders through the raw AceGUI fake and puts NS.AceGUI back; leaves Ka0s Default.
   "test_skin_settings",
+  -- The tool surfaces on the skin (LH-05): the debug console, its copy window, the export copy
+  -- window and the AH drag list painted for this owner, and the factory seams naming it. After
+  -- test_skin_settings; leaves the skin on Ka0s Default.
+  "test_skin_tools",
+  -- The hard-coded color gate (LH-05): no numeric color literal in a paint call and no |cff escape
+  -- outside core/SkinSetup.lua and its named allow-list. Reads the checkout, no addon state.
+  "test_skin_literals",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

@@ -37,8 +37,10 @@ What Loot History supplies, all in `core/DebugLogSetup.lua`:
   `core/Database.lua`). The report's identity header prints the same line.
 - **The sink is `NS.Debug(tag, fmt, ...)`**, bound to the library's gated `Debug`. A call with the
   flag off does nothing.
-- **The chrome is ours.** The window takes the History window's skin through the `applySkin` hook,
-  and the console checkbox follows the window however it was closed.
+- **The chrome follows this addon's skin.** The console and its copy window are painted for the skin
+  owner `"LootHistory"` (the descriptor's `addonName`, DebugLog minor 22; no `applySkin` hook since
+  LH-05): the window edge, the log lines, the line counter and the scroll bar all follow a skin
+  switch with no reload. The console checkbox follows the window however it was closed.
 
 Every tag in use, what writes it and when, is in [Coverage](#coverage) below. The in-game checks that
 each one fires once rather than once per row are in

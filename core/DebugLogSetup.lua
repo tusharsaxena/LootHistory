@@ -8,19 +8,19 @@ local addonName, NS = ...
 -- the buffer, the cap, the status counter and the enable seam's chat ack all match to the byte.
 --
 -- The window CHROME is the part that used to force a decline, and it no longer does. DebugLog minor
--- 4 added `applySkin` and `makeCloseButton`, both defaulting to what minor 3 did, precisely so a
--- host like this one — a flat 1px WHITE8X8 double border with a synthesized inner border, a gold
--- title tint, a gray divider and a 24x24 class-colored x — could keep its own chrome instead of
--- turning down a module whose formatters it already shares. Both hooks are passed below.
+-- 4 added `applySkin` and `makeCloseButton` so a host could keep its own chrome; this addon passed
+-- `applySkin` (routing to B:ApplySkin) until the skin engine. Since DebugLog minor 22 the console is
+-- painted for its skin OWNER, the descriptor's `addonName`, but only when the host passes neither
+-- `skin` nor `applySkin` (a host hook owns the whole job and is never skinned over). So neither hook
+-- is passed any more (LH-05): the window, its copy window, the log lines, the scroll bar and the
+-- line counter all follow the skin core/SkinSetup.lua registered for "LootHistory".
 --
 -- ── LOAD ORDER ─────────────────────────────────────────────────────────────────────────────────
 --   AFTER  core/Constants.lua  — `font` is read at :New time (NS.Constants.FONT_MONO).
 --   AFTER  core/CoreSetup.lua  — `print` routes through the shared printer.
 --   BEFORE core/Database.lua   — its migrations call NS.Debug during InitDB.
---
--- The two chrome hooks reach modules/Browser.lua, which loads much LATER. That is safe only because
--- they are CLOSURES resolved at frame-build time, not references taken at load. Hoisting either
--- lookup into a local here would reintroduce the ordering hazard and silently lose the skin.
+--   AFTER  core/SkinSetup.lua  — not at load: the library asks whether `addonName` is a registered
+--                                skin owner when it builds the window, long after both files ran.
 
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 
@@ -145,28 +145,19 @@ NS.DebugLog = lib:New({
     if NS.Panel and NS.Panel.Refresh then NS.Panel:Refresh() end
   end,
 
-  -- ── the two chrome hooks (DebugLog minor 4) ─────────────────────────────────────────────────
+  -- ── no chrome hooks: the skin owner paints the console (DebugLog minor 22) ─────────────────
   --
-  -- Resolved HERE, inside the closure, rather than into a local at file load: both fire at
-  -- frame-build time, long after modules/Browser.lua has run, which is the only reason a core/ file
-  -- may reach for a member of a module that loads after it.
-
-  -- Routes both windows through THIS addon's own re-skin seam. As of Core minor 3 the library's
-  -- default draws the same edge, so this no longer changes what is rendered — it keeps the console
-  -- tracking `modules/Browser.lua` if that file's SKIN is ever retuned, which is one of the two
-  -- purposes standalone-windows sanctions the hook for. The library hands over a fully-built
-  -- frame with `title` and `divider` already assigned, which is exactly what B:ApplySkin reads.
-  applySkin = function(frame)
-    if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
-  end,
-
-  -- STILL NO `makeCloseButton`, and now for a better reason than the one that used to be here.
-  -- The console and the copy window are the LIBRARY's windows, so they wear the library's close --
-  -- and since Core minor 6 the library's close IS this collection's `close` mark, because the
-  -- `addonName` above reaches it (libs/LibKa0s/DebugLog.lua forwards d.addonName to Core). The split
-  -- standalone-windows draws is unchanged: the window EDGE is shared across every Ka0s window and
-  -- `applySkin` above supplies it; the CLOSE CONTROL on a library-drawn window is the library's.
-  -- What changed is that the two now look the same without either side overriding the other.
+  -- NO `applySkin` and NO `skin`. Either one would make the console the host's to draw and the
+  -- library would never paint it for its owner (tests/test_skin_tools.lua pins both absent). The
+  -- owner is `addonName` above, which core/SkinSetup.lua registered with LibKa0s-Skin-1.0: the
+  -- library hands the window to Core.ApplySkin with that owner (the facade's Shell), paints the
+  -- scroll bar and the status rule, colors the log lines from the skin's palette and refills it on
+  -- every switch. On Ka0s Default it draws the edge B:ApplySkin drew before.
+  --
+  -- STILL NO `makeCloseButton`. The console and the copy window are the LIBRARY's windows, so they
+  -- wear the library's close -- and since Core minor 6 the library's close IS this collection's
+  -- `close` mark, because the `addonName` above reaches it (libs/LibKa0s/DebugLog.lua forwards
+  -- d.addonName to Core).
 })
 
 -- The gated sink, republished under the name ~40 call sites across seven files already use. A plain

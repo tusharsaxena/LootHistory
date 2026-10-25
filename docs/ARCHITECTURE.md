@@ -333,6 +333,87 @@ window. `tests/test_layers.lua` pins all of it through the kit's layer recorder.
 
 ---
 
+## Skins
+
+LootHistory is the collection's first skin adopter (skinning-§3; Ka0sAddonsCommonTasks
+`docs/2026-10-25-SKINNING/`, leg 1). Every visual element paints through the `LibKa0s-Skin-1.0`
+facade with this addon as its **owner**.
+
+- **The seam.** `core/SkinSetup.lua` registers the owner `"LootHistory"` (the folder name) at file
+  load with its read and write seams (`NS.SkinChoice`, `NS.WriteSkinChoice`, both through
+  `NS.Schema`), publishes `NS.Skin` (the owner's facade) and the call-site helpers `NS.SkinColor`,
+  `NS.SkinRGB`, `NS.SkinEscape`, `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` /
+  `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
+  of the Ka0s Default tokens this addon reads, which `tests/test_surface_parity.lua` holds to the
+  library's values. The choice is two profile keys, `settings.appearance.source` and `.skin`
+  ([schema.md](schema.md)), drawn by the library's Appearance tab on the General page, just before
+  Keybindings ([settings-panel.md](settings-panel.md)).
+- **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
+  event (`core/LootHistory.lua`), and from each Appearance row with only its own half. It calls
+  `Skin:SetChoice`, which resolves the skin, repaints every frame recorded for this owner (each
+  primitive re-runs in repaint mode) and then fires `NS.Skin.OnLooksChanged`. Surfaces that cannot be
+  repainted in place subscribe there: markup built once (sort arrows, AH ticks), pooled rows (both
+  pool lists are walked), Insights' palette, the Timeline model, the AH price table. Nothing keys off
+  `SETTINGS_CHANGED`. No reload, no OnUpdate, no events; `settings.alpha` stays whole-window opacity.
+- **The EllesmereUI provider.** The library's (`SkinEUI.lua`). With source `eui` and its gate holding
+  (EllesmereUI's `RegisterSkin` and `EllesmereUIBlizzardSkin` loaded, third-party skins on, this
+  addon not switched off in its list), EllesmereUI's facade paints the vocabulary it has; otherwise
+  the addon wears its Ka0s skin and the Appearance tab names the failing condition. Ka0s to
+  EllesmereUI applies live; EllesmereUI back to Ka0s asks for a reload. The read of `EllesmereUIDB`
+  is the library's documented deviation, not this addon's.
+- **Owners on every library surface.** Each LibKa0s factory is handed the owner in the form it reads:
+  `opts.owner` for the dropdown (and the shared menu it opens), the search box, its autocomplete
+  list, the mode strips, the line chart and the AH drag list (`core/WidgetsSetup.lua`); the
+  descriptor's `addonName` for the debug console and its copy window (`core/DebugLogSetup.lua`), the
+  export copy window (`modules/Export.lua`), the perf panel (`core/PerfSetup.lua`) and every close
+  mark (`NS.MakeCloseButton`); the Sim descriptor's `name` for the sim panel (`modules/Sim.lua`); the
+  Options instance's `addonName` for the settings chrome. The console and both copy windows pass **no
+  `applySkin`**, because a host hook owns the whole job and the library never paints over it.
+  `tests/test_skin_tools.lua` pins each.
+- **The color gate.** `tests/test_skin_literals.lua` fails on a numeric literal in a color position
+  (r, g or b) of `SetTextColor`, `SetColorTexture`, `SetVertexColor`, `SetBackdropColor`,
+  `SetBackdropBorderColor`, `AddLine` and `AddDoubleLine`, and on any `|cff` escape in code, in every
+  tracked file under `core/`, `modules/` and `settings/`, outside `core/SkinSetup.lua` and the
+  allow-list below. An allow-list entry that matches nothing also fails.
+
+### Intentional exceptions
+
+The gate's allow-list, each with its reason:
+
+| File | What | Why it is not chrome |
+|---|---|---|
+| `core/Constants.lua` | `qualityHex(q)` in the Minimum quality option labels | An item quality's client color, passed through |
+| `core/Namespace.lua` | `NS.PREFIX`, the cyan `[LH]` | Chat output; the chat frame is not a skinned surface |
+| `settings/Slash.lua` | `\|cffffd100` in the ledger reset prompt | A Blizzard `StaticPopup`, which stays stock |
+| `settings/Slash.lua` | `\|cFFFFFF00` in the get/set echo and the disabled-line fallback | Chat output; the fallback is the library's string, pinned byte for byte |
+| `modules/SimWorld.lua` | The fixture item and currency links | Hyperlinks colored as the client colors them |
+
+Outside the gate's reach, also on purpose:
+
+- **Alpha literals** over token components (`SetColorTexture(r, g, b, 0.95)` in the Insights bars,
+  the ledger half and the Timeline strip) are the surface's opacity, the same under every skin.
+- **`SOURCE_COLOR`** in `modules/AnalyticsFormat.lua`: a loot source's identity across skins; no token
+  names it (LH-04).
+- **The TEST MODE / SIMULATION badge colors** in `modules/Browser.lua`: drawn only on a degraded
+  install, where no skin exists and the badge stands in for the strip.
+- **Fonts.** The skin's fonts reach every text the facade's primitives draw (title bars, buttons,
+  edit boxes, dropdowns, `S.Text`, the AceGUI controls). The addon's own FontStrings built from
+  `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH table) keep the client
+  font: their layout is measured against it (column widths, the cards' shrink-to-fit headlines) and
+  the goldens pin it. Leg 2's re-check.
+- **The minimap button and the broker tooltip** stay stock: LibDBIcon gives every addon's button one
+  look, and the LDB tooltip's backdrop and the library's lines (including Launcher's semantic
+  green/red status escapes, `libs/LibKa0s/Launcher.lua`) are the library's. The host's one line, the
+  record count (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
+- **`GameTooltip`'s backdrop is never restyled.** Host tooltip lines take `gtip.*` tokens through
+  `core/Compat.lua`'s Show* helpers; the frame is Blizzard's.
+- **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s, LSM30 pull-outs and
+  `ColorPickerFrame`.
+- **Constants' semantic tables** need no entry: the tables LH-04 kept are values, not paint calls,
+  and the meaning colors that moved became `sem.*` tokens.
+
+---
+
 ## Taint notes
 
 - The **browser is a plain non-secure `CreateFrame`** (per standalone-windows) — it touches no protected
@@ -461,7 +542,7 @@ Ten such records are named below the table rather than carried in it.
   deviation ([`compat-layer.md`](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)).
 - Never a row: the AH price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
-  reasoning is at `settings/Panel.lua:784-789` (`LH-47` in `docs/audits/2026-09-07/`).
+  reasoning is at `settings/Panel.lua:786-791` (`LH-47` in `docs/audits/2026-09-07/`).
 
 ### Files over the 1500-line cap
 

@@ -143,6 +143,9 @@ test("parity: the DebugLog stub carries the whole live surface", function()
     -- not addon surface, and there is no window to attach them to on the degraded path. Single
     -- underscore, so Kit.publicMembers does not filter them — that exclusion is the `__` prefix.
     "_frameForTest", "_toggleClickForTest",
+    -- The copy window's pair, attached the first time the console's copy window is built
+    -- (tests/test_skin_tools.lua opens it to hold it to its skin owner, and loads before this one).
+    "_copyWindowForTest", "_copyFrameForTest",
   })
   assertTrue(type(NS.Debug) == "function" and type(degradedNS.Debug) == "function",
     "NS.Debug is the name the sink is called by; it must be a function on BOTH paths")

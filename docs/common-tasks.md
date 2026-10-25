@@ -165,11 +165,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
-  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:335`,
+  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:338`,
   `:328`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:303` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:306` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -189,7 +189,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug` in `libs/LibKa0s/DebugLog.lua`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:174`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:165`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
   `settings/Schema.lua:1105`); the header's `Debug: ON`/`OFF` control flips the same flag
@@ -265,9 +265,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
   | # | Class | Where |
   |---|---|---|
-  | 4 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. The Insights cards and list panels and the Timeline's toggle stopped naming it in LH-04: they are the skin's `Card`, `Panel` and `Button` now. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:317` (the degraded facade's flat button, KPI card, list panel and row menu), `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101` |
-  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:317`, `:318`, `:455`, `:456`, `settings/Panel.lua:563`, `:564`, `:565` |
-  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
+  | 4 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. The Insights cards and list panels and the Timeline's toggle stopped naming it in LH-04: they are the skin's `Card`, `Panel` and `Button` now. | `core/CoreSetup.lua:232`, `core/SkinSetup.lua:320` (the degraded facade's flat button, KPI card, list panel and row menu), `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:317`, `:318`, `:455`, `:456`, `settings/Panel.lua:565`, `:564`, `:565` |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:102`, `:103` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
   The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the
@@ -307,7 +307,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1180`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1182`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

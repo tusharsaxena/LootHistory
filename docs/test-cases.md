@@ -1560,6 +1560,21 @@ Total.
 - skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default none
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
+### test_skin_tools.lua (6)
+
+- the debug console's descriptor names the owner and passes no applySkin
+- the live debug console and its copy window are painted for this owner
+- the console's palette follows a skin switch without a reload
+- the export copy window is painted for this owner
+- the reorder list seam names the owner
+- every remaining factory seam passes the owner
+
+### test_skin_literals.lua (3)
+
+- no color literal outside core/SkinSetup.lua and the named allow-list
+- every allow-list entry carries its reason
+- the gate is falsifiable: a planted literal of each shape is reported
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -2076,6 +2091,8 @@ Total.
 | test_skin_table.lua | 7 |
 | test_skin_insights.lua | 11 |
 | test_skin_settings.lua | 7 |
+| test_skin_tools.lua | 6 |
+| test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 37 |
@@ -2103,4 +2120,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1773** |
+| **Total** | **1782** |
