@@ -79,7 +79,7 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 
 The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
 - HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
-- Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:154`) and the Filters tab's id-lists (`settings/Panel.lua:500`), each on its own target.
+- Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua:165`) and the Filters tab's id-lists (`settings/Panel.lua:500`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.
 

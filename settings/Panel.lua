@@ -28,12 +28,23 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- ROW_VSPACER 8, the 10/6/26 section triple, BUTTON_PAIR_REL 0.492). The three this file's own page
 -- code still needs are re-exported on the instance so host layout stays in lockstep with the engine.
 
+-- Every AceGUI widget this file acquires itself, painted for this addon's skin (skinning-§3).
+-- NS.AceGUI is normally the Options instance's owner proxy, which paints on Create already; the
+-- explicit NS.SkinPaintAce repaints in place for the same owner, so the host does not depend on
+-- which handle it was given. Ka0s Default paints nothing, and the release puts the widget back in
+-- AceGUI's shared pool stock (the library chains its restore onto the widget's OnRelease).
+local function acquire(wtype)
+  local w = NS.AceGUI:Create(wtype)
+  NS.SkinPaintAce(w)
+  return w
+end
+
 -- ── Shared maker for a paired action button (Purge) ─────────────────────────────────────
 -- Insets to BUTTON_PAIR_REL rather than a flat 0.5 so the right border isn't shaved by the
 -- ScrollFrame clip (options-ui-§6/§8). Kept host-side: the library's InlineButtonPair builds its own
 -- Flow row, and both of this addon's uses need a bare button to drop into a row someone else owns.
 local function makePairButton(text, onClick)
-  local btn = NS.AceGUI:Create("Button")
+  local btn = acquire("Button")
   btn:SetText(text)
   btn:SetRelativeWidth(O.BUTTON_PAIR_REL)
   if onClick then btn:SetCallback("OnClick", onClick) end
@@ -59,11 +70,11 @@ end
 -- `skipRender`.
 local function makeMultiCheck(ctx, row, scroll)
   local invert = row.invert
-  local group = NS.AceGUI:Create("InlineGroup")
+  local group = acquire("InlineGroup")
   group:SetTitle(row.label); group:SetFullWidth(true); group:SetLayout("Flow")
   local boxes = {}
   for _, opt in ipairs(row.values) do
-    local cb = NS.AceGUI:Create("CheckBox")
+    local cb = acquire("CheckBox")
     cb:SetLabel(opt.text); cb:SetWidth(150)
     cb:SetCallback("OnValueChanged", function(_, _, v)
       local cur = NS.Schema:Get(row.path) or {}
@@ -102,10 +113,10 @@ local function renderHistory(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
 
-  local rowFrame = NS.AceGUI:Create("SimpleGroup")
+  local rowFrame = acquire("SimpleGroup")
   rowFrame:SetLayout("Flow"); rowFrame:SetFullWidth(true)
 
-  local statsLabel = NS.AceGUI:Create("Label")
+  local statsLabel = acquire("Label")
   statsLabel:SetRelativeWidth(0.5)
   rowFrame:AddChild(statsLabel)
 
@@ -276,9 +287,9 @@ end
 -- only shows the popup. Drawn AFTER the IdList (item 020, LOO-L-new2): the list is what the tab is
 -- for, and the destructive bulk act closes it rather than standing between the reader and it.
 local function addClearAll(scroll, tab)
-  local clearRow = NS.AceGUI:Create("SimpleGroup")
+  local clearRow = acquire("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
-  local clearBtn = NS.AceGUI:Create("Button")
+  local clearBtn = acquire("Button")
   clearBtn:SetText("Clear all\226\128\166"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
     if type(StaticPopup_Show) == "function" then
@@ -297,7 +308,7 @@ local function makeFilterSection(ctx, tab)
   local scroll = O.EnsureScroll(ctx)
   -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
   -- A "Blacklist" heading under a tab called Blacklist is the page saying it twice.
-  local descLabel = NS.AceGUI:Create("Label")
+  local descLabel = acquire("Label")
   descLabel:SetFullWidth(true); descLabel:SetText(tab.desc)
   scroll:AddChild(descLabel)
   O.AddSpacer(scroll, 6)
@@ -468,7 +479,7 @@ local function buildFiltersTab(ctx)
   -- SimpleGroup added as an ordinary scroll child, sized to whatever height the strip reports.
   -- ClearScroll drains the library's __subTabKids ledger BEFORE it releases this group, which is
   -- what stops the buttons riding a pooled frame into somebody else's page.
-  local host = NS.AceGUI:Create("SimpleGroup")
+  local host = acquire("SimpleGroup")
   host:SetLayout(nil); host:SetFullWidth(true)
   scroll:AddChild(host)
 
@@ -802,6 +813,10 @@ local function repaintAuctionTable()
   local capture = NS.db.profile.settings.auction.capture or {}
   for _, r in ipairs(ctx._priRows) do
     if r._tag then paintAuctionRow(r, r._tag, capture) end
+    -- The row's AceGUI CheckBox is held for the session and never re-acquired, so the library's
+    -- re-render cannot repaint it: PaintAce repaints it in the new skin, or puts it back stock on
+    -- Ka0s Default.
+    if r.check then NS.SkinPaintAce(r.check) end
   end
 end
 if NS.Skin then NS.Skin.OnLooksChanged(repaintAuctionTable) end
@@ -821,7 +836,7 @@ local function buildAuctionTable(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
 
-  local descLabel = NS.AceGUI:Create("Label")
+  local descLabel = acquire("Label")
   descLabel:SetFullWidth(true)
   descLabel:SetText("Tick a source to collect its price at loot time; ticked sources are ranked "
     .. "top-to-bottom (drag by the handle) and the highest-ranked one you have a price for is the "
@@ -830,7 +845,7 @@ local function buildAuctionTable(ctx)
   O.AddSpacer(scroll, 8)
 
   local N = #NS.Constants.AUCTION_KEYS
-  local placeholder = NS.AceGUI:Create("SimpleGroup")
+  local placeholder = acquire("SimpleGroup")
   placeholder:SetLayout(nil); placeholder:SetFullWidth(true)
   placeholder:SetHeight(AHEAD_H + AROW_H * N + 8)
   scroll:AddChild(placeholder)
@@ -847,8 +862,10 @@ local function buildAuctionTable(ctx)
   hf:Show()
   -- The undo of the reparent above, on the placeholder's own release (options-ui-§19). Guarded on
   -- the host still sitting on THIS placeholder: every render creates a fresh one, so an old one
-  -- released late must never pull the host off the new one.
-  placeholder:SetCallback("OnRelease", function(w)
+  -- released late must never pull the host off the new one. CHAINED onto the widget's OnRelease
+  -- (NS.SkinOnRelease, the library's Skin:OnRelease) rather than taking AceGUI's one OnRelease
+  -- callback, so this cleanup and the skin's restore both run whichever is installed first.
+  NS.SkinOnRelease(placeholder, function(w)
     if hf:GetParent() == w.frame then
       hf:Hide(); hf:SetParent(ctx.panel); hf:ClearAllPoints()
     end
@@ -901,7 +918,7 @@ local function buildAuctionTable(ctx)
       -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
       -- UICheckButtonTemplate — the template left a scaling artifact at this size. Parented to the
       -- ROW, never added as a scroll child, so ClearScroll cannot reclaim it either.
-      local cb = NS.AceGUI:Create("CheckBox")
+      local cb = acquire("CheckBox")
       cb:SetLabel("")
       cb.frame:SetParent(rf); cb.frame:ClearAllPoints()
       cb.frame:SetPoint("LEFT", rf, "LEFT", gutter + ACOL.enabled, 0); cb.frame:SetWidth(26)

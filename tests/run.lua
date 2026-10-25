@@ -100,6 +100,10 @@ local SUITES = {
   -- today's values, a switch repaints live. Builds each surface fresh under the kit's paint recorder
   -- on the live module and puts its fields back; leaves the skin on Ka0s Default.
   "test_skin_insights",
+  -- This addon's own settings widgets on the skin (LH-06): the panel's AceGUI acquisitions, the AH
+  -- placeholder's chained release, the held AH check boxes and the Profiles tree; Ka0s Default paints
+  -- nothing. Renders through the raw AceGUI fake and puts NS.AceGUI back; leaves Ka0s Default.
+  "test_skin_settings",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

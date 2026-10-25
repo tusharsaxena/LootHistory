@@ -26,6 +26,11 @@ local addonName, NS = ...
 --                           written as a literal keeps its bytes on Ka0s Default (|cffff5555).
 --   NS.QualityColor(q)      an item quality's r, g, b: the skin's q.* token where it sets one (a
 --                           legibility override), else the client's ITEM_QUALITY_COLORS; nil for none.
+--   NS.SkinPaintAce(w)      an AceGUI widget this addon acquired itself, painted for this owner:
+--   NS.SkinPaintAceTree(c)  `Skin:PaintAce` / `Skin:PaintAceTree` with the owner bound (the facade
+--                           carries neither). Ka0s Default paints nothing; release restores stock.
+--   NS.SkinOnRelease(w, fn) host release work chained onto the widget's own OnRelease
+--                           (`Skin:OnRelease`), so it and the skin's restore both run.
 --
 -- ── WHERE IT LOADS ───────────────────────────────────────────────────────────────────────────
 --
@@ -232,6 +237,17 @@ function NS.WriteSkinChoice(source, skin)
   if skin ~= nil then S:Set(SKIN_PATH, skin) end
 end
 
+-- AceGUI keeps ONE callback per event name (options-ui-§19). Without the library's chain there is
+-- no skin restore to share the release with, so the host's work takes the callback, as it did
+-- before the skin engine.
+local function releaseByCallback(widget, fn)
+  if type(widget) ~= "table" or type(fn) ~= "function" or type(widget.SetCallback) ~= "function" then
+    return nil
+  end
+  widget:SetCallback("OnRelease", function(w) fn(w) end)
+  return fn
+end
+
 -- ── the degraded arm ─────────────────────────────────────────────────────────────────────────
 
 if not Skin then
@@ -342,6 +358,10 @@ if not Skin then
 
   NS.Skin = S
   function NS.ApplySkinChoice() return false, false end
+  -- Nothing to paint an AceGUI row with: stock AceGUI, exactly as Ka0s Default draws it.
+  function NS.SkinPaintAce() return false end
+  function NS.SkinPaintAceTree() return 0 end
+  NS.SkinOnRelease = releaseByCallback
   return
 end
 
@@ -359,6 +379,26 @@ Skin:RegisterOwner(addonName, {
 -- for its own picks.
 local RELOAD_LINE = NS.L and NS.L["Reload your interface (/reload) to finish changing the skin."]
   or "Reload your interface (/reload) to finish changing the skin."
+
+-- The AceGUI rows (SkinAce.lua). NS.AceGUI is normally the Options instance's owner proxy, which
+-- paints on Create already; PaintAce for the same owner repaints in place, so a host call after it
+-- is harmless, and it is what paints a widget acquired any other way (AceConfigDialog's, on the
+-- Profiles page) and repaints one this addon keeps for the session (the AH table's check boxes).
+-- Each guards on the member, so a copy whose SkinAce secondary did not attach paints nothing.
+function NS.SkinPaintAce(widget)
+  if type(Skin.PaintAce) ~= "function" then return false end
+  return Skin:PaintAce(addonName, widget)
+end
+
+function NS.SkinPaintAceTree(container)
+  if type(Skin.PaintAceTree) ~= "function" then return 0 end
+  return Skin:PaintAceTree(addonName, container)
+end
+
+function NS.SkinOnRelease(widget, fn)
+  if type(Skin.OnRelease) ~= "function" then return releaseByCallback(widget, fn) end
+  return Skin:OnRelease(widget, fn)
+end
 
 function NS.ApplySkinChoice(source, skin)
   if source == nil and skin == nil then source, skin = NS.SkinChoice() end

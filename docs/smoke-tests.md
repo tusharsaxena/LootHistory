@@ -338,6 +338,18 @@ colors and stay readable. Pick **Ka0s Default** again → the first look comes b
 row or tick that keeps the old skin until `/reload`, a changed look on Ka0s Default, or a Lua
 error. Result:
 
+**PANEL-24. The panel's own controls and the Profiles page follow the skin (LH-06; SK-02).** On
+**Ka0s Default**, `/lh config` → General → **Filters**, **History** and **AH price**, then
+**Profiles** → every check box, button, label and dropdown looks exactly as before the skinning
+run (stock AceGUI). Switch to **Appearance**, pick **Obsidian**, then walk the same tabs and
+**Profiles** → with no reload the Filters tab's **Clear all…**, the History tab's storage line and
+**Purge history…**, the AH price table's **On** check boxes and the Profiles page's controls take
+Obsidian's look like the library-drawn rows beside them. Pick **Ka0s Default** again → the stock look
+comes back. Then open another addon's AceGUI options (WeakAuras, or any Ace3 config window) → its
+check boxes and buttons are stock, carrying nothing of Loot History's skin. Fail: a control that
+keeps the old skin until `/reload`, a skinned control on Ka0s Default, another addon's widget
+wearing this skin, the AH price host left floating over another tab, or a Lua error. Result:
+
 ## Profiles
 
 **PROFILE-1. The Profiles page.** Open **Settings → AddOns → Ka0s Loot History → Profiles** → it is
@@ -2067,4 +2079,5 @@ HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` 
 Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab),
 PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrome on the skin),
 HIST-44 (new, LH-03: the History table on the skin), and INS-23, TL-18, LED-13 and PANEL-23 (new,
-LH-04: Insights, the Timeline, Holdings and the AH price table on the skin).
+LH-04: Insights, the Timeline, Holdings and the AH price table on the skin), and PANEL-24 (new,
+LH-06: the panel's own controls and the Profiles page on the skin).
