@@ -25,6 +25,9 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 --   "Shows or hides the history browser."         that row's tooltip in the Keybindings tab (NS.BINDINGS)
 -- and NS.RefusalLine's answer under the perf hold --
 --   "Not available during a performance capture."
+-- and the skin seam's one reload line (core/SkinSetup.lua, a profile event leaving an EllesmereUI
+-- skin that painted this session) --
+--   "Reload your interface (/reload) to finish changing the skin."
 -- (The General page's Defaults tooltip is no longer this addon's: since item 020 it is the library's
 -- O.ResetAllTooltip(O.KEYBINDS_UNCHANGED), the words Reset all settings carries.)
 

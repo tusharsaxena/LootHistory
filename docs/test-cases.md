@@ -1505,6 +1505,18 @@ Total.
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
 - Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
+### test_skinsetup.lua (9)
+
+- Skin seam: the owner is the folder name, and NS.Skin is its facade
+- Skin seam: the read answers Ka0s Default before the profile store exists
+- Skin seam: the appearance keys default to Ka0s Default, as two Appearance rows
+- Skin seam: the skin row's values are every registered skin, in the library's order
+- Skin seam: /lh set refuses a skin that is not registered and applies one that is
+- Skin seam: Appearance sits after History and before Keybindings
+- Skin seam: one tab pick is one effective SetChoice, one repaint and no reload
+- Skin seam: another addon's copy to every Ka0s addon repaints LootHistory once
+- Skin seam: a profile switch applies the new profile's skin first, window built or not
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -1589,7 +1601,7 @@ Total.
 - v1.77.0: the vendored minors and the kit revision match the release
 - v1.78.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (16)
+### test_surface_parity.lua (20)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1607,6 +1619,10 @@ Total.
 - parity: the Media seam publishes the same NS members on both paths
 - parity: the Perf stub carries every member the addon reads off NS.Perf
 - parity: the Sim session and seam stubs carry the whole live surface, both ways
+- parity: the degraded Skin facade answers every name the live facade carries
+- parity: the Skin seam publishes the same NS members on both paths
+- parity: each host-copy skin token is the live library's Ka0s Default value
+- parity: the degraded facade draws today's edge, and the file-load markup still builds
 
 ### test_disabled.lua (25)
 
@@ -2012,10 +2028,11 @@ Total.
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
+| test_skinsetup.lua | 9 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 37 |
-| test_surface_parity.lua | 16 |
+| test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 23 |
@@ -2039,4 +2056,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1729** |
+| **Total** | **1742** |

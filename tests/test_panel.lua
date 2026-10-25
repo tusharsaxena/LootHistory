@@ -364,6 +364,8 @@ local SUBGROUPS = {
   -- The window subsection names its window (item 020, LOO-L03).
   ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
+  -- The library's Appearance tab (skinning-§3): its two subjects, the source and the skin.
+  ["Appearance"]      = { "Skin source", "Skin" },
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},
 }
@@ -974,7 +976,7 @@ test("Panel: a WRAPPED strip reserves the same band and the same row offsets on 
     local ctx = NS.Panel.general
     show(mocks.__subcategories["General"])
 
-    -- Force a real wrap. Seven tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
+    -- Force a real wrap. Eight tabs at TAB_MIN_W (60) plus a 4px gap fit three to a 200px row, so
     -- the strip lays out in three rows — one row would make "every row's y offset" a claim about a
     -- single number and the case would pass on a strip that never wrapped at all.
     local chromeW = ctx.chrome:GetWidth()

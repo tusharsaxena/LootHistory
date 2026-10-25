@@ -5,7 +5,7 @@
 ## Version: 1.5.0
 ## IconTexture: Interface\AddOns\LootHistory\media\logos\loothistory.logo.128.tga
 ## SavedVariables: LootHistoryDB, LootHistoryPerfDB
-## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0
+## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI
 ## DefaultState: enabled
 ## Category-enUS: Misc
 ## X-License: MIT
@@ -63,6 +63,12 @@ core\Ledger.lua
 # be above), and NS.Print, published here, is captured as a file-scope local by modules\Browser.lua,
 # settings\Schema.lua and settings\Slash.lua (must be below them).
 core\CoreSetup.lua
+# LOAD-BEARING POSITION: the LibKa0s-Skin-1.0 seam (skinning-§3). Registers the owner and publishes
+# NS.Skin, NS.SKIN_OPTIONS and NS.SKIN_SOURCE_OPTIONS at file load; settings\Schema.lua reads the
+# two option lists at file load and every frame-building file reads NS.Skin, so it must be above
+# core\WidgetsSetup.lua and every module. Below core\CoreSetup.lua, whose NS.ApplySkin the degraded
+# facade's Shell calls (at call time) and whose NS.Print the reload line uses.
+core\SkinSetup.lua
 # LOAD-BEARING POSITION: publishes NS.EVENT_ROWS / NS.HOOK_ROWS and NS.EventRow / NS.HookRow,
 # which modules\Attribution.lua, modules\AttributionOut.lua, modules\Collector.lua and
 # modules\Reconciler.lua call at FILE LOAD to append their capture rows; it must be above every

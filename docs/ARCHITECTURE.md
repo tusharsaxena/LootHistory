@@ -28,9 +28,9 @@ LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
 settings canvas with its tab strip and Master-controls composer, the settings schema runtime, the
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
-the flat dropdowns and the Timeline's line chart (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
+the flat dropdowns, the Timeline's line chart and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because sixteen of its seventeen majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because seventeen of its eighteen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -45,7 +45,10 @@ capture registration and read-side hook in `core/Dispatch.lua`'s two row tables,
 its tabs, and every setting in one `settings/Schema.lua` row. The in-game simulator is
 `core/SimSeam.lua` (the answer seam, straight after Compat), `modules/SimWorld.lua`, `SimDrivers.lua`,
 `SimScenario.lua`, `Sim.lua` (the session host) and `SimPanel.lua`, on `LibKa0s-Sim-1.0`
-([§ The simulator](#the-simulator)). A handful of TOC positions are
+([§ The simulator](#the-simulator)). The skin this addon wears is `core/SkinSetup.lua`'s, the
+`LibKa0s-Skin-1.0` seam: it registers the owner `"LootHistory"` at file load, publishes `NS.Skin` (the
+owner's facade every surface paints through) and applies the profile's choice right after AceDB
+exists and first on every profile event. A handful of TOC positions are
 load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
 `grep -c LOAD-BEARING LootHistory.toc`); every other position is conventional, and the TOC says so.
 
@@ -81,9 +84,10 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-three rows ship today, on **one** schema-backed page: the General subcategory, whose seven tabs are
-Master controls, Capture, Filters, AH price, Interface, History and Keybindings; Filters and
-Keybindings hold no rows (Keybindings is the library's, options-ui-§20).
+Twenty-five rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Master controls, Capture, Filters, AH price, Interface, History, Appearance and Keybindings; Filters and
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20), and Appearance's two rows,
+`settings.appearance.source` and `.skin`, are drawn by the library's own Appearance tab (skinning-§3).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the

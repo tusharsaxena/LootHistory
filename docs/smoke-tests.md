@@ -16,7 +16,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 21 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout |
+| PANEL-1 to 22 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Appearance tab |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
@@ -197,15 +197,16 @@ not white-wrapped, and a white description. Result: pass (owner-marked 2026-10-1
 
 **PANEL-3. General header and strip.** Open **General** → header `Ka0s Loot History ▸ General`, a
 gold divider under it, a **Defaults** button top-right whose tooltip ends *Key bindings are not
-changed.*, and seven tabs: Master controls, Capture, Filters, AH price, Interface, History,
-Keybindings, opening on Master controls; the selected tab cannot be clicked. Click each: no section
+changed.*, and eight tabs: Master controls, Capture, Filters, AH price, Interface, History,
+Appearance, Keybindings, opening on Master controls; the selected tab cannot be clicked. Click each: no section
 heading appears, except the subsection headings Capture's **Loot** and **Ledger**, AH price's
 **Price sources** (above the table; the Enable AH pricing switch above it has none), and
-Interface's **History window** and **Simulator**. Open **Ka0s Bank Ledger** beside it → the same
-names in the same order, without AH price, Keybindings last. (Procedure amended by LH-KB,
-2026-10-24: the Keybindings tab and the Defaults tooltip; the 2026-10-10 pass covered six tabs.
-Amended again by LH-LY, 2026-10-24, item 020: Filters third, AH price relabeled, the headings.)
-Result: pass (owner, 2026-10-24)
+Interface's **History window** and **Simulator**, and Appearance's **Skin source** and **Skin**.
+Open **Ka0s Bank Ledger** beside it → the same names in the same order, without AH price and
+Appearance, Keybindings last. (Procedure amended by LH-KB, 2026-10-24: the Keybindings tab and the
+Defaults tooltip; the 2026-10-10 pass covered six tabs. Amended again by LH-LY, 2026-10-24, item
+020: Filters third, AH price relabeled, the headings. Amended again by LH-01, 2026-10-25, skinning
+leg 1: the Appearance tab; the 2026-10-24 pass covered seven tabs.) Result:
 
 **PANEL-4. Strip wraps without overlap.** Narrow the Settings window until the strip wraps to a
 second row → the first control row still starts below the strip, and rows sit at the same height
@@ -310,6 +311,20 @@ settings**, then *Key bindings are not changed.* `/lh list` → Show transfers i
 `[Interface]` now, and every row prints the value it had. Change two values on different tabs,
 `/reload` → both survive. Fail: a value back at its default, a setting gone or on two tabs, or a
 Lua error. Result: pass (owner, 2026-10-24)
+
+**PANEL-22. The Appearance tab (LH-01; SK-TAB, SK-02).** `/lh config` → General → **Appearance**,
+between History and Keybindings → a **Skin source** heading over two choices, *Ka0s skins* (on) and
+*EllesmereUI* (disabled with a line saying why, unless EllesmereUI is loaded and can skin this
+addon), then a **Skin** heading over nine choices three to a line, each with four color swatches and
+its name, Ka0s Default on; then **Copy to every Ka0s addon…** (disabled, with *No other loaded Ka0s
+addon uses skins yet.* under it while LootHistory is the only adopter) and the note *Skins change
+every visual element. HUD style options follow the skin unless you set them yourself.* Pick
+**Obsidian**: no reload, no Lua error, the choice moves; `/lh get settings.appearance.skin` →
+`obsidian`. `/reload` → still Obsidian. Pick **Ka0s Default** again. In leg 1 the History window's
+own surfaces repaint only once LH-02 to LH-05 land, so this check is about the tab, the stored
+value and the absence of errors. Switch to another profile and back on the Profiles page → the
+tab follows each profile's skin. Fail: the tab missing or out of place, a choice that does not
+stick, a reload prompt on a Ka0s-to-Ka0s pick, or a Lua error. Result:
 
 ## Profiles
 
@@ -1961,4 +1976,7 @@ a pass.
 On 2026-10-24 the owner reported that every check of the keybindings, settings layout and frame
 layering run passed (LH-KB, LH-RV3, LH-LY and LH-ZS: PANEL-3, PANEL-5, PANEL-6, PANEL-21, HIST-38 to
 HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` line as
-`pass (owner, 2026-10-24)`. No sign-off is owed.
+`pass (owner, 2026-10-24)`.
+
+Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab) and
+PANEL-22 (new, LH-01: the Appearance tab).

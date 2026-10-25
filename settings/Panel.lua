@@ -965,14 +965,15 @@ AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 -- held the setting they wanted, and one of the three (AH price) drew no strip at all.
 --
 -- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
--- seven tabs (Filters and the library's Keybindings) hold no schema rows to partition.
+-- eight tabs (Filters and the library's Keybindings) hold no schema rows to partition, and a third
+-- (the library's Appearance) draws its two rows as choice grids of its own.
 -- RenderTabbedSchema derives its tab list from `group`,
 -- which is exactly right for a page whose every section is rows — and cannot name a tab whose body
 -- is a dynamic list of item ids. So the tab list is declared here, each entry is either a schema
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
 -- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
 -- to the schema and not to this list cannot go unnoticed.
--- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these seven minus AH
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these minus AH
 -- price: Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the
 -- same shape of record and a player compares their panels directly, so one subject carries one name
 -- across both — Collection became Capture and Maintenance became History. Filters was moved last
@@ -995,6 +996,19 @@ local GENERAL_TABS = {
   { key = "Interface" },
   { key = "History" },
 }
+
+-- skinning-§3: the Appearance tab, after History and before Keybindings, which stays last. The
+-- library's own entry (O.AppearanceTab): the skin source, the nine skins, "Copy to every Ka0s
+-- addon..." and the note, drawn from LibKa0s-Skin-1.0 for the owner core/SkinSetup.lua registered.
+-- `get` and `set` are that file's read and write seams, so a pick lands through NS.Schema:Set like
+-- every other setting; the tab calls Skin:SetChoice first, so the live repaint is the library's and
+-- the rows' onChange finds nothing left to apply. The tab is the group of the two skipRender rows
+-- (settings/Schema.lua). On the degraded path the stub's entry draws nothing, and the tab is still
+-- there. Eight tabs, the options-ui-§13 budget.
+do
+  local at = O.AppearanceTab({ owner = NS.Skin and NS.Skin.owner, get = NS.SkinChoice, set = NS.WriteSkinChoice })
+  GENERAL_TABS[#GENERAL_TABS + 1] = { key = at.key, label = at.label, tooltip = at.tooltip, build = at.render }
+end
 
 -- options-ui-§20: the Keybindings tab, LAST, after every other tab. The library's own entry
 -- (O.KeybindingsTab): its key, its label and tooltip, and its render, which draws the rows of
