@@ -17,7 +17,9 @@
 
 -- Minor 12: lib.RaiseStaticPopups, the library half of frame-layering-§4's "a destructive
 -- confirmation is never buried by a window shown after it" (XS-08), called by the three tool windows.
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 12
+-- Minor 13: ApplySkin and MakeCloseButton paint through a skin owner's facade (LibKa0s-Skin-1.0,
+-- resolved at call time) when the caller names a registered owner; any other call is minor 12's.
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -177,6 +179,24 @@ local function applyAccents(frame, skin)
   end
 end
 
+-- ── the skin owner (minor 13) ───────────────────────────────────────────────────────────────
+--
+-- LibKa0s-Skin-1.0 floors on THIS major, so Core cannot floor on it: it is resolved at CALL time,
+-- exactly as MakeCloseButton resolves Media, and a client without it (or an older copy without
+-- `IsOwner`) answers nil here and every caller paints minor 12's way. A name counts as an owner
+-- only once that addon called `Skin:RegisterOwner`: every consumer already passes its folder name to
+-- MakeCloseButton, and the ones that never adopted skins must keep drawing exactly what they drew.
+
+--- The skin facade of `owner` when it is a registered skin owner, else nil. Internal: Widgets and
+--- the tool windows ask it the same question. Not host contract.
+function lib.__SkinFacade(owner)
+  if type(owner) ~= "string" or owner == "" or not LibStub then return nil end
+  local Skin = LibStub("LibKa0s-Skin-1.0", true)
+  if not (Skin and type(Skin.IsOwner) == "function" and type(Skin.For) == "function") then return nil end
+  if not Skin:IsOwner(owner) then return nil end
+  return Skin:For(owner)
+end
+
 --- Wear the skin. A no-op on a frame with no SetBackdrop — a frame created without the
 --- BackdropTemplate inherit is undecorated, not broken, and a missing skin is not worth erroring
 --- over in the middle of building someone's window.
@@ -189,13 +209,21 @@ end
 --- Every step past the backdrop is guarded on the key being present, so a caller passing a plain
 --- WoW backdrop table (no `bg`, no `innerBorder`, …) gets a plain backdrop rather than a raise
 --- midway through building a window that is not yet hidden or Esc-wired.
-function lib.ApplySkin(frame, skin)
+---
+--- `owner` (minor 13) is optional: an addon folder name. When it names a REGISTERED skin owner
+--- (`LibKa0s-Skin-1.0`'s `IsOwner`) and `skin` is absent, the window is handed to that owner's
+--- facade after this paint (`S.Shell(frame)`), so it wears the owner's skin and repaints with it.
+--- Any other call, an unregistered name or a missing Skin major included, is minor 12's, call for
+--- call. A host's own `skin` table wins over the owner.
+function lib.ApplySkin(frame, skin, owner)
   if not frame or not frame.SetBackdrop then return end
+  local S = skin == nil and lib.__SkinFacade(owner) or nil
   skin = type(skin) == "table" and skin or lib.SKIN
 
   applyBackdrop(frame, skin)
   applyInnerBorder(frame, skin)
   applyAccents(frame, skin)
+  if S then S.Shell(frame) end
 end
 
 -- What the close control is drawn at, and how much of that slot the art fills. The slot is the
@@ -235,6 +263,8 @@ local CLOSE_HOT  = { 1, 0.3, 0.3 }
 --- @param parent table
 --- @param onClick function
 --- @param addonName string  optional. The caller's own addon folder name, from its first vararg.
+---                          From minor 13 it is also the skin owner, when that addon registered
+---                          one with LibKa0s-Skin-1.0; an unregistered name draws as before.
 --- @return table|nil
 function lib.MakeCloseButton(parent, onClick, addonName)
   if type(CreateFrame) ~= "function" then return nil end
@@ -266,6 +296,12 @@ function lib.MakeCloseButton(parent, onClick, addonName)
     b:SetScript("OnLeave", function() fs:SetTextColor(CLOSE_REST[1], CLOSE_REST[2], CLOSE_REST[3]) end)
     b.glyph = fs
   end
+
+  -- Minor 13: a registered skin owner's close control takes its rest and hover colors from that
+  -- owner's skin (`close.rest` / `close.hot`), and follows a skin switch. Ka0s Default is the two
+  -- colors above. Any other name was answered above, unchanged.
+  local S = lib.__SkinFacade(addonName)
+  if S then S.CloseButton(b, { own = true }) end
 
   b:SetScript("OnClick", onClick)
   return b

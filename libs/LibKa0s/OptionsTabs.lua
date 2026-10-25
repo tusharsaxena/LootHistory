@@ -50,7 +50,11 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- and rerender, for a host that composed the strip itself to get them (AbsorbTracker#32).
 -- Minor 9: the releaseChrome test seam on O, which no suite or consumer called, is no longer
 -- exported (LibKa0s#45); the local releaseChrome itself is unchanged.
-local TABS_MINOR = 9
+-- Minor 10: a registered skin owner's page paints its strip through the owner's facade after the
+-- strip's own paint -- each tab (S.Tab: the client's atlases faded away from Ka0s Default), the
+-- content box (S.Panel over the inner-frame art) and the banner hairline (S.Divider, `tab.rule`).
+-- No member is added (the band's trigger); the helpers are OptionsScroll.lua's (LK-07).
+local TABS_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -393,6 +397,8 @@ local function newContentPanel(ctx)
     rightHalf:SetPoint("BOTTOMLEFT", panel, "BOTTOM", 0, 0)
     rightHalf:SetTexCoord(PANEL_SEAM_U, 1, 0, 1)
   end
+  -- The client's art, for a skin that fades it (minor 10).
+  panel.__ka0sHalves = { leftHalf, rightHalf }
 
   return panel
 end
@@ -423,6 +429,7 @@ local function drawContentPanel(ctx)
   panel:SetPoint("BOTTOMRIGHT", ctx.body,   "BOTTOMRIGHT",  -L.PANEL_RIGHT, L.PANEL_BOTTOM)
 
   ctx.__tabKids[#ctx.__tabKids + 1] = panel
+  return panel
 end
 
 --- The hairline rule between the banner and the tab strip (options-ui-§14), spanning the
@@ -448,6 +455,7 @@ local function drawChromeDivider(ctx, rawBannerHeight)
   tex:SetHeight(L.CHROME_DIVIDER_H)
   tex:Show()
   ctx.__chromeKids[#ctx.__chromeKids + 1] = tex
+  return tex
 end
 
 --- Attach the chrome surfaces to one instance, beside the widget makers and the flow engine.
@@ -472,6 +480,27 @@ function lib.__AttachTabs(O, d)
   --- The refusal every control in this file asks (minor 2): Options.lua's, when the shell has it.
   local function refused(kind, ...)
     return O.__combatRefused ~= nil and O.__combatRefused(kind, ...)
+  end
+
+  --- Paint `target` through the page owner's skin (minor 10; OptionsScroll.lua's O.__chromePaint):
+  --- nothing for a page with no registered owner, or a shell without the helper.
+  local function skin(prim, target, opts)
+    if target and O.__chromePaint then O.__chromePaint(prim, target, opts) end
+  end
+
+  --- The content box's skin: its two halves of client art faded away from Ka0s Default (and put
+  --- back on it), then the skin's panel over the box.
+  local function skinContentPanel(panel)
+    skin("FadeRegions", panel)
+    skin("Panel", panel, { stock = panel and panel.__ka0sHalves })
+  end
+
+  --- A tab's skin, after its dress: the three atlas slices are the stock a skin fades, the dark
+  --- backing is the fill it repaints, and the label takes the tab text roles.
+  local function skinTab(b, active)
+    local art = b.__ka0sTabArt or {}
+    skin("Tab", b, { selected = active, text = b.__ka0sTabLabel or nil, fill = art.fill,
+      stock = { art.left, art.mid, art.right } })
   end
 
   --- Pack tab widths into rows that fit `available`. Pure arithmetic and no widgets, so the
@@ -743,6 +772,7 @@ function lib.__AttachTabs(O, d)
     local width = labelWidth(b.GetFontString and b:GetFontString())
     setTabFont(b, active)
     dressTabArt(b, active)
+    skinTab(b, active)
 
     b:SetEnabled(not active)
     b:SetScript("OnClick", function()
@@ -906,7 +936,7 @@ function lib.__AttachTabs(O, d)
     -- The panel is built before the tabs are placed, because it anchors to the chrome's BOTTOM
     -- and SetChromeHeight is what moves that edge; built after, it would still land correctly,
     -- but the ledger order would no longer say which of the two owns the separator.
-    drawContentPanel(ctx)
+    skinContentPanel(drawContentPanel(ctx))
 
     ctx.__tabLayout = { buttons = buttons, widths = widths }
     placeTabs(ctx, buttons, widths, frameWidth(ctx.chrome))
@@ -992,7 +1022,7 @@ function lib.__AttachTabs(O, d)
       -- The hairline rule sits at the raw height, never the widened one -- it separates the
       -- banner from what comes after it, so it has to be measured off the banner's own bottom
       -- edge rather than off a band that already includes it.
-      drawChromeDivider(ctx, h)
+      skin("Divider", drawChromeDivider(ctx, h), { token = "tab.rule" })
 
       local band = O.__bannerBand(h)
       ctx.__bannerHeight = band
@@ -1054,7 +1084,7 @@ function lib.__AttachTabs(O, d)
 
     -- The hairline sits at the RAW height, never the widened band: it separates the block from
     -- what comes after it, so it is measured off the block's own bottom edge.
-    if spec.divider ~= false then drawChromeDivider(ctx, height) end
+    if spec.divider ~= false then skin("Divider", drawChromeDivider(ctx, height), { token = "tab.rule" }) end
 
     local band = O.__bannerBand(height)
     ctx.__bannerHeight = band

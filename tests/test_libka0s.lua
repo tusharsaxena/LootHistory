@@ -37,6 +37,17 @@ local LIB_FILES = {
   "libs/LibKa0s/Media.lua",
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
+  -- New in v1.78.0: LibKa0s-Skin-1.0, the skin engine (Skin 4) and its seven paired files, in XML
+  -- order: the nine skins (SkinDefs 4), the paint primitives (SkinPaint 2, SkinPaintExtras 1,
+  -- SkinPaintControls 1), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 1).
+  -- Loading them builds no frame, timer or event until a host calls Skin:RegisterOwner.
+  "libs/LibKa0s/Skin.lua",
+  "libs/LibKa0s/SkinDefs.lua",
+  "libs/LibKa0s/SkinPaint.lua",
+  "libs/LibKa0s/SkinPaintExtras.lua",
+  "libs/LibKa0s/SkinPaintControls.lua",
+  "libs/LibKa0s/SkinEUI.lua",
+  "libs/LibKa0s/SkinAce.lua",
   "libs/LibKa0s/Widgets.lua",
   -- New in v1.66.0: ReorderList PEELS out of Widgets.lua into its own file and its own minor
   -- (WidgetsReorder 1), with no member change; NS.MakeReorderList still calls W.ReorderList.
@@ -51,6 +62,8 @@ local LIB_FILES = {
   -- New in v1.70.0: the search-box autocomplete (WidgetsAutocomplete 1), a fifth file of
   -- LibKa0s-Widgets-1.0 that attaches lib.Autocomplete.
   "libs/LibKa0s/WidgetsAutocomplete.lua",
+  -- New in v1.78.0: lib.CopyWindow peels out of Widgets.lua (WidgetsCopyWindow 1), no member change.
+  "libs/LibKa0s/WidgetsCopyWindow.lua",
   "libs/LibKa0s/DebugLog.lua",
   -- New in v1.60.0: the diagnostics report, a second file of LibKa0s-DebugLog-1.0 (key 14.1) that
   -- lib:New installs on each instance. Loaded after DebugLog.lua, as the XML orders it.
@@ -58,6 +71,8 @@ local LIB_FILES = {
   -- New in v1.65.0: the change gates and the at-enable queue, a third file of LibKa0s-DebugLog-1.0
   -- (key 18.2.1) that lib:New attaches to each instance. Loaded after DebugLogDiagnostics.lua.
   "libs/LibKa0s/DebugLogGates.lua",
+  -- New in v1.78.0: the console window peels out of DebugLog.lua (DebugLogWindow 1), no member change.
+  "libs/LibKa0s/DebugLogWindow.lua",
   "libs/LibKa0s/Slash.lua",
   -- New in v1.66.0: the value parsers peel out of Slash.lua (SlashParse 1), no member change.
   "libs/LibKa0s/SlashParse.lua",
@@ -92,6 +107,9 @@ local LIB_FILES = {
   -- New in v1.77.0: the Keybindings tab (OptionsKeybinds 4), a twelfth file of LibKa0s-Options-1.0.
   -- The stub in settings/OptionsSetup.lua carries its three members for parity.
   "libs/LibKa0s/OptionsKeybinds.lua",
+  -- New in v1.78.0: the Appearance tab (OptionsAppearance 1), a thirteenth file of
+  -- LibKa0s-Options-1.0. The stub in settings/OptionsSetup.lua carries its two members for parity.
+  "libs/LibKa0s/OptionsAppearance.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
@@ -638,7 +656,7 @@ end)
 test("v1.71.0: the vendored minors and the kit revision match the release", function()
   local W = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(W ~= nil and type(W.MODULES) == "table", "Widgets missing: re-vendor v1.71.0")
-  assertEqual(W.MODULES.WidgetsLineChart, 3)
+  assertTrue(W.MODULES.WidgetsLineChart >= 3) -- 4 since v1.78.0, pinned there
   assertTrue(W.MODULES.WidgetsAutocomplete >= 2) -- 3 since v1.77.0, pinned there
   local S = T.mocks.LibStub("LibKa0s-Slash-1.0", true)
   assertEqual(S.MODULES.Slash, 20)
@@ -664,19 +682,19 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertEqual(modules("LibKa0s-Item-1.0").Item, 3)
   assertEqual(modules("LibKa0s-Glow-1.0").Glow, 1)
   local media = modules("LibKa0s-Media-1.0")
-  assertEqual(media.Media, 5)
+  assertTrue(media.Media >= 5) -- 6 since v1.78.0, pinned there
   assertEqual(media.MediaIcons, 1)
   local widgets = modules("LibKa0s-Widgets-1.0")
   assertTrue(widgets.Widgets >= 13) -- 14 since v1.76.0, pinned there
   assertTrue(widgets.WidgetsStepPanel == nil, "W.StepPanel was withdrawn before v1.75.0 shipped")
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertTrue(debugLog.DebugLog >= 20) -- 21 since v1.77.0, pinned there
-  assertEqual(debugLog.DebugLogDiagnostics, 3)
+  assertTrue(debugLog.DebugLogDiagnostics >= 3) -- 4 since v1.78.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.Options >= 29) -- 30 since v1.77.0, pinned there
-  assertEqual(options.OptionsIdList, 5)
-  assertEqual(options.OptionsTabs, 9)
-  assertEqual(options.OptionsDrawer, 1)
+  assertTrue(options.OptionsIdList >= 5) -- 6 since v1.78.0, pinned there
+  assertTrue(options.OptionsTabs >= 9) -- 10 since v1.78.0, pinned there
+  assertTrue(options.OptionsDrawer >= 1) -- 2 since v1.78.0, pinned there
   -- O.Drawer attaches to each instance lib:New builds, not to the module table LibStub answers.
   assertTrue(type(NS.Options.Drawer) == "function", "O.Drawer missing: OptionsDrawer did not attach")
   local perf = modules("LibKa0s-Perf-1.0")
@@ -752,26 +770,87 @@ test("v1.77.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.77.0")
     return lib.MODULES
   end
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 12)
-  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLog, 21)
-  assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 9)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 12) -- 13 since v1.78.0, pinned there
+  assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLog >= 21) -- 22 since v1.78.0, pinned there
+  assertTrue(modules("LibKa0s-Perf-1.0").PerfPanel >= 9) -- 10 since v1.78.0, pinned there
   local sim = modules("LibKa0s-Sim-1.0")
   assertEqual(sim.Sim, 2)
   assertEqual(sim.SimTimeline, 3)
-  assertEqual(sim.SimPanel, 6)
+  assertTrue(sim.SimPanel >= 6) -- 7 since v1.78.0, pinned there
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 15)
-  assertEqual(widgets.WidgetsDragHandle, 5)
-  assertEqual(widgets.WidgetsAutocomplete, 3)
+  assertTrue(widgets.Widgets >= 15) -- 16 since v1.78.0, pinned there
+  assertTrue(widgets.WidgetsDragHandle >= 5) -- 6 since v1.78.0, pinned there
+  assertTrue(widgets.WidgetsAutocomplete >= 3) -- 4 since v1.78.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.Options, 30)
-  assertEqual(options.OptionsIds, 3)
-  assertEqual(options.OptionsCombat, 2)
-  assertEqual(options.OptionsCompose, 11)
-  assertEqual(options.OptionsKeybinds, 4)
+  assertTrue(options.Options >= 30) -- 33 since v1.78.0, pinned there
+  assertTrue(options.OptionsIds >= 3) -- 4 since v1.78.0, pinned there
+  assertTrue(options.OptionsCombat >= 2) -- 3 since v1.78.0, pinned there
+  assertTrue(options.OptionsCompose >= 11) -- 12 since v1.78.0, pinned there
+  assertTrue(options.OptionsKeybinds >= 4) -- 5 since v1.78.0, pinned there
   -- The tab's members and the strata tooltip attach to each instance lib:New builds.
   assertTrue(type(NS.Options.KeybindingsTab) == "function", "O.KeybindingsTab missing: OptionsKeybinds did not attach")
   assertTrue(type(NS.Options.StrataTooltip) == "function", "O.StrataTooltip missing: OptionsCompose 8 did not attach")
   assertTrue(type(NS.Options.ResetAllTooltip) == "function", "O.ResetAllTooltip missing: OptionsCompose 11 did not attach")
-  assertEqual(T.KIT_VERSION, 42)
+  assertTrue(T.KIT_VERSION >= 42) -- 43 since v1.78.0, pinned there
+end)
+
+-- v1.78.0: skinning, leg 1. The new major LibKa0s-Skin-1.0 (Skin 4, SkinDefs 4, SkinPaint 2,
+-- SkinPaintExtras 1, SkinPaintControls 1, SkinEUI 1, SkinAce 1); Core 13 and Widgets 16 (a skin
+-- owner on the library's controls) with WidgetsReorder 2, WidgetsDragHandle 6, WidgetsLineChart 4,
+-- WidgetsAutocomplete 4 and the new WidgetsCopyWindow 1; Media 6 (the five OFL skin faces and the
+-- Glass art); DebugLog 22, DebugLogDiagnostics 4 and the new DebugLogWindow 1; Options 33 with
+-- OptionsRegistry 3, OptionsWidgets 35, OptionsIds 4, OptionsIdList 6, OptionsTabs 10,
+-- OptionsCombat 3, OptionsCompose 12 (fromSkin), OptionsScroll 6, OptionsNav 3, OptionsDrawer 2,
+-- OptionsKeybinds 5 and the new thirteenth file OptionsAppearance 1 (the Appearance tab);
+-- PerfPanel 10 and SimPanel 7 (the tool windows follow their owner); kit revision 43 (the paint
+-- recorder). Every other file unchanged.
+test("v1.78.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.78.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 13)
+  local media = modules("LibKa0s-Media-1.0")
+  assertEqual(media.Media, 6)
+  assertEqual(media.MediaIcons, 1)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 4)
+  assertEqual(skin.SkinDefs, 4)
+  assertEqual(skin.SkinPaint, 2)
+  assertEqual(skin.SkinPaintExtras, 1)
+  assertEqual(skin.SkinPaintControls, 1)
+  assertEqual(skin.SkinEUI, 1)
+  assertEqual(skin.SkinAce, 1)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 16)
+  assertEqual(widgets.WidgetsReorder, 2)
+  assertEqual(widgets.WidgetsDragHandle, 6)
+  assertEqual(widgets.WidgetsLineChart, 4)
+  assertEqual(widgets.WidgetsAutocomplete, 4)
+  assertEqual(widgets.WidgetsCopyWindow, 1)
+  local debugLog = modules("LibKa0s-DebugLog-1.0")
+  assertEqual(debugLog.DebugLog, 22)
+  assertEqual(debugLog.DebugLogDiagnostics, 4)
+  assertEqual(debugLog.DebugLogWindow, 1)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.Options, 33)
+  assertEqual(options.OptionsRegistry, 3)
+  assertEqual(options.OptionsWidgets, 35)
+  assertEqual(options.OptionsIds, 4)
+  assertEqual(options.OptionsIdList, 6)
+  assertEqual(options.OptionsTabs, 10)
+  assertEqual(options.OptionsCombat, 3)
+  assertEqual(options.OptionsCompose, 12)
+  assertEqual(options.OptionsScroll, 6)
+  assertEqual(options.OptionsNav, 3)
+  assertEqual(options.OptionsDrawer, 2)
+  assertEqual(options.OptionsKeybinds, 5)
+  assertEqual(options.OptionsAppearance, 1)
+  -- The Appearance tab's two members attach to each instance lib:New builds.
+  assertTrue(type(NS.Options.AppearanceTab) == "function", "O.AppearanceTab missing: OptionsAppearance did not attach")
+  assertTrue(type(NS.Options.AppearanceRows) == "function", "O.AppearanceRows missing: OptionsAppearance did not attach")
+  assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 10)
+  assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 7)
+  assertEqual(T.KIT_VERSION, 43)
 end)

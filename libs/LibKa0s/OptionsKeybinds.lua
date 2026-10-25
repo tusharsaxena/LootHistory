@@ -61,7 +61,10 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- more, and its tooltip, read at hover, names every key and says where the others were set. The
 -- second slot widget and the KEY1 / KEY2 words are gone; KEY, KEY_MORE, KEYS_ALL and KEYS_OTHER
 -- are new, and CLEAR_TIP says every key.
-local KEYBINDS_MINOR = 4
+-- Minor 5: on a registered skin owner's page wearing a skin other than Ka0s Default, the rows' text
+-- takes the skin's roles (the action's name `text.body`, the set and outcome lines `text.muted`),
+-- through the widgets' own SetColor, which AceGUI resets when it hands a Label out again (LK-07).
+local KEYBINDS_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__keybindsMinor and lib.__keybindsMinor >= KEYBINDS_MINOR
   and lib.__keybindsShellMinor == lib.MINOR then return end
@@ -651,6 +654,14 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     }
   end
 
+  --- Color one AceGUI label in the page owner's text role `token`, away from Ka0s Default only.
+  local function skinLabel(w, token)
+    local S = O.__chromeAway and O.__chromeAway()
+    if not (S and w and type(w.SetColor) == "function") then return end
+    local r, g, b = S.Color(token)
+    if r then w:SetColor(r, g, b) end
+  end
+
   --- One full-width line of text in `parent`: O.TextRow on the page's own scroll, a Label in a
   --- host-built body.
   local function textLine(view, text)
@@ -767,6 +778,7 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     local label = AceGUI:Create("InteractiveLabel")
     label:SetText(name)
     label:SetRelativeWidth(W_LABEL)
+    skinLabel(label, "text.body")
     O.AttachTooltip(label, name, binding.tooltip)
     group:AddChild(label)
     row.slots[1] = makeSlot(view, row, 1)
@@ -838,6 +850,8 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
 
     view.setLine = O.AceGUI:Create("Label")
     view.setLine:SetFullWidth(true)
+    skinLabel(view.setLine, "text.muted")
+    skinLabel(view.status, "text.muted")
     parent:AddChild(view.setLine)
     parent:AddChild(view.status)
     view.repaint()

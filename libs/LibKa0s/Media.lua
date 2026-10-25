@@ -42,7 +42,7 @@
 -- texture that fails to load, and a host without one gets a nil where it expected a string rather
 -- than a button that quietly is not there.
 --
--- That is also why `ICONS` and `FONTS` are published. They are the catalog — what exists, by the
+-- That is also why `ICONS`, `FONTS` and the texture catalogs are published. They are the catalog — what exists, by the
 -- names callers use — so a settings dropdown or a test can enumerate rather than hardcode.
 --
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework. LibSharedMedia is OPTIONAL:
@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -137,15 +137,39 @@ lib.ICONS = {
 }
 
 -- Every font in `media/fonts/`, keyed by the LSM name it registers under. `file` is the basename;
--- `license` names the file recording its terms, which ships beside it.
+-- `license` names the file recording its terms, which ships beside it; `langmask` lists the
+-- LibSharedMedia locale groups (`LSM.LOCALE_BIT_<group>`) whose text the face can draw.
 --
--- ONE FACE, AND IT IS MONOSPACE. A meter, a debug console and a perf table are all grids of digits
--- that change while you read them, and in a proportional face every digit is a different width, so
--- the column shivers as it ticks. JetBrains Mono pins them to a grid. It is the face the debug
--- console has always asked its host for; carrying it here is what stops each host answering with a
--- different one.
+-- JETBRAINS MONO IS THE MONOSPACE. A meter, a debug console and a perf table are all grids of
+-- digits that change while you read them, and in a proportional face every digit is a different
+-- width, so the column shivers as it ticks. JetBrains Mono pins them to a grid. It is the face the
+-- debug console has always asked its host for; carrying it here is what stops each host answering
+-- with a different one.
+--
+-- THE FIVE "Ka0s" FACES ARE THE SKINS' (minor 6), SIL OFL 1.1 each: Barlow (Obsidian, Glass, WoW
+-- Forever), Cinzel SemiBold (the Azeroth, Ember and WoW Midnight titles) and Atkinson Hyperlegible
+-- (High Contrast). `tools/artwork/fonts.py` is their provenance record: the pinned upstream commits,
+-- and the static SemiBold it cuts from Cinzel's variable font. A skin names a face by this key and
+-- resolves it through LSM, never by path.
+--
+-- THE MASK IS PER FACE (minor 6; minor 5 had one for all). LibSharedMedia refuses a font whose mask
+-- lacks the client's locale bit, which is the point: a face that draws a player's text as boxes does
+-- not belong in their dropdown. JetBrains Mono has Latin and Cyrillic, so western + ruRU; the skin
+-- faces are western only (Cinzel and Atkinson have no Cyrillic, none of the five has Hangul or Han),
+-- and on another client the skin falls back to the client's own font.
 lib.FONTS = {
-  ["JetBrains Mono"] = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt" },
+  ["JetBrains Mono"]       = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
+                               langmask = { "western", "ruRU" } },
+  ["Ka0s Barlow"]          = { file = "Barlow-Regular.ttf", license = "Barlow-OFL.txt",
+                               langmask = { "western" } },
+  ["Ka0s Barlow SemiBold"] = { file = "Barlow-SemiBold.ttf", license = "Barlow-OFL.txt",
+                               langmask = { "western" } },
+  ["Ka0s Cinzel"]          = { file = "Cinzel-SemiBold.ttf", license = "Cinzel-OFL.txt",
+                               langmask = { "western" } },
+  ["Ka0s Atkinson"]        = { file = "AtkinsonHyperlegible-Regular.ttf",
+                               license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
+  ["Ka0s Atkinson Bold"]   = { file = "AtkinsonHyperlegible-Bold.ttf",
+                               license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is
@@ -171,6 +195,27 @@ lib.TEXTURES = {
   ["Ka0s Overline 1"]  = { file = "overline-1.tga" },
   ["Ka0s Overline 2"]  = { file = "overline-2.tga" },
   ["Ka0s Overline 4"]  = { file = "overline-4.tga" },
+}
+
+-- The LSM `border` and `background` catalogs (minor 6): shipped art for a frame's edge and fill,
+-- keyed by the LSM name, the files in `media/textures/` beside the statusbars. White, alpha carries
+-- the shape, tinted at runtime like every other texture here. `tools/artwork/glass_textures.py`
+-- synthesizes both and is their provenance record.
+--
+-- GLASS IS THE ONE ROUNDED SKIN, radius 8. The border is in the client's backdrop edge-file layout
+-- (eight cells), so it draws wherever an LSM border does: `SetBackdrop{ edgeFile = <path>,
+-- edgeSize = 8 }` is a 1px line with radius-8 corners. `edgeSize` records the size it is drawn at.
+-- The background is a one-file nine-slice; `slice` is the margin to pass
+-- `SetTextureSliceMargins`, so its corners stay 8x8 at any frame size and meet the border's.
+--
+-- ONLY SHIPPED ART. The in-client keys the skins use (`Blizzard Dialog`, `Blizzard Tooltip`,
+-- `Blizzard Dialog Background`, `Solid`, ...) are LibSharedMedia's own defaults already, so nothing
+-- here re-registers them.
+lib.BORDERS = {
+  ["Ka0s Glass"] = { file = "glass-border.tga", edgeSize = 8 },
+}
+lib.BACKGROUNDS = {
+  ["Ka0s Glass"] = { file = "glass-fill.tga", slice = 8 },
 }
 
 -- THREE ICON SETS, ONE CATALOG (minor 5): Open Iconic (MIT, flat in `media/icons/`, unprefixed),
@@ -283,6 +328,16 @@ function lib.IconAuthor(name)
   return ICON_AUTHOR[name]
 end
 
+--- The extensionless path of one entry of a texture catalog, or nil. Shared by `Texture`,
+--- `Border` and `Background`, whose files all sit in `media/textures/`.
+local function texturePath(catalog, addonName, name, vendorPath)
+  local entry = catalog[name]
+  if not entry then return nil end
+  local base = root(addonName, vendorPath)
+  if not base then return nil end
+  return base .. TEXTURE_DIR .. "\\" .. (entry.file:gsub("%.tga$", ""))
+end
+
 --- The path of one shipped statusbar texture, or nil when the name is not in `TEXTURES`.
 ---
 --- EXTENSIONLESS, like `Icon` and for the same recorded reason. LSM stores whatever string it is
@@ -294,11 +349,29 @@ end
 --- @param vendorPath string optional
 --- @return string|nil
 function lib.Texture(addonName, name, vendorPath)
-  local entry = lib.TEXTURES[name]
-  if not entry then return nil end
-  local base = root(addonName, vendorPath)
-  if not base then return nil end
-  return base .. TEXTURE_DIR .. "\\" .. (entry.file:gsub("%.tga$", ""))
+  return texturePath(lib.TEXTURES, addonName, name, vendorPath)
+end
+
+--- The path of one shipped border (a backdrop edge file), extensionless, or nil when the name is
+--- not in `BORDERS` or `addonName` is missing. The skin engine reaches it through LSM instead.
+---
+--- @param addonName string  the consumer's own addon folder name
+--- @param name string       a key of `lib.BORDERS`, e.g. "Ka0s Glass"
+--- @param vendorPath string optional
+--- @return string|nil
+function lib.Border(addonName, name, vendorPath)
+  return texturePath(lib.BORDERS, addonName, name, vendorPath)
+end
+
+--- The path of one shipped background, extensionless, or nil when the name is not in
+--- `BACKGROUNDS` or `addonName` is missing.
+---
+--- @param addonName string  the consumer's own addon folder name
+--- @param name string       a key of `lib.BACKGROUNDS`, e.g. "Ka0s Glass"
+--- @param vendorPath string optional
+--- @return string|nil
+function lib.Background(addonName, name, vendorPath)
+  return texturePath(lib.BACKGROUNDS, addonName, name, vendorPath)
 end
 
 --- The font path for one registered face, or nil when the name is not in `FONTS`.
@@ -331,15 +404,35 @@ local function registerOne(LSM, kind, name, path, langmask)
   return LSM:IsValid(kind, name) and 1 or 0
 end
 
---- The locale mask for the shipped face: western + ruRU (see RegisterLSM), or nil when LSM
---- publishes no locale bits.
-local function fontLangmask(LSM)
-  local western, ruRU = LSM.LOCALE_BIT_western, LSM.LOCALE_BIT_ruRU
-  if type(western) ~= "number" or type(ruRU) ~= "number" then return nil end
-  return western + ruRU
+--- The locale mask for one face, the sum of `LSM.LOCALE_BIT_<group>` over its `langmask` list
+--- (see RegisterLSM), or nil when LSM publishes no bit for one of them, so an LSM too old to carry
+--- the constants gets the plain call.
+local function fontLangmask(LSM, entry)
+  local mask = 0
+  for _, group in ipairs(entry.langmask or {}) do
+    local bit = LSM["LOCALE_BIT_" .. group]
+    if type(bit) ~= "number" then return nil end
+    mask = mask + bit
+  end
+  return mask > 0 and mask or nil
 end
 
---- Put every shipped font AND statusbar texture into LibSharedMedia under its catalog name.
+--- Register every entry of one catalog as `kind` and answer how many LSM holds afterwards.
+--- `pathOf` is the catalog's path reader (`lib.Font`, `lib.Texture`, ...); `maskOf`, when given,
+--- answers the langmask for an entry (fonts only).
+local function registerCatalog(LSM, kind, catalog, pathOf, addonName, vendorPath, maskOf)
+  local held = 0
+  for name, entry in pairs(catalog) do
+    local path = pathOf(addonName, name, vendorPath)
+    if path then
+      held = held + registerOne(LSM, kind, name, path, maskOf and maskOf(entry) or nil)
+    end
+  end
+  return held
+end
+
+--- Put every shipped font, statusbar texture, border and background into LibSharedMedia under its
+--- catalog name.
 ---
 --- WHY REGISTERING MATTERS AND A PATH DOES NOT. A host can draw with `Font(...)` and never touch
 --- LSM. What registration buys is the settings panel: an LSM-registered face appears in the font
@@ -354,11 +447,12 @@ end
 --- same file vendored whole into each addon. Whichever copy wins, the player sees the same face
 --- under the same name.
 ---
---- THE FACE IS FLAGGED WESTERN + ruRU. On a non-western client LSM refuses a font that carries no
---- langmask, and one whose mask lacks the client's locale bit. JetBrains Mono has Latin and
---- Cyrillic glyphs and no Hangul or Han, so it is offered to western and ruRU clients and CJK
---- clients are excluded on purpose: a face that draws their text as boxes does not belong in their
---- font dropdown. An LSM too old to publish the `LOCALE_BIT_*` constants gets a plain `Register`.
+--- EACH FACE CARRIES ITS OWN MASK (minor 6), from its `langmask` list in `FONTS`. On a non-western
+--- client LSM refuses a font that carries no langmask, and one whose mask lacks the client's locale
+--- bit. JetBrains Mono has Latin and Cyrillic glyphs and no Hangul or Han, so it is offered to
+--- western and ruRU clients; the five skin faces are western only. CJK clients are excluded on
+--- purpose: a face that draws their text as boxes does not belong in their font dropdown. An LSM
+--- too old to publish the `LOCALE_BIT_*` constants gets a plain `Register`.
 ---
 --- COUNTED ONLY WHEN LSM HAS IT. A font or texture counts when `LSM:IsValid(type, name)` answers
 --- true after the call, not because `Register` was called: a refused face is not registered, and a
@@ -369,36 +463,36 @@ end
 --- has therefore already run by the time a TOC reaches the consumer's own files, and a default that
 --- names a face LSM has not heard of yet is a default that resolves to nothing.
 ---
+--- THE NEW LEG-1 KEYS LAND FROM ONE FOLDER. LSM keeps the first registration of a key, so while
+--- only one consumer vendors minor 6 the skin faces and the Glass art resolve into THAT addon's
+--- folder, and every other copy's later `Register` is a no-op; it holds the files, so they draw.
+---
 --- @param addonName string  the consumer's own addon folder name
 --- @param vendorPath string optional
---- @return number fonts, number statusbars  how many of each LSM holds after the call; 0, 0 when
----         LSM is absent, which is not an error
+--- @return number fonts, number statusbars, number borders, number backgrounds  how many of each LSM
+---         holds after the call; all 0 when LSM is absent, which is not an error. The third and
+---         fourth arrived at minor 6; a caller reading two still reads the first two.
 function lib.RegisterLSM(addonName, vendorPath)
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-  if not LSM then return 0, 0 end
+  if not LSM then return 0, 0, 0, 0 end
 
   local mt = LSM.MediaType or {}
-  local mask = fontLangmask(LSM)
 
-  local fonts = 0
-  for name in pairs(lib.FONTS) do
-    local path = lib.Font(addonName, name, vendorPath)
-    if path then
-      fonts = fonts + registerOne(LSM, mt.FONT or "font", name, path, mask)
-    end
-  end
+  local fonts = registerCatalog(LSM, mt.FONT or "font", lib.FONTS, lib.Font, addonName, vendorPath,
+    function(entry) return fontLangmask(LSM, entry) end)
 
   -- STATUSBAR, and it is the same bargain the fonts strike. A registered texture is what a player
   -- picks out of a bar-texture dropdown by name, and a NAME is what their profile then stores --
   -- portable between installs, where a path is pinned to one addon's folder and breaks the moment
   -- the folder is renamed.
-  local bars = 0
-  for name in pairs(lib.TEXTURES) do
-    local path = lib.Texture(addonName, name, vendorPath)
-    if path then
-      bars = bars + registerOne(LSM, mt.STATUSBAR or "statusbar", name, path)
-    end
-  end
+  local bars = registerCatalog(LSM, mt.STATUSBAR or "statusbar", lib.TEXTURES, lib.Texture,
+    addonName, vendorPath)
 
-  return fonts, bars
+  -- BORDER and BACKGROUND, the same bargain again: a frame-art dropdown offers them by name.
+  local borders = registerCatalog(LSM, mt.BORDER or "border", lib.BORDERS, lib.Border,
+    addonName, vendorPath)
+  local backgrounds = registerCatalog(LSM, mt.BACKGROUND or "background", lib.BACKGROUNDS,
+    lib.Background, addonName, vendorPath)
+
+  return fonts, bars, borders, backgrounds
 end

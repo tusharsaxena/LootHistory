@@ -42,7 +42,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- from lib.__AttachWidgets where it used to be defined; no change in behavior.
 -- Minor 33: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
 -- Minor 34: RenderGrid takes a parent and opts.gap, and a failed item leaves no row (KickCD#10).
-local WIDGETS_MINOR = 34
+-- Minor 35: a row's `skinValue()`, when it answers, is what its widget shows (compose minor 12).
+local WIDGETS_MINOR = 35
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -419,6 +420,8 @@ function lib.__AttachWidgets(O, d)
   -- it always has, whatever other fields a host's schema happens to give it, so no path-keyed row
   -- anywhere in the collection can change behavior because of this.
   local function read(row)
+    local shown = type(row.skinValue) == "function" and row.skinValue(row) or nil   -- following the skin
+    if shown ~= nil then return shown end
     if row.path == nil and type(row.get) == "function" then return row.get() end
     return d.get(row.path)
   end

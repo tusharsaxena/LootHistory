@@ -19,7 +19,10 @@ if not lib then return end
 -- loaded, and a fall past that rung writes one Cfg line saying why (LibKa0s#42).
 -- Minor 5: comment-only; the help mark's art is the host's to declare, and a pruned copy draws it
 -- blank rather than falling back (LibKa0s#57). No member or behavior moves.
-local IDLIST_MINOR = 5
+-- Minor 6: on a registered skin owner's page wearing a skin other than Ka0s Default, the help mark's
+-- tints come from the skin (`text.accent`, `sem.bad`, `text.disabled`, `icon.hot`), read at draw;
+-- Ka0s Default and an owner-less page keep minor 5's constants (LK-07 of the skinning run).
+local IDLIST_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -547,6 +550,18 @@ function lib.__AttachIdList(O, d, ids)
     return ID_HELP_LEVELS[level] or ID_HELP_TINT, level
   end
 
+  -- Each help tint's skin token (minor 6), read only away from Ka0s Default: none of the four
+  -- constants is a Ka0s Default token, and that skin must draw the mark exactly as minor 5 did.
+  local HELP_TOKEN = { [ID_HELP_TINT] = "text.accent", [ID_HELP_BLOCKED] = "sem.bad",
+                       [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot" }
+
+  --- `tint`, or its token in the page owner's skin when that skin is not Ka0s Default.
+  local function skinTint(tint)
+    local S = O.__chromeAway and O.__chromeAway()
+    local c = S and HELP_TOKEN[tint] and S.Token(HELP_TOKEN[tint])
+    return type(c) == "table" and c or tint
+  end
+
   --- The entry's information mark: an Icon between the delete control and the name, tinted by the
   --- host's level when it gave it something to say and flat gray when it did not.
   ---
@@ -565,6 +580,8 @@ function lib.__AttachIdList(O, d, ids)
     h:SetWidth(ID_HELP_HIT)
     local tex = h.image
     local tint, level = entryHelpLevel(entry, lines)
+    tint = skinTint(tint)
+    local over = skinTint(ID_HELP_OVER)
     local path = idHelpIcon(spec)
     if type(tex) == "table" then
       if tex.SetTexture then tex:SetTexture(path) end
@@ -587,9 +604,9 @@ function lib.__AttachIdList(O, d, ids)
     h.__helpTintNow = tint
     if lines then
       h:SetCallback("OnEnter", function()
-        h.__helpTintNow = ID_HELP_OVER
+        h.__helpTintNow = over
         if type(tex) == "table" and tex.SetVertexColor then
-          tex:SetVertexColor(ID_HELP_OVER[1], ID_HELP_OVER[2], ID_HELP_OVER[3])
+          tex:SetVertexColor(over[1], over[2], over[3])
         end
         if not GameTooltip then return end
         GameTooltip:SetOwner(h.frame or h, "ANCHOR_RIGHT")

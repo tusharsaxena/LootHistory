@@ -2,14 +2,14 @@
 -- button, and the reset/refresh trio every Ka0s addon's options UI runs on. The page registry it
 -- attaches is OptionsRegistry.lua's.
 --
--- Twelve files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
+-- Thirteen files, one major. This one is the shell; OptionsRegistry.lua the page registry, the
 -- category it registers and its combat park; OptionsWidgets.lua is the schema-row -> AceGUI
 -- translation and the flow engine; OptionsIds.lua / OptionsIdList.lua the id input and list;
 -- OptionsCombat.lua the combat lock's event frame, dispatcher and cover; OptionsTabs.lua the page's
 -- chrome (tab strip, banner, header block, secondary strip); OptionsCompose.lua the composers;
 -- OptionsScroll.lua the always-shown scrollbar patch and the font preload; OptionsNav.lua the nav
 -- rail a page may lead with (minor 25 reads its inset); OptionsDrawer.lua the drawer (minor 29
--- attaches it); OptionsKeybinds.lua the Keybindings tab (minor 30 attaches it). They are one major because they are one feature: a host that ended up with a shell
+-- attaches it); OptionsKeybinds.lua the Keybindings tab (minor 30 attaches it); OptionsAppearance.lua the Appearance tab (minor 33 attaches it). They are one major because they are one feature: a host that ended up with a shell
 -- from one vendored copy and a flow engine from another would build panels that lay out wrong, and
 -- there is no version negotiation that would catch it.
 --
@@ -34,7 +34,14 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 29: lib:New attaches OptionsDrawer.lua, and RefreshPanel takes a drawer's body ctx back to
 -- the page it is drawn on.
 -- Minor 30: lib:New attaches OptionsKeybinds.lua, the Keybindings tab (options-ui-§20).
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 30
+-- Minor 31: a page wears its skin owner's skin (`addonName`, once registered with LibKa0s-Skin-1.0;
+-- OptionsScroll.lua's helpers): the header and backdrop at CreatePanel, the thumb at EnsureScroll.
+-- Minor 32: lib:New hands the instance to the AceGUI rows' skin (OptionsScroll.lua's
+-- `__AttachSkinAce`, LibKa0s-Skin-1.0's SkinAce.lua): every widget made through `O.AceGUI` is
+-- painted for a registered owner and given back stock on release. One attach line, no member.
+-- Minor 33: lib:New attaches OptionsAppearance.lua, the Appearance tab (skinning-§3). One attach
+-- line, no member: the tab's members are that file's.
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 33
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -400,7 +407,9 @@ end
 ---                              a path to nothing. Omit it, or ship no Media major, and those
 ---                              controls fall back to the Blizzard texture. NOT the MasterControls
 ---                              compose spec's `addonName`, which is a DISPLAY label ("Aura
----                              Master"): same field name, a different question.
+---                              Master"): same field name, a different question. Since minor
+---                              31 it is also the pages' SKIN OWNER: once that addon called
+---                              LibKa0s-Skin-1.0's RegisterOwner, every page wears its skin.
 ---   print(line)                where a user-facing line goes. Pass the host's tagged printer.
 ---   get(path)                  read a stored value.
 ---   set(path, value)           write one. Route it through the host's single write seam, so a
@@ -691,6 +700,7 @@ function lib:New(d)
     local titleFS, divider = buildHeader(panel, title, opts)
     panel.title   = titleFS
     panel.divider = divider
+    if O.__skinPage then O.__skinPage(panel) end   -- the owner's skin (minor 31), none without one
 
     local body = CreateFrame("Frame", nil, panel)
     body:SetPoint("TOPLEFT",     panel, "TOPLEFT",     0, -(L.HEADER_HEIGHT + 8))
@@ -876,7 +886,7 @@ function lib:New(d)
       if scroll.FixScroll   then scroll:FixScroll()    end
     end)
 
-    if O.PatchAlwaysShowScrollbar then O.PatchAlwaysShowScrollbar(scroll) end
+    if O.PatchAlwaysShowScrollbar then O.PatchAlwaysShowScrollbar(scroll, d.addonName) end
 
     return scroll
   end
@@ -1313,6 +1323,8 @@ function lib:New(d)
     if lib.__AttachNav     then lib.__AttachNav(O)        end
     if lib.__AttachDrawer  then lib.__AttachDrawer(O)     end
     if lib.__AttachKeybinds then lib.__AttachKeybinds(O, d) end
+    if lib.__AttachAppearance then lib.__AttachAppearance(O, d) end   -- minor 33: the Appearance tab
+    if lib.__AttachSkinAce then lib.__AttachSkinAce(O, d) end   -- minor 32: O.AceGUI's rows
   end
   attachHalves()
 

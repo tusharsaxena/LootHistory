@@ -11,8 +11,10 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 9
+local PANEL_MINOR = 10
 -- Minor 9: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
+-- Minor 10: the panel follows its skin owner (THE SKIN OWNER below; LK-09 of Ka0sAddonsCommonTasks
+-- docs/2026-10-25-SKINNING).
 -- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
 local function raisePopups()
   if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
@@ -62,6 +64,43 @@ local COLORS = {
 -- Command column, dimmer than its row so it reads as reference rather than as another control.
 local CMD_COLOR = { 0.45, 0.45, 0.48 }
 
+-- Under the pointer: gold on a step that would run, a lighter red on cancel.
+local HOVER, HOVER_CANCEL = { 1, 0.82, 0 }, { 1.00, 0.45, 0.45 }
+
+-- ── THE SKIN OWNER (minor 10) ────────────────────────────────────────────────────────────────
+--
+-- The panel's owner is the descriptor's `addonName` (else `name`), the folder its close mark is
+-- already built from, and it counts only once that addon called LibKa0s-Skin-1.0's `RegisterOwner`
+-- (asked through Core's `__SkinFacade` at build, resolved at call time: no floor on the Skin major,
+-- and Perf.lua is untouched). An owned panel's window is painted through the facade
+-- (`Core.ApplySkin(frame, nil, owner)`, so `S.Shell`), and every row color below is read from the
+-- owner's tokens and read again after each of its skin switches. Any other panel draws these
+-- constants, call for call, and Ka0s Default's tokens are the same constants.
+local TOKENS = {
+  done = "sem.on", used = "sem.on", ready = "sem.stepReady", busy = "sem.stepBusy",
+  locked = "sem.stepLocked", cancel = "sem.stepCancel",
+  cmd = "text.faint", hover = "text.accent", hoverCancel = "sem.stepCancelHot",
+}
+
+-- The constants, shared by every panel without an owner. Never written to.
+local DEFAULT = { cmd = CMD_COLOR, hover = HOVER, hoverCancel = HOVER_CANCEL }
+for state, c in pairs(COLORS) do DEFAULT[state] = c end
+
+--- Refill `pal` from the facade's tokens, each falling back to its constant.
+local function fillPalette(pal, S)
+  for name, token in pairs(TOKENS) do
+    local c = S.Token(token)
+    pal[name] = type(c) == "table" and c or DEFAULT[name]
+  end
+  return pal
+end
+
+--- The facade of the panel's owner when it is a registered skin owner, else nil.
+local function facadeOf(owner)
+  if type(core.__SkinFacade) ~= "function" then return nil end
+  return core.__SkinFacade(owner)
+end
+
 -- Ordered, and the order IS the workflow. `key` matches a field of Progress(); `command` is the
 -- sub-verb the host's slash handler will be given.
 local STEPS = {
@@ -81,6 +120,9 @@ local STEPS = {
 function lib.__AttachPanel(P, d, tr, runCommand)
   local frame
   local decorate = type(d.decorate) == "function" and d.decorate or nil
+  -- The skin owner (minor 10): the same folder name the close mark is built from.
+  local owner = d.addonName or d.name
+  local pal = DEFAULT
 
   -- `string` travels with the step and `label` is re-resolved on every repaint. A host on the Ka0s
   -- standard populates its locale table from a separate file, which may well load after :New() runs
@@ -91,7 +133,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
   end
 
   local function setColor(fs, state)
-    local c = COLORS[state] or COLORS.locked
+    local c = pal[state] or pal.locked
     fs:SetTextColor(c[1], c[2], c[3])
   end
 
@@ -129,7 +171,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     cmd:SetJustifyH("RIGHT")
     cmd:SetText(P.slash .. " " .. step.command)
-    cmd:SetTextColor(CMD_COLOR[1], CMD_COLOR[2], CMD_COLOR[3])
+    cmd:SetTextColor(pal.cmd[1], pal.cmd[2], pal.cmd[3])
     b.cmd = cmd
 
     -- Bounded on both sides with word wrap off (panel minor 8), so a label a locale makes long
@@ -147,8 +189,9 @@ function lib.__AttachPanel(P, d, tr, runCommand)
 
     b:SetScript("OnEnter", function()
         local state = P.PanelStateOf(step.key)
-        if state == "cancel" then fs:SetTextColor(1.00, 0.45, 0.45)
-        elseif state == "ready" or state == "used" then fs:SetTextColor(1, 0.82, 0) end
+        local c = (state == "cancel" and pal.hoverCancel)
+          or ((state == "ready" or state == "used") and pal.hover) or nil
+        if c then fs:SetTextColor(c[1], c[2], c[3]) end
     end)
     b:SetScript("OnLeave", function() setColor(fs, P.PanelStateOf(step.key)) end)
     b:SetScript("OnClick", function()
@@ -229,12 +272,25 @@ function lib.__AttachPanel(P, d, tr, runCommand)
       end
     end
 
+    local S = facadeOf(owner)
+    if S then pal = fillPalette({}, S) end
+
     frame.buttons = {}
     for i, step in ipairs(P.STEPS) do
       frame.buttons[step.key] = makeStepButton(frame, step, i)
     end
 
-    core.ApplySkin(frame)
+    if S then
+      core.ApplySkin(frame, nil, owner)
+      -- After the facade replayed the window: the rows' colors, and the command column's.
+      S.OnLooksChanged(function()
+        fillPalette(pal, S)
+        for _, b in pairs(frame.buttons) do b.cmd:SetTextColor(pal.cmd[1], pal.cmd[2], pal.cmd[3]) end
+        P.RefreshPanel()
+      end)
+    else
+      core.ApplySkin(frame)
+    end
 
     frame:Hide()
     -- Esc closes it, like a debug console. Hiding is non-destructive, so this is safe to wire.
@@ -258,7 +314,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
         setColor(b.text, state)
         -- The dot carries the state at a glance: green behind you, gold on the step that is
         -- actually happening, gray ahead. Dimmed while locked so the eye skips it.
-        local c = COLORS[state] or COLORS.locked
+        local c = pal[state] or pal.locked
         if b.dot.SetColorTexture then
           b.dot:SetColorTexture(c[1], c[2], c[3], state == "locked" and 0.35 or 1)
         end

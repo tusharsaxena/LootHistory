@@ -28,7 +28,9 @@ if not lib then return end
 -- Minor 2: a refused host callback is named "id list change", for the shell's Cfg line (gap G3).
 -- Minor 3: O.__closeOwnedSuggest, which OptionsCombat.lua's O.__releaseOwnedFocus calls at the
 -- start of combat, closes a suggestion list one of the instance's pages opened (BAN-S11).
-local IDS_MINOR = 3
+-- Minor 4: a registered skin owner's suggestion list takes its popup colors on every open
+-- (S.MenuFrame, `popup`) after its own backdrop (LK-07 of the skinning run).
+local IDS_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idsMinor and lib.__idsMinor >= IDS_MINOR
@@ -1112,6 +1114,7 @@ function lib.__AttachIds(O, w)
     local rows = math.min(#matches, SUGGEST_ROWS)
     fillMore(parts.spec, f.more, #matches - rows)
     placeSuggest(f, parts.edit, rows + (#matches > rows and 1 or 0))
+    if O.__chromePaint then O.__chromePaint("MenuFrame", f, { popup = true }) end
     f:Show()
   end
 
