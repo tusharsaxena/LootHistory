@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -391,16 +391,20 @@ end
 -- ── LibSharedMedia ─────────────────────────────────────────────────────────────────────────
 
 --- Register one entry and answer 1 when LSM holds the key afterwards, 0 when it does not.
---- `langmask` is passed only when non-nil, so an LSM without locale bits sees the plain call. An
---- LSM with no `IsValid` (a consumer's test fake; the real LSM-3.0 has it) cannot be asked, so the
---- call counts, as it did at minor 3.
+--- A key LSM already holds is never offered (minor 7): it counts as held and `Register` is not
+--- called, because LSM-3.0 validates the file before it checks the key and reports a missing one
+--- (see RegisterLSM). `langmask` is passed only when non-nil, so an LSM without locale bits sees
+--- the plain call. An LSM with no `IsValid` (a consumer's test fake; the real LSM-3.0 has it)
+--- cannot be asked, so every call is made and counts, as it did at minor 3.
 local function registerOne(LSM, kind, name, path, langmask)
+  local canAsk = type(LSM.IsValid) == "function"
+  if canAsk and LSM:IsValid(kind, name) then return 1 end
   if langmask then
     LSM:Register(kind, name, path, langmask)
   else
     LSM:Register(kind, name, path)
   end
-  if type(LSM.IsValid) ~= "function" then return 1 end
+  if not canAsk then return 1 end
   return LSM:IsValid(kind, name) and 1 or 0
 end
 
@@ -440,12 +444,22 @@ end
 --- portable across installs — instead of a path that names one addon's folder and breaks the moment
 --- the player renames it.
 ---
---- THE FIRST REGISTRATION WINS. LSM keeps the first path offered under a key and answers `false`
---- to every later `Register` for it, whatever that path is. Each consumer offers a DIFFERENT path —
---- its own `Interface\AddOns\<Addon>\libs\LibKa0s\...` — so it is not an identical triple that
---- makes a second consumer harmless: it is that every one of those paths names identical bytes, the
---- same file vendored whole into each addon. Whichever copy wins, the player sees the same face
---- under the same name.
+--- THE FIRST REGISTRATION WINS, BUT A LATER ONE IS NOT SILENT. LSM keeps the first path offered
+--- under a key and answers `false` to every later `Register` for it. Each consumer offers a
+--- DIFFERENT path — its own `Interface\AddOns\<Addon>\libs\LibKa0s\...` — and every one of those
+--- paths names identical bytes, the same file vendored whole into each addon, so whichever copy
+--- wins, the player sees the same face under the same name. What LSM-3.0 does BEFORE that check is
+--- the catch: for a font, border or background it validates the file first, and a path to a file
+--- that does not exist is reported through `geterrorhandler()` as "Attempt to register an invalid
+--- font" (or border, or background), held key or not. Non-fatal, but it lands in the player's
+--- BugSack once per key per addon. LibStub keeps the highest minor, so a host whose own vendored
+--- folder predates a key's art still runs the newest copy's `RegisterLSM`, and that copy builds the
+--- path into the host's folder, where the file is absent. The owner's client showed exactly this on
+--- 2026-10-25, once LootHistory vendored minor 6 and the other addons still carried minor 5.
+---
+--- SO A HELD KEY IS NEVER OFFERED (minor 7). When `LSM:IsValid(type, name)` already answers true,
+--- `Register` is not called at all and the key counts as held. The host never needs its own path in
+--- LSM: the held one names the same bytes.
 ---
 --- EACH FACE CARRIES ITS OWN MASK (minor 6), from its `langmask` list in `FONTS`. On a non-western
 --- client LSM refuses a font that carries no langmask, and one whose mask lacks the client's locale
@@ -457,15 +471,22 @@ end
 --- COUNTED ONLY WHEN LSM HAS IT. A font or texture counts when `LSM:IsValid(type, name)` answers
 --- true after the call, not because `Register` was called: a refused face is not registered, and a
 --- key another copy registered first is (see above). An LSM without `IsValid` — never the real
---- LSM-3.0, but the fakes in consumers' test harnesses — counts every call, as minor 3 did.
+--- LSM-3.0, but the fakes in consumers' test harnesses — cannot be asked, so every key is offered
+--- and every call counts, as minor 3 did.
 ---
 --- Call it at FILE LOAD rather than at PLAYER_LOGIN. LibSharedMedia is vendored under `libs/` and
 --- has therefore already run by the time a TOC reaches the consumer's own files, and a default that
 --- names a face LSM has not heard of yet is a default that resolves to nothing.
 ---
---- THE NEW LEG-1 KEYS LAND FROM ONE FOLDER. LSM keeps the first registration of a key, so while
---- only one consumer vendors minor 6 the skin faces and the Glass art resolve into THAT addon's
---- folder, and every other copy's later `Register` is a no-op; it holds the files, so they draw.
+--- THE NEW LEG-1 KEYS LAND FROM ONE FOLDER. While only one consumer vendors the skin faces and the
+--- Glass art, its `RegisterLSM` is the first to offer them, so they resolve into THAT addon's folder,
+--- which holds the files. A consumer that loads before it runs its own older copy, which does not
+--- know the keys; one that loads after it runs this code, finds the keys held and offers nothing.
+--- What remains: a key nobody holds yet is still offered at the CALLER's folder. So a host that
+--- vendors this minor but never calls `RegisterLSM` (or calls it later than file load) leaves the
+--- new keys unheld, and the next addon to call it reports the missing files as above. That case
+--- ends when the collection's rollout re-vendors v1.78.0 into every consumer, since every folder
+--- then carries the files.
 ---
 --- @param addonName string  the consumer's own addon folder name
 --- @param vendorPath string optional

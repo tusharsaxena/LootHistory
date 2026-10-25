@@ -40,7 +40,13 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Minor 4: ten tool-window tokens (`log.ts`, `log.tag`, `log.text`, `log.count`, `text.faint` and
 -- the five `sem.step*`), so the debug console and the perf and sim panels follow a skin with Ka0s
 -- Default's pixels unchanged (LK-09 of the skinning run); the other skins derive them (FOLLOW).
-local DEFS_MINOR = 4
+-- Minor 5: nine Semantic tokens, the five bind states (`sem.boundNone`, `sem.boundBoE`,
+-- `sem.boundBoP`, `sem.boundWarband`, `sem.boundWarbandUE`), Insights' split of three of them
+-- (`sem.boundBoPAlt`, `sem.boundBoEAlt`, `sem.boundNoneAlt`) and `sem.danger` for a destructive
+-- menu item, so LootHistory's padlocks and row menu follow a skin with Ka0s Default's pixels
+-- unchanged (LK-A2 of the skinning run). The dark skins inherit them; Azeroth and High Contrast
+-- override for legibility.
+local DEFS_MINOR = 5
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -109,7 +115,9 @@ local GROUPS = {
     .. "sem.info:color sem.gold:color sem.warband:color sem.statusOk:color "
     .. "sem.statusWarn:color sem.statusBad:color sem.modeTest:color sem.on:color sem.off:color "
     .. "sem.stepReady:color sem.stepBusy:color sem.stepLocked:color sem.stepCancel:color "
-    .. "sem.stepCancelHot:color" },
+    .. "sem.stepCancelHot:color sem.boundNone:color sem.boundBoE:color sem.boundBoP:color "
+    .. "sem.boundWarband:color sem.boundWarbandUE:color sem.boundBoPAlt:color sem.boundBoEAlt:color "
+    .. "sem.boundNoneAlt:color sem.danger:color" },
 }
 
 local function buildSchema()
@@ -246,6 +254,15 @@ local KA0S = {
   ["sem.stepReady"] = { 0.9, 0.9, 0.92, 1 }, ["sem.stepBusy"] = GOLD,
   ["sem.stepLocked"] = { 0.4, 0.4, 0.42, 1 }, ["sem.stepCancel"] = { 0.8, 0.32, 0.32, 1 },
   ["sem.stepCancelHot"] = { 1, 0.45, 0.45, 1 },
+  -- The bind states: LootHistory BrowserTable BOUND_STYLE (the table's padlocks, legend and
+  -- filter), then AnalyticsFormat BOUND_COLOR's split of three of them (Insights; its warband and
+  -- warband-until-equipped are the table's two). Danger: the row menu's Delete / Forget, |cffff5555.
+  ["sem.boundNone"] = { 0.60, 0.60, 0.60, 0.40 }, ["sem.boundBoE"] = { 0.92, 0.92, 0.92, 0.95 },
+  ["sem.boundBoP"] = { 0.30, 0.82, 0.42, 1 }, ["sem.boundWarband"] = { 0.30, 0.58, 0.98, 1 },
+  ["sem.boundWarbandUE"] = { 0.95, 0.52, 0.12, 1 },
+  ["sem.boundBoPAlt"] = { 0.85, 0.45, 0.45, 1 }, ["sem.boundBoEAlt"] = { 0.55, 0.80, 0.60, 1 },
+  ["sem.boundNoneAlt"] = { 0.60, 0.60, 0.65, 1 },
+  ["sem.danger"] = { 1, 1 / 3, 1 / 3, 1 },
 }
 
 lib:RegisterSkin({
@@ -509,6 +526,12 @@ register("azeroth", "Azeroth", "Parchment and leather, Cinzel titles, red wax-se
     ["sem.warband"] = hex("#00628A"), ["sem.statusOk"] = hex("#1C7B22"),
     ["sem.statusWarn"] = hex("#9A7400"), ["sem.statusBad"] = hex("#B3261E"),
     ["sem.on"] = hex("#1C7B22"), ["sem.off"] = hex("#B3261E"),
+    -- The bind states and danger in ink on parchment: the same hues, darkened to read.
+    ["sem.boundNone"] = hex("#7A6A50", 0.7), ["sem.boundBoE"] = INK,
+    ["sem.boundBoP"] = hex("#1C6B12"), ["sem.boundWarband"] = hex("#00519E"),
+    ["sem.boundWarbandUE"] = hex("#A65A00"), ["sem.boundBoPAlt"] = hex("#B3261E"),
+    ["sem.boundBoEAlt"] = hex("#1C6B12"), ["sem.boundNoneAlt"] = hex("#6A5233"),
+    ["sem.danger"] = hex("#B3261E"),
     ["chart.axis"] = rgba(58, 36, 18, 0.6), ["chart.axisAlt"] = rgba(58, 36, 18, 0.75),
     ["chart.grid"] = rgba(58, 36, 18, 0.12), ["chart.crosshair"] = rgba(58, 36, 18, 0.45),
     ["chart.marker"] = rgba(58, 36, 18, 0.5), ["chart.line"] = hex("#00519E"),
@@ -607,6 +630,9 @@ register("contrast", "High Contrast", "Black and white with yellow focus, 2px ed
     ["list.hover"] = rgba(255, 230, 0, 0.2), ["menu.hover"] = rgba(255, 230, 0, 0.25),
     ["scroll.thumbOn"] = HC_YELLOW, ["scroll.thumbOff"] = HC_WHITE,
     ["tab.glow"] = rgba(255, 255, 255, 0.25),
+    -- No faint or translucent bind state: the gray and off-white ones in the palette, opaque.
+    ["sem.boundNone"] = hex("#B0B0B0"), ["sem.boundBoE"] = HC_WHITE,
+    ["sem.boundNoneAlt"] = hex("#B0B0B0"),
   })
 
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Cinzel titles over the client body.
