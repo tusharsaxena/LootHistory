@@ -97,8 +97,8 @@ NS.SKIN_FALLBACK = {
   ["menu.hover"]    = { 1, 0.82, 0, 0.15 },
   ["gtip.title"]    = { 1, 0.82, 0, 1 },
   ["gtip.muted"]    = { 0.5, 0.5, 0.5, 1 },
-  -- The tool surfaces (LH-05): the launcher tooltip's record count, and the degraded close mark's
-  -- rest gray (core/CoreSetup.lua's pre-library close).
+  -- The tool surfaces (LH-05): the launcher tooltip's record count (core/LauncherSetup.lua). The
+  -- degraded close mark (core/CoreSetup.lua) reads btn.icon, not this.
   ["gtip.subtle"]   = { 0.7, 0.7, 0.7, 1 },
   ["sem.boundNone"] = { 0.60, 0.60, 0.60, 0.40 },
   ["sem.boundBoE"]  = { 0.92, 0.92, 0.92, 0.95 },
