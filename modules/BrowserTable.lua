@@ -827,7 +827,7 @@ function BrowserTable:BuildRow()
     local r = e.record
     local shown = false
     if NS.Util.RowKind(r) == C.Kind.GOLD then
-      NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, C.GOLD_RGB, "Amount",
+      NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, NS.SkinRGB("sem.gold"), "Amount",
         NS.LedgerFormat.QtyText(r), "Right-click for options")
     elseif r.itemLink then
       GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")

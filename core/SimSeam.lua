@@ -57,7 +57,8 @@ local PURE = {
   FoldNBSP = true, IsAuctionHouseMail = true, DecodeGUID = true, BindState = true, BestBound = true,
   CurrencyLinkID = true, AuctionMailKind = true, CurrencySourceName = true, InteractionType = true,
   ShowItemTooltip = true, ShowCurrencyTooltip = true, ShowTextTooltip = true, ShowAmountTooltip = true,
-  ShowLinesTooltip = true, ShowTintedTooltip = true, HideTooltip = true,
+  ShowLinesTooltip = true, ShowTintedTooltip = true, ShowLineTooltip = true, ShowCursorTooltip = true,
+  HideTooltip = true,
   HookUseContainerItem = true, HookGetQuestReward = true, HookSecure = true, HookSecureMember = true,
 }
 

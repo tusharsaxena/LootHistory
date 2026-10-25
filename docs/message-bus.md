@@ -74,7 +74,7 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 
 - Collector — `self.__ev = NS.NewBusTarget()` (`modules/Collector.lua:359`).
 - Browser — `B.__ev = NS.NewBusTarget()` (`modules/Browser.lua:1262`).
-- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:275`).
+- Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua:277`).
 - Reconciler — **two** targets: `self._settings` hears `SettingsChanged("ledger" | "profile")` for as long as the addon is up, so ticking `trackLedger` back on can re-register; `self.__ev` carries the capture events and exists only while the setting is on (`modules/Reconciler.lua`).
 
 The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.

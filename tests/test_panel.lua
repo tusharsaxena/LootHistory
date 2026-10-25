@@ -1039,26 +1039,22 @@ test("Panel: the AH status colors are saturated, not muted", function()
   --
   -- The values carry twice -- the Status text and the tick marks, whose tint is baked into the |T
   -- escape because an inline texture is not reached by SetTextColor -- so a muted value here is a
-  -- muted mark as well as muted text. STATUS_RGB is a file-local, so a source scan is the only way
-  -- to reach it, which is the same idiom the tagline case above uses.
-  -- red under: any of the three dropping back below a peak channel of 0.9.
+  -- muted mark as well as muted text. Since the skin (LH-04) the values are the skin's sem.status*
+  -- tokens, mapped by the file-local STATUS_TOKEN: a source scan finds the mapping, the facade
+  -- answers the Ka0s Default values.
+  -- red under: any of the three dropping back below a peak channel of 0.9, or the mapping moving.
   local f = assert(io.open("settings/Panel.lua", "r"))
   local src = f:read("*a"); f:close()
-  -- Matched over the whole source rather than a carved-out block: a non-greedy match to the first
-  -- `}` stops inside the FIRST color, which is how the first cut of this scanned zero entries and
-  -- reported the table missing instead of the values being wrong.
-  assertTrue(src:find("local STATUS_RGB = {", 1, true) ~= nil,
-    "STATUS_RGB is no longer a plain table literal")
-
+  assertTrue(src:find("local STATUS_TOKEN = {", 1, true) ~= nil, "STATUS_TOKEN is no longer a table literal")
   local seen = 0
-  for name, r, g, b in src:gmatch("(%a[%w]*)%s*=%s*{%s*([%d%.]+),%s*([%d%.]+),%s*([%d%.]+)%s*}") do
-   if name == "collecting" or name == "notcollecting" or name == "notinstalled" then
-    seen = seen + 1
-    local peak = math.max(tonumber(r), tonumber(g), tonumber(b))
-    assertTrue(peak >= 0.9,
-      ("STATUS_RGB.%s peaks at %.2f — that is a muted tint, and it tints the mark too")
-        :format(name, peak))
-   end
+  for name, token in src:gmatch("(%a[%w]*)%s*=%s*\"(sem%.status%a+)\"") do
+    if name == "collecting" or name == "notcollecting" or name == "notinstalled" then
+      seen = seen + 1
+      local r, g, b = NS.Skin.Color(token)
+      local peak = math.max(r, g, b)
+      assertTrue(peak >= 0.9,
+        ("%s (%s) peaks at %.2f — that is a muted tint, and it tints the mark too"):format(name, token, peak))
+    end
   end
   assertEqual(seen, 3, "expected three status colors; the scan needs updating")
 end)

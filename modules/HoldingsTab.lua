@@ -15,8 +15,16 @@ local ORDER = { "bags", "equipped", "bank", "mail", "auctions", "tabs" }
 local LABEL = { bags = "Bags", equipped = "Equipped", bank = "Bank", mail = "Mail", auctions = "AH", tabs = "Warband" }
 local ROW_H, INDENT, HEADER_H = 18, 16, 20
 local PAD, GAP, NAME_MIN, HOLDER_MIN = 4, 8, 160, 120
-local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 local DAY = 86400
+
+-- THE SKIN (LH-04). Every color here is a token read where the literal stood: the header, the sort
+-- arrows, the group-header row and its chevron list.header.text (History's header gold, LH-03), the
+-- rows' stripe and hover list.stripe / list.hover, a cell's default text.highlight (the white it
+-- always drew), a holder's total and fresh age text.subtle and a stale age text.disabled, the
+-- Warband's label sem.warbandAlt (a lighter blue than the Timeline's sem.warband, kept apart), the
+-- group count text.disabled, the container split text.disabled, the quality and class colors through
+-- Insights' helpers. HT:Reskin (the end of this file) repaints what is colored at build time.
+local function headerRGB() return NS.SkinColor("list.header.text") end
 
 -- Column model (owner feedback, P4): Name flexes, the rest are History's widths for the same
 -- columns (modules/BrowserTable.lua) so the two tables share one rhythm. `drop` orders the optional
@@ -301,12 +309,18 @@ HT.groupBy, HT.collapsed = "none", {}   -- this tab's own group mode (in its vie
 -- one answer for "what color is this quality / class" across both tabs.
 local function rgb(c) return c[1], c[2], c[3] end
 
--- History's sort arrows (modules/BrowserTable.lua), tinted to the same header gold.
-local ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, GOLD_R, GOLD_G, GOLD_B)
-local ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, GOLD_R, GOLD_G, GOLD_B)
+-- History's sort arrows (modules/BrowserTable.lua), tinted to the same header color. Markup is
+-- baked, so the pair is REBUILT on a skin change (HT:Reskin) before the header is laid out again.
+local ARROW_ASC, ARROW_DESC
+local function buildArrows()
+  local r, g, b = headerRGB()
+  ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
+  ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
+end
+buildArrows()
 
 local function holderLabel(holder)
-  if holder == NS.Constants.WARBAND_HOLDER then return "Warband", { 0.4, 0.78, 1 } end
+  if holder == NS.Constants.WARBAND_HOLDER then return "Warband", NS.SkinRGB("sem.warbandAlt") end
   local e = NS.Holdings:View(holder)
   return holder, NS.Analytics._classColor(e and e.meta and e.meta.classFile)
 end
@@ -320,22 +334,32 @@ local function cellFont(row, col)
   return fs
 end
 
--- One pooled row: History's skin (BrowserTable:BuildRow) -- the same 3% white stripe and 10% gold
--- hover -- and one FontString per column, plus the holder line's container split.
+-- What a row colors at build time, and what HT:Reskin repaints on every pooled row (active and
+-- free): the stripe, the hover, the container split and the group-header label.
+local function paintRowChrome(row)
+  row.stripe:SetColorTexture(NS.SkinColor("list.stripe"))
+  row.hl:SetColorTexture(NS.SkinColor("list.hover"))
+  row.detail:SetTextColor(NS.SkinColor("text.disabled"))
+  row.header:SetTextColor(headerRGB())
+end
+
+-- One pooled row: History's skin (BrowserTable:BuildRow) -- the same stripe and hover -- and one
+-- FontString per column, plus the holder line's container split.
 local function makeRow(parent)
   local row = CreateFrame("Button", nil, parent)
   row:SetHeight(ROW_H)
   row.stripe = row:CreateTexture(nil, "BACKGROUND")
-  row.stripe:SetAllPoints(); row.stripe:SetColorTexture(1, 1, 1, 0.03)
-  local hl = row:CreateTexture(nil, "HIGHLIGHT")
-  hl:SetAllPoints(); hl:SetColorTexture(1, 0.82, 0, 0.10)
+  row.stripe:SetAllPoints()
+  row.hl = row:CreateTexture(nil, "HIGHLIGHT")
+  row.hl:SetAllPoints()
   row.cells = {}
   for _, col in ipairs(HT.COLUMNS) do row.cells[col.key] = cellFont(row, col) end
   row.detail = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   row.detail:SetJustifyH("RIGHT"); row.detail:SetWordWrap(false)
-  -- A group header's one label: History's (BrowserTable:BuildRow), font, inset and gold alike.
+  -- A group header's one label: History's (BrowserTable:BuildRow), font, inset and color alike.
   row.header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  row.header:SetPoint("LEFT", 4, 0); row.header:SetTextColor(GOLD_R, GOLD_G, GOLD_B); row.header:Hide()
+  row.header:SetPoint("LEFT", 4, 0); row.header:Hide()
+  paintRowChrome(row)
   -- Left click toggles a thing line or collapses a group header; right click opens the row
   -- actions (HT.RowActions) in the History table's own menu, so the collection has one row-menu
   -- look. A header has no actions.
@@ -388,7 +412,8 @@ end
 
 local function setCell(row, key, text, r, g, b)
   local fs = row.cells[key]
-  fs:SetText(text or ""); fs:SetTextColor(r or 1, g or 1, b or 1)
+  fs:SetText(text or "")
+  if r then fs:SetTextColor(r, g, b) else fs:SetTextColor(NS.SkinColor("text.highlight")) end
 end
 
 local function bindThing(row, l)
@@ -413,33 +438,34 @@ local function bindHolder(row, l, now)
   local label, color = holderLabel(l.holder)
   setCell(row, "name", label, rgb(color))
   row.detail:SetText(HT.FormatContainers(l.containers))
-  setCell(row, "total", countText(l.key, l.count), 0.85, 0.85, 0.85)
+  setCell(row, "total", countText(l.key, l.count), NS.SkinColor("text.subtle"))
   local stale = l.scannedAt and (now - l.scannedAt) >= DAY
-  local shade = stale and 0.5 or 0.85
-  setCell(row, "value", HT.FormatAge(l.scannedAt, now), shade, shade, shade)
+  setCell(row, "value", HT.FormatAge(l.scannedAt, now), NS.SkinColor(stale and "text.disabled" or "text.subtle"))
 end
 
--- A group header: History's (BrowserTable:BindRow) -- the gold chevron (right when collapsed, down
--- when open), "<Prefix>: <Value>" and the gray "(N)" -- over a row with every cell emptied.
+-- A group header: History's (BrowserTable:BindRow) -- the header-colored chevron (right when
+-- collapsed, down when open), "<Prefix>: <Value>" and the "(N)" in text.disabled -- over a row with
+-- every cell emptied.
 local function bindHeader(row, l)
   row.thingKey = nil
   for _, fs in pairs(row.cells) do fs:SetText(""); fs:Hide() end
   row.detail:SetText(""); row.detail:Hide()
+  local r, g, b = headerRGB()
   local arrow = l.collapsed
-    and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
-    or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, GOLD_R, GOLD_G, GOLD_B)
-  row.header:SetText(arrow .. "  " .. l.label .. "  |cff808080(" .. l.count .. ")|r")
+    and NS.IconMarkup("chevron-right", "Interface\\Buttons\\UI-PlusButton-Up", 0, r, g, b)
+    or NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, r, g, b)
+  row.header:SetText(arrow .. "  " .. l.label .. "  " .. NS.SkinEscape("text.disabled") .. "(" .. l.count .. ")|r")
   row.header:Show()
 end
 
--- A header cell: History's header style (GameFontNormalSmall in header gold, a sort arrow on the
--- active column, a tooltip describing the column), sorting on click.
+-- A header cell: History's header style (GameFontNormalSmall in the header color, a sort arrow on
+-- the active column, a tooltip describing the column), sorting on click.
 local function makeHeaderCell(header, col)
   local b = CreateFrame("Button", nil, header)
   b:SetHeight(HEADER_H)
   b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   b.fs:SetAllPoints(); b.fs:SetJustifyH(col.align); b.fs:SetWordWrap(false)
-  b.fs:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+  b.fs:SetTextColor(headerRGB())
   b:SetScript("OnClick", function() HT:SetSort(col.key) end)
   b:SetScript("OnEnter", function(self) NS.Compat.ShowTextTooltip(self, col.label, col.desc, "ANCHOR_BOTTOM") end)
   b:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
@@ -493,6 +519,8 @@ function HT:Attach(pane)
   scroll:SetScrollChild(content)
   self.content = content
   scroll:SetScript("OnSizeChanged", function() HT:Refresh() end)
+  -- The template's bar is the skin's (stock on Ka0s Default); a recorded frame the library repaints.
+  if scroll.ScrollBar then NS.Skin.ScrollBar(scroll.ScrollBar) end
   self.rows = NS.Pool.New()
   self:Refresh()
 end
@@ -606,6 +634,23 @@ local function applyView(view)
     HT.sortKey, HT.sortAsc = key, view.sortAsc == true
   end
 end
+
+-- ── the skin (LH-04) ──
+
+--- A skin switch: the sort arrows rebuilt, the header cells recolored, every pooled row's chrome
+--- repainted on the active AND the free list (a parked row comes back in the new skin), then a
+--- refresh while the pane is up rebinds the cells, the chevrons and the counts. A hidden pane
+--- refreshes when its tab is next selected.
+function HT:Reskin()
+  buildArrows()
+  if not self.pane then return end
+  for _, b in pairs(self.header.cells) do b.fs:SetTextColor(headerRGB()) end
+  for _, row in ipairs(self.rows.active) do paintRowChrome(row) end
+  for _, row in ipairs(self.rows.free) do paintRowChrome(row) end
+  if self.pane:IsVisible() then self:Refresh() end
+end
+
+if NS.Skin then NS.Skin.OnLooksChanged(function() HT:Reskin() end) end
 
 NS.Browser:RegisterTab{ name = "Holdings", order = 40,
   suggest = function(text) return HT.Suggest(text) end,

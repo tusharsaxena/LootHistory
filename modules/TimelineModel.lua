@@ -16,6 +16,13 @@ TM.TOTAL = "__total"
 
 local function C() return NS.Constants.TIMELINE end
 
+-- THE COLORS ARE THE SKIN'S (LH-04), read when the model is built, so a skin switch reaches the
+-- next build (Timeline's Reskin rebuilds): the Total chart.total, the Warband sem.warband, a
+-- holder without a class chart.otherLine, the ledgerSince marker chart.marker, gains and losses
+-- sem.good / sem.bad, a zero net gtip.value and the Total's legend title gtip.title. The colors are
+-- the skin's own shared tables: read, never written.
+local function tok(name) return NS.Skin.Token(name) end
+
 -- ── days ──
 
 function TM.DayStart(day)
@@ -228,10 +235,10 @@ function TM.Label(holder)
 end
 
 function TM.Color(holder, meta)
-  if holder == NS.Constants.WARBAND_HOLDER then return C().WARBAND end
+  if holder == NS.Constants.WARBAND_HOLDER then return tok("sem.warband") end
   local cc = meta and meta.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[meta.classFile]
   if cc then return { cc.r, cc.g, cc.b, 1 } end
-  return C().OTHER
+  return tok("chart.otherLine")
 end
 
 function TM.FormatValue(kind, v)
@@ -309,7 +316,7 @@ end
 local function markers(p, xMin, xMax)
   local out = {}
   local s = p.ledgerSince
-  if s and s >= xMin and s <= xMax then out[1] = { x = s, dashed = true, color = C().MARKER } end
+  if s and s >= xMin and s <= xMax then out[1] = { x = s, dashed = true, color = tok("chart.marker") } end
   return out
 end
 
@@ -327,7 +334,7 @@ function TM.Build(p)
     series[#series + 1] = s
     lists[#lists + 1] = s.points
   end
-  series[#series + 1] = { holder = TM.TOTAL, label = "Total", color = C().TOTAL, thickness = C().TOTAL_W,
+  series[#series + 1] = { holder = TM.TOTAL, label = "Total", color = tok("chart.total"), thickness = C().TOTAL_W,
     points = TM.TotalSeries(lists) }
   local xMin = w.from
   local xMax = intra and p.now or math.max(TM.DayStart(w.toDay), xMin + DAY)
@@ -382,8 +389,8 @@ end
 
 -- The in/out strip's tooltip for one day (spec §8.1, P8). The strip is the Total's, so the title says
 -- so whatever lines are hidden. Signs are ASCII (LedgerFormat.QtyText: the default font has no U+2212)
--- and a zero side reads "0"; a day with no flow has no strip column, so it answers nil.
-local NEUTRAL = { 1, 1, 1, 1 }
+-- and a zero side reads "0"; a day with no flow has no strip column, so it answers nil. A zero net
+-- reads in the tooltip's value white (gtip.value).
 
 function TM.FlowLines(m, f)
   local i, o = f and f.i or 0, f and f.o or 0
@@ -393,10 +400,10 @@ function TM.FlowLines(m, f)
     return (v > 0 and "+" or "-") .. TM.FormatValue(m.kind, math.abs(v))
   end
   local net = i - o
-  local netColor = (net > 0 and C().GAIN) or (net < 0 and C().LOSS) or NEUTRAL
+  local netColor = (net > 0 and tok("sem.good")) or (net < 0 and tok("sem.bad")) or tok("gtip.value")
   return { title = date("%d %b %Y", f.x) .. " \194\183 Total", rows = {
-    { label = "Gained", text = signed(i), color = C().GAIN },
-    { label = "Lost", text = signed(-o), color = C().LOSS },
+    { label = "Gained", text = signed(i), color = tok("sem.good") },
+    { label = "Lost", text = signed(-o), color = tok("sem.bad") },
     { label = "Net", text = signed(net), color = netColor },
   } }
 end
@@ -418,8 +425,6 @@ function TM.FormatHolding(kind, v)
   if kind == "GOLD" then return (v and v > 0) and NS.Util.FormatMoney(v) or "0" end
   return TM.FormatCount(v)
 end
-
-local GOLD_TITLE = { 1, 0.82, 0 }
 
 -- A legend entry's tooltip: the line's label in its color (a character's class color, the Warband's
 -- blue; the Total keeps the tooltip's gold title), what it holds of the charted thing NOW from the
@@ -443,7 +448,7 @@ function TM.LegendTip(m, holder)
   else
     n = NS.Holdings:Total(m.key, { [holder] = true })
   end
-  return { title = sr.label, color = (holder == TM.TOTAL) and GOLD_TITLE or sr.color, label = label,
+  return { title = sr.label, color = (holder == TM.TOTAL) and tok("gtip.title") or sr.color, label = label,
     value = TM.FormatHolding(m.kind, n), hint = "Click to hide/show" }
 end
 

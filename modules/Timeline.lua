@@ -22,7 +22,6 @@ local BAR_H, STRIP_H, LEGEND_H, SUGGEST_MAX, LEGEND_W, GAP = 22, 56, 16, 8, 120,
 -- LEGEND_W is the Total's legend slot and the widest a holder's label is drawn; LEGEND_GAP is the one
 -- gap between every other entry (P10).
 local LEGEND_GAP = 16
-local WHITE = "Interface\\Buttons\\WHITE8X8"
 local TOTAL = TM.TOTAL
 local EMPTY_TEXT = "All lines hidden — click a legend entry to show it."
 local DIM_ALPHA = 0.4
@@ -161,36 +160,42 @@ local function makeLegendEntry(parent)
   return f
 end
 
--- The house's flat bar-button skin (BrowserFilterBar's makeBarButton) with a box that fills gold when
--- on. A plain Button rather than a CheckButton: the state is derived (TL:TotalOnlyShown), so the
--- button only ever paints it.
+-- The toggle's box and tick: the skin's check.bg and check.mark (four components, as they were
+-- always set), on its own two textures (Reskin, below, repaints them).
+local function paintToggleBox(b)
+  b.box:SetColorTexture(NS.Skin.Color("check.bg"))
+  b.tick:SetColorTexture(NS.Skin.Color("check.mark"))
+end
+
+-- The house's flat bar button with a box that fills gold when on: the skin's Button (the third copy
+-- of BrowserFilterBar's flat button, merged onto the primitive like the other two: the WHITE8X8
+-- box, a white label, gold under the pointer), and a box and tick of its own in check.* (LH-04). The
+-- skin's Checkbox does not draw it: its box fills the control it paints and its mark sits three
+-- pixels inside, where this 10px box carries a 6px tick inside a wide button; the two textures keep
+-- their calls and take their colors from the tokens (the History rows' precedent, LH-03). A plain
+-- Button rather than a CheckButton: the state is derived (TL:TotalOnlyShown), so the button only
+-- ever paints it. The scripts are set BEFORE the primitive, which HookScripts its hover pair.
 local function makeToggle(parent, text, onClick, tip)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(84, 18)
-  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
   b.box = b:CreateTexture(nil, "ARTWORK")
   b.box:SetSize(10, 10); b.box:SetPoint("LEFT", 6, 0)
-  b.box:SetColorTexture(0.24, 0.24, 0.27, 1)
   b.tick = b:CreateTexture(nil, "OVERLAY")
   b.tick:SetSize(6, 6); b.tick:SetPoint("CENTER", b.box, "CENTER", 0, 0)
-  b.tick:SetColorTexture(1, 0.82, 0, 1)
+  paintToggleBox(b)
   b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   b.fs:SetPoint("LEFT", b.box, "RIGHT", 5, 0)
   b.fs:SetText(text)
+  b.text = b.fs   -- the label field the skin's Button reads
   function b:SetChecked(on)
     self.checked = on and true or false
     self.tick:SetShown(self.checked)
   end
   b:SetChecked(false)
   b:SetScript("OnClick", onClick)
-  b:SetScript("OnEnter", function(self2)
-    b.fs:SetTextColor(1, 0.82, 0)
-    NS.Compat.ShowTextTooltip(self2, text, tip, "ANCHOR_BOTTOM")
-  end)
-  b:SetScript("OnLeave", function() b.fs:SetTextColor(1, 1, 1); NS.Compat.HideTooltip() end)
+  b:SetScript("OnEnter", function(self2) NS.Compat.ShowTextTooltip(self2, text, tip, "ANCHOR_BOTTOM") end)
+  b:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
+  NS.Skin.Button(b)
   return b
 end
 
@@ -202,13 +207,15 @@ local function buildHeader(self, pane)
   bar:SetHeight(BAR_H)
   self.title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   self.title:SetPoint("LEFT", 4, 0)
+  self.title:SetTextColor(NS.SkinColor("text.heading"))
   self.totalOnlyBtn = makeToggle(bar, "Total only", function() TL:SetTotalOnly(not TL:TotalOnlyShown()) end,
     "Hide every character's line and keep the Total. Turn it off to bring back the lines shown before.")
   self.totalOnlyBtn:SetPoint("LEFT", self.title, "RIGHT", 10, 0)
   local hint = bar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   hint:SetPoint("LEFT", self.totalOnlyBtn, "RIGHT", 10, 0)
   hint:SetText("Type in Search to chart an item or currency.")
-  self.bar = bar
+  hint:SetTextColor(NS.SkinColor("text.disabled"))
+  self.hint, self.bar = hint, bar
 end
 
 -- The strip and the chart sit above the legend, which grows a row for each wrap (P10), so both are
@@ -231,7 +238,7 @@ local function buildBody(self, pane)
   self.strip = CreateFrame("Frame", nil, pane)
   self.strip:SetHeight(STRIP_H)
   self.stripAxis = self.strip:CreateTexture(nil, "ARTWORK")
-  self.stripAxis:SetColorTexture(0.45, 0.45, 0.5, 0.8)
+  self.stripAxis:SetColorTexture(NS.SkinColor("chart.axis"))
   self.stripPool = NS.Pool.New()
   self.legend = CreateFrame("Frame", nil, pane)
   self.legend:SetPoint("BOTTOMLEFT", pane, "BOTTOMLEFT", 0, 0)
@@ -255,12 +262,14 @@ function TL:Attach(pane)
     self.emptyMsg = self.chart:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     self.emptyMsg:SetPoint("CENTER")
     self.emptyMsg:SetText(EMPTY_TEXT)
+    self.emptyMsg:SetTextColor(NS.SkinColor("text.disabled"))
     self.emptyMsg:Hide()
   else
     -- Degraded install: say why, draw nothing else (core/WidgetsSetup.lua's header).
     self.missing = pane:CreateFontString(nil, "OVERLAY", "GameFontDisable")
     self.missing:SetPoint("CENTER")
     self.missing:SetText(NS.LIBKA0S_MISSING .. ", and the Timeline needs it to draw.")
+    self.missing:SetTextColor(NS.SkinColor("text.disabled"))
   end
   buildBody(self, pane)
   pane:SetScript("OnSizeChanged", function(_, w, h) TL:Layout(w, h) end)
@@ -338,11 +347,13 @@ function TL:FormatAxis(v)
   return tostring(v)
 end
 
+-- A day's column: the gain up in sem.good and the loss down in sem.bad, at .9.
 local function paintFlow(bar, f, peak, half, w)
-  local C = NS.Constants.TIMELINE
+  local gr, gg, gb = NS.Skin.Color("sem.good")
+  local lr, lg, lb = NS.Skin.Color("sem.bad")
   bar.up:ClearAllPoints(); bar.down:ClearAllPoints()
-  bar.up:SetColorTexture(C.GAIN[1], C.GAIN[2], C.GAIN[3], 0.9)
-  bar.down:SetColorTexture(C.LOSS[1], C.LOSS[2], C.LOSS[3], 0.9)
+  bar.up:SetColorTexture(gr, gg, gb, 0.9)
+  bar.down:SetColorTexture(lr, lg, lb, 0.9)
   bar.up:SetPoint("BOTTOMLEFT", bar, "LEFT", 0, 1)
   bar.up:SetSize(w, math.max(f.i > 0 and 1 or 0, f.i / peak * half))
   bar.up:SetShown(f.i > 0)
@@ -422,7 +433,7 @@ local function labelWidth(e)
 end
 
 -- Total first in the legend (it is drawn last, on top of the chart). Every line keeps its entry and
--- its place when hidden; a hidden one is dimmed gray. Entries are as wide as their labels and one even
+-- its place when hidden; a hidden one is dimmed (text.disabled at DIM_ALPHA). Entries are as wide as their labels and one even
 -- gap apart, the Total keeping its slot (TM.LegendLayout); answers the number of rows they wrap to.
 function TL:RenderLegend()
   NS.Pool.ReleaseAll(self.legendPool, clearLegend)
@@ -436,7 +447,8 @@ function TL:RenderLegend()
     e.key, e.label = sr.holder, sr.label
     e.fs:SetText(sr.label)
     if self:IsHidden(sr.holder) then
-      e.fs:SetTextColor(0.5, 0.5, 0.5, DIM_ALPHA)
+      local r, g, b = NS.Skin.Color("text.disabled")
+      e.fs:SetTextColor(r, g, b, DIM_ALPHA)
     else
       e.fs:SetTextColor(sr.color[1], sr.color[2], sr.color[3], 1)
     end
@@ -533,17 +545,17 @@ function TL:OnHover(i)
     if GameTooltip:GetOwner() == self.chart then GameTooltip:Hide() end
     return
   end
-  local C = NS.Constants.TIMELINE
   -- the tooltip is the chart's now; a strip or legend repaint must not take it back
   self.flowTipOwner, self.legendTipOwner = nil, nil
-  GameTooltip:SetOwner(self.chart, "ANCHOR_CURSOR")
-  GameTooltip:SetText(h.title, 1, 0.82, 0)
+  -- Through core/Compat.lua, the one place tooltip lines take their colors: each visible line's
+  -- label in its series color over a value in gtip.value, then Gained / Lost in sem.good / sem.bad.
+  local value, rows = NS.Skin.Token("gtip.value"), {}
   for _, r in ipairs(h.rows) do
-    GameTooltip:AddDoubleLine(r.label, r.text, r.color[1], r.color[2], r.color[3], 1, 1, 1)
+    rows[#rows + 1] = { label = r.label, text = r.text, color = r.color, valueColor = value }
   end
-  GameTooltip:AddDoubleLine("Gained", h.gain, C.GAIN[1], C.GAIN[2], C.GAIN[3], C.GAIN[1], C.GAIN[2], C.GAIN[3])
-  GameTooltip:AddDoubleLine("Lost", h.loss, C.LOSS[1], C.LOSS[2], C.LOSS[3], C.LOSS[1], C.LOSS[2], C.LOSS[3])
-  GameTooltip:Show()
+  rows[#rows + 1] = { label = "Gained", text = h.gain, color = NS.Skin.Token("sem.good") }
+  rows[#rows + 1] = { label = "Lost", text = h.loss, color = NS.Skin.Token("sem.bad") }
+  NS.Compat.ShowLinesTooltip(self.chart, h.title, rows, "ANCHOR_CURSOR")
 end
 
 function TL:VisibleSeriesCount()
@@ -576,6 +588,27 @@ function TL:Disable()
   if GameTooltip and self.chart and GameTooltip:GetOwner() == self.chart then GameTooltip:Hide() end
   self:HideFlowTip()
 end
+
+-- ── the skin (LH-04) ──
+
+--- A skin switch: what this tab colored at build time (the toggle's box and tick, the header's
+--- title and hint, the empty and missing lines, the strip's axis), then a rebuild while the pane is
+--- up, which takes the new series, marker and flow colors from the model (modules/TimelineModel.lua).
+--- The toggle's backdrop and label are the skin's Button, repainted by the library; the chart's
+--- axes, grid and crosshair are the library's, re-rendered by the chart itself (its skin owner,
+--- core/WidgetsSetup.lua). A hidden pane rebuilds when its tab is next selected.
+function TL:Reskin()
+  if not self.pane then return end
+  paintToggleBox(self.totalOnlyBtn)
+  self.title:SetTextColor(NS.SkinColor("text.heading"))
+  self.hint:SetTextColor(NS.SkinColor("text.disabled"))
+  if self.emptyMsg then self.emptyMsg:SetTextColor(NS.SkinColor("text.disabled")) end
+  if self.missing then self.missing:SetTextColor(NS.SkinColor("text.disabled")) end
+  self.stripAxis:SetColorTexture(NS.SkinColor("chart.axis"))
+  self:RefreshIfShown()
+end
+
+if NS.Skin then NS.Skin.OnLooksChanged(function() TL:Reskin() end) end
 
 NS.Browser:RegisterTab{ name = "Timeline", order = 30,
   -- The Timeline charts holdings over days: Search picks the thing, Date sets the window and

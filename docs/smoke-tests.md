@@ -16,26 +16,26 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 22 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Appearance tab |
+| PANEL-1 to 23 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Appearance tab, the AH price table on the skin |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 43 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome on the skin |
+| HIST-1 to 44 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
-| INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
+| INS-1 to 23 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 13 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
-| LED-1 to 10 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon |
+| LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 17 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, and the legend tooltip and spacing |
+| TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -325,6 +325,18 @@ own surfaces repaint only once LH-02 to LH-05 land, so this check is about the t
 value and the absence of errors. Switch to another profile and back on the Profiles page → the
 tab follows each profile's skin. Fail: the tab missing or out of place, a choice that does not
 stick, a reload prompt on a Ka0s-to-Ka0s pick, or a Lua error. Result:
+
+**PANEL-23. The AH price table follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s
+Default**, `/lh config` → General → **AH price** with one price addon installed and a source ticked
+→ the table looks exactly as before the skinning run: off-gold column headers, a live row's addon
+name near-white and its module white-gray, idle and missing rows gray, the green tick on a collecting
+row and the red mark on the others, **Collecting data** green, **Not collecting data** yellow,
+**Addon not installed** red, a white ⓘ on a live row and a dimmed one on the rest; hover an ⓘ → a
+white title over a gold description. Switch to **Appearance**, pick **Azeroth**, come back to **AH
+price** → with no reload the headers, row text, ticks, status words and ⓘ marks take Azeroth's
+colors and stay readable. Pick **Ka0s Default** again → the first look comes back exactly. Fail: a
+row or tick that keeps the old skin until `/reload`, a changed look on Ka0s Default, or a Lua
+error. Result:
 
 ## Profiles
 
@@ -1030,6 +1042,21 @@ whole block, divider included, disappears and LOOT still renders. Result: pass (
 under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
 (bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
 before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result: pass (owner-marked 2026-10-10)
+
+**INS-23. Insights follows the skin (LH-04; SK-LH-INSIGHTS, SK-01, SK-03).** On **Ka0s Default**,
+`/lh show` → **Insights** with a range that has items, currency and a loss (or `/lh test`) → it
+looks exactly as before the skinning run: the dark KPI cards with gold headlines, gray captions and
+the signed gained / lost / net in bright green and red, gold section headings, the LOOT / CURRENCY
+/ GAINS & LOSSES dividers with their faint gold rules, the faint bar tracks, the colored bars in the
+same palette as before, the blue day and hour strips with gray axis labels, the list panels, the
+gains-vs-losses bars in green and red about a gray center line, and the bar, segment, list and chip
+tooltips as before. Pick **Azeroth** on Settings → General → **Appearance** with Insights open →
+with no reload the cards, panels, headings, rules, tracks, strips, value columns, the chart palette
+and the tooltips take Azeroth's look, and every number and label stays readable; change the Date
+dropdown so sections come and go (bars return from the pool) → nothing keeps the old skin. Walk the
+other skins the same way. Pick **Ka0s Default** again → the first look comes back exactly, palette
+included. Fail: a card, bar or strip that keeps the old skin until `/reload`, a changed look on
+Ka0s Default, or a Lua error. Result:
 pass (owner, 2026-10-02)
 
 ## Filter lists
@@ -1512,6 +1539,17 @@ gains, losses and transfers all show. Check each of these:
 
 Result: pass (owner-marked 2026-10-10)
 
+**LED-13. Holdings follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
+show` → **Holdings** with gold on two characters and the Warband (or `/lh test`) → it looks exactly
+as before the skinning run: gold column labels and sort arrow, the faint stripe and the gold hover,
+white cells, quality-colored names, a character's holder line in its class color and the Warband's in
+its light blue, totals and fresh ages light gray, a day-old age dark gray, the gray container split,
+and with **Group** set, gold group rows with a gold chevron and a gray count. Pick **Azeroth** with
+the tab open → with no reload every one of those takes Azeroth's look; expand and collapse a thing
+so rows come back from the pool → none keeps the old stripe or hover. Pick **Ka0s Default** again →
+the first look comes back exactly. Fail: a row or arrow that keeps the old skin until `/reload`, a
+changed look on Ka0s Default, or a Lua error. Result:
+
 **LED-12. History gold amounts and the Gold tooltip (P5).** With **Record gold** ticked, open History
 on rows that include gold gains and losses (a large one if you have it, six or seven digits of gold).
 
@@ -1782,6 +1820,18 @@ that character, or narrow Character from the filter bar by keyboard) → the too
 line the entry under the cursor names now, and goes away if the entry under the cursor is gone.
 Result: pass (owner-marked 2026-10-10)
 
+**TL-18. The Timeline follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
+show` → **Timeline** on Gold with Character on **All**, a Warband line and two characters → it
+looks exactly as before the skinning run: the gold title and gray hint, the **Total only** button
+(dark box, white label, gold under the pointer, a gold tick in its gray box while on), the gold
+Total line, class-colored character lines and the blue Warband line, the green and red strip about
+its gray axis, the dimmed entry of a hidden line, and the hover, strip and legend tooltips as before
+(gold titles, white values, green **Gained**, red **Lost**). Pick **Azeroth** with the tab open →
+with no reload the button, title, hint, axes, grid, crosshair, Total and Warband lines, strip and
+tooltips take Azeroth's look; the class colors stay the class colors. Pick **Ka0s Default** again →
+the first look comes back exactly. Fail: a line, button or strip that keeps the old skin until
+`/reload`, a changed look on Ka0s Default, or a Lua error. Result:
+
 ## Simulator
 
 `/lh sim` runs the real capture engine against an invented world (LootHistory#37). It records into
@@ -2015,5 +2065,6 @@ HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` 
 `pass (owner, 2026-10-24)`.
 
 Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab),
-PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrome on the skin) and
-HIST-44 (new, LH-03: the History table on the skin).
+PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrome on the skin),
+HIST-44 (new, LH-03: the History table on the skin), and INS-23, TL-18, LED-13 and PANEL-23 (new,
+LH-04: Insights, the Timeline, Holdings and the AH price table on the skin).

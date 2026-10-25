@@ -563,7 +563,13 @@ local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"    -- fallback for 
 local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
 local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
 local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
-local GOLD_RGB = { 0.91, 0.77, 0.42 }
+-- THE SKIN (LH-04). The table's colors are tokens, read where the literals stood: the column headers
+-- text.headingAlt (the off-gold this table has always drawn, kept apart from text.heading), a live
+-- row's addon name text.bodyAlt and module text.body, an inactive row's text.disabled, the info mark
+-- icon.hot / icon.dim, the info tooltip gtip.value over gtip.title, and the status sem.statusOk /
+-- statusWarn / statusBad (STATUS_TOKEN below). repaintAuctionTable repaints the host on a switch,
+-- parked or not, and the ticks are rebuilt first. tests/panel_auction_golden.txt does not move.
+--
 -- Status colors: collecting = green, not collecting = yellow, not installed = red.
 --
 -- SATURATED, NOT MUTED, and that is a correction rather than a preference. These read
@@ -578,17 +584,16 @@ local GOLD_RGB = { 0.91, 0.77, 0.42 }
 -- muted tint on white art just yields a muted mark.
 --
 -- These carry TWICE -- the Status column's text color, and the tick marks below, whose tint is
--- baked into the |T escape because an inline texture is not reached by SetTextColor. A value
--- changed here moves both, which is the point of their being one table.
-local STATUS_RGB = {
-  collecting    = { 0.30, 0.95, 0.35 },
-  notcollecting = { 1.00, 0.82, 0.10 },
-  notinstalled  = { 1.00, 0.32, 0.32 },
+-- baked into the |T escape because an inline texture is not reached by SetTextColor. A skin that
+-- moves one moves both, which is the point of their being one table. The values are the skin's
+-- sem.status* tokens (the saturated triple above, in Ka0s Default).
+local STATUS_TOKEN = {
+  collecting = "sem.statusOk", notcollecting = "sem.statusWarn", notinstalled = "sem.statusBad",
 }
 
--- The tick column's two states, built ONCE at file load the way modules/BrowserTable.lua builds
--- its sort arrows — the row loop repaints pooled slots on every refresh and has no business
--- reformatting a constant string each time.
+-- The tick column's two states, built once (and again on a skin change, rebuildTicks) the way
+-- modules/BrowserTable.lua builds its sort arrows — the row loop repaints pooled slots on every
+-- refresh and has no business reformatting a constant string each time.
 --
 -- THE TINT IS LOAD-BEARING, and it is why these are NS.IconMarkup calls rather than bare paths.
 -- Catalog art is white by contract (the shape lives entirely in the alpha channel), and white is
@@ -597,10 +602,14 @@ local STATUS_RGB = {
 -- tint has to be baked into the escape's own vertex fields. On the fallback rung it multiplies
 -- Blizzard's already-green tick by a green and its already-red mark by a red, so a degraded
 -- install still reads green-or-red, a shade darker.
-local TICK_ON  = NS.IconMarkup("circle-check", READY, 16,
-  STATUS_RGB.collecting[1], STATUS_RGB.collecting[2], STATUS_RGB.collecting[3])
-local TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16,
-  STATUS_RGB.notinstalled[1], STATUS_RGB.notinstalled[2], STATUS_RGB.notinstalled[3])
+local TICK_ON, TICK_OFF
+local function rebuildTicks()
+  local r, g, b = NS.Skin.Color(STATUS_TOKEN.collecting)
+  TICK_ON = NS.IconMarkup("circle-check", READY, 16, r, g, b)
+  r, g, b = NS.Skin.Color(STATUS_TOKEN.notinstalled)
+  TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16, r, g, b)
+end
+rebuildTicks()
 
 --- The handle gutter, READ off the library rather than restated (options-ui-§8/§18).
 ---
@@ -644,9 +653,13 @@ local function tipScripts(btn, getTitle, getBody)
     local title = getTitle and getTitle()
     if not title or title == "" then return end
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(title, 1, 1, 1)
+    GameTooltip:SetText(title, NS.SkinColor("gtip.value"))
     local body = getBody and getBody()
-    if body then GameTooltip:AddLine(body, nil, nil, nil, true) end
+    -- In the tooltip's own default line color (the client's gold), now named: gtip.title.
+    if body then
+      local r, g, b = NS.SkinColor("gtip.title")
+      GameTooltip:AddLine(body, r, g, b, true)
+    end
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -685,11 +698,11 @@ local function partitionTags(priority, capture)
   return order, collecting
 end
 
--- A source's Status cell: its text and its color.
+-- A source's Status cell: its text and its color token.
 local function auctionStatus(avail, on)
-  if not avail then return "Addon not installed", STATUS_RGB.notinstalled end
-  if on then return "Collecting data", STATUS_RGB.collecting end
-  return "Not collecting data", STATUS_RGB.notcollecting
+  if not avail then return "Addon not installed", STATUS_TOKEN.notinstalled end
+  if on then return "Collecting data", STATUS_TOKEN.collecting end
+  return "Not collecting data", STATUS_TOKEN.notcollecting
 end
 
 -- Repaint one reused row slot for `tag`.
@@ -704,22 +717,19 @@ local function paintAuctionRow(r, tag, capture)
 
   -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
   r.addon:SetText(providerNameOf(tag))
-  local ag = live and 0.86 or 0.5
-  r.addon:SetTextColor(ag, ag, ag)
+  r.addon:SetTextColor(NS.SkinColor(live and "text.bodyAlt" or "text.disabled"))
 
-  local mg = live and 0.9 or 0.5
-  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
+  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(NS.SkinColor(live and "text.body" or "text.disabled"))
   -- ⓘ trails the Price module text with a small gap (per-row, since the text width varies).
   local mw = r.module:GetStringWidth() or 0
   r.info:ClearAllPoints()
   r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
 
-  local text, sc = auctionStatus(avail, on)
+  local text, token = auctionStatus(avail, on)
   r.status:SetText(text)
-  r.status:SetTextColor(sc[1], sc[2], sc[3])
+  r.status:SetTextColor(NS.SkinColor(token))
 
-  local tint = live and 1 or 0.55
-  r.info.tex:SetVertexColor(tint, tint, tint)
+  r.info.tex:SetVertexColor(NS.SkinColor(live and "icon.hot" or "icon.dim"))
 
   -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
   -- and non-interactive when the addon isn't present.
@@ -777,6 +787,25 @@ local function refreshAuctionTable(ctx)
   if list then list:Finish(hf) end
 end
 
+-- The context whose host holds the table: one per session (the host is built once and parked).
+local auctionCtx
+
+-- A skin switch (NS.Skin.OnLooksChanged): the ticks rebuilt, then the headers and every row slot
+-- repainted IN PLACE, on screen or parked on the panel while another tab is up. Only the paint:
+-- the partition and the reorder controller belong to refreshAuctionTable, which a parked host
+-- must not run (it would hand a hidden host a new controller).
+local function repaintAuctionTable()
+  rebuildTicks()
+  local ctx = auctionCtx
+  if not (ctx and ctx._priRows) then return end
+  for _, fs in ipairs(ctx._priHeads or {}) do fs:SetTextColor(NS.SkinColor("text.headingAlt")) end
+  local capture = NS.db.profile.settings.auction.capture or {}
+  for _, r in ipairs(ctx._priRows) do
+    if r._tag then paintAuctionRow(r, r._tag, capture) end
+  end
+end
+if NS.Skin then NS.Skin.OnLooksChanged(repaintAuctionTable) end
+
 -- Build the unified AH price table: gold left-aligned column headers and 11 reusable row slots (one
 -- per known price source). Slots + their frames are created ONCE here; refreshAuctionTable repaints
 -- them in place on every enable-toggle / drag / Defaults, so no frame is ever re-allocated. Native
@@ -811,6 +840,7 @@ local function buildAuctionTable(ctx)
     hf = CreateFrame("Frame", nil, ctx.panel)
     ctx._priHost = hf
   end
+  auctionCtx = ctx
   hf:SetParent(placeholder.frame)
   hf:ClearAllPoints()
   hf:SetAllPoints(placeholder.frame)
@@ -827,11 +857,14 @@ local function buildAuctionTable(ctx)
   if not ctx._priRows then
     local gutter = handleGutter()
 
-    -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row).
+    -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row),
+    -- kept on the context for repaintAuctionTable.
+    ctx._priHeads = {}
     local function header(x, text)
       local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
-      fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
+      fs:SetText(text); fs:SetTextColor(NS.SkinColor("text.headingAlt"))
+      ctx._priHeads[#ctx._priHeads + 1] = fs
     end
     header(ACOL.addon, "Addon"); header(ACOL.module, "Price module")
     header(ACOL.enabled, "On"); header(ACOL.status, "Status")

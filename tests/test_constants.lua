@@ -360,9 +360,9 @@ test("Constants: no ledger reason is offered as a capture mute", function()
   for _, o in ipairs(C.SOURCE_OPTIONS) do assertFalse(C.LEDGER_REASON[o.value], o.value) end
 end)
 
-test("Constants: direction palette and glyphs", function()
+-- The direction colors are the skin's since LH-04 (tests/test_ledgerformat.lua pins them).
+test("Constants: direction glyphs and labels", function()
   for _, d in ipairs(C.DirOrder) do
-    assertEqual(#C.DirRGB[d], 3)
     assertTrue(type(C.DirGlyph[d]) == "string" and #C.DirGlyph[d] >= 3, "glyph is a multibyte char")
     assertTrue(type(C.DirLabel[d]) == "string")
   end

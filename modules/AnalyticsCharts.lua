@@ -10,25 +10,30 @@ local Analytics = NS.Analytics
 
 -- The constants come from modules/AnalyticsFormat.lua, bound once at load (hot-path upvalues).
 local K = Analytics.K
-local WHITE, BAR_H, BAR_GAP, SECTION_GAP = K.WHITE, K.BAR_H, K.BAR_GAP, K.SECTION_GAP
+local BAR_H, BAR_GAP, SECTION_GAP = K.BAR_H, K.BAR_GAP, K.SECTION_GAP
 local DAYSTRIP_H, STRIP_LABEL_H, STRIP_AXIS_GAP = K.DAYSTRIP_H, K.STRIP_LABEL_H, K.STRIP_AXIS_GAP
 local STRIP_LABEL_GAP, LABEL_X_ADJUST, LIST_ROW_H = K.STRIP_LABEL_GAP, K.LABEL_X_ADJUST, K.LIST_ROW_H
 local LABELW, VALW, LABEL_MAXCHARS, LEGEND_MAXCHARS = K.LABELW, K.VALW, K.LABEL_MAXCHARS, K.LEGEND_MAXCHARS
 
--- Show a one-line tooltip pinned just above-and-right of the cursor (offset +5,+5), rather than
--- anchored to the (far-right) row edge. GetCursorPosition returns physical pixels, so divide by the
--- UIParent scale before placing against UIParent's bottom-left.
-local function showCursorTooltip(owner, text, r, g, b)
-  if not text or text == "" then return end
-  GameTooltip:SetOwner(owner, "ANCHOR_NONE")
-  local scale = UIParent:GetEffectiveScale()
-  local cx, cy = GetCursorPosition()
-  GameTooltip:ClearAllPoints()
-  GameTooltip:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx / scale + 5, cy / scale + 5)
-  GameTooltip:ClearLines()
-  GameTooltip:AddLine(text, r or 1, g or 1, b or 1)
-  GameTooltip:Show()
-end
+-- THE SKIN (LH-04). Every color this file draws is a token, read through NS.SkinColor at the point
+-- the literal stood (same call, same arity, same order, so tests/analytics_golden.txt does not move):
+-- the bar track chart.track, the strip fill chart.bar, the strip axis chart.axis, the axis labels
+-- text.muted, the value and legend columns text.value, a row's default label text.body, the section
+-- headings and panel titles text.heading, the section rules section.rule, the list panels the skin's
+-- Panel. A factory paints its widget through the widget's own `_reskin`, so Analytics:Reskin (the
+-- end of this file) reaches every pooled widget, the free list's too, with the same calls. The
+-- hover lines go through core/Compat.lua, the one place tooltip lines read gtip.*.
+
+-- A row's default label color (no color of its own): r, g, b.
+local function bodyRGB() return NS.SkinColor("text.body") end
+
+-- A hover line pinned just above and right of the cursor: the bars' and segments' and rows' full
+-- label in a gtip.* token (Compat.ShowCursorTooltip).
+local function showCursorTooltip(owner, text, token) NS.Compat.ShowCursorTooltip(owner, text, token) end
+local function hideTooltip() NS.Compat.HideTooltip() end
+
+-- The track under a bar's fill (a horizontal or a stacked bar): chart.track.
+local function paintTrack(bar) bar.track:SetColorTexture(NS.SkinColor("chart.track")) end
 
 -- A horizontal bar row: fixed label (left) + value (right), track + fill between them.
 local function makeBar(parent)
@@ -38,8 +43,9 @@ local function makeBar(parent)
   label:SetJustifyH("LEFT")
   bar.label = label
   local track = bar:CreateTexture(nil, "BACKGROUND")
-  track:SetColorTexture(1, 1, 1, 0.06)
   bar.track = track
+  bar._reskin = paintTrack
+  paintTrack(bar)
   local fill = bar:CreateTexture(nil, "ARTWORK")
   bar.fill = fill
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -47,8 +53,8 @@ local function makeBar(parent)
   bar.value = value
   label:SetWordWrap(false)
   bar:EnableMouse(true)
-  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, 1, 0.82, 0) end)
-  bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, "gtip.title") end)
+  bar:SetScript("OnLeave", hideTooltip)
   return bar
 end
 
@@ -72,8 +78,9 @@ local function makeStackedBar(parent)
   label:SetJustifyH("LEFT")
   bar.label = label
   local track = bar:CreateTexture(nil, "BACKGROUND")
-  track:SetColorTexture(1, 1, 1, 0.06)
   bar.track = track
+  bar._reskin = paintTrack
+  paintTrack(bar)
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   value:SetJustifyH("RIGHT")
   bar.value = value
@@ -86,14 +93,14 @@ local function makeStackedBar(parent)
     local tex = seg:CreateTexture(nil, "ARTWORK")
     tex:SetAllPoints(seg)
     seg.tex = tex
-    seg:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._info, 1, 1, 1) end)
-    seg:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    seg:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._info, "gtip.value") end)
+    seg:SetScript("OnLeave", hideTooltip)
     bar.segs[i] = seg
   end
   label:SetWordWrap(false)
   bar:EnableMouse(true)
-  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, 1, 0.82, 0) end)
-  bar:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  bar:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullLabel, "gtip.title") end)
+  bar:SetScript("OnLeave", hideTooltip)
   return bar
 end
 
@@ -120,27 +127,30 @@ local function positionStacked(bar, content, pad, y, barW, segments)
   end
 end
 
+-- A strip bar's fill (chart.bar) and its rotated axis label (text.muted).
+local function paintStripBar(f)
+  f.fill:SetColorTexture(NS.SkinColor("chart.bar"))
+  f.axis:SetTextColor(NS.SkinColor("text.muted"))
+end
+
 -- One vertical bar in a per-bucket strip; hovering shows the bucket's info line.
 local function makeStripBar(parent)
   local f = CreateFrame("Frame", nil, parent)
   local fill = f:CreateTexture(nil, "ARTWORK")
   fill:SetPoint("BOTTOM", 0, 0)
-  fill:SetColorTexture(0.40, 0.60, 0.95, 0.9)
   f.fill = fill
   -- Vertical axis label under the bar, rotated 90° CCW so it reads bottom-to-top. It is
   -- right-aligned to the axis line (top of the label at the line, hanging down) in renderStrip,
   -- where its measured width sets the anchor offset.
   local axis = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   axis:SetRotation(math.pi / 2)
-  axis:SetTextColor(0.7, 0.7, 0.72)
   f.axis = axis
+  f._reskin = paintStripBar
+  paintStripBar(f)
   f:SetScript("OnEnter", function(self2)
-    if not self2.info then return end
-    GameTooltip:SetOwner(self2, "ANCHOR_TOP")
-    GameTooltip:AddLine(self2.info, 1, 1, 1)
-    GameTooltip:Show()
+    if self2.info then NS.Compat.ShowLineTooltip(self2, self2.info, "gtip.value", "ANCHOR_TOP") end
   end)
-  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f:SetScript("OnLeave", hideTooltip)
   return f
 end
 
@@ -155,10 +165,13 @@ local function makeListRow(parent)
   count:SetJustifyH("RIGHT"); count:SetPoint("RIGHT", -4, 0); count:SetWordWrap(false)
   r.count = count
   r:EnableMouse(true)
-  r:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullName, 1, 1, 1) end)
-  r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  r:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._fullName, "gtip.value") end)
+  r:SetScript("OnLeave", hideTooltip)
   return r
 end
+
+-- A legend chip's label: text.value.
+local function paintSwatch(f) f.fs:SetTextColor(NS.SkinColor("text.value")) end
 
 -- A legend chip: color swatch + label.
 local function makeSwatch(parent)
@@ -167,19 +180,23 @@ local function makeSwatch(parent)
   local sw = f:CreateTexture(nil, "ARTWORK"); sw:SetSize(10, 10)
   sw:SetPoint("LEFT", f, "LEFT", 0, 0)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("LEFT", sw, "RIGHT", 4, 0); fs:SetTextColor(0.8, 0.8, 0.82)
-  fs:SetJustifyH("LEFT"); fs:SetWordWrap(false)
   f.sw, f.fs = sw, fs
+  fs:SetPoint("LEFT", sw, "RIGHT", 4, 0); paintSwatch(f)
+  fs:SetJustifyH("LEFT"); fs:SetWordWrap(false)
+  f._reskin = paintSwatch
   f:EnableMouse(true)
-  f:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._full, 0.9, 0.9, 0.9) end)
-  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f:SetScript("OnEnter", function(self2) showCursorTooltip(self2, self2._full, "gtip.body") end)
+  f:SetScript("OnLeave", hideTooltip)
   return f
 end
+
+-- A section heading's color: text.heading.
+local function headingRGB() return NS.SkinColor("text.heading") end
 
 local function sectionHeader(parent, text)
   local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   fs:SetText(text)
-  fs:SetTextColor(1, 0.82, 0)
+  fs:SetTextColor(headingRGB())
   return fs
 end
 
@@ -189,18 +206,18 @@ local function sectionDivider(parent, text)
   local f = CreateFrame("Frame", nil, parent)
   f:SetHeight(26) -- taller to fit the enlarged title
   local lineL = f:CreateTexture(nil, "ARTWORK")
-  lineL:SetColorTexture(1, 0.82, 0, 0.35)
+  lineL:SetColorTexture(NS.SkinColor("section.rule"))
   lineL:SetHeight(1.25) -- 25% thicker rule
   local lineR = f:CreateTexture(nil, "ARTWORK")
-  lineR:SetColorTexture(1, 0.82, 0, 0.35)
+  lineR:SetColorTexture(NS.SkinColor("section.rule"))
   lineR:SetHeight(1.25)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   local file, size, flags = fs:GetFont()
   fs:SetFont(file, size * 1.5, flags) -- 50% larger title
   fs:SetPoint("CENTER", f, "CENTER", 0, 0)
-  fs:SetTextColor(1, 0.82, 0)
+  fs:SetTextColor(headingRGB())
   fs:SetText(text)
-  f.fs = fs
+  f.fs, f.rules = fs, { lineL, lineR }
   -- lines fill the space either side of the centered label (8px gap)
   lineL:SetPoint("LEFT", f, "LEFT", 0, 0)
   lineL:SetPoint("RIGHT", fs, "LEFT", -8, 0)
@@ -209,15 +226,14 @@ local function sectionDivider(parent, text)
   return f
 end
 
+-- A list panel is the skin's Panel (panel.bg under panel.border; on Ka0s Default call for call the
+-- backdrop it always drew, and recorded, so a switch repaints it), its title in the heading color.
 local function listPanel(parent, title)
   local p = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  p:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  p:SetBackdropColor(0.08, 0.08, 0.10, 0.6)
-  p:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.7)
+  NS.Skin.Panel(p)
   local t = p:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   t:SetPoint("TOPLEFT", 6, -5)
-  t:SetTextColor(1, 0.82, 0)
+  t:SetTextColor(headingRGB())
   t:SetText(title)
   p.title = t
   return p
@@ -251,9 +267,9 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor or row.color -- default the label color to its bar color
-    bar.label:SetTextColor(lc[1] or 0.9, lc[2] or 0.9, lc[3] or 0.9)
+    bar.label:SetTextColor(lc[1], lc[2], lc[3])
     bar.value:SetText(row.value)
-    bar.value:SetTextColor(0.8, 0.8, 0.82)
+    bar.value:SetTextColor(NS.SkinColor("text.value"))
     positionBar(bar, self.content, pad, y, innerW, row.frac)
     y = y - (BAR_H + BAR_GAP)
   end
@@ -279,8 +295,8 @@ function Analytics:renderStackedBarSection(pool, header, rows, y, w, pad)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor
-    bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
-    bar.value:SetText(row.value); bar.value:SetTextColor(0.8, 0.8, 0.82)
+    if lc then bar.label:SetTextColor(lc[1], lc[2], lc[3]) else bar.label:SetTextColor(bodyRGB()) end
+    bar.value:SetText(row.value); bar.value:SetTextColor(NS.SkinColor("text.value"))
     positionStacked(bar, self.content, pad, y, innerW, row.segments)
     y = y - (BAR_H + BAR_GAP)
   end
@@ -342,7 +358,7 @@ function Analytics:renderStrip(pool, header, strip, buckets, y, w, pad)
   -- Axis line separating the bars (above) from the labels (below), spanning the strip. Sits a
   -- small gap below the bar bases so the bars don't touch it.
   strip.axisLine = strip.axisLine or strip:CreateTexture(nil, "ARTWORK")
-  strip.axisLine:SetColorTexture(0.45, 0.45, 0.5, 0.8)
+  strip.axisLine:SetColorTexture(NS.SkinColor("chart.axis"))
   strip.axisLine:ClearAllPoints()
   strip.axisLine:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", 0, -STRIP_AXIS_GAP)
   strip.axisLine:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", 0, -STRIP_AXIS_GAP)
@@ -389,8 +405,8 @@ function Analytics:renderListPanel(pool, panel, rows, y, colW, pad, rightW)
     r.name:SetWidth(math.max(1, colW - 8 - rightW - 6)); r.name:SetText(row.name)
     r._fullName = Analytics._tipText(row.name, row.right)
     local nc = row.nameColor
-    r.name:SetTextColor(nc and nc[1] or 0.9, nc and nc[2] or 0.9, nc and nc[3] or 0.9)
-    r.count:SetWidth(rightW); r.count:SetText(row.right); r.count:SetTextColor(0.8, 0.8, 0.82)
+    if nc then r.name:SetTextColor(nc[1], nc[2], nc[3]) else r.name:SetTextColor(bodyRGB()) end
+    r.count:SetWidth(rightW); r.count:SetText(row.right); r.count:SetTextColor(NS.SkinColor("text.value"))
   end
   return panelH
 end
@@ -404,3 +420,38 @@ function Analytics:HideAllCharts()
   self.lootDivider:Hide(); self.currencyDivider:Hide()
   if Analytics._ledger then Analytics._ledger.Hide(self) end
 end
+
+-- ── the skin (LH-04) ──────────────────────────────────────────────────────────────────────────
+--
+-- What a skin switch repaints that the library's own repaint does not reach. The cards, the list
+-- panels and the scroll bar are recorded frames the library repaints itself; this walk covers what
+-- Insights colors at build time: the palette and the meaning colors (synced FIRST, whether or not
+-- the pane was ever built, so a first build after a switch draws the new skin), the card captions,
+-- the section headings, rules and titles, the panel titles, every pooled widget's factory paint on
+-- the active AND the free list (its `_reskin`), and the ledger half's chrome. Then a refresh
+-- rebinds the charts in the new colors while the pane is up; a hidden pane refreshes when its tab is
+-- next selected. Fires after the new skin is resolved (NS.Skin.OnLooksChanged).
+local function reskinPool(pool)
+  for _, w in ipairs(pool.active) do if w._reskin then w._reskin(w) end end
+  for _, w in ipairs(pool.free) do if w._reskin then w._reskin(w) end end
+end
+
+local function reskinDivider(d)
+  for _, rule in ipairs(d.rules) do rule:SetColorTexture(NS.SkinColor("section.rule")) end
+  d.fs:SetTextColor(headingRGB())
+end
+
+function Analytics:Reskin()
+  Analytics._syncSkinColors()
+  if not self.content then return end
+  for _, c in pairs(self.cards or {}) do c.caption:SetTextColor(NS.SkinColor("text.disabled")) end
+  for _, h in pairs(self.headers) do h:SetTextColor(headingRGB()) end
+  reskinDivider(self.lootDivider); reskinDivider(self.currencyDivider)
+  for _, p in ipairs({ self.zonePanel, self.itemPanel, self.itemValuePanel }) do p.title:SetTextColor(headingRGB()) end
+  self.emptyText:SetTextColor(NS.SkinColor("text.disabled"))
+  for _, pool in pairs(self.pool) do reskinPool(pool) end
+  if Analytics._ledger then Analytics._ledger.Reskin(self, reskinPool, reskinDivider) end
+  if self.pane and self.pane:IsVisible() then self:Refresh() end
+end
+
+if NS.Skin then NS.Skin.OnLooksChanged(function() Analytics:Reskin() end) end

@@ -46,7 +46,7 @@ Total.
 - Constants: ledger reasons are appended SourceType members with labels
 - Constants: existing sources keep their order positions (append-only)
 - Constants: no ledger reason is offered as a capture mute
-- Constants: direction palette and glyphs
+- Constants: direction glyphs and labels
 
 ### test_mediasetup.lua (11)
 
@@ -1536,6 +1536,20 @@ Total.
 - skin table: NS.QualityColor reads q.* where the skin sets it, else the client's color
 - skin table: the degraded facade draws the row menu today's way
 
+### test_skin_insights.lua (11)
+
+- skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
+- skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
+- skin insights: a switch repaints Insights live, the free list too, and syncs the palette
+- skin insights: the signed figures keep their bytes on Ka0s Default and follow a switch
+- skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch
+- skin timeline: Ka0s Default draws today's toggle, header and strip; the series are the skin's
+- skin timeline: a switch repaints the toggle, header and strip and rebuilds the series
+- skin holdings: Ka0s Default draws today's header, arrows, rows and cells
+- skin holdings: a switch rebuilds the arrows and repaints every pooled row live
+- skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
+- skin insights: the degraded facade draws the KPI card and the list panel today's way
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -2050,6 +2064,7 @@ Total.
 | test_skinsetup.lua | 9 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 7 |
+| test_skin_insights.lua | 11 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 37 |
@@ -2077,4 +2092,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1755** |
+| **Total** | **1766** |

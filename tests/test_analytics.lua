@@ -488,10 +488,10 @@ test("Analytics: the module's function surface is exactly the published one", fu
   -- Browser, the stand-down, this suite -- reaches the module through these names, so a split or a
   -- refactor that drops, renames or adds one is a surface change, not a move.
   local want = { "Attach", "BuildCharts", "Disable", "Enable", "HideAllCharts", "Layout",
-    "LayoutCharts", "Refresh", "ResetRenderTrace", "SummaryLine", "UpdateCards",
+    "LayoutCharts", "Refresh", "ResetRenderTrace", "Reskin", "SummaryLine", "UpdateCards",
     "_buildCharStackRows", "_charStackSegments", "_classColor", "_dayKeyList", "_fitFontSize",
     "_money", "_paletteMap", "_qualityColor", "_shortChar", "_shortDay", "_sortedByCount",
-    "_tipText", "_truncate", "paletteColor", "renderBarSection", "renderCharCompanion",
+    "_syncSkinColors", "_tipText", "_truncate", "paletteColor", "renderBarSection", "renderCharCompanion",
     "renderLegend", "renderListPanel", "renderStackedBarSection", "renderStrip" }
   local got = {}
   for k, v in pairs(A) do if type(v) == "function" then got[#got + 1] = k end end

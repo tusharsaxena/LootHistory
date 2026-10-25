@@ -82,6 +82,17 @@ function AL.HolderShort(k)
 end
 
 -- ── Widgets ─────────────────────────────────────────────────────────────────────────────────
+--
+-- The skin's colors (LH-04), each where its literal stood: the track chart.track, the center axis
+-- chart.axisAlt (a step lighter than the strips' chart.axis), losses sem.bad and gains sem.good (the
+-- Direction column's red and green, BankLedger's in Ka0s Default), the caveat text.accent and a
+-- row's default label text.body. The hover is core/Compat.lua's (gtip.title over gtip.body).
+
+-- A back-to-back bar's track, then its center axis (the order the factory always painted them in).
+local function paintBar(bar)
+  bar.track:SetColorTexture(NS.SkinColor("chart.track"))
+  bar.axis:SetColorTexture(NS.SkinColor("chart.axisAlt"))
+end
 
 local function makeBar(parent)
   local bar = CreateFrame("Frame", nil, parent)
@@ -92,20 +103,16 @@ local function makeBar(parent)
   bar.value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   bar.value:SetJustifyH("RIGHT")
   bar.track = bar:CreateTexture(nil, "BACKGROUND")
-  bar.track:SetColorTexture(1, 1, 1, 0.06)
   bar.axis = bar:CreateTexture(nil, "OVERLAY")
-  bar.axis:SetColorTexture(0.55, 0.55, 0.60, 0.9)
+  bar._reskin = paintBar
+  paintBar(bar)
   bar.left = bar:CreateTexture(nil, "ARTWORK")
   bar.right = bar:CreateTexture(nil, "ARTWORK")
   bar:EnableMouse(true)
   bar:SetScript("OnEnter", function(self)
-    if not GameTooltip then return end
-    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-    GameTooltip:AddLine(self._fullLabel or "", 1, 0.82, 0)
-    GameTooltip:AddLine(self._info or "", 0.9, 0.9, 0.9)
-    GameTooltip:Show()
+    NS.Compat.ShowTextTooltip(self, self._fullLabel or "", self._info, "ANCHOR_CURSOR")
   end)
-  bar:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+  bar:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   return bar
 end
 
@@ -122,13 +129,14 @@ local function placeBar(bar, content, pad, y, w, row)
   bar.track:SetSize(trackW, BAR_H - 4)
   bar.axis:ClearAllPoints(); bar.axis:SetPoint("CENTER", bar.track, "CENTER", 0, 0)
   bar.axis:SetSize(1, BAR_H - 2)
-  local out, gain = C.DirRGB.OUT, C.DirRGB.IN
+  local lr, lg, lb = NS.Skin.Color("sem.bad")
+  local gr, gg, gb = NS.Skin.Color("sem.good")
   local lw, rw = half * row.leftFrac, half * row.rightFrac
   bar.left:ClearAllPoints(); bar.left:SetPoint("RIGHT", bar.track, "CENTER", 0, 0)
-  bar.left:SetSize(math.max(1, lw), BAR_H - 4); bar.left:SetColorTexture(out[1], out[2], out[3], 0.95)
+  bar.left:SetSize(math.max(1, lw), BAR_H - 4); bar.left:SetColorTexture(lr, lg, lb, 0.95)
   bar.left:SetShown(lw > 0)
   bar.right:ClearAllPoints(); bar.right:SetPoint("LEFT", bar.track, "CENTER", 0, 0)
-  bar.right:SetSize(math.max(1, rw), BAR_H - 4); bar.right:SetColorTexture(gain[1], gain[2], gain[3], 0.95)
+  bar.right:SetSize(math.max(1, rw), BAR_H - 4); bar.right:SetColorTexture(gr, gg, gb, 0.95)
   bar.right:SetShown(rw > 0)
 end
 
@@ -147,8 +155,20 @@ function AL.Build(inst, content)
     pools = { reason = NS.Pool.New(), char = NS.Pool.New(), kind = NS.Pool.New() },
   }
   inst.ledgerUI.caveat:SetJustifyH("LEFT")
-  inst.ledgerUI.caveat:SetTextColor(1, 0.82, 0)
+  inst.ledgerUI.caveat:SetTextColor(NS.SkinColor("text.accent"))
   AL.Hide(inst)
+end
+
+-- A skin switch (Analytics:Reskin, which hands in its two walkers): the divider, the caveat, the
+-- three headings, and every pooled bar's track and axis (active and free). The next layout
+-- recolors the rest.
+function AL.Reskin(inst, reskinPool, reskinDivider)
+  local ui = inst.ledgerUI
+  if not ui then return end
+  reskinDivider(ui.divider)
+  ui.caveat:SetTextColor(NS.SkinColor("text.accent"))
+  for _, h in pairs(ui.headers) do h:SetTextColor(NS.SkinColor("text.heading")) end
+  for _, p in pairs(ui.pools) do reskinPool(p) end
 end
 
 function AL.Hide(inst)
@@ -171,7 +191,7 @@ local function section(inst, key, rows, y, w, pad)
     bar._info = row.rightTip .. "   " .. row.leftTip
     bar.label:SetText(row.label)
     local lc = row.labelColor
-    bar.label:SetTextColor(lc and lc[1] or 0.9, lc and lc[2] or 0.9, lc and lc[3] or 0.9)
+    if lc then bar.label:SetTextColor(lc[1], lc[2], lc[3]) else bar.label:SetTextColor(NS.SkinColor("text.body")) end
     bar.value:SetText(row.value)
     placeBar(bar, inst.content, pad, y, w - pad * 2, row)
     bar:Show()

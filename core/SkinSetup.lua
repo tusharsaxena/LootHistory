@@ -20,6 +20,8 @@ local addonName, NS = ...
 --   NS.SKIN_FALLBACK        the host copy of the Ka0s Default tokens the degraded facade answers.
 --   NS.SkinColor(name)      a color token as a call site writes it (three components when opaque),
 --                           so a literal that became a token keeps its arity on Ka0s Default.
+--   NS.SkinRGB(name)        a color token as a fresh { r, g, b } triple (the Insights and Holdings
+--                           color tables' shape).
 --   NS.SkinEscape(name)     a color token as a "|cffrrggbb" escape, rounded to the byte, so markup
 --                           written as a literal keeps its bytes on Ka0s Default (|cffff5555).
 --   NS.QualityColor(q)      an item quality's r, g, b: the skin's q.* token where it sets one (a
@@ -96,6 +98,61 @@ NS.SKIN_FALLBACK = {
   ["sem.boundWarband"] = { 0.30, 0.58, 0.98, 1 },
   ["sem.boundWarbandUE"] = { 0.95, 0.52, 0.12, 1 },
   ["sem.danger"]    = { 1, 1 / 3, 1 / 3, 1 },
+  -- Insights, Timeline, Holdings and the AH price table (LH-04): the KPI cards and list panels, the
+  -- section headings, rules and caveat, the chart chrome and series, the value / subtle / bright
+  -- text grays, the toggle's box and tick, the tooltip value column, the AH info mark, and the
+  -- meaning colors (gain and loss, the signed counts, the Warband, the AH status, Insights' bind
+  -- split and its no-quality gray).
+  ["text.muted"]    = { 0.7, 0.7, 0.72, 1 },
+  ["text.heading"]  = { 1, 0.82, 0, 1 },
+  ["text.headingAlt"] = { 0.91, 0.77, 0.42, 1 },
+  ["text.accent"]   = { 1, 0.82, 0, 1 },
+  ["text.value"]    = { 0.8, 0.8, 0.82, 1 },
+  ["text.bodyAlt"]  = { 0.86, 0.86, 0.86, 1 },
+  ["text.subtle"]   = { 0.85, 0.85, 0.85, 1 },
+  ["text.highlight"] = { 1, 1, 1, 1 },
+  ["gtip.value"]    = { 1, 1, 1, 1 },
+  ["icon.hot"]      = { 1, 1, 1, 1 },
+  ["icon.dim"]      = { 0.55, 0.55, 0.55, 1 },
+  ["card.bg"]       = { 0.1, 0.1, 0.12, 0.85 },
+  ["card.border"]   = { 0.24, 0.24, 0.27, 0.9 },
+  ["panel.bg"]      = { 0.08, 0.08, 0.10, 0.6 },
+  ["panel.border"]  = { 0.24, 0.24, 0.27, 0.7 },
+  ["section.rule"]  = { 1, 0.82, 0, 0.35 },
+  ["check.bg"]      = { 0.24, 0.24, 0.27, 1 },
+  ["check.mark"]    = { 1, 0.82, 0, 1 },
+  ["chart.axis"]    = { 0.45, 0.45, 0.5, 0.8 },
+  ["chart.axisAlt"] = { 0.55, 0.55, 0.60, 0.9 },
+  ["chart.bar"]     = { 0.40, 0.60, 0.95, 0.9 },
+  ["chart.track"]   = { 1, 1, 1, 0.06 },
+  ["chart.total"]   = { 1, 0.82, 0, 1 },
+  ["chart.other"]   = { 0.55, 0.62, 0.72, 1 },
+  ["chart.otherLine"] = { 0.7, 0.7, 0.72, 1 },
+  ["chart.marker"]  = { 0.8, 0.8, 0.8, 0.6 },
+  -- Insights' categorical palette: three seven-hue ramps (a list of colors, held entry by entry).
+  ["chart.series"]  = {
+    { 0.90, 0.25, 0.25, 1 }, { 0.95, 0.55, 0.15, 1 }, { 0.88, 0.82, 0.22, 1 }, { 0.35, 0.75, 0.38, 1 },
+    { 0.28, 0.55, 0.90, 1 }, { 0.42, 0.38, 0.82, 1 }, { 0.72, 0.42, 0.86, 1 },
+    { 0.97, 0.58, 0.58, 1 }, { 0.98, 0.76, 0.50, 1 }, { 0.94, 0.90, 0.55, 1 }, { 0.60, 0.87, 0.63, 1 },
+    { 0.58, 0.76, 0.97, 1 }, { 0.68, 0.64, 0.92, 1 }, { 0.86, 0.68, 0.94, 1 },
+    { 0.62, 0.18, 0.18, 1 }, { 0.70, 0.40, 0.10, 1 }, { 0.60, 0.56, 0.12, 1 }, { 0.18, 0.52, 0.28, 1 },
+    { 0.15, 0.38, 0.66, 1 }, { 0.28, 0.24, 0.58, 1 }, { 0.50, 0.28, 0.62, 1 },
+  },
+  ["sem.good"]      = { 0.35, 0.80, 0.45, 1 },
+  ["sem.bad"]       = { 1, 0.33, 0.33, 1 },
+  ["sem.neutral"]   = { 0.62, 0.62, 0.66, 1 },
+  ["sem.gold"]      = { 1, 0.86, 0.55, 1 },
+  ["sem.warband"]   = { 0.25, 0.75, 0.95, 1 },
+  ["sem.warbandAlt"] = { 0.4, 0.78, 1, 1 },
+  ["sem.goodAlt"]   = { 0.25, 1, 0.25, 1 },
+  ["sem.badAlt"]    = { 1, 0.25, 0.25, 1 },
+  ["sem.unknown"]   = { 0.6, 0.6, 0.6, 1 },
+  ["sem.statusOk"]  = { 0.30, 0.95, 0.35, 1 },
+  ["sem.statusWarn"] = { 1, 0.82, 0.10, 1 },
+  ["sem.statusBad"] = { 1, 0.32, 0.32, 1 },
+  ["sem.boundBoPAlt"] = { 0.85, 0.45, 0.45, 1 },
+  ["sem.boundBoEAlt"] = { 0.55, 0.80, 0.60, 1 },
+  ["sem.boundNoneAlt"] = { 0.60, 0.60, 0.65, 1 },
 }
 
 --- A color token's components AS A CALL SITE WRITES THEM: r, g, b for an opaque color and r, g, b,
@@ -107,6 +164,14 @@ function NS.SkinColor(name)
   if r == nil then return nil end
   if a == nil or a == 1 then return r, g, b end
   return r, g, b, a
+end
+
+--- A color token as a fresh { r, g, b } triple (nil for a token the skin leaves alone): the shape
+--- the Insights and Holdings color tables have always handed their renderers, which read [1]..[3].
+function NS.SkinRGB(name)
+  local r, g, b = NS.Skin.Color(name)
+  if r == nil then return nil end
+  return { r, g, b }
 end
 
 --- A color token as a "|cffrrggbb" escape, each channel rounded to the nearest byte (1/3 is 55,
@@ -177,7 +242,8 @@ if not Skin then
   local function noop() end
   local S = { owner = addonName, apiVersion = 3, FROM_SKIN = "@skin" }
   -- Every vocabulary name answers, and a primitive with no host meaning is a no-op that never
-  -- raises (Shell, TitleBar, Divider, Button, MenuFrame and Text draw today's look from the host copy). The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
+  -- raises (Shell, TitleBar, Divider, Button, Card, Panel, MenuFrame and Text draw today's look from
+  -- the host copy). The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
   -- to the live facade key for key.
   for _, name in ipairs({
     "Shell", "Panel", "Inset", "FadeRegions", "FadeNineSlice", "Button", "WhiteButtonLabel",
@@ -233,12 +299,25 @@ if not Skin then
   -- The flat button (modules/BrowserWidgets.lua B.MakeFlatButton) as it was drawn before the skin
   -- engine: the WHITE8X8 box, a white label, gold under the pointer, the mark at .85.
   local WHITE = "Interface\\Buttons\\WHITE8X8"
+  -- The flat-control box every one of these drew: WHITE8X8 under a 1px edge, inset by one.
+  local function box(frame, fill, edge)
+    if type(frame) ~= "table" or type(frame.SetBackdrop) ~= "function" then return false end
+    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+                        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    frame:SetBackdropColor(color(fill))
+    frame:SetBackdropBorderColor(color(edge))
+    return true
+  end
+  -- Insights' KPI card (modules/Analytics.lua) and list panel (modules/AnalyticsCharts.lua) as they
+  -- were drawn before the skin engine; a card's `opts.title` in the heading gold.
+  S.Card = function(frame, opts)
+    box(frame, "card.bg", "card.border")
+    local fs = type(opts) == "table" and opts.title
+    if type(fs) == "table" and fs.SetTextColor then fs:SetTextColor(NS.SkinColor("text.heading")) end
+  end
+  S.Panel = function(frame) box(frame, "panel.bg", "panel.border") end
   S.Button = function(btn)
-    if type(btn) ~= "table" or type(btn.SetBackdrop) ~= "function" then return end
-    btn:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-    btn:SetBackdropColor(color("btn.bg"))
-    btn:SetBackdropBorderColor(color("btn.border"))
+    if not box(btn, "btn.bg", "btn.border") then return end
     local fs = rawget(btn, "text")
     if type(fs) == "table" and fs.SetTextColor then fs:SetTextColor(NS.SkinColor("btn.text")) end
     local icon = rawget(btn, "icon")

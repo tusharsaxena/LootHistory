@@ -110,7 +110,7 @@ window is open" described exactly the case that mattered and read as though it d
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
 per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1275`,
-`modules/Analytics.lua:280` and — for the History tab's storage readout, which walks the whole
+`modules/Analytics.lua:282` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:170`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.
 
@@ -149,7 +149,7 @@ written down because a silent skip reads exactly like an oversight.
 `wantedByProvider` (`modules/AuctionPrice.lua:61`) regroups the capture set into
 `{ provider = { key = true } }` on every call, and `GatherAll` calls it at `:87` — once per **kept**
 loot line, the `CHAT_MSG_LOOT` row above. It allocates one `out` table plus one sub-map per
-provider named in the set: on the shipped default (`core/Constants.lua:238-242`, seven keys across
+provider named in the set: on the shipped default (`core/Constants.lua:235-239`, seven keys across
 Auctionator, TSM and Oribos) that is exactly **four small tables per kept line**, from a set that
 changes only when the player edits the Price sources table in settings. The obvious repair is to
 memoize it and refresh on a settings change.

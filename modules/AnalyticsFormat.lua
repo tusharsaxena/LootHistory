@@ -9,8 +9,6 @@ local Analytics = NS.Analytics
 -- and before modules/AnalyticsCharts.lua, which does the same. Peeled out of modules/Analytics.lua
 -- (LootHistory#32) verbatim; the _-prefixed names below were already the suite's seam.
 
-local WHITE = "Interface\\Buttons\\WHITE8X8"
-
 local BAR_H, BAR_GAP = 16, 3
 local SECTION_GAP = 16
 local DAYSTRIP_H = 46
@@ -25,7 +23,16 @@ local LEGEND_MAXCHARS = 13     -- cap a legend chip label to this many glyphs (+
 local MAX_STACK_SEGS = 9       -- segment ceiling per stacked bar (matches makeStackedBar's texture pool)
 local MIN_HEADLINE_SIZE = 11   -- floor for the shrink-to-fit KPI headline font
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
-local NEUTRAL = { 0.55, 0.62, 0.72 }
+
+-- THE SKIN'S COLORS (LH-04). The "Other" segment and fallback (NEUTRAL, the skin's chart.other), the
+-- bind-state chart's colors (BOUND_COLOR) and the ranked palette (PALETTE, chart.series) were literal
+-- tables here; they are now FILLED FROM THE SKIN, in place, by Analytics._syncSkinColors (below),
+-- which runs at file load and first thing on every skin switch (Analytics:Reskin). In place because
+-- modules/Analytics.lua binds NEUTRAL and BOUND_COLOR to file-scope locals at load, and the rows a
+-- render builds carry these very tables: a sync and the refresh after it repaint every chart. Ka0s
+-- Default's values are the literals they replace, so tests/analytics_golden.txt does not move.
+-- SOURCE_COLOR stays literal: a source's hue is its identity across every skin, and no token names it.
+local NEUTRAL = {}
 
 -- Per-source bar colors (no such table in Constants; kept local to the chart).
 -- Palette derived via the dataviz skill: 15 hues spaced 24 degrees apart in OKLCH
@@ -62,17 +69,20 @@ local SOURCE_COLOR = {
   ALT_MAIL = { 0.45, 0.62, 0.78 }, ALT_TRADE = { 0.35, 0.72, 0.68 }, CURRENCY_TRANSFER = { 0.78, 0.66, 0.45 },
 }
 
--- Bound-type display labels + colors.
+-- Bound-type display labels + colors. The colors are the skin's sem.bound* tokens (synced below):
+-- Insights' own split of three of them (sem.boundBoPAlt / BoEAlt / NoneAlt, reddish BoP and green
+-- BoE where History's lock is green and off-white; not reconciled in leg 1), and the table's
+-- Warbound blue and until-equipped orange, so the two views read alike there.
 local BOUND_LABEL = {
   BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
   UNBOUND = "Unbound",
 }
--- Warbound/until-equipped take the Bound column's blue/orange so the two views read alike.
-local BOUND_COLOR = {
-  BOP = { 0.85, 0.45, 0.45 }, BOE = { 0.55, 0.80, 0.60 },
-  WARBAND = { 0.30, 0.58, 0.98 }, WARBAND_UE = { 0.95, 0.52, 0.12 },
-  UNBOUND = { 0.60, 0.60, 0.65 },
+local BOUND_TOKEN = {
+  BOP = "sem.boundBoPAlt", BOE = "sem.boundBoEAlt",
+  WARBAND = "sem.boundWarband", WARBAND_UE = "sem.boundWarbandUE",
+  UNBOUND = "sem.boundNoneAlt",
 }
+local BOUND_COLOR = {}
 local BOUND_ORDER = { "BOP", "BOE", "WARBAND", "WARBAND_UE", "UNBOUND" }
 
 local WEEKDAY = { [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat" }
@@ -92,18 +102,19 @@ local function starMarkup()
   return resolvedStar
 end
 
--- Class color for a per-character bar (falls back to a neutral gray).
+-- Class color for a per-character bar (falls back to the skin's chart.otherLine gray).
 local function classColor(classFile)
   local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
   if c then return { c.r, c.g, c.b } end
-  return { 0.7, 0.7, 0.72 }
+  return NS.SkinRGB("chart.otherLine")
 end
 
--- Item-quality color as an {r,g,b} triple (falls back to neutral gray).
+-- Item-quality color as an {r,g,b} triple: the skin's q.* where it sets one, else the client's
+-- (NS.QualityColor); the skin's sem.unknown gray for a quality with neither.
 local function qualityColor(q)
-  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q or 1]
-  if c then return { c.r, c.g, c.b } end
-  return { 0.6, 0.6, 0.6 }
+  local r, g, b = NS.QualityColor(q or 1)
+  if r then return { r, g, b } end
+  return NS.SkinRGB("sem.unknown")
 end
 
 -- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
@@ -121,14 +132,22 @@ end
 -- entries are rainbow-distinct — never two lookalikes side by side — then the same rainbow in a
 -- lighter band and a darker band (21 total). Colors are assigned by a category's rank in its chart's
 -- sort order (paletteColor), so consecutive bars/segments always draw from adjacent, dissimilar hues.
-local PALETTE = {
-  { 0.90, 0.25, 0.25 }, { 0.95, 0.55, 0.15 }, { 0.88, 0.82, 0.22 }, { 0.35, 0.75, 0.38 },
-  { 0.28, 0.55, 0.90 }, { 0.42, 0.38, 0.82 }, { 0.72, 0.42, 0.86 },
-  { 0.97, 0.58, 0.58 }, { 0.98, 0.76, 0.50 }, { 0.94, 0.90, 0.55 }, { 0.60, 0.87, 0.63 },
-  { 0.58, 0.76, 0.97 }, { 0.68, 0.64, 0.92 }, { 0.86, 0.68, 0.94 },
-  { 0.62, 0.18, 0.18 }, { 0.70, 0.40, 0.10 }, { 0.60, 0.56, 0.12 }, { 0.18, 0.52, 0.28 },
-  { 0.15, 0.38, 0.66 }, { 0.28, 0.24, 0.58 }, { 0.50, 0.28, 0.62 },
-}
+-- The hues are Ka0s Default's chart.series; another skin brings its own list.
+local PALETTE = {}
+
+--- Fill NEUTRAL, BOUND_COLOR and PALETTE from the skin, IN PLACE (the tables above say why). Fresh
+--- triples each time: the skin's own colors are shared and never written to. A skin whose series
+--- list is shorter or longer than 21 changes the cycle length, which paletteColor reads each call.
+function Analytics._syncSkinColors()
+  local r, g, b = NS.Skin.Color("chart.other")
+  NEUTRAL[1], NEUTRAL[2], NEUTRAL[3] = r, g, b
+  for k, token in pairs(BOUND_TOKEN) do BOUND_COLOR[k] = NS.SkinRGB(token) end
+  local series = NS.Skin.Token("chart.series") or {}
+  for i = #PALETTE, 1, -1 do PALETTE[i] = nil end
+  for i, c in ipairs(series) do PALETTE[i] = { c[1], c[2], c[3] } end
+end
+Analytics._syncSkinColors()
+
 -- 1-based rank → palette color (cycles). Pure + testable.
 function Analytics.paletteColor(rank)
   return PALETTE[((rank - 1) % #PALETTE) + 1]
@@ -283,7 +302,7 @@ Analytics._money        = money
 -- The layout constants and the color tables, published once so modules/Analytics.lua and
 -- modules/AnalyticsCharts.lua read the same numbers. Both bind these to file-scope locals at load.
 Analytics.K = {
-  WHITE = WHITE, BAR_H = BAR_H, BAR_GAP = BAR_GAP, SECTION_GAP = SECTION_GAP,
+  BAR_H = BAR_H, BAR_GAP = BAR_GAP, SECTION_GAP = SECTION_GAP,
   DAYSTRIP_H = DAYSTRIP_H, STRIP_LABEL_H = STRIP_LABEL_H, STRIP_AXIS_GAP = STRIP_AXIS_GAP,
   STRIP_LABEL_GAP = STRIP_LABEL_GAP, LABEL_X_ADJUST = LABEL_X_ADJUST, LIST_ROW_H = LIST_ROW_H,
   LABELW = LABELW, VALW = VALW, LABEL_MAXCHARS = LABEL_MAXCHARS, LEGEND_MAXCHARS = LEGEND_MAXCHARS,

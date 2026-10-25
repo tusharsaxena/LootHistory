@@ -96,6 +96,10 @@ local SUITES = {
   -- tooltips; Ka0s Default draws today's values, a switch repaints live. Attaches a fresh table
   -- under the kit's paint recorder and puts the session's back; leaves the skin on Ka0s Default.
   "test_skin_table",
+  -- Insights, the Timeline, Holdings and the AH price table on the skin (LH-04): Ka0s Default draws
+  -- today's values, a switch repaints live. Builds each surface fresh under the kit's paint recorder
+  -- on the live module and puts its fields back; leaves the skin on Ka0s Default.
+  "test_skin_insights",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

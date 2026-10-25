@@ -106,21 +106,18 @@ C.Container = {
 -- system key (BagSync's convention): code that means "characters" skips keys starting with it.
 C.WARBAND_HOLDER = "§warband"
 
--- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. Colors are
--- BankLedger's (core/Constants.lua DirectionRGB) so a gain/loss reads the same in both addons.
+-- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. The colors
+-- are the skin's sem.good / sem.bad / sem.neutral (LH-04, modules/LedgerFormat.lua), whose Ka0s
+-- Default values are BankLedger's (core/Constants.lua DirectionRGB: .35,.80,.45 / 1,.33,.33 /
+-- .62,.62,.66), so a gain/loss reads the same in both addons.
 C.DirOrder = { "IN", "OUT", "MOVE" }
 C.DirLabel = { IN = "Gain", OUT = "Loss", MOVE = "Transfer" }
-C.DirRGB = {
-  IN   = { 0.35, 0.80, 0.45 },
-  OUT  = { 1.00, 0.33, 0.33 },
-  MOVE = { 0.62, 0.62, 0.66 },
-}
 -- TEXT glyphs: the default font has none of them and draws a box, so any FontString showing one
 -- MUST use C.FONT_MONO (the LibKa0s JetBrains Mono face). U+25B2, U+25BC, U+21C4 as UTF-8 escapes.
 C.DirGlyph = { IN = "\226\150\178", OUT = "\226\150\188", MOVE = "\226\135\132" }
--- Gold rows (kind GOLD): the Type value they carry, and the pale gold their quantity is drawn in.
+-- Gold rows (kind GOLD): the Type value they carry. Their quantity is drawn in the skin's sem.gold,
+-- a pale gold (1, .86, .55) on Ka0s Default.
 C.GOLD_TYPE = "Gold"
-C.GOLD_RGB = { 1.00, 0.86, 0.55 }
 -- Seconds a tradeskill craft keeps reagent losses attributed to CRAFT_REAGENT (a cast is 1-3 s; a
 -- queued "craft all" re-arms it per CraftRecipe call).
 C.CRAFT_TTL = 6
@@ -351,16 +348,11 @@ C.CURRENCY_SOURCE_REASON = {
   },
 }
 
--- The Timeline's look (timeline-ledger spec §8.1). Total is the gold accent; the warband has its own
--- hue so it never reads as a class; gains/losses ARE the History Direction column's (C.DirRGB,
--- spec §7), so this block must stay below C.DirRGB in this file.
+-- The Timeline's geometry (timeline-ledger spec §8.1). Its colors are the skin's (LH-04,
+-- modules/TimelineModel.lua): the Total chart.total (the gold accent), the warband sem.warband (its
+-- own hue, so it never reads as a class), any other holder chart.otherLine, the ledgerSince marker
+-- chart.marker, and gains and losses sem.good / sem.bad, the History Direction column's (spec §7).
 C.TIMELINE = {
-  TOTAL   = { 1, 0.82, 0, 1 },
-  WARBAND = { 0.25, 0.75, 0.95, 1 },
-  OTHER   = { 0.7, 0.7, 0.72, 1 },
-  MARKER  = { 0.8, 0.8, 0.8, 0.6 },
-  GAIN    = C.DirRGB.IN,     -- Phase 2's direction colors: one definition
-  LOSS    = C.DirRGB.OUT,
   TOTAL_W = 2.5,
   LINE_W  = 2,
   PX_PER_POINT = 6,    -- chart point spacing: fewer, longer segments read smoother

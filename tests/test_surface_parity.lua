@@ -55,7 +55,7 @@
 
 local T = _G.LH_TEST
 local NS, Loader = T.NS, T.Loader
-local test, assertTrue = T.test, T.assertTrue
+local test, assertTrue, assertEqual = T.test, T.assertTrue, T.assertEqual
 
 local loadDegraded = dofile("tests/degraded_env.lua")
 
@@ -381,13 +381,22 @@ test("parity: each host-copy skin token is the live library's Ka0s Default value
   -- red under: a token added to the copy with a value of its own, or the library moving a value.
   local live = T.mocks.LibStub("LibKa0s-Skin-1.0"):ResolveSkin("ka0s")
   local n = 0
+  local function same(label, c, want)
+    for i = 1, 4 do
+      local a, b = c[i] or 1, want[i] or 1
+      assertTrue(math.abs(a - b) < 1e-6, ("%s[%d]: host copy %s, library %s"):format(label, i, a, b))
+    end
+  end
   for name, c in pairs(degradedNS.SKIN_FALLBACK) do
     n = n + 1
     local want = live[name]
     assertTrue(type(want) == "table", name .. " is not a Ka0s Default color token in the library")
-    for i = 1, 4 do
-      local a, b = c[i] or 1, want[i] or 1
-      assertTrue(math.abs(a - b) < 1e-6, ("%s[%d]: host copy %s, library %s"):format(name, i, a, b))
+    if type(c[1]) == "table" then
+      -- A list of colors (chart.series): the same length, entry by entry.
+      assertEqual(#c, #want, name .. ": the host copy's length")
+      for i, entry in ipairs(c) do same(("%s #%d"):format(name, i), entry, want[i]) end
+    else
+      same(name, c, want)
     end
   end
   assertTrue(n > 0, "the host copy is empty, so this case asserts nothing")

@@ -250,8 +250,8 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `Core.SKIN`, and the library-absent arm is `core/CoreSetup.lua`'s copy, reading the host copy of
   those tokens); `modules/Browser.lua:13`’s own `SKIN` table carries only the layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
-- **Twenty-four hard-coded `Interface\` paths remain, and each one is in a class named right here**
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:943`) — branding art, not a re-skinnable surface.
+- **Twenty-two hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
   every other sweep in this repo excludes them, and a count taken over the whole tree is a count of
@@ -261,12 +261,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/' | xargs grep -n 'Interface\\'
   ```
 
-  It prints 24 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
+  It prints 22 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
 
   | # | Class | Where |
   |---|---|---|
-  | 6 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:235` (the degraded facade's flat button and row menu), `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101`, `modules/Timeline.lua:25` |
-  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:305`, `:306`, `:429`, `:430`, `settings/Panel.lua:541`, `:542`, `:543` |
+  | 4 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. The Insights cards and list panels and the Timeline's toggle stopped naming it in LH-04: they are the skin's `Card`, `Panel` and `Button` now. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:301` (the degraded facade's flat button, KPI card, list panel and row menu), `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:317`, `:318`, `:455`, `:456`, `settings/Panel.lua:552`, `:553`, `:554` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
@@ -307,7 +307,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1147`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1180`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
@@ -337,7 +337,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
   clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
-  (`core/Constants.lua:174`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  (`core/Constants.lua:171`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
   gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not

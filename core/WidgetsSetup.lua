@@ -255,6 +255,10 @@ function NS.MakeLineChart(parent, opts)
     local o = {}
     for k, v in pairs(opts or {}) do o[k] = v end
     o.font = o.font or "GameFontDisableSmall"
+    -- The skin owner (LibKa0s-Widgets-1.0's line chart, minor 4): the axes, grid, crosshair, marker
+    -- and tick labels follow this addon's skin, and a switch re-renders the chart with its data.
+    -- The series colors are the host's (modules/TimelineModel.lua, from the skin too) and win.
+    o.owner = addonName
     return W.LineChart(parent, o)
 end
 
