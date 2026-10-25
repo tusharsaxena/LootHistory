@@ -324,7 +324,6 @@ end
 -- button. Reuses the Browser's flat skin + close glyph. The output window writes into Export's OWN
 -- copy window (deliberately not shared with the debug copy window, so its layout can evolve
 -- independently).
-local WHITE = "Interface\\Buttons\\WHITE8X8"
 local frame
 -- Per-open config (issue #15): { title = "Export …", providers = { allData, currentView },
 -- csv = function(dataset) return text end }. `title` is the window header the invoking tab supplies
@@ -405,7 +404,8 @@ local function selectedData()
   return (fn and fn()) or {}
 end
 
--- Flat-skin button matching the Browser bar buttons.
+-- The house flat button at this modal's 24px height: B.MakeFlatButton (modules/BrowserWidgets.lua),
+-- the one the filter bar's buttons are, so the skin paints both alike.
 -- `icon` is a catalog name and is OPTIONAL, in both directions: a caller that passes none gets
 -- the button this always built, and a caller that passes one still gets that button when the seam
 -- answers nil. The LABEL NEVER MOVES -- it stays CENTER-anchored and the mark sits at LEFT +10 --
@@ -416,27 +416,7 @@ end
 -- into one answered by hovering. No tooltip on the mark, either -- if a mark needs one, the label
 -- should have stayed.
 local function makeButton(parent, text, width, onClick, icon)
-  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(width, 24)
-  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local path = icon and NS.Icon and NS.Icon(icon)
-  if path then
-    local tex = b:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(14, 14)
-    tex:SetPoint("LEFT", 10, 0)
-    tex:SetTexture(path)
-    tex:SetVertexColor(0.85, 0.85, 0.85)
-    b.icon = tex
-  end
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("CENTER"); fs:SetText(text)
-  b:SetScript("OnEnter", function() fs:SetTextColor(1, 0.82, 0) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1) end)
-  b:SetScript("OnClick", onClick)
-  return b
+  return NS.Browser.MakeFlatButton(parent, text, width, 24, onClick, { icon = icon })
 end
 
 -- Data Set dropdown options (All Data / Current View). The collapsed button shows a "Data set:"
@@ -493,6 +473,11 @@ local function EnsureFrame()
   local t = tbar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   t:SetPoint("CENTER"); t:SetText("Export")
   frame.titleFS = t
+  -- The title bar and its text through the skin's TitleBar: the bar's fill (none on Ka0s Default)
+  -- and the title in the title color and font. `titleFS` is not the `title` field the window edge
+  -- tints, so before the skin engine this title was never tinted at all; GameFontNormal is that
+  -- same gold, so Ka0s Default draws what it always drew, and every other skin reaches it.
+  NS.Skin.TitleBar(tbar, { text = t })
   if NS.Browser and NS.Browser.MakeCloseButton then
     NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
@@ -527,7 +512,9 @@ local function EnsureFrame()
   csvBtn:SetPoint("TOPLEFT", 16, -80)
   csvBtn:SetPoint("TOPRIGHT", -16, -80)
 
-  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame) end
+  -- The window edge, through the skin's Shell (B:ApplySkin). `noTopBar`: the title bar above
+  -- paints its own fill, at its own 26px height.
+  if NS.Browser and NS.Browser.ApplySkin then NS.Browser:ApplySkin(frame, nil, { noTopBar = true }) end
   -- CLOSE THE SHARED POPUP ON EVERY NON-CLICK CLOSE PATH. The dropdown menu is a process-wide
   -- singleton parented to UIParent at FULLSCREEN_DIALOG -- this frame's Hide() cannot reach it, and
   -- before the adoption this modal had no OnHide at all, so Escape (via the UISpecialFrames
@@ -562,6 +549,14 @@ end
 --- frame is memoized for the session, so a suite that runs after another one opened it cannot
 --- catch it at CreateFrame.
 function E:Window() return frame end
+
+--- Test-only: put `f` in the modal's place (nil: none built yet) and answer the one it replaced,
+--- as B:_SwapWindowForTest does for the History window (tests/test_skin_chrome.lua).
+function E:_SwapWindowForTest(f)
+  local old = frame
+  frame = f
+  return old
+end
 
 function E:Open(cfg)
   config = cfg or {}

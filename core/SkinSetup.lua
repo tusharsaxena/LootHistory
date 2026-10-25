@@ -18,6 +18,8 @@ local addonName, NS = ...
 --   NS.SKIN_SOURCE_OPTIONS  the source row's values, and NS.SKIN_OPTIONS the skin row's (every
 --   NS.SKIN_OPTIONS         registered skin, in the library's order). settings/Schema.lua reads both.
 --   NS.SKIN_FALLBACK        the host copy of the Ka0s Default tokens the degraded facade answers.
+--   NS.SkinColor(name)      a color token as a call site writes it (three components when opaque),
+--                           so a literal that became a token keeps its arity on Ka0s Default.
 --
 -- ── WHERE IT LOADS ───────────────────────────────────────────────────────────────────────────
 --
@@ -52,12 +54,37 @@ local DEFAULT = "ka0s"
 -- live library's Ka0s Default value: a copy that drifts goes red there. A surface converted to a
 -- token adds the token here in the same change.
 NS.SKIN_FALLBACK = {
-  ["win.bg"]     = { 0.06, 0.06, 0.08, 0.92 },
-  ["win.border"] = { 0, 0, 0, 1 },
-  ["win.inner"]  = { 0.24, 0.24, 0.27, 0.85 },
-  ["title.text"] = { 1, 0.82, 0, 1 },
-  ["divider"]    = { 0.24, 0.24, 0.27, 0.85 },
+  ["win.bg"]        = { 0.06, 0.06, 0.08, 0.92 },
+  ["win.border"]    = { 0, 0, 0, 1 },
+  ["win.inner"]     = { 0.24, 0.24, 0.27, 0.85 },
+  ["title.text"]    = { 1, 0.82, 0, 1 },
+  ["divider"]       = { 0.24, 0.24, 0.27, 0.85 },
+  -- The History window's chrome (LH-02): the tab labels and underline, the flat buttons, the plain
+  -- search box, the footer and the strip tooltips' lines.
+  ["tab.onText"]    = { 1, 0.82, 0, 1 },
+  ["tab.text"]      = { 0.7, 0.7, 0.72, 1 },
+  ["tab.onLine"]    = { 1, 0.82, 0, 1 },
+  ["btn.bg"]        = { 0.1, 0.1, 0.12, 0.9 },
+  ["btn.border"]    = { 0.24, 0.24, 0.27, 0.9 },
+  ["btn.text"]      = { 1, 1, 1, 1 },
+  ["btn.hover"]     = { 1, 0.82, 0, 1 },
+  ["btn.icon"]      = { 0.85, 0.85, 0.85, 1 },
+  ["input.bg"]      = { 0.1, 0.1, 0.12, 0.9 },
+  ["input.border"]  = { 0.24, 0.24, 0.27, 0.9 },
+  ["text.disabled"] = { 0.5, 0.5, 0.5, 1 },
+  ["gtip.body"]     = { 0.9, 0.9, 0.9, 1 },
 }
+
+--- A color token's components AS A CALL SITE WRITES THEM: r, g, b for an opaque color and r, g, b,
+--- a otherwise (the library's own text and vertex rule), so a site that passed three components
+--- before it read a token still passes three on Ka0s Default. nil for a token the skin leaves alone.
+--- Read through NS.Skin at call time, so it answers the live skin, or the host copy degraded.
+function NS.SkinColor(name)
+  local r, g, b, a = NS.Skin.Color(name)
+  if r == nil then return nil end
+  if a == nil or a == 1 then return r, g, b end
+  return r, g, b, a
+end
 
 NS.SKIN_SOURCE_OPTIONS = {
   { value = "ka0s", text = "Ka0s skins" },
@@ -99,7 +126,7 @@ if not Skin then
   local function noop() end
   local S = { owner = addonName, apiVersion = 3, FROM_SKIN = "@skin" }
   -- Every vocabulary name answers, and a primitive with no host meaning is a no-op that never
-  -- raises. The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
+  -- raises (Shell, TitleBar, Divider, Button and Text draw today's look from the host copy). The list is LibKa0s-Skin-1.0's VOCAB; tests/test_surface_parity.lua holds this table
   -- to the live facade key for key.
   for _, name in ipairs({
     "Shell", "Panel", "Inset", "FadeRegions", "FadeNineSlice", "Button", "WhiteButtonLabel",
@@ -133,6 +160,42 @@ if not Skin then
   S.Text = function(fs, role)
     local r, g, b, a = color(role == "title" and "title.text" or ("text." .. tostring(role)))
     if r and fs and fs.SetTextColor then fs:SetTextColor(r, g, b, a) end
+  end
+  -- A rule: a texture colored in place, or a frame given one texture filling it (made once). The
+  -- History window's divider is a frame (modules/Browser.lua), so a degraded install still draws it.
+  local rules = setmetatable({}, { __mode = "k" })
+  S.Divider = function(target, opts)
+    if type(target) ~= "table" then return end
+    local r, g, b, a = color(type(opts) == "table" and opts.token or "divider")
+    if not r then return end
+    local tex = target
+    if type(target.GetObjectType) == "function" and target:GetObjectType() ~= "Texture" then
+      tex = rules[target]
+      if not tex and type(target.CreateTexture) == "function" then
+        tex = target:CreateTexture(nil, "ARTWORK")
+        if type(tex) == "table" and tex.SetAllPoints then tex:SetAllPoints(target) end
+        rules[target] = tex
+      end
+    end
+    if type(tex) == "table" and type(tex.SetColorTexture) == "function" then tex:SetColorTexture(r, g, b, a) end
+  end
+  -- The flat button (modules/BrowserWidgets.lua B.MakeFlatButton) as it was drawn before the skin
+  -- engine: the WHITE8X8 box, a white label, gold under the pointer, the mark at .85.
+  local WHITE = "Interface\\Buttons\\WHITE8X8"
+  S.Button = function(btn)
+    if type(btn) ~= "table" or type(btn.SetBackdrop) ~= "function" then return end
+    btn:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
+                      insets = { left = 1, right = 1, top = 1, bottom = 1 } })
+    btn:SetBackdropColor(color("btn.bg"))
+    btn:SetBackdropBorderColor(color("btn.border"))
+    local fs = rawget(btn, "text")
+    if type(fs) == "table" and fs.SetTextColor then fs:SetTextColor(NS.SkinColor("btn.text")) end
+    local icon = rawget(btn, "icon")
+    if type(icon) == "table" and icon.SetVertexColor then icon:SetVertexColor(NS.SkinColor("btn.icon")) end
+    if type(btn.HookScript) == "function" and type(fs) == "table" and fs.SetTextColor then
+      btn:HookScript("OnEnter", function() fs:SetTextColor(NS.SkinColor("btn.hover")) end)
+      btn:HookScript("OnLeave", function() fs:SetTextColor(NS.SkinColor("btn.text")) end)
+    end
   end
   S.GetPanelColor = function() return color("win.bg") end
   S.GetFont = function() return STANDARD_TEXT_FONT end

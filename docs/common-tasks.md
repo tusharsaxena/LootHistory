@@ -164,11 +164,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
-  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:322`,
+  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:335`,
   `:328`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:290` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:303` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -244,9 +244,10 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   font objects (and `STANDARD_TEXT_FONT` for the degraded close glyph in `core/CoreSetup.lua`);
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
-  `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:64`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
-  `SKIN` table carries only the tab colors and layout heights.
+  `WHITE8X8` drawn as 1px edges, colored from the player's skin through `B:ApplySkin`’s hand-off
+  to the skin's Shell (`modules/Browser.lua:66`, `core/SkinSetup.lua`; Ka0s Default is
+  `Core.SKIN`, and the library-absent arm is `core/CoreSetup.lua`'s copy, reading the host copy of
+  those tokens); `modules/Browser.lua:13`’s own `SKIN` table carries only the layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
   (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
 - **Twenty-four hard-coded `Interface\` paths remain, and each one is in a class named right here**
@@ -263,7 +264,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 
   | # | Class | Where |
   |---|---|---|
-  | 7 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:223`, `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:95`, `:1191`, `modules/Export.lua:346`, `modules/Timeline.lua:25` |
+  | 7 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:229`, `core/SkinSetup.lua:184` (the degraded facade's flat button), `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:95`, `:1191`, `modules/Timeline.lua:25` |
   | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:120`, `:326`, `:327`, `:1168`, `:1169`, `modules/HoldingsTab.lua:304`, `:305`, `:428`, `:429`, `settings/Panel.lua:541`, `:542`, `:543` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:139` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
@@ -288,10 +289,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   resolved a path and `settings/Schema.lua` has built its rows. **The fallback is a real client
   font**: `SetFont` accepts a path to a file that is not there, fails to load it, and the text
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
-- **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
-  only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:14`) that now belongs at the LibKa0s seam, not a
-  gap to close now.
+- **No LSM media pickers, by design.** There is no per-surface font/texture/border setting, and
+  this addon uses LSM only for the registration above (no `Fetch`/`List`). The look is
+  user-configurable as a whole instead: the Appearance tab picks a skin, and `LibKa0s-Skin-1.0`
+  resolves that skin's faces and art itself (core/SkinSetup.lua). That is the LibKa0s seam the
+  old post-1.0.0 TODO in `modules/Browser.lua` pointed at; the History window's chrome reads it
+  since LH-02.
 
 ### Options UI: Blizzard canvas, never AceConfigDialog
 

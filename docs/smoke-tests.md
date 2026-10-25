@@ -23,7 +23,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 42 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking) |
+| HIST-1 to 43 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome on the skin |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 22 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block |
@@ -878,6 +878,24 @@ History window, and the copy window opened from Export draws over both. Result: 
 **HIST-42. The row menu stays on screen (LH-ZS, LOO-Z08).** Drag the History window down until its
 last rows sit at the bottom edge of the screen and right-click the lowest row → the whole menu is on
 screen (pushed up if needed), on History and on Holdings. Result: pass (owner, 2026-10-24)
+
+**HIST-43. The window chrome follows the skin (LH-02; SK-LH-WINDOW, SK-01, SK-03).** On **Ka0s
+Default**, `/lh show` and open **Export** from the filter bar → both windows look exactly as before
+the skinning run: the dark window with its black edge and gray inner line, the gold title, the gray
+line under the title bar, the gray close mark (red under the pointer), the gold active tab with its
+gold underline and gray idle tabs, the dropdowns and Search box, the four bar buttons (white words,
+gold under the pointer, each tooltip), the gray footer lines, and in Export the gold **Export
+History** title, the Data Set dropdown and **Export to CSV** with its spreadsheet mark. With both
+windows open, pick **Obsidian** on Settings → General → **Appearance** → with no reload, every one of
+those surfaces repaints in Obsidian's colors (the window, both titles, the title-bar line, the close
+mark, the tabs and underline, the dropdowns and Search box, the bar buttons and their hover, the
+footer, the Export modal and its button); click another tab and back → the tabs keep the new colors.
+Walk the other seven skins (Azeroth, Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW
+Forever) the same way: the title stays centered, every word stays readable, nothing moves. Pick
+**Ka0s Default** again → the first look comes back exactly. The History table, Insights, Timeline and
+Holdings repaint in later items (LH-03, LH-04), so their look is not part of this check. Fail: a
+surface that keeps the old skin until `/reload`, a missing divider line under the title bar, a
+changed look on Ka0s Default, or a Lua error. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1978,5 +1996,5 @@ layering run passed (LH-KB, LH-RV3, LH-LY and LH-ZS: PANEL-3, PANEL-5, PANEL-6, 
 HIST-42, FILT-1, FILT-2 and LAUNCH-15 to LAUNCH-17), recorded on each `Result:` line as
 `pass (owner, 2026-10-24)`.
 
-Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab) and
-PANEL-22 (new, LH-01: the Appearance tab).
+Owed from the skinning run, leg 1 (2026-10-25): PANEL-3 (amended by LH-01: the eighth tab),
+PANEL-22 (new, LH-01: the Appearance tab) and HIST-43 (new, LH-02: the window chrome on the skin).

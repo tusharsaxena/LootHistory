@@ -1517,6 +1517,15 @@ Total.
 - Skin seam: another addon's copy to every Ka0s addon repaints LootHistory once
 - Skin seam: a profile switch applies the new profile's skin first, window built or not
 
+### test_skin_chrome.lua (6)
+
+- skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
+- skin chrome: every surface is painted for this addon's owner, so a switch reaches it
+- skin chrome: a flat button is white at rest and gold under the pointer, its tip in gtip.body
+- skin chrome: a skin switch repaints every chrome surface live, and Ka0s Default puts it back
+- skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
+- skin chrome: the degraded facade draws the flat button and the divider today's way
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -2029,6 +2038,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 9 |
+| test_skin_chrome.lua | 6 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 37 |
@@ -2056,4 +2066,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1742** |
+| **Total** | **1748** |

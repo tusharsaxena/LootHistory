@@ -220,3 +220,52 @@ B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
 }
+
+-- ── The flat button (LH-02) ────────────────────────────────────────────────────────────────────
+--
+-- The one small text button this addon's windows wear: the filter bar's Export / Clear / Save /
+-- Reset (modules/BrowserFilterBar.lua) and the export modal's Export to CSV (modules/Export.lua).
+-- It was two copies of one function until the skin engine; both now build here and are painted by
+-- the skin's Button primitive (NS.Skin.Button, LibKa0s-Skin-1.0), which draws the box, the label
+-- and the mark from the `btn.*` tokens and follows a skin switch with no reload. On Ka0s Default
+-- that is the box the two copies drew: the WHITE8X8 backdrop at edgeSize 1 with 1px insets, the
+-- .1/.1/.12/.9 fill, the .24/.24/.27/.9 edge, a white label that turns gold under the pointer and
+-- the mark at .85. The library pins that paint against the old makeBarButton
+-- (tests/test_skin_paint_controls.lua, upstream).
+--
+-- `opts.icon` is a catalog name and OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
+-- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather than
+-- off-center (docs/browser.md). `opts.tooltip` explains the ACTION, anchored to the whole button.
+--
+-- The scripts are set BEFORE the primitive runs: it HookScripts its hover pair, and a SetScript
+-- after it would replace the hook. Its label is `b.text`, the field the primitive reads.
+function B.MakeFlatButton(parent, text, width, height, onClick, opts)
+  opts = opts or {}
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  b:SetSize(width, height)
+  local path = opts.icon and NS.Icon and NS.Icon(opts.icon)
+  if path then
+    local tex = b:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(14, 14)
+    tex:SetPoint("LEFT", 10, 0)
+    tex:SetTexture(path)
+    b.icon = tex
+  end
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetPoint("CENTER")
+  fs:SetText(text)
+  b.text = fs
+  local tooltip = opts.tooltip
+  if tooltip then
+    b:SetScript("OnEnter", function(self2)
+      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+      local r, g, bl = NS.SkinColor("gtip.body")
+      GameTooltip:AddLine(tooltip, r, g, bl, true)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  b:SetScript("OnClick", onClick)
+  NS.Skin.Button(b)
+  return b
+end

@@ -88,6 +88,10 @@ local SUITES = {
   -- tab's place and one pick's single repaint. After the panel suites, which build the page; before
   -- test_profiles, and it leaves the harness on `Default` and the skin on Ka0s Default.
   "test_skinsetup",
+  -- The History window's and the export modal's chrome on the skin (LH-02): Ka0s Default draws
+  -- today's values, a switch repaints live. Builds fresh windows under the kit's paint recorder and
+  -- puts the session's back; leaves the skin on Ka0s Default.
+  "test_skin_chrome",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",
