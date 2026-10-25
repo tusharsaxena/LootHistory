@@ -38,7 +38,7 @@ local LIB_FILES = {
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
   -- New in v1.78.0: LibKa0s-Skin-1.0, the skin engine (Skin 4) and its seven paired files, in XML
-  -- order: the nine skins (SkinDefs 4), the paint primitives (SkinPaint 2, SkinPaintExtras 1,
+  -- order: the nine skins (SkinDefs 5), the paint primitives (SkinPaint 2, SkinPaintExtras 1,
   -- SkinPaintControls 1), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 1).
   -- Loading them builds no frame, timer or event until a host calls Skin:RegisterOwner.
   "libs/LibKa0s/Skin.lua",
