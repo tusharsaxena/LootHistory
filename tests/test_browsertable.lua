@@ -59,7 +59,7 @@ test("BrowserTable: each legend lock is tinted, and sits on its own line", funct
     assertTrue(line:find(":14:14:0:0:", 1, true) ~= nil,
       "legend line " .. i .. " carries a nonzero offset: " .. line)
   end
-  -- Bind on Pickup is BOUND_STYLE.BOP = {0.30, 0.82, 0.42} -> 77, 209, 107.
+  -- Bind on Pickup is sem.boundBoP (through BOUND_TOKEN.BOP) = {0.30, 0.82, 0.42} -> 77, 209, 107.
   assertTrue(lines[3]:find(":77:209:107|t - Bind on Pickup", 1, true) ~= nil,
     "the Bind on Pickup lock is not tinted green: " .. lines[3])
   -- Two states, two different tints: one shared white would be the bug wearing a new face.
