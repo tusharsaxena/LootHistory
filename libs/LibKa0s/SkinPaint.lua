@@ -36,9 +36,12 @@
 --     two, both SetAllPoints over the target. EDGES (borders, the divider line, a tab's underline,
 --     a row's selection outline) go on the holder one frame level ABOVE the target. FILLS AND
 --     WASHES (list-row stripe, hover and selection washes, the strip and cover washes, the extras'
---     fills and gradients) go on the fill holder one level BELOW it (never below 0), the
---     BackdropTemplate idiom: a region of a higher frame draws over every region of a lower one,
---     whatever its layer, so a fill above the target would bury the target's own text.
+--     fills and gradients) are the one exception since minor 7: regions of the target itself at
+--     the bottom sublevels of BACKGROUND (P.SUB), under every region the target draws. A fill
+--     holder one level below the target tied the target's PARENT whenever the target sat one level
+--     above it, and the client draws two frames of one level in either order. Such a region is
+--     made through P.subTex, which puts its alpha back to 1 on every paint: an EllesmereUI fade
+--     while EllesmereUI painted the frame (Ka0s's regions hidden by then) is undone on the way back.
 --   * SetBackdrop only on the target or the holder, and a target is passed by the library or the
 --     owner that created it: never hand a primitive a Blizzard frame you did not create.
 --   * Gradients are SetGradient on a white color texture; fonts go through one FontObject per owner
@@ -80,7 +83,13 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- look wherever it set no token. It now sets every token (SkinDefs minor 8) and paints from them
 -- like every other skin (the owner's ruling, 2026-10-26: "make sure even the Ka0s Default has a
 -- setting for everything").
-local PAINT_MINOR = 6
+-- Minor 7: a fill or wash meant to sit under a target's own regions is a region OF the target, at the
+-- bottom sublevels of BACKGROUND (P.SUB), no longer on the fill holder one frame level down. The holder
+-- could not sit below a target one level above its parent: it landed on the parent's level, and the
+-- client may draw either of two frames at one level first, so a window's backdrop covered its title
+-- bar's fill (Loot History's bar on Azeroth, the owner's probe, 2026-10-27). A target always draws
+-- after its parent. P.under stays, for a sibling file's older copy.
+local PAINT_MINOR = 7
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -272,9 +281,22 @@ end
 --- The record's holder, for edges: a child frame over the target, one frame level up, made once.
 function P.holder(rec, frame) return holderAt(rec, frame, "holder", 1) end
 
---- The record's fill holder, for fills and washes: a child frame over the target, one frame level
---- down (never below 0), made once, so what it draws sits under every region of the target.
+--- The record's fill holder: a child frame over the target, one frame level down (never below 0),
+--- made once. Kept for a sibling file's older copy; since minor 7 nothing here draws on it (P.SUB).
 function P.under(rec, frame) return holderAt(rec, frame, "under", -1) end
+
+--- The BACKGROUND sublevels a fill or wash takes as a region of its target, under every region the
+--- target draws itself (a host's own art starts at sublevel 0, and -8 is the client's floor): the
+--- fill, then a gradient over it; a list row's stripe, hover and selection, stacked in that order.
+P.SUB = { fill = -8, grad = -7, stripe = -8, hover = -7, sel = -6, wash = -8 }
+
+--- The region `key` of the record as a texture of `frame` itself at BACKGROUND `sublevel`, made once,
+--- its alpha put back to 1 (a fader that does not know Ka0s's regions may have faded it).
+function P.subTex(rec, key, frame, sublevel)
+  local t = P.tex(rec, key, frame, "BACKGROUND", sublevel)
+  if t and type(t.SetAlpha) == "function" then t:SetAlpha(1) end
+  return t
+end
 
 --- One texture region of the record, made once on `parent`.
 function P.tex(rec, key, parent, layer, sublevel)
@@ -607,23 +629,18 @@ function P.backdrop(rec, frame, fill, border, size, insets)
   frame:SetBackdropBorderColor(rgba(border or CLEAR))
 end
 
-local function boxFillParent(rec, frame, spec)
-  if spec.extra then return P.under(rec, frame) end
-  return frame
-end
 
 local function hasGradient(T, base) return base and T[base .. "Top"] and T[base .. "Bottom"] and true end
 
--- The gradient a backdrop cannot draw, over its fill: a region of the target (a primitive of
--- EllesmereUI's vocabulary), or of the fill holder (a Ka0s extra, whose backdrop fill is then
--- cleared: the gradient, drawn under the target, is the fill).
+-- The gradient a backdrop cannot draw, over its fill: a region of the target, over its fill (a
+-- primitive of EllesmereUI's vocabulary), or at P.SUB.grad under everything the target draws (a Ka0s
+-- extra, whose backdrop fill is then cleared: the gradient is the fill).
 local function boxGradient(rec, frame, T, spec)
   local base = spec.fill
   if not hasGradient(T, base) then return P.hide(rec, "grad") end
-  local parent = boxFillParent(rec, frame, spec)
-  local t = P.tex(rec, "grad", parent, "BACKGROUND", 1)
+  local t = spec.extra and P.subTex(rec, "grad", frame, P.SUB.grad) or P.tex(rec, "grad", frame, "BACKGROUND", 1)
   if not t then return end
-  t:SetAllPoints(parent)
+  t:SetAllPoints(frame)
   P.fill(rec, t, T, base)
 end
 
@@ -638,20 +655,20 @@ local function boxTokens(T, spec, opts)
   return fill, border, style, size, style == "flat"
 end
 
--- A box on a frame with no backdrop: the fill as a region (of the target, or the fill holder for
--- an extra), the border on the holder.
+-- A box on a frame with no backdrop: the fill as a region of the target (at P.SUB.fill, under
+-- everything it draws, for an extra), the border on the holder.
 local function regionBox(rec, frame, T, spec, border, style, size)
-  local parent = boxFillParent(rec, frame, spec)
-  local t = spec.fill and P.tex(rec, "fill", parent, "BACKGROUND", 0)
+  local t = spec.fill and (spec.extra and P.subTex(rec, "fill", frame, P.SUB.fill)
+    or P.tex(rec, "fill", frame, "BACKGROUND", 0))
   if t then
-    t:SetAllPoints(parent)
+    t:SetAllPoints(frame)
     P.fill(rec, t, T, spec.fill)
   end
   P.edges(rec, frame, border, style, size)
 end
 
 --- Paint a box: `spec` names the fill, border, style and size tokens (`extra` true for a Ka0s
---- extra, whose fill regions go on the fill holder; `insets` false for a menu's backdrop). A frame with
+--- extra, whose fill regions sit under the target's own (P.SUB); `insets` false for a menu's backdrop). A frame with
 --- a backdrop wears the flat-control backdrop; a non-flat border goes on the holder. A spec whose
 --- fill and border both resolve to nil leaves the frame alone, and puts back a backdrop a previous
 --- skin set.

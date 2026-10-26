@@ -8,10 +8,9 @@
 -- SkinPaint.lua's helpers (`lib.__P`), so it attaches only when that file attached to the same
 -- shell. The technique, the holder rule and the Ka0s Default rule are SkinPaint.lua's header.
 --
--- Every extra's overlay goes on one of the target's holders (fills and washes on the fill holder
--- under the target's text, edges and lines on the holder over it) or, for a frame that wears a
--- backdrop, into that backdrop: never as a direct region of a frame that may reach an EllesmereUI
--- primitive.
+-- Every extra's edges and lines go on the holder over the target, its fills and washes are regions
+-- of the target under everything it draws (P.SUB, P.subTex), and a frame that wears a backdrop
+-- takes its fill in that backdrop.
 -- No primitive here draws a LibKa0s-Media icon.
 
 local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
@@ -20,7 +19,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 
 -- Minor 2 (the owner's notes, round 2): Footer, Card and Cover give the strings they color the
 -- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
-local EXTRAS_MINOR = 2
+-- Minor 3: a wash is a region of its frame at the bottom of BACKGROUND (SkinPaint minor 7's P.SUB),
+-- not of the fill holder, which could tie the frame's parent for frame level.
+local EXTRAS_MINOR = 3
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -60,7 +61,7 @@ local function justify(rec, fs, align)
 end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
---- gradient), the bar's backdrop when it has one, else on the fill holder under the text; its text (`opts.text`, else
+--- gradient), the bar's backdrop when it has one, else a region of the bar under its text; its text (`opts.text`, else
 --- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Draws no Media
 --- icon.
 prim.TitleBar = function(owner, bar, opts)
@@ -121,8 +122,8 @@ prim.Card = function(owner, frame, opts)
   if P.isFS(opts.text) then P.label(owner, rec, opts.text, T, "text.body") end
 end
 
--- A wash: a texture colored in place, or a region of the fill holder filling a frame (under the
--- frame's own text).
+-- A wash: a texture colored in place, or a region of a frame filling it, under the frame's own text
+-- and art (P.SUB.wash).
 local function wash(owner, target, name, token, opts)
   if type(target) ~= "table" then return nil end
   local rec = P.track(owner, target, name, opts)
@@ -131,20 +132,19 @@ local function wash(owner, target, name, token, opts)
     if c then target:SetColorTexture(rgba(c)) end
     return rec
   end
-  local h = c and P.under(rec, target)
-  local t = h and P.tex(rec, "wash", h, "BACKGROUND")
+  local t = c and P.subTex(rec, "wash", target, P.SUB.wash)
   if not t then
     P.hide(rec, "wash")
     return rec
   end
-  t:SetAllPoints(h)
+  t:SetAllPoints(target)
   t:SetColorTexture(rgba(c))
   t:Show()
   return rec
 end
 
 --- S.Strip(target, opts): the test / simulation strip's wash, `strip.test` or `strip.sim`
---- (`opts.kind`), on a texture in place (`W.TestStrip`'s fill) or on a frame's fill holder. The strip's
+--- (`opts.kind`), on a texture in place (`W.TestStrip`'s fill) or as a region of a frame. The strip's
 --- meaning colors are the library's; a skin changes only their legibility. Draws no Media icon.
 prim.Strip = function(owner, target, opts)
   local kind = type(opts) == "table" and opts.kind == "sim" and "sim" or "test"

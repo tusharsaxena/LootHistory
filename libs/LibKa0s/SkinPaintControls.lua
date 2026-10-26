@@ -6,8 +6,8 @@
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: part of the same
 -- major, paired on the shell's minor (`__controlsMinor` / `__controlsShellMinor`), painting with
 -- SkinPaint.lua's helpers (`lib.__P`). The technique is SkinPaint.lua's header: stock art faded and
--- recorded, Ka0s regions made once per target, Ka0s Default leaving a stock control stock, every
--- border on the holder and every wash on the fill holder under the target's text.
+-- recorded, Ka0s regions made once per target, every border on the holder and every wash a region
+-- of the target under its text and art (P.SUB).
 --
 -- HOVER AND FOCUS are HookScript'd once per target and read the target's record at call time, so a
 -- skin switch recolors them with no new hook and a pooled control that moved to another owner
@@ -31,7 +31,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- host-drawn shape, with no box round it.
 -- Minor 4: ScrollBar paints its own thumb and track under Ka0s Default too (SkinPaint minor 6: no
 -- skin leaves a stock control stock).
-local CONTROLS_MINOR = 4
+-- Minor 5: ListRow's washes are regions of the row at the bottom of BACKGROUND (SkinPaint minor 7's
+-- P.SUB), not of the fill holder, which could tie the row's parent for frame level.
+local CONTROLS_MINOR = 5
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -633,16 +635,15 @@ end
 local ROW_STATE = { stripe = { stripe = true }, hover = { hover = true }, selected = { selected = true },
                     normal = {} }
 
-local function rowWash(rec, row, key, c, layer)
-  local h = c and P.under(rec, row)
-  local t = h and P.tex(rec, key, h, layer)
+local function rowWash(rec, row, key, c)
+  local t = c and P.subTex(rec, key, row, P.SUB[key])
   if not t then return P.hide(rec, key) end
-  t:SetAllPoints(h)
+  t:SetAllPoints(row)
   t:SetColorTexture(rgba(c))
   t:Show()
 end
 
---- S.ListRow(row, state): a list row's washes, on its fill holder under the row's text:
+--- S.ListRow(row, state): a list row's washes, regions of the row under its text and art:
 --- `list.stripe` when `state.stripe`, `list.hover` when `state.hover`, `list.sel` when
 --- `state.selected`, with a `list.selOutline` edge on the holder over it.
 --- `state` is a table or one of "stripe", "hover", "selected", "normal". Call it from the row's
@@ -652,8 +653,8 @@ prim.ListRow = function(owner, row, state)
   local rec = P.track(owner, row, "ListRow", state)
   local s = type(state) == "table" and state or ROW_STATE[state] or ROW_STATE.normal
   local T = P.T(owner)
-  rowWash(rec, row, "stripe", s.stripe and T["list.stripe"] or nil, "BACKGROUND")
-  rowWash(rec, row, "hover", s.hover and T["list.hover"] or nil, "BORDER")
-  rowWash(rec, row, "sel", s.selected and T["list.sel"] or nil, "BORDER")
+  rowWash(rec, row, "stripe", s.stripe and T["list.stripe"] or nil)
+  rowWash(rec, row, "hover", s.hover and T["list.hover"] or nil)
+  rowWash(rec, row, "sel", s.selected and T["list.sel"] or nil)
   P.edges(rec, row, s.selected and T["list.selOutline"] or nil, "flat", 1)
 end
