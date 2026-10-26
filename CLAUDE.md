@@ -48,7 +48,9 @@ touching code:
 
 ## Green gate
 
-Run `lua tests/run.lua` and `luacheck .` (0/0) before every commit; in-game checks are in
+Run `lua tests/run.lua` and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (0/0; the
+kit bounds the suite on load, and `luacheck` loads no kit, so it runs through the bounded
+runner, testing-§15) before every commit; in-game checks are in
 [docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Vendored LibKa0s
