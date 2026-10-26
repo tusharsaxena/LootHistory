@@ -1555,13 +1555,14 @@ Total.
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
 
-### test_skin_settings.lua (7)
+### test_skin_settings.lua (8)
 
 - skin settings: under a non-default skin the panel's own widgets paint, past the proxy
 - skin settings: a release hands every painted widget back stock, the pool clean
 - skin settings: under Ka0s Default the panel's own widgets paint like every skin's
 - skin settings: the AH placeholder's cleanup rides the release chain and still parks the host
 - skin settings: the AH table's held check boxes are painted on Ka0s Default and follow a switch
+- skin settings: Ignore settings panel hands the held check boxes back stock, live
 - skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
@@ -2095,7 +2096,7 @@ Total.
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
-| test_skin_settings.lua | 7 |
+| test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 6 |
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
@@ -2125,4 +2126,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1787** |
+| **Total** | **1788** |

@@ -74,11 +74,10 @@ lib.APPEARANCE_STRINGS = {
   SCOPE_HEADING  = "Scope",
   IGNORE_PANEL   = "Ignore settings panel",
   IGNORE_PANEL_TIP = "Keep this addon's settings panel in the game's own look. Its windows still " ..
-                   "wear the skin. Turning this on after the panel was skinned needs a reload.",
+                   "wear the skin.",
   IGNORE_FONTS   = "Ignore fonts",
   IGNORE_FONTS_TIP = "Keep every font in this addon as the game draws it, face and size. The skin " ..
                    "still colors the text.",
-  RELOAD_PANEL   = "%s needs a reload to show its settings panel without the skin.",
   COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source, " ..
                    "skin and scope. You are asked first.",
   COPY_NONE      = "No other loaded Ka0s addon uses skins yet.",
@@ -163,11 +162,10 @@ local function showPopup(which, def, a1, a2, data)
   return true
 end
 
---- The reload popup for `label` (an addon label, or several joined), worded by `S`: its RELOAD, or
---- the line `text` names (RELOAD_PANEL for the settings panel). Internal.
-function lib.__appearanceReload(S, label, text)
-  return showPopup(RELOAD_POPUP, { text = text or S.RELOAD, button1 = S.RELOAD_ACCEPT,
-                                   button2 = S.RELOAD_LATER, OnAccept = reloadUI }, label)
+--- The reload popup for `label` (an addon label, or several joined), worded by `S`. Internal.
+function lib.__appearanceReload(S, label)
+  return showPopup(RELOAD_POPUP, { text = S.RELOAD, button1 = S.RELOAD_ACCEPT, button2 = S.RELOAD_LATER,
+                                   OnAccept = reloadUI }, label)
 end
 
 --- The copy confirmation: `run` on accept, the other owners' labels listed. Internal.
@@ -301,26 +299,22 @@ function lib.__AttachAppearance(O, d)
     local reloads = {}
     for _, name in ipairs(names) do
       local _, reload = Skin:SetChoice(name, source, skin)
-      local _, panelReload = false, false
-      if type(Skin.SetIgnore) == "function" then
-        _, panelReload = Skin:SetIgnore(name, ignore.panel, ignore.fonts)
-      end
+      if type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end
       Skin:WriteChoice(name, source, skin, ignore)
-      if reload or panelReload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
+      if reload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
     end
     if #reloads > 0 then lib.__appearanceReload(view.S, table.concat(reloads, ", ")) end
   end
 
-  --- Move this owner's scope to (panel, fonts): the Skin major first, then the owner's write seam,
-  --- then the reload popup SetIgnore asks for. Refused in combat, as every settings write is.
+  --- Move this owner's scope to (panel, fonts): the Skin major first (live, no reload), then the
+  --- owner's write seam. Refused in combat, as every settings write is.
   local function setScope(view, panel, fonts)
     if O.__combatRefused and O.__combatRefused("appearance", view.owner) then return end
-    local _, reload = view.Skin:SetIgnore(view.owner, panel, fonts)
+    view.Skin:SetIgnore(view.owner, panel, fonts)
     if type(view.spec.set) == "function" then
       local ok, err = pcall(view.spec.set, nil, nil, { panel = panel == true, fonts = fonts == true })
       if not ok then report(err) end
     end
-    if reload then lib.__appearanceReload(view.S, view.label, view.S.RELOAD_PANEL) end
   end
 
   --- One check box in `group`: `onToggle(value)` runs when the player flips it.

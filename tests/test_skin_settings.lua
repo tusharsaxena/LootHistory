@@ -179,6 +179,27 @@ test("skin settings: the AH table's held check boxes are painted on Ka0s Default
   if not ok then error(err, 0) end
 end)
 
+test("skin settings: Ignore settings panel hands the held check boxes back stock, live", function()
+  -- LibKa0s SkinAce minor 3: a refused PaintAce restores a widget this owner painted. These boxes
+  -- are held for the session, so nothing re-acquires them. red under: a PaintAce that only refuses.
+  reset()
+  local ctx = NS.Panel.general
+  local ok, err = pcall(function()
+    PS.clickTab(mocks.__subcategories["General"], ctx, PS.tabAt("AH price"))
+    PS.homeTab(ctx)
+    NS.ApplySkinChoice("ka0s", "obsidian")
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted first") end
+    NS.ApplySkinIgnore(true, nil)
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), nil, "stock with the panel ignored") end
+    NS.ApplySkinIgnore(false, nil)
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted again") end
+  end)
+  NS.ApplySkinIgnore(false, false)
+  PS.homeTab(ctx)
+  reset()
+  if not ok then error(err, 0) end
+end)
+
 -- ── the Profiles page ───────────────────────────────────────────────────────────────────────────
 
 --- Build the Profiles page over stub AceConfig libraries whose Open draws one raw CheckBox into the

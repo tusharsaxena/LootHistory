@@ -411,10 +411,9 @@ end
 
 --- Set `owner`'s exceptions; nil keeps that half. Never writes the host's profile (WriteChoice's
 --- third argument does). A change repaints every frame recorded for the owner and fires its
---- OnLooksChanged listeners, so fonts go back or come back live, and settings pages re-render.
---- Answers changed, reload: `reload` is true when ignorePanel turns on after the owner's settings
---- panel was painted this session, whose chrome cannot be handed back in place (the next load draws
---- it stock); the caller raises its reload popup.
+--- OnLooksChanged listeners, so both apply live: fonts go back or come back, and the Options
+--- instance hands its chrome back as it was and re-renders its pages (OptionsScroll minor 7).
+--- Answers changed, reload; `reload` is always false (kept so a caller's two-value read holds).
 function lib:SetIgnore(owner, panel, fonts)
   requireOwner(owner, "SetIgnore")
   local o = self.owners[owner]
@@ -422,23 +421,19 @@ function lib:SetIgnore(owner, panel, fonts)
   if panel == nil then panel = o.ignorePanel == true else panel = panel == true end
   if fonts == nil then fonts = o.ignoreFonts == true else fonts = fonts == true end
   if panel == (o.ignorePanel == true) and fonts == (o.ignoreFonts == true) then return false, false end
-  local reload = panel and not o.ignorePanel and o.panelPainted == true
   o.ignorePanel, o.ignoreFonts = panel, fonts
   if not o.pendingReload then
     self:Repaint(owner)
     notify(o)
   end
-  return true, reload
+  return true, false
 end
 
 --- True while `owner`'s settings panel is to be painted (a registered owner whose ignorePanel is
---- off); the Options chrome and the AceGUI rows ask it before they paint, and a true answer records
---- that the panel was painted this session (SetIgnore's reload answer). Internal.
+--- off); the Options chrome and the AceGUI rows ask it before they paint. Internal.
 function lib:__PanelSkinned(owner)
   local o = self.owners[owner]
-  if not o or o.ignorePanel then return false end
-  o.panelPainted = true
-  return true
+  return o ~= nil and not o.ignorePanel
 end
 
 --- True when `owner` ignores fonts: P.font gives every string back its own face. Internal.

@@ -24,8 +24,9 @@ if not lib then return end
 -- back stock and a re-acquire paints it in the new skin (LK-08 of the skinning run).
 -- Minor 7: the chrome paints nothing while the owner ignores its settings panel (LibKa0s-Skin-1.0
 -- minor 5's __PanelSkinned); the instance's listener is still installed from the owner's facade,
--- so turning the exception off re-renders the open pages in the skin. And a page's backdrop is never
--- the page itself, which a bare CreateTexture stub answers.
+-- so turning the exception off re-renders the open pages in the skin, and turning it on hands every
+-- chrome target the owner's skin painted back as it was (lib.__chromeRelease): no reload. And a
+-- page's backdrop is never the page itself, which a bare CreateTexture stub answers.
 local SCROLL_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
@@ -278,19 +279,50 @@ function lib.__chromeGiveBack(target)
   if Skin and type(Skin.painted) == "table" and Skin.painted[target] and type(Skin.Untrack) == "function" then
     Skin:Untrack(target)
   end
+  lib.__chromeTargets[target] = nil
+end
+
+-- Every chrome target a skin painted, and for which owner (weak): what lib.__chromeRelease hands back.
+lib.__chromeTargets = lib.__chromeTargets or setmetatable({}, { __mode = "k" })
+
+--- Put `target` back as it was before the skin painted it, from the Skin major's record (its saved
+--- alpha, fonts, colors and backdrop; every Ka0s region hidden), and forget it. Minor 7.
+function lib.__chromeUnpaint(target)
+  local Skin = skinMajor()
+  local P = Skin and Skin.__P
+  local rec = Skin and type(Skin.painted) == "table" and Skin.painted[target]
+  if rec and P and type(P.unpaint) == "function" then pcall(P.unpaint, rec, target) end
+  lib.__chromeGiveBack(target)
+end
+
+--- Hand back every chrome target `owner`'s skin painted: the panel exception turned on (minor 7).
+function lib.__chromeRelease(owner)
+  local mine = {}
+  for target, o in pairs(lib.__chromeTargets) do
+    if o == owner then mine[#mine + 1] = target end
+  end
+  for _, target in ipairs(mine) do lib.__chromeUnpaint(target) end
 end
 
 --- Paint `target` with primitive `prim` of `owner`'s facade (`opts` its argument) when `owner` is a
---- registered skin owner; otherwise give the target back (lib.__chromeGiveBack). Answers the facade
+--- registered skin owner; otherwise give the target back: as it was, when this owner's skin painted
+--- it and the owner now ignores its panel (minor 7), else lib.__chromeGiveBack. Answers the facade
 --- or nil. A primitive the loaded Skin copy lacks paints nothing.
 function lib.__chromePaint(owner, prim, target, opts)
   local S = lib.__chromeSkin(owner)
   if not S then
-    lib.__chromeGiveBack(target)
+    if lib.__chromeTargets[target] == owner and ownerFacade(owner) then
+      lib.__chromeUnpaint(target)
+    else
+      lib.__chromeGiveBack(target)
+    end
     return nil
   end
   local fn = S[prim]
-  if type(fn) == "function" then fn(target, opts) end
+  if type(fn) == "function" then
+    fn(target, opts)
+    lib.__chromeTargets[target] = owner
+  end
   return S
 end
 
@@ -299,34 +331,63 @@ end
 --- it), and, away from Ka0s Default only, an opaque backdrop from `win.bg` at full alpha under
 --- everything the page draws, so a light skin stays legible over the client's settings window. A
 --- texture rather than S.Panel, which would draw on Ka0s Default too.
-local function paintPage(owner, panel)
-  local S = lib.__chromeSkin(owner)
-  if not S then return end
-  if panel.title then S.Text(panel.title, "title") end
+--- Put a page's header and backdrop back as the client drew them (minor 7): the title from its
+--- record, the divider's own tint, the backdrop hidden.
+local function unpaintPage(panel)
+  if panel.title then lib.__chromeUnpaint(panel.title) end
+  local div, prior = panel.divider, panel.__ka0sDividerPrior
+  if div and div.SetVertexColor and prior then div:SetVertexColor(prior[1], prior[2], prior[3], prior[4]) end
+  local bg = panel.__ka0sSkinBg
+  if bg then bg:Hide() end
+end
+
+--- The divider atlas tinted `title.text`, its own tint recorded the first time (unpaintPage's).
+local function tintDivider(S, panel)
   local div = panel.divider
   local r, g, b = S.Color("title.text")
-  if div and div.SetVertexColor and r then div:SetVertexColor(r, g, b) end
-  local bg = panel.__ka0sSkinBg
-  local away = lib.__chromeAway(owner)
-  local br, bgG, bb = S.Color("win.bg")
-  if away and br then
-    if not bg and panel.CreateTexture then
-      bg = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
-      -- A bare stub answers the frame itself (SkinPaint's P.tex refuses the same): never keep the
-      -- page as its own backdrop, whose Show and Hide would show and hide the page (minor 7).
-      if bg == panel then bg = nil end
-      if bg then
-        bg:SetAllPoints(panel)
-        panel.__ka0sSkinBg = bg
-      end
-    end
-    if bg then
-      bg:SetColorTexture(br, bgG, bb, 1)
-      bg:Show()
-    end
-  elseif bg then
-    bg:Hide()
+  if not (div and div.SetVertexColor and r) then return end
+  if not panel.__ka0sDividerPrior and div.GetVertexColor then
+    panel.__ka0sDividerPrior = { div:GetVertexColor() }
   end
+  div:SetVertexColor(r, g, b)
+end
+
+--- The page's opaque `win.bg` backdrop, made once; hidden when the owner's skin draws none.
+local function pageBackdrop(owner, S, panel)
+  local bg = panel.__ka0sSkinBg
+  local br, bgG, bb = S.Color("win.bg")
+  if not (lib.__chromeAway(owner) and br) then
+    if bg then bg:Hide() end
+    return
+  end
+  if not bg and panel.CreateTexture then
+    bg = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
+    -- A bare stub answers the frame itself (SkinPaint's P.tex refuses the same): never keep the
+    -- page as its own backdrop, whose Show and Hide would show and hide the page (minor 7).
+    if bg == panel then bg = nil end
+    if bg then
+      bg:SetAllPoints(panel)
+      panel.__ka0sSkinBg = bg
+    end
+  end
+  if bg then
+    bg:SetColorTexture(br, bgG, bb, 1)
+    bg:Show()
+  end
+end
+
+local function paintPage(owner, panel)
+  local S = lib.__chromeSkin(owner)
+  if not S then
+    if ownerFacade(owner) then unpaintPage(panel) end
+    return
+  end
+  if panel.title then
+    S.Text(panel.title, "title")
+    lib.__chromeTargets[panel.title] = owner
+  end
+  tintDivider(S, panel)
+  pageBackdrop(owner, S, panel)
 end
 
 --- Hand an instance's `O.AceGUI` to LibKa0s-Skin-1.0's AceGUI rows (SkinAce.lua's
@@ -371,6 +432,8 @@ function lib.__AttachScroll(O, d)
   end
 
   local function onLooks()
+    -- The panel exception on: every chrome target this owner's skin painted goes back first.
+    if not lib.__chromeSkin(owner) then lib.__chromeRelease(owner) end
     for panel in pairs(pages) do pcall(paintPage, owner, panel) end
     if renderPending then return end
     local after = C_Timer and C_Timer.After

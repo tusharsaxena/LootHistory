@@ -47,8 +47,8 @@
 --   * Gradients are SetGradient on a white color texture; fonts go through one FontObject per owner
 --     and role, so a 12.0.7 client draws the font object's shadow (a runtime SetShadow* on a
 --     FontString no longer renders there).
---   * A nil token leaves the property alone, and a property a previous skin set from a nilable
---     token is put back when the new skin leaves it nil.
+--   * A nil token leaves the property alone, and a color a previous skin set is put back when the new
+--     skin leaves its token nil: every tint records the color it replaced (minor 8).
 --
 -- ── KA0S DEFAULT IS A SKIN LIKE THE OTHERS ───────────────────────────────────────────────────
 --
@@ -91,6 +91,7 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- after its parent. P.under stays, for a sibling file's older copy.
 -- Minor 8: P.font gives a string back its own face, size and shadow while its owner ignores fonts
 -- (Skin minor 5's SetIgnore, the Appearance tab's "Ignore fonts"); the skin still colors it.
+-- And Panel's nav-rail recolor saves the rail's colors first, so P.unpaint gives them back.
 local PAINT_MINOR = 8
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
@@ -152,11 +153,6 @@ function P.T(owner) return lib:__Tokens(owner) end
 --- page's skin chrome when this answers false), and an Options copy vendored beside this one may be
 --- older than the change.
 function P.isDefault() return false end
-
-local function nilable(name)
-  local e = lib.__schemaIndex and lib.__schemaIndex[name]
-  return e ~= nil and e.nilable == true
-end
 
 --- r, g, b for an opaque color, r, g, b, a otherwise: text and vertex colors, as call sites write them.
 function P.rgb(c)
@@ -365,17 +361,18 @@ function P.fadeAll(rec, regions)
   for _, r in ipairs(regions) do P.fade(rec, r) end
 end
 
---- Color `obj` (`method` "SetTextColor" or "SetVertexColor") from token `name`. A nilable token, or
---- any token on a stock target, records the prior color first, and puts it back when the token
---- resolves to nil.
+--- Color `obj` (`method` "SetTextColor" or "SetVertexColor") from token `name`. The color before the
+--- first tint is recorded (minor 8; until then only a nilable token's or a stock target's was), and
+--- put back when the token resolves to nil or the target is unpainted.
 function P.tint(rec, obj, T, name, method)
   if type(obj) ~= "table" then return end
   method = method or "SetTextColor"
   local c = T[name]
-  local keep = nilable(name) or rec.regions.stock
   local priors = saved(rec, method)
   if c then
-    if keep and priors[obj] == nil then
+    -- The color before the first tint, always (minor 8): P.unpaint gives it back when the owner
+    -- ignores its settings panel, so no tinted string keeps the skin's color.
+    if priors[obj] == nil then
       local getter = obj[(method:gsub("^Set", "Get"))]
       priors[obj] = type(getter) == "function" and { getter(obj) } or false
     end
@@ -881,7 +878,9 @@ local function panel(owner, frame, opts, name, spec)
   if P.stockDefault(owner, rec, frame, opts) then return end
   local T = P.T(owner)
   if opts.nav then
-    -- The settings nav rail keeps its own backdrop art and is recolored (OptionsNav's pane).
+    -- The settings nav rail keeps its own backdrop art and is recolored (OptionsNav's pane); its
+    -- colors are saved first, so P.unpaint can put them back (minor 8: the panel exception, live).
+    if P.hasBackdrop(frame) then saveBackdrop(rec, frame) end
     return P.recolor(frame, T["nav.bg"], T["nav.border"])
   end
   if opts.inset then spec = INSET end
