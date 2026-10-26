@@ -10,9 +10,9 @@
 -- anti-goal). So an AceGUI row is painted here, outside the frame registry, with a lifetime of
 -- exactly one acquisition:
 --
---   * PAINT at acquisition, for the page's owner, only when that owner is registered and wears a
---     skin other than Ka0s Default (Ka0s Default is stock AceGUI, as today: nothing is painted and
---     nothing is wrapped). Stock regions are FADED by alpha, prior alpha recorded; fonts, text and
+--   * PAINT at acquisition, for the page's owner, when that owner is registered, under every skin
+--     (Ka0s Default too since minor 2: it was stock AceGUI, the client's look, until the owner ruled
+--     that Ka0s Default sets and paints everything). Stock regions are FADED by alpha, prior alpha recorded; fonts, text and
 --     vertex colors and backdrops are recorded before the first change; Ka0s overlays are textures
 --     made ONCE per widget object and reused by every later acquisition.
 --   * RESTORE on release: the widget's per-instance OnRelease is wrapped (Skin:OnRelease, below) so
@@ -22,8 +22,7 @@
 --     failing restore must never keep a widget out of the pool.
 --   * NO REPAINT IN PLACE. A skin switch does not walk AceGUI rows: the Options instance re-renders
 --     its owner's open pages one frame later (OptionsScroll.lua minor 6), and a re-render releases
---     every row (restored to stock) and acquires fresh ones (painted in the new skin, or left alone
---     under Ka0s Default).
+--     every row (restored to stock) and acquires fresh ones (painted in the new skin).
 --
 -- WHERE IT IS CALLED. One choke point: `Skin.__AttachSkinAce(O, d)` wraps an Options instance's
 -- `O.AceGUI` in a proxy whose `Create(type)` calls AceGUI's own Create and then paints the widget
@@ -53,7 +52,8 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local ACE_MINOR = 1
+-- Minor 2: Ka0s Default's rows are painted too (SkinPaint minor 6).
+local ACE_MINOR = 2
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
 lib.__aceMinor      = ACE_MINOR
@@ -550,7 +550,7 @@ local function hookPullout(po)
   local function onOpen(self)
     local owner = pulloutOwner(self)
     local ok, err = pcall(function()
-      if owner and not P.isDefault(owner) then paintPullout(owner, self) else restorePullout(self) end
+      if owner then paintPullout(owner, self) else restorePullout(self) end
     end)
     if not ok then logOnce(err) end
   end
@@ -661,8 +661,8 @@ end
 
 --- Paint an AceGUI widget the host acquired for `owner`'s page: its stock regions faded and its
 --- text, fonts and backdrops in the owner's skin, restored on its next release. Paints nothing
---- (answers false) for an owner that is not registered, an owner on Ka0s Default (stock AceGUI, as
---- today), a widget type with no painter, or a widget another skinning addon already skinned.
+--- (answers false) for an owner that is not registered, a widget type with no painter, or a widget
+--- another skinning addon already skinned.
 --- Calling it again for the same owner repaints in place; for another owner, gives the widget back
 --- first. Answers true when it painted.
 function lib:PaintAce(owner, widget)
@@ -670,8 +670,8 @@ function lib:PaintAce(owner, widget)
   local paint = lib.__acePaint[rawget(widget, "type")]
   if type(paint) ~= "function" or not self:IsOwner(owner) then return false end
   local st = lib.__ace[widget]
-  if st and st.owner and (st.owner ~= owner or P.isDefault(owner) or otherSkin(widget)) then restore(widget, st) end
-  if P.isDefault(owner) or otherSkin(widget) then return false end
+  if st and st.owner and (st.owner ~= owner or otherSkin(widget)) then restore(widget, st) end
+  if otherSkin(widget) then return false end
   st = stateOf(widget)
   st.owner = owner
   arm(widget, st)

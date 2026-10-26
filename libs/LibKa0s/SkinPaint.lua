@@ -25,11 +25,11 @@
 --   * A target painted for a second owner is GIVEN BACK first (everything the first owner's skin
 --     faded, recolored, re-fonted, backdropped or drew is put back) and then painted for the new
 --     owner, so no skin leaks into another addon's frame.
---   * Ka0s Default keeps STOCK art. A target that carries the client's template art (a button's
---     normal texture, a template's Left/Middle/Right pieces, a NineSlice, or the regions a caller
---     names as `opts.stock`) is left exactly as the client draws it under Ka0s Default, and every
---     region a previous skin faded or painted on it is put back. Ka0s Default is today's look, and
---     today a stock control is stock.
+--   * STOCK art is faded under every skin. A target that carries the client's template art (a
+--     button's normal texture, a template's Left/Middle/Right pieces, a NineSlice, or the regions a
+--     caller names as `opts.stock`) has that art faded and is painted from the skin's tokens, Ka0s
+--     Default's included (minor 6; until then Ka0s Default left a stock control as the client drew
+--     it).
 --   * Every Ka0s overlay that is not the target's own fill lives on a child HOLDER frame of the
 --     target, never as a direct region of a frame that may reach an EllesmereUI primitive:
 --     EllesmereUI's FadeRegions / Restrip fade every direct region of the frame it skins. There are
@@ -47,12 +47,12 @@
 --   * A nil token leaves the property alone, and a property a previous skin set from a nilable
 --     token is put back when the new skin leaves it nil.
 --
--- ── KA0S DEFAULT IS TODAY'S PAINT, CALL FOR CALL ─────────────────────────────────────────────
+-- ── KA0S DEFAULT IS A SKIN LIKE THE OTHERS ───────────────────────────────────────────────────
 --
--- For a registered owner on Ka0s Default, a primitive makes the paint calls the code it replaces
--- makes today, in the same order, with the same arity, on the same objects: `Shell` IS
--- `Core.ApplySkin(frame)` (it hands Core its own `SKIN` table), and every other primitive's Ka0s
--- Default trace is pinned against the library code it stands for in tests/test_skin_paint*.lua.
+-- Ka0s Default sets every token (SkinDefs minor 8) and paints from them exactly as the other skins
+-- do (minor 6). Its values are the library's own look (Core.SKIN, Widgets' SKIN, LootHistory's
+-- constants), so a primitive under it draws what that code drew, from tokens rather than from a
+-- special case; tests/test_skin_paint*.lua pin the traces.
 -- Colors whose alpha is 1 go to SetTextColor / SetVertexColor as three components, as every call
 -- site writes them; fills and backdrop colors go as four.
 --
@@ -75,7 +75,12 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- takes a shadowless font object, because the black drop shadow smears dark strokes; and P.label
 -- gives every string a primitive colors the skin's face too, so no string is left on the client's
 -- font and its shadow (an EditBox hint, a list header, a footer, on a light skin most of all).
-local PAINT_MINOR = 5
+-- Minor 6: no skin is special. Ka0s Default used to leave a stock control stock, keep Core's own
+-- SKIN table for the window, fade nothing and leave AceGUI rows alone, falling back to the client's
+-- look wherever it set no token. It now sets every token (SkinDefs minor 8) and paints from them
+-- like every other skin (the owner's ruling, 2026-10-26: "make sure even the Ka0s Default has a
+-- setting for everything").
+local PAINT_MINOR = 6
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -126,25 +131,16 @@ local NINE_KEYS = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "Bott
 
 local function core() return LibStub("LibKa0s-Core-1.0", true) end
 
---- The owner's effective skin key: its choice when registered, else Ka0s Default.
-local function skinKey(owner)
-  local _, skin = lib:GetChoice(owner)
-  if type(skin) == "string" and lib.skins[skin] then return skin end
-  return lib.DEFAULT
-end
-
 --- The owner's resolved token table (shared; never written): `Skin:__Tokens`, so while EllesmereUI
 --- paints the owner the primitives read the table SkinEUI.lua derives from EllesmereUI's getters.
 function P.T(owner) return lib:__Tokens(owner) end
 
---- True when the owner wears Ka0s Default (or no skin is registered at all). Never while EllesmereUI
---- paints the owner: the library's own technique then paints what EllesmereUI is not handed (the
---- Ka0s extras, pooled and shared objects) from EllesmereUI's colors, stock targets included.
-function P.isDefault(owner)
-  local eui = lib.__euiTokens
-  if type(eui) == "function" and eui(owner) then return false end
-  return skinKey(owner) == lib.DEFAULT
-end
+
+--- Answers false, always (minor 6): no skin is special, Ka0s Default included, so nothing branches
+--- on it. Kept because LibKa0s-Options-1.0 asks it (OptionsScroll's `__chromeAway`, which draws a
+--- page's skin chrome when this answers false), and an Options copy vendored beside this one may be
+--- older than the change.
+function P.isDefault() return false end
 
 local function nilable(name)
   local e = lib.__schemaIndex and lib.__schemaIndex[name]
@@ -711,15 +707,11 @@ function P.unpaint(rec, frame)
   if rec.regions.holder then rec.regions.holder:Hide() end
 end
 
---- The Ka0s Default arm for a stock target: put it back as the client draws it and paint nothing.
---- Answers true when it did (the caller returns).
-function P.stockDefault(owner, rec, frame, opts)
-  if not P.hasStock(frame, opts) then return false end
-  rec.regions.stock = true
-  if P.isDefault(owner) then
-    P.unpaint(rec, frame)
-    return true
-  end
+--- Mark a stock target (one wearing the client's template art) on its record, so its art is faded
+--- under every skin. Answers false: since minor 6 no skin leaves a stock target as the client draws
+--- it, Ka0s Default included, so the caller always paints. The owner argument is kept for callers.
+function P.stockDefault(_, rec, frame, opts)
+  if P.hasStock(frame, opts) then rec.regions.stock = true end
   return false
 end
 
@@ -744,11 +736,9 @@ end
 
 local WHITE_CORE = "Interface\\Buttons\\WHITE8x8"   -- Core.SKIN's spelling
 
--- The table Shell hands Core.ApplySkin: Core's own SKIN on Ka0s Default (so the call is today's,
--- object for object), else the same shape from the skin's tokens.
-local function shellSkin(owner, T, opts, flat)
-  local c = core()
-  if P.isDefault(owner) and not opts.noBorder and c and type(c.SKIN) == "table" then return c.SKIN end
+-- The table Shell hands Core.ApplySkin, in Core.SKIN's shape, from the skin's tokens (Ka0s Default's
+-- included since minor 6: they carry Core.SKIN's values).
+local function shellSkin(_, T, opts, flat)
   local size = flat and (T["win.borderSize"] or 1) or 1
   return {
     bgFile = WHITE_CORE, edgeFile = WHITE_CORE, edgeSize = size,
@@ -844,6 +834,9 @@ prim.Shell = function(owner, frame, opts)
   opts = type(opts) == "table" and opts or {}
   if P.stockDefault(owner, rec, frame, opts) then return end
   local T = P.T(owner)
+  -- A payload with no SkinDefs.lua registers no skin, so no token resolves: the window is left as
+  -- it is rather than painted with nothing (the header's degraded engine).
+  if T["win.bg"] == nil then return end
   local style = T["win.borderStyle"] or "flat"
   if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
   if P.hasBackdrop(frame) then
@@ -886,12 +879,11 @@ prim.Panel = function(owner, frame, opts) return panel(owner, frame, opts, "Pane
 prim.Inset = function(owner, frame, opts) return panel(owner, frame, opts, "Inset", INSET) end
 
 --- S.FadeRegions(frame, ...): fade every texture region of `frame` (and of each further frame) that
---- no primitive made, prior alphas recorded. Ka0s Default fades nothing and puts them back.
+--- no primitive made, prior alphas recorded, under every skin (Ka0s Default too since minor 6).
 prim.FadeRegions = function(owner, frame, ...)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "FadeRegions", ...)
   rec.regions.stock = true
-  if P.isDefault(owner) then return P.unpaint(rec, frame) end
   local frames = { frame, ... }
   for _, f in ipairs(frames) do
     if P.isFrame(f) and type(f.GetRegions) == "function" then
@@ -902,12 +894,11 @@ prim.FadeRegions = function(owner, frame, ...)
   end
 end
 
---- S.FadeNineSlice(frame): fade the nine pieces of `frame.NineSlice`. Ka0s Default puts them back.
+--- S.FadeNineSlice(frame): fade the nine pieces of `frame.NineSlice`, under every skin.
 prim.FadeNineSlice = function(owner, frame)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "FadeNineSlice")
   rec.regions.stock = true
-  if P.isDefault(owner) then return P.unpaint(rec, frame) end
   local ns = rawget(frame, "NineSlice")
   if not P.isFrame(ns) then return end
   for _, k in ipairs(NINE_KEYS) do P.fade(rec, P.field(ns, k, "Texture")) end

@@ -29,7 +29,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- P.label (StateButtonLabel, an EditBox's hint, a sort header's texts, a nav item, a tab), a dark
 -- label shadowless; and Slider draws its track as a thin bar centered in the slider, Ka0s Default's
 -- host-drawn shape, with no box round it.
-local CONTROLS_MINOR = 3
+-- Minor 4: ScrollBar paints its own thumb and track under Ka0s Default too (SkinPaint minor 6: no
+-- skin leaves a stock control stock).
+local CONTROLS_MINOR = 4
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -295,9 +297,9 @@ local function thumbOf(sb, opts)
   return P.call(sb, "GetThumbTexture", "Texture") or P.field(sb, "ThumbTexture", "Texture"), false
 end
 
--- The thumb: a texture the caller drew is filled; the bar's own thumb is tinted, and only away
--- from Ka0s Default unless the caller asks for the enabled / disabled state.
-local function paintThumb(owner, rec, sb, T, opts)
+-- The thumb: a texture the caller drew is filled; the bar's own thumb is tinted, or takes the
+-- enabled / disabled state the caller asks for.
+local function paintThumb(_, rec, sb, T, opts)
   local thumb, own = thumbOf(sb, opts)
   if not thumb then return end
   if opts.state then
@@ -309,7 +311,6 @@ local function paintThumb(owner, rec, sb, T, opts)
     if T["scroll.thumb"] then thumb:SetColorTexture(rgba(T["scroll.thumb"])) end
     return
   end
-  if P.isDefault(owner) then return P.unpaint(rec, sb) end
   local art = P.media("background", T["scroll.thumbTexture"])
   if art then
     thumb:SetTexture(art)
@@ -331,7 +332,7 @@ prim.ScrollBar = function(owner, sb, opts)
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
   paintThumb(owner, rec, sb, T, opts)
-  if opts.track or opts.state or P.isDefault(owner) or not T["scroll.track"] then return P.hide(rec, "track") end
+  if opts.track or opts.state or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
   if not t then return end
   t:SetAllPoints(sb)

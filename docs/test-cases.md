@@ -1533,7 +1533,7 @@ Total.
 - skin table: the header and row tooltips read gtip.*
 - skin table: the sample tooltip reads q.* and gtip.*
 - skin table: a skin switch repaints the table live, pooled free rows too, and Ka0s Default puts it back
-- skin table: NS.QualityColor reads q.* where the skin sets it, else the client's color
+- skin table: NS.QualityColor reads q.*, which Ka0s Default sets to the client's colors
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
@@ -1555,10 +1555,10 @@ Total.
 
 - skin settings: under a non-default skin the panel's own widgets paint, past the proxy
 - skin settings: a release hands every painted widget back stock, the pool clean
-- skin settings: under Ka0s Default nothing is painted and nothing is wrapped
+- skin settings: under Ka0s Default the panel's own widgets paint like every skin's
 - skin settings: the AH placeholder's cleanup rides the release chain and still parks the host
-- skin settings: the AH table's held check boxes follow a switch and go stock on Ka0s Default
-- skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default none
+- skin settings: the AH table's held check boxes are painted on Ka0s Default and follow a switch
+- skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
 ### test_skin_tools.lua (6)

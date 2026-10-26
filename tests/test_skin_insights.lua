@@ -25,6 +25,7 @@ local OptionsLib = mocks.LibStub("LibKa0s-Options-1.0")
 local installPaint = dofile("tests/_kit/mock_paint.lua")
 local PS = dofile("tests/panel_support.lua")
 local OWNER = "LootHistory"
+local SW = dofile("tests/skin_support.lua")
 
 -- ── the skin back on Ka0s Default (tests/test_skin_chrome.lua's reset) ──────────────────────────
 local WAS_SHOWN
@@ -70,10 +71,11 @@ local function escapeOf(name)
   return "|cff" .. byte(r) .. byte(g) .. byte(b)
 end
 
--- Every token a case compares must differ in Azeroth, or the switch proves nothing.
+-- Every token a case compares must differ in the switch skin (tests/skin_support.lua), or the
+-- switch proves nothing.
 local function assertMoves(names, today)
   for _, name in ipairs(names) do
-    assertTrue(tokenOf(name) ~= today(name), "Azeroth's " .. name .. " is today's value: pick another skin")
+    assertTrue(tokenOf(name) ~= today(name), "the switch skin's " .. name .. " is today's value")
   end
 end
 
@@ -240,10 +242,10 @@ end)
 
 test("skin insights: a switch repaints Insights live, the free list too, and syncs the palette", function()
   withInsights(function()
-    NS.ApplySkinChoice("ka0s", "azeroth")
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
     assertMoves({ "card.bg", "card.border", "panel.bg", "text.heading", "text.disabled", "section.rule",
                   "chart.track", "chart.bar", "text.muted", "text.value", "chart.axisAlt" }, today)
-    assertInsights(tokenOf, "Azeroth")
+    assertInsights(tokenOf, "the switch skin")
     local series = Skin:Token(OWNER, "chart.series")
     assertEqual(rgba(A.paletteColor(1)), rgba({ series[1][1], series[1][2], series[1][3] }), "the palette is the skin's")
     assertEqual(#A.paletteColor(1), 3, "still a triple")
@@ -265,9 +267,9 @@ test("skin insights: the signed figures keep their bytes on Ka0s Default and fol
   assertEqual(LF.SignedCount(0), "|cff808080\226\128\148|r")
   local r, g, b = LF.Color("OUT")
   assertEqual(rgba({ r, g, b }), rgba({ 1, 0.33, 0.33 }), "a loss, BankLedger's red")
-  NS.ApplySkinChoice("ka0s", "azeroth")
+  NS.ApplySkinChoice("ka0s", SW.key(Skin))
   local ok, err = pcall(function()
-    assertTrue(escapeOf("sem.goodAlt") ~= "|cff40ff40", "Azeroth's sem.goodAlt is today's")
+    assertTrue(escapeOf("sem.goodAlt") ~= "|cff40ff40", "the switch skin's sem.goodAlt is today's")
     assertEqual(LF.SignedCount(3), escapeOf("sem.goodAlt") .. "+3|r")
     assertEqual(LF.SignedMoney(-5), escapeOf("sem.badAlt") .. "-" .. NS.Util.FormatMoney(5) .. "|r")
     assertEqual(rgba({ LF.Color("IN") }), rgba({ Skin:Color(OWNER, "sem.good") }), "a gain follows")
@@ -320,10 +322,10 @@ end
 
 test("skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch", function()
   assertTips(today, "Ka0s Default")
-  NS.ApplySkinChoice("ka0s", "azeroth")
+  NS.ApplySkinChoice("ka0s", SW.key(Skin))
   local ok, err = pcall(function()
     assertMoves({ "gtip.title", "gtip.body" }, today)
-    assertTips(tokenOf, "Azeroth")
+    assertTips(tokenOf, "the switch skin")
   end)
   reset()
   if not ok then error(err, 0) end
@@ -391,9 +393,9 @@ end)
 
 test("skin timeline: a switch repaints the toggle, header and strip and rebuilds the series", function()
   withTimeline(function()
-    NS.ApplySkinChoice("ka0s", "azeroth")
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
     assertMoves({ "btn.bg", "check.bg", "text.heading", "text.disabled", "chart.axis" }, today)
-    assertTimeline(tokenOf, "Azeroth")
+    assertTimeline(tokenOf, "the switch skin")
     assertEqual(seriesColor(NS.TimelineModel.TOTAL), tokenOf("chart.total"), "the Total follows the skin")
     assertEqual(seriesColor(NS.Constants.WARBAND_HOLDER), tokenOf("sem.warband"), "the Warband follows the skin")
     NS.ApplySkinChoice("ka0s", "ka0s")
@@ -468,9 +470,9 @@ end)
 test("skin holdings: a switch rebuilds the arrows and repaints every pooled row live", function()
   withHoldings(function()
     park()
-    NS.ApplySkinChoice("ka0s", "azeroth")
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
     assertMoves({ "list.header.text", "list.stripe", "list.hover", "text.disabled", "text.highlight" }, today)
-    assertHoldings(tokenOf, "Azeroth")
+    assertHoldings(tokenOf, "the switch skin")
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertHoldings(today, "back on Ka0s Default")
   end)
@@ -526,7 +528,7 @@ end
 test("skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back", function()
   withAuctionTable(function(ctx)
     assertAuction(ctx, today, "Ka0s Default")
-    NS.ApplySkinChoice("ka0s", "azeroth")
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
     assertMoves({ "text.headingAlt", "text.bodyAlt", "text.body", "text.disabled", "sem.statusOk" }, today)
     assertAuction(ctx, tokenOf, "Azeroth")
     NS.ApplySkinChoice("ka0s", "ka0s")

@@ -61,8 +61,8 @@ end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
 --- gradient), the bar's backdrop when it has one, else on the fill holder under the text; its text (`opts.text`, else
---- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Ka0s Default sets
---- no title fill and no alignment, so only the text color is painted. Draws no Media icon.
+--- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Draws no Media
+--- icon.
 prim.TitleBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "TitleBar", opts)
@@ -96,7 +96,7 @@ prim.Divider = function(owner, target, opts)
   t:Show()
 end
 
---- S.Footer(frame, opts): a footer band, `foot.bg` (nil in Ka0s Default: nothing drawn), its text
+--- S.Footer(frame, opts): a footer band, `foot.bg`, its text
 --- (`opts.text`, else `frame.text`) in `text.muted`. Draws no Media icon.
 prim.Footer = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
@@ -161,8 +161,7 @@ prim.Cover = function(owner, target, opts)
 end
 
 --- S.Tooltip(frame): a LIBRARY-OWNED tooltip frame, never GameTooltip. Its backdrop is recolored
---- with `tooltip.bg` / `tooltip.border`, both nil in Ka0s Default (the frame keeps its look).
---- Draws no Media icon.
+--- with `tooltip.bg` / `tooltip.border`. Draws no Media icon.
 prim.Tooltip = function(owner, frame)
   if not P.hasBackdrop(frame) then return end
   local rec = P.track(owner, frame, "Tooltip")
@@ -191,8 +190,8 @@ prim.MenuFrame = function(owner, frame, opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   if opts.popup then
-    -- The frame is built once and kept, so a nil token (Ka0s Default has no `popup.border`) puts
-    -- that half back as the frame wore it before the first paint, not as the last skin left it.
+    -- The frame is built once and kept, so a nil token puts that half back as the frame wore it
+    -- before the first paint, not as the last skin left it.
     P.saveBackdrop(rec, frame)
     local s, bg, border = rec.regions.backdrop, T["popup.bg"], T["popup.border"]
     if s and s.bd then
