@@ -963,8 +963,8 @@ function BrowserTable:Attach(pane)
   end)
   scroll:SetScript("OnSizeChanged", function() BrowserTable:Bind() end)
   self.scroll = scroll
-  -- The template's bar (its `ScrollBar` parentKey): stock on Ka0s Default, the skin's thumb and
-  -- track elsewhere.
+  -- The template's bar (its `ScrollBar` parentKey): the skin's thumb and track under every skin, and
+  -- the skin's thumb fill where it sets one.
   local bar = rawget(scroll, "ScrollBar")
   if bar then NS.Skin.ScrollBar(bar) end
 

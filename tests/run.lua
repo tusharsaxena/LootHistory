@@ -108,8 +108,9 @@ local SUITES = {
   -- on the live module and puts its fields back; leaves the skin on Ka0s Default.
   "test_skin_insights",
   -- This addon's own settings widgets on the skin (LH-06): the panel's AceGUI acquisitions, the AH
-  -- placeholder's chained release, the held AH check boxes and the Profiles tree; Ka0s Default paints
-  -- nothing. Renders through the raw AceGUI fake and puts NS.AceGUI back; leaves Ka0s Default.
+  -- placeholder's chained release, the held AH check boxes and the Profiles tree, Ka0s Default too, and
+  -- none of it while Ignore settings panel is on. Renders through the raw AceGUI fake and puts
+  -- NS.AceGUI back; leaves Ka0s Default.
   "test_skin_settings",
   -- The tool surfaces on the skin (LH-05): the debug console, its copy window, the export copy
   -- window and the AH drag list painted for this owner, and the factory seams naming it. After

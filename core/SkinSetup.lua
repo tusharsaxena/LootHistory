@@ -203,8 +203,8 @@ end
 -- heirloom, token) is the client's color under every skin.
 local QUALITY_TOKEN = { [0] = "q.poor", "q.common", "q.uncommon", "q.rare", "q.epic", "q.legendary" }
 
---- An item quality's r, g, b. The q.* tokens are legibility overrides only: Ka0s Default sets none
---- (the client's own colors), a light skin darkens the ones it must. nil for a quality the client
+--- An item quality's r, g, b. The q.* tokens: Ka0s Default writes the client's own colors out (since
+--- LibKa0s SkinDefs minor 8), a skin may override them for legibility. nil for a quality the client
 --- has no color for, so a caller keeps its own fallback.
 function NS.QualityColor(q)
   local name = QUALITY_TOKEN[q]

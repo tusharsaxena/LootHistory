@@ -523,7 +523,7 @@ function HT:Attach(pane)
   scroll:SetScrollChild(content)
   self.content = content
   scroll:SetScript("OnSizeChanged", function() HT:Refresh() end)
-  -- The template's bar is the skin's (stock on Ka0s Default); a recorded frame the library repaints.
+  -- The template's bar is the skin's, under every skin; a recorded frame the library repaints.
   if scroll.ScrollBar then NS.Skin.ScrollBar(scroll.ScrollBar) end
   self.rows = NS.Pool.New()
   self:Refresh()
