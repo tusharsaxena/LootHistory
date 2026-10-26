@@ -40,6 +40,14 @@
 -- text), and the box itself. The list registers no event and arms no OnUpdate; its only timers are
 -- the typing debounce and the one-frame focus checks, all through C_Timer.After, read at call time.
 --
+-- -- THE SKIN OWNER (minor 4) -------------------------------------------------------------------
+--
+-- `opts.owner`, a registered skin owner (the shell's SKIN OWNERS), colors the rows from that
+-- owner's skin: plain text `menu.text`, the highlight `menu.hover`, read on every show, so a skin
+-- switch reaches the list the next time it opens. The list's fill and edge already follow the box,
+-- and a skinned box (`W.SearchBox` with the same owner) carries the skin to them. An unregistered
+-- name draws minor 3's rows.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
@@ -47,7 +55,8 @@ if not lib then return end
 
 -- Minor 3: the list is clamped to the screen (ensureList), so a box near the bottom edge keeps its
 -- suggestions on screen (frame-layering-§4; XS-22).
-local AUTOCOMPLETE_MINOR = 3
+-- Minor 4: the skin owner (the header's THE SKIN OWNER).
+local AUTOCOMPLETE_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -103,11 +112,21 @@ end
 
 --- A row's text color: `{ r, g, b }`, or a table with `.r .g .b` (a ColorMixin, an
 --- ITEM_QUALITY_COLORS entry), or the list's plain text color.
-local function itemColor(c)
-  if type(c) ~= "table" then return AC.TEXT[1], AC.TEXT[2], AC.TEXT[3] end
+local function itemColor(c, plain)
+  plain = plain or AC.TEXT
+  if type(c) ~= "table" then return plain[1], plain[2], plain[3] end
   local r, g, b = c[1] or c.r, c[2] or c.g, c[3] or c.b
   if type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
-  return AC.TEXT[1], AC.TEXT[2], AC.TEXT[3]
+  return plain[1], plain[2], plain[3]
+end
+
+--- The rows' plain text and highlight colors: the owner's skin for a registered skin owner
+--- (minor 4), else the published defaults. Read on every show.
+local function palette(h)
+  local skinOf, owner = lib.__skinOf, h.__owner
+  local Skin = type(skinOf) == "function" and skinOf(owner) or nil
+  if not Skin then return AC.TEXT, AC.HIGHLIGHT end
+  return Skin:Token(owner, "menu.text") or AC.TEXT, Skin:Token(owner, "menu.hover") or AC.HIGHLIGHT
 end
 
 local function boxText(box)
@@ -141,6 +160,7 @@ local function makeRow(h, i)
   local hl = row:CreateTexture(nil, "HIGHLIGHT")
   hl:SetAllPoints()
   hl:SetColorTexture(AC.HIGHLIGHT[1], AC.HIGHLIGHT[2], AC.HIGHLIGHT[3], AC.HIGHLIGHT[4])
+  row.__hl, row.__hlc = hl, AC.HIGHLIGHT   -- minor 4: repainted when the owner's colors differ
   row.icon = row:CreateTexture(nil, "ARTWORK")
   row.icon:SetSize(AC.ICON, AC.ICON)
   row.icon:SetPoint("LEFT", row, "LEFT", AC.TEXT_INSET - 2, 0)
@@ -185,7 +205,7 @@ end
 -- EVERY field is written on every paint: the rows are pooled across lists, so a field left alone
 -- leaks the previous list's icon or color onto this one. The icon's visibility is set BEFORE the
 -- row is shown (the API document's *Behavior a host must know*, on the headless kit).
-local function paintRow(h, row, item)
+local function paintRow(h, row, item, text, hover)
   row.__item = item
   local icon = item.icon
   if icon ~= nil then row.icon:SetTexture(icon) end
@@ -195,7 +215,11 @@ local function paintRow(h, row, item)
   row.label:SetPoint("RIGHT", row, "RIGHT", -AC.TEXT_INSET, 0)
   row.__text = tostring(item.text or "")
   row.label:SetText(row.__text)
-  row.label:SetTextColor(itemColor(item.color))
+  row.label:SetTextColor(itemColor(item.color, text))
+  if row.__hl and row.__hlc ~= hover then
+    row.__hl:SetColorTexture(hover[1], hover[2], hover[3], hover[4])
+    row.__hlc = hover
+  end
   markRow(row, false)
   row:SetHeight(h.__rowH)
   row:Show()
@@ -206,6 +230,7 @@ local function render(h, items)
   skin(h)
   local n = min(#items, h.__maxRows)
   local shown = {}
+  local text, hover = palette(h)
   for i = 1, n do
     local row = h.__rows[i]
     if not row then
@@ -216,7 +241,7 @@ local function render(h, items)
     local item = items[i]
     if type(item) ~= "table" then item = { text = tostring(item) } end
     shown[i] = item
-    paintRow(h, row, item)
+    paintRow(h, row, item, text, hover)
   end
   for i = n + 1, #h.__rows do h.__rows[i]:Hide() end
   list:SetHeight(n * h.__rowH + 2 * AC.PAD)
@@ -386,7 +411,7 @@ function lib.Autocomplete(editBox, opts)
     __maxRows = rowCount(opts.maxRows), __rowH = positive(opts.rowHeight, AC.ROW_H),
     __debounce = max(AC.DEBOUNCE, type(opts.debounce) == "number" and opts.debounce or 0),
     __minChars = positive(opts.minChars, AC.MIN_CHARS),
-    __font = opts.font or AC.FONT, __strata = opts.strata or AC.STRATA,
+    __font = opts.font or AC.FONT, __strata = opts.strata or AC.STRATA, __owner = opts.owner,
     __rows = {}, __items = {}, __seq = 0, __enabled = true, __open = false,
   }, Handle)
   local previous = owners[editBox]

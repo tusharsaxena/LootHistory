@@ -11,7 +11,7 @@ local Analytics = NS.Analytics
 -- Everything pure comes from modules/AnalyticsFormat.lua, which loads first: bound once, here, to
 -- file-scope locals (docs/common-tasks.md, hot-path upvalues), never looked up per row.
 local K, F = Analytics.K, Analytics._fmt
-local WHITE, SECTION_GAP, MIN_HEADLINE_SIZE, NEUTRAL = K.WHITE, K.SECTION_GAP, K.MIN_HEADLINE_SIZE, K.NEUTRAL
+local SECTION_GAP, MIN_HEADLINE_SIZE, NEUTRAL = K.SECTION_GAP, K.MIN_HEADLINE_SIZE, K.NEUTRAL
 local SOURCE_COLOR, BOUND_LABEL, BOUND_COLOR = F.SOURCE_COLOR, F.BOUND_LABEL, F.BOUND_COLOR
 local BOUND_ORDER, WEEKDAY, starMarkup = F.BOUND_ORDER, F.WEEKDAY, F.starMarkup
 local money, shortChar, paletteMap = Analytics._money, Analytics._shortChar, Analytics._paletteMap
@@ -55,15 +55,15 @@ function Analytics:Attach(pane)
   scroll:SetScrollChild(content)
   self.content = content
   scroll:SetScript("OnSizeChanged", function() Analytics:Layout() end)
+  -- The template's bar is the skin's (stock on Ka0s Default); a recorded frame the library repaints.
+  if scroll.ScrollBar then NS.Skin.ScrollBar(scroll.ScrollBar) end
 
-  -- Cards.
+  -- Cards: the skin's Card (card.bg under card.border, the headline in the heading gold), which on
+  -- Ka0s Default is call for call the backdrop these cards always drew. Recorded, so a skin switch
+  -- repaints them; the caption is recolored by Reskin.
   self.cards = {}
   for _, def in ipairs(CARD_DEFS) do
     local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
-    card:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                       insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-    card:SetBackdropColor(0.1, 0.1, 0.12, 0.85)
-    card:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
     -- Plain string cards (date range / busiest day) hold a long value → small font. The `value`
     -- and `richest` cards keep the big headline font (bigStr) and shrink-to-fit in Layout instead.
     local fontTemplate = (def.str and not def.bigStr) and "GameFontNormal" or "GameFontNormalHuge"
@@ -73,10 +73,11 @@ function Analytics:Attach(pane)
     num:SetPoint("LEFT", 2, 0)
     num:SetPoint("RIGHT", -2, 0)
     num:SetJustifyH("CENTER")
-    num:SetTextColor(1, 0.82, 0)
+    NS.Skin.Card(card, { title = num })
     local cl = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     cl:SetPoint("BOTTOM", 0, 7)
     cl:SetText(def.label)
+    cl:SetTextColor(NS.SkinColor("text.disabled"))
     local entry = { frame = card, num = num, bigStr = def.bigStr, caption = cl, captionBase = def.label }
     if def.bigStr then
       local file, size, flags = num:GetFont()
@@ -222,6 +223,7 @@ function Analytics:BuildCharts(content)
   self.currencyStrip = CreateFrame("Frame", nil, content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   self.emptyText:SetText("No loot in this range.")
+  self.emptyText:SetTextColor(NS.SkinColor("text.disabled"))
   self.emptyText:Hide()
   self.pool = {
     source = NS.Pool.New(), vsource = NS.Pool.New(),

@@ -48,13 +48,13 @@ lines, those two calls and two comment lines are `core/Dispatch.lua`'s; twelve a
 helper bodies in `core/CoreSetup.lua` (the degraded stub at `:205-214`, the live wrappers at
 `:296-310`; see [ARCHITECTURE.md § Event subscriptions](ARCHITECTURE.md#event-subscriptions));
 `core/LifecycleSetup.lua:160` is the guard above the call at `:161`; `modules/Attribution.lua:429-430`
-are the pattern names inside a comment; and the last three (`modules/Browser.lua:1236` / `:1242` and
+are the pattern names inside a comment; and the last three (`modules/Browser.lua:1290` / `:1242` and
 `settings/Slash.lua:184`) are registrations this table and the
 [timeline-ledger table](#timeline-ledger-registrations-phases-1-and-2) below cover.
 
 | Event | Registered at | Work done per fire |
 |---|---|---|
-| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:161` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:130`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the four one-shot timers below. |
+| `PLAYER_ENTERING_WORLD` | `core/LifecycleSetup.lua:161` | Handled by `addon:OnEnterWorld` (`core/LootHistory.lua:142`). Once per session — latches `NS.State.cleanupDone`, then returns. Schedules the four one-shot timers below. |
 | `CHAT_MSG_LOOT` | `modules/Collector.lua:340` (row) | **The only in-combat handler that does real work, and it does it only past the filters.** Every line: parse, then `ShouldRecord` (`:172`) against threshold, source, class, blacklist and whitelist — a dropped line returns at `:175` having allocated nothing: the gate config it hands `ShouldRecord` is one module-level `gateCfg` table, refreshed with the settings and given only the line's `itemID` per call, not a table built per line (`LootHistory-R-16`). A **kept** line then runs `NS.Compat.GetItemExtras` (`:178`), which is `C_Item.GetItemInfoInstant` + `C_Item.GetItemInfo` and then `Compat.ScanBound` — a real `C_TooltipInfo.GetHyperlink` build walked line by line — followed by `NS.AuctionPrice:GatherAll` (`:179`), one `pcall`ed fetch per installed provider across the Auctionator / TSM / Oribos cascade (all seven default capture keys are on). That is meaningfully more than a table insert, which is why it is written out here. It is bounded by the gate above it and by loot itself: a few kept items per kill. |
 | `CHAT_MSG_CURRENCY` | `modules/Collector.lua:341` (row) | Currency lines, and **not** the same shape as the row above: no tooltip build and no price cascade. Link parse, the listed-id check (`Compat.ListedCurrencyID`: one `GetCurrencyListSize` read, plus at most one list walk for an id seen for the first time since the list last changed), blacklist check, three `Compat.Currency*` lookups, one record insert. |
 | `LOOT_OPENED` | `modules/Attribution.lua:420` (row) | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
@@ -67,8 +67,8 @@ are the pattern names inside a comment; and the last three (`modules/Browser.lua
 | `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:427` (row) | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
 | `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:428` (row) | One field write, once per reset key. |
 | `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:431` (row) | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1236` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1113`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1242` | The other edge of the same handler, same cost. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1290` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1113`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1296` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: seven, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.
@@ -85,10 +85,10 @@ inside those five seconds got the write anyway, from a game event, while it was 
 
 | Call | Where | What it is |
 |---|---|---|
-| `NS.After(5, …)` | `core/LootHistory.lua:138` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancelable**. |
-| `NS.After(20, …)` | `core/LootHistory.lua:148` | The second warbound repair pass, once the item cache is warm, which also sets `NS.State.loginSettled` (the simulator's login refusal). Once per session, and cancelable. |
-| `NS.After(3, …)` | `core/LootHistory.lua:157` | The holdings genesis / login scan (`Reconciler:LoginScan`) when the ledger is on. Once per session, and cancelable. |
-| `NS.After(5, …)` | `core/LootHistory.lua:161` | The one-time ledger reset recommendation (`NS.OfferLedgerReset`). Once per session, and cancelable. |
+| `NS.After(5, …)` | `core/LootHistory.lua:150` | Login-deferred retention prune + the first warbound repair pass. Once per session, and **cancelable**. |
+| `NS.After(20, …)` | `core/LootHistory.lua:160` | The second warbound repair pass, once the item cache is warm, which also sets `NS.State.loginSettled` (the simulator's login refusal). Once per session, and cancelable. |
+| `NS.After(3, …)` | `core/LootHistory.lua:169` | The holdings genesis / login scan (`Reconciler:LoginScan`) when the ledger is on. Once per session, and cancelable. |
+| `NS.After(5, …)` | `core/LootHistory.lua:173` | The one-time ledger reset recommendation (`NS.OfferLedgerReset`). Once per session, and cancelable. |
 | `C_Timer.After(0.4, cb)` | `core/ItemSetup.lua:70` | `NS.Item.LoadItem`'s item-cache retry, in the degraded-install fallback; the live path is the same call in the library (`lib.LoadItem` in `libs/LibKa0s/Item.lua`) — **one-shot, and only when the caller passes a callback.** Two callers: `core/Database.lua:489`, the warbound repair pass, passes none, so it requests the item and arms **no timer at all**; the Filters tab's LibKa0s `IdList` passes one per **batch**, not per id (LibKa0s v1.35.0): every uncached id one render asks for shares a single check, which repaints the list once if any name has landed and re-asks the rest, up to five asks per id — an options panel the player opened by hand. |
 | `NS.After(delay, …)` | `core/Util.lua:305` | `Util.Coalesce`'s window, `RECORD_ADDED_COALESCE` = 0.2 s. **Not a ticker and it cannot become one:** each closure holds a `pending` flag that swallows every trigger until the timer fires, so a burst of *n* `RecordAdded` messages arms exactly one. Three independent closures exist — `modules/Browser.lua`, `modules/Analytics.lua` and `settings/Panel.lua`, one per subscribing surface — so the ceiling is three pending timers at once. Through `NS.After` since v1.41.0: a repaint already in flight when the player switches the addon off is canceled rather than waking to find nothing to paint, which is the shape `slash-commands-§7` singles out as the most expensive one. |
 | `C_Timer.After(delay, fn)` | `settings/OptionsSetup.lua:228` | The library's 50 ms slider and color-picker drag throttles, handed in through the descriptor. The return value is unused: the library keeps its own armed flag (OptionsWidgets minor 31: the `armed` local behind `makeSlider`'s live-commit throttle and the color picker's `throttledCommit`, both in `libs/LibKa0s/OptionsWidgets.lua`). No schema row is a color today; the sliders reach it. |
@@ -109,9 +109,9 @@ window is open" described exactly the case that mattered and read as though it d
 
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
-per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1230`,
-`modules/Analytics.lua:280` and — for the History tab's storage readout, which walks the whole
-history to estimate bytes — `settings/Panel.lua:170`. `HistoryChanged` stays immediate, because a
+per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1275`,
+`modules/Analytics.lua:282` and — for the History tab's storage readout, which walks the whole
+history to estimate bytes — `settings/Panel.lua:181`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.
 
 The bus is therefore **in** the sweep's scope from now on, and the entry above is what it found.
@@ -149,7 +149,7 @@ written down because a silent skip reads exactly like an oversight.
 `wantedByProvider` (`modules/AuctionPrice.lua:61`) regroups the capture set into
 `{ provider = { key = true } }` on every call, and `GatherAll` calls it at `:87` — once per **kept**
 loot line, the `CHAT_MSG_LOOT` row above. It allocates one `out` table plus one sub-map per
-provider named in the set: on the shipped default (`core/Constants.lua:238-242`, seven keys across
+provider named in the set: on the shipped default (`core/Constants.lua:235-239`, seven keys across
 Auctionator, TSM and Oribos) that is exactly **four small tables per kept line**, from a set that
 changes only when the player edits the Price sources table in settings. The obvious repair is to
 memoize it and refresh on a settings change.

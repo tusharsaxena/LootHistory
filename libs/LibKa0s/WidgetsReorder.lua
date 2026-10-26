@@ -11,13 +11,26 @@
 -- `lib`; the handle's fallback art, the one file-level value it shared with the dropdown's, is
 -- restated below.
 --
+-- ── THE SKIN OWNER (minor 2) ─────────────────────────────────────────────────────────────────
+--
+-- `opts.owner`, a registered skin owner (the shell's SKIN OWNERS), takes what a drag looks like from
+-- that owner's skin: the row boxes (`list.box`, `list.boxDim`, `list.boxEdge`, `list.boxEdgeDim`),
+-- the handle at rest and under the pointer (`handle.rest`, `text.accent`), the insertion line
+-- (`list.dropLine`) and the carried copy (`list.ghostBg`, its text `text.accent`). A host's own
+-- `handleColor`, `handleHoverColor`, `lineColor` and per-row ghost colors still win. A controller
+-- lives for one render, so the next render after a skin switch draws the new skin. The ghost is
+-- one frame for every list in the process: it is repainted on every drag, to the dragging list's
+-- skin, or back to the defaults once a skinned list has painted it. Without an owner, or for an
+-- unregistered name, every color is minor 1's.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. A payload without this
 -- file loads whole and simply has no `lib.ReorderList` and no `lib.ROW_BOX`.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local REORDER_MINOR = 1
+-- Minor 2: the skin owner (the header's THE SKIN OWNER).
+local REORDER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a list that
 -- attached to an older shell would publish `lib.ReorderList` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -31,6 +44,29 @@ lib.MODULES.WidgetsReorder = REORDER_MINOR
 
 -- The rung below the handle's injected art: what a host with no LibKa0s-Media draws.
 local HANDLE_FALLBACK = "Interface\\Buttons\\UI-SortArrow"
+
+-- The ghost's fill and text, and the handle's two tints, for a list with no skin owner.
+local GHOST_BG   = { 0.12, 0.12, 0.12, 0.95 }
+local GHOST_TEXT = { 1, 0.82, 0 }
+local HANDLE_REST, HANDLE_HOVER = { 0.7, 0.7, 0.7 }, { 1, 0.82, 0 }
+local LINE_COLOR = { 1, 0.82, 0, 0.9 }
+
+--- A list's colors from its skin owner (minor 2), or nil for a list with none (or an unregistered
+--- name, or a shell that predates the check): every reader then falls back to minor 1's values.
+local function skinPalette(owner)
+  local skinOf = lib.__skinOf
+  local Skin = type(skinOf) == "function" and skinOf(owner) or nil
+  if not Skin then return nil end
+  local R = lib.ROW_BOX
+  local function tok(name, fallback) return Skin:Token(owner, name) or fallback end
+  return {
+    box = { FILL = tok("list.box", R.FILL), FILL_DIM = tok("list.boxDim", R.FILL_DIM),
+            EDGE = tok("list.boxEdge", R.EDGE), EDGE_DIM = tok("list.boxEdgeDim", R.EDGE_DIM) },
+    rest = tok("handle.rest", HANDLE_REST), hover = tok("text.accent", HANDLE_HOVER),
+    line = tok("list.dropLine", LINE_COLOR), ghostBg = tok("list.ghostBg", GHOST_BG),
+    ghostText = tok("text.accent", GHOST_TEXT),
+  }
+end
 
 -- ── ReorderList ───────────────────────────────────────────────────────────────────────────────
 --
@@ -114,7 +150,7 @@ local function ensureGhost()
 
   ghost.bg = ghost:CreateTexture(nil, "BACKGROUND")
   ghost.bg:SetAllPoints(ghost)
-  ghost.bg:SetColorTexture(0.12, 0.12, 0.12, 0.95)
+  ghost.bg:SetColorTexture(GHOST_BG[1], GHOST_BG[2], GHOST_BG[3], GHOST_BG[4])
 
   ghost.icon = ghost:CreateTexture(nil, "ARTWORK")
   ghost.icon:SetSize(18, 18)
@@ -310,9 +346,10 @@ end
 
 --- Paint one box for the row it is serving THIS render. Separate from building it because a pooled
 --- box may have last served a dimmed row and must not carry that over.
-local function paintRowBox(box, dimmed)
+--- `colors` (minor 2) is a skinned list's set, in `lib.ROW_BOX`'s shape; nil reads `lib.ROW_BOX`.
+local function paintRowBox(box, dimmed, colors)
   if not box.fill then return end
-  local R = lib.ROW_BOX
+  local R = colors or lib.ROW_BOX
   local fill = dimmed and R.FILL_DIM or R.FILL
   local edge = dimmed and R.EDGE_DIM or R.EDGE
   box.fill:SetColorTexture(fill[1], fill[2], fill[3], fill[4])
@@ -401,6 +438,15 @@ local function trackDrag(row)
 end
 trackDragFromGhost = trackDrag
 
+--- Minor 2: one ghost for every list, so its fill follows the list dragging it: that list's skin
+--- (`pal`), or minor 1's fill once a skinned list has painted it. Untouched otherwise.
+local function skinGhost(g, pal)
+  if not (pal or g.__skinned) then return end
+  local bg = pal and pal.ghostBg or GHOST_BG
+  g.bg:SetColorTexture(bg[1], bg[2], bg[3], bg[4])
+  g.__skinned = pal ~= nil or nil
+end
+
 --- Dress the carried copy as the row it came from and put it under the cursor.
 ---
 --- Its own function because `beginDrag` was doing two jobs -- starting a drag, and drawing one --
@@ -414,12 +460,14 @@ local function raiseGhost(row, list)
   if type(w) == "number" and w > 0 then g:SetWidth(w) end
   g:SetHeight(row.height or list.stride)
 
+  skinGhost(g, list.skin)
+
   g.icon:SetTexture(row.ghostIcon or list.handleIcon or HANDLE_FALLBACK)
   local ic = row.ghostIconColor or { 1, 1, 1 }
   g.icon:SetVertexColor(ic[1], ic[2], ic[3])
 
   g.text:SetText(row.ghostText or "")
-  local tc = row.ghostTextColor or { 1, 0.82, 0 }
+  local tc = row.ghostTextColor or list.ghostText
   g.text:SetTextColor(tc[1], tc[2], tc[3])
 
   g:Show()
@@ -482,16 +530,25 @@ end
 ---   rowBoxInset number|nil       px the box is inset from the row frame's edges. Defaults to 0.
 ---   lineColor  table|nil         { r, g, b, a } for the insertion line; defaults to gold.
 ---   debug      function|nil      called as debug(fmt, ...) on grab and drop.
+---   owner      string|nil        minor 2. A registered skin owner (the addon folder name): the
+---                                defaults above come from that owner's skin (the header's THE SKIN
+---                                OWNER). An explicit color option still wins.
 --- @return table controller
 function lib.ReorderList(opts)
   opts = opts or {}
+  local pal = skinPalette(opts.owner)
 
   local list = {
     stride     = opts.stride or 30,
     boundary   = opts.boundary,
     onMove     = opts.onMove,
     handleIcon = opts.handleIcon,
-    color      = opts.lineColor or { 1, 0.82, 0, 0.9 },
+    color      = opts.lineColor or (pal and pal.line) or LINE_COLOR,
+    skin       = pal,
+    -- The handle's two tints and the ghost's text, resolved once per render (minor 2).
+    handleRest = opts.handleColor or (pal and pal.rest) or HANDLE_REST,
+    handleHover = opts.handleHoverColor or (pal and pal.hover) or HANDLE_HOVER,
+    ghostText  = (pal and pal.ghostText) or GHOST_TEXT,
     rowBox     = opts.rowBox ~= false,
     rows       = {},
     handles    = {},
@@ -605,7 +662,7 @@ function lib.ReorderList(opts)
     box:ClearAllPoints()
     box:SetPoint("TOPLEFT",     parent, "TOPLEFT",      inset, -inset)
     box:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -inset,  inset)
-    paintRowBox(box, dimmed)
+    paintRowBox(box, dimmed, pal and pal.box)
     box:Show()
     return box
   end
@@ -645,8 +702,8 @@ function lib.ReorderList(opts)
     self.handles[#self.handles + 1] = handle
 
     handle.__row        = row
-    handle.__restColor  = opts.handleColor or { 0.7, 0.7, 0.7 }
-    handle.__hoverColor = opts.handleHoverColor or { 1, 0.82, 0 }
+    handle.__restColor  = list.handleRest
+    handle.__hoverColor = list.handleHover
     handle.__tooltip    = opts.handleTooltip
 
     handle:SetParent(parent)

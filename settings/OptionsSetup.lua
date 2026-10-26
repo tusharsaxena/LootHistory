@@ -135,6 +135,14 @@ if not lib then
     -- General page's header Defaults. Pure on the live instance; the stub answers the tail alone
     -- (the library's suggested stub), and no panel reads it on this path.
     ResetAllTooltip = function(tail) return type(tail) == "string" and tail or "" end,
+    -- The Appearance tab (LibKa0s v1.78.0, OptionsAppearance minor 1; skinning-§3). Every Options
+    -- stub owes both members, adopted or not. On this path RenderTabbedSchema answers no tabs and
+    -- EnsureScroll answers nil, so the entry is inert and AppearanceRows answers nil, as the live
+    -- one does when it cannot draw.
+    AppearanceTab = function()
+      return { key = "Appearance", label = "Appearance", render = noop }
+    end,
+    AppearanceRows = function() return nil end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.

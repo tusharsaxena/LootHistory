@@ -1,7 +1,8 @@
 -- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
 -- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, from minor 4
--- an opt-in host hook that places the tooltip (`tooltipPlace`), and from minor 5 an opt-in frame
--- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`).
+-- an opt-in host hook that places the tooltip (`tooltipPlace`), from minor 5 an opt-in frame
+-- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), and from minor 6 a
+-- skin owner (`owner`: the shell's SKIN OWNERS).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -49,7 +50,10 @@ if not lib then return end
 
 -- Minor 5: `spec.level` (an offset over the parent's frame level, applied at birth before the
 -- marks are built), `handle:ApplyLevel()` and `spec.ignoreParentAlpha` (frame-layering-§2, §3).
-local DRAG_MINOR = 5
+-- Minor 6: `spec.owner`, a registered skin owner: the strip's fill, edge, label and mark tints come
+-- from that owner's skin (`handle.bg`, `handle.edge`, `text.accent`, `icon.tint`, `icon.hot`) and
+-- follow its switches. Without one, or for an unregistered name, the strip is minor 5's.
+local DRAG_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -172,6 +176,23 @@ local CLOSE_FALLBACK = "Interface\\Buttons\\UI-StopButton"
 local HELP_TINT      = { 0.7, 0.7, 0.72 }
 local HELP_TINT_OVER = { 1, 1, 1 }
 
+-- The strip's colors as one palette (minor 6): these for a strip with no skin owner, the owner's
+-- tokens for one with (dhPalette). Every paint reads the handle's palette, never a literal.
+local DH_PAL = { bg = { 0, 0, 0, 0.75 }, edge = { 1, 0.82, 0, 0.6 }, label = { 1, 0.82, 0 },
+                 tint = HELP_TINT, over = HELP_TINT_OVER }
+
+--- The palette for `owner` and the Skin major, or the default palette and nil when `owner` is not a
+--- registered skin owner (or the shell predates the check).
+local function dhPalette(owner)
+  local skinOf = lib.__skinOf
+  local Skin = type(skinOf) == "function" and skinOf(owner) or nil
+  if not Skin then return DH_PAL, nil end
+  local function tok(name, fallback) return Skin:Token(owner, name) or fallback end
+  return { bg = tok("handle.bg", DH_PAL.bg), edge = tok("handle.edge", DH_PAL.edge),
+           label = tok("text.accent", DH_PAL.label), tint = tok("icon.tint", HELP_TINT),
+           over = tok("icon.hot", HELP_TINT_OVER) }, Skin
+end
+
 -- ONE face, read by the code that DRAWS the label and by the code that MEASURES it. An earlier
 -- draft drew the label in a hardcoded face and measured it in a separate `spec.measureFont`, so a
 -- host that set one and not the other measured a width the strip did not draw and could run its
@@ -222,9 +243,11 @@ end
 --- Four 1px strips rather than a BackdropTemplate, and that is not a style choice. Under an anchor
 --- attached to another frame the strip's size can read secret, and SetBackdrop does arithmetic on
 --- the size on every set and every resize. Four rectangles read nothing. A host that has its own
---- edge painter passes it as `spec.edge` and gets its own pixels.
+--- edge painter passes it as `spec.edge` and gets its own pixels. Answers the strips it drew
+--- (minor 6), so a skinned strip recolors them rather than drawing four more.
 local function dhDrawEdge(frame, size, r, g, b, a)
   if not frame.CreateTexture then return end
+  local out = {}
   local plan = {
     { "TOPLEFT",    "TOPRIGHT",    true  },
     { "BOTTOMLEFT", "BOTTOMRIGHT", true  },
@@ -238,7 +261,9 @@ local function dhDrawEdge(frame, size, r, g, b, a)
     tex:SetPoint(e[2], frame, e[2], 0, 0)
     if e[3] then tex:SetHeight(size) else tex:SetWidth(size) end
     tex:SetColorTexture(r, g, b, a)
+    out[#out + 1] = tex
   end
+  return out
 end
 
 --- One tooltip entry, EVALUATED NOW rather than captured at build time, with the color it asked
@@ -406,7 +431,7 @@ local function dhBuildHelp(handle, spec)
     icon:SetSize(D.HELP, D.HELP)
     icon:SetPoint("CENTER", help, "CENTER", 0, 0)
     icon:SetTexture(spec.helpIcon or HELP_FALLBACK)
-    dhTint(icon, HELP_TINT)
+    dhTint(icon, handle.__pal.tint)
     help.icon = icon
   end
   -- HOVER FEEDBACK FOLLOWS THE CLICK, and nothing else. The brighten is the line that says this
@@ -415,13 +440,14 @@ local function dhBuildHelp(handle, spec)
   -- the same reason -- so its mark stays at the resting tint and is what it actually is there: the
   -- anchor of a second tooltip. A host that passes `onRightClick` still gets the full-white
   -- response the control earns.
-  local overTint = spec.onRightClick and HELP_TINT_OVER or HELP_TINT
+  -- The tints are read from the handle's palette at fire time (minor 6), so a skin switch reaches
+  -- the next hover.
   help:SetScript("OnEnter", function()
-    dhTint(help.icon, overTint)
+    dhTint(help.icon, spec.onRightClick and handle.__pal.over or handle.__pal.tint)
     dhShowTooltip(help, spec, spec.helpTooltip or spec.tooltip)
   end)
   help:SetScript("OnLeave", function()
-    dhTint(help.icon, HELP_TINT)
+    dhTint(help.icon, handle.__pal.tint)
     dhHideTooltip()
   end)
   dhSetClick(help, spec, false)
@@ -463,15 +489,15 @@ local function dhBuildClose(handle, spec)
     icon:SetSize(D.HELP, D.HELP)
     icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
     icon:SetTexture(spec.closeIcon or CLOSE_FALLBACK)
-    dhTint(icon, HELP_TINT)
+    dhTint(icon, handle.__pal.tint)
     btn.icon = icon
   end
   btn:SetScript("OnEnter", function()
-    dhTint(btn.icon, HELP_TINT_OVER)
+    dhTint(btn.icon, handle.__pal.over)
     dhShowTooltip(btn, spec, spec.closeTooltip or spec.tooltip)
   end)
   btn:SetScript("OnLeave", function()
-    dhTint(btn.icon, HELP_TINT)
+    dhTint(btn.icon, handle.__pal.tint)
     dhHideTooltip()
   end)
   if spec.onRightClick then
@@ -501,14 +527,31 @@ end
 --- The strip's own chrome: a dark fill and a 1px gold edge, both guarded on the ANSWER rather than
 --- on the method, because a headless mock's CreateTexture can hand back nil.
 local function dhBuildChrome(handle, spec)
+  local pal = handle.__pal
   local bg = handle.CreateTexture and handle:CreateTexture(nil, "BACKGROUND")
   if bg and bg.SetColorTexture then
     bg:SetAllPoints(handle)
-    bg:SetColorTexture(0, 0, 0, 0.75)
+    bg:SetColorTexture(pal.bg[1], pal.bg[2], pal.bg[3], pal.bg[4])
     handle.bg = bg
   end
-  local paintEdge = spec.edge or dhDrawEdge
-  paintEdge(handle, 1, 1, 0.82, 0, 0.6)
+  local e = pal.edge
+  if spec.edge then return spec.edge(handle, 1, e[1], e[2], e[3], e[4]) end
+  handle.__edges = dhDrawEdge(handle, 1, e[1], e[2], e[3], e[4])
+end
+
+--- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch. A host's
+--- own `spec.edge` pixels are the host's and are not redrawn.
+local function dhRepaint(handle, owner)
+  local pal = dhPalette(owner)
+  handle.__pal = pal
+  if handle.bg then handle.bg:SetColorTexture(pal.bg[1], pal.bg[2], pal.bg[3], pal.bg[4]) end
+  for _, tex in ipairs(handle.__edges or {}) do
+    tex:SetColorTexture(pal.edge[1], pal.edge[2], pal.edge[3], pal.edge[4])
+  end
+  if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
+  for _, mark in ipairs({ handle.help, handle.close }) do
+    if mark then dhTint(mark.icon, pal.tint) end
+  end
 end
 
 --- The centered gold label, or nil where the client cannot make a FontString. Drawn in the same
@@ -539,7 +582,8 @@ local function dhBuildLabel(handle, spec)
   if label.SetJustifyH then label:SetJustifyH("CENTER") end
   if label.SetWordWrap then label:SetWordWrap(false) end
   if label.SetMaxLines then label:SetMaxLines(1) end
-  label:SetTextColor(1, 0.82, 0)
+  local c = handle.__pal.label
+  label:SetTextColor(c[1], c[2], c[3])
   handle.label = label
   return label
 end
@@ -696,6 +740,9 @@ end
 ---   ignoreParentAlpha boolean|nil minor 5. true calls SetIgnoreParentAlpha(true) on the handle, so
 ---                                 a display that fades its content does not fade the strip a
 ---                                 player must find. The marks are its children and follow it.
+---   owner       string|nil        minor 6. A registered skin owner (the addon folder name): the
+---                                 strip's colors follow that owner's skin. Not a tooltip owner --
+---                                 that is `tooltipOwner` and a descriptor's own `owner`.
 --- @return table|nil handle  nil with no parent and nil in a process with no CreateFrame
 function lib.DragHandle(parent, spec)
   spec = spec or {}
@@ -704,6 +751,8 @@ function lib.DragHandle(parent, spec)
   local handle = CreateFrame("Button", spec.name, parent)
   if not (handle and handle.SetHeight) then return nil end
   handle:SetHeight(lib.DRAG_HANDLE.HEIGHT)
+  local Skin
+  handle.__pal, Skin = dhPalette(spec.owner)
   -- Before anything is built on it: the marks are born at the handle's level + 1.
   dhLevel(handle, spec, parent)
   dhParentAlpha(handle, spec)
@@ -722,6 +771,7 @@ function lib.DragHandle(parent, spec)
   handle.close = dhBuildClose(handle, spec)
   dhAttachMethods(handle, spec)
   handle:SetLabel(spec.label)
+  if Skin then lib.__onSkin(Skin, spec.owner, handle, dhRepaint) end
   -- See "WHAT THE HOST STILL OWNS" at the top: the one visibility call this file makes, at birth,
   -- because a strip with no width and no anchor point would otherwise flash.
   handle:Hide()

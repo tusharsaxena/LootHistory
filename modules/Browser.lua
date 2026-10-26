@@ -5,17 +5,12 @@ local frame
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip strings route through it
 
--- The window CHROME this addon owns: the tab strip's two label colors and every height the layout
--- is measured from. The window EDGE is NOT here — the dark flat background, the 1px black outer
--- border, the 1px gray inner highlight, the gold title tint and the gray divider are the normative
--- Ka0s edge, and they live in Core.SKIN (standalone-windows). B:ApplySkin below delegates to
--- Core.ApplySkin rather than restating them, so the History browser, both export copy windows and
--- the debug console cannot drift apart. The seam stays because those four reach the edge through it.
--- TODO (post-1.0.0): make the skin user-configurable (border color/size, background color/alpha,
--- font) via settings. That now belongs at the LibKa0s seam, not here. Tracked as a GitHub issue.
+-- The window GEOMETRY this addon owns: every height the layout is measured from. No color is here.
+-- The window's look is the player's skin (the Appearance tab; core/SkinSetup.lua's NS.Skin, over
+-- LibKa0s-Skin-1.0): the edge, the title bar, the divider, the close control, the tab labels and
+-- underline, the bar's buttons and the footer all read its tokens and follow a skin switch with no
+-- reload. Ka0s Default is the look this window always had.
 local SKIN = {
-  tabActive   = { 1.0, 0.82, 0.0 },          -- active tab label (gold)
-  tabIdle     = { 0.7, 0.7, 0.72 },          -- idle tab label (gray)
   titleBarH   = 30,
   tabStripH   = 26,
   contentGap  = 14,    -- vertical spacing between the tab strip and the pane content
@@ -61,8 +56,19 @@ end
 -- every argument its target takes (anti-patterns #64): lib.ApplySkin(frame, skin) accepts an
 -- override table, and a one-argument passthrough drops it silently -- the call still runs, the
 -- window still gets an edge, and the override simply never arrives.
-function B:ApplySkin(f, skin)
-  if NS.ApplySkin then NS.ApplySkin(f, skin) end
+--
+-- With no `skin` the frame goes to the skin's Shell (NS.Skin.Shell, LibKa0s-Skin-1.0): the same
+-- Core.ApplySkin call on Ka0s Default, object for object, and the player's skin otherwise; the
+-- frame is recorded for this addon's owner, so a skin switch repaints it live. `opts` is Shell's
+-- (`noTopBar` for a window whose title bar paints its own fill, `bottomBar` for a footer band).
+-- A caller's own `skin` table still reaches NS.ApplySkin, as before: it overrides the skin.
+-- Degraded, NS.Skin.Shell is core/SkinSetup.lua's, which routes to NS.ApplySkin.
+function B:ApplySkin(f, skin, opts)
+  if skin ~= nil then
+    if NS.ApplySkin then NS.ApplySkin(f, skin) end
+    return
+  end
+  if NS.Skin then NS.Skin.Shell(f, opts) elseif NS.ApplySkin then NS.ApplySkin(f) end
 end
 
 -- The close control every window this addon owns wears -- the History browser, the export modal
@@ -166,7 +172,7 @@ function B:SelectTab(name)
   for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
-    frame.tabs[t].label:SetTextColor(unpack(active and SKIN.tabActive or SKIN.tabIdle))
+    frame.tabs[t].label:SetTextColor(NS.SkinColor(active and "tab.onText" or "tab.text"))
     frame.tabs[t].underline:SetShown(active)
   end
   BuildPane(name)
@@ -252,8 +258,8 @@ local function LayoutTabButtons()
   local strip = frame.tabStrip
   if not strip then
     strip = CreateFrame("Frame", nil, frame)
-    strip:SetPoint("TOPLEFT", frame.divider, "BOTTOMLEFT", 6, -2)
-    strip:SetPoint("TOPRIGHT", frame.divider, "BOTTOMRIGHT", -6, -2)
+    strip:SetPoint("TOPLEFT", frame.dividerBar, "BOTTOMLEFT", 6, -2)
+    strip:SetPoint("TOPRIGHT", frame.dividerBar, "BOTTOMRIGHT", -6, -2)
     strip:SetHeight(SKIN.tabStripH)
     frame.tabStrip, frame.tabs = strip, {}
   end
@@ -264,7 +270,7 @@ local function LayoutTabButtons()
       tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
       tab.label:SetPoint("CENTER"); tab.label:SetText(name)
       tab.underline = tab:CreateTexture(nil, "ARTWORK")
-      tab.underline:SetColorTexture(unpack(SKIN.tabActive)); tab.underline:SetHeight(2)
+      tab.underline:SetColorTexture(NS.SkinColor("tab.onLine")); tab.underline:SetHeight(2)
       tab.underline:SetPoint("BOTTOMLEFT", 8, 0); tab.underline:SetPoint("BOTTOMRIGHT", -8, 0)
       tab:SetScript("OnClick", function() B:SelectTab(name) end)
       frame.tabs[name] = tab
@@ -272,6 +278,22 @@ local function LayoutTabButtons()
     tab:ClearAllPoints(); tab:SetPoint("LEFT", (i - 1) * 94, 0)
   end
 end
+
+-- The tabs on a skin switch (OnLooksChanged, below). They are not the skin's Tab primitive: on Ka0s
+-- Default that draws the settings tab strip's gradient backing, which these tabs never had, so the
+-- tabs keep their own two calls and take only the colors from the skin -- each label in
+-- `tab.onText` / `tab.text` by the active tab, as SelectTab paints it, and the underline in
+-- `tab.onLine`. Nothing to do before the window is built: LayoutTabButtons and SelectTab read the
+-- skin when they first paint.
+local function ReskinTabs()
+  if not (frame and frame.tabs) then return end
+  for name, tab in pairs(frame.tabs) do
+    tab.label:SetTextColor(NS.SkinColor(name == lastTab and "tab.onText" or "tab.text"))
+    tab.underline:SetColorTexture(NS.SkinColor("tab.onLine"))
+  end
+end
+B._reskinTabs = ReskinTabs   -- tests/test_skin_chrome.lua
+if NS.Skin then NS.Skin.OnLooksChanged(ReskinTabs) end
 
 -- Meant for file load, before the window is built; a later call creates the pane + button on the spot.
 function B:RegisterTab(spec)
@@ -889,16 +911,23 @@ B:RegisterTab{ name = "Insights", order = 20,
 -- ── Frame construction ─────────────────────────────────────────────────────────
 
 -- Each mode strip's tooltip: what the rows under it are and what ends the mode.
+-- The lines are in the skin's `gtip.body`, the color every skin keeps legible on Blizzard's own dark
+-- GameTooltip (which no skin restyles). Read at each hover, so a switch needs no repaint.
+local function tipLine(text)
+  local r, g, b = NS.SkinColor("gtip.body")
+  GameTooltip:AddLine(text, r, g, b)
+end
+
 local function testTip()
   GameTooltip:SetText(L["Test mode"])
-  GameTooltip:AddLine(L["Shows: sample loot, holdings and timeline"], 1, 1, 1)
-  GameTooltip:AddLine(L["Ended by: combat, /lh test, the launcher menu"], 1, 1, 1)
+  tipLine(L["Shows: sample loot, holdings and timeline"])
+  tipLine(L["Ended by: combat, /lh test, the launcher menu"])
 end
 
 local function simTip()
   GameTooltip:SetText(L["Simulation"])
-  GameTooltip:AddLine(L["Shows: what the real capture recorded from an invented world, this session only"], 1, 1, 1)
-  GameTooltip:AddLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"], 1, 1, 1)
+  tipLine(L["Shows: what the real capture recorded from an invented world, this session only"])
+  tipLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"])
 end
 
 -- One mode strip of `mark`'s kind and text, hung 2px under the filter bar with `tip` on hover; nil
@@ -977,11 +1006,21 @@ local function EnsureFrame()
   testBadge:Hide()
   frame.testBadge = testBadge
 
-  local divider = frame:CreateTexture(nil, "ARTWORK")
+  -- The title bar's fill (none on Ka0s Default) through the skin's TitleBar. The title text is
+  -- not handed over: it is the window's `frame.title`, which the Shell below already paints in the
+  -- title color and font, and painting it twice would be a second call for one color.
+  NS.Skin.TitleBar(titleBar)
+
+  -- The divider under the title bar is a 1px FRAME, and the skin's Divider draws its line on that
+  -- frame's own holder. Never a direct region of this window: EllesmereUI's FadeRegions fades every
+  -- direct region of the frame it skins, and a texture here would be erased with them. Held as
+  -- `dividerBar` rather than the edge's `divider` field, which names a texture to tint.
+  local divider = CreateFrame("Frame", nil, frame)
   divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
   divider:SetHeight(1)
-  frame.divider = divider
+  NS.Skin.Divider(divider)
+  frame.dividerBar = divider
 
   -- ElvUI-style thin × close glyph (class-colored on hover). Anchored to the title bar's
   -- vertical center so it lines up with the CENTER-anchored title.
@@ -1015,12 +1054,16 @@ local function EnsureFrame()
   -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
   -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
   -- 16px resize grip (frame BOTTOMRIGHT -1, or -2 on a degraded install) so they never overlap.
+  -- Both in the skin's `text.disabled`, the gray their font object draws on Ka0s Default; the
+  -- band under them is the Shell's bottom bar (B:ApplySkin below).
   local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 3)
+  NS.Skin.Text(footer, "disabled")
   B._footer = footer
   local dbFooter = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   dbFooter:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -20, 3)
   dbFooter:SetJustifyH("RIGHT")
+  NS.Skin.Text(dbFooter, "disabled")
   B._dbFooter = dbFooter
 
   -- Build the shared filter controls, populate their options, and apply the saved view (opens
@@ -1086,7 +1129,9 @@ local function EnsureFrame()
     if NS.State.debug and NS.Debug then NS.Debug("UI", "window hidden") end
   end)
 
-  B:ApplySkin(frame)
+  -- The window edge through the skin's Shell. `noTopBar`: the title bar paints its own fill
+  -- (TitleBar, above); `bottomBar`: the footer band, FOOTER_H tall (none on Ka0s Default).
+  B:ApplySkin(frame, nil, { noTopBar = true, bottomBar = FOOTER_H })
   RestoreWindow()
   B:ApplyChrome(frame, NS.db and NS.db.profile.settings.windowScale)
   frame:Hide()
@@ -1227,6 +1272,15 @@ end
 -- The History window frame (or nil if never built). Lets sibling modules (e.g. Export) anchor
 -- their own popups to the browser window rather than the screen.
 function B:GetWindow() return frame end
+
+--- Test-only: put `f` in the window's place (nil: none built yet) and answer the one it replaced, so
+--- tests/test_skin_chrome.lua can build a fresh window under the kit's paint recorder and put the
+--- session's window back afterwards.
+function B:_SwapWindowForTest(f)
+  local old = frame
+  frame = f
+  return old
+end
 
 --- The per-window scale row's onChange. Goes through ApplyChrome so the master scale is applied in
 --- the same breath — a per-window scale set on its own would otherwise discard it.

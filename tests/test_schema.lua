@@ -661,6 +661,9 @@ local PARTITION = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     { "Interface", 5 }, { "History", 2 },
+    -- The skin's two rows (skinning-§3), after History in the strip's order; the library's
+    -- Appearance tab draws them, so both are skipRender.
+    { "Appearance", 2 },
   },
 }
 
@@ -808,7 +811,8 @@ end)
 local NUMBER_WORD = {
   ten = 10, eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15,
   sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
-  ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23,
+  ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23, ["twenty-four"] = 24,
+  ["twenty-five"] = 25,
 }
 
 local COUNT_CLAIMS = {
@@ -849,8 +853,10 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   -- breakdown TWICE — once in the source tree, once in the per-file entry — and EVERY occurrence is
   -- checked, because one of two homes going stale while the other is corrected is precisely the
   -- drift this exists to catch.
+  -- The run ends on the LAST schema tab's pair, Appearance since the skin rows (skinning-§3): a run
+  -- cut at History would leave Appearance outside every segment and its count unread.
   local found = 0
-  for segment in src:gmatch("Master controls %d+.-History %d+") do
+  for segment in src:gmatch("Master controls %d+.-Appearance %d+") do
     found = found + 1
     for _, group in ipairs(order) do
       local n = tonumber(segment:match(group:gsub("%p", "%%%0") .. " (%d+)"))
@@ -1229,6 +1235,8 @@ end
 local STORED_SETTINGS = [[
 minimap.shown | bool | true | nil | nil | nil
 settings.alpha | number | 1 | 0 | 1 | 0.05
+settings.appearance.skin | string | "ka0s" | nil | nil | nil
+settings.appearance.source | string | "ka0s" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
 settings.auction.enabled | bool | true | nil | nil | nil
 settings.enabled | bool | true | nil | nil | nil

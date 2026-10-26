@@ -176,12 +176,23 @@ end
 --- them, so without this the baseline would carry the library's two REGEN registrations, which are
 --- not this addon's and are not a survivor of the stand-down. The kit mock's Hide fires no script,
 --- hence the explicit OnHide that lets the library let go.
+---
+--- AND LET THE SKIN LIBRARY'S LOGIN RETRY SETTLE. Since LibKa0s v1.78.0 the first RegisterOwner
+--- (core/SkinSetup.lua) makes LibKa0s-Skin-1.0's EllesmereUI retry frame, registered for
+--- ADDON_LOADED and PLAYER_LOGIN; in the client PLAYER_LOGIN fires once, long before a player can
+--- switch the addon off, and the frame unregisters both. The headless run never fires it, so the
+--- frame would stand in the baseline as two game events that are the library's, not this addon's,
+--- and not a survivor of the stand-down. Delivering the one login event the client delivers puts
+--- the frame where every real session has it.
 local function bringUp()
   local optionsLib = M.LibStub("LibKa0s-Options-1.0", true)
   for ctx in pairs(optionsLib and optionsLib.__shownPages or {}) do
     ctx.panel:Hide()
     ctx.panel:__fire("OnHide")
   end
+  local skinLib = M.LibStub("LibKa0s-Skin-1.0", true)
+  local retry = skinLib and skinLib.__euiEventFrame
+  if retry then retry:__fire("OnEvent", "PLAYER_LOGIN") end
   setEnabled(true)
   NS.addon:OnEnable()
   NS.Analytics:Enable()

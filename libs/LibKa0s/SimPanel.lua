@@ -63,8 +63,10 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 6
+local SIM_PANEL_MINOR = 7
 -- Minor 6: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
+-- Minor 7: the panel and its buttons follow the skin owner (THE SKIN OWNER below; LK-09 of
+-- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
 -- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
 local function raisePopups()
   if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
@@ -147,7 +149,28 @@ local HOVER_CANCEL = { 1.00, 0.45, 0.45 }
 local CENTER_X = -320                              -- Perf's spot, set once at build
 
 local function setColor(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
-local function colorOf(state) return COLORS[state] or COLORS.locked end
+
+-- THE SKIN OWNER (minor 7): the renderer's `addonName` (the adapter's `name`, the close mark's
+-- folder) once it is a registered LibKa0s-Skin-1.0 owner (Core's `__SkinFacade`, at build). Its
+-- window paints through `Core.ApplySkin(frame, nil, owner)`, each button box through `S.Shell` (no
+-- top bar), and every color below from its tokens (`pal`, the frame's `__pal`), refilled on each
+-- switch. Any other panel draws the constants, call for call; Ka0s Default's tokens equal them.
+local TOKENS = { done = "sem.on", used = "sem.on", ready = "sem.stepReady", busy = "sem.stepBusy",
+  locked = "sem.stepLocked", cancel = "sem.stepCancel", cmd = "text.faint", hover = "text.accent",
+  hoverCancel = "sem.stepCancelHot", rest = "sem.stepReady", hot = "text.accent", off = "text.faint" }
+-- The constants (and the buttons' rest / hot / off labels), for every panel without an owner.
+local DEFAULT = { cmd = CMD_COLOR, hover = HOVER_GOLD, hoverCancel = HOVER_CANCEL,
+  rest = { 0.9, 0.9, 0.92 }, hot = { 1, 0.82, 0 }, off = { 0.45, 0.45, 0.48 } }
+for state, c in pairs(COLORS) do DEFAULT[state] = c end
+
+local function fillPalette(pal, S)
+  for name, token in pairs(TOKENS) do pal[name] = S.Token(token) or DEFAULT[name] end
+  return pal
+end
+
+local function facadeOf(owner)
+  return type(core.__SkinFacade) == "function" and core.__SkinFacade(owner) or nil
+end
 
 local function required(d, field, kind)
   if type(d[field]) ~= kind then
@@ -244,6 +267,8 @@ local function StepPanel(d)
   local frame
   local buttons, shown, pinnedCount = {}, 0, nil
   local minW = ROW_W + PAD * 2
+  local pal = DEFAULT
+  local function colorOf(state) return pal[state] or pal.locked end
 
   local function heightFor(n)
     local h = TITLE_H + PAD * 2 + n * (ROW_H + GAP)
@@ -268,7 +293,7 @@ local function StepPanel(d)
     if not row then return end
     -- Hover marks what a click would do, so only an actionable row lights up; a tip is for any row
     -- (a done step's tip says when it ran).
-    if row.actionable then setColor(b.text, row.state == "cancel" and HOVER_CANCEL or HOVER_GOLD) end
+    if row.actionable then setColor(b.text, row.state == "cancel" and pal.hoverCancel or pal.hover) end
     if row.tip ~= nil and type(d.tooltip) == "function" then
       b.__tipShown = true
       d.tooltip(b, row)
@@ -308,7 +333,7 @@ local function StepPanel(d)
     b.cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     b.cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     b.cmd:SetJustifyH("RIGHT")
-    setColor(b.cmd, CMD_COLOR)
+    setColor(b.cmd, pal.cmd)
     -- One line, bounded on both sides (LK-91), so a long label truncates with an ellipsis instead
     -- of running under the command; the right bound is set by paintRow (anchorLabel).
     b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -360,9 +385,22 @@ local function StepPanel(d)
     b:Show()
   end
 
+  --- An owned panel: the window through the facade; each switch refills, recolors and repaints.
+  local function adopt(S)
+    core.ApplySkin(frame, nil, d.addonName)
+    S.OnLooksChanged(function()
+      fillPalette(pal, S)
+      for _, b in ipairs(buttons) do setColor(b.cmd, pal.cmd) end
+      panel.Refresh()
+    end)
+  end
+
   local function build()
     local n = #readRows(d)
+    local S = facadeOf(d.addonName)
+    if S then pal = fillPalette({}, S) end
     frame = CreateFrame("Frame", d.name, UIParent, "BackdropTemplate")
+    frame.__pal, frame.__skin = pal, S
     frame:SetSize(minW, heightFor(n))
     frame:SetPoint("CENTER", CENTER_X, 0)
     frame.__rowButtons = buttons                   -- the test record: the row buttons, by index
@@ -374,7 +412,7 @@ local function StepPanel(d)
         TITLE_H = TITLE_H, PAD = PAD, ROW_W = ROW_W,
       })
     end
-    core.ApplySkin(frame)
+    if S then adopt(S) else core.ApplySkin(frame) end
     frame:Hide()
     -- Escape hides the frame directly (CloseSpecialWindows), never through HidePanel.
     if type(frame.HookScript) == "function" then frame:HookScript("OnHide", closeMenu) end
@@ -659,26 +697,28 @@ end
 
 -- ── the picker and the controls ─────────────────────────────────────────────────────────────
 
-local REST, HOT, OFF = { 0.9, 0.9, 0.92 }, { 1, 0.82, 0 }, { 0.45, 0.45, 0.48 }
-
 --- The library's minimal button: a Core-skinned box with a centered label, gold under the pointer,
 --- and a GameTooltip naming the typed command (`typed()`). There is no d.panel.button (C.7).
-local function makeButton(parent, width, text, onClick, typed)
+--- Minor 7: `f` is the panel frame (its `__pal` labels, its `__skin` box; THE SKIN OWNER).
+local function makeButton(f, parent, width, text, onClick, typed)
+  local pal = f.__pal or DEFAULT
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(width, BAR_H)
   core.ApplySkin(b)
+  if f.__skin then f.__skin.Shell(b, { noTopBar = true }) end
   b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
   b.label:SetText(text)
-  setColor(b.label, REST)
+  setColor(b.label, pal.rest)
   b.__label = text
+  b.__pal = pal
   hoverWhileDisabled(b)
   b:SetScript("OnEnter", function()
-    if b:IsEnabled() then setColor(b.label, HOT) end
+    if b:IsEnabled() then setColor(b.label, pal.hot) end
     showTip(b, { label = b.__label, tip = { { typed() } } })
   end)
   b:SetScript("OnLeave", function()
-    setColor(b.label, b:IsEnabled() and REST or OFF)
+    setColor(b.label, b:IsEnabled() and pal.rest or pal.off)
     if type(GameTooltip) == "table" and GameTooltip.Hide then GameTooltip:Hide() end
   end)
   b:SetScript("OnClick", function() if b:IsEnabled() then onClick() end end)
@@ -692,7 +732,8 @@ end
 
 local function setEnabled(b, on)
   if on then b:Enable() else b:Disable() end
-  setColor(b.label, on and REST or OFF)
+  local pal = b.__pal or DEFAULT
+  setColor(b.label, on and pal.rest or pal.off)
 end
 
 local function scenarioOptions(P)
@@ -739,7 +780,7 @@ local function buildPicker(P, f)
     local name = chosen(P)
     return startLine(name, sizeFor(P, name))
   end
-  pk.start = makeButton(pk, BUTTON_W, P.ctx.tr("START"),
+  pk.start = makeButton(f, pk, BUTTON_W, P.ctx.tr("START"),
     function() P.sim:RunVerb(line()) end, function() return slashOf(P, line()) end)
   pk.start:SetPoint("RIGHT", pk, "RIGHT", 0, 0)
   f.picker = pk
@@ -754,7 +795,7 @@ local function buildControls(P, f)
   local list = { { "pause", "PAUSE" }, { "restart", "RESTART" }, { "stop", "STOP" } }
   for i, spec in ipairs(list) do
     local key = spec[1]
-    local b = makeButton(c, CONTROL_W, P.ctx.tr(spec[2]), function() P.sim:RunVerb(verbOf(key)) end,
+    local b = makeButton(f, c, CONTROL_W, P.ctx.tr(spec[2]), function() P.sim:RunVerb(verbOf(key)) end,
       function() return slashOf(P, verbOf(key)) end)
     b:SetPoint("LEFT", c, "LEFT", (i - 1) * (CONTROL_W + BUTTON_GAP), 0)
     c[key] = b

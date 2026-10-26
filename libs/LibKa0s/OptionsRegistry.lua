@@ -27,7 +27,9 @@ if not lib then return end
 -- 1 to 25) with no change in behavior.
 -- Minor 2: the replay of a parked registration writes "register flushed (combat ended)" through
 -- the descriptor's `debug`, the pair to the parked line (gap G3 of the 2026-09-30 debug-gaps run).
-local REGISTRY_MINOR = 2
+-- Minor 3: the AceGUI handle re-resolved here is handed to the AceGUI rows' skin again
+-- (`lib.__AttachSkinAce`, OptionsScroll.lua minor 6), as lib:New hands the first one.
+local REGISTRY_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__registryMinor and lib.__registryMinor >= REGISTRY_MINOR
@@ -201,6 +203,7 @@ function lib.__AttachRegistry(O, d)
       print(lib.STRINGS.NO_ACEGUI)
       return
     end
+    if lib.__AttachSkinAce then lib.__AttachSkinAce(O, d) end   -- minor 3
     if type(d.onAceGUI) == "function" then d.onAceGUI(O.AceGUI) end
 
     if type(d.validate) == "function" then d.validate() end

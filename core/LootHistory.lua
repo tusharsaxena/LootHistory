@@ -31,6 +31,10 @@ function addon:OnInitialize()
   -- core/Constants.lua had already resolved a path and settings/Schema.lua had already built rows
   -- naming the face -- a window in which a stored default named a font LSM had not yet heard of.
   NS:InitDB()
+  -- The skin the active profile names (core/SkinSetup.lua), right after the store exists: the
+  -- owner registered at file load, before AceDB, and has worn Ka0s Default since. Before any
+  -- page or window is built, so the first paint is already the profile's skin.
+  NS.ApplySkinChoice()
   -- The "Keep history for" confirm's baseline: the stored retention is the confirmed one.
   if NS.Schema and NS.Schema.SyncRetention then NS.Schema:SyncRetention() end
   if NS.Schema and NS.Schema.Register then NS.Schema:Register() end
@@ -52,7 +56,7 @@ end
 --
 -- A switch, a copy and a reset all land here through NS.BindLifecycle (core/LifecycleSetup.lua).
 -- Each one hands the addon a profile it has not seen yet, so each one does the same four things, in
--- this order:
+-- this order, after first applying the new profile's skin (NS.ApplySkinChoice, core/SkinSetup.lua):
 --
 --   1. Migrations. None: every MIGRATIONS step runs on the account-wide store at load, before any
 --      profile is read, and no step is profile-scoped (core/Database.lua). A profile created later
@@ -93,7 +97,12 @@ end
 
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
-  -- First: a switch, copy or reset ends a running simulation (modules/Sim.lua, reason `profile`)
+  -- FIRST, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
+  -- repaints every recorded frame and fires OnLooksChanged whether or not the History window was
+  -- ever built (B:AdoptProfile returns early when it was not), so the skin cannot depend on it. No
+  -- simulation is built under a skin, so this moves nothing the stop below protects.
+  NS.ApplySkinChoice()
+  -- Then: a switch, copy or reset ends a running simulation (modules/Sim.lua, reason `profile`)
   -- before any setting it was built under moves.
   if NS.SimStop then NS.SimStop("profile") end
   NS.OnEnabledChanged()

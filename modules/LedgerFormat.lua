@@ -5,13 +5,21 @@ local F = NS.LedgerFormat
 -- Pure display helpers for ledger rows (History, Insights, and the Phase 3 Timeline). No frames.
 -- Signed styling is BankLedger's (InsightsWidgets SignedCount/SignedMoney): green +N, red -N, a
 -- gray em dash for exactly zero, which is a real answer rather than a missing one.
+--
+-- THE COLORS ARE THE SKIN'S (LH-04), read at call time so a switch reaches the next paint: a
+-- direction is sem.good / sem.bad / sem.neutral and a gold amount sem.gold (the old C.DirRGB and
+-- C.GOLD_RGB values in Ka0s Default); the signed strings are sem.goodAlt / sem.badAlt and a zero
+-- text.disabled, byte for byte |cff40ff40 / |cffff4040 / |cff808080 in Ka0s Default. The signed
+-- pair is NOT the direction pair: BankLedger's brighter green and red, kept as two tokens rather
+-- than one pixel moving (docs/api Skin's split roles).
 
 local C = NS.Constants
 local DASH = "\226\128\148"
+local DIR_TOKEN = { IN = "sem.good", OUT = "sem.bad", MOVE = "sem.neutral" }
 
 function F.Color(dir)
-  local c = C.DirRGB[dir or "IN"] or C.DirRGB.MOVE
-  return c[1], c[2], c[3]
+  local r, g, b = NS.Skin.Color(DIR_TOKEN[dir or "IN"] or DIR_TOKEN.MOVE)
+  return r, g, b
 end
 
 function F.SignedQty(r) return NS.Ledger.Signed(NS.Util.RowDir(r), r.quantity or 1) end
@@ -26,23 +34,23 @@ function F.QtyText(r)
 end
 
 function F.QtyColor(r)
-  if NS.Util.RowKind(r) == "GOLD" then local g = C.GOLD_RGB; return g[1], g[2], g[3] end
+  if NS.Util.RowKind(r) == "GOLD" then
+    local cr, cg, cb = NS.Skin.Color("sem.gold")
+    return cr, cg, cb
+  end
   return F.Color(NS.Util.RowDir(r))
 end
 
-function F.SignedCount(n)
-  n = n or 0
-  if n == 0 then return "|cff808080" .. DASH .. "|r" end
-  if n > 0 then return "|cff40ff40+" .. n .. "|r" end
-  return "|cffff4040-" .. (-n) .. "|r"
+-- One signed figure: green with a "+", red with a "-", or the gray dash for exactly zero.
+local function signed(n, text)
+  if n == 0 then return NS.SkinEscape("text.disabled") .. DASH .. "|r" end
+  if n > 0 then return NS.SkinEscape("sem.goodAlt") .. "+" .. text(n) .. "|r" end
+  return NS.SkinEscape("sem.badAlt") .. "-" .. text(-n) .. "|r"
 end
 
-function F.SignedMoney(copper)
-  copper = copper or 0
-  if copper == 0 then return "|cff808080" .. DASH .. "|r" end
-  if copper > 0 then return "|cff40ff40+" .. NS.Util.FormatMoney(copper) .. "|r" end
-  return "|cffff4040-" .. NS.Util.FormatMoney(-copper) .. "|r"
-end
+function F.SignedCount(n) return signed(n or 0, tostring) end
+
+function F.SignedMoney(copper) return signed(copper or 0, NS.Util.FormatMoney) end
 
 function F.HolderLabel(h)
   if h == C.WARBAND_HOLDER then return "Warband" end

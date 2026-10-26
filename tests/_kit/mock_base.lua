@@ -42,6 +42,7 @@
 -- table, so distinct objects move the api/iter parity figure, and tests/test_display.lua counts
 -- Show/Hide calls that currently land on one shared object. Fixing it is a deliberate change with
 -- its own test updates and a fresh parity baseline — not something to smuggle into an extraction.
+-- A suite that needs distinct, recording regions installs `mock_paint.lua` (opt-in, kit revision 43).
 
 -- ── the recording half ─────────────────────────────────────────────────────────────────────────
 --

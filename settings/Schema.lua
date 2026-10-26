@@ -443,8 +443,8 @@ local ROWS = {
       .. "A change takes effect from the next step." },
 
   -- ── General ▸ History ──
-  -- What is kept and how to get rid of it. Last SCHEMA tab because it is the one a player sets once
-  -- and leaves; only the library's Keybindings tab follows it on the strip. Filters, which declares
+  -- What is kept and how to get rid of it. Late on the strip because it is the one a player sets
+  -- once and leaves; only the Appearance and Keybindings tabs follow it. Filters, which declares
   -- no rows at all, sits third, after Capture (item 020, LOO-L08). Called
   -- History to match Ka0s Bank Ledger's tab of the same name and the same job — it was
   -- Maintenance, which named the chore rather than the subject. It held ONE stored row until the
@@ -495,6 +495,28 @@ local ROWS = {
       local g = NS.db and NS.db.global
       if g then g.rollupRetentionDays = days end
     end },
+
+  -- ── General ▸ Appearance ──
+  -- The skin this addon wears (skinning-§3, owner ruling R1: per addon, per profile). The tab is
+  -- the library's O.AppearanceTab, which draws both rows as its choice grids, so both carry
+  -- `skipRender`; they stay schema rows so the defaults resolve, every reset reaches them, and
+  -- `/lh get|set settings.appearance.skin` validates against `values`. Declared after History so
+  -- the schema's group order matches the strip: ... Interface, History, Appearance, then the
+  -- library's Keybindings, which stays last (options-ui-§20).
+  --
+  -- Each onChange applies ONLY its own half (core/SkinSetup.lua says why): the tab and another
+  -- addon's "Copy to every Ka0s addon" call Skin:SetChoice before they write, so the write is a
+  -- no-op, and a bare `/lh set` still repaints. Nothing here sends SETTINGS_CHANGED.
+  { path = "settings.appearance.source", default = PD.settings.appearance.source, type = "string",
+    widget = "Dropdown", skipRender = true, values = NS.SKIN_SOURCE_OPTIONS,
+    page = "General", group = "Appearance", label = "Skin source",
+    tooltip = "Where this addon's look comes from: the Ka0s skin chosen below, or EllesmereUI.",
+    onChange = function(v) NS.ApplySkinChoice(v, nil) end },
+  { path = "settings.appearance.skin", default = PD.settings.appearance.skin, type = "string",
+    widget = "Dropdown", skipRender = true, values = NS.SKIN_OPTIONS,
+    page = "General", group = "Appearance", label = "Skin",
+    tooltip = "The Ka0s skin this addon wears. Changes every window and panel right away.",
+    onChange = function(v) NS.ApplySkinChoice(nil, v) end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared

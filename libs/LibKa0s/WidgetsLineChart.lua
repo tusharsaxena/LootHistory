@@ -22,13 +22,24 @@
 -- (the widget reports an index; the host draws its own tooltip) and every unit conversion: the
 -- widget plots the numbers it is handed.
 --
+-- -- THE SKIN OWNER (minor 4) -------------------------------------------------------------------
+--
+-- `opts.owner`, a registered skin owner (the shell's SKIN OWNERS), draws the chart's chrome from
+-- that owner's skin through `S.ChartStyle()`: the axis, the grid, the crosshair, the default marker
+-- and the default series color (`chart.axis`, `chart.grid`, `chart.crosshair`, `chart.marker`,
+-- `chart.line`), the tick labels in `text.disabled`, and a series' `colorIndex` (an index into
+-- `chart.series`). A skin switch re-renders the chart with its current data. Colors the host passes
+-- (a series' or a marker's `color`) are the host's and win. Without an owner, or for an unregistered
+-- name, the chart reads `lib.LINE_CHART` as minor 3 did, and a `colorIndex` draws `LINE`.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. Reads the client's
 -- `date` and `time` for the time axis.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local CHART_MINOR = 3
+-- Minor 4: the skin owner (the header's THE SKIN OWNER).
+local CHART_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -57,6 +68,21 @@ local LC = lib.LINE_CHART
 
 local Math = {}
 lib.ChartMath = Math
+
+--- The colors a chart draws in: its skin owner's (minor 4), else `lib.LINE_CHART` itself.
+local function colors(c) return c.__pal or LC end
+
+--- A skin owner's chart colors in `lib.LINE_CHART`'s shape, plus `SERIES` and `LABEL`; nil for a
+--- chart with no registered skin owner (or a shell that predates the check).
+local function chartPalette(owner)
+  local skinOf = lib.__skinOf
+  local Skin = type(skinOf) == "function" and skinOf(owner) or nil
+  if not Skin then return nil, nil end
+  local st = Skin:For(owner).ChartStyle() or {}
+  return { AXIS = st.axis or LC.AXIS, GRID = st.grid or LC.GRID, CROSSHAIR = st.crosshair or LC.CROSSHAIR,
+           MARKER = st.marker or LC.MARKER, LINE = st.line or LC.LINE, SERIES = st.series,
+           LABEL = Skin:Token(owner, "text.disabled") }, Skin
+end
 
 -- -- y ticks: the 1 / 2 / 2.5 / 5 ladder -------------------------------------------------------
 
@@ -304,6 +330,8 @@ local function acquireLabel(c)
     fs = c:CreateFontString(nil, "OVERLAY", c.__opts.font or "GameFontDisableSmall")
     c.__labelPool[c.__labelUsed] = fs
   end
+  local label = c.__pal and c.__pal.LABEL
+  if label then fs:SetTextColor(label[1], label[2], label[3]) end
   fs:ClearAllPoints()
   fs:Show()
   return fs
@@ -346,7 +374,7 @@ local function defaultFormatX(x, step)
 end
 
 local function drawXAxis(c, s)
-  seg(c, s.left, s.bottom, s.left + s.w, s.bottom, LC.AXIS, 1)
+  seg(c, s.left, s.bottom, s.left + s.w, s.bottom, colors(c).AXIS, 1)
   local ticks, step = Math.TimeTicks(s.x0, s.x1, LC.X_TICKS)
   local fmt = c.__opts.formatX or defaultFormatX
   for _, t in ipairs(ticks) do
@@ -360,7 +388,7 @@ local function drawYAxis(c, s, ticks)
   local fmt = c.__opts.formatY or defaultFormatY
   for _, t in ipairs(ticks) do
     local y = yToPixel(s, t)
-    seg(c, s.left, y, s.left + s.w, y, LC.GRID, 1)
+    seg(c, s.left, y, s.left + s.w, y, colors(c).GRID, 1)
     local fs = acquireLabel(c)
     fs:SetPoint("RIGHT", c, "BOTTOMLEFT", s.left - LC.LABEL_GAP, y)
     fs:SetText(fmt(t))
@@ -371,10 +399,11 @@ local function drawMarkers(c, s, markers)
   for _, m in ipairs(markers or {}) do
     if m.x and m.x >= s.x0 and m.x <= s.x1 then
       local x = xToPixel(s, m.x)
+      local color = m.color or colors(c).MARKER
       if m.dashed == false then
-        seg(c, x, s.bottom, x, s.bottom + s.h, m.color or LC.MARKER, 1)
+        seg(c, x, s.bottom, x, s.bottom + s.h, color, 1)
       else
-        dashed(c, x, s.bottom, x, s.bottom + s.h, m.color or LC.MARKER, 1)
+        dashed(c, x, s.bottom, x, s.bottom + s.h, color, 1)
       end
     end
   end
@@ -398,9 +427,21 @@ local function drawSegment(c, s, sr, a, b, color, th)
   if inDash(sr, a.x, b.x) then dashed(c, x1, y1, x2, y2, color, th) else seg(c, x1, y1, x2, y2, color, th) end
 end
 
+--- A series' color: its own, else its `colorIndex` into the skin's `chart.series` (minor 4), else
+--- the default line color.
+local function seriesColor(c, sr)
+  if sr.color then return sr.color end
+  local list = colors(c).SERIES
+  local i = sr.colorIndex
+  if type(list) == "table" and type(i) == "number" and #list > 0 then
+    return list[(floor(i) - 1) % #list + 1]
+  end
+  return colors(c).LINE
+end
+
 local function drawSeries(c, s, sr)
   local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w, c.__opts.pxPerPoint))
-  local color, th = sr.color or LC.LINE, sr.thickness or 1.5
+  local color, th = seriesColor(c, sr), sr.thickness or 1.5
   if #pts == 1 then
     local x, y = xToPixel(s, pts[1].x), yToPixel(s, pts[1].y)
     -- The tick only for a point on the plot, for the reason drawSegment clips.
@@ -427,6 +468,7 @@ end
 -- ClearHover (OnLeave, OnHide) that arrives first still tells the host its hover ended. With no
 -- scale left there is nothing to point at, so the crosshair goes now.
 local function render(c, w, h)
+  c.__lastW, c.__lastH = w, h   -- minor 4: a skin switch re-renders at the last size drawn
   c.__lineUsed, c.__labelUsed = 0, 0
   c.__hoverStale = true
   local d = c.__data
@@ -499,17 +541,28 @@ local function attachMethods(c)
   end
 end
 
+--- Re-read a skinned chart's colors and redraw it (minor 4): run after each skin switch.
+local function chartRepaint(c, owner)
+  c.__pal = chartPalette(owner) or c.__pal
+  local x = colors(c).CROSSHAIR
+  c.__cross:SetColorTexture(x[1], x[2], x[3], x[4])
+  if c.__data and c.__lastW then render(c, c.__lastW, c.__lastH) end
+end
+
 --- One line chart, parented to `parent`. See the API document for `opts` and `data`.
 function lib.LineChart(parent, opts)
   local c = CreateFrame("Frame", nil, parent)
   c.__opts = opts or {}
+  local Skin
+  c.__pal, Skin = chartPalette(c.__opts.owner)
+  local X = colors(c).CROSSHAIR
   c.__linePool, c.__lineUsed, c.__labelPool, c.__labelUsed = {}, 0, {}, 0
   -- The crosshair is the chart's FIRST CreateLine, made here before any render draws from the pool.
   -- It lives outside the pool so a render never hands it out or hides it mid-hover, and suites
   -- (and any host that inspects the chart's lines) rely on that order: keep it first.
   local cross = c:CreateLine(nil, "OVERLAY")
   cross:SetThickness(1)
-  cross:SetColorTexture(LC.CROSSHAIR[1], LC.CROSSHAIR[2], LC.CROSSHAIR[3], LC.CROSSHAIR[4])
+  cross:SetColorTexture(X[1], X[2], X[3], X[4])
   cross:Hide()
   c.__cross = cross
   attachMethods(c)
@@ -518,5 +571,6 @@ function lib.LineChart(parent, opts)
   c:SetScript("OnLeave", function(self) self:SetScript("OnUpdate", nil); self:ClearHover() end)
   c:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil); self:ClearHover() end)
   c:SetScript("OnSizeChanged", function(self, w, h) self:Render(w, h) end)
+  if Skin then lib.__onSkin(Skin, c.__opts.owner, c, chartRepaint) end
   return c
 end

@@ -103,7 +103,14 @@
 -- (NS.TestStripReserve answers 0); while a strip exists the strip is the marker and the badge stays
 -- hidden (the preview-mode header-word rule, standard v2.87.0).
 
-local _, NS = ...
+local addonName, NS = ...
+
+-- THE SKIN OWNER. Every factory below that builds window chrome (the dropdown and the shared menu
+-- it drops, the search box, its suggestion list, the mode strips, the line chart and the AH drag
+-- list) names this addon's folder as the widget's skin `owner` (LibKa0s-Widgets-1.0 minor 16; the
+-- copy window's owner is its descriptor's `addonName`): the library paints it for the owner
+-- core/SkinSetup.lua registered, so it wears the player's skin and follows a switch. On Ka0s
+-- Default it is the widget it always was; without the Skin major the field is ignored.
 
 local W = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 
@@ -120,6 +127,7 @@ function NS.MakeDropdown(parent, width)
     return W.Dropdown(parent, width, {
         chevron = NS.Icon and NS.Icon("chevron-down"),
         check   = NS.Icon and NS.Icon("confirm"),
+        owner   = addonName,
         -- glyphFont deliberately absent -- see the header.
     })
 end
@@ -140,7 +148,10 @@ end
 --- @return table|nil         the library's EditBox, with `box.hint`
 function NS.MakeSearchBox(parent, width, opts)
     if not (W and W.SearchBox) then return nil end
-    return W.SearchBox(parent, width, opts)
+    local o = {}
+    for k, v in pairs(opts or {}) do o[k] = v end
+    o.owner = addonName
+    return W.SearchBox(parent, width, o)
 end
 
 --- Whether the dropdown seam can build anything at all.
@@ -189,6 +200,9 @@ function NS.MakeReorderList(opts)
     local o = {}
     for k, v in pairs(opts or {}) do o[k] = v end
     o.handleIcon = NS.Icon and NS.Icon("segment")
+    -- The skin owner (WidgetsReorder minor 2, LH-05): the row boxes, the handle's two tints and the
+    -- drag ghost come from this addon's skin, resolved once per controller (one per render).
+    o.owner = addonName
     return W.ReorderList(o)
 end
 
@@ -245,6 +259,10 @@ function NS.MakeLineChart(parent, opts)
     local o = {}
     for k, v in pairs(opts or {}) do o[k] = v end
     o.font = o.font or "GameFontDisableSmall"
+    -- The skin owner (LibKa0s-Widgets-1.0's line chart, minor 4): the axes, grid, crosshair, marker
+    -- and tick labels follow this addon's skin, and a switch re-renders the chart with its data.
+    -- The series colors are the host's (modules/TimelineModel.lua, from the skin too) and win.
+    o.owner = addonName
     return W.LineChart(parent, o)
 end
 
@@ -274,6 +292,7 @@ function NS.MakeAutocomplete(editBox, opts)
   if not (W and W.Autocomplete) then return nil end
   local o = {}
   for k, v in pairs(opts or {}) do o[k] = v end
+  o.owner = addonName
   return W.Autocomplete(editBox, o)
 end
 
@@ -294,7 +313,8 @@ end
 --- @return table|nil    the library's strip, with `strip.text` and `strip.kind`
 function NS.MakeTestStrip(parent, text, kind)
   if not (W and W.TestStrip) then return nil end
-  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind })
+  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind,
+    owner = addonName })
 end
 
 -- The gap this addon leaves above and below the strip: 2 px under the filter bar, 2 px over the

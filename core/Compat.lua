@@ -625,53 +625,105 @@ function Compat.ShowCurrencyTooltip(owner, currencyID, anchor)
   return true
 end
 
--- A plain tooltip: a gold title, then an optional wrapped body line.
+-- THE ONE PLACE THE HOST'S TOOLTIP LINES TAKE THEIR COLORS (skinning, LH-04). Every line this addon
+-- adds to Blizzard's GameTooltip is drawn by a Show* below, in the skin's gtip.* tokens: gtip.title
+-- for a title, gtip.body for a description or a label, gtip.value for a value column (and for a row
+-- with no color of its own), gtip.muted for a hint. A row that carries a meaning (a holder's class,
+-- a gain, a loss) brings its own color, read from the skin's sem.* tokens by whoever built the row.
+-- GameTooltip itself is never restyled: its backdrop is the client's (or a tooltip addon's), always
+-- dark, which is why every skin keeps the gtip.* tokens light. NS.Skin is read at CALL time, so a
+-- skin switch reaches the next hover with no repaint; this file loads before core/SkinSetup.lua.
+-- Three components, never the alpha: AddLine's fifth argument is its wrap flag.
+local function tip(token)
+  local r, g, b = NS.Skin.Color(token)
+  return r, g, b
+end
+
+-- A plain tooltip: a title, then an optional wrapped body line.
 function Compat.ShowTextTooltip(owner, title, body, anchor)
   local tt = tooltip("AddLine")
   if not (tt and title) then return false end
   tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  tt:AddLine(title, 1, 0.82, 0)
-  if body and body ~= "" then tt:AddLine(body, 0.9, 0.9, 0.9, true) end
+  local r, g, b = tip("gtip.title")
+  tt:AddLine(title, r, g, b)
+  if body and body ~= "" then
+    r, g, b = tip("gtip.body")
+    tt:AddLine(body, r, g, b, true)
+  end
+  tt:Show()
+  return true
+end
+
+-- One line in one gtip.* token (`token`, default gtip.value): Insights' strip bars.
+function Compat.ShowLineTooltip(owner, text, token, anchor)
+  local tt = tooltip("AddLine")
+  if not (tt and text and text ~= "") then return false end
+  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  local r, g, b = tip(token or "gtip.value")
+  tt:AddLine(text, r, g, b)
+  tt:Show()
+  return true
+end
+
+-- One line pinned just above and right of the cursor (+5, +5) rather than anchored to the owner's
+-- edge (Insights' bars, segments, list rows and legend chips, whose owners run the pane's width).
+-- GetCursorPosition answers physical pixels, so it is divided by UIParent's scale before placing.
+function Compat.ShowCursorTooltip(owner, text, token)
+  local tt = tooltip("AddLine")
+  if not (tt and text and text ~= "") then return false end
+  tt:SetOwner(owner, "ANCHOR_NONE")
+  local scale = UIParent:GetEffectiveScale()
+  local cx, cy = GetCursorPosition()
+  tt:ClearAllPoints()
+  tt:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx / scale + 5, cy / scale + 5)
+  tt:ClearLines()
+  local r, g, b = tip(token or "gtip.value")
+  tt:AddLine(text, r, g, b)
   tt:Show()
   return true
 end
 
 -- An amount tooltip (BankLedger's gold-row shape): a colored title, one "label .... value" double
--- line, then an optional gray hint. `rgb` is the title color ({ r, g, b }); nil = header gold.
+-- line, then an optional hint. `rgb` is the title color ({ r, g, b }); nil = gtip.title.
 function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, anchor)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
-  rgb = rgb or { 1, 0.82, 0 }
   tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  tt:AddLine(title, rgb[1], rgb[2], rgb[3])
-  tt:AddDoubleLine(label or "", value or "", 0.9, 0.9, 0.9, 1, 1, 1)
-  if hint and hint ~= "" then tt:AddLine(hint, 0.5, 0.5, 0.5) end
+  if rgb then tt:AddLine(title, rgb[1], rgb[2], rgb[3]) else tt:AddLine(title, tip("gtip.title")) end
+  local lr, lg, lb = tip("gtip.body")
+  local vr, vg, vb = tip("gtip.value")
+  tt:AddDoubleLine(label or "", value or "", lr, lg, lb, vr, vg, vb)
+  if hint and hint ~= "" then tt:AddLine(hint, tip("gtip.muted")) end
   tt:Show()
   return true
 end
 
 -- A title over several "label .... value" lines, each pair in its row's color (the Timeline strip's
--- Gained / Lost / Net). `rows` is { { label, text, color = { r, g, b } }, ... }; nil color = white.
+-- Gained / Lost / Net, and the chart's hover). `rows` is { { label, text, color = { r, g, b },
+-- valueColor = { r, g, b } }, ... }: a nil color reads gtip.value, a nil valueColor the row's color.
 function Compat.ShowLinesTooltip(owner, title, rows, anchor)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
   tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  tt:AddLine(title, 1, 0.82, 0)
+  tt:AddLine(title, tip("gtip.title"))
+  local wr, wg, wb = tip("gtip.value")
   for _, r in ipairs(rows or {}) do
-    local c = r.color or { 1, 1, 1 }
-    tt:AddDoubleLine(r.label or "", r.text or "", c[1], c[2], c[3], c[1], c[2], c[3])
+    local c = r.color or { wr, wg, wb }
+    local v = r.valueColor or c
+    tt:AddDoubleLine(r.label or "", r.text or "", c[1], c[2], c[3], v[1], v[2], v[3])
   end
   tt:Show()
   return true
 end
 
 -- Plain lines, each in its own color (test mode's History rows, which carry no item link): `lines`
--- is { { text, r, g, b }, ... }, the first being the title; a nil color reads white.
+-- is { { text, r, g, b }, ... }, the first being the title; a nil color reads gtip.value.
 function Compat.ShowTintedTooltip(owner, lines, anchor)
   local tt = tooltip("AddLine")
   if not (tt and lines and lines[1]) then return false end
   tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or 1, l[3] or 1, l[4] or 1) end
+  local wr, wg, wb = tip("gtip.value")
+  for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or wr, l[3] or wg, l[4] or wb) end
   tt:Show()
   return true
 end

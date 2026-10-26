@@ -27,6 +27,7 @@ local CLASSIFIED = {
   InteractionType = "pure",
   ShowItemTooltip = "pure", ShowCurrencyTooltip = "pure", ShowTextTooltip = "pure",
   ShowAmountTooltip = "pure", ShowLinesTooltip = "pure", ShowTintedTooltip = "pure", HideTooltip = "pure",
+  ShowLineTooltip = "pure", ShowCursorTooltip = "pure",
   HookUseContainerItem = "pure", HookGetQuestReward = "pure", HookSecure = "pure", HookSecureMember = "pure",
   -- guarded: the one member that changes client state (it expands and collapses currency headers)
   ListCurrencies = "guarded",

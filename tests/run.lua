@@ -42,6 +42,8 @@ local LIFECYCLE = {}
 local function kick(label, fn) LIFECYCLE[#LIFECYCLE + 1] = label; fn() end
 
 kick("NS:InitDB",          function() NS:InitDB() end)
+-- The profile's skin (core/SkinSetup.lua), right after the store exists, as in the client.
+kick("NS.ApplySkinChoice", function() NS.ApplySkinChoice() end)
 kick("NS.Schema:SyncRetention", function() NS.Schema:SyncRetention() end)
 kick("NS.Schema:Register", function() NS.Schema:Register() end)
 kick("NS.Slash:Register",  function() NS.Slash:Register() end)
@@ -82,6 +84,33 @@ local SUITES = {
   "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
   -- The General page's Keybindings tab (options-ui-§20). After the panel suites, which build the page.
   "test_panel_keybinds",
+  -- The skin seam (core/SkinSetup.lua, skinning-§3): the owner, the appearance rows, the Appearance
+  -- tab's place and one pick's single repaint. After the panel suites, which build the page; before
+  -- test_profiles, and it leaves the harness on `Default` and the skin on Ka0s Default.
+  "test_skinsetup",
+  -- The History window's and the export modal's chrome on the skin (LH-02): Ka0s Default draws
+  -- today's values, a switch repaints live. Builds fresh windows under the kit's paint recorder and
+  -- puts the session's back; leaves the skin on Ka0s Default.
+  "test_skin_chrome",
+  -- The History table on the skin (LH-03): header, arrows, pooled rows, row menu, scroll bar and
+  -- tooltips; Ka0s Default draws today's values, a switch repaints live. Attaches a fresh table
+  -- under the kit's paint recorder and puts the session's back; leaves the skin on Ka0s Default.
+  "test_skin_table",
+  -- Insights, the Timeline, Holdings and the AH price table on the skin (LH-04): Ka0s Default draws
+  -- today's values, a switch repaints live. Builds each surface fresh under the kit's paint recorder
+  -- on the live module and puts its fields back; leaves the skin on Ka0s Default.
+  "test_skin_insights",
+  -- This addon's own settings widgets on the skin (LH-06): the panel's AceGUI acquisitions, the AH
+  -- placeholder's chained release, the held AH check boxes and the Profiles tree; Ka0s Default paints
+  -- nothing. Renders through the raw AceGUI fake and puts NS.AceGUI back; leaves Ka0s Default.
+  "test_skin_settings",
+  -- The tool surfaces on the skin (LH-05): the debug console, its copy window, the export copy
+  -- window and the AH drag list painted for this owner, and the factory seams naming it. After
+  -- test_skin_settings; leaves the skin on Ka0s Default.
+  "test_skin_tools",
+  -- The hard-coded color gate (LH-05): no numeric color literal in a paint call and no |cff escape
+  -- outside core/SkinSetup.lua and its named allow-list. Reads the checkout, no addon state.
+  "test_skin_literals",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

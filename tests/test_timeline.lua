@@ -306,7 +306,9 @@ end)
 
 case("Timeline model: FlowLines titles the day as the Total's and signs Gained / Lost / Net", function()
   local x = TM().DayStart("2026-08-14")
-  local G, L = NS.Constants.TIMELINE.GAIN, NS.Constants.TIMELINE.LOSS
+  -- The skin's gain and loss (LH-04): BankLedger's green and red on Ka0s Default.
+  local G, L = NS.Skin.Token("sem.good"), NS.Skin.Token("sem.bad")
+  assertEqual(G[1], 0.35); assertEqual(L[2], 0.33)
   local h = TM().FlowLines({ kind = "GOLD" }, { x = x, day = "2026-08-14", i = 20000, o = 5000 })
   assertEqual(h.title, "14 Aug 2026 \194\183 Total")
   assertEqual(#h.rows, 3)
@@ -318,7 +320,7 @@ end)
 
 case("Timeline model: FlowLines counts a currency, shows a zero side as 0 and a negative net red", function()
   local x = TM().DayStart("2026-08-14")
-  local L = NS.Constants.TIMELINE.LOSS
+  local L = NS.Skin.Token("sem.bad")
   local h = TM().FlowLines({ kind = "CURRENCY" }, { x = x, i = 3, o = 10 })
   assertEqual(h.rows[1].text, "+3"); assertEqual(h.rows[2].text, "-10"); assertEqual(h.rows[3].text, "-7")
   assertTrue(h.rows[3].color == L)
@@ -353,7 +355,7 @@ local function tipModel(key, kind, holders)
   for _, h in ipairs(holders) do
     series[#series + 1] = { holder = h, label = TM().Label(h), color = TM().Color(h, TM().Meta(h)) }
   end
-  series[#series + 1] = { holder = TM().TOTAL, label = "Total", color = NS.Constants.TIMELINE.TOTAL }
+  series[#series + 1] = { holder = TM().TOTAL, label = "Total", color = NS.Skin.Token("chart.total") }
   return { key = key, kind = kind, series = series }
 end
 
@@ -370,7 +372,8 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.hint, "Click to hide/show")
   t = TM().LegendTip(m, W)
   assertEqual(t.title, "Warband")
-  assertTrue(t.color == NS.Constants.TIMELINE.WARBAND, "the Warband's title is its series color")
+  assertTrue(t.color == NS.Skin.Token("sem.warband"), "the Warband's title is its series color")
+  assertEqual(t.color[1], 0.25); assertEqual(t.color[2], 0.75); assertEqual(t.color[3], 0.95)
   assertEqual(t.value, NS.Util.FormatMoney(25000))
   t = TM().LegendTip(m, TM().TOTAL)
   assertEqual(t.title, "Total")

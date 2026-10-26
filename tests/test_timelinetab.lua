@@ -376,7 +376,7 @@ case("Timeline tab: hovering a day's strip column shows its Gained / Lost / Net,
   assertEqual(#bars, 1, "one hit region for the one day with a flow")
   local bar = bars[1]
   assertEqual(bar.flow.day, today)
-  local G, L = NS.Constants.TIMELINE.GAIN, NS.Constants.TIMELINE.LOSS
+  local G, L = NS.Skin.Token("sem.good"), NS.Skin.Token("sem.bad")
   local got = spyTooltip(function(g)
     bar:__fire("OnEnter")
     assertTrue(g.owner == bar, "the tooltip belongs to the column")
@@ -526,7 +526,7 @@ case("Timeline tab: the Warband's legend tooltip wears the Warband's series colo
   NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 30000, os.time())
   open()
   local got = spyTooltip(function() legendButton(NS.Constants.WARBAND_HOLDER):__fire("OnEnter") end)
-  local W = NS.Constants.TIMELINE.WARBAND
+  local W = NS.Skin.Token("sem.warband")
   assertEqual(got.lines[1], "Warband")
   assertEqual(got.lineRGB[1][1], W[1]); assertEqual(got.lineRGB[1][2], W[2]); assertEqual(got.lineRGB[1][3], W[3])
   assertEqual(got.doubles[1].r, NS.Util.FormatMoney(30000))

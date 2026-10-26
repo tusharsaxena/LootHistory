@@ -3,7 +3,7 @@ NS.Browser = NS.Browser or {}
 local B = NS.Browser
 
 -- The History window's SHARED filter bar (issue #13): B:BuildFilterBar, the static option sets it
--- seeds its dropdowns from and the flat-skin bar button. Split out of modules/Browser.lua, which
+-- seeds its dropdowns from and the bar's four buttons. Split out of modules/Browser.lua, which
 -- owns the window shell, the dataset-driven option builders and the view logic this bar reads
 -- through the B._ helpers below. Loads directly after modules/Browser.lua (TOC), so every helper is
 -- already published when these file-scope locals capture it.
@@ -316,47 +316,12 @@ function B:LayoutFilterBar(barW)
   end
 end
 
--- A small flat-skin text button for the filter bar (Export / Clear / Save / Reset).
---
--- `icon` is a catalog name and is OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
--- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather
--- than off-center. Only buttons at least ~120px wide are given one -- a 14px mark plus a centered
--- five-letter word does not fit a Clear/Save/Reset button (Export's scaled width split three ways
--- with 8px gaps: about 34px at the toolbar floor, wider above it), and an off-center label is worse
--- than no mark (see docs/browser.md).
---
--- The existing `tooltip` stays and is NOT a tooltip on the mark: it predates the art, it is
--- anchored to the whole button, and it explains the ACTION rather than the picture.
-local function makeBarButton(parent, text, width, onClick, tooltip, icon)
-  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-  b:SetSize(width, 20)
-  b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
-                  insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  b:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  b:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
-  local path = icon and NS.Icon and NS.Icon(icon)
-  if path then
-    local tex = b:CreateTexture(nil, "OVERLAY")
-    tex:SetSize(14, 14)
-    tex:SetPoint("LEFT", 10, 0)
-    tex:SetTexture(path)
-    tex:SetVertexColor(0.85, 0.85, 0.85)
-    b.icon = tex
-  end
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("CENTER")
-  fs:SetText(text)
-  b:SetScript("OnEnter", function(self2)
-    fs:SetTextColor(1, 0.82, 0)
-    if tooltip then
-      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
-      GameTooltip:AddLine(tooltip, 0.9, 0.9, 0.9, true)
-      GameTooltip:Show()
-    end
-  end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(1, 1, 1); GameTooltip:Hide() end)
-  b:SetScript("OnClick", onClick)
-  return b
+-- A filter-bar button (Export / Clear / Save / Reset): the house flat button at the bar's 20px
+-- height, built and skinned by B.MakeFlatButton (modules/BrowserWidgets.lua), which the export
+-- modal's button shares. None of the four carries a mark (see "NO MARK ON EXPORT" below); the
+-- `tooltip` explains the ACTION and is anchored to the whole button.
+local function makeBarButton(parent, text, width, onClick, tooltip)
+  return B.MakeFlatButton(parent, text, width, 20, onClick, { tooltip = tooltip })
 end
 
 -- The plain Search box, for a Widgets shell older than minor 13 (NS.MakeSearchBox answered nil):
@@ -370,8 +335,10 @@ local function makePlainSearch(bar, onFilter)
   search:SetTextInsets(6, 6, 0, 0)
   search:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1,
                        insets = { left = 1, right = 1, top = 1, bottom = 1 } })
-  search:SetBackdropColor(0.1, 0.1, 0.12, 0.9)
-  search:SetBackdropBorderColor(0.24, 0.24, 0.27, 0.9)
+  -- The skin's input colors (Ka0s Default: the .1/.1/.12/.9 fill and .24/.24/.27/.9 edge this box
+  -- always wore), read at build: this box exists only beside a Widgets shell too old to skin.
+  search:SetBackdropColor(NS.Skin.Color("input.bg"))
+  search:SetBackdropBorderColor(NS.Skin.Color("input.border"))
   local ph = search:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   ph:SetPoint("LEFT", 6, 0)
   ph:SetText("Search items…")

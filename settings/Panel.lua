@@ -28,12 +28,23 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- ROW_VSPACER 8, the 10/6/26 section triple, BUTTON_PAIR_REL 0.492). The three this file's own page
 -- code still needs are re-exported on the instance so host layout stays in lockstep with the engine.
 
+-- Every AceGUI widget this file acquires itself, painted for this addon's skin (skinning-§3).
+-- NS.AceGUI is normally the Options instance's owner proxy, which paints on Create already; the
+-- explicit NS.SkinPaintAce repaints in place for the same owner, so the host does not depend on
+-- which handle it was given. Ka0s Default paints nothing, and the release puts the widget back in
+-- AceGUI's shared pool stock (the library chains its restore onto the widget's OnRelease).
+local function acquire(wtype)
+  local w = NS.AceGUI:Create(wtype)
+  NS.SkinPaintAce(w)
+  return w
+end
+
 -- ── Shared maker for a paired action button (Purge) ─────────────────────────────────────
 -- Insets to BUTTON_PAIR_REL rather than a flat 0.5 so the right border isn't shaved by the
 -- ScrollFrame clip (options-ui-§6/§8). Kept host-side: the library's InlineButtonPair builds its own
 -- Flow row, and both of this addon's uses need a bare button to drop into a row someone else owns.
 local function makePairButton(text, onClick)
-  local btn = NS.AceGUI:Create("Button")
+  local btn = acquire("Button")
   btn:SetText(text)
   btn:SetRelativeWidth(O.BUTTON_PAIR_REL)
   if onClick then btn:SetCallback("OnClick", onClick) end
@@ -59,11 +70,11 @@ end
 -- `skipRender`.
 local function makeMultiCheck(ctx, row, scroll)
   local invert = row.invert
-  local group = NS.AceGUI:Create("InlineGroup")
+  local group = acquire("InlineGroup")
   group:SetTitle(row.label); group:SetFullWidth(true); group:SetLayout("Flow")
   local boxes = {}
   for _, opt in ipairs(row.values) do
-    local cb = NS.AceGUI:Create("CheckBox")
+    local cb = acquire("CheckBox")
     cb:SetLabel(opt.text); cb:SetWidth(150)
     cb:SetCallback("OnValueChanged", function(_, _, v)
       local cur = NS.Schema:Get(row.path) or {}
@@ -102,10 +113,10 @@ local function renderHistory(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
 
-  local rowFrame = NS.AceGUI:Create("SimpleGroup")
+  local rowFrame = acquire("SimpleGroup")
   rowFrame:SetLayout("Flow"); rowFrame:SetFullWidth(true)
 
-  local statsLabel = NS.AceGUI:Create("Label")
+  local statsLabel = acquire("Label")
   statsLabel:SetRelativeWidth(0.5)
   rowFrame:AddChild(statsLabel)
 
@@ -276,9 +287,9 @@ end
 -- only shows the popup. Drawn AFTER the IdList (item 020, LOO-L-new2): the list is what the tab is
 -- for, and the destructive bulk act closes it rather than standing between the reader and it.
 local function addClearAll(scroll, tab)
-  local clearRow = NS.AceGUI:Create("SimpleGroup")
+  local clearRow = acquire("SimpleGroup")
   clearRow:SetLayout("Flow"); clearRow:SetFullWidth(true)
-  local clearBtn = NS.AceGUI:Create("Button")
+  local clearBtn = acquire("Button")
   clearBtn:SetText("Clear all\226\128\166"); clearBtn:SetRelativeWidth(0.30)
   clearBtn:SetCallback("OnClick", function()
     if type(StaticPopup_Show) == "function" then
@@ -297,7 +308,7 @@ local function makeFilterSection(ctx, tab)
   local scroll = O.EnsureScroll(ctx)
   -- No O.Section heading: the page is a tab strip now (options-ui-§13) and the tab IS the heading.
   -- A "Blacklist" heading under a tab called Blacklist is the page saying it twice.
-  local descLabel = NS.AceGUI:Create("Label")
+  local descLabel = acquire("Label")
   descLabel:SetFullWidth(true); descLabel:SetText(tab.desc)
   scroll:AddChild(descLabel)
   O.AddSpacer(scroll, 6)
@@ -342,7 +353,9 @@ local function makeFilterSection(ctx, tab)
     label     = tab.addLabel,
     tooltip   = tab.addTooltip,
     strings   = tab.strings,
-    emptyText = "|cff808080(none)|r",
+    -- The empty-list line's gray is the skin's text.disabled (|cff808080 on Ka0s Default), read on
+    -- every render so a skin switch reaches it with the page's own re-render (LH-05).
+    emptyText = NS.SkinEscape("text.disabled") .. "(none)|r",
     entries   = function() return filterEntries(tab) end,
     candidates = function() return filterCandidates(tab) end,
     onAdd     = function(id) filterWrite(ctx, tab.add, id) end,
@@ -468,7 +481,7 @@ local function buildFiltersTab(ctx)
   -- SimpleGroup added as an ordinary scroll child, sized to whatever height the strip reports.
   -- ClearScroll drains the library's __subTabKids ledger BEFORE it releases this group, which is
   -- what stops the buttons riding a pooled frame into somebody else's page.
-  local host = NS.AceGUI:Create("SimpleGroup")
+  local host = acquire("SimpleGroup")
   host:SetLayout(nil); host:SetFullWidth(true)
   scroll:AddChild(host)
 
@@ -563,7 +576,13 @@ local INFO_ICON = "Interface\\FriendsFrame\\InformationIcon"    -- fallback for 
 local ACOL = { tick = 2, addon = 26, module = 148, enabled = 330, status = 362 }
 local AROW_H, AHEAD_H = 22, 32   -- row pitch; AHEAD_H = header→first-row gap (roomy header band)
 local HEAD_Y = -8                -- header baseline inside the host (gap above the header)
-local GOLD_RGB = { 0.91, 0.77, 0.42 }
+-- THE SKIN (LH-04). The table's colors are tokens, read where the literals stood: the column headers
+-- text.headingAlt (the off-gold this table has always drawn, kept apart from text.heading), a live
+-- row's addon name text.bodyAlt and module text.body, an inactive row's text.disabled, the info mark
+-- icon.hot / icon.dim, the info tooltip gtip.value over gtip.title, and the status sem.statusOk /
+-- statusWarn / statusBad (STATUS_TOKEN below). repaintAuctionTable repaints the host on a switch,
+-- parked or not, and the ticks are rebuilt first. tests/panel_auction_golden.txt does not move.
+--
 -- Status colors: collecting = green, not collecting = yellow, not installed = red.
 --
 -- SATURATED, NOT MUTED, and that is a correction rather than a preference. These read
@@ -578,17 +597,16 @@ local GOLD_RGB = { 0.91, 0.77, 0.42 }
 -- muted tint on white art just yields a muted mark.
 --
 -- These carry TWICE -- the Status column's text color, and the tick marks below, whose tint is
--- baked into the |T escape because an inline texture is not reached by SetTextColor. A value
--- changed here moves both, which is the point of their being one table.
-local STATUS_RGB = {
-  collecting    = { 0.30, 0.95, 0.35 },
-  notcollecting = { 1.00, 0.82, 0.10 },
-  notinstalled  = { 1.00, 0.32, 0.32 },
+-- baked into the |T escape because an inline texture is not reached by SetTextColor. A skin that
+-- moves one moves both, which is the point of their being one table. The values are the skin's
+-- sem.status* tokens (the saturated triple above, in Ka0s Default).
+local STATUS_TOKEN = {
+  collecting = "sem.statusOk", notcollecting = "sem.statusWarn", notinstalled = "sem.statusBad",
 }
 
--- The tick column's two states, built ONCE at file load the way modules/BrowserTable.lua builds
--- its sort arrows — the row loop repaints pooled slots on every refresh and has no business
--- reformatting a constant string each time.
+-- The tick column's two states, built once (and again on a skin change, rebuildTicks) the way
+-- modules/BrowserTable.lua builds its sort arrows — the row loop repaints pooled slots on every
+-- refresh and has no business reformatting a constant string each time.
 --
 -- THE TINT IS LOAD-BEARING, and it is why these are NS.IconMarkup calls rather than bare paths.
 -- Catalog art is white by contract (the shape lives entirely in the alpha channel), and white is
@@ -597,10 +615,14 @@ local STATUS_RGB = {
 -- tint has to be baked into the escape's own vertex fields. On the fallback rung it multiplies
 -- Blizzard's already-green tick by a green and its already-red mark by a red, so a degraded
 -- install still reads green-or-red, a shade darker.
-local TICK_ON  = NS.IconMarkup("circle-check", READY, 16,
-  STATUS_RGB.collecting[1], STATUS_RGB.collecting[2], STATUS_RGB.collecting[3])
-local TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16,
-  STATUS_RGB.notinstalled[1], STATUS_RGB.notinstalled[2], STATUS_RGB.notinstalled[3])
+local TICK_ON, TICK_OFF
+local function rebuildTicks()
+  local r, g, b = NS.Skin.Color(STATUS_TOKEN.collecting)
+  TICK_ON = NS.IconMarkup("circle-check", READY, 16, r, g, b)
+  r, g, b = NS.Skin.Color(STATUS_TOKEN.notinstalled)
+  TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16, r, g, b)
+end
+rebuildTicks()
 
 --- The handle gutter, READ off the library rather than restated (options-ui-§8/§18).
 ---
@@ -644,9 +666,13 @@ local function tipScripts(btn, getTitle, getBody)
     local title = getTitle and getTitle()
     if not title or title == "" then return end
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(title, 1, 1, 1)
+    GameTooltip:SetText(title, NS.SkinColor("gtip.value"))
     local body = getBody and getBody()
-    if body then GameTooltip:AddLine(body, nil, nil, nil, true) end
+    -- In the tooltip's own default line color (the client's gold), now named: gtip.title.
+    if body then
+      local r, g, b = NS.SkinColor("gtip.title")
+      GameTooltip:AddLine(body, r, g, b, true)
+    end
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -685,11 +711,11 @@ local function partitionTags(priority, capture)
   return order, collecting
 end
 
--- A source's Status cell: its text and its color.
+-- A source's Status cell: its text and its color token.
 local function auctionStatus(avail, on)
-  if not avail then return "Addon not installed", STATUS_RGB.notinstalled end
-  if on then return "Collecting data", STATUS_RGB.collecting end
-  return "Not collecting data", STATUS_RGB.notcollecting
+  if not avail then return "Addon not installed", STATUS_TOKEN.notinstalled end
+  if on then return "Collecting data", STATUS_TOKEN.collecting end
+  return "Not collecting data", STATUS_TOKEN.notcollecting
 end
 
 -- Repaint one reused row slot for `tag`.
@@ -704,22 +730,19 @@ local function paintAuctionRow(r, tag, capture)
 
   -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
   r.addon:SetText(providerNameOf(tag))
-  local ag = live and 0.86 or 0.5
-  r.addon:SetTextColor(ag, ag, ag)
+  r.addon:SetTextColor(NS.SkinColor(live and "text.bodyAlt" or "text.disabled"))
 
-  local mg = live and 0.9 or 0.5
-  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(mg, mg, mg)
+  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(NS.SkinColor(live and "text.body" or "text.disabled"))
   -- ⓘ trails the Price module text with a small gap (per-row, since the text width varies).
   local mw = r.module:GetStringWidth() or 0
   r.info:ClearAllPoints()
   r.info:SetPoint("LEFT", r.frame, "LEFT", r._gutter + ACOL.module + mw + 6, 0)
 
-  local text, sc = auctionStatus(avail, on)
+  local text, token = auctionStatus(avail, on)
   r.status:SetText(text)
-  r.status:SetTextColor(sc[1], sc[2], sc[3])
+  r.status:SetTextColor(NS.SkinColor(token))
 
-  local tint = live and 1 or 0.55
-  r.info.tex:SetVertexColor(tint, tint, tint)
+  r.info.tex:SetVertexColor(NS.SkinColor(live and "icon.hot" or "icon.dim"))
 
   -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
   -- and non-interactive when the addon isn't present.
@@ -777,6 +800,29 @@ local function refreshAuctionTable(ctx)
   if list then list:Finish(hf) end
 end
 
+-- The context whose host holds the table: one per session (the host is built once and parked).
+local auctionCtx
+
+-- A skin switch (NS.Skin.OnLooksChanged): the ticks rebuilt, then the headers and every row slot
+-- repainted IN PLACE, on screen or parked on the panel while another tab is up. Only the paint:
+-- the partition and the reorder controller belong to refreshAuctionTable, which a parked host
+-- must not run (it would hand a hidden host a new controller).
+local function repaintAuctionTable()
+  rebuildTicks()
+  local ctx = auctionCtx
+  if not (ctx and ctx._priRows) then return end
+  for _, fs in ipairs(ctx._priHeads or {}) do fs:SetTextColor(NS.SkinColor("text.headingAlt")) end
+  local capture = NS.db.profile.settings.auction.capture or {}
+  for _, r in ipairs(ctx._priRows) do
+    if r._tag then paintAuctionRow(r, r._tag, capture) end
+    -- The row's AceGUI CheckBox is held for the session and never re-acquired, so the library's
+    -- re-render cannot repaint it: PaintAce repaints it in the new skin, or puts it back stock on
+    -- Ka0s Default.
+    if r.check then NS.SkinPaintAce(r.check) end
+  end
+end
+if NS.Skin then NS.Skin.OnLooksChanged(repaintAuctionTable) end
+
 -- Build the unified AH price table: gold left-aligned column headers and 11 reusable row slots (one
 -- per known price source). Slots + their frames are created ONCE here; refreshAuctionTable repaints
 -- them in place on every enable-toggle / drag / Defaults, so no frame is ever re-allocated. Native
@@ -792,7 +838,7 @@ local function buildAuctionTable(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
 
-  local descLabel = NS.AceGUI:Create("Label")
+  local descLabel = acquire("Label")
   descLabel:SetFullWidth(true)
   descLabel:SetText("Tick a source to collect its price at loot time; ticked sources are ranked "
     .. "top-to-bottom (drag by the handle) and the highest-ranked one you have a price for is the "
@@ -801,7 +847,7 @@ local function buildAuctionTable(ctx)
   O.AddSpacer(scroll, 8)
 
   local N = #NS.Constants.AUCTION_KEYS
-  local placeholder = NS.AceGUI:Create("SimpleGroup")
+  local placeholder = acquire("SimpleGroup")
   placeholder:SetLayout(nil); placeholder:SetFullWidth(true)
   placeholder:SetHeight(AHEAD_H + AROW_H * N + 8)
   scroll:AddChild(placeholder)
@@ -811,14 +857,17 @@ local function buildAuctionTable(ctx)
     hf = CreateFrame("Frame", nil, ctx.panel)
     ctx._priHost = hf
   end
+  auctionCtx = ctx
   hf:SetParent(placeholder.frame)
   hf:ClearAllPoints()
   hf:SetAllPoints(placeholder.frame)
   hf:Show()
   -- The undo of the reparent above, on the placeholder's own release (options-ui-§19). Guarded on
   -- the host still sitting on THIS placeholder: every render creates a fresh one, so an old one
-  -- released late must never pull the host off the new one.
-  placeholder:SetCallback("OnRelease", function(w)
+  -- released late must never pull the host off the new one. CHAINED onto the widget's OnRelease
+  -- (NS.SkinOnRelease, the library's Skin:OnRelease) rather than taking AceGUI's one OnRelease
+  -- callback, so this cleanup and the skin's restore both run whichever is installed first.
+  NS.SkinOnRelease(placeholder, function(w)
     if hf:GetParent() == w.frame then
       hf:Hide(); hf:SetParent(ctx.panel); hf:ClearAllPoints()
     end
@@ -827,11 +876,14 @@ local function buildAuctionTable(ctx)
   if not ctx._priRows then
     local gutter = handleGutter()
 
-    -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row).
+    -- Gold, left-aligned column headers at the shared offsets (a roomy band above the first row),
+    -- kept on the context for repaintAuctionTable.
+    ctx._priHeads = {}
     local function header(x, text)
       local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
-      fs:SetText(text); fs:SetTextColor(GOLD_RGB[1], GOLD_RGB[2], GOLD_RGB[3])
+      fs:SetText(text); fs:SetTextColor(NS.SkinColor("text.headingAlt"))
+      ctx._priHeads[#ctx._priHeads + 1] = fs
     end
     header(ACOL.addon, "Addon"); header(ACOL.module, "Price module")
     header(ACOL.enabled, "On"); header(ACOL.status, "Status")
@@ -868,7 +920,7 @@ local function buildAuctionTable(ctx)
       -- AceGUI CheckBox (the standard gold-tick control used across the panel) rather than a raw
       -- UICheckButtonTemplate — the template left a scaling artifact at this size. Parented to the
       -- ROW, never added as a scroll child, so ClearScroll cannot reclaim it either.
-      local cb = NS.AceGUI:Create("CheckBox")
+      local cb = acquire("CheckBox")
       cb:SetLabel("")
       cb.frame:SetParent(rf); cb.frame:ClearAllPoints()
       cb.frame:SetPoint("LEFT", rf, "LEFT", gutter + ACOL.enabled, 0); cb.frame:SetWidth(26)
@@ -965,14 +1017,15 @@ AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
 -- held the setting they wanted, and one of the three (AH price) drew no strip at all.
 --
 -- THE STRIP IS DRAWN BY HAND rather than by O.RenderTabbedSchema, and the reason is that two of the
--- seven tabs (Filters and the library's Keybindings) hold no schema rows to partition.
+-- eight tabs (Filters and the library's Keybindings) hold no schema rows to partition, and a third
+-- (the library's Appearance) draws its two rows as choice grids of its own.
 -- RenderTabbedSchema derives its tab list from `group`,
 -- which is exactly right for a page whose every section is rows — and cannot name a tab whose body
 -- is a dynamic list of item ids. So the tab list is declared here, each entry is either a schema
 -- GROUP (rendered by the same O.RenderRows call the library would have made, `noHeadings` and all)
 -- or a `build` function, and tests/test_panel.lua pins the two against each other so a group added
 -- to the schema and not to this list cannot go unnoticed.
--- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these seven minus AH
+-- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these minus AH
 -- price: Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the
 -- same shape of record and a player compares their panels directly, so one subject carries one name
 -- across both — Collection became Capture and Maintenance became History. Filters was moved last
@@ -995,6 +1048,19 @@ local GENERAL_TABS = {
   { key = "Interface" },
   { key = "History" },
 }
+
+-- skinning-§3: the Appearance tab, after History and before Keybindings, which stays last. The
+-- library's own entry (O.AppearanceTab): the skin source, the nine skins, "Copy to every Ka0s
+-- addon..." and the note, drawn from LibKa0s-Skin-1.0 for the owner core/SkinSetup.lua registered.
+-- `get` and `set` are that file's read and write seams, so a pick lands through NS.Schema:Set like
+-- every other setting; the tab calls Skin:SetChoice first, so the live repaint is the library's and
+-- the rows' onChange finds nothing left to apply. The tab is the group of the two skipRender rows
+-- (settings/Schema.lua). On the degraded path the stub's entry draws nothing, and the tab is still
+-- there. Eight tabs, the options-ui-§13 budget.
+do
+  local at = O.AppearanceTab({ owner = NS.Skin and NS.Skin.owner, get = NS.SkinChoice, set = NS.WriteSkinChoice })
+  GENERAL_TABS[#GENERAL_TABS + 1] = { key = at.key, label = at.label, tooltip = at.tooltip, build = at.render }
+end
 
 -- options-ui-§20: the Keybindings tab, LAST, after every other tab. The library's own entry
 -- (O.KeybindingsTab): its key, its label and tooltip, and its render, which draws the rows of

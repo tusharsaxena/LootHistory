@@ -35,7 +35,10 @@ local NEEDS_WIDGETS = 7
 if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 
 -- Minor 21: the console is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 21
+-- Minor 22: the window peeled to DebugLogWindow.lua, and it follows the console's skin owner, the
+-- descriptor's `addonName` once that addon registered with LibKa0s-Skin-1.0 (LK-09 of
+-- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 22
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -106,13 +109,6 @@ function lib.MakeCloseButton(parent, onClick, addonName)
   return core.MakeCloseButton(parent, onClick, addonName)
 end
 
--- Minor 21: re-raise any shown StaticPopup when the console shows, so a confirmation shown first
--- stays on top of it (XS-08). Read at call time and guarded, not a Core floor raise: an older Core
--- without the helper raises nothing. The copy window is not toplevel and does not call this (XS-12).
-local function raisePopups()
-  if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
-end
-
 -- ── strings ────────────────────────────────────────────────────────────────────────────────
 --
 -- Every user-visible string routes through here so a host can override any of them via the optional
@@ -170,208 +166,12 @@ function lib.FormatColored(ts, tag, msg)
     tostring(ts), tostring(tag or ""), tostring(msg))
 end
 
--- ── window furniture ───────────────────────────────────────────────────────────────────────
-
-local TITLE_H  = 26      -- drag bar height
-local STATUS_H = 16      -- bottom status bar height
-local BAR_W    = 8       -- scrollbar gutter width
--- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
--- bottom-right corner and ten levels above the console, so a counter at the old 10 px drew its last
--- digits under the grip's art; 22 clears the grip's 17 px with a 5 px gap.
-local COUNT_INSET = 22
 local DEFAULT_FONT_SIZE = 10
 
--- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; CLOSE_W is what
--- Core's own close button measures, and is the fallback when a host's button has no width yet.
-local PAD      = 6
-local CLOSE_W  = 18
-local CLEAR_W  = 42
-local COPY_W   = 40
-
--- What an ICON control measures, when the art is there. Square, and the same 18 the close button
--- has always been, so all three title-bar controls are one size and one rhythm -- where the text
--- buttons were 42 and 40 wide and only lined up by arithmetic.
-local ICON_W   = 18
-local ICON_ART = 12
-
--- The console's default size, which is the size it has always opened at (debug-logging-§1). From
--- minor 15 it is resizable from a bottom-right grip (Core.MakeResizable), and this is still the
--- size every session starts at: the size the player drags to lives on the frame for the session
--- and is never saved.
-local CONSOLE_W, CONSOLE_H = 700, 344
-
--- The header toggle's slot, at the bar's left edge. Named because the minimum width reads it.
-local TOGGLE_X, TOGGLE_W = 8, 80
-
--- The Diagnostics link (minor 16): its gap after the toggle's label, and its orange at rest and
--- under the pointer, so it reads as an action beside a state word. Plain text, like that label.
-local DIAG_GAP  = 10
-local DIAG_REST = { 1, 0.5, 0 }
-local DIAG_HOT  = { 1, 0.72, 0.28 }
-
--- The fewest log lines the console may be sized down to show, and what a character of the title is
--- taken to measure when the font string cannot say (before layout, or headless).
-local MIN_LINES    = 4
-local TITLE_CHAR_W = 7
-
--- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
--- title bar does not change temperature just because its controls changed shape.
-local REST = { 0.7, 0.7, 0.72 }
-local HOT  = { 1, 0.82, 0 }
-
--- Small flat text button for the title bar (Copy / Clear). The close button comes from Core; this
--- one has no other consumer yet, so it stays private until a second module wants it.
-local function makeTextButton(parent, text, width, onClick)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(width, 18)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  fs:SetPoint("CENTER")
-  fs:SetText(text)
-  fs:SetTextColor(REST[1], REST[2], REST[3])
-  b:SetScript("OnEnter", function() fs:SetTextColor(HOT[1], HOT[2], HOT[3]) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(REST[1], REST[2], REST[3]) end)
-  b:SetScript("OnClick", onClick)
-  return b
-end
-
---- The same control drawn from `LibKa0s-Media-1.0`'s art, or nil when there is no art to draw.
----
---- NIL IS THE WHOLE INTERFACE. The caller falls back to the text button above, which is what a host
---- that never passes `addonName` gets and what a host without the Media module gets. A host whose
---- copy lacks the art gets a BLANK control: Media.Icon answers a path and never checks the file
---- exists, so `close, copy, clear` are the host's to declare on its `LibKa0s icons:` line.
----
---- NO TOOLTIP, AND NO LABEL TO PUT IN ONE. Minor 9 took a label and showed it under the control,
---- which put it on top of the first line of the log -- the thing the window exists to show -- every
---- time the pointer crossed the title bar. Anchoring it elsewhere trades one overlap for another on
---- a window that is 700px of text, and the two marks sit beside a close button that has never needed
---- one. The word still exists where it is still drawn: the text-button fallback in the caller.
-local function makeIconButton(parent, addonName, icon, onClick)
-  if not addonName then return nil end
-  local media = LibStub and LibStub("LibKa0s-Media-1.0", true)
-  local path = media and media.Icon and media.Icon(addonName, icon)
-  if not path then return nil end
-
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(ICON_W, ICON_W)
-  local tex = b:CreateTexture(nil, "OVERLAY")
-  tex:SetPoint("CENTER")
-  tex:SetSize(ICON_ART, ICON_ART)
-  tex:SetTexture(path)
-  tex:SetVertexColor(REST[1], REST[2], REST[3])
-  b.icon = tex
-
-  b:SetScript("OnEnter", function() tex:SetVertexColor(HOT[1], HOT[2], HOT[3]) end)
-  b:SetScript("OnLeave", function() tex:SetVertexColor(REST[1], REST[2], REST[3]) end)
-  b:SetScript("OnClick", onClick)
-  return b
-end
-
---- Build and place the three title-bar controls, and answer them with the offsets they landed on.
----
---- LIFTED OUT OF `EnsureFrame`, and not for tidiness: adding the icon path took that function to
---- CCN 16, one over the release gate's ceiling of 15 (`automated-tests-§3`). The decisions are all
---- about this one strip -- which shape each control takes, how wide the close button actually is --
---- so this is where they belong anyway, and `EnsureFrame` goes back to assembling a window.
----
---- @param titleBar table
---- @param spec table  { addonName, close = f(parent,onClick,addonName), onClose, onClear, onCopy,
----                      clearLabel, copyLabel }
---- @return table close, table clear, table copy, table offsets
-local function buildTitleControls(titleBar, spec)
-  -- Anchored to the bar's right edge by absolute offset rather than to each other, because a
-  -- close-button factory answers nil where CreateFrame is unavailable and a chain anchored through
-  -- it would break. The offsets reproduce that chain exactly, and they are DERIVED rather than
-  -- hard-coded, which matters as soon as a host supplies a wider button.
-  local close = spec.close(titleBar, spec.onClose, spec.addonName)
-  if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -PAD, 0) end
-
-  -- A frame answers 0 from GetWidth before its first layout pass, and a headless stub answers 0
-  -- forever, so anything not positive falls back to the size Core's own button is.
-  local closeW = CLOSE_W
-  if close and type(close.GetWidth) == "function" then
-    local w = close:GetWidth()
-    if type(w) == "number" and w > 0 then closeW = w end
-  end
-
-  -- ICONS ARE NARROWER THAN WORDS. Each control is built as art first and falls back to its label,
-  -- and the offsets are derived from what was ACTUALLY built -- so the three end up one size and one
-  -- pitch where the art is there, and exactly where they were at minor 8 where it is not.
-  local clear = makeIconButton(titleBar, spec.addonName, "clear", spec.onClear)
-  local copy  = makeIconButton(titleBar, spec.addonName, "copy", spec.onCopy)
-  -- Only CLEAR's width feeds an offset. Copy is the leftmost control and nothing is placed to the
-  -- left of it, so its own width has never entered the arithmetic -- it is a size, not a measurement.
-  local clearW = CLEAR_W
-  if clear then
-    clearW = ICON_W
-  else
-    clear = makeTextButton(titleBar, spec.clearLabel, clearW, spec.onClear)
-  end
-  copy = copy or makeTextButton(titleBar, spec.copyLabel, COPY_W, spec.onCopy)
-
-  local clearRight = -PAD - closeW - PAD
-  local copyRight  = clearRight - clearW - PAD
-  clear:SetPoint("RIGHT", titleBar, "RIGHT", clearRight, 0)
-  copy:SetPoint("RIGHT", titleBar, "RIGHT", copyRight, 0)
-
-  return close, clear, copy, { close = -PAD, clear = clearRight, copy = copyRight }
-end
-
---- What font string `fs` measures holding `text` (set on it): its string width when the client can
---- say, else TITLE_CHAR_W per byte (before layout, or headless).
-local function textWidth(fs, text, keep)
-  if not keep then fs:SetText(text) end
-  local w = fs.GetStringWidth and fs:GetStringWidth()
-  if type(w) ~= "number" or w <= 0 then w = string.len(text) * TITLE_CHAR_W end
-  return w
-end
-
---- The Diagnostics link, drawn only when the instance has the report, and how far its right edge
---- reaches from the bar's left (the WIDER toggle word's case); nil and 0 without the report. Its
---- click is what `/<prefix> diagnostics` runs, D:RunDiagnostics(), which turns logging on. ANCHORED
---- TO THE LABEL'S FONT STRING, not the toggle's 80-wide button, so the gap holds after either word;
---- a level above that button, which runs on under it.
-local function buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D)
-  if type(D.RunDiagnostics) ~= "function" then return nil, 0 end
-  local labelW = math.max(textWidth(toggleFS, D:Text("DEBUG_ON")),
-    textWidth(toggleFS, D:Text("DEBUG_OFF")))
-  local b = CreateFrame("Button", nil, titleBar)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  fs:SetPoint("LEFT")
-  local w = textWidth(fs, D:Text("DIAGNOSTICS"))
-  b:SetSize(w, 18)
-  b:SetPoint("LEFT", toggleFS, "RIGHT", DIAG_GAP, 0)
-  local level = toggleBtn.GetFrameLevel and toggleBtn:GetFrameLevel()
-  if type(level) == "number" then b:SetFrameLevel(level + 1) end
-  fs:SetTextColor(DIAG_REST[1], DIAG_REST[2], DIAG_REST[3])
-  b:SetScript("OnEnter", function() fs:SetTextColor(DIAG_HOT[1], DIAG_HOT[2], DIAG_HOT[3]) end)
-  b:SetScript("OnLeave", function() fs:SetTextColor(DIAG_REST[1], DIAG_REST[2], DIAG_REST[3]) end)
-  b:SetScript("OnClick", function() D:RunDiagnostics() end)
-  return b, TOGGLE_X + labelW + DIAG_GAP + w
-end
-
---- How narrow the console may go: every title-bar control and the centered title still fit, with
---- PAD between the title and the wider of the two control groups. The title is centered, so it is
---- the WIDER side that sets the margin on both. Never above the default, so a long title cannot
---- leave the window smaller than its own minimum on the day it is built. `linkReach` is the
---- Diagnostics link's right edge from the bar's left (0 without the link, minor 16).
-local function consoleMinWidth(offsets, copyBtn, title, titleText, linkReach)
-  local copyW = (type(copyBtn) == "table" and type(copyBtn.icon) == "table") and ICON_W or COPY_W
-  local right = -offsets.copy + copyW
-  local left = math.max(TOGGLE_X + TOGGLE_W, linkReach)
-  local titleW = textWidth(title, titleText, true)
-  local w = 2 * (math.max(left, right) + PAD) + titleW
-  return math.min(math.ceil(w), CONSOLE_W)
-end
-
---- How short: the title bar, the status bar and MIN_LINES lines of the log between them.
-local function consoleMinHeight(fontSize)
-  return TITLE_H + 6 + MIN_LINES * (fontSize + 2) + STATUS_H + 4
-end
-
-local function escClose(name)
-  if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, name) end
-end
+-- The header toggle's two colors: green ON, red OFF. The window's palette answers them
+-- (DebugLogWindow.lua, minor 22, a skin owner's `sem.on` / `sem.off`); these are the constants it
+-- falls back to, and what every console without an owner draws.
+local STATE_ON, STATE_OFF = { 0.30, 0.85, 0.30 }, { 0.90, 0.30, 0.30 }
 
 -- ── the instance ───────────────────────────────────────────────────────────────────────────
 
@@ -497,7 +297,20 @@ function lib:New(d)
   -- describe backdrop FIELDS while an inner border, a title tint and a divider tint are CALLS. That
   -- reasoning was right and the conclusion was wrong: the calls belong in the shared implementation,
   -- driven off the shared table, rather than in whichever host happens to want them.
-  local function defaultApplySkin(f) core.ApplySkin(f, skin) end
+  --
+  -- Minor 22: the skin owner. `addonName` counts once that addon registered with LibKa0s-Skin-1.0
+  -- (Core's `__SkinFacade`, asked at call time), and only when the host passed neither its own
+  -- `skin` table nor its own `applySkin`: a host that drew its console its own way keeps doing so.
+  -- An owned window is handed to the owner's facade through Core.ApplySkin's third argument.
+  local owner = (d.skin == nil and d.applySkin == nil) and d.addonName or nil
+  local function facade()
+    if not owner or type(core.__SkinFacade) ~= "function" then return nil end
+    return core.__SkinFacade(owner)
+  end
+  local function defaultApplySkin(f)
+    if facade() then return core.ApplySkin(f, nil, owner) end
+    core.ApplySkin(f, skin)
+  end
 
   -- `applySkin` remains, and still owns the WHOLE job for both windows when a host supplies it —
   -- for chrome that differs in SHAPE rather than in color, and for a host that wants its console
@@ -517,193 +330,23 @@ function lib:New(d)
   -- Ka0s window (Core.SKIN) but the close control on a library window is the library's.
   local makeCloseButton = field(d.makeCloseButton, "function", lib.MakeCloseButton)
 
-  local function dragBar(parent, height)
-    local bar = CreateFrame("Frame", nil, parent)
-    -- Inset by one pixel on both axes so the bar sits inside the backdrop's border rather than
-    -- overlapping its edge.
-    bar:SetPoint("TOPLEFT", 1, -1)
-    bar:SetPoint("TOPRIGHT", -1, -1)
-    bar:SetHeight(height)
-    bar:EnableMouse(true)
-    bar:RegisterForDrag("LeftButton")
-    bar:SetScript("OnDragStart", function() parent:StartMoving() end)
-    bar:SetScript("OnDragStop", function() parent:StopMovingOrSizing() end)
-    return bar
-  end
-
   -- ── the console window ───────────────────────────────────────────────────────────────────
 
+  -- DebugLogWindow.lua's, since minor 22 (the band's named seam). The shell keeps the handle: the
+  -- window file hands the frame over through `adopt` the moment it exists, so a raise later in the
+  -- build still leaves a window that is hidden, Esc-wired and never built twice. Without the window
+  -- file (or with no client) there is no window, and logging still lands in the buffer.
   local function EnsureFrame()
     if frame then return frame end
-    if type(CreateFrame) ~= "function" then return nil end
-
-    local name = d.name .. "DebugWindow"
-    frame = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-    frame:SetSize(CONSOLE_W, CONSOLE_H)
-    frame:SetPoint("CENTER", 220, -80)
-    frame:SetFrameStrata("DIALOG")
-    frame:SetToplevel(true)
-    frame:EnableMouse(true)
-    frame:SetMovable(true)
-    frame:SetClampedToScreen(true)
-
-    local titleBar = dragBar(frame, TITLE_H)
-
-    local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("CENTER")
-    -- Recorded as well as set. A font string is write-only through the frame API — there is no
-    -- reading it back — so the composed title is the one thing about this window a host's test
-    -- could not otherwise see, and composing it is exactly what the library adds to `d.title`.
-    frame.titleText = d.title .. D:Text("TITLE_SUFFIX")
-    title:SetText(frame.titleText)
-    frame.title = title
-
-    local divider = frame:CreateTexture(nil, "ARTWORK")
-    divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
-    divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
-    divider:SetHeight(1)
-    -- Colored from the skin rather than hardcoded black. `applySkin` runs at the end of this
-    -- function and tints it again, so this value only shows on a host whose own applySkin ignores
-    -- the divider — and black under a gray-inner-bordered window is exactly the mismatch this
-    -- release exists to remove.
-    local dc = type(skin.divider) == "table" and skin.divider or { 0, 0, 0, 1 }
-    divider:SetColorTexture(dc[1], dc[2], dc[3], dc[4])
-    frame.divider = divider
-
-    -- The three title-bar controls read Copy | Clear | Close, left to right. Anchored to the bar's
-    -- right edge by absolute offset rather than to each other, because a close-button factory
-    -- answers nil where CreateFrame is unavailable and a chain anchored through it would break.
-    --
-    -- The offsets reproduce that chain exactly, and they are DERIVED from the button's width rather
-    -- than hard-coded, which matters as soon as a host supplies its own: Core's is 18 wide, so
-    -- Clear lands at -30 and Copy at -78 exactly as before, but a 24-wide button would have put
-    -- Clear's right edge (-30) precisely on that button's left edge and the six-pixel gap would
-    -- have vanished.
-    local _, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
-      addonName  = d.addonName,
-      close      = makeCloseButton,
-      onClose    = function() D:Hide() end,
-      onClear    = function() D:Clear() end,
-      onCopy     = function() D:ShowCopy() end,
-      clearLabel = D:Text("CLEAR"),
-      copyLabel  = D:Text("COPY"),
+    if type(CreateFrame) ~= "function" or type(lib.__buildConsole) ~= "function" then return nil end
+    lib.__buildConsole(D, {
+      d = d, fontSize = fontSize, skin = skin, applySkin = applySkin,
+      makeCloseButton = makeCloseButton, facade = facade,
+      adopt = function(f) frame = f end,
+      onVisibilityChanged = function()
+        if type(d.onVisibilityChanged) == "function" then d.onVisibilityChanged() end
+      end,
     })
-    -- Recorded for the same reason `titleText` is: an anchor cannot be read back through the frame
-    -- API, so these are the only handle a host's own test has on what its close button did to the
-    -- layout, and on which of the two shapes the controls took.
-    frame.titleBarOffsets = offsets
-    frame.clearButton, frame.copyButton = clearBtn, copyBtn
-
-    -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
-    -- label's color is always the flag's color rather than whatever the last hover left behind.
-    local toggleBtn = CreateFrame("Button", nil, titleBar)
-    toggleBtn:SetSize(TOGGLE_W, 18)
-    toggleBtn:SetPoint("LEFT", titleBar, "LEFT", TOGGLE_X, 0)
-    local toggleFS = toggleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    toggleFS:SetPoint("LEFT")
-    toggleBtn:SetScript("OnEnter", function() toggleFS:SetTextColor(1, 0.82, 0) end)
-    toggleBtn:SetScript("OnLeave", function() D:RefreshHeader() end)
-    local function onToggleClick() D:SetEnabled(not D:IsEnabled()) end
-    toggleBtn:SetScript("OnClick", onToggleClick)
-    frame.debugToggle = toggleFS
-    frame.debugToggleBtn = toggleBtn
-    -- The Diagnostics link beside it (minor 16), recorded as clearButton and copyButton are.
-    local linkReach
-    frame.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D)
-    D._toggleClickForTest = onToggleClick   -- test seam (a headless mock stubs GetScript)
-    -- The other test seam. A headless mock's Show()/Hide() track visibility without firing the
-    -- OnShow/OnHide scripts, so the only way to exercise the visibility callback below is to drive
-    -- the handler directly. Hooking the frame rather than calling the host from Show()/Hide() is
-    -- deliberate: Esc and the close button both hide the window without going through either.
-    D._frameForTest = frame
-
-    local log = CreateFrame("ScrollingMessageFrame", nil, frame)
-    log:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -(TITLE_H + 6))
-    log:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -(BAR_W + 8), STATUS_H + 4)
-    log:SetFont(d.font, fontSize, "")
-    log:SetJustifyH("LEFT")
-    log:SetFading(false)
-    log:SetMaxLines(lib.MAX_BUFFER)
-    log:EnableMouseWheel(true)
-    log:SetScript("OnMouseWheel", function(self, delta)
-      if delta > 0 then self:ScrollUp() else self:ScrollDown() end
-      D:UpdateScrollBar()
-    end)
-    frame.log = log
-
-    -- The slider runs top-to-bottom while a message frame's scroll offset runs bottom-to-top, so
-    -- the two are related by `maxOffset - value`. Both directions of that mapping are guarded on
-    -- the methods existing AND on the result being a number, which is also what makes the whole
-    -- sync a clean no-op under a headless mock whose stubs answer with the frame itself.
-    local bar = CreateFrame("Slider", nil, frame)
-    bar:SetOrientation("VERTICAL")
-    bar:SetWidth(BAR_W)
-    bar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(TITLE_H + 6))
-    bar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, STATUS_H + 4)
-    bar:SetMinMaxValues(0, 0)
-    bar:SetValueStep(1)
-    bar:SetObeyStepOnDrag(true)
-    bar:SetValue(0)
-    local track = bar:CreateTexture(nil, "BACKGROUND")
-    track:SetAllPoints()
-    track:SetColorTexture(0.24, 0.24, 0.27, 0.30)
-    local thumb = bar:CreateTexture(nil, "ARTWORK")
-    thumb:SetColorTexture(0.5, 0.5, 0.55, 0.85)
-    thumb:SetSize(BAR_W, 36)
-    bar:SetThumbTexture(thumb)
-    bar:SetScript("OnValueChanged", function(_, value)
-      if frame._syncing then return end
-      local l = frame.log
-      if not (l.GetMaxScrollRange and l.SetScrollOffset) then return end
-      local maxOffset = l:GetMaxScrollRange()
-      if type(maxOffset) ~= "number" then return end
-      l:SetScrollOffset(maxOffset - math.floor(value + 0.5))
-    end)
-    frame.scrollBar = bar
-
-    local statusDivider = frame:CreateTexture(nil, "ARTWORK")
-    statusDivider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, STATUS_H)
-    statusDivider:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, STATUS_H)
-    statusDivider:SetHeight(1)
-    statusDivider:SetColorTexture(0.24, 0.24, 0.27, 0.85)
-
-    local lineCount = frame:CreateFontString(nil, "OVERLAY")
-    lineCount:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -COUNT_INSET, 3)
-    lineCount:SetFont(d.font, fontSize, "")
-    lineCount:SetJustifyH("RIGHT")
-    lineCount:SetTextColor(0.6, 0.6, 0.62)
-    frame.lineCount = lineCount
-
-    local function visibilityChanged()
-      if type(d.onVisibilityChanged) == "function" then d.onVisibilityChanged() end
-    end
-    frame:HookScript("OnShow", function() D:RefreshHeader(); raisePopups(); visibilityChanged() end)
-    frame:HookScript("OnHide", visibilityChanged)
-    D:RefreshHeader()
-
-    frame:Hide()
-    -- Esc closes it. Hiding is non-destructive, so this is safe to wire.
-    escClose(name)
-
-    -- Everything below is deliberately after the Hide and the Esc wiring. A frame-API surprise in
-    -- the skin or the scroll sync must not abort them and leave a visible window nobody can close —
-    -- and `frame` is already assigned, so EnsureFrame would never try again.
-    applySkin(frame)
-    -- Resizable from minor 15, when the Core under it has the grip (Core minor 9). Resolved through
-    -- the table at call time, as `lib.MakeCloseButton` is, and GUARDED rather than floored: an
-    -- older Core leaves this exactly the fixed 700 x 344 window it was. The message frame, the
-    -- scrollbar and the status line are anchored to the window, so they follow it on their own;
-    -- what does not is the scrollbar's range and the line counter, which the relayout resyncs. The
-    -- buffer and the scroll position are not touched.
-    if type(core.MakeResizable) == "function" then
-      core.MakeResizable(frame, {
-        minWidth  = consoleMinWidth(offsets, copyBtn, title, frame.titleText, linkReach),
-        minHeight = consoleMinHeight(fontSize),
-        onResize  = function() D:UpdateScrollBar(); D:UpdateStatus() end,
-      })
-    end
-    D:UpdateScrollBar()
-    D:UpdateStatus()
     return frame
   end
 
@@ -711,7 +354,7 @@ function lib:New(d)
 
   -- LibKa0s-Widgets-1.0's, as of minor 12. This was the fifth copy of the same fifty-two lines and
   -- the last one outside Widgets; what kept it here was that it was wired to escClose / applySkin /
-  -- dragBar, which are locals of this file, and what let it go was Widgets minor 7's `scrollName` —
+  -- dragBar, which were locals of this file (DebugLogWindow.lua's, since minor 22), and what let it go was Widgets minor 7's `scrollName` —
   -- the one thing this window did that the shared member could not express.
   --
   -- Every local it used to need is now a descriptor field, and two of them are the library's own
@@ -722,6 +365,11 @@ function lib:New(d)
   -- The handle is built lazily on first use and kept, because CopyWindow is itself lazy — nothing
   -- is created until the first Show, which matters on a window most sessions never open.
   local copyWindow
+
+  local function copySkin()
+    if facade() then return nil end
+    return applySkin
+  end
 
   local function EnsureCopyWindow()
     if copyWindow then return copyWindow end
@@ -742,7 +390,9 @@ function lib:New(d)
       fontSize  = fontSize,
       -- The same seam the console window uses, so a host that re-skins one re-skins both and the
       -- two cannot drift apart.
-      applySkin = applySkin,
+      -- Minor 22: an owned console hands its copy window no applySkin, so CopyWindow paints it for
+      -- the same owner (its addonName) with its scrollbar and dense fill.
+      applySkin = copySkin(),
       -- Forwarded so this library's own `makeCloseButton` field keeps covering BOTH windows, as it
       -- has since minor 4. Nothing in the collection passes it today, but the contract is published.
       makeCloseButton = makeCloseButton,
@@ -768,7 +418,14 @@ function lib:New(d)
     msg = safeToString(msg)
     local f = EnsureFrame()
     local ts = date("%H:%M:%S")
-    if f and f.log then f.log:AddMessage(lib.FormatColored(ts, tag, msg)) end
+    -- An owned window colors its line from the owner's skin (DebugLogWindow.lua's `__logLine`).
+    if f and f.log then
+      if f.__logLine then
+        f.log:AddMessage(f.__logLine(ts, tag, msg))
+      else
+        f.log:AddMessage(lib.FormatColored(ts, tag, msg))
+      end
+    end
     local buf = D.buffer
     buf[#buf + 1] = lib.FormatPlain(ts, tag, msg)
     local n, cap = #buf, lib.MAX_BUFFER
@@ -938,11 +595,9 @@ function lib:New(d)
     if not (frame and frame.debugToggle) then return end
     local on = D:IsEnabled()
     frame.debugToggle:SetText(on and D:Text("DEBUG_ON") or D:Text("DEBUG_OFF"))
-    if on then
-      frame.debugToggle:SetTextColor(0.30, 0.85, 0.30)
-    else
-      frame.debugToggle:SetTextColor(0.90, 0.30, 0.30)
-    end
+    local pal = frame.__palette
+    local c = on and (pal and pal.on or STATE_ON) or (pal and pal.off or STATE_OFF)
+    frame.debugToggle:SetTextColor(c[1], c[2], c[3])
   end
 
   --- The single seam for changing debug state. The slash command and the header toggle both come

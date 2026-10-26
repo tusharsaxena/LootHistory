@@ -29,7 +29,9 @@ if not lib then return end
 -- with no change in behavior.
 -- Minor 2: O.__releaseOwnedFocus also closes an IdList suggestion list one of the instance's pages
 -- opened (OptionsIds minor 3's O.__closeOwnedSuggest), after the pullout rather than instead of it.
-local COMBAT_MINOR = 2
+-- Minor 3: a registered skin owner's cover takes its skin each time it goes up (S.Cover: the dim
+-- and the line), so an owner that registered after the page was built still gets it (LK-07).
+local COMBAT_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__combatMinor and lib.__combatMinor >= COMBAT_MINOR
@@ -228,6 +230,12 @@ function lib.__AttachCombat(O)
     -- not: two unreferenced regions per page were garbage that a collection could take between two
     -- counts of what is on screen, and a stand-down suite read that as a frame appearing or going.
     cover.__dim, cover.__line = dim, line
+    -- The page owner's skin, on every show (minor 3); nothing for a page with no registered owner.
+    if cover.HookScript then
+      cover:HookScript("OnShow", function()
+        if O.__chromePaint then O.__chromePaint("Cover", dim, { text = line }) end
+      end)
+    end
     cover:Hide()
     return cover
   end

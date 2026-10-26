@@ -201,9 +201,13 @@ NS.Launcher = Launcher:New({
   -- The addon's OWN line and nothing else: the record count. The title, the status and both click
   -- hints are the library's now, and drawing any of them here is a second copy (anti-pattern #89)
   -- -- which is what this hook did through Launcher minor 2, refusal line included.
+  --
+  -- Its gray is the skin's `gtip.subtle` (LH-05), Ka0s Default the .7 it always drew, read on every
+  -- show. The tooltip frame itself, its backdrop and the library's lines stay stock: the broker
+  -- tooltip and the minimap button are shared across addons (docs/ARCHITECTURE.md, Skins).
   onTooltipShow = function(tt)
     local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
-    tt:AddLine(n == 1 and "1 record" or (n .. " records"), 0.7, 0.7, 0.7)
+    tt:AddLine(n == 1 and "1 record" or (n .. " records"), NS.SkinColor("gtip.subtle"))
   end,
 
   -- Late-bound, like every other seam's: core/LootHistory.lua reclaims NS.Print from AceConsole

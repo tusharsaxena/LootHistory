@@ -55,7 +55,7 @@
 
 local T = _G.LH_TEST
 local NS, Loader = T.NS, T.Loader
-local test, assertTrue = T.test, T.assertTrue
+local test, assertTrue, assertEqual = T.test, T.assertTrue, T.assertEqual
 
 local loadDegraded = dofile("tests/degraded_env.lua")
 
@@ -143,6 +143,9 @@ test("parity: the DebugLog stub carries the whole live surface", function()
     -- not addon surface, and there is no window to attach them to on the degraded path. Single
     -- underscore, so Kit.publicMembers does not filter them — that exclusion is the `__` prefix.
     "_frameForTest", "_toggleClickForTest",
+    -- The copy window's pair, attached the first time the console's copy window is built
+    -- (tests/test_skin_tools.lua opens it to hold it to its skin owner, and loads before this one).
+    "_copyWindowForTest", "_copyFrameForTest",
   })
   assertTrue(type(NS.Debug) == "function" and type(degradedNS.Debug) == "function",
     "NS.Debug is the name the sink is called by; it must be a function on BOTH paths")
@@ -357,3 +360,81 @@ test("parity: the Sim session and seam stubs carry the whole live surface, both 
   T.assertSurfaceParity(degradedNS.SimSeam, NS.SimSeam, "Sim seam stub carries nothing the seam lacks", {})
 end)
 
+
+-- ── Skin (the owner's facade, and the seam's NS members) ───────────────────────────────────────
+
+test("parity: the degraded Skin facade answers every name the live facade carries", function()
+  -- core/SkinSetup.lua: live, NS.Skin is LibKa0s-Skin-1.0's `Skin:For("LootHistory")`; without the
+  -- library it is the host's table, whose painting names are no-ops (Shell and TitleBar excepted)
+  -- and whose Token / Color / Text answer the host copy NS.SKIN_FALLBACK. A facade is per owner and
+  -- built by `For`, not a major's lib-level surface, so this is the two-table form, key for key,
+  -- with nothing ignored: a vocabulary name the library adds fails here until the stub answers it.
+  T.assertSurfaceParity(NS.Skin, degradedNS.Skin, "Skin facade vs host stub", {})
+end)
+
+test("parity: the Skin seam publishes the same NS members on both paths", function()
+  -- Members from: grep -nE '^\s*function NS\.[A-Za-z_]+|^\s*NS\.[A-Za-z_]+\s*=' core/SkinSetup.lua
+  assertSeamParity("core/SkinSetup.lua", "Skin", "Skin seam (NS members)")
+end)
+
+test("parity: each host-copy skin token is the live library's Ka0s Default value", function()
+  -- The degraded facade answers Ka0s Default from NS.SKIN_FALLBACK, a copy of the library's own
+  -- values limited to the tokens this addon reads. A copy is the thing that drifts, so every entry
+  -- is held to LibKa0s-Skin-1.0's resolved Ka0s Default here.
+  -- red under: a token added to the copy with a value of its own, or the library moving a value.
+  local live = T.mocks.LibStub("LibKa0s-Skin-1.0"):ResolveSkin("ka0s")
+  local n = 0
+  local function same(label, c, want)
+    for i = 1, 4 do
+      local a, b = c[i] or 1, want[i] or 1
+      assertTrue(math.abs(a - b) < 1e-6, ("%s[%d]: host copy %s, library %s"):format(label, i, a, b))
+    end
+  end
+  for name, c in pairs(degradedNS.SKIN_FALLBACK) do
+    n = n + 1
+    local want = live[name]
+    assertTrue(type(want) == "table", name .. " is not a Ka0s Default color token in the library")
+    if type(c[1]) == "table" then
+      -- A list of colors (chart.series): the same length, entry by entry.
+      assertEqual(#c, #want, name .. ": the host copy's length")
+      for i, entry in ipairs(c) do same(("%s #%d"):format(name, i), entry, want[i]) end
+    else
+      same(name, c, want)
+    end
+  end
+  assertTrue(n > 0, "the host copy is empty, so this case asserts nothing")
+end)
+
+test("parity: the degraded facade draws today's edge, and the file-load markup still builds", function()
+  -- Shell routes to core/CoreSetup.lua's pre-library NS.ApplySkin, so a degraded window wears the
+  -- edge it always wore; every other painting name is a no-op that never raises. The markup this
+  -- addon builds once at FILE LOAD (the sort arrows, modules/BrowserTable.lua and
+  -- modules/HoldingsTab.lua; the AH price ticks, settings/Panel.lua) is built from a tint the
+  -- facade answers once the surfaces move to tokens, so it is built here from the degraded answer.
+  local S = degradedNS.Skin
+  local shelled
+  local apply = degradedNS.ApplySkin
+  degradedNS.ApplySkin = function(f) shelled = f end
+  local frame = {}
+  local ok, err = pcall(S.Shell, frame)
+  degradedNS.ApplySkin = apply
+  assertTrue(ok, "the degraded Shell raised: " .. tostring(err))
+  assertTrue(shelled == frame, "the degraded Shell did not route to NS.ApplySkin")
+  for _, name in ipairs({ "Button", "Tab", "ListRow", "MenuFrame", "Strip", "Divider", "Footer" }) do
+    local fine, why = pcall(S[name], frame, {})
+    assertTrue(fine, "the degraded " .. name .. " raised: " .. tostring(why))
+  end
+  local r, g, b = S.Color("title.text")
+  assertTrue(r == 1 and g == 0.82 and b == 0, "the degraded title color is not today's gold")
+  for _, args in ipairs({
+    { "sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0 },
+    { "sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0 },
+    { "circle-check", "Interface\\RaidFrame\\ReadyCheck-Ready", 16 },
+    { "ban", "Interface\\RaidFrame\\ReadyCheck-NotReady", 16 },
+  }) do
+    local markup = degradedNS.IconMarkup(args[1], args[2], args[3], r, g, b)
+    assertTrue(type(markup) == "string" and markup ~= "", args[1] .. " markup did not build degraded")
+  end
+  assertTrue(degradedNS.BrowserTable ~= nil and degradedNS.HoldingsTab ~= nil and degradedNS.Panel ~= nil,
+    "the degraded load did not finish the files that build markup at load")
+end)

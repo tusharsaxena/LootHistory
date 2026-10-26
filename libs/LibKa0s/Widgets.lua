@@ -61,6 +61,20 @@
 -- the text moves to the left edge). Re-check trigger for all six: a consumer needs a different
 -- color, a tooltip renderer or a measured height with the same semantics as another.
 --
+-- ── SKIN OWNERS (minor 16) ────────────────────────────────────────────────────────────────────
+--
+-- Every constructor here takes an optional skin OWNER, the caller's addon folder name: `opts.owner`
+-- for the dropdown, the search box and the strip, the descriptor's `addonName` for the copy window
+-- (WidgetsCopyWindow.lua). A name counts only when that addon registered it with LibKa0s-Skin-1.0
+-- (`Skin:IsOwner`), resolved at CALL time like Media: then the control is painted through that
+-- owner's facade after today's paint (`S.Dropdown`, `S.EditBox`, `S.Strip`, `S.Shell`,
+-- `S.MenuFrame`) and follows the owner's skin switches. An unregistered name, or a client without the Skin major, draws exactly what minor 15
+-- drew. The shared popup menu is one frame for every addon, so it is repainted on EVERY open: to
+-- the opening dropdown's owner when it has one, and otherwise, once an owner has painted it, back to
+-- Ka0s Default through a facade no addon registers (`DEFAULT_OWNER` below). The secondary files
+-- (DragHandle, ReorderList, LineChart, Autocomplete, CopyWindow) take it the same way and share the
+-- helpers below, which are internal (`__`) and not host contract.
+--
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
@@ -69,7 +83,8 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 
 -- Minor 15: the shared dropdown menu is clamped to the screen (EnsureMenu), so a dropdown near a
 -- screen edge drops a menu that stays on screen (frame-layering-§4; XS-22).
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 15
+-- Minor 16: the skin owner (the header's SKIN OWNERS).
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -96,6 +111,60 @@ local CHEVRON_FALLBACK = "Interface\\Buttons\\Arrow-Down-Up"
 local CHECK_FALLBACK   = "Interface\\Buttons\\UI-CheckBox-Check"
 
 local MENU_ROW_H = 16
+
+-- ── the skin owner (minor 16; the header's SKIN OWNERS) ──────────────────────────────────────
+
+--- The Skin major when `owner` is a registered skin owner, else nil. Read at call time.
+local function skinOf(owner)
+  if type(owner) ~= "string" or owner == "" or not LibStub then return nil end
+  local Skin = LibStub("LibKa0s-Skin-1.0", true)
+  if Skin and type(Skin.IsOwner) == "function" and Skin:IsOwner(owner) then return Skin end
+  return nil
+end
+lib.__skinOf = skinOf
+
+-- owner -> weak-keyed { [target] = fn(target, owner) }, re-run after each of the owner's skin
+-- changes; owner -> true once the one OnLooksChanged listener for it exists. Kept across minors.
+lib.__skinned = lib.__skinned or {}
+lib.__skinHooked = lib.__skinHooked or {}
+
+--- Re-run every recorded repaint of `owner`'s controls, each under pcall.
+function lib.__repaintSkinned(owner)
+  for target, fn in pairs(lib.__skinned[owner] or {}) do
+    local ok, err = pcall(fn, target, owner)
+    if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
+  end
+end
+
+--- Record `fn(target, owner)` to run again after each change of `owner`'s skin (for what no skin
+--- primitive paints: a palette read from tokens). One listener per owner, a trampoline into the
+--- live copy of this major, so a newer minor's repaint runs.
+function lib.__onSkin(Skin, owner, target, fn)
+  local set = lib.__skinned[owner]
+  if not set then
+    set = setmetatable({}, { __mode = "k" })
+    lib.__skinned[owner] = set
+  end
+  set[target] = fn
+  if lib.__skinHooked[owner] then return end
+  lib.__skinHooked[owner] = true
+  Skin:OnLooksChanged(owner, function()
+    local W = LibStub("LibKa0s-Widgets-1.0", true)
+    if W and type(W.__repaintSkinned) == "function" then W.__repaintSkinned(owner) end
+  end)
+end
+
+--- `name` of `owner`'s skin, or `fallback`.
+local function token(Skin, owner, name, fallback)
+  local c = Skin:Token(owner, name)
+  if c == nil then return fallback end
+  return c
+end
+
+-- The shared menu's row colors: selected, plain, and the highlight under the pointer.
+local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 0.82, 0, 0.15 } }
+-- No addon registers this name, so its facade reads Ka0s Default: the menu is given back through it.
+local DEFAULT_OWNER = MAJOR
 
 -- Never narrower than the button it drops from, but grown to the widest label it must show:
 -- a class icon plus a Name-Realm outruns the 140px Character button. Measured with a spare
@@ -145,6 +214,8 @@ local function makeMenuRow(menu)
   local hl = b:CreateTexture(nil, "HIGHLIGHT")
   hl:SetAllPoints()
   hl:SetColorTexture(1, 0.82, 0, 0.15)
+  -- Minor 16: kept, with the color it wears, so a skinned open repaints it (Populate).
+  b.__hl, b.__hlc = hl, MENU_PAL.hover
   return b
 end
 
@@ -169,7 +240,7 @@ end
 -- Repaint one row from its option. EVERY field is written on every pass, including the blank ones:
 -- the rows are pooled across dropdowns, so a field left alone leaks the previous menu's glyph or
 -- color onto this one.
-local function paintMenuRow(b, dd, opt, selected)
+local function paintMenuRow(b, dd, opt, selected, pal)
   local check = (dd.multi and selected) and dd.__check or ""
   b.fs:SetText(check .. opt.label)
   -- A glyphed row indents its text to clear the glyph; every other row starts at the margin.
@@ -195,11 +266,16 @@ local function paintMenuRow(b, dd, opt, selected)
   -- (store / direction / class), so the menu reads like the column it filters. The glyph always
   -- keeps the direction's color — it IS the value, not a selection state.
   if selected then
-    b.fs:SetTextColor(1, 0.82, 0)
+    b.fs:SetTextColor(pal.sel[1], pal.sel[2], pal.sel[3])
   elseif opt.color then
     b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
   else
-    b.fs:SetTextColor(0.9, 0.9, 0.9)
+    b.fs:SetTextColor(pal.text[1], pal.text[2], pal.text[3])
+  end
+  -- The highlight only when the menu's colors changed since this row last wore them.
+  if b.__hl and b.__hlc ~= pal.hover then
+    b.__hl:SetColorTexture(pal.hover[1], pal.hover[2], pal.hover[3], pal.hover[4])
+    b.__hlc = pal.hover
   end
   if opt.color then b.glyph:SetTextColor(opt.color[1], opt.color[2], opt.color[3]) end
 end
@@ -218,6 +294,26 @@ local function rowOnClick(menu, dd, opt)
       if dd.onSelect then dd.onSelect(opt.value) end
     end
   end
+end
+
+--- Repaint the shared menu for the dropdown opening it (minor 16): its owner's skin when it has a
+--- registered one, else Ka0s Default once an owner has painted it. An owner-less open of a menu no
+--- owner ever painted touches nothing.
+local function skinMenu(m, dd)
+  local owner = dd.__owner
+  local Skin = skinOf(owner)
+  if Skin then
+    if type(Skin.__MarkShared) == "function" then Skin:__MarkShared(m) end
+    Skin:For(owner).MenuFrame(m)
+    m.__pal = { sel = token(Skin, owner, "menu.textSel", MENU_PAL.sel),
+                text = token(Skin, owner, "menu.text", MENU_PAL.text),
+                hover = token(Skin, owner, "menu.hover", MENU_PAL.hover) }
+    return
+  end
+  if not m.__pal then return end
+  m.__pal = nil
+  Skin = LibStub("LibKa0s-Skin-1.0", true)
+  if Skin and type(Skin.For) == "function" then Skin:For(DEFAULT_OWNER).MenuFrame(m) end
 end
 
 local menu
@@ -291,7 +387,7 @@ local function EnsureMenu()
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
-      paintMenuRow(b, dd, opt, rowSelected(dd, opt))
+      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL)
       b:SetScript("OnClick", rowOnClick(self, dd, opt))
       b:Show()
     end
@@ -434,12 +530,17 @@ local function MakeDropdown(parent, width, opts)
     local m = EnsureMenu()
     if m:IsShown() and m._owner == self2 then m:Hide(); return end
     m._owner = self2
+    skinMenu(m, self2)
     m:Populate(self2)
     m:ClearAllPoints()
     m:SetPoint("TOPLEFT", self2, "BOTTOMLEFT", 0, -1)
     m:Show()
     m:RegisterEvent("GLOBAL_MOUSE_DOWN")
   end)
+  -- Minor 16: the skin owner, read by skinMenu on every open; its button wears the owner's skin.
+  dd.__owner = opts.owner
+  local Skin = skinOf(opts.owner)
+  if Skin then Skin:For(opts.owner).Dropdown(dd) end
   return dd
 end
 
@@ -447,7 +548,9 @@ end
 ---
 --- @param parent table         the frame to parent it to
 --- @param width number         the collapsed button's width; the menu never drops narrower
---- @param opts table|nil       { chevron =, check =, glyphFont = }, each a resolved path or nil
+--- @param opts table|nil       { chevron =, check =, glyphFont = }, each a resolved path or nil;
+---                             `owner` (minor 16), a registered skin owner: the button and the menu
+---                             it drops wear that owner's skin (the header's SKIN OWNERS)
 --- @return table  the dropdown
 function lib.Dropdown(parent, width, opts)
   return MakeDropdown(parent, width, opts)
@@ -496,6 +599,13 @@ local function paintSearchBorder(box, c)
   if box.SetBackdropBorderColor then box:SetBackdropBorderColor(unpack(c)) end
 end
 
+--- A skinned search box's icon in its owner's `icon.tint` (minor 16).
+local function tintSearchIcon(icon, owner)
+  local Skin = skinOf(owner)
+  local c = Skin and token(Skin, owner, "icon.tint", nil)
+  if c then icon:SetVertexColor(c[1], c[2], c[3]) end
+end
+
 --- Build the flat filter-bar search box. A host EXTENDS it with HookScript and never SetScripts the
 --- five scripts below, which this constructor sets: OnTextChanged (the hint, then `opts.onChange`),
 --- OnEscapePressed and OnEnterPressed (ClearFocus), OnEditFocusGained (the gold line) and
@@ -507,7 +617,9 @@ end
 --- @param parent table       the frame to parent it to
 --- @param width number|nil   the box's width; nil sets none, for a host that anchors both edges
 --- @param opts table|nil     { hint = string|nil, icon = path|fileID|nil,
----                             onChange = function(text, box)|nil }, and nothing else
+---                             onChange = function(text, box)|nil, owner = string|nil }; `owner`
+---                             (minor 16) is a registered skin owner: the box, its hint, its focus
+---                             line and its icon wear that owner's skin
 --- @return table  the EditBox, with `box.hint` (FontString) and `box.icon` (Texture or nil)
 function lib.SearchBox(parent, width, opts)
   opts = opts or {}
@@ -554,233 +666,16 @@ function lib.SearchBox(parent, width, opts)
   box:SetScript("OnEditFocusGained", function(self) paintSearchBorder(self, SKIN.focus) end)
   box:SetScript("OnEditFocusLost", function(self) paintSearchBorder(self, SKIN.line) end)
   hint:SetShown(searchText(box) == "")
-  return box
-end
-
--- ── the copy window ──────────────────────────────────────────────────────────────────────────
---
--- WHY THIS IS HERE. There is no file I/O in WoW. Every "export this" surface in the collection
--- therefore ends in the same thing: a frame holding a multi-line EditBox with the text selected,
--- and an instruction to press Ctrl+C. There were four copies before this member — BankLedger's,
--- LootHistory's, MultiMeters' and the debug log's — and two of them were the same fifty-two lines
--- with the addon name substituted out.
---
--- It lives in Widgets rather than in a major of its own for the same reason the dropdown does:
--- Widgets already owns "a frame this collection kept re-drawing", and the three addons that need
--- this already vendor it. A new major would have bought a fourth vendor sweep for nothing.
---
--- WHAT THE HOST STILL OWNS. The art and the face arrive as DESCRIPTOR FIELDS, not as lookups: a
--- vendored copy cannot know which addon folder it sits in, so it cannot resolve a texture path or
--- ask Media for one without being told the host's name. That is the same bargain
--- LibKa0s-Media-1.0 and Core.MakeCloseButton already strike.
-
-local COPY_DEFAULTS = {
-  width = 640, height = 420, fontSize = 10, title = "Export",
-  backdrop = { 0.06, 0.06, 0.08, 0.95 },
-}
-
--- The smallest a copy window may be sized down to (minor 11): room for the title bar's centered
--- title and close control and a few lines of text. Capped at the descriptor's own size, so a window
--- declared smaller than this is its own minimum rather than one it could never be built at.
-local COPY_MIN_W, COPY_MIN_H = 240, 140
--- The scroll frame's bottom inset. UIPanelScrollFrameTemplate hangs its scroll-down button at the
--- scroll frame's bottom edge, and Core.MakeResizable's grip covers the window's bottom 17 px (16 px
--- square, 1 px in, ten levels up), so at the old 10 px a click on the button's lower part started a
--- resize instead of scrolling. 18 puts the whole button above the grip.
-local COPY_SCROLL_BOTTOM = 18
-
---- The edit box's width for a window `w` wide. The scroll frame's own width once the client has laid
---- it out; before that (or headless) the window's width less the same margin the descriptor's
---- `editWidth` keeps from its `width`, so a resized window keeps the gap the declared one had.
-local function copyEditWidth(f, d, w)
-  local sw = f.scroll:GetWidth()
-  if type(sw) == "number" and sw > 0 then return sw end
-  if type(w) == "number" and w > 0 then return w - (d.width - d.editWidth) end
-  return d.editWidth
-end
-
---- Fill a caller's descriptor out with the collection's defaults, without mutating theirs.
-local function copyDescriptor(d)
-  local out = {
-    addonName = d.addonName,
-    name      = d.name or (d.addonName .. "CopyWindow"),
-    width     = d.width or COPY_DEFAULTS.width,
-    height    = d.height or COPY_DEFAULTS.height,
-    title     = d.title or COPY_DEFAULTS.title,
-    font      = d.font,
-    fontSize  = d.fontSize or COPY_DEFAULTS.fontSize,
-    applySkin = d.applySkin,
-    backdrop  = d.backdrop or COPY_DEFAULTS.backdrop,
-    anchorTo  = d.anchorTo,
-    -- Optional, minor 7, and NOT defaulted to anything. UIPanelScrollFrameTemplate derives its
-    -- scrollbar children's names from its parent's, so an anonymous scroll frame leaves them
-    -- unnamed — which is invisible until somebody tries to skin or find one. The debug log's own
-    -- copy window had always named it and the three adopters here never had; that difference is
-    -- what surfaced when DebugLog minor 12 converged onto this member. Left nil by default so a
-    -- caller written before minor 7 keeps exactly the frame it already had rather than silently
-    -- acquiring a global.
-    scrollName = d.scrollName,
-    -- Optional, minor 7. Defaults to Core's x, which is what all four callers want and what three
-    -- of them already got. It exists because LibKa0s-DebugLog-1.0 has published a `makeCloseButton`
-    -- descriptor field since ITS minor 4, documented as applying to BOTH of its windows — so when
-    -- minor 12 converged its copy window onto this member, a hardcoded Core x here would have
-    -- quietly narrowed a contract a host had already been told it could rely on.
-    makeCloseButton = d.makeCloseButton,
-  }
-  out.editWidth = d.editWidth or (out.width - 50)
-  return out
-end
-
---- Resizable on both axes from minor 11, when the Core under it has the grip (Core minor 9);
---- guarded, so an older Core leaves the fixed window this always was. The descriptor's `width` and
---- `height` stay the size it opens at, and a named window keeps its own size for the session: the
---- frame is built once per handle and never resized on a later Show. The scroll frame is anchored
---- to both corners and follows on its own; the edit box inside it is a scroll CHILD and does not,
---- so its width is set again on every resize.
-local function makeCopyResizable(f, d, coreLib)
-  if not (coreLib and type(coreLib.MakeResizable) == "function") then return end
-  coreLib.MakeResizable(f, {
-    minWidth  = math.min(COPY_MIN_W, d.width),
-    minHeight = math.min(COPY_MIN_H, d.height),
-    onResize  = function(w) f.edit:SetWidth(copyEditWidth(f, d, w)) end,
-  })
-end
-
---- Build the frame. Called once, lazily, on the first Show — a modal rebuilt per open leaks a
---- frame per open for the life of the session, because frames are never destroyed in WoW.
-local function buildCopyFrame(d)
-  local f = CreateFrame("Frame", d.name, UIParent, "BackdropTemplate")
-  f:SetSize(d.width, d.height)
-  f:SetPoint("CENTER")
-  -- FULLSCREEN so it sits above the DIALOG-strata modal that opened it. The modal stays visible
-  -- underneath, which is what makes "copy this, then pick a different set" one trip rather than two.
-  f:SetFrameStrata("FULLSCREEN")
-  f:EnableMouse(true)
-  f:SetMovable(true)
-  f:SetClampedToScreen(true)
-
-  local bar = CreateFrame("Frame", nil, f)
-  bar:SetPoint("TOPLEFT", 1, -1)
-  bar:SetPoint("TOPRIGHT", -1, -1)
-  bar:SetHeight(26)
-  bar:EnableMouse(true)
-  bar:RegisterForDrag("LeftButton")
-  bar:SetScript("OnDragStart", function() f:StartMoving() end)
-  bar:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
-
-  local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  title:SetPoint("CENTER")
-  title:SetText(d.title)
-  f.title = title
-
-  -- Resolved at CALL time rather than at load: Core is the first file in LibKa0s.xml and this is
-  -- the third, so a load-time lookup would be fine here — but MakeCloseButton itself resolves Media
-  -- at call time for exactly this reason, and one rule about when the payload is resolvable is
-  -- easier to keep than two.
-  local coreLib = LibStub and LibStub("LibKa0s-Core-1.0", true)
-  local makeClose = d.makeCloseButton or (coreLib and coreLib.MakeCloseButton)
-  if makeClose then
-    local close = makeClose(bar, function() f:Hide() end, d.addonName)
-    if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
-  end
-
-  local scroll = CreateFrame("ScrollFrame", d.scrollName, f, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 8, -30)
-  scroll:SetPoint("BOTTOMRIGHT", -28, COPY_SCROLL_BOTTOM)
-
-  local edit = CreateFrame("EditBox", nil, scroll)
-  edit:SetMultiLine(true)
-  -- The face arrives as a PATH. SetFont does not accept a LibSharedMedia name, and a CSV is
-  -- columns of digits that only line up in a fixed-width face.
-  if d.font then edit:SetFont(d.font, d.fontSize, "") end
-  edit:SetAutoFocus(false)
-  edit:SetWidth(d.editWidth)
-  edit:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Hide() end)
-  scroll:SetScrollChild(edit)
-
-  f.scroll, f.edit = scroll, edit
-
-  if d.applySkin then
-    d.applySkin(f)
-  elseif coreLib and coreLib.ApplySkin then
-    coreLib.ApplySkin(f)
-  end
-  -- Denser than the shared skin. This frame is a wall of small monospace text, and the world
-  -- behind it bleeding through costs legibility in a way it does not on a frame showing four
-  -- controls.
-  if f.SetBackdropColor then
-    f:SetBackdropColor(d.backdrop[1], d.backdrop[2], d.backdrop[3], d.backdrop[4])
-  end
-
-  f:Hide()
-  -- By NAME, type-guarded: UISpecialFrames is a list of GLOBAL frame names and the table itself is
-  -- not guaranteed to exist outside a real client.
-  if type(UISpecialFrames) == "table" then
-    table.insert(UISpecialFrames, d.name)
-  end
-
-  makeCopyResizable(f, d, coreLib)
-  return f
-end
-
---- A read-only copy window: text in, Ctrl+C out, Esc closes.
----
---- Returns a HANDLE, not a frame, so the frame stays lazy — nothing is created until the first
---- Show, which matters because a host builds this at file load and most sessions never open it.
---- Answers nil with no client and without an `addonName` (which the close control needs to find
---- the collection's own art).
----
---- @param d table  see docs/api/Widgets — addonName is the only required field
---- @return table|nil
-function lib.CopyWindow(d)
-  if type(d) ~= "table" or type(d.addonName) ~= "string" then return nil end
-  if type(CreateFrame) ~= "function" then return nil end
-
-  local desc = copyDescriptor(d)
-  local frame
-  local win = { __descriptor = desc }
-
-  function win:GetFrame()
-    if not frame then frame = buildCopyFrame(desc) end
-    return frame
-  end
-
-  function win:GetText()
-    return frame and frame.edit:GetText() or nil
-  end
-
-  function win:Hide()
-    if frame then frame:Hide() end
-  end
-
-  --- THE ORDER IS LOAD-BEARING: width, then text, then cursor to the top, then show, then focus,
-  --- then highlight. Highlighting before the frame is shown selects nothing, and focusing before
-  --- the text is set leaves the cursor wherever the last export left it. All four hand-rolled
-  --- copies got this right and the fifth author would have had to rediscover it.
-  function win:Show(text)
-    local f = self:GetFrame()
-
-    -- Re-anchored on EVERY show, not once at build: the popup has to land over the window that
-    -- spawned it, wherever the user has since dragged that window.
-    f:ClearAllPoints()
-    local anchor = desc.anchorTo and desc.anchorTo()
-    if anchor and anchor.IsShown and anchor:IsShown() then
-      f:SetPoint("CENTER", anchor, "CENTER", 0, 0)
-    else
-      f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  -- Minor 16: after the scripts, so the facade's focus hooks run after the gold / gray line.
+  local Skin = skinOf(opts.owner)
+  if Skin then
+    Skin:For(opts.owner).EditBox(box)
+    if box.icon then
+      lib.__onSkin(Skin, opts.owner, box.icon, tintSearchIcon)
+      tintSearchIcon(box.icon, opts.owner)
     end
-
-    -- The window's current width, not the declared one: a resized window keeps its edit box.
-    f.edit:SetWidth(copyEditWidth(f, desc, f:GetWidth()))
-    f.edit:SetText(text or "")
-    f.edit:SetCursorPosition(0)
-    f:Show()
-    f.edit:SetFocus()
-    f.edit:HighlightText()
-    return f
   end
-
-  return win
+  return box
 end
 
 -- ── the mode strip (test mode or a simulation) ───────────────────────────────────────────────
@@ -811,9 +706,11 @@ lib.TEST_STRIP = { HEIGHT = STRIP_H }
 --- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
 ---
 --- @param parent table     the frame to parent it to
---- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil }; text is the host's localized
----                         line ('' when absent), no icon puts the text at LEFT+6, and any kind
----                         but exactly "sim" (nil, a non-string, "Sim", "preview") is "test"
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner }; text is the host's
+---                         localized line ('' when absent), no icon puts the text at LEFT+6, any
+---                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
+---                         and `owner` (minor 16) is a registered skin owner whose skin the wash
+---                         follows
 --- @return table  the Frame, with `strip.text` (FontString, OVERLAY, GameFontNormalSmall, LEFT at
 ---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
 ---                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
@@ -828,6 +725,10 @@ function lib.TestStrip(parent, opts)
   fill:SetAllPoints(s)
   fill:SetColorTexture(unpack(STRIP_FILL[kind]))
   s.__fill = fill
+  -- Minor 16: a registered skin owner's strip takes its wash from that skin (`strip.test` /
+  -- `strip.sim`); the meaning colors are the library's, a skin changes only their legibility.
+  local Skin = skinOf(opts.owner)
+  if Skin then Skin:For(opts.owner).Strip(fill, { kind = kind }) end
 
   local icon = opts.icon
   if type(icon) == "string" or type(icon) == "number" then

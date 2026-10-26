@@ -98,10 +98,10 @@ end
 -- The strip, in order. Stated here rather than derived from the thing the assertion reads, so a tab
 -- that moves is a NAMED failure rather than a shorter list that still agrees with itself.
 --
--- Seven tabs, five of them schema groups and two of them bodies with no rows (Filters' and the
+-- Eight tabs, six of them schema groups and two of them bodies with no rows (Filters' and the
 -- library's Keybindings) — which is why the page draws its strip by hand instead of through
 -- O.RenderTabbedSchema: that one derives its tab list from `group`, and neither body has rows to
--- declare one.
+-- declare one. The sixth group, Appearance, is drawn by the library's own body (O.AppearanceTab).
 --
 -- THE NAMES AND THE ORDER ARE SHARED WITH KA0S BANK LEDGER, whose strip is these minus AH price —
 -- Master controls, Capture, Filters, Interface, History, Keybindings. The two addons keep the same
@@ -111,6 +111,9 @@ end
 -- AH price, which is this addon's alone, sits directly after them.
 local STRIP = {
   "Master controls", "Capture", "Filters", "AH price", "Interface", "History",
+  -- skinning-§3: the library's Appearance tab (O.AppearanceTab), after History and before
+  -- Keybindings. Its group holds the two skin rows, which it draws as choice grids.
+  "Appearance",
   -- options-ui-§20: the LAST tab of every General page whose addon ships a key binding. The
   -- library draws it (O.KeybindingsTab); it is not a schema group and not shared with Bank Ledger's
   -- order above, which it follows.

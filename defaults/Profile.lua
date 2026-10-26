@@ -53,6 +53,11 @@ NS.defaults.profile = {
     -- (modules/Sim.lua Host.StepDelay). A new key with a default, so AceDB merges it into every
     -- existing profile and no migration is owed.
     sim              = { stepDelay = 1 },
+    -- The skin this addon wears (skinning-§3; owner ruling R1, per addon): where it comes from
+    -- ("ka0s", the Ka0s skins, or "eui", EllesmereUI's) and which Ka0s skin. "ka0s"/"ka0s" is Ka0s
+    -- Default, today's look. New keys with defaults, so AceDB merges them into every existing
+    -- profile and no migration is owed. Applied through core/SkinSetup.lua.
+    appearance       = { source = "ka0s", skin = "ka0s" },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,

@@ -139,7 +139,13 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   --
   -- Minor 15 (LibKa0s v1.77.0, docs/api/Widgets/version-15.1.5.3.3-docs.md) clamps the dropdown
   -- menu to the screen (frame-layering-§4). No member or opts field moves; nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 15, "this adoption is written against Widgets minor 15")
+  --
+  -- Minor 16 (LibKa0s v1.78.0, docs/api/Widgets/version-16.2.6.4.4.1-docs.md) gives Dropdown,
+  -- SearchBox, TestStrip, Autocomplete, DragHandle, ReorderList and LineChart an optional `owner`
+  -- (a registered skin owner paints through its facade) and peels CopyWindow into its own file. No
+  -- member is added or removed, and an unregistered owner or none paints as minor 15 did; the
+  -- owner is passed in its own commit when this addon adopts skins.
+  assertEqual(lib.MODULES.Widgets, 16, "this adoption is written against Widgets minor 16")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

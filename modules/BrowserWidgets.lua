@@ -10,10 +10,11 @@ local B = NS.Browser
 -- browser state, so it loads directly ABOVE modules/Browser.lua, which binds these as file-scope
 -- locals at load; modules/BrowserFilterBar.lua binds them from NS.Browser the same way.
 
--- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable.
+-- Item-quality color as an {r, g, b} triple for tinting dropdown items, or nil if unavailable: the
+-- skin's q.* override where it sets one, else the client's color (NS.QualityColor, core/SkinSetup.lua).
 local function qualityColor(q)
-  local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-  if c then return { c.r, c.g, c.b } end
+  local r, g, b = NS.QualityColor(q)
+  if r then return { r, g, b } end
   return nil
 end
 
@@ -212,6 +213,15 @@ local function boundOptions()
   return items
 end
 
+-- The quality options carry their tint, baked when the list is built, so a skin change rebuilds the
+-- built bar's list (the refresh the minimum-quality setting makes, modules/Browser.lua) and a skin's
+-- q.* override reaches it. Nothing to do before the bar exists.
+if NS.Skin then
+  NS.Skin.OnLooksChanged(function()
+    if B._dd and B._dd.quality then B._dd.quality:SetOptions(qualityOptions()) end
+  end)
+end
+
 -- Published for modules/Browser.lua and modules/BrowserFilterBar.lua (bound at their load) and for
 -- the headless suite (tests/test_browser.lua). The UI binds through these exact functions.
 B._dataset      = dataset
@@ -220,3 +230,52 @@ B._options = {
   source = sourceOptions, char = charOptions, itemType = typeOptions,
   itemSubType = subtypeOptions, zone = zoneOptions, quality = qualityOptions, bound = boundOptions,
 }
+
+-- ── The flat button (LH-02) ────────────────────────────────────────────────────────────────────
+--
+-- The one small text button this addon's windows wear: the filter bar's Export / Clear / Save /
+-- Reset (modules/BrowserFilterBar.lua) and the export modal's Export to CSV (modules/Export.lua).
+-- It was two copies of one function until the skin engine; both now build here and are painted by
+-- the skin's Button primitive (NS.Skin.Button, LibKa0s-Skin-1.0), which draws the box, the label
+-- and the mark from the `btn.*` tokens and follows a skin switch with no reload. On Ka0s Default
+-- that is the box the two copies drew: the WHITE8X8 backdrop at edgeSize 1 with 1px insets, the
+-- .1/.1/.12/.9 fill, the .24/.24/.27/.9 edge, a white label that turns gold under the pointer and
+-- the mark at .85. The library pins that paint against the old makeBarButton
+-- (tests/test_skin_paint_controls.lua, upstream).
+--
+-- `opts.icon` is a catalog name and OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
+-- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather than
+-- off-center (docs/browser.md). `opts.tooltip` explains the ACTION, anchored to the whole button.
+--
+-- The scripts are set BEFORE the primitive runs: it HookScripts its hover pair, and a SetScript
+-- after it would replace the hook. Its label is `b.text`, the field the primitive reads.
+function B.MakeFlatButton(parent, text, width, height, onClick, opts)
+  opts = opts or {}
+  local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  b:SetSize(width, height)
+  local path = opts.icon and NS.Icon and NS.Icon(opts.icon)
+  if path then
+    local tex = b:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(14, 14)
+    tex:SetPoint("LEFT", 10, 0)
+    tex:SetTexture(path)
+    b.icon = tex
+  end
+  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetPoint("CENTER")
+  fs:SetText(text)
+  b.text = fs
+  local tooltip = opts.tooltip
+  if tooltip then
+    b:SetScript("OnEnter", function(self2)
+      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+      local r, g, bl = NS.SkinColor("gtip.body")
+      GameTooltip:AddLine(tooltip, r, g, bl, true)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  b:SetScript("OnClick", onClick)
+  NS.Skin.Button(b)
+  return b
+end

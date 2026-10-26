@@ -79,15 +79,16 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS` table (`NS.Compat`, `NS.Schema`, `NS.Collector`, …). There is no `_G[addonName]` and no
   global `LootHistory` — nothing in `core/`, `modules/`, `settings/`, `defaults/`, or `locales/`
   reaches the addon through the global table.
-- **Which spelling of that header depends on whether the file reads the folder name.** Eleven files
+- **Which spelling of that header depends on whether the file reads the folder name.** Thirteen files
   do, and they name it: `local addonName, NS = ...` in `core/LootHistory.lua` (which hands it to
   `AceAddon:NewAddon(NS, addonName, …)` at `:4`), `core/Namespace.lua`, `core/CoreSetup.lua`,
   `core/EnvSetup.lua`, `core/MediaSetup.lua`, `core/DebugLogSetup.lua`, `core/PerfSetup.lua`,
-  `core/LauncherSetup.lua`, `settings/OptionsSetup.lua`, `modules/AuctionPrice.lua` and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
-  infer which folder this addon was copied into. **The other forty-eight write `local _, NS = ...`**,
+  `core/LauncherSetup.lua`, `core/SkinSetup.lua`, `core/WidgetsSetup.lua`, `settings/OptionsSetup.lua`, `modules/AuctionPrice.lua` and `modules/Export.lua` — in every case because a vendored library or a third-party API cannot
+  infer which folder this addon was copied into. **The other forty-seven write `local _, NS = ...`**,
   because naming a local nothing reads is a warning the linter is right to raise. Three files
   (`core/ItemSetup.lua`, `core/PoolSetup.lua`, `core/WidgetsSetup.lua`) already spelled it that
-  way; `M4c-06` removed the top-level `ignore` that had been hiding the other seventeen and
+  way (`core/WidgetsSetup.lua` has since moved to the named form, because it passes the folder
+  name as the skin owner); `M4c-06` removed the top-level `ignore` that had been hiding the other seventeen and
   brought them into line. Copy the `_` form into a new file unless it genuinely needs the folder
   name.
 - Module tables are created defensively: `NS.X = NS.X or {}` then `local X = NS.X`, so load order
@@ -99,7 +100,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:798`),
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:820`),
   a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
   look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
   row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
@@ -108,7 +109,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`tests/test_schema.lua` pins it, on both builds).
 - **Paths resolve against the active profile, `NS.db.profile`** — every setting but two is per
   profile, so `Schema:Get`/`:Set` read and write `NS.db.profile` (the descriptor's `resolveRoot`,
-  `settings/Schema.lua:760`, asked at call time so a profile switch retargets it). Only the loot
+  `settings/Schema.lua:782`, asked at call time so a profile switch retargets it). Only the loot
   history, its repair bookkeeping, the schema stamp, the retention (`retentionDays`, owner decision
   D6: the setting that governs the recorded data, reached through its row's own `get`/`set`) and
   LibDBIcon's `minimap` table live in `NS.db.global` ([profiles.md](profiles.md)). A new setting that
@@ -132,7 +133,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:154`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:165`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -164,11 +165,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Chat output: one shared secret-safe printer
 
 - Every chat line goes through the single shared printer `NS.Print` — LibKa0s-Core-1.0's, published
-  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:322`,
+  under that name (and as `NS.Util.print`) by the `core/CoreSetup.lua` seam (`core/CoreSetup.lua:338`,
   `:328`). Each file that emits chat does `local print = NS.Print` and calls `print("message")` —
   **never** the global `print()`, **never** a hand-written `NS.PREFIX` tag, **never**
   `..`-concatenated args. `NS.Print` prepends the cyan `NS.PREFIX` tag (slash-commands-§4) and routes
-  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:290` —
+  each arg through `NS.SafeToString` — also the library's, republished at `core/CoreSetup.lua:306` —
   so a combat-protected "secret" value logs as `<secret>` instead of raising (events-frames-taint-§8).
 - **`core/CoreSetup.lua` must load before every file that captures the printer at file scope**
   (`modules/Browser.lua`, `settings/Schema.lua`, `settings/Slash.lua`, `settings/Panel.lua` all do
@@ -188,10 +189,10 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `NS.Debug` is a zero-allocation no-op: it returns before building the argument table
   (`D.Debug` in `libs/LibKa0s/DebugLog.lua`). The console is LibKa0s-DebugLog-1.0's; the sink is
   bound bare — never as a method — onto `NS.Debug` by the `core/DebugLogSetup.lua` seam
-  (`core/DebugLogSetup.lua:174`), which is also where `NS.DebugLog` is instantiated.
+  (`core/DebugLogSetup.lua:165`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:1083`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:1105`); the header's `Debug: ON`/`OFF` control flips the same flag
   (the title-bar toggle's `onToggleClick`, built in `EnsureFrame` in `libs/LibKa0s/DebugLog.lua`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:117-118`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
@@ -244,12 +245,13 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   font objects (and `STANDARD_TEXT_FONT` for the degraded close glyph in `core/CoreSetup.lua`);
   every remaining texture resolves to a Blizzard built-in or atlas (`Interface\Buttons\WHITE8X8`,
   `UI-Classes-Circles`, atlas `Options_HorizontalDivider`, …); borders are
-  `WHITE8X8` drawn as 1px edges, colored from `Core.SKIN` via `B:ApplySkin`’s delegation to
-  `NS.ApplySkin` (`modules/Browser.lua:64`, `core/CoreSetup.lua`); `modules/Browser.lua:16`’s own
-  `SKIN` table carries only the tab colors and layout heights.
+  `WHITE8X8` drawn as 1px edges, colored from the player's skin through `B:ApplySkin`’s hand-off
+  to the skin's Shell (`modules/Browser.lua:66`, `core/SkinSetup.lua`; Ka0s Default is
+  `Core.SKIN`, and the library-absent arm is `core/CoreSetup.lua`'s copy, reading the host copy of
+  those tokens); `modules/Browser.lua:13`’s own `SKIN` table carries only the layout heights.
   The one non-Blizzard asset outside media is the addon's own logo on the settings landing page
-  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:889`) — branding art, not a re-skinnable surface.
-- **Twenty-four hard-coded `Interface\` paths remain, and each one is in a class named right here**
+  (`LOGO_PATH`, `settings/Panel.lua:23`, drawn at `:943`) — branding art, not a re-skinnable surface.
+- **Twenty-two hard-coded `Interface\` paths remain, and each one is in a class named right here**
   (`library-stack-§8`; the disposition is remediation item `M4-23`). The number is measured, and
   **the scope is half the claim** — vendored `libs/` and `tests/` are excluded, for the same reason
   every other sweep in this repo excludes them, and a count taken over the whole tree is a count of
@@ -259,13 +261,13 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/' | xargs grep -n 'Interface\\'
   ```
 
-  It prints 25 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
+  It prints 22 lines; one of them is the comment at `core/MediaSetup.lua:26`, which is not a path.
 
   | # | Class | Where |
   |---|---|---|
-  | 7 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. | `core/CoreSetup.lua:223`, `modules/AnalyticsFormat.lua:12`, `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:95`, `:1191`, `modules/Export.lua:346`, `modules/Timeline.lua:25` |
-  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:120`, `:326`, `:327`, `:1168`, `:1169`, `modules/HoldingsTab.lua:304`, `:305`, `:428`, `:429`, `settings/Panel.lua:541`, `:542`, `:543` |
-  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:99`, `:100` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:139` (the class-circle sheet, under the `classicon-` atlas) |
+  | 4 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. The Insights cards and list panels and the Timeline's toggle stopped naming it in LH-04: they are the skin's `Card`, `Panel` and `Button` now. | `core/CoreSetup.lua:232`, `core/SkinSetup.lua:320` (the degraded facade's flat button, KPI card, list panel and row menu), `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:338`, `:339`, `:1208`, `:1209`, `modules/HoldingsTab.lua:317`, `:318`, `:455`, `:456`, `settings/Panel.lua:565`, `:564`, `:565` |
+  | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:102`, `:103` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:75-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
   The catalog is **113 marks** as of LibKa0s v1.39.0, not the thirty it shipped with, so "the
@@ -288,10 +290,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   resolved a path and `settings/Schema.lua` has built its rows. **The fallback is a real client
   font**: `SetFont` accepts a path to a file that is not there, fails to load it, and the text
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
-- **No LSM media pickers, by design.** There is no font/texture/border user setting; LSM is used
-  only for the registration above (no `Fetch`/`List`). Making the shared edge user-configurable is
-  a tracked post-1.0.0 idea (`modules/Browser.lua:14`) that now belongs at the LibKa0s seam, not a
-  gap to close now.
+- **No LSM media pickers, by design.** There is no per-surface font/texture/border setting, and
+  this addon uses LSM only for the registration above (no `Fetch`/`List`). The look is
+  user-configurable as a whole instead: the Appearance tab picks a skin, and `LibKa0s-Skin-1.0`
+  resolves that skin's faces and art itself (core/SkinSetup.lua). That is the LibKa0s seam the
+  old post-1.0.0 TODO in `modules/Browser.lua` pointed at; the History window's chrome reads it
+  since LH-02.
 
 ### Options UI: Blizzard canvas, never AceConfigDialog
 
@@ -303,7 +307,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:1133`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:1182`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
@@ -315,7 +319,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`lib.LAYOUT.BUTTON_PAIR_REL` in `libs/LibKa0s/Options.lua`), re-exported on the instance as
-  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:35`).
+  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:46`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
   hard-code it per button.
@@ -333,7 +337,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
   clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
-  (`core/Constants.lua:174`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  (`core/Constants.lua:171`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
   gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not

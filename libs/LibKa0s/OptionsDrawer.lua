@@ -28,7 +28,9 @@ if not lib then return end
 
 -- Minor 1: O.Drawer, the body ctx that draws into the box and writes through to the page, and the
 -- box's padding (lib.__drawerPad).
-local DRAWER_MINOR = 1
+-- Minor 2: a registered skin owner's drawer paints through its facade after its own paint (S.Drawer:
+-- the label, the summary, the head's edge set open or closed, the box's) (LK-07 of the skinning run).
+local DRAWER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__drawerMinor and lib.__drawerMinor >= DRAWER_MINOR
   and lib.__drawerShellMinor == lib.MINOR then return end
@@ -252,6 +254,11 @@ function lib.__AttachDrawer(O)
       head.__ka0sDrawerChevron:SetRotation(open and -math.pi / 2 or 0)
     end
     paintEdges(head.__ka0sDrawerEdges, open and HEAD_FILL_OPEN or HEAD_FILL, open and HEAD_EDGE_OPEN or HEAD_EDGE)
+    -- The owner's skin over it (minor 2); the head is pooled, so an owner-less dress gives it back.
+    if O.__chromePaint then
+      O.__chromePaint("Drawer", head, { label = head.__ka0sDrawerLabelFS, summary = head.__ka0sDrawerSummaryFS,
+        set = set, open = open, edges = head.__ka0sDrawerEdges })
+    end
     head:Show()
   end
 
@@ -345,6 +352,8 @@ function lib.__AttachDrawer(O)
     body:SetLayout("Flow")
     body:SetFullWidth(true)
     boxEdges(body.frame)
+    -- The box's edge set in the drawer box tokens (minor 2): no head of its own, so no head edges.
+    if O.__chromePaint then O.__chromePaint("Drawer", body.frame, { edges = {}, box = body.frame.__ka0sDrawerBox }) end
     padBox(body)
     body:SetCallback("OnRelease", function() unpadBox(body) end)
     group:AddChild(body)

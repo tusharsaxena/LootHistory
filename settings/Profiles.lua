@@ -58,9 +58,15 @@ function PP.Build(mainCategory)
   -- puts the library's combat lock in front of that path. The container is SHOWN on every render:
   -- AceGUI:Release hides a frame before pooling it, and neither AceGUI:Create nor
   -- AceConfigDialog:Open shows it again, so a pooled group would leave the page blank.
+  --
+  -- AceConfigDialog acquires the manager's widgets from AceGUI itself, past the Options instance's
+  -- owner proxy, so the tree is painted for this addon's skin right after it is drawn (skinning-§3;
+  -- nothing under Ka0s Default). Each widget goes back to the shared pool stock when the next Open
+  -- releases it, and a skin switch re-renders the page, which paints the fresh rows.
   O.SetRenderer(ctx, function()
     container.frame:Show()
     AceConfigDialog:Open(PP.APP, container)
+    NS.SkinPaintAceTree(container)
   end)
   -- Re-render on the next show, so the picker reads the profile a slash verb or another page moved
   -- to while this one was hidden.
