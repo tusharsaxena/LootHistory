@@ -53,7 +53,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
 -- Minor 2: Ka0s Default's rows are painted too (SkinPaint minor 6).
-local ACE_MINOR = 2
+-- Minor 3: nothing is painted while the owner ignores its settings panel (Skin minor 5's
+-- __PanelSkinned, the Appearance tab's "Ignore settings panel"); a widget acquired then stays stock.
+local ACE_MINOR = 3
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
 lib.__aceMinor      = ACE_MINOR
@@ -669,6 +671,7 @@ function lib:PaintAce(owner, widget)
   if type(widget) ~= "table" or type(rawget(widget, "frame")) ~= "table" then return false end
   local paint = lib.__acePaint[rawget(widget, "type")]
   if type(paint) ~= "function" or not self:IsOwner(owner) then return false end
+  if type(self.__PanelSkinned) == "function" and not self:__PanelSkinned(owner) then return false end
   local st = lib.__ace[widget]
   if st and st.owner and (st.owner ~= owner or otherSkin(widget)) then restore(widget, st) end
   if otherSkin(widget) then return false end

@@ -22,7 +22,11 @@ if not lib then return end
 -- Minor 6: `lib.__AttachSkinAce`, the bridge to LibKa0s-Skin-1.0's AceGUI rows (SkinAce.lua), and
 -- the owner's skin switch re-renders the open pages ONE FRAME LATER, so a release gives every row
 -- back stock and a re-acquire paints it in the new skin (LK-08 of the skinning run).
-local SCROLL_MINOR = 6
+-- Minor 7: the chrome paints nothing while the owner ignores its settings panel (LibKa0s-Skin-1.0
+-- minor 5's __PanelSkinned); the instance's listener is still installed from the owner's facade,
+-- so turning the exception off re-renders the open pages in the skin. And a page's backdrop is never
+-- the page itself, which a bare CreateTexture stub answers.
+local SCROLL_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -237,11 +241,21 @@ end
 
 --- `owner`'s skin facade when it is a REGISTERED skin owner, else nil: Core's question
 --- (`__SkinFacade`, Core minor 13), asked at call time. No Core of that minor answers nil.
-function lib.__chromeSkin(owner)
+local function ownerFacade(owner)
   local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
   local fn = core and core.__SkinFacade
   if type(fn) ~= "function" then return nil end
   return fn(owner)
+end
+
+--- The facade the chrome paints with: ownerFacade's, or nil while the owner ignores its settings
+--- panel (minor 7; a Skin copy before minor 5 has no such exception).
+function lib.__chromeSkin(owner)
+  local S = ownerFacade(owner)
+  if not S then return nil end
+  local Skin = skinMajor()
+  if Skin and type(Skin.__PanelSkinned) == "function" and not Skin:__PanelSkinned(owner) then return nil end
+  return S
 end
 
 --- `owner`'s facade when it is registered AND wears a skin other than Ka0s Default (or EllesmereUI
@@ -298,8 +312,13 @@ local function paintPage(owner, panel)
   if away and br then
     if not bg and panel.CreateTexture then
       bg = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
-      bg:SetAllPoints(panel)
-      panel.__ka0sSkinBg = bg
+      -- A bare stub answers the frame itself (SkinPaint's P.tex refuses the same): never keep the
+      -- page as its own backdrop, whose Show and Hide would show and hide the page (minor 7).
+      if bg == panel then bg = nil end
+      if bg then
+        bg:SetAllPoints(panel)
+        panel.__ka0sSkinBg = bg
+      end
     end
     if bg then
       bg:SetColorTexture(br, bgG, bb, 1)
@@ -360,15 +379,16 @@ function lib.__AttachScroll(O, d)
     after(0, rerender)
   end
 
-  --- The page owner's facade, or nil; the first answer for a registered owner installs the
-  --- instance's one OnLooksChanged listener.
+  --- The page owner's facade, or nil (nil too while it ignores its settings panel); the first call
+  --- for a registered owner installs the instance's one OnLooksChanged listener, from the facade
+  --- itself, so the exception's end re-renders the pages.
   function O.__chromeSkin()
-    local S = owner and lib.__chromeSkin(owner) or nil
-    if S and not hooked and type(S.OnLooksChanged) == "function" then
+    local F = owner and ownerFacade(owner) or nil
+    if F and not hooked and type(F.OnLooksChanged) == "function" then
       hooked = true
-      S.OnLooksChanged(onLooks)
+      F.OnLooksChanged(onLooks)
     end
-    return S
+    return F and lib.__chromeSkin(owner) or nil
   end
 
   --- The facade when the owner wears a skin other than Ka0s Default, else nil.

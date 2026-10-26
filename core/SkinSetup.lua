@@ -9,8 +9,11 @@ local addonName, NS = ...
 --                           OnLooksChanged. Every surface that draws reads its colors here.
 --   NS.SkinChoice()         the stored (source, skin) pair, read through NS.Schema:Get; "ka0s",
 --                           "ka0s" before NS:InitDB has built the profile store.
---   NS.WriteSkinChoice(s,k) the write seam: both halves through NS.Schema:Set, the one seam
---                           `/lh set` and the panel already write through (architecture-§5).
+--   NS.WriteSkinChoice(s,k,i) the write seam: both halves through NS.Schema:Set, the one seam
+--                           `/lh set` and the panel already write through (architecture-§5); `i`,
+--                           the Scope's `{ panel, fonts }`, writes the two exceptions.
+--   NS.ApplySkinIgnore(p,f) moves the applied exceptions: `Skin:SetIgnore`, live; no argument
+--                           applies the stored pair, a nil half keeps that half.
 --   NS.ApplySkinChoice(s,k) moves the applied skin: `Skin:SetChoice`, which resolves, repaints
 --                           every frame recorded for this owner and THEN fires OnLooksChanged. No
 --                           argument applies the stored pair (addon:OnInitialize, the profile
@@ -28,7 +31,8 @@ local addonName, NS = ...
 --                           legibility override), else the client's ITEM_QUALITY_COLORS; nil for none.
 --   NS.SkinPaintAce(w)      an AceGUI widget this addon acquired itself, painted for this owner:
 --   NS.SkinPaintAceTree(c)  `Skin:PaintAce` / `Skin:PaintAceTree` with the owner bound (the facade
---                           carries neither). Ka0s Default paints nothing; release restores stock.
+--                           carries neither). Nothing while the owner ignores its settings panel;
+--                           release restores stock.
 --   NS.SkinOnRelease(w, fn) host release work chained onto the widget's own OnRelease
 --                           (`Skin:OnRelease`), so it and the skin's restore both run.
 --
@@ -57,6 +61,7 @@ local addonName, NS = ...
 local Skin = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 
 local SOURCE_PATH, SKIN_PATH = "settings.appearance.source", "settings.appearance.skin"
+local PANEL_PATH, FONTS_PATH = "settings.appearance.ignorePanel", "settings.appearance.ignoreFonts"
 local DEFAULT = "ka0s"
 
 -- The Ka0s Default tokens the DEGRADED facade answers, copied from the library and limited to the
@@ -235,11 +240,22 @@ function NS.SkinChoice()
 end
 
 --- The write seam: both halves through NS.Schema:Set (validate, store, the [Set] line, onChange).
-function NS.WriteSkinChoice(source, skin)
+function NS.WriteSkinChoice(source, skin, ignore)
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
   if source ~= nil then S:Set(SOURCE_PATH, source) end
   if skin ~= nil then S:Set(SKIN_PATH, skin) end
+  if type(ignore) == "table" then
+    S:Set(PANEL_PATH, ignore.panel == true)
+    S:Set(FONTS_PATH, ignore.fonts == true)
+  end
+end
+
+--- The stored exceptions, nil-safely: false, false until the profile store exists.
+local function storedIgnore()
+  local S = NS.Schema
+  if not (NS.db and S and S.Get) then return false, false end
+  return S:Get(PANEL_PATH) == true, S:Get(FONTS_PATH) == true
 end
 
 -- AceGUI keeps ONE callback per event name (options-ui-§19). Without the library's chain there is
@@ -363,7 +379,8 @@ if not Skin then
 
   NS.Skin = S
   function NS.ApplySkinChoice() return false, false end
-  -- Nothing to paint an AceGUI row with: stock AceGUI, exactly as Ka0s Default draws it.
+  function NS.ApplySkinIgnore() return false, false end
+  -- Nothing to paint an AceGUI row with: stock AceGUI, as the client draws it.
   function NS.SkinPaintAce() return false end
   function NS.SkinPaintAceTree() return 0 end
   NS.SkinOnRelease = releaseByCallback
@@ -405,9 +422,21 @@ function NS.SkinOnRelease(widget, fn)
   return Skin:OnRelease(widget, fn)
 end
 
+function NS.ApplySkinIgnore(panel, fonts)
+  if type(Skin.SetIgnore) ~= "function" then return false, false end
+  if panel == nil and fonts == nil then panel, fonts = storedIgnore() end
+  local changed, reload = Skin:SetIgnore(addonName, panel, fonts)
+  if reload and NS.Print then NS.Print(RELOAD_LINE) end
+  return changed, reload
+end
+
+--- No argument applies the stored pair AND the stored exceptions (addon:OnInitialize, the profile
+--- events); a nil half keeps that half and leaves the exceptions alone (each Appearance row).
 function NS.ApplySkinChoice(source, skin)
-  if source == nil and skin == nil then source, skin = NS.SkinChoice() end
+  local whole = source == nil and skin == nil
+  if whole then source, skin = NS.SkinChoice() end
   local changed, reload = Skin:SetChoice(addonName, source, skin)
   if reload and NS.Print then NS.Print(RELOAD_LINE) end
+  if whole then NS.ApplySkinIgnore() end
   return changed, reload
 end

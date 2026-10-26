@@ -89,7 +89,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- client may draw either of two frames at one level first, so a window's backdrop covered its title
 -- bar's fill (Loot History's bar on Azeroth, the owner's probe, 2026-10-27). A target always draws
 -- after its parent. P.under stays, for a sibling file's older copy.
-local PAINT_MINOR = 7
+-- Minor 8: P.font gives a string back its own face, size and shadow while its owner ignores fonts
+-- (Skin minor 5's SetIgnore, the Appearance tab's "Ignore fonts"); the skin still colors it.
+local PAINT_MINOR = 8
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -488,6 +490,7 @@ end
 --- through the owner's font object for that role. A nil face token puts the stock font back.
 function P.font(owner, rec, fs, role, color)
   if type(fs) ~= "table" or type(fs.SetFontObject) ~= "function" then return end
+  if type(lib.__FontsIgnored) == "function" and lib:__FontsIgnored(owner) then return P.unfont(rec, fs) end
   local T, spec = P.T(owner), FONT_ROLE[role] or FONT_ROLE.body
   local path = P.media("font", T[spec.face])
   if not path then return P.unfont(rec, fs) end

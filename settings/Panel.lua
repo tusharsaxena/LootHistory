@@ -31,8 +31,9 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- Every AceGUI widget this file acquires itself, painted for this addon's skin (skinning-§3).
 -- NS.AceGUI is normally the Options instance's owner proxy, which paints on Create already; the
 -- explicit NS.SkinPaintAce repaints in place for the same owner, so the host does not depend on
--- which handle it was given. Ka0s Default paints nothing, and the release puts the widget back in
--- AceGUI's shared pool stock (the library chains its restore onto the widget's OnRelease).
+-- which handle it was given. Nothing is painted while the Scope's Ignore settings panel is on, and
+-- the release puts the widget back in AceGUI's shared pool stock (the library chains its restore
+-- onto the widget's OnRelease).
 local function acquire(wtype)
   local w = NS.AceGUI:Create(wtype)
   NS.SkinPaintAce(w)

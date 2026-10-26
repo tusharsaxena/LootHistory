@@ -1505,7 +1505,7 @@ Total.
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
 - Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
-### test_skinsetup.lua (9)
+### test_skinsetup.lua (13)
 
 - Skin seam: the owner is the folder name, and NS.Skin is its facade
 - Skin seam: the read answers Ka0s Default before the profile store exists
@@ -1516,6 +1516,10 @@ Total.
 - Skin seam: one tab pick is one effective SetChoice, one repaint and no reload
 - Skin seam: another addon's copy to every Ka0s addon repaints LootHistory once
 - Skin seam: a profile switch applies the new profile's skin first, window built or not
+- Skin seam: the two exceptions default off, as two more Appearance rows
+- Skin seam: the tab's Ignore fonts reaches the library and the profile, one repaint
+- Skin seam: a profile's stored exceptions are applied with its skin
+- Skin seam: /lh set reaches an exception, and only its own half
 
 ### test_skin_chrome.lua (6)
 
@@ -2087,7 +2091,7 @@ Total.
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
-| test_skinsetup.lua | 9 |
+| test_skinsetup.lua | 13 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
@@ -2121,4 +2125,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1783** |
+| **Total** | **1787** |

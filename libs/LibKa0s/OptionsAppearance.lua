@@ -13,13 +13,17 @@
 --     one with its one-line fix;
 --   * the SKIN: one radio choice per registered skin (Skin:Skins(), registration order), each with
 --     its four swatches, its name and its one-line description;
+--   * SCOPE (minor 2): two check boxes, "Ignore settings panel" (this addon's settings pages stay the
+--     client's) and "Ignore fonts" (every string keeps its own face and size), through
+--     Skin:SetIgnore and `spec.set`'s third argument;
 --   * COPY TO EVERY KA0S ADDON...: a button that, after a confirmation naming the other loaded owners
---     by label, gives each of them this owner's source and skin, through Skin:SetChoice (a live
---     repaint) and then its own registered setter (Skin:WriteChoice). With no other owner loaded it
---     is disabled and a line says why;
+--     by label, gives each of them this owner's source, skin and scope, through Skin:SetChoice and
+--     Skin:SetIgnore (a live repaint) and then its own registered setter (Skin:WriteChoice). With no
+--     other owner loaded it is disabled and a line says why;
 --   * the library's fixed note about what a skin changes.
 --
--- THE WRITE SEAM. The tab writes this owner's choice only through `spec.set(source, skin)`, which
+-- THE WRITE SEAM. The tab writes this owner's choice only through `spec.set(source, skin, ignore)`,
+-- `ignore` being `{ panel, fonts }` on a scope write and nil on a source or skin write, which
 -- MUST be the owner's write seam (options-ui-§1): Skin:SetChoice first, so the repaint is the
 -- library's and an owner's onChange calling SetChoice again is a no-op (SetChoice is idempotent),
 -- then spec.set. The reload popup is raised once, by the tab, from SetChoice's pending-reload answer.
@@ -32,7 +36,9 @@ local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
 -- Minor 1: O.AppearanceTab, O.AppearanceRows, lib.APPEARANCE_STRINGS and the two popups.
-local APPEARANCE_MINOR = 1
+-- Minor 2: the Scope section (Ignore settings panel, Ignore fonts) between the skins and the copy
+-- button, and the copy carries both (the owner's request, 2026-10-27; LibKa0s-Skin-1.0 minor 5).
+local APPEARANCE_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -65,11 +71,19 @@ lib.APPEARANCE_STRINGS = {
   SKIN_HEADING   = "Skin",
   SKIN_EUI_NOTE  = "While EllesmereUI skins this addon, the skin below is used only if it cannot.",
   COPY           = "Copy to every Ka0s addon\226\128\166",
-  COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source " ..
-                   "and skin. You are asked first.",
+  SCOPE_HEADING  = "Scope",
+  IGNORE_PANEL   = "Ignore settings panel",
+  IGNORE_PANEL_TIP = "Keep this addon's settings panel in the game's own look. Its windows still " ..
+                   "wear the skin. Turning this on after the panel was skinned needs a reload.",
+  IGNORE_FONTS   = "Ignore fonts",
+  IGNORE_FONTS_TIP = "Keep every font in this addon as the game draws it, face and size. The skin " ..
+                   "still colors the text.",
+  RELOAD_PANEL   = "%s needs a reload to show its settings panel without the skin.",
+  COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source, " ..
+                   "skin and scope. You are asked first.",
   COPY_NONE      = "No other loaded Ka0s addon uses skins yet.",
-  COPY_CONFIRM   = "Give these addons the skin source and skin of %s?\n\n%s\n\nAddons that are " ..
-                   "not loaded are unchanged.",
+  COPY_CONFIRM   = "Give these addons the skin source, skin and scope of %s?\n\n%s\n\nAddons that " ..
+                   "are not loaded are unchanged.",
   COPY_ACCEPT    = "Copy",
   CANCEL         = "Cancel",
   RELOAD         = "%s needs a reload to stop using the EllesmereUI skin.",
@@ -149,10 +163,11 @@ local function showPopup(which, def, a1, a2, data)
   return true
 end
 
---- The reload popup for `label` (an addon label, or several joined), worded by `S`. Internal.
-function lib.__appearanceReload(S, label)
-  return showPopup(RELOAD_POPUP, { text = S.RELOAD, button1 = S.RELOAD_ACCEPT, button2 = S.RELOAD_LATER,
-                                   OnAccept = reloadUI }, label)
+--- The reload popup for `label` (an addon label, or several joined), worded by `S`: its RELOAD, or
+--- the line `text` names (RELOAD_PANEL for the settings panel). Internal.
+function lib.__appearanceReload(S, label, text)
+  return showPopup(RELOAD_POPUP, { text = text or S.RELOAD, button1 = S.RELOAD_ACCEPT,
+                                   button2 = S.RELOAD_LATER, OnAccept = reloadUI }, label)
 end
 
 --- The copy confirmation: `run` on accept, the other owners' labels listed. Internal.
@@ -266,20 +281,75 @@ function lib.__AttachAppearance(O, d)
     return out
   end
 
-  --- Give every other owner this owner's choice: SetChoice (the live repaint) then its own setter.
-  --- Refused in combat here too: the confirmation is a StaticPopup above the page's combat cover,
-  --- so it can be accepted after combat starts, long after onCopy's own check.
+  --- This owner's scope, `{ panel, fonts }`: the Skin major's applied pair (false, false on a copy
+  --- before Skin minor 5).
+  local function readIgnore(view)
+    if type(view.Skin.GetIgnore) ~= "function" then return { panel = false, fonts = false } end
+    local panel, fonts = view.Skin:GetIgnore(view.owner)
+    return { panel = panel == true, fonts = fonts == true }
+  end
+
+  --- Give every other owner this owner's choice and scope: SetChoice and SetIgnore (the live
+  --- repaint) then its own setter. Refused in combat here too: the confirmation is a StaticPopup
+  --- above the page's combat cover, so it can be accepted after combat starts, long after onCopy's
+  --- own check.
   local function copyTo(view, names)
     if O.__combatRefused and O.__combatRefused("appearance", "copy") then return end
     local Skin = view.Skin
     local source, skin = readChoice(view)
+    local ignore = readIgnore(view)
     local reloads = {}
     for _, name in ipairs(names) do
       local _, reload = Skin:SetChoice(name, source, skin)
-      Skin:WriteChoice(name, source, skin)
-      if reload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
+      local _, panelReload = false, false
+      if type(Skin.SetIgnore) == "function" then
+        _, panelReload = Skin:SetIgnore(name, ignore.panel, ignore.fonts)
+      end
+      Skin:WriteChoice(name, source, skin, ignore)
+      if reload or panelReload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
     end
     if #reloads > 0 then lib.__appearanceReload(view.S, table.concat(reloads, ", ")) end
+  end
+
+  --- Move this owner's scope to (panel, fonts): the Skin major first, then the owner's write seam,
+  --- then the reload popup SetIgnore asks for. Refused in combat, as every settings write is.
+  local function setScope(view, panel, fonts)
+    if O.__combatRefused and O.__combatRefused("appearance", view.owner) then return end
+    local _, reload = view.Skin:SetIgnore(view.owner, panel, fonts)
+    if type(view.spec.set) == "function" then
+      local ok, err = pcall(view.spec.set, nil, nil, { panel = panel == true, fonts = fonts == true })
+      if not ok then report(err) end
+    end
+    if reload then lib.__appearanceReload(view.S, view.label, view.S.RELOAD_PANEL) end
+  end
+
+  --- One check box in `group`: `onToggle(value)` runs when the player flips it.
+  local function toggle(view, group, label, tip, onToggle)
+    local cb = O.AceGUI:Create("CheckBox")
+    cb:SetLabel(label)
+    cb:SetRelativeWidth(W_CHOICE)
+    cb:SetCallback("OnValueChanged", function(_, _, value)
+      onToggle(value == true)
+      view.sync()
+    end)
+    if O.AttachTooltip and tip then O.AttachTooltip(cb, label, tip) end
+    if view.ctx.__renderDisabled then cb:SetDisabled(true) end
+    group:AddChild(cb)
+    return cb
+  end
+
+  --- The scope section: the two exceptions, side by side. Absent on a Skin copy before minor 5.
+  local function drawScope(view)
+    local S = view.S
+    if type(view.Skin.SetIgnore) ~= "function" then return end
+    heading(view, S.SCOPE_HEADING)
+    local group = flowGroup(view)
+    view.ignore.panel = toggle(view, group, S.IGNORE_PANEL, S.IGNORE_PANEL_TIP, function(v)
+      setScope(view, v, readIgnore(view).fonts)
+    end)
+    view.ignore.fonts = toggle(view, group, S.IGNORE_FONTS, S.IGNORE_FONTS_TIP, function(v)
+      setScope(view, readIgnore(view).panel, v)
+    end)
   end
 
   local function onCopy(view)
@@ -357,12 +427,15 @@ function lib.__AttachAppearance(O, d)
   local function newView(ctx, spec, parent, Skin, owner)
     local view = { ctx = ctx, spec = spec, parent = parent, Skin = Skin, owner = owner,
                    S = mergeStrings(spec.strings), label = Skin:OwnerLabel(owner) or owner,
-                   source = {}, skins = {}, order = {}, conditions = {} }
+                   source = {}, skins = {}, order = {}, conditions = {}, ignore = {} }
     function view.sync()
       local source, skin = readChoice(view)
       if view.source.ka0s then view.source.ka0s:SetValue(source == "ka0s") end
       if view.source.eui then view.source.eui:SetValue(source == "eui") end
       for key, cb in pairs(view.skins) do cb:SetValue(key == skin) end
+      local ignore = readIgnore(view)
+      if view.ignore.panel then view.ignore.panel:SetValue(ignore.panel) end
+      if view.ignore.fonts then view.ignore.fonts:SetValue(ignore.fonts) end
     end
     return view
   end
@@ -382,10 +455,11 @@ function lib.__AttachAppearance(O, d)
   end
 
   --- Draw the Appearance rows into `parent` (default: the page's scroll). Answers the view
-  --- `{ owner, source = { ka0s, eui }, skins = { [key] = choice }, order, conditions, copy, note,
-  --- sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that never registered:
-  --- then one line says skins are not available). `spec`: get (the owner's read, `{ source, skin }`
-  --- or two values), set (MUST be the owner's write seam, called as set(source, skin)), owner (the
+  --- `{ owner, source = { ka0s, eui }, skins = { [key] = choice }, ignore = { panel, fonts }, order,
+  --- conditions, copy, note, sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that
+  --- never registered: then one line says skins are not available). `spec`: get (the owner's read,
+  --- `{ source, skin }` or two values), set (MUST be the owner's write seam, called as
+  --- set(source, skin) and, from the Scope section, set(nil, nil, { panel, fonts })), owner (the
   --- skin owner, default the descriptor's `addonName`), strings (translations); key and before are
   --- the tab's.
   function O.AppearanceRows(ctx, spec, parent)
@@ -402,6 +476,7 @@ function lib.__AttachAppearance(O, d)
     view = newView(ctx, spec, parent, Skin, owner)
     drawSource(view)
     drawSkins(view)
+    drawScope(view)
     drawCopy(view)
     view.sync()
     if type(ctx.refreshers) == "table" then
