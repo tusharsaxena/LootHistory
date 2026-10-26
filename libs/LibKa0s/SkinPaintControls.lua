@@ -25,7 +25,11 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 2 (the owner's notes, 2026-10-26): a disabled Button's label reads in `text.disabled`, moved
 -- on Enable / Disable; and Checkbox paints under Ka0s Default too, a square box in Ka0s Default's
 -- control colors, rather than leaving the client's round check button.
-local CONTROLS_MINOR = 2
+-- Minor 3 (the owner's notes, round 2): every label a control colors gets the skin's face through
+-- P.label (StateButtonLabel, an EditBox's hint, a sort header's texts, a nav item, a tab), a dark
+-- label shadowless; and Slider draws its track as a thin bar centered in the slider, Ka0s Default's
+-- host-drawn shape, with no box round it.
+local CONTROLS_MINOR = 3
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -38,6 +42,7 @@ local prim, P = lib.prim, lib.__P
 local rgb, rgba = P.rgb, P.rgba
 
 local ARROW_ART = "Interface\\ChatFrame\\ChatFrameExpandArrow"
+local SLIDER_BAR = 4   -- the slider track's height, Ka0s Default's host-drawn bar
 local GLYPH_FONT = "GameFontNormalLarge"
 local CHECK_GETTERS = { "GetNormalTexture", "GetPushedTexture", "GetDisabledTexture", "GetHighlightTexture" }
 local CHECKED_GETTERS = { "GetCheckedTexture", "GetDisabledCheckedTexture" }
@@ -121,7 +126,7 @@ prim.Button = function(owner, btn, a)
   local fs = labelOf(btn)
   if fs then
     P.tint(rec, fs, T, base .. ".text")
-    P.font(owner, rec, fs, "body")
+    P.font(owner, rec, fs, "body", T[base .. ".text"])
   end
   local icon = P.field(btn, "icon", "Texture")
   if icon then P.tint(rec, icon, T, base .. ".icon", "SetVertexColor") end
@@ -146,7 +151,7 @@ prim.StateButtonLabel = function(owner, btn, on)
   local fs = P.isFrame(btn) and labelOf(btn)
   if not fs then return end
   local rec = P.track(owner, btn, "StateButtonLabel", on)
-  P.tint(rec, fs, P.T(owner), on and "text.accent" or "text.muted")
+  P.label(owner, rec, fs, P.T(owner), on and "text.accent" or "text.muted")
 end
 
 -- ── text inputs ──────────────────────────────────────────────────────────────────────────────
@@ -172,7 +177,7 @@ prim.EditBox = function(owner, eb, opts)
   if type(eb.SetTextColor) == "function" then P.tint(rec, eb, T, "input.text") end
   P.font(owner, rec, eb, "body")
   local hint = P.isFS(opts.placeholder) and opts.placeholder or P.field(eb, "hint", "FontString")
-  if hint then P.tint(rec, hint, T, "input.placeholder") end
+  if hint then P.label(owner, rec, hint, T, "input.placeholder") end
   if opts.padInput and type(eb.SetTextInsets) == "function" then eb:SetTextInsets(6, 6, 0, 0) end
   if opts.noBorder then return end
   P.hook(rec, eb, "OnEditFocusGained", function(self, r) focusColor(self, r, true) end)
@@ -334,8 +339,8 @@ prim.ScrollBar = function(owner, sb, opts)
   t:Show()
 end
 
---- S.Slider(slider, opts): a slider. Its track (`slider.track`, a region; `slider.trackBorder` on
---- the holder), its fill (`opts.fill`, a texture the caller drew: `slider.fill`) and its thumb
+--- S.Slider(slider, opts): a slider. Its track (`slider.track`, a 4px bar centered in the slider;
+--- `slider.trackBorder` on the holder, none in every shipped skin), its fill (`opts.fill`, a texture the caller drew: `slider.fill`) and its thumb
 --- (`opts.thumb`, else the slider's own: `slider.thumb`). Every slider token is nil in Ka0s
 --- Default, which leaves the slider as drawn. Draws no Media icon.
 prim.Slider = function(owner, slider, opts)
@@ -348,7 +353,11 @@ prim.Slider = function(owner, slider, opts)
     P.fadeAll(rec, P.stockRegions(slider, opts))
     local t = P.tex(rec, "track", slider, "BACKGROUND", 0)
     if t then
-      t:SetAllPoints(slider)
+      -- A thin bar centered in the slider (minor 3): Ka0s Default's host-drawn shape, in every skin.
+      t:ClearAllPoints()
+      t:SetPoint("LEFT", slider, "LEFT", 0, 0)
+      t:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
+      t:SetHeight(SLIDER_BAR)
       t:SetColorTexture(rgba(T["slider.track"]))
       t:Show()
     end
@@ -410,8 +419,7 @@ prim.Tab = function(owner, tab, opts)
   tabLine(rec, tab, T, selected)
   local fs = P.isFS(opts.text) and opts.text or labelOf(tab)
   if fs then
-    P.tint(rec, fs, T, selected and "tab.onText" or "tab.text")
-    P.font(owner, rec, fs, "body")
+    P.label(owner, rec, fs, T, selected and "tab.onText" or "tab.text")
   end
 end
 
@@ -539,7 +547,7 @@ prim.SortHeaderBar = function(owner, bar, opts)
   local T = P.T(owner)
   P.box(rec, bar, T, { fill = "list.header.bg", extra = true })
   for _, fs in ipairs(type(opts.texts) == "table" and opts.texts or {}) do
-    if P.isFS(fs) then P.tint(rec, fs, T, "list.header.text") end
+    if P.isFS(fs) then P.label(owner, rec, fs, T, "list.header.text") end
   end
   for _, t in ipairs(type(opts.arrows) == "table" and opts.arrows or {}) do
     if P.isTexture(t) then P.tint(rec, t, T, "icon.tint", "SetVertexColor") end
@@ -570,7 +578,7 @@ prim.NavItem = function(owner, item, opts)
   local rec = P.track(owner, item, "NavItem", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
-  if P.isFS(opts.label) then P.tint(rec, opts.label, T, opts.selected and "nav.selText" or "nav.text") end
+  if P.isFS(opts.label) then P.label(owner, rec, opts.label, T, opts.selected and "nav.selText" or "nav.text") end
   if P.isTexture(opts.sel) then P.tint(rec, opts.sel, T, "nav.selBg", "SetVertexColor") end
   local c = opts.selected and T["nav.selBar"] or nil
   P.edges(rec, item, c, "flat", 2)

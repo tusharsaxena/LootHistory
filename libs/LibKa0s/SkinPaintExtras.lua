@@ -18,7 +18,9 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local EXTRAS_MINOR = 1
+-- Minor 2 (the owner's notes, round 2): Footer, Card and Cover give the strings they color the
+-- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
+local EXTRAS_MINOR = 2
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -103,7 +105,7 @@ prim.Footer = function(owner, frame, opts)
   local T = P.T(owner)
   P.box(rec, frame, T, FOOT, opts)
   local fs = textOf(frame, opts, "text", { "text" })
-  if fs then P.tint(rec, fs, T, "text.muted") end
+  if fs then P.label(owner, rec, fs, T, "text.muted") end
 end
 
 --- S.Card(frame, opts): a card (LootHistory's KPI cards), `card.bg` under `card.border` as the
@@ -115,8 +117,8 @@ prim.Card = function(owner, frame, opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   P.box(rec, frame, T, CARD, opts)
-  if P.isFS(opts.title) then P.tint(rec, opts.title, T, "text.heading") end
-  if P.isFS(opts.text) then P.tint(rec, opts.text, T, "text.body") end
+  if P.isFS(opts.title) then P.label(owner, rec, opts.title, T, "text.heading", "title") end
+  if P.isFS(opts.text) then P.label(owner, rec, opts.text, T, "text.body") end
 end
 
 -- A wash: a texture colored in place, or a region of the fill holder filling a frame (under the
@@ -154,7 +156,7 @@ end
 prim.Cover = function(owner, target, opts)
   local rec = wash(owner, target, "Cover", "cover.dim", opts)
   if rec and type(opts) == "table" and P.isFS(opts.text) then
-    P.tint(rec, opts.text, P.T(owner), "cover.text")
+    P.label(owner, rec, opts.text, P.T(owner), "cover.text")
   end
 end
 

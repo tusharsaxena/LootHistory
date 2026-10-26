@@ -38,8 +38,8 @@ local LIB_FILES = {
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
   -- New in v1.78.0: LibKa0s-Skin-1.0, the skin engine (Skin 4) and its seven paired files, in XML
-  -- order: the nine skins (SkinDefs 7), the paint primitives (SkinPaint 4, SkinPaintExtras 1,
-  -- SkinPaintControls 2), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 1).
+  -- order: the nine skins (SkinDefs 7), the paint primitives (SkinPaint 5, SkinPaintExtras 2,
+  -- SkinPaintControls 3), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 1).
   -- Loading them builds no frame, timer or event until a host calls Skin:RegisterOwner.
   "libs/LibKa0s/Skin.lua",
   "libs/LibKa0s/SkinDefs.lua",
@@ -811,7 +811,10 @@ end)
 -- Midnight client crash). Re-cut a fifth time (-> fe7c3fc) for the owner's skin notes
 -- (SF-01..SF-14 of Ka0sAddonsCommonTasks docs/2026-10-26-SKIN_FEEDBACK/): SkinDefs 7 retunes the
 -- skins, SkinPaint 4 makes font sizes relative to Ka0s Default's, SkinPaintControls 2 dims a
--- disabled button and squares Ka0s Default's checkbox. The kit stays at 43.
+-- disabled button and squares Ka0s Default's checkbox. Re-cut a sixth time (-> 8291ecc) for the
+-- owner's second round (SF-16..SF-22): SkinPaint 5 and SkinPaintExtras 2 give every labeled string
+-- the skin's face (dark labels shadowless), SkinPaintControls 3 draws one slider shape. The kit
+-- stays at 43.
 test("v1.78.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -825,9 +828,9 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 4)
   assertEqual(skin.SkinDefs, 7)
-  assertEqual(skin.SkinPaint, 4)
-  assertEqual(skin.SkinPaintExtras, 1)
-  assertEqual(skin.SkinPaintControls, 2)
+  assertEqual(skin.SkinPaint, 5)
+  assertEqual(skin.SkinPaintExtras, 2)
+  assertEqual(skin.SkinPaintControls, 3)
   assertEqual(skin.SkinEUI, 1)
   assertEqual(skin.SkinAce, 1)
   local widgets = modules("LibKa0s-Widgets-1.0")

@@ -71,7 +71,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- skin's body size. The owner's font objects are one per role AND size, so two targets of one role
 -- at two sizes no longer share (and overwrite) one object's size. Layouts measured against the stock
 -- fonts hold in every skin (the owner's notes, 2026-10-26).
-local PAINT_MINOR = 4
+-- Minor 5: a DARK label (luminance under .3: dark text on a bright primary button or a selected tab)
+-- takes a shadowless font object, because the black drop shadow smears dark strokes; and P.label
+-- gives every string a primitive colors the skin's face too, so no string is left on the client's
+-- font and its shadow (an EditBox hint, a list header, a footer, on a light skin most of all).
+local PAINT_MINOR = 5
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -385,10 +389,11 @@ local FONT_ROLE = {
 local function ownerFont(owner, role, path, size, flags, shadow)
   if type(CreateFont) ~= "function" then return nil end
   local tenths = math.floor(size * 10 + 0.5)
-  local key = owner .. "\0" .. role .. "\0" .. tenths
+  local suffix = shadow and "" or "_ns"
+  local key = owner .. "\0" .. role .. "\0" .. tenths .. suffix
   local obj = lib.__fonts[key]
   if not obj then
-    obj = CreateFont("LibKa0sSkin_" .. owner:gsub("[^%w]", "") .. "_" .. role .. "_" .. tenths)
+    obj = CreateFont("LibKa0sSkin_" .. owner:gsub("[^%w]", "") .. "_" .. role .. "_" .. tenths .. suffix)
     if type(obj) ~= "table" then return nil end
     lib.__fonts[key] = obj
   end
@@ -455,9 +460,15 @@ function P.fontSize(owner, token, stock)
   return stock * want / ref
 end
 
+--- True for a color dark enough that a black drop shadow smears it (relative luminance under .3).
+local function darkColor(c)
+  return type(c) == "table" and type(c[1]) == "number"
+    and (0.2126 * c[1] + 0.7152 * c[2] + 0.0722 * c[3]) < 0.3
+end
+
 --- Give `fs` (a FontString, or an EditBox) the skin's font for `role` ("body", "title", "mono"),
 --- through the owner's font object for that role. A nil face token puts the stock font back.
-function P.font(owner, rec, fs, role)
+function P.font(owner, rec, fs, role, color)
   if type(fs) ~= "table" or type(fs.SetFontObject) ~= "function" then return end
   local T, spec = P.T(owner), FONT_ROLE[role] or FONT_ROLE.body
   local path = P.media("font", T[spec.face])
@@ -472,12 +483,21 @@ function P.font(owner, rec, fs, role)
   end
   local size = P.fontSize(owner, spec.size, fonts[fs].size)
   local flags = T["font.outline"] or ""
-  local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false)
+  local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false and not darkColor(color))
   if obj then
     fs:SetFontObject(obj)
   else
     fs:SetFont(path, size, flags)
   end
+end
+
+--- Color `fs` with the owner's token `token` and give it the skin's face for `role` (body when
+--- omitted), shadowless when the color is dark (minor 5). The one call a primitive makes for a
+--- string it labels, so no labeled string keeps the client's font under a skin that sets one.
+function P.label(owner, rec, fs, T, token, role)
+  if not P.isFS(fs) then return end
+  P.tint(rec, fs, T, token)
+  P.font(owner, rec, fs, role or "body", T[token])
 end
 
 -- ── edges and boxes ──────────────────────────────────────────────────────────────────────────
