@@ -178,8 +178,10 @@ test("TestData: the History sample writes holder moves as a loss and a gain", fu
 end)
 
 test("TestData: the sample rollup books a holder move's loss and gain on each holder", function()
-  local now = os.time({ year = 2026, month = 10, day = 6, hour = 15 })
+  -- The rollup reads the clock the sample was stamped with: BuildTestData dates its rows from
+  -- time(), so a fixed date here drifted out of the sample's window as the calendar moved on.
   local records = NS.BrowserTable:BuildTestData()
+  local now = T.mocks.time()   -- the clock the addon chunks resolve (the kit binds os.time)
   local _, daily = NS.TestData.Build(records, now)
   local checked = 0
   for _, r in ipairs(records) do
