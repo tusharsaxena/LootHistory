@@ -59,7 +59,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- everything"): Ka0s Default sets every token, faces and sizes included, and SkinPaint minor 6 paints
 -- it like any skin; Azeroth is reworked dark (its light parchment did not read in Loot History);
 -- WoW Forever takes Atkinson Hyperlegible and a browner charcoal.
-local DEFS_MINOR = 8
+-- Minor 9 (the owner's note, 2026-10-27: the scroll bar's thumb barely visible in Obsidian, High
+-- Contrast, Ember, WoW Default and WoW Midnight): `scroll.thumbFill`, a flat fill laid over the
+-- thumb (SkinPaintControls minor 6), which those five set in their accent; a tint can only darken
+-- the client's thumb art, so no tint could brighten it. Ka0s Default and the rest set none.
+local DEFS_MINOR = 9
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -97,7 +101,7 @@ local GROUPS = {
     .. "check.markTexture:string? slider.track:color? "
     .. "slider.trackBorder:color? slider.fill:color? slider.thumb:color? scroll.track:color "
     .. "scroll.thumb:color scroll.thumbOn:color scroll.thumbOff:color scroll.width:number "
-    .. "scroll.gutter:number scroll.radius:number scroll.thumbTexture:string?" },
+    .. "scroll.gutter:number scroll.radius:number scroll.thumbTexture:string? scroll.thumbFill:color?" },
   { "Tabs and navigation", "tab.bg:color tab.bgTop:color? tab.bgBottom:color? tab.glow:color "
     .. "tab.text:color tab.border:color? tab.borderSize:number? tab.borderStyle:string? "
     .. "tab.onBg:color? tab.onText:color tab.onLine:color tab.rule:color tab.radius:number "
@@ -319,7 +323,7 @@ local KA0S = {
   -- The slider: the thin bar every skin draws (SkinPaintControls minor 3), in Ka0s Default's colors.
   ["slider.track"] = CTL_LINE, ["slider.trackBorder"] = false, ["slider.fill"] = GOLD,
   ["slider.thumb"] = { 0.9, 0.9, 0.9, 1 },
-  ["scroll.thumbTexture"] = false,
+  ["scroll.thumbTexture"] = false, ["scroll.thumbFill"] = false,
   ["tab.border"] = CTL_LINE, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
   ["tab.onBg"] = { 0.18, 0.18, 0.18, 0.9 }, ["tab.texture"] = false, ["tab.onTexture"] = false,
   ["nav.borderSize"] = 1, ["nav.borderStyle"] = "flat", ["nav.selBar"] = false,
@@ -539,6 +543,7 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
     ["card.bg"] = hex("#101012"), ["card.border"] = hex("#202024"),
     ["panel.bg"] = hex("#070708"), ["panel.border"] = hex("#1c1c20"),
     ["scroll.thumbOn"] = hex("#5a5a64"), ["tab.glow"] = rgba(255, 255, 255, 0.06),
+    ["scroll.thumbFill"] = rgba(77, 184, 255, 0.9),
   })
 
 -- ── Azeroth ── mockup `azeroth`, reworked dark (SkinDefs minor 8, the owner's ruling of 2026-10-26:
@@ -678,7 +683,7 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
     ["card.bg"] = hex("#000000"), ["card.border"] = HC_WHITE,
     ["panel.bg"] = hex("#000000"), ["panel.border"] = HC_WHITE, ["section.rule"] = HC_YELLOW,
     ["list.hover"] = rgba(255, 230, 0, 0.2), ["menu.hover"] = rgba(255, 230, 0, 0.25),
-    ["scroll.thumbOn"] = HC_YELLOW, ["scroll.thumbOff"] = HC_WHITE,
+    ["scroll.thumbOn"] = HC_YELLOW, ["scroll.thumbOff"] = HC_WHITE, ["scroll.thumbFill"] = HC_YELLOW,
     ["tab.glow"] = rgba(255, 255, 255, 0.25),
     -- No faint or translucent bind state: the gray and off-white ones in the palette, opaque.
     ["sem.boundNone"] = hex("#B0B0B0"), ["sem.boundBoE"] = HC_WHITE,
@@ -729,6 +734,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel title
     ["card.bg"] = rgba(42, 20, 12, 0.85), ["card.border"] = hex("#5a2a16"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#5a2a16"),
     ["icon.hot"] = hex("#FFB45A"), ["scroll.thumbOn"] = hex("#C7A993"),
+    ["scroll.thumbFill"] = rgba(255, 122, 51, 0.9),
   })
 
 -- ── WoW Default ── mockup `wowdefault`: the vanilla client. Its CSS ridge and outset edges are
@@ -780,6 +786,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     ["tab.texture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["tab.onTexture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["scroll.thumbTexture"] = "Interface\\Buttons\\UI-ScrollBar-Knob",
+    ["scroll.thumbFill"] = rgba(255, 209, 0, 0.9),
     ["check.texture"] = "Interface\\Buttons\\UI-CheckBox-Up",
     ["check.markTexture"] = "Interface\\Buttons\\UI-CheckBox-Check",
     ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFD100"),
@@ -834,6 +841,7 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     ["card.bg"] = rgba(26, 23, 48, 0.85), ["card.border"] = hex("#4a3d1e"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#4a3d1e"),
     ["icon.hot"] = hex("#F6D27A"), ["scroll.thumbOn"] = hex("#F6D27A"),
+    ["scroll.thumbFill"] = rgba(246, 210, 122, 0.9),
   })
 
 -- ── WoW Forever ── mockup `forever`, the EllesmereUI-on-WoW-Forever look (OWNER_SCOPE R4): warm

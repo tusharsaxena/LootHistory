@@ -34,8 +34,11 @@ local function reset()
       if ctx.panel and ctx.panel:IsShown() then WAS_SHOWN[ctx] = true end
     end
   end
-  NS.WriteSkinChoice("ka0s", "ka0s")
+  -- These cases are about the settings panel's paint, so the panel is skinned: the Scope's
+  -- Ignore settings panel off (a new profile has it on).
+  NS.WriteSkinChoice("ka0s", "ka0s", { panel = false, fonts = false })
   Skin:SetChoice(OWNER, "ka0s", "ka0s")
+  if Skin.SetIgnore then Skin:SetIgnore(OWNER, false, false) end
   mocks.__fireTimers()
   for ctx in pairs(WAS_SHOWN) do
     local panel = ctx.panel

@@ -33,7 +33,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- skin leaves a stock control stock).
 -- Minor 5: ListRow's washes are regions of the row at the bottom of BACKGROUND (SkinPaint minor 7's
 -- P.SUB), not of the fill holder, which could tie the row's parent for frame level.
-local CONTROLS_MINOR = 5
+-- Minor 6: ScrollBar lays `scroll.thumbFill`, when the skin sets it, as a flat fill over the bar's
+-- own thumb, following the thumb's Show and Hide (SkinDefs minor 9).
+local CONTROLS_MINOR = 6
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -321,6 +323,44 @@ local function paintThumb(_, rec, sb, T, opts)
   end
 end
 
+-- The thumb fill (minor 6): `scroll.thumbFill` as a flat region over the bar's own thumb, inset to
+-- the knob's middle, anchored to it so it moves with it, shown and hidden with it (a hook on the
+-- thumb's Show / Hide / SetShown, once), at half alpha while the caller says the bar is off. A
+-- texture the caller drew (`opts.thumb`) is filled already and takes none.
+local function syncThumbFill(rec, thumb)
+  local t = rec.regions.thumbFill
+  if t and rec.regions.thumbFillOn then t:SetShown(thumb:IsShown()) end
+end
+
+local function hookThumb(rec, thumb)
+  if rec.regions.thumbHooked or type(hooksecurefunc) ~= "function" then return end
+  rec.regions.thumbHooked = true
+  for _, m in ipairs({ "Show", "Hide", "SetShown" }) do
+    if type(thumb[m]) == "function" then hooksecurefunc(thumb, m, function() syncThumbFill(rec, thumb) end) end
+  end
+end
+
+local function paintThumbFill(rec, sb, T, opts)
+  local c = T["scroll.thumbFill"]
+  local thumb, own = thumbOf(sb, opts)
+  if not (c and thumb and not own) then
+    rec.regions.thumbFillOn = false
+    return P.hide(rec, "thumbFill")
+  end
+  local t = P.tex(rec, "thumbFill", sb, "OVERLAY", 7)
+  if not t then return end
+  local w = type(thumb.GetWidth) == "function" and thumb:GetWidth() or 0
+  local inset = (w and w > 8) and math.floor(w / 4) or 0
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", thumb, "TOPLEFT", inset, -2)
+  t:SetPoint("BOTTOMRIGHT", thumb, "BOTTOMRIGHT", -inset, 2)
+  local a = (c[4] or 1) * (opts.state == "off" and 0.5 or 1)
+  t:SetColorTexture(c[1], c[2], c[3], a)
+  rec.regions.thumbFillOn = true
+  hookThumb(rec, thumb)
+  t:SetShown(type(thumb.IsShown) ~= "function" or thumb:IsShown())
+end
+
 --- S.ScrollBar(sb, opts): a scroll bar. `opts.track` / `opts.thumb`, textures the caller drew,
 --- are filled with `scroll.track` / `scroll.thumb` (DebugLog's console bar); `opts.state` "on" /
 --- "off" tints the bar's own thumb `scroll.thumbOn` / `scroll.thumbOff` (OptionsScroll's
@@ -334,6 +374,7 @@ prim.ScrollBar = function(owner, sb, opts)
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
   paintThumb(owner, rec, sb, T, opts)
+  paintThumbFill(rec, sb, T, opts)
   if opts.track or opts.state or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
   if not t then return end

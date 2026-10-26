@@ -1516,7 +1516,7 @@ Total.
 - Skin seam: one tab pick is one effective SetChoice, one repaint and no reload
 - Skin seam: another addon's copy to every Ka0s addon repaints LootHistory once
 - Skin seam: a profile switch applies the new profile's skin first, window built or not
-- Skin seam: the two exceptions default off, as two more Appearance rows
+- Skin seam: a new profile ignores the settings panel and skins the fonts, as two Appearance rows
 - Skin seam: the tab's Ignore fonts reaches the library and the profile, one repaint
 - Skin seam: a profile's stored exceptions are applied with its skin
 - Skin seam: /lh set reaches an exception, and only its own half

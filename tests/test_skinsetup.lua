@@ -57,9 +57,10 @@ local function reset()
       if ctx.panel and ctx.panel:IsShown() then WAS_SHOWN[ctx] = true end
     end
   end
-  NS.WriteSkinChoice("ka0s", "ka0s", { panel = false, fonts = false })
+  -- The Scope's defaults: the settings panel left the client's, the fonts skinned.
+  NS.WriteSkinChoice("ka0s", "ka0s", { panel = true, fonts = false })
   Skin:SetChoice(OWNER, "ka0s", "ka0s")
-  Skin:SetIgnore(OWNER, false, false)
+  Skin:SetIgnore(OWNER, true, false)
   mocks.__fireTimers()
   for ctx in pairs(WAS_SHOWN) do
     local panel = ctx.panel
@@ -237,10 +238,10 @@ end))
 
 -- ── the Scope: Ignore settings panel, Ignore fonts (LibKa0s-Skin-1.0 minor 5) ─────────────────
 
-test("Skin seam: the two exceptions default off, as two more Appearance rows", function()
-  -- red under: a default that leaves part of the addon unskinned, or a row that draws itself.
+test("Skin seam: a new profile ignores the settings panel and skins the fonts, as two Appearance rows", function()
+  -- The owner's call (2026-10-27). red under: either default moved, or a row that draws itself.
   local d = NS.defaults.profile.settings.appearance
-  assertEqual(d.ignorePanel, false)
+  assertEqual(d.ignorePanel, true)
   assertEqual(d.ignoreFonts, false)
   for _, path in ipairs({ "settings.appearance.ignorePanel", "settings.appearance.ignoreFonts" }) do
     local row = NS.Schema:FindRow(path)
@@ -260,9 +261,9 @@ test("Skin seam: the tab's Ignore fonts reaches the library and the profile, one
     cb:SetValue(true); cb:__fire("OnValueChanged", true)
     local panel, fonts = Skin:GetIgnore(OWNER)
     assertEqual(fonts, true, "the library's exception moved")
-    assertEqual(panel, false, "and the other kept")
+    assertEqual(panel, true, "and the other kept")
     assertEqual(NS.db.profile.settings.appearance.ignoreFonts, true, "the profile holds it")
-    assertEqual(NS.db.profile.settings.appearance.ignorePanel, false)
+    assertEqual(NS.db.profile.settings.appearance.ignorePanel, true)
     assertEqual(looks, 1, "one toggle repaints once")
   end)
   homeTab(ctx)
@@ -288,7 +289,7 @@ test("Skin seam: /lh set reaches an exception, and only its own half", clean(fun
     NS.Slash:CliSet("settings.appearance.ignoreFonts true")
     local panel, fonts = Skin:GetIgnore(OWNER)
     assertEqual(fonts, true, "the set applied")
-    assertEqual(panel, false, "the other half untouched")
+    assertEqual(panel, true, "the other half untouched")
   end)
   cf.AddMessage = add
   if not ok then error(err, 0) end

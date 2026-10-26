@@ -1238,7 +1238,7 @@ local STORED_SETTINGS = [[
 minimap.shown | bool | true | nil | nil | nil
 settings.alpha | number | 1 | 0 | 1 | 0.05
 settings.appearance.ignoreFonts | bool | false | nil | nil | nil
-settings.appearance.ignorePanel | bool | false | nil | nil | nil
+settings.appearance.ignorePanel | bool | true | nil | nil | nil
 settings.appearance.skin | string | "ka0s" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil

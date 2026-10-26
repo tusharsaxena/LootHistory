@@ -58,8 +58,9 @@ NS.defaults.profile = {
     -- Default, today's look. New keys with defaults, so AceDB merges them into every existing
     -- profile and no migration is owed. Applied through core/SkinSetup.lua. The two exceptions
     -- (the Appearance tab's Scope, LibKa0s-Skin-1.0 minor 5): leave the settings panel the client's,
-    -- leave every font the client's. New keys with defaults too.
-    appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = false, ignoreFonts = false },
+    -- leave every font the client's. New keys with defaults too: a new profile leaves the settings
+    -- panel the client's and skins the fonts (the owner's call, 2026-10-27).
+    appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = true, ignoreFonts = false },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,
