@@ -396,11 +396,17 @@ Outside the gate's reach, also on purpose:
   names it (LH-04).
 - **The TEST MODE / SIMULATION badge colors** in `modules/Browser.lua`: drawn only on a degraded
   install, where no skin exists and the badge stands in for the strip.
-- **Fonts.** The skin's fonts reach every text the facade's primitives draw (title bars, buttons,
-  edit boxes, dropdowns, `S.Text`, the AceGUI controls). The addon's own FontStrings built from
-  `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH table) keep the client
-  font: their layout is measured against it (column widths, the cards' shrink-to-fit headlines) and
-  the goldens pin it. Leg 2's re-check.
+- **Fonts.** The skin's face reaches every text the addon shows. The facade's primitives draw their
+  own (title bars, buttons, edit boxes, dropdowns, `S.Text`, the AceGUI controls), and the addon's own
+  FontStrings built from `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH
+  table, the filter bar's hint) take the skin's face through `S.Font`, face only, their colors still
+  the addon's. Sizes are relative to Ka0s Default's (LibKa0s SkinPaint minor 4), so each keeps its
+  template's size scaled by the skin's, and the layouts measured against it hold; Ka0s Default sets no
+  face, so on it they are the client's font as before. Two strings stay on their own face: the row's
+  direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
+  read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
+  are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished
+  on its parchment); on Ka0s Default the two are the same gray and gold.
 - **The minimap button and the broker tooltip** stay stock: LibDBIcon gives every addon's button one
   look, and the LDB tooltip's backdrop and the library's lines (including Launcher's semantic
   green/red status escapes, `libs/LibKa0s/Launcher.lua`) are the library's. The host's one line, the

@@ -881,6 +881,7 @@ local function buildAuctionTable(ctx)
     ctx._priHeads = {}
     local function header(x, text)
       local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+      NS.Skin.Font(fs)
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
       fs:SetText(text); fs:SetTextColor(NS.SkinColor("text.headingAlt"))
       ctx._priHeads[#ctx._priHeads + 1] = fs
@@ -901,6 +902,7 @@ local function buildAuctionTable(ctx)
 
       local function fs(x)
         local f = rf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        NS.Skin.Font(f)
         f:SetPoint("LEFT", rf, "LEFT", gutter + x, 0); f:SetJustifyH("LEFT"); return f
       end
       r.tick = fs(ACOL.tick); r.addon = fs(ACOL.addon)

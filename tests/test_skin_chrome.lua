@@ -127,7 +127,8 @@ local function assertChrome(win, exp, want, label)
   assertEqual(rgba(rawget(line, "__color")), want("divider"), label .. ": the divider")
   for name, tab in pairs(win.tabs) do
     local active = tab.underline:IsShown()
-    assertEqual(textColor(tab.label), want(active and "tab.onText" or "tab.text"), label .. ": tab " .. name)
+    -- The text roles (they read on the window in every skin); Ka0s Default's are tab.onText / tab.text.
+    assertEqual(textColor(tab.label), want(active and "text.accent" or "text.muted"), label .. ": tab " .. name)
     assertEqual(rgba(rawget(tab.underline, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
   end
   assertEqual(textColor(B._footer), want("text.disabled"), label .. ": the footer")
@@ -154,6 +155,8 @@ local TODAY = {
   ["win.bg"] = { 0.06, 0.06, 0.08, 0.92 }, ["win.border"] = { 0, 0, 0, 1 },
   ["title.text"] = { 1, 0.82, 0 }, ["divider"] = { 0.24, 0.24, 0.27, 0.85 },
   ["tab.onText"] = { 1, 0.82, 0 }, ["tab.text"] = { 0.7, 0.7, 0.72 }, ["tab.onLine"] = { 1, 0.82, 0 },
+  -- The tabs read these since the text roles took over (the same gold and gray on Ka0s Default).
+  ["text.accent"] = { 1, 0.82, 0 }, ["text.muted"] = { 0.7, 0.7, 0.72 },
   ["text.disabled"] = { 0.5, 0.5, 0.5 },
   ["btn.bg"] = { 0.1, 0.1, 0.12, 0.9 }, ["btn.border"] = { 0.24, 0.24, 0.27, 0.9 },
   ["btn.text"] = { 1, 1, 1 }, ["btn.hover"] = { 1, 0.82, 0 }, ["btn.icon"] = { 0.85, 0.85, 0.85 },
@@ -245,7 +248,7 @@ test("skin chrome: a skin switch repaints every chrome surface live, and Ka0s De
     for _, tab in pairs(win.tabs) do tab.label:SetTextColor(0, 0, 0) end
     B:SelectTab("History")
     for name, tab in pairs(win.tabs) do
-      assertEqual(textColor(tab.label), tokenOf(name == "History" and "tab.onText" or "tab.text"),
+      assertEqual(textColor(tab.label), tokenOf(name == "History" and "text.accent" or "text.muted"),
         "SelectTab paints tab " .. name .. " in the skin")
     end
 

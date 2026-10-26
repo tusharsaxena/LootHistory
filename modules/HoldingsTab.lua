@@ -330,6 +330,7 @@ local function countText(key, n) if key == "g" then return NS.Util.FormatMoney(n
 
 local function cellFont(row, col)
   local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(fs)
   fs:SetJustifyH(col.align); fs:SetWordWrap(false); fs:SetHeight(ROW_H)
   return fs
 end
@@ -355,9 +356,11 @@ local function makeRow(parent)
   row.cells = {}
   for _, col in ipairs(HT.COLUMNS) do row.cells[col.key] = cellFont(row, col) end
   row.detail = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  NS.Skin.Font(row.detail)
   row.detail:SetJustifyH("RIGHT"); row.detail:SetWordWrap(false)
   -- A group header's one label: History's (BrowserTable:BuildRow), font, inset and color alike.
   row.header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  NS.Skin.Font(row.header)
   row.header:SetPoint("LEFT", 4, 0); row.header:Hide()
   paintRowChrome(row)
   -- Left click toggles a thing line or collapses a group header; right click opens the row
@@ -464,6 +467,7 @@ local function makeHeaderCell(header, col)
   local b = CreateFrame("Button", nil, header)
   b:SetHeight(HEADER_H)
   b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  NS.Skin.Font(b.fs)
   b.fs:SetAllPoints(); b.fs:SetJustifyH(col.align); b.fs:SetWordWrap(false)
   b.fs:SetTextColor(headerRGB())
   b:SetScript("OnClick", function() HT:SetSort(col.key) end)

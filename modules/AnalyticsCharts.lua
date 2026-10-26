@@ -40,6 +40,7 @@ local function makeBar(parent)
   local bar = CreateFrame("Frame", nil, parent)
   bar:SetHeight(BAR_H)
   local label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(label)
   label:SetJustifyH("LEFT")
   bar.label = label
   local track = bar:CreateTexture(nil, "BACKGROUND")
@@ -49,6 +50,7 @@ local function makeBar(parent)
   local fill = bar:CreateTexture(nil, "ARTWORK")
   bar.fill = fill
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(value)
   value:SetJustifyH("RIGHT")
   bar.value = value
   label:SetWordWrap(false)
@@ -75,6 +77,7 @@ local function makeStackedBar(parent)
   local bar = CreateFrame("Frame", nil, parent)
   bar:SetHeight(BAR_H)
   local label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(label)
   label:SetJustifyH("LEFT")
   bar.label = label
   local track = bar:CreateTexture(nil, "BACKGROUND")
@@ -82,6 +85,7 @@ local function makeStackedBar(parent)
   bar._reskin = paintTrack
   paintTrack(bar)
   local value = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(value)
   value:SetJustifyH("RIGHT")
   bar.value = value
   -- Each segment is a mouse-enabled frame (not a bare texture) so it can carry its own hover
@@ -143,6 +147,7 @@ local function makeStripBar(parent)
   -- right-aligned to the axis line (top of the label at the line, hanging down) in renderStrip,
   -- where its measured width sets the anchor offset.
   local axis = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  NS.Skin.Font(axis)
   axis:SetRotation(math.pi / 2)
   f.axis = axis
   f._reskin = paintStripBar
@@ -159,9 +164,11 @@ local function makeListRow(parent)
   local r = CreateFrame("Frame", nil, parent)
   r:SetHeight(LIST_ROW_H)
   local name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(name)
   name:SetJustifyH("LEFT"); name:SetPoint("LEFT", 4, 0); name:SetWordWrap(false)
   r.name = name
   local count = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(count)
   count:SetJustifyH("RIGHT"); count:SetPoint("RIGHT", -4, 0); count:SetWordWrap(false)
   r.count = count
   r:EnableMouse(true)
@@ -180,6 +187,7 @@ local function makeSwatch(parent)
   local sw = f:CreateTexture(nil, "ARTWORK"); sw:SetSize(10, 10)
   sw:SetPoint("LEFT", f, "LEFT", 0, 0)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(fs)
   f.sw, f.fs = sw, fs
   fs:SetPoint("LEFT", sw, "RIGHT", 4, 0); paintSwatch(f)
   fs:SetJustifyH("LEFT"); fs:SetWordWrap(false)
@@ -195,6 +203,7 @@ local function headingRGB() return NS.SkinColor("text.heading") end
 
 local function sectionHeader(parent, text)
   local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  NS.Skin.Font(fs)
   fs:SetText(text)
   fs:SetTextColor(headingRGB())
   return fs
@@ -212,6 +221,7 @@ local function sectionDivider(parent, text)
   lineR:SetColorTexture(NS.SkinColor("section.rule"))
   lineR:SetHeight(1.25)
   local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  NS.Skin.Font(fs)
   local file, size, flags = fs:GetFont()
   fs:SetFont(file, size * 1.5, flags) -- 50% larger title
   fs:SetPoint("CENTER", f, "CENTER", 0, 0)
@@ -232,6 +242,7 @@ local function listPanel(parent, title)
   local p = CreateFrame("Frame", nil, parent, "BackdropTemplate")
   NS.Skin.Panel(p)
   local t = p:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  NS.Skin.Font(t)
   t:SetPoint("TOPLEFT", 6, -5)
   t:SetTextColor(headingRGB())
   t:SetText(title)

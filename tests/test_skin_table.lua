@@ -344,3 +344,41 @@ test("skin table: the degraded facade draws the row menu today's way", function(
   assertEqual(seen.edge, today("menu.borderAlt"))
   assertEqual(dns.SkinEscape("sem.danger"), "|cffff5555", "Delete's bytes degraded too")
 end)
+
+test("skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock", function()
+  -- The owner's note (2026-10-26): on Azeroth the table's text was the client's font under its dark
+  -- drop shadow. red under: cells built from GameFont templates and never handed to the skin's Font.
+  withFreshTable(function()
+    BT.displayList = LIST
+    BT:Bind()
+    local cell
+    for _, row in ipairs(rows()) do
+      for _, fs in pairs(row.cells or {}) do cell = cell or fs end
+    end
+    assertTrue(cell ~= nil, "a bound data row has cells")
+    -- The face the cell draws: through the owner's font object where the client has CreateFont, else
+    -- set by path (this suite's case); either way GetFont answers the skin's face.
+    local FACE = "Fonts\\AtkinsonHyperlegible-Regular.ttf"
+    local function owned(fs) return (fs:GetFont()) == FACE end
+    -- The suite's strings answer no template font, so the cell is given the face its GameFont
+    -- template would hand it in the client; that is the face Ka0s Default must put back.
+    cell:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    assertTrue(not owned(cell), "Ka0s Default sets no face: the cell keeps its template's font")
+    -- This suite loads no LibSharedMedia, so no skin face resolves and Font rightly leaves every cell
+    -- alone. The face is answered here, for the case's length, at the engine's one media lookup.
+    local P = Skin.__P
+    local media = P.media
+    P.media = function(kind, key)
+      if kind == "font" and key == "Ka0s Atkinson" then return FACE end
+      return media(kind, key)
+    end
+    local ok, err = pcall(function()
+      NS.ApplySkinChoice("ka0s", "azeroth")
+      assertTrue(owned(cell), "under Azeroth the cell wears the skin's body face")
+      NS.ApplySkinChoice("ka0s", "ka0s")
+    end)
+    P.media = media
+    if not ok then error(err, 0) end
+    assertEqual((cell:GetFont()), "Fonts\\FRIZQT__.TTF", "and Ka0s Default puts the template's face back")
+  end)
+end)

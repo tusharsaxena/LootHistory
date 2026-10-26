@@ -1974,9 +1974,9 @@ AceGUI pool leak check). Result:
 
 **SKIN-5. WoW Forever (SK-05; LH-02).** Pick **WoW Forever** → warm charcoal panels, black title bars
 with centered white titles, a tan accent, gold headings, thin borders, and Barlow on the text the skin
-primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls). The table,
-Insights, Timeline and Holdings body text keeps the client font by design (ARCHITECTURE.md, Skins:
-intentional exceptions). Result:
+primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls) and on the
+table, Insights, Timeline and Holdings text too (2026-10-26: those take the skin's face, at their own
+sizes). No column truncates any differently than on Ka0s Default. Result:
 
 **SKIN-6. High Contrast (SK-06; LH-03).** Pick **High Contrast** → black, white and yellow, larger
 Atkinson text on the primitives' text, and the History row whose right-click menu is open is outlined

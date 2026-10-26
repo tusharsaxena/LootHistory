@@ -1526,7 +1526,7 @@ Total.
 - skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
 
-### test_skin_table.lua (7)
+### test_skin_table.lua (8)
 
 - skin table: on Ka0s Default every table surface draws the value it drew before skins
 - skin table: the row menu is the skin's MenuFrame, call for call today's backdrop
@@ -1535,6 +1535,7 @@ Total.
 - skin table: a skin switch repaints the table live, pooled free rows too, and Ka0s Default puts it back
 - skin table: NS.QualityColor reads q.* where the skin sets it, else the client's color
 - skin table: the degraded facade draws the row menu today's way
+- skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
 ### test_skin_insights.lua (11)
 
@@ -2088,7 +2089,7 @@ Total.
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 9 |
 | test_skin_chrome.lua | 6 |
-| test_skin_table.lua | 7 |
+| test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
 | test_skin_settings.lua | 7 |
 | test_skin_tools.lua | 6 |
@@ -2120,4 +2121,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1782** |
+| **Total** | **1783** |
