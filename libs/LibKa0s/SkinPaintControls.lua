@@ -22,7 +22,10 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local CONTROLS_MINOR = 1
+-- Minor 2 (the owner's notes, 2026-10-26): a disabled Button's label reads in `text.disabled`, moved
+-- on Enable / Disable; and Checkbox paints under Ka0s Default too, a square box in Ka0s Default's
+-- control colors, rather than leaving the client's round check button.
+local CONTROLS_MINOR = 2
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -77,13 +80,26 @@ end
 
 local function buttonBase(rec) return rec.regions.primary and "btnPrimary" or "btn" end
 
-local function buttonHover(btn, rec, on)
+local function enabled(btn)
+  return type(btn.IsEnabled) ~= "function" or btn:IsEnabled() ~= false
+end
+
+--- The label's color for the button's state: `text.disabled` while disabled, else the hover or
+--- rest color.
+local function buttonLabel(btn, rec, hot)
   local T = P.T(rec.owner)
   local base = buttonBase(rec)
   local fs = labelOf(btn)
-  local c = T[base .. (on and ".hover" or ".text")]
+  local c
+  if not enabled(btn) then
+    c = T["text.disabled"]
+  else
+    c = T[base .. (hot and ".hover" or ".text")]
+  end
   if fs and c then fs:SetTextColor(rgb(c)) end
 end
+
+local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on) end
 
 --- S.Button(btn, keepKeys | opts): a push button. The flat-control box from `btn.*` (or
 --- `btnPrimary.*` with `opts.primary`): backdrop, gradient, non-flat edge on the holder; the stock
@@ -111,6 +127,9 @@ prim.Button = function(owner, btn, a)
   if icon then P.tint(rec, icon, T, base .. ".icon", "SetVertexColor") end
   P.hook(rec, btn, "OnEnter", function(self, r) buttonHover(self, r, true) end)
   P.hook(rec, btn, "OnLeave", function(self, r) buttonHover(self, r, false) end)
+  P.hook(rec, btn, "OnEnable", function(self, r) buttonLabel(self, r, false) end)
+  P.hook(rec, btn, "OnDisable", function(self, r) buttonLabel(self, r, false) end)
+  if not enabled(btn) then buttonLabel(btn, rec, false) end
 end
 
 --- S.WhiteButtonLabel(btn): the button's label in `btn.text` and the body font.
@@ -225,7 +244,7 @@ prim.Checkbox = function(owner, cb, opts)
   if not P.isFrame(cb) then return end
   local rec = P.track(owner, cb, "Checkbox", opts)
   opts = type(opts) == "table" and opts or {}
-  if P.stockDefault(owner, rec, cb, opts) then return end
+  -- No stockDefault here (minor 2): Ka0s Default draws its own square box too.
   local T = P.T(owner)
   P.fadeAll(rec, P.stockRegions(cb, opts, CHECK_GETTERS))
   local inset = type(opts.borderInset) == "number" and opts.borderInset or 0

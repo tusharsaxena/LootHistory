@@ -127,7 +127,9 @@ NS.SKIN_FALLBACK = {
   ["panel.bg"]      = { 0.08, 0.08, 0.10, 0.6 },
   ["panel.border"]  = { 0.24, 0.24, 0.27, 0.7 },
   ["section.rule"]  = { 1, 0.82, 0, 0.35 },
-  ["check.bg"]      = { 0.24, 0.24, 0.27, 1 },
+  -- LibKa0s SkinDefs minor 7: Ka0s Default's checkbox is a square box in the control colors.
+  ["check.bg"]      = { 0.1, 0.1, 0.12, 0.9 },
+  ["check.border"]  = { 0.24, 0.24, 0.27, 0.9 },
   ["check.mark"]    = { 1, 0.82, 0, 1 },
   ["chart.axis"]    = { 0.45, 0.45, 0.5, 0.8 },
   ["chart.axisAlt"] = { 0.55, 0.55, 0.60, 0.9 },

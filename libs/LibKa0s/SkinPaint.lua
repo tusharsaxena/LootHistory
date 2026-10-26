@@ -65,7 +65,13 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- target itself. The client's EditBox answers GetFontObject with an anonymous font object, not the
 -- named one it was given, and handing that back through SetFontObject overflowed the client's stack
 -- (Forever -> Midnight crashed the game, 2026-10-26); such a target gets its face back by path.
-local PAINT_MINOR = 3
+-- Minor 4: a skin's font sizes are RELATIVE to Ka0s Default's. Every skin sets `font.bodySize` and
+-- `font.titleSize`, Ka0s Default's being the reference, and a target keeps its own stock size scaled
+-- by the skin's size over the reference: a 10pt caption under a skin 10% larger is 11pt, not the
+-- skin's body size. The owner's font objects are one per role AND size, so two targets of one role
+-- at two sizes no longer share (and overwrite) one object's size. Layouts measured against the stock
+-- fonts hold in every skin (the owner's notes, 2026-10-26).
+local PAINT_MINOR = 4
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -378,10 +384,11 @@ local FONT_ROLE = {
 
 local function ownerFont(owner, role, path, size, flags, shadow)
   if type(CreateFont) ~= "function" then return nil end
-  local key = owner .. "\0" .. role
+  local tenths = math.floor(size * 10 + 0.5)
+  local key = owner .. "\0" .. role .. "\0" .. tenths
   local obj = lib.__fonts[key]
   if not obj then
-    obj = CreateFont("LibKa0sSkin_" .. owner:gsub("[^%w]", "") .. "_" .. role)
+    obj = CreateFont("LibKa0sSkin_" .. owner:gsub("[^%w]", "") .. "_" .. role .. "_" .. tenths)
     if type(obj) ~= "table" then return nil end
     lib.__fonts[key] = obj
   end
@@ -436,6 +443,18 @@ local function priorOf(fs, getter)
   return #got > 0 and got or nil
 end
 
+--- The size a target of stock size `stock` takes under the owner's skin: `stock` scaled by the
+--- skin's size token over Ka0s Default's (minor 4). A target with no stock size reads the reference
+--- itself; a skin or a reference without the token leaves the stock size alone.
+function P.fontSize(owner, token, stock)
+  local want = P.T(owner)[token]
+  local ref = lib:ResolveSkin(lib.DEFAULT)[token]
+  stock = tonumber(stock)
+  if type(want) ~= "number" then return stock or ref or 12 end
+  if not stock or type(ref) ~= "number" or ref <= 0 then return want end
+  return stock * want / ref
+end
+
 --- Give `fs` (a FontString, or an EditBox) the skin's font for `role` ("body", "title", "mono"),
 --- through the owner's font object for that role. A nil face token puts the stock font back.
 function P.font(owner, rec, fs, role)
@@ -451,7 +470,7 @@ function P.font(owner, rec, fs, role)
                   shadowOffset = not obj and priorOf(fs, "GetShadowOffset") or nil,
                   shadowColor = not obj and priorOf(fs, "GetShadowColor") or nil }
   end
-  local size = T[spec.size] or fonts[fs].size or 12
+  local size = P.fontSize(owner, spec.size, fonts[fs].size)
   local flags = T["font.outline"] or ""
   local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false)
   if obj then
