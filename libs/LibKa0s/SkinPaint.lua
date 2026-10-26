@@ -61,7 +61,11 @@
 local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 
-local PAINT_MINOR = 2
+-- Minor 3: P.font records a target's prior font OBJECT only when it is a named font that is not the
+-- target itself. The client's EditBox answers GetFontObject with an anonymous font object, not the
+-- named one it was given, and handing that back through SetFontObject overflowed the client's stack
+-- (Forever -> Midnight crashed the game, 2026-10-26); such a target gets its face back by path.
+local PAINT_MINOR = 3
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -391,17 +395,45 @@ local function ownerFont(owner, role, path, size, flags, shadow)
   return obj
 end
 
---- Put `fs` back on the font it had before the first skin font reached it.
+--- `obj` when it is a font a target can be handed back safely: a font's global name, or a named
+--- font object that is not the target. An anonymous one (what the client's EditBox answers, never
+--- the font it was given) is nil, so the face goes back by path instead.
+local function namedFont(fs, obj)
+  if type(obj) == "string" then return obj ~= "" and obj or nil end
+  if type(obj) ~= "table" or obj == fs or type(obj.GetName) ~= "function" then return nil end
+  local ok, name = pcall(obj.GetName, obj)
+  if ok and type(name) == "string" and name ~= "" then return obj end
+  return nil
+end
+
+--- Put `fs` back on the font it had before the first skin font reached it: its named font object
+--- when it had one, else its face by path, size and flags with its shadow, which SetFont leaves as
+--- the skin's font object set it. The object is checked again here, so a record an older copy of
+--- this file wrote never hands an anonymous one back.
 function P.unfont(rec, fs)
   local fonts = saved(rec, "font")
   local s = fonts[fs]
   if not s then return end
-  if s.obj then
-    fs:SetFontObject(s.obj)
+  local obj = namedFont(fs, s.obj)
+  if obj then
+    fs:SetFontObject(obj)
   elseif s.path then
     fs:SetFont(s.path, s.size, s.flags)
+    if s.shadowOffset and type(fs.SetShadowOffset) == "function" then
+      fs:SetShadowOffset(unpack(s.shadowOffset))
+    end
+    if s.shadowColor and type(fs.SetShadowColor) == "function" then
+      fs:SetShadowColor(unpack(s.shadowColor))
+    end
   end
   fonts[fs] = nil
+end
+
+--- `{ getter(fs) }` when `fs` has the getter and it answers, else nil.
+local function priorOf(fs, getter)
+  if type(fs[getter]) ~= "function" then return nil end
+  local got = { fs[getter](fs) }
+  return #got > 0 and got or nil
 end
 
 --- Give `fs` (a FontString, or an EditBox) the skin's font for `role` ("body", "title", "mono"),
@@ -414,7 +446,10 @@ function P.font(owner, rec, fs, role)
   local fonts = saved(rec, "font")
   if not fonts[fs] then
     local p, s, f = fs:GetFont()
-    fonts[fs] = { obj = fs:GetFontObject(), path = p, size = s, flags = f }
+    local obj = namedFont(fs, fs:GetFontObject())
+    fonts[fs] = { obj = obj, path = p, size = s, flags = f,
+                  shadowOffset = not obj and priorOf(fs, "GetShadowOffset") or nil,
+                  shadowColor = not obj and priorOf(fs, "GetShadowColor") or nil }
   end
   local size = T[spec.size] or fonts[fs].size or 12
   local flags = T["font.outline"] or ""
