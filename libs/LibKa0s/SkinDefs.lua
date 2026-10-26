@@ -733,8 +733,9 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel title
 -- Blizzard's own art here: the window is BACKDROP_DIALOG_32_32's edge (LSM `Blizzard Dialog`,
 -- UI-DialogBox-Border, 32px) over UI-DialogBox-Background-Dark tiled on the window fill; buttons
 -- are the red gradient under a thin dark rim, the client's own button, with the primary a brighter
--- red under a thin gold edge (minor 7: the 2px bevelOut gold edge read as a frame, not a button); tabs are UI-OptionsFrame-ActiveTab /
--- InActiveTab; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
+-- red under a thin gold edge (minor 7: the 2px bevelOut gold edge read as a frame, not a button); tabs are UI-OptionsFrame-ActiveTab in both
+-- states (the InActiveTab art is drawn shorter, so idle tabs stood lower than the selected one; the
+-- owner's note, round 3), the selected tab told by its white label; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
 -- An art token draws that art at its own colors; the color token beside it is the fallback when
 -- the art does not load. The client's own fonts: no font token.
 local WOW_RED = grad(hex("#b3200f"), hex("#640c05"))
@@ -751,7 +752,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     btnRadius = 0,
     priBg = grad(hex("#d42a16"), hex("#7e1007")), priBorder = edge(1, "flat", hex("#e0b040")),
     priText = hex("#FFFFFF"),
-    inBg = hex("#000000"), inBorder = edge(2, "bevelIn", hex("#7a7a7a")), inRadius = 0,
+    inBg = hex("#000000"), inBorder = edge(1, "bevelIn", hex("#7a7a7a")), inRadius = 0,
     inText = hex("#FFFFFF"), inPh = hex("#9A9A9A"),
     hdrBg = rgba(255, 255, 255, 0.07), hdrText = hex("#FFD100"), rowAlt = rgba(255, 255, 255, 0.03),
     rowSel = rgba(255, 209, 0, 0.18),
@@ -762,7 +763,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     chkRadius = 0,
     slTrack = hex("#3a3a3a"), slTrackBorder = edge(0, "flat", CLEAR), slFill = hex("#C9A24A"),
     slThumb = hex("#C9A84A"),
-    navBg = rgba(0, 0, 0, 0.4), navBorder = edge(2, "bevelIn", hex("#6e6e6e")),
+    navBg = rgba(0, 0, 0, 0.4), navBorder = edge(1, "bevelIn", hex("#6e6e6e")),
     navText = hex("#FFD100"), navSelBg = rgba(90, 120, 220, 0.38), navSelText = hex("#FFFFFF"),
     navSelBar = CLEAR,
     drawerBg = hex("#262626"), drawerBorder = edge(2, "bevelOut", hex("#6e6e6e")),
@@ -774,7 +775,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     footBg = rgba(0, 0, 0, 0.3),
   }, {
     ["win.bgTexture"] = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-    ["tab.texture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-InActiveTab",
+    ["tab.texture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["tab.onTexture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["scroll.thumbTexture"] = "Interface\\Buttons\\UI-ScrollBar-Knob",
     ["check.texture"] = "Interface\\Buttons\\UI-CheckBox-Up",
