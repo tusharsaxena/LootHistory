@@ -300,6 +300,7 @@ end
 function BrowserTable:MeasureColumns(parent)
   if not (parent and parent.CreateFontString) then return end
   local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(fs)
   fs:SetWordWrap(false)
   fs:Hide()
   COLUMN_BY_KEY.qty.width = qtyWidth(function(text)
@@ -785,6 +786,7 @@ function BrowserTable:BuildRow()
   row.cells = {}
   for _, col in ipairs(self.COLUMNS) do
     local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    NS.Skin.Font(fs)
     fs:SetJustifyH(col.align)
     fs:SetHeight(rowHeight())
     fs:SetWordWrap(false)
@@ -810,6 +812,7 @@ function BrowserTable:BuildRow()
 
   -- Group-header styling (used in 3.4); hidden for data rows.
   local header = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  NS.Skin.Font(header)
   header:SetPoint("LEFT", 4, 0)
   header:SetTextColor(headerRGB())
   header:Hide()
@@ -960,8 +963,8 @@ function BrowserTable:Attach(pane)
   end)
   scroll:SetScript("OnSizeChanged", function() BrowserTable:Bind() end)
   self.scroll = scroll
-  -- The template's bar (its `ScrollBar` parentKey): stock on Ka0s Default, the skin's thumb and
-  -- track elsewhere.
+  -- The template's bar (its `ScrollBar` parentKey): the skin's thumb and track under every skin, and
+  -- the skin's thumb fill where it sets one.
   local bar = rawget(scroll, "ScrollBar")
   if bar then NS.Skin.ScrollBar(bar) end
 
@@ -999,6 +1002,7 @@ function BrowserTable:MakeHeaderButton(col)
     btn.tex = tex
   else
     local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    NS.Skin.Font(fs)
     fs:SetPoint("LEFT", 0, 0)
     fs:SetJustifyH(col.align)
     fs:SetText(col.label)
@@ -1328,6 +1332,7 @@ function BrowserTable:ShowMenu(anchor, items)
       b = CreateFrame("Button", nil, m)
       b:SetHeight(MENU_ROW_H)
       local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      NS.Skin.Font(fs)
       fs:SetPoint("LEFT", 8, 0)
       fs:SetJustifyH("LEFT")
       b.fs = fs

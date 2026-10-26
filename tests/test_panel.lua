@@ -364,8 +364,9 @@ local SUBGROUPS = {
   -- The window subsection names its window (item 020, LOO-L03).
   ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
-  -- The library's Appearance tab (skinning-§3): its two subjects, the source and the skin.
-  ["Appearance"]      = { "Skin source", "Skin" },
+  -- The library's Appearance tab (skinning-§3): its three subjects, the source, the skin and the
+  -- Scope (OptionsAppearance minor 2).
+  ["Appearance"]      = { "Skin source", "Skin", "Scope" },
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},
 }

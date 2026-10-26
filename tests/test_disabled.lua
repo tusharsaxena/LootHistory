@@ -186,10 +186,17 @@ end
 --- the frame where every real session has it.
 local function bringUp()
   local optionsLib = M.LibStub("LibKa0s-Options-1.0", true)
-  for ctx in pairs(optionsLib and optionsLib.__shownPages or {}) do
+  -- Snapshot first: each OnHide re-syncs the lock, which drops OTHER off-screen pages from
+  -- __shownPages, and clearing a key other than the current one under pairs() can skip a page.
+  local pages = {}
+  for ctx in pairs(optionsLib and optionsLib.__shownPages or {}) do pages[#pages + 1] = ctx end
+  for _, ctx in ipairs(pages) do
     ctx.panel:Hide()
     ctx.panel:__fire("OnHide")
   end
+  -- And re-sync once at the end: a page whose OnHide does not reach the lock (the Profiles page an
+  -- earlier suite built) would otherwise leave the last sync's registration standing.
+  if optionsLib and optionsLib.__syncCombatEvents then optionsLib.__syncCombatEvents() end
   local skinLib = M.LibStub("LibKa0s-Skin-1.0", true)
   local retry = skinLib and skinLib.__euiEventFrame
   if retry then retry:__fire("OnEvent", "PLAYER_LOGIN") end

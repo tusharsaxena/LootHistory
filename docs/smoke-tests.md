@@ -348,15 +348,16 @@ row or tick that keeps the old skin until `/reload`, a changed look on Ka0s Defa
 error. Result:
 
 **PANEL-24. The panel's own controls and the Profiles page follow the skin (LH-06; SK-02).** On
-**Ka0s Default**, `/lh config` → General → **Filters**, **History** and **AH price**, then
-**Profiles** → every check box, button, label and dropdown looks exactly as before the skinning
-run (stock AceGUI). Switch to **Appearance**, pick **Obsidian**, then walk the same tabs and
+**Ka0s Default**, with **Ignore settings panel** off on the Appearance tab, `/lh config` → General →
+**Filters**, **History** and **AH price**, then **Profiles** → every check box, button, label and
+dropdown wears Ka0s Default's look, like the library-drawn rows beside them. Switch to
+**Appearance**, pick **Obsidian**, then walk the same tabs and
 **Profiles** → with no reload the Filters tab's **Clear all…**, the History tab's storage line and
 **Purge history…**, the AH price table's **On** check boxes and the Profiles page's controls take
-Obsidian's look like the library-drawn rows beside them. Pick **Ka0s Default** again → the stock look
-comes back. Then open another addon's AceGUI options (WeakAuras, or any Ace3 config window) → its
+Obsidian's look like the library-drawn rows beside them. Pick **Ka0s Default** again → its look
+comes back. Turn **Ignore settings panel** on → with no reload those controls go back stock. Then open another addon's AceGUI options (WeakAuras, or any Ace3 config window) → its
 check boxes and buttons are stock, carrying nothing of Loot History's skin. Fail: a control that
-keeps the old skin until `/reload`, a skinned control on Ka0s Default, another addon's widget
+keeps the old skin until `/reload`, a skinned control with **Ignore settings panel** on, another addon's widget
 wearing this skin, the AH price host left floating over another tab, or a Lua error. Result:
 
 ## Profiles
@@ -1956,8 +1957,9 @@ Timeline, Holdings and every settings page → each looks exactly as before the 
 changed color, edge, font or spacing. Result:
 
 **SKIN-2. The Appearance tab (SK-02; LH-01).** Settings → General → **Appearance** → it sits second to
-last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches,
-**Copy to every Ka0s addon…** and the note that skins change every visual element. Result:
+last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches, the
+Scope (**Ignore settings panel**, on in a new profile, and **Ignore fonts**, off), **Copy to every
+Ka0s addon…** and the note that skins change every visual element. Result:
 
 **SKIN-3. Each skin, live (SK-03; LH-02, LH-03, LH-04).** With the History window open, pick each skin
 in turn: Obsidian, Azeroth, Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW Forever, then
@@ -1966,7 +1968,8 @@ tabs, buttons, search box, a dropdown and its menu, the footer, Export, Insights
 Timeline and Holdings all repaint, and text stays readable. Fail: a surface that keeps the old skin
 until `/reload`. Result:
 
-**SKIN-4. Other addons stay stock (SK-04; LH-06).** With a non-default skin, open LootHistory's
+**SKIN-4. Other addons stay stock (SK-04; LH-06).** With a non-default skin and **Ignore settings
+panel** off on the Appearance tab, open LootHistory's
 settings pages, then another Ka0s addon's (for example BankLedger) and another AceGUI addon's, and
 flip between them a few times → LootHistory's nav rail, tabs, headings, check boxes, sliders,
 dropdowns, edit boxes and drawers are skinned; the other addons' pages are **stock** every time (the
@@ -1974,9 +1977,9 @@ AceGUI pool leak check). Result:
 
 **SKIN-5. WoW Forever (SK-05; LH-02).** Pick **WoW Forever** → warm charcoal panels, black title bars
 with centered white titles, a tan accent, gold headings, thin borders, and Barlow on the text the skin
-primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls). The table,
-Insights, Timeline and Holdings body text keeps the client font by design (ARCHITECTURE.md, Skins:
-intentional exceptions). Result:
+primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls) and on the
+table, Insights, Timeline and Holdings text too (2026-10-26: those take the skin's face, at their own
+sizes). No column truncates any differently than on Ka0s Default. Result:
 
 **SKIN-6. High Contrast (SK-06; LH-03).** Pick **High Contrast** → black, white and yellow, larger
 Atkinson text on the primitives' text, and the History row whose right-click menu is open is outlined

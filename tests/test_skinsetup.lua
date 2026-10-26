@@ -57,8 +57,10 @@ local function reset()
       if ctx.panel and ctx.panel:IsShown() then WAS_SHOWN[ctx] = true end
     end
   end
-  NS.WriteSkinChoice("ka0s", "ka0s")
+  -- The Scope's defaults: the settings panel left the client's, the fonts skinned.
+  NS.WriteSkinChoice("ka0s", "ka0s", { panel = true, fonts = false })
   Skin:SetChoice(OWNER, "ka0s", "ka0s")
+  Skin:SetIgnore(OWNER, true, false)
   mocks.__fireTimers()
   for ctx in pairs(WAS_SHOWN) do
     local panel = ctx.panel
@@ -231,5 +233,64 @@ test("Skin seam: a profile switch applies the new profile's skin first, window b
   B.AdoptProfile = adopt
   if db:GetCurrentProfile() ~= "Default" then db:SetProfile("Default") end
   if db.DeleteProfile then pcall(db.DeleteProfile, db, "SkinProbe", true) end
+  if not ok then error(err, 0) end
+end))
+
+-- ── the Scope: Ignore settings panel, Ignore fonts (LibKa0s-Skin-1.0 minor 5) ─────────────────
+
+test("Skin seam: a new profile ignores the settings panel and skins the fonts, as two Appearance rows", function()
+  -- The owner's call (2026-10-27). red under: either default moved, or a row that draws itself.
+  local d = NS.defaults.profile.settings.appearance
+  assertEqual(d.ignorePanel, true)
+  assertEqual(d.ignoreFonts, false)
+  for _, path in ipairs({ "settings.appearance.ignorePanel", "settings.appearance.ignoreFonts" }) do
+    local row = NS.Schema:FindRow(path)
+    assertTrue(row ~= nil, path .. " is not a schema row")
+    assertEqual(row.type, "bool", path .. ": type")
+    assertEqual(row.group, "Appearance", path .. ": group")
+    assertTrue(row.skipRender == true, path .. ": the tab draws it, so it must be skipRender")
+  end
+end)
+
+test("Skin seam: the tab's Ignore fonts reaches the library and the profile, one repaint", clean(function()
+  -- red under: NS.WriteSkinChoice dropping its third argument, or a row onChange that re-applies
+  -- both halves (a second repaint).
+  local cb, ctx = choiceNamed("Ignore fonts")
+  local ok, err = pcall(function()
+    assertTrue(cb ~= nil, "the Appearance tab drew no Ignore fonts box")
+    cb:SetValue(true); cb:__fire("OnValueChanged", true)
+    local panel, fonts = Skin:GetIgnore(OWNER)
+    assertEqual(fonts, true, "the library's exception moved")
+    assertEqual(panel, true, "and the other kept")
+    assertEqual(NS.db.profile.settings.appearance.ignoreFonts, true, "the profile holds it")
+    assertEqual(NS.db.profile.settings.appearance.ignorePanel, true)
+    assertEqual(looks, 1, "one toggle repaints once")
+  end)
+  homeTab(ctx)
+  if not ok then error(err, 0) end
+end))
+
+test("Skin seam: a profile's stored exceptions are applied with its skin", clean(function()
+  -- addon:OnInitialize and the profile events call NS.ApplySkinChoice() with no argument.
+  -- red under: applying the stored pair and not the exceptions.
+  local a = NS.db.profile.settings.appearance
+  a.ignorePanel, a.ignoreFonts = true, true
+  NS.ApplySkinChoice()
+  local panel, fonts = Skin:GetIgnore(OWNER)
+  assertEqual(panel, true, "the stored panel exception")
+  assertEqual(fonts, true, "the stored fonts exception")
+end))
+
+test("Skin seam: /lh set reaches an exception, and only its own half", clean(function()
+  local cf = mocks.DEFAULT_CHAT_FRAME
+  local add = cf.AddMessage
+  cf.AddMessage = function() end
+  local ok, err = pcall(function()
+    NS.Slash:CliSet("settings.appearance.ignoreFonts true")
+    local panel, fonts = Skin:GetIgnore(OWNER)
+    assertEqual(fonts, true, "the set applied")
+    assertEqual(panel, true, "the other half untouched")
+  end)
+  cf.AddMessage = add
   if not ok then error(err, 0) end
 end))

@@ -8,8 +8,8 @@
 -- hands the widget back stock (the pool stays clean for the next acquirer); the AH price
 -- placeholder's cleanup rides the chain rather than AceGUI's one OnRelease callback and still runs;
 -- the AH table's session-held check boxes follow a switch; the Profiles page paints the tree
--- AceConfigDialog drew; Ka0s Default paints nothing; and the degraded seam paints nothing and still
--- runs a host's release work.
+-- AceConfigDialog drew; Ka0s Default paints them like every other skin (it sets every token since
+-- LibKa0s SkinDefs minor 8); and the degraded seam paints nothing and still runs a host's release work.
 --
 -- The kit's widgets are recorders without AceGUI's regions, so "painted" is read where the library
 -- keeps it: `Skin.__ace[widget].owner` (SkinAce.lua's weak state table), set while owned and
@@ -34,8 +34,11 @@ local function reset()
       if ctx.panel and ctx.panel:IsShown() then WAS_SHOWN[ctx] = true end
     end
   end
-  NS.WriteSkinChoice("ka0s", "ka0s")
+  -- These cases are about the settings panel's paint, so the panel is skinned: the Scope's
+  -- Ignore settings panel off (a new profile has it on).
+  NS.WriteSkinChoice("ka0s", "ka0s", { panel = false, fonts = false })
   Skin:SetChoice(OWNER, "ka0s", "ka0s")
+  if Skin.SetIgnore then Skin:SetIgnore(OWNER, false, false) end
   mocks.__fireTimers()
   for ctx in pairs(WAS_SHOWN) do
     local panel = ctx.panel
@@ -116,12 +119,15 @@ test("skin settings: a release hands every painted widget back stock, the pool c
   end)
 end)
 
-test("skin settings: under Ka0s Default nothing is painted and nothing is wrapped", function()
+test("skin settings: under Ka0s Default the panel's own widgets paint like every skin's", function()
+  -- Ka0s Default is a skin like the others (LibKa0s SkinAce minor 2): no branch leaves it stock.
   withRawAce("ka0s", function(ctx)
     for _, tab in ipairs({ "Filters", "History" }) do
-      for _, w in ipairs(paintedOn(ctx, tab)) do
-        assertEqual(ownerOf(w), nil, tab .. ": a " .. w.type .. " stays stock AceGUI")
-        assertEqual(rawget(w, "OnRelease"), nil, tab .. ": no wrapper")
+      local ws = paintedOn(ctx, tab)
+      assertTrue(#ws > 0, tab .. " acquired no widget of a painted type")
+      for _, w in ipairs(ws) do
+        assertEqual(ownerOf(w), OWNER, tab .. ": a " .. w.type .. " is painted for this owner")
+        assertTrue(type(rawget(w, "OnRelease")) == "function", tab .. ": its release is wrapped")
       end
     end
   end)
@@ -157,7 +163,7 @@ test("skin settings: the AH placeholder's cleanup rides the release chain and st
   end)
 end)
 
-test("skin settings: the AH table's held check boxes follow a switch and go stock on Ka0s Default", function()
+test("skin settings: the AH table's held check boxes are painted on Ka0s Default and follow a switch", function()
   -- They are parented to the pooled row frames and never re-acquired, so the library's re-render
   -- never reaches them. red under: dropping NS.SkinPaintAce from repaintAuctionTable.
   reset()
@@ -165,12 +171,33 @@ test("skin settings: the AH table's held check boxes follow a switch and go stoc
   local ok, err = pcall(function()
     PS.clickTab(mocks.__subcategories["General"], ctx, PS.tabAt("AH price"))
     PS.homeTab(ctx)
-    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), nil, "stock on Ka0s Default") end
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted on Ka0s Default") end
     NS.ApplySkinChoice("ka0s", "obsidian")
     for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted on the switch") end
     NS.ApplySkinChoice("ka0s", "ka0s")
-    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), nil, "stock again on the way back") end
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "still painted on the way back") end
   end)
+  PS.homeTab(ctx)
+  reset()
+  if not ok then error(err, 0) end
+end)
+
+test("skin settings: Ignore settings panel hands the held check boxes back stock, live", function()
+  -- LibKa0s SkinAce minor 3: a refused PaintAce restores a widget this owner painted. These boxes
+  -- are held for the session, so nothing re-acquires them. red under: a PaintAce that only refuses.
+  reset()
+  local ctx = NS.Panel.general
+  local ok, err = pcall(function()
+    PS.clickTab(mocks.__subcategories["General"], ctx, PS.tabAt("AH price"))
+    PS.homeTab(ctx)
+    NS.ApplySkinChoice("ka0s", "obsidian")
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted first") end
+    NS.ApplySkinIgnore(true, nil)
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), nil, "stock with the panel ignored") end
+    NS.ApplySkinIgnore(false, nil)
+    for _, r in ipairs(ctx._priRows) do assertEqual(ownerOf(r.check), OWNER, "painted again") end
+  end)
+  NS.ApplySkinIgnore(false, false)
   PS.homeTab(ctx)
   reset()
   if not ok then error(err, 0) end
@@ -202,7 +229,12 @@ local function profilesRow(skin)
   end)
   libs["AceDBOptions-3.0"], libs["AceConfig-3.0"], libs["AceConfigDialog-3.0"] = nil, nil, nil
   mocks.__subcategories["Profiles"] = nil
-  if NS.ProfilesPage.ctx then NS.ProfilesPage.ctx.panel:Hide() end
+  -- The kit's Hide fires no script, so OnHide is fired too: the library lets go of the page in its
+  -- combat lock, or the page stays registered for PLAYER_REGEN_* into the suites after this one.
+  if NS.ProfilesPage.ctx then
+    NS.ProfilesPage.ctx.panel:Hide()
+    NS.ProfilesPage.ctx.panel:__fire("OnHide")
+  end
   local row = drawn
   if row and not row.__released then AceGUI:Release(row) end
   reset()
@@ -210,7 +242,7 @@ local function profilesRow(skin)
   return row
 end
 
-test("skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default none", function()
+test("skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too", function()
   -- red under: dropping NS.SkinPaintAceTree from the Profiles renderer. The row is read the moment
   -- it is drawn, so a recorder stands in for the release that the cleanup above performs.
   local seen
@@ -227,7 +259,7 @@ test("skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0
     assertEqual(ownerOf(row), nil, "and released stock")
     seen = "unset"
     profilesRow("ka0s")
-    assertEqual(seen, nil, "Ka0s Default paints nothing")
+    assertEqual(seen, OWNER, "Ka0s Default paints it as well")
   end)
   NS.SkinPaintAceTree = paintTree
   if not ok then error(err, 0) end

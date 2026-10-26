@@ -60,6 +60,13 @@ kick("NS.Launcher:Register", function() if NS.Launcher then NS.Launcher:Register
 -- tests/test_disabled.lua wants the whole addon registered underneath it.
 kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
 
+-- The client keeps a settings canvas hidden until the player opens its category; the mock builds every
+-- frame shown. Hidden here, as in the client, so a profile write in an early suite marks the pages
+-- dirty instead of rendering them before tests/test_panel.lua opens them (panel_support.lua's show
+-- Shows a page before firing its OnShow).
+if mocks.__mainPanel then mocks.__mainPanel:Hide() end
+for _, panel in pairs(mocks.__subcategories or {}) do panel:Hide() end
+
 -- Load order is significant (later suites read state earlier ones seed); keep as-is. The list is a
 -- named local so tests/test_harness.lua can hand it to Kit.assertSuiteInventory as a named case —
 -- Kit.run applies the same gate implicitly, but an implicit gate contributes no row to
@@ -101,8 +108,9 @@ local SUITES = {
   -- on the live module and puts its fields back; leaves the skin on Ka0s Default.
   "test_skin_insights",
   -- This addon's own settings widgets on the skin (LH-06): the panel's AceGUI acquisitions, the AH
-  -- placeholder's chained release, the held AH check boxes and the Profiles tree; Ka0s Default paints
-  -- nothing. Renders through the raw AceGUI fake and puts NS.AceGUI back; leaves Ka0s Default.
+  -- placeholder's chained release, the held AH check boxes and the Profiles tree, Ka0s Default too, and
+  -- none of it while Ignore settings panel is on. Renders through the raw AceGUI fake and puts
+  -- NS.AceGUI back; leaves Ka0s Default.
   "test_skin_settings",
   -- The tool surfaces on the skin (LH-05): the debug console, its copy window, the export copy
   -- window and the AH drag list painted for this owner, and the factory seams naming it. After

@@ -6,8 +6,8 @@
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: part of the same
 -- major, paired on the shell's minor (`__controlsMinor` / `__controlsShellMinor`), painting with
 -- SkinPaint.lua's helpers (`lib.__P`). The technique is SkinPaint.lua's header: stock art faded and
--- recorded, Ka0s regions made once per target, Ka0s Default leaving a stock control stock, every
--- border on the holder and every wash on the fill holder under the target's text.
+-- recorded, Ka0s regions made once per target, every border on the holder and every wash a region
+-- of the target under its text and art (P.SUB).
 --
 -- HOVER AND FOCUS are HookScript'd once per target and read the target's record at call time, so a
 -- skin switch recolors them with no new hook and a pooled control that moved to another owner
@@ -22,7 +22,20 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local CONTROLS_MINOR = 1
+-- Minor 2 (the owner's notes, 2026-10-26): a disabled Button's label reads in `text.disabled`, moved
+-- on Enable / Disable; and Checkbox paints under Ka0s Default too, a square box in Ka0s Default's
+-- control colors, rather than leaving the client's round check button.
+-- Minor 3 (the owner's notes, round 2): every label a control colors gets the skin's face through
+-- P.label (StateButtonLabel, an EditBox's hint, a sort header's texts, a nav item, a tab), a dark
+-- label shadowless; and Slider draws its track as a thin bar centered in the slider, Ka0s Default's
+-- host-drawn shape, with no box round it.
+-- Minor 4: ScrollBar paints its own thumb and track under Ka0s Default too (SkinPaint minor 6: no
+-- skin leaves a stock control stock).
+-- Minor 5: ListRow's washes are regions of the row at the bottom of BACKGROUND (SkinPaint minor 7's
+-- P.SUB), not of the fill holder, which could tie the row's parent for frame level.
+-- Minor 6: ScrollBar lays `scroll.thumbFill`, when the skin sets it, as a flat fill over the bar's
+-- own thumb, following the thumb's Show and Hide (SkinDefs minor 9).
+local CONTROLS_MINOR = 6
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -35,6 +48,7 @@ local prim, P = lib.prim, lib.__P
 local rgb, rgba = P.rgb, P.rgba
 
 local ARROW_ART = "Interface\\ChatFrame\\ChatFrameExpandArrow"
+local SLIDER_BAR = 4   -- the slider track's height, Ka0s Default's host-drawn bar
 local GLYPH_FONT = "GameFontNormalLarge"
 local CHECK_GETTERS = { "GetNormalTexture", "GetPushedTexture", "GetDisabledTexture", "GetHighlightTexture" }
 local CHECKED_GETTERS = { "GetCheckedTexture", "GetDisabledCheckedTexture" }
@@ -77,13 +91,26 @@ end
 
 local function buttonBase(rec) return rec.regions.primary and "btnPrimary" or "btn" end
 
-local function buttonHover(btn, rec, on)
+local function enabled(btn)
+  return type(btn.IsEnabled) ~= "function" or btn:IsEnabled() ~= false
+end
+
+--- The label's color for the button's state: `text.disabled` while disabled, else the hover or
+--- rest color.
+local function buttonLabel(btn, rec, hot)
   local T = P.T(rec.owner)
   local base = buttonBase(rec)
   local fs = labelOf(btn)
-  local c = T[base .. (on and ".hover" or ".text")]
+  local c
+  if not enabled(btn) then
+    c = T["text.disabled"]
+  else
+    c = T[base .. (hot and ".hover" or ".text")]
+  end
   if fs and c then fs:SetTextColor(rgb(c)) end
 end
+
+local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on) end
 
 --- S.Button(btn, keepKeys | opts): a push button. The flat-control box from `btn.*` (or
 --- `btnPrimary.*` with `opts.primary`): backdrop, gradient, non-flat edge on the holder; the stock
@@ -105,12 +132,15 @@ prim.Button = function(owner, btn, a)
   local fs = labelOf(btn)
   if fs then
     P.tint(rec, fs, T, base .. ".text")
-    P.font(owner, rec, fs, "body")
+    P.font(owner, rec, fs, "body", T[base .. ".text"])
   end
   local icon = P.field(btn, "icon", "Texture")
   if icon then P.tint(rec, icon, T, base .. ".icon", "SetVertexColor") end
   P.hook(rec, btn, "OnEnter", function(self, r) buttonHover(self, r, true) end)
   P.hook(rec, btn, "OnLeave", function(self, r) buttonHover(self, r, false) end)
+  P.hook(rec, btn, "OnEnable", function(self, r) buttonLabel(self, r, false) end)
+  P.hook(rec, btn, "OnDisable", function(self, r) buttonLabel(self, r, false) end)
+  if not enabled(btn) then buttonLabel(btn, rec, false) end
 end
 
 --- S.WhiteButtonLabel(btn): the button's label in `btn.text` and the body font.
@@ -127,7 +157,7 @@ prim.StateButtonLabel = function(owner, btn, on)
   local fs = P.isFrame(btn) and labelOf(btn)
   if not fs then return end
   local rec = P.track(owner, btn, "StateButtonLabel", on)
-  P.tint(rec, fs, P.T(owner), on and "text.accent" or "text.muted")
+  P.label(owner, rec, fs, P.T(owner), on and "text.accent" or "text.muted")
 end
 
 -- ── text inputs ──────────────────────────────────────────────────────────────────────────────
@@ -153,7 +183,7 @@ prim.EditBox = function(owner, eb, opts)
   if type(eb.SetTextColor) == "function" then P.tint(rec, eb, T, "input.text") end
   P.font(owner, rec, eb, "body")
   local hint = P.isFS(opts.placeholder) and opts.placeholder or P.field(eb, "hint", "FontString")
-  if hint then P.tint(rec, hint, T, "input.placeholder") end
+  if hint then P.label(owner, rec, hint, T, "input.placeholder") end
   if opts.padInput and type(eb.SetTextInsets) == "function" then eb:SetTextInsets(6, 6, 0, 0) end
   if opts.noBorder then return end
   P.hook(rec, eb, "OnEditFocusGained", function(self, r) focusColor(self, r, true) end)
@@ -225,7 +255,7 @@ prim.Checkbox = function(owner, cb, opts)
   if not P.isFrame(cb) then return end
   local rec = P.track(owner, cb, "Checkbox", opts)
   opts = type(opts) == "table" and opts or {}
-  if P.stockDefault(owner, rec, cb, opts) then return end
+  -- No stockDefault here (minor 2): Ka0s Default draws its own square box too.
   local T = P.T(owner)
   P.fadeAll(rec, P.stockRegions(cb, opts, CHECK_GETTERS))
   local inset = type(opts.borderInset) == "number" and opts.borderInset or 0
@@ -271,9 +301,9 @@ local function thumbOf(sb, opts)
   return P.call(sb, "GetThumbTexture", "Texture") or P.field(sb, "ThumbTexture", "Texture"), false
 end
 
--- The thumb: a texture the caller drew is filled; the bar's own thumb is tinted, and only away
--- from Ka0s Default unless the caller asks for the enabled / disabled state.
-local function paintThumb(owner, rec, sb, T, opts)
+-- The thumb: a texture the caller drew is filled; the bar's own thumb is tinted, or takes the
+-- enabled / disabled state the caller asks for.
+local function paintThumb(_, rec, sb, T, opts)
   local thumb, own = thumbOf(sb, opts)
   if not thumb then return end
   if opts.state then
@@ -285,13 +315,50 @@ local function paintThumb(owner, rec, sb, T, opts)
     if T["scroll.thumb"] then thumb:SetColorTexture(rgba(T["scroll.thumb"])) end
     return
   end
-  if P.isDefault(owner) then return P.unpaint(rec, sb) end
   local art = P.media("background", T["scroll.thumbTexture"])
   if art then
     thumb:SetTexture(art)
   else
     P.tint(rec, thumb, T, "scroll.thumb", "SetVertexColor")
   end
+end
+
+-- The thumb fill (minor 6): `scroll.thumbFill` as a flat region over the bar's own thumb, inset to
+-- the knob's middle, anchored to it so it moves with it, shown and hidden with it (a hook on the
+-- thumb's Show / Hide / SetShown, once), at half alpha while the caller says the bar is off. A
+-- texture the caller drew (`opts.thumb`) is filled already and takes none.
+local function syncThumbFill(rec, thumb)
+  local t = rec.regions.thumbFill
+  if t and rec.regions.thumbFillOn then t:SetShown(thumb:IsShown()) end
+end
+
+local function hookThumb(rec, thumb)
+  if rec.regions.thumbHooked or type(hooksecurefunc) ~= "function" then return end
+  rec.regions.thumbHooked = true
+  for _, m in ipairs({ "Show", "Hide", "SetShown" }) do
+    if type(thumb[m]) == "function" then hooksecurefunc(thumb, m, function() syncThumbFill(rec, thumb) end) end
+  end
+end
+
+local function paintThumbFill(rec, sb, T, opts)
+  local c = T["scroll.thumbFill"]
+  local thumb, own = thumbOf(sb, opts)
+  if not (c and thumb and not own) then
+    rec.regions.thumbFillOn = false
+    return P.hide(rec, "thumbFill")
+  end
+  local t = P.tex(rec, "thumbFill", sb, "OVERLAY", 7)
+  if not t then return end
+  local w = type(thumb.GetWidth) == "function" and thumb:GetWidth() or 0
+  local inset = (w and w > 8) and math.floor(w / 4) or 0
+  t:ClearAllPoints()
+  t:SetPoint("TOPLEFT", thumb, "TOPLEFT", inset, -2)
+  t:SetPoint("BOTTOMRIGHT", thumb, "BOTTOMRIGHT", -inset, 2)
+  local a = (c[4] or 1) * (opts.state == "off" and 0.5 or 1)
+  t:SetColorTexture(c[1], c[2], c[3], a)
+  rec.regions.thumbFillOn = true
+  hookThumb(rec, thumb)
+  t:SetShown(type(thumb.IsShown) ~= "function" or thumb:IsShown())
 end
 
 --- S.ScrollBar(sb, opts): a scroll bar. `opts.track` / `opts.thumb`, textures the caller drew,
@@ -307,7 +374,8 @@ prim.ScrollBar = function(owner, sb, opts)
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
   paintThumb(owner, rec, sb, T, opts)
-  if opts.track or opts.state or P.isDefault(owner) or not T["scroll.track"] then return P.hide(rec, "track") end
+  paintThumbFill(rec, sb, T, opts)
+  if opts.track or opts.state or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
   if not t then return end
   t:SetAllPoints(sb)
@@ -315,8 +383,8 @@ prim.ScrollBar = function(owner, sb, opts)
   t:Show()
 end
 
---- S.Slider(slider, opts): a slider. Its track (`slider.track`, a region; `slider.trackBorder` on
---- the holder), its fill (`opts.fill`, a texture the caller drew: `slider.fill`) and its thumb
+--- S.Slider(slider, opts): a slider. Its track (`slider.track`, a 4px bar centered in the slider;
+--- `slider.trackBorder` on the holder, none in every shipped skin), its fill (`opts.fill`, a texture the caller drew: `slider.fill`) and its thumb
 --- (`opts.thumb`, else the slider's own: `slider.thumb`). Every slider token is nil in Ka0s
 --- Default, which leaves the slider as drawn. Draws no Media icon.
 prim.Slider = function(owner, slider, opts)
@@ -329,7 +397,11 @@ prim.Slider = function(owner, slider, opts)
     P.fadeAll(rec, P.stockRegions(slider, opts))
     local t = P.tex(rec, "track", slider, "BACKGROUND", 0)
     if t then
-      t:SetAllPoints(slider)
+      -- A thin bar centered in the slider (minor 3): Ka0s Default's host-drawn shape, in every skin.
+      t:ClearAllPoints()
+      t:SetPoint("LEFT", slider, "LEFT", 0, 0)
+      t:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
+      t:SetHeight(SLIDER_BAR)
       t:SetColorTexture(rgba(T["slider.track"]))
       t:Show()
     end
@@ -391,8 +463,7 @@ prim.Tab = function(owner, tab, opts)
   tabLine(rec, tab, T, selected)
   local fs = P.isFS(opts.text) and opts.text or labelOf(tab)
   if fs then
-    P.tint(rec, fs, T, selected and "tab.onText" or "tab.text")
-    P.font(owner, rec, fs, "body")
+    P.label(owner, rec, fs, T, selected and "tab.onText" or "tab.text")
   end
 end
 
@@ -520,7 +591,7 @@ prim.SortHeaderBar = function(owner, bar, opts)
   local T = P.T(owner)
   P.box(rec, bar, T, { fill = "list.header.bg", extra = true })
   for _, fs in ipairs(type(opts.texts) == "table" and opts.texts or {}) do
-    if P.isFS(fs) then P.tint(rec, fs, T, "list.header.text") end
+    if P.isFS(fs) then P.label(owner, rec, fs, T, "list.header.text") end
   end
   for _, t in ipairs(type(opts.arrows) == "table" and opts.arrows or {}) do
     if P.isTexture(t) then P.tint(rec, t, T, "icon.tint", "SetVertexColor") end
@@ -551,7 +622,7 @@ prim.NavItem = function(owner, item, opts)
   local rec = P.track(owner, item, "NavItem", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
-  if P.isFS(opts.label) then P.tint(rec, opts.label, T, opts.selected and "nav.selText" or "nav.text") end
+  if P.isFS(opts.label) then P.label(owner, rec, opts.label, T, opts.selected and "nav.selText" or "nav.text") end
   if P.isTexture(opts.sel) then P.tint(rec, opts.sel, T, "nav.selBg", "SetVertexColor") end
   local c = opts.selected and T["nav.selBar"] or nil
   P.edges(rec, item, c, "flat", 2)
@@ -605,16 +676,15 @@ end
 local ROW_STATE = { stripe = { stripe = true }, hover = { hover = true }, selected = { selected = true },
                     normal = {} }
 
-local function rowWash(rec, row, key, c, layer)
-  local h = c and P.under(rec, row)
-  local t = h and P.tex(rec, key, h, layer)
+local function rowWash(rec, row, key, c)
+  local t = c and P.subTex(rec, key, row, P.SUB[key])
   if not t then return P.hide(rec, key) end
-  t:SetAllPoints(h)
+  t:SetAllPoints(row)
   t:SetColorTexture(rgba(c))
   t:Show()
 end
 
---- S.ListRow(row, state): a list row's washes, on its fill holder under the row's text:
+--- S.ListRow(row, state): a list row's washes, regions of the row under its text and art:
 --- `list.stripe` when `state.stripe`, `list.hover` when `state.hover`, `list.sel` when
 --- `state.selected`, with a `list.selOutline` edge on the holder over it.
 --- `state` is a table or one of "stripe", "hover", "selected", "normal". Call it from the row's
@@ -624,8 +694,8 @@ prim.ListRow = function(owner, row, state)
   local rec = P.track(owner, row, "ListRow", state)
   local s = type(state) == "table" and state or ROW_STATE[state] or ROW_STATE.normal
   local T = P.T(owner)
-  rowWash(rec, row, "stripe", s.stripe and T["list.stripe"] or nil, "BACKGROUND")
-  rowWash(rec, row, "hover", s.hover and T["list.hover"] or nil, "BORDER")
-  rowWash(rec, row, "sel", s.selected and T["list.sel"] or nil, "BORDER")
+  rowWash(rec, row, "stripe", s.stripe and T["list.stripe"] or nil)
+  rowWash(rec, row, "hover", s.hover and T["list.hover"] or nil)
+  rowWash(rec, row, "sel", s.selected and T["list.sel"] or nil)
   P.edges(rec, row, s.selected and T["list.selOutline"] or nil, "flat", 1)
 end

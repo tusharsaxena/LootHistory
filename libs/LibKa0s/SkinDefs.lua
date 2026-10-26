@@ -33,6 +33,10 @@
 
 local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
+-- Minor 7: no new token. Five skins retuned from the owner's in-game notes of 2026-10-26: Azeroth
+-- (muted parchment, a shadowless Barlow body, light-on-leather tabs), Glass (denser, flat 1px
+-- controls, underlined tabs), Obsidian (darker), High Contrast (1px control edges) and WoW Midnight
+-- (violet-and-gold buttons). Ka0s Default's pixels are unchanged.
 
 -- Minor 3: eight Widgets tokens (`handle.edge`, `handle.rest`, `list.dropLine`, `list.ghostBg` and
 -- the four `list.box*`), so the drag handle and the reorder list follow a skin with Ka0s Default's
@@ -51,7 +55,15 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- `text.value`, `text.bodyAlt`, `text.subtle`, `text.highlight`, `gtip.value`, `gtip.subtle`,
 -- `icon.dim`, `sem.goodAlt`, `sem.badAlt`, `sem.warbandAlt` and `sem.unknown`. The dark skins
 -- inherit them; Azeroth sets every window one in ink, and no skin darkens a gtip one.
-local DEFS_MINOR = 6
+-- Minor 8 (the owner's ruling, 2026-10-26: "make sure even the Ka0s Default has a setting for
+-- everything"): Ka0s Default sets every token, faces and sizes included, and SkinPaint minor 6 paints
+-- it like any skin; Azeroth is reworked dark (its light parchment did not read in Loot History);
+-- WoW Forever takes Atkinson Hyperlegible and a browner charcoal.
+-- Minor 9 (the owner's note, 2026-10-27: the scroll bar's thumb barely visible in Obsidian, High
+-- Contrast, Ember, WoW Default and WoW Midnight): `scroll.thumbFill`, a flat fill laid over the
+-- thumb (SkinPaintControls minor 6), which those five set in their accent; a tint can only darken
+-- the client's thumb art, so no tint could brighten it. Ka0s Default and the rest set none.
+local DEFS_MINOR = 9
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -89,7 +101,7 @@ local GROUPS = {
     .. "check.markTexture:string? slider.track:color? "
     .. "slider.trackBorder:color? slider.fill:color? slider.thumb:color? scroll.track:color "
     .. "scroll.thumb:color scroll.thumbOn:color scroll.thumbOff:color scroll.width:number "
-    .. "scroll.gutter:number scroll.radius:number scroll.thumbTexture:string?" },
+    .. "scroll.gutter:number scroll.radius:number scroll.thumbTexture:string? scroll.thumbFill:color?" },
   { "Tabs and navigation", "tab.bg:color tab.bgTop:color? tab.bgBottom:color? tab.glow:color "
     .. "tab.text:color tab.border:color? tab.borderSize:number? tab.borderStyle:string? "
     .. "tab.onBg:color? tab.onText:color tab.onLine:color tab.rule:color tab.radius:number "
@@ -164,7 +176,11 @@ local SERIES = {
 }
 
 local KA0S = {
-  -- Fonts: all nil. The font object each FontString was created with stays.
+  -- Fonts (minor 8, the owner's ruling: Ka0s Default sets a font like every skin): Friz Quadrata,
+  -- the face the client's GameFont objects carry and so Ka0s Default's look, set explicitly; the
+  -- mono face DebugLog's console names; no outline, the client's 1, -1 shadow.
+  ["font.body"] = "Friz Quadrata TT", ["font.title"] = "Friz Quadrata TT", ["font.mono"] = "JetBrains Mono",
+  ["font.outline"] = "", ["font.shadow"] = true,
   -- Window: Core.SKIN, the CopyWindow backdrop, LootHistory's title bar.
   ["win.bg"] = { 0.06, 0.06, 0.08, 0.92 }, ["win.bgDense"] = { 0.06, 0.06, 0.08, 0.95 },
   ["win.border"] = { 0, 0, 0, 1 }, ["win.borderSize"] = 1, ["win.borderStyle"] = "flat",
@@ -194,13 +210,23 @@ local KA0S = {
   ["btn.bg"] = CTL_FILL, ["btn.border"] = CTL_LINE, ["btn.borderSize"] = 1,
   ["btn.borderStyle"] = "flat", ["btn.text"] = WHITE, ["btn.hover"] = GOLD,
   ["btn.icon"] = { 0.85, 0.85, 0.85, 1 }, ["btn.radius"] = 0,
-  ["btnPrimary.bg"] = CTL_FILL, ["btnPrimary.border"] = CTL_LINE, ["btnPrimary.borderSize"] = 1,
-  ["btnPrimary.borderStyle"] = "flat", ["btnPrimary.text"] = WHITE, ["btnPrimary.hover"] = GOLD,
+  -- The primary button in Ka0s Default's gold (minor 7, the owner's note: a primary must differ
+  -- from a normal button in every skin): a dark gold fill under a gold edge, gold text.
+  ["btnPrimary.bg"] = { 0.2, 0.16, 0.03, 0.95 }, ["btnPrimary.border"] = { 1, 0.82, 0, 0.8 },
+  ["btnPrimary.borderSize"] = 1,
+  ["btnPrimary.borderStyle"] = "flat", ["btnPrimary.text"] = GOLD, ["btnPrimary.hover"] = WHITE,
   ["btnPrimary.icon"] = { 0.85, 0.85, 0.85, 1 }, ["btnPrimary.radius"] = 0,
   -- Inputs: Widgets SKIN (dropdown, SearchBox), LootHistory Timeline's toggle box and tick.
   ["input.bg"] = CTL_FILL, ["input.border"] = CTL_LINE, ["input.borderSize"] = 1,
   ["input.borderStyle"] = "flat", ["input.focus"] = { 1, 0.82, 0, 0.9 }, ["input.radius"] = 0,
-  ["check.bg"] = { 0.24, 0.24, 0.27, 1 },
+  -- The reference sizes (SkinPaint minor 4): every skin sets both, and a target's size under a skin
+  -- is its stock size times the skin's over these, so under Ka0s Default every string keeps its own.
+  ["font.bodySize"] = 12, ["font.titleSize"] = 14,
+  -- A square box in the control colors with a gold mark (minor 7, the owner's note: "more square,
+  -- like Forever, in the Ka0s Default style"); Checkbox paints it under Ka0s Default since
+  -- SkinPaintControls minor 2.
+  ["check.bg"] = CTL_FILL, ["check.border"] = CTL_LINE, ["check.borderSize"] = 1,
+  ["check.borderStyle"] = "flat",
   ["check.mark"] = GOLD, ["check.radius"] = 0,
   -- Scroll: DebugLog's console bar (BAR_W 8) and OptionsScroll's thumb tints and GUTTER.
   ["scroll.track"] = { 0.24, 0.24, 0.27, 0.3 }, ["scroll.thumb"] = { 0.5, 0.5, 0.55, 0.85 },
@@ -283,6 +309,32 @@ local KA0S = {
   -- Warband label (not C.TIMELINE.WARBAND) and Insights' no-quality fallback gray.
   ["sem.goodAlt"] = { 0.25, 1, 0.25, 1 }, ["sem.badAlt"] = { 1, 0.25, 0.25, 1 },
   ["sem.warbandAlt"] = { 0.4, 0.78, 1, 1 }, ["sem.unknown"] = { 0.6, 0.6, 0.6, 1 },
+  -- ── Every other token, set (minor 8) ──────────────────────────────────────────────────────
+  -- The owner's ruling (2026-10-26): Ka0s Default leaves nothing to the client. Each value below
+  -- was nil, which meant "leave the client's look", and is now Ka0s Default's own: a color from its
+  -- palette, the client's quality colors written out, or `false`, the explicit "none" (a decoration
+  -- Ka0s Default does not draw, which is a setting, not a fallback).
+  ["win.bgTop"] = false, ["win.bgBottom"] = false, ["win.bgTexture"] = false,
+  ["title.bg"] = { 0.04, 0.04, 0.05, 0.9 }, ["title.bgTop"] = false, ["title.bgBottom"] = false,
+  ["title.align"] = "CENTER", ["foot.bg"] = { 0.04, 0.04, 0.05, 0.9 },
+  ["btn.bgTop"] = false, ["btn.bgBottom"] = false, ["btnPrimary.bgTop"] = false, ["btnPrimary.bgBottom"] = false,
+  ["input.text"] = BODY, ["input.placeholder"] = DIM,
+  ["check.texture"] = false, ["check.markTexture"] = false,
+  -- The slider: the thin bar every skin draws (SkinPaintControls minor 3), in Ka0s Default's colors.
+  ["slider.track"] = CTL_LINE, ["slider.trackBorder"] = false, ["slider.fill"] = GOLD,
+  ["slider.thumb"] = { 0.9, 0.9, 0.9, 1 },
+  ["scroll.thumbTexture"] = false, ["scroll.thumbFill"] = false,
+  ["tab.border"] = CTL_LINE, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
+  ["tab.onBg"] = { 0.18, 0.18, 0.18, 0.9 }, ["tab.texture"] = false, ["tab.onTexture"] = false,
+  ["nav.borderSize"] = 1, ["nav.borderStyle"] = "flat", ["nav.selBar"] = false,
+  ["list.header.bg"] = { 1, 1, 1, 0.04 }, ["list.sel"] = { 1, 0.82, 0, 0.18 }, ["list.selOutline"] = false,
+  ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = "flat",
+  ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
+  ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },
+  ["glow.color"] = GOLD,
+  -- The client's ITEM_QUALITY_COLORS, written out: the values every Blizzard frame draws.
+  ["q.poor"] = { 0.62, 0.62, 0.62, 1 }, ["q.common"] = WHITE, ["q.uncommon"] = { 0.12, 1, 0, 1 },
+  ["q.rare"] = { 0, 0.44, 0.87, 1 }, ["q.epic"] = { 0.64, 0.21, 0.93, 1 }, ["q.legendary"] = { 1, 0.5, 0, 1 },
 }
 
 lib:RegisterSkin({
@@ -381,13 +433,13 @@ local MOCK_MAP = {
 
 -- The accent at a fixed alpha: the hover and rule washes Ka0s Default draws in gold.
 local ACCENT_WASH = {
-  { "list.hover", 0.10 }, { "menu.hover", 0.15 }, { "section.rule", 0.35 },
+  { "menu.hover", 0.15 }, { "section.rule", 0.35 },
   { "drawer.borderOpen", 0.6 }, { "handle.edge", 0.6 }, { "list.dropLine", 0.9 },
 }
 
 -- The body text at a fixed alpha: the reorder list's row boxes, which Ka0s Default draws in white.
 local TEXT_WASH = {
-  { "list.box", 0.06 }, { "list.boxDim", 0.03 }, { "list.boxEdge", 0.12 }, { "list.boxEdgeDim", 0.06 },
+  { "list.hover", 0.10 }, { "list.box", 0.06 }, { "list.boxDim", 0.03 }, { "list.boxEdge", 0.12 }, { "list.boxEdgeDim", 0.06 },
 }
 
 -- Tokens that follow another token the skin set (minor 4): a skin that sets the source and not the
@@ -455,140 +507,115 @@ local function register(key, label, desc, swatches, mock, extra)
 end
 
 -- ── Obsidian ── mockup `obsidian`. Inter in the mockup; Barlow is the shipped face for it.
-register("obsidian", "Obsidian", "Near-black and flat, hairline edges, one cool blue accent.",
-  { "#121214", "#2a2a2f", "#1d1d21", "#4db8ff" }, {
-    font = "Ka0s Barlow", tfont = "Ka0s Barlow SemiBold", fs = 12, titleSize = 14,
-    win = hex("#121214"), winBorder = edge(1, "flat", hex("#2a2a2f")), winInner = false, radius = 0,
-    titleBg = hex("#0b0b0d"), titleColor = hex("#F2F2F4"), divider = hex("#26262b"),
+register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool blue accent.",
+  { "#0a0a0b", "#202024", "#141416", "#4db8ff" }, {
+    font = "Ka0s Barlow", tfont = "Ka0s Barlow SemiBold", fs = 12.5, titleSize = 14,
+    win = hex("#0A0A0B"), winBorder = edge(1, "flat", hex("#202024")), winInner = false, radius = 0,
+    titleBg = hex("#050506"), titleColor = hex("#F2F2F4"), divider = hex("#1c1c20"),
     text = hex("#E8E8EC"), muted = hex("#9B9BA4"), accent = hex("#4DB8FF"),
     closeColor = hex("#9B9BA4"),
-    btnBg = hex("#1d1d21"), btnBorder = edge(1, "flat", hex("#303036")), btnText = hex("#E8E8EC"),
+    btnBg = hex("#141416"), btnBorder = edge(1, "flat", hex("#2a2a30")), btnText = hex("#E8E8EC"),
     btnRadius = 0,
-    priBg = hex("#4DB8FF"), priBorder = edge(1, "flat", hex("#4DB8FF")), priText = hex("#06121C"),
-    inBg = hex("#0a0a0b"), inBorder = edge(1, "flat", hex("#2e2e34")), inRadius = 0,
+    priBg = hex("#2A86D1"), priBorder = edge(1, "flat", hex("#4DB8FF")), priText = hex("#FFFFFF"),
+    inBg = hex("#040405"), inBorder = edge(1, "flat", hex("#26262b")), inRadius = 0,
     inText = hex("#E8E8EC"), inPh = hex("#8A8A93"),
-    hdrBg = hex("#18181b"), hdrText = hex("#9B9BA4"), rowAlt = rgba(255, 255, 255, 0.02),
+    hdrBg = hex("#101012"), hdrText = hex("#9B9BA4"), rowAlt = rgba(255, 255, 255, 0.02),
     rowSel = rgba(77, 184, 255, 0.14),
     tabBg = CLEAR, tabText = hex("#9B9BA4"), tabBorder = edge(1, "flat", CLEAR), tabRadius = 0,
     tabOnBg = CLEAR, tabOnText = hex("#F2F2F4"), tabOnLine = hex("#4DB8FF"),
     scTrack = CLEAR, scThumb = hex("#3a3a42"), scRadius = 0,
-    chkBg = hex("#0a0a0b"), chkBorder = edge(1, "flat", hex("#3a3a42")), chkMark = hex("#4DB8FF"),
+    chkBg = hex("#040405"), chkBorder = edge(1, "flat", hex("#34343b")), chkMark = hex("#4DB8FF"),
     chkRadius = 0,
-    slTrack = hex("#2a2a2f"), slTrackBorder = edge(0, "flat", CLEAR), slFill = hex("#4DB8FF"),
+    slTrack = hex("#202024"), slTrackBorder = edge(0, "flat", CLEAR), slFill = hex("#4DB8FF"),
     slThumb = hex("#F2F2F4"),
     navBg = CLEAR, navBorder = edge(1, "flat", CLEAR), navText = hex("#9B9BA4"),
     navSelBg = rgba(255, 255, 255, 0.06), navSelText = hex("#F2F2F4"), navSelBar = hex("#4DB8FF"),
-    drawerBg = hex("#18181b"), drawerBorder = edge(1, "flat", hex("#2a2a2f")),
+    drawerBg = hex("#101012"), drawerBorder = edge(1, "flat", hex("#202024")),
     drawerText = hex("#E8E8EC"),
-    popBg = hex("#121214"), popBorder = edge(1, "flat", hex("#34343a")), popRadius = 0,
-    tipBg = hex("#0e0e10"), tipBorder = edge(1, "flat", hex("#34343a")), tipMuted = hex("#9B9BA4"),
-    footBg = hex("#0b0b0d"), gloss = false,
+    popBg = hex("#0A0A0B"), popBorder = edge(1, "flat", hex("#2c2c32")), popRadius = 0,
+    tipBg = hex("#070708"), tipBorder = edge(1, "flat", hex("#2c2c32")), tipMuted = hex("#9B9BA4"),
+    footBg = hex("#050506"), gloss = false,
   }, {
     ["text.disabled"] = hex("#6A6A72"), ["text.linkHot"] = hex("#8FD3FF"),
-    ["drawer.bgOpen"] = hex("#1d1d21"), ["drawer.boxBg"] = hex("#121214"),
-    ["drawer.summarySet"] = hex("#A8DBFF"), ["btnPrimary.hover"] = hex("#000000"),
+    ["drawer.bgOpen"] = hex("#141416"), ["drawer.boxBg"] = hex("#0A0A0B"),
+    ["drawer.summarySet"] = hex("#A8DBFF"), ["btnPrimary.hover"] = hex("#D6EEFF"),
     ["drawer.textSet"] = hex("#4DB8FF"),
-    ["card.bg"] = hex("#18181b"), ["card.border"] = hex("#2a2a2f"),
-    ["panel.bg"] = hex("#0f0f11"), ["panel.border"] = hex("#26262b"),
+    ["card.bg"] = hex("#101012"), ["card.border"] = hex("#202024"),
+    ["panel.bg"] = hex("#070708"), ["panel.border"] = hex("#1c1c20"),
     ["scroll.thumbOn"] = hex("#5a5a64"), ["tab.glow"] = rgba(255, 255, 255, 0.06),
+    ["scroll.thumbFill"] = rgba(77, 184, 255, 0.9),
   })
 
--- ── Azeroth ── mockup `azeroth`: parchment. The one light skin, so it also sets what the mockup
--- leaves dark: headings, the GameTooltip lines (drawn on Blizzard's dark tooltip, not on
--- parchment), the quality colors the client draws white or pale, the semantic colors and the charts.
-local INK = hex("#2A1C0C")
-register("azeroth", "Azeroth", "Parchment and leather, Cinzel titles, red wax-seal buttons.",
-  { "#e9ddbc", "#6b4a22", "#c9a45c", "#8e1b10" }, {
-    tfont = "Ka0s Cinzel", titleSize = 15,
-    win = hex("#E9DDBC"), winBorder = edge(3, "flat", hex("#6b4a22")), winInner = hex("#c9a45c"),
-    radius = 0,
-    titleBg = hex("#3a2412"), titleColor = hex("#F5C542"), divider = hex("#b8955a"),
-    text = INK, muted = hex("#6A5233"), accent = hex("#8E1B10"), closeColor = hex("#F5C542"),
-    btnBg = grad(hex("#a3241a"), hex("#5e1009")), btnBorder = edge(1, "flat", hex("#3a1206")),
-    btnText = hex("#FFD866"), btnRadius = 0,
-    priBg = grad(hex("#a3241a"), hex("#5e1009")), priBorder = edge(1, "flat", hex("#3a1206")),
-    priText = hex("#FFD866"),
-    inBg = hex("#F7EED6"), inBorder = edge(1, "flat", hex("#a8864e")), inRadius = 0, inText = INK,
-    inPh = hex("#7A6342"),
-    hdrBg = hex("#d8c697"), hdrText = hex("#3a2412"), rowAlt = rgba(120, 80, 30, 0.07),
-    rowSel = rgba(142, 27, 16, 0.16),
-    tabBg = hex("#cdb789"), tabText = hex("#4a3418"), tabBorder = edge(1, "flat", hex("#8a6a36")),
-    tabRadius = 0, tabOnBg = hex("#E9DDBC"), tabOnText = hex("#8E1B10"), tabOnLine = CLEAR,
-    scTrack = rgba(90, 60, 20, 0.15), scThumb = hex("#8a6a36"), scRadius = 0,
-    chkBg = hex("#F7EED6"), chkBorder = edge(1, "flat", hex("#6b4a22")), chkMark = hex("#8E1B10"),
+-- ── Azeroth ── mockup `azeroth`, reworked dark (SkinDefs minor 8, the owner's ruling of 2026-10-26:
+-- "the light background is not going to work"). Dark tooled leather under a leather edge and a gold
+-- inner rule, parchment text, gold headings and accent, Cinzel titles over an Atkinson Hyperlegible
+-- body; leather buttons, and the red wax seal kept for the primary button and the selected tab. As a
+-- dark skin it inherits Ka0s Default's semantic, quality, tooltip and chart colors.
+local AZ_LEATHER, AZ_EDGE, AZ_GOLD = hex("#2B1D12"), hex("#6b4a22"), hex("#E2B659")
+local AZ_TEXT, AZ_WAX = hex("#E9DDBC"), grad(hex("#a3241a"), hex("#5e1009"))
+register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Cinzel titles.",
+  { "#2b1d12", "#6b4a22", "#e2b659", "#8e1b10" }, {
+    font = "Ka0s Atkinson", fs = 12, tfont = "Ka0s Cinzel", titleSize = 12.5,
+    win = AZ_LEATHER, winBorder = edge(3, "flat", AZ_EDGE), winInner = hex("#8a6a36"), radius = 0,
+    titleBg = hex("#1a110a"), titleColor = hex("#F5C542"), divider = AZ_EDGE,
+    text = AZ_TEXT, muted = hex("#B8A07A"), accent = AZ_GOLD, closeColor = hex("#F5C542"),
+    btnBg = grad(hex("#5a3d1d"), hex("#3a2614")), btnBorder = edge(1, "flat", hex("#24160a")),
+    btnText = hex("#F2E3BD"), btnRadius = 0,
+    priBg = AZ_WAX, priBorder = edge(1, "flat", AZ_GOLD), priText = hex("#FFD866"),
+    inBg = hex("#1c130b"), inBorder = edge(1, "flat", AZ_EDGE), inRadius = 0, inText = AZ_TEXT,
+    inPh = hex("#8E7A58"),
+    hdrBg = hex("#3a2614"), hdrText = AZ_GOLD, rowAlt = rgba(233, 221, 188, 0.04),
+    rowSel = rgba(163, 36, 26, 0.35),
+    tabBg = hex("#3a2614"), tabText = hex("#CDB78A"), tabBorder = edge(1, "flat", hex("#24160a")),
+    tabRadius = 0, tabOnBg = hex("#7a1a10"), tabOnText = hex("#FFD866"), tabOnLine = CLEAR,
+    scTrack = rgba(0, 0, 0, 0.3), scThumb = hex("#8a6a36"), scRadius = 0,
+    chkBg = hex("#1c130b"), chkBorder = edge(1, "flat", hex("#8a6a36")), chkMark = AZ_GOLD,
     chkRadius = 0,
-    slTrack = hex("#d0bc8e"), slTrackBorder = edge(1, "flat", hex("#8a6a36")),
-    slFill = hex("#8E1B10"), slThumb = hex("#5e3a14"),
-    navBg = rgba(120, 80, 30, 0.08), navBorder = edge(1, "flat", hex("#b8955a")),
-    navText = hex("#4a3418"), navSelBg = hex("#8E1B10"), navSelText = hex("#FFE7A8"),
-    navSelBar = CLEAR,
-    drawerBg = hex("#d8c697"), drawerBorder = edge(1, "flat", hex("#8a6a36")),
-    drawerText = hex("#3a2412"),
-    popBg = hex("#E9DDBC"), popBorder = edge(3, "flat", hex("#6b4a22")), popRadius = 0,
-    tipBg = hex("#F3E8CB"), tipBorder = edge(2, "flat", hex("#6b4a22")), tipText = INK,
-    tipLevel = hex("#7A5A10"), tipMuted = hex("#6A5233"),
-    qEpic = hex("#6A1FA8"), qRare = hex("#00519E"), qUnc = hex("#1C6B12"),
-    footBg = hex("#d8c697"),
+    slTrack = hex("#5a3d1d"), slTrackBorder = edge(0, "flat", CLEAR), slFill = hex("#c0392b"),
+    slThumb = AZ_GOLD,
+    navBg = rgba(0, 0, 0, 0.25), navBorder = edge(1, "flat", AZ_EDGE), navText = AZ_GOLD,
+    navSelBg = hex("#7a1a10"), navSelText = hex("#FFE7A8"), navSelBar = CLEAR,
+    drawerBg = hex("#3a2614"), drawerBorder = edge(1, "flat", AZ_EDGE), drawerText = AZ_TEXT,
+    popBg = AZ_LEATHER, popBorder = edge(2, "flat", AZ_EDGE), popRadius = 0,
+    tipBg = hex("#1c130b"), tipBorder = edge(2, "flat", AZ_EDGE), tipText = AZ_TEXT,
+    tipLevel = hex("#F5C542"), tipMuted = hex("#B8A07A"),
+    footBg = hex("#1a110a"),
   }, {
-    ["text.heading"] = hex("#5E3A14"), ["text.headingAlt"] = hex("#5E3A14"),
-    ["text.disabled"] = hex("#7A6A50"), ["text.linkHot"] = hex("#B8321F"),
-    ["gtip.title"] = hex("#F5C542"), ["gtip.body"] = hex("#E9DDBC"), ["gtip.muted"] = hex("#B8955A"),
-    ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFFFFF"),
-    ["close.hot"] = hex("#FF6B4A"),
-    ["drawer.bgOpen"] = hex("#cdb789"), ["drawer.boxBg"] = hex("#F7EED6"),
-    ["drawer.summarySet"] = hex("#8E1B10"), ["drawer.textSet"] = hex("#8E1B10"),
-    ["card.bg"] = hex("#F3E8CB"), ["card.border"] = hex("#b8955a"),
-    ["panel.bg"] = rgba(120, 80, 30, 0.08), ["panel.border"] = hex("#b8955a"),
-    ["scroll.thumbOn"] = hex("#5e3a14"), ["tab.glow"] = rgba(255, 255, 255, 0.25),
-    ["q.poor"] = hex("#5A5A5A"), ["q.common"] = INK, ["q.legendary"] = hex("#A65A00"),
-    ["sem.good"] = hex("#1C6B12"), ["sem.bad"] = hex("#B3261E"), ["sem.neutral"] = hex("#6A5233"),
-    ["sem.warn"] = hex("#A65A00"), ["sem.info"] = hex("#00519E"), ["sem.gold"] = hex("#7A5A10"),
-    ["sem.warband"] = hex("#00628A"), ["sem.statusOk"] = hex("#1C7B22"),
-    ["sem.statusWarn"] = hex("#9A7400"), ["sem.statusBad"] = hex("#B3261E"),
-    ["sem.on"] = hex("#1C7B22"), ["sem.off"] = hex("#B3261E"),
-    -- The bind states and danger in ink on parchment: the same hues, darkened to read.
-    ["sem.boundNone"] = hex("#7A6A50", 0.7), ["sem.boundBoE"] = INK,
-    ["sem.boundBoP"] = hex("#1C6B12"), ["sem.boundWarband"] = hex("#00519E"),
-    ["sem.boundWarbandUE"] = hex("#A65A00"), ["sem.boundBoPAlt"] = hex("#B3261E"),
-    ["sem.boundBoEAlt"] = hex("#1C6B12"), ["sem.boundNoneAlt"] = hex("#6A5233"),
-    ["sem.danger"] = hex("#B3261E"),
-    -- LootHistory's other grays, signed figures and Warband label in ink on parchment; its gtip
-    -- value and launcher lines stay light, on Blizzard's dark tooltip.
-    ["text.value"] = hex("#4A3418"), ["text.bodyAlt"] = hex("#3A2412"),
-    ["text.subtle"] = hex("#3A2412"), ["text.highlight"] = INK, ["icon.dim"] = hex("#7A6A50"),
-    ["sem.goodAlt"] = hex("#1C7B22"), ["sem.badAlt"] = hex("#B3261E"),
-    ["sem.warbandAlt"] = hex("#00519E"), ["sem.unknown"] = hex("#5A5A5A"),
-    ["chart.axis"] = rgba(58, 36, 18, 0.6), ["chart.axisAlt"] = rgba(58, 36, 18, 0.75),
-    ["chart.grid"] = rgba(58, 36, 18, 0.12), ["chart.crosshair"] = rgba(58, 36, 18, 0.45),
-    ["chart.marker"] = rgba(58, 36, 18, 0.5), ["chart.line"] = hex("#00519E"),
-    ["chart.bar"] = hex("#00519E", 0.85), ["chart.track"] = rgba(58, 36, 18, 0.08),
-    ["chart.total"] = hex("#8E1B10"), ["chart.other"] = hex("#6A5233"),
-    ["chart.otherLine"] = hex("#8A7656"),
+    ["text.heading"] = AZ_GOLD, ["text.headingAlt"] = hex("#D4A84A"),
+    ["text.disabled"] = hex("#8A7A60"), ["text.linkHot"] = hex("#FFD866"),
+    ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFFFFF"), ["close.hot"] = hex("#FF6B4A"),
+    ["drawer.bgOpen"] = hex("#4a3018"), ["drawer.boxBg"] = hex("#1c130b"),
+    ["drawer.summarySet"] = AZ_GOLD, ["drawer.textSet"] = AZ_GOLD,
+    ["card.bg"] = hex("#3a2614"), ["card.border"] = AZ_EDGE,
+    ["panel.bg"] = rgba(0, 0, 0, 0.2), ["panel.border"] = AZ_EDGE,
+    ["scroll.thumbOn"] = AZ_GOLD, ["tab.glow"] = rgba(255, 255, 255, 0.10),
   })
 
 -- ── Glass ── mockup `glass`. Manrope in the mockup; Barlow stands for it. No blur in WoW: the
--- window is translucent on the shipped Ka0s Glass art (radius 8), the one rounded skin.
+-- window is translucent on the shipped Ka0s Glass art (radius 8), the one rounded skin. Minor 7 (the
+-- owner's 2026-10-26 notes): denser glass (.88), and only the window and its popups keep the rounded
+-- art; buttons, inputs, tabs and drawers take a flat 1px frosted edge, and the tabs Obsidian's
+-- boxless underline in lilac.
 local GLASS_EDGE = rgba(255, 255, 255, 0.18)
 register("glass", "Glass", "Translucent frosted panels with rounded corners and a lilac accent.",
   { "#121622", "#ffffff", "#b69cff", "#5aa9ff" }, {
-    font = "Ka0s Barlow", tfont = "Ka0s Barlow SemiBold", fs = 12, titleSize = 14,
-    win = rgba(18, 22, 34, 0.55), winBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
+    font = "Ka0s Barlow", tfont = "Ka0s Barlow SemiBold", fs = 12.5, titleSize = 14,
+    win = rgba(18, 22, 34, 0.88), winBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
     winInner = false, radius = 8,
     titleBg = rgba(255, 255, 255, 0.06), titleColor = hex("#FFFFFF"),
     divider = rgba(255, 255, 255, 0.12),
     text = hex("#F2F4F8"), muted = hex("#C9CFDB"), accent = hex("#B69CFF"),
     closeColor = hex("#C9CFDB"),
-    btnBg = rgba(255, 255, 255, 0.10), btnBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
-    btnText = hex("#F2F4F8"), btnRadius = 8,
-    priBg = hex("#B69CFF"), priBorder = edge(8, "nine:Ka0s Glass", hex("#B69CFF")),
+    btnBg = rgba(255, 255, 255, 0.08), btnBorder = edge(1, "flat", rgba(255, 255, 255, 0.22)),
+    btnText = hex("#F2F4F8"), btnRadius = 0,
+    priBg = hex("#B69CFF"), priBorder = edge(1, "flat", hex("#B69CFF")),
     priText = hex("#1A1033"),
-    inBg = rgba(0, 0, 0, 0.28), inBorder = edge(8, "nine:Ka0s Glass", rgba(255, 255, 255, 0.16)),
-    inRadius = 8, inText = hex("#F2F4F8"), inPh = hex("#B8BFCC"),
+    inBg = rgba(0, 0, 0, 0.30), inBorder = edge(1, "flat", rgba(255, 255, 255, 0.18)),
+    inRadius = 0, inText = hex("#F2F4F8"), inPh = hex("#B8BFCC"),
     hdrBg = rgba(255, 255, 255, 0.06), hdrText = hex("#C9CFDB"), rowAlt = rgba(255, 255, 255, 0.03),
     rowSel = rgba(182, 156, 255, 0.24),
-    tabBg = rgba(255, 255, 255, 0.05), tabText = hex("#C9CFDB"),
-    tabBorder = edge(8, "nine:Ka0s Glass", rgba(255, 255, 255, 0.10)), tabRadius = 8,
-    tabOnBg = rgba(182, 156, 255, 0.30), tabOnText = hex("#FFFFFF"), tabOnLine = CLEAR,
+    tabBg = CLEAR, tabText = hex("#C9CFDB"), tabBorder = edge(1, "flat", CLEAR), tabRadius = 0,
+    tabOnBg = rgba(182, 156, 255, 0.10), tabOnText = hex("#FFFFFF"), tabOnLine = hex("#B69CFF"),
     scTrack = CLEAR, scThumb = rgba(255, 255, 255, 0.35), scRadius = 0,
     chkBg = rgba(0, 0, 0, 0.3), chkBorder = edge(1, "flat", rgba(255, 255, 255, 0.3)),
     chkMark = hex("#B69CFF"), chkRadius = 0,
@@ -597,11 +624,11 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
     navBg = CLEAR, navBorder = edge(1, "flat", CLEAR), navText = hex("#C9CFDB"),
     navSelBg = rgba(255, 255, 255, 0.12), navSelText = hex("#FFFFFF"), navSelBar = CLEAR,
     drawerBg = rgba(255, 255, 255, 0.05),
-    drawerBorder = edge(8, "nine:Ka0s Glass", rgba(255, 255, 255, 0.12)),
+    drawerBorder = edge(1, "flat", rgba(255, 255, 255, 0.14)),
     drawerText = hex("#F2F4F8"),
-    popBg = rgba(18, 22, 34, 0.6), popBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
+    popBg = rgba(18, 22, 34, 0.92), popBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
     popRadius = 8,
-    tipBg = rgba(15, 18, 28, 0.75), tipBorder = edge(1, "flat", GLASS_EDGE),
+    tipBg = rgba(15, 18, 28, 0.92), tipBorder = edge(1, "flat", GLASS_EDGE),
     tipMuted = hex("#C9CFDB"),
     qEpic = hex("#C58BFF"), qRare = hex("#5AA9FF"), qUnc = hex("#5CFF5C"),
     footBg = rgba(255, 255, 255, 0.04), gloss = true,
@@ -616,45 +643,47 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
   })
 
 -- ── High Contrast ── mockup `contrast`: black, white 2px edges, yellow focus, Atkinson
--- Hyperlegible 2pt above the body size the Barlow skins use. Every control edge is 2px or more.
+-- Hyperlegible 2pt above the body size the Barlow skins use. Minor 7 (the owner's 2026-10-26 notes:
+-- "borders are too thick"): every control edge is 1px; the window keeps its 2px edge and the popups
+-- drop from 3px to 2px.
 local HC_WHITE, HC_YELLOW = hex("#FFFFFF"), hex("#FFE600")
-register("contrast", "High Contrast", "Black and white with yellow focus, 2px edges, larger type.",
+register("contrast", "High Contrast", "Black and white with yellow focus, crisp 1px edges, larger type.",
   { "#000000", "#ffffff", "#1a1a1a", "#ffe600" }, {
-    font = "Ka0s Atkinson", tfont = "Ka0s Atkinson Bold", fs = 14, titleSize = 17,
+    font = "Ka0s Atkinson", tfont = "Ka0s Atkinson Bold", fs = 13.5, titleSize = 15,
     win = hex("#000000"), winBorder = edge(2, "flat", HC_WHITE), winInner = false, radius = 0,
     titleBg = hex("#000000"), titleColor = HC_YELLOW, divider = HC_WHITE,
     text = HC_WHITE, muted = hex("#E0E0E0"), accent = HC_YELLOW, closeColor = HC_WHITE,
-    btnBg = hex("#000000"), btnBorder = edge(2, "flat", HC_WHITE), btnText = HC_WHITE,
+    btnBg = hex("#000000"), btnBorder = edge(1, "flat", HC_WHITE), btnText = HC_WHITE,
     btnRadius = 0,
-    priBg = HC_YELLOW, priBorder = edge(2, "flat", HC_YELLOW), priText = hex("#000000"),
-    inBg = hex("#000000"), inBorder = edge(2, "flat", HC_WHITE), inRadius = 0, inText = HC_WHITE,
+    priBg = hex("#000000"), priBorder = edge(1, "flat", HC_YELLOW), priText = HC_YELLOW,
+    inBg = hex("#000000"), inBorder = edge(1, "flat", HC_WHITE), inRadius = 0, inText = HC_WHITE,
     inPh = hex("#D0D0D0"),
     hdrBg = hex("#1a1a1a"), hdrText = HC_YELLOW, rowAlt = hex("#0d0d0d"), rowSel = hex("#000000"),
     rowSelOutline = HC_YELLOW,
-    tabBg = hex("#000000"), tabText = HC_WHITE, tabBorder = edge(2, "flat", HC_WHITE),
-    tabRadius = 0, tabOnBg = HC_YELLOW, tabOnText = hex("#000000"), tabOnLine = HC_YELLOW,
+    tabBg = hex("#000000"), tabText = HC_WHITE, tabBorder = edge(1, "flat", HC_WHITE),
+    tabRadius = 0, tabOnBg = hex("#000000"), tabOnText = HC_YELLOW, tabOnLine = HC_YELLOW,
     scTrack = hex("#000000"), scThumb = HC_WHITE, scRadius = 0,
-    chkBg = hex("#000000"), chkBorder = edge(2, "flat", HC_WHITE), chkMark = HC_YELLOW,
+    chkBg = hex("#000000"), chkBorder = edge(1, "flat", HC_WHITE), chkMark = HC_YELLOW,
     chkRadius = 0,
-    slTrack = hex("#000000"), slTrackBorder = edge(2, "flat", HC_WHITE), slFill = HC_YELLOW,
+    slTrack = hex("#FFFFFF"), slTrackBorder = edge(0, "flat", CLEAR), slFill = HC_YELLOW,
     slThumb = HC_WHITE,
-    navBg = hex("#000000"), navBorder = edge(2, "flat", HC_WHITE), navText = HC_WHITE,
+    navBg = hex("#000000"), navBorder = edge(1, "flat", HC_WHITE), navText = HC_WHITE,
     navSelBg = HC_YELLOW, navSelText = hex("#000000"), navSelBar = CLEAR,
-    drawerBg = hex("#000000"), drawerBorder = edge(2, "flat", HC_WHITE), drawerText = HC_YELLOW,
-    popBg = hex("#000000"), popBorder = edge(3, "flat", HC_YELLOW), popRadius = 0,
-    tipBg = hex("#000000"), tipBorder = edge(2, "flat", HC_WHITE), tipLevel = HC_YELLOW,
+    drawerBg = hex("#000000"), drawerBorder = edge(1, "flat", HC_WHITE), drawerText = HC_YELLOW,
+    popBg = hex("#000000"), popBorder = edge(2, "flat", HC_YELLOW), popRadius = 0,
+    tipBg = hex("#000000"), tipBorder = edge(1, "flat", HC_WHITE), tipLevel = HC_YELLOW,
     tipMuted = hex("#E0E0E0"),
     qEpic = hex("#D199FF"), qRare = hex("#6DB6FF"), qUnc = hex("#5CFF5C"),
     footBg = hex("#000000"), gloss = false,
   }, {
-    ["text.disabled"] = hex("#B0B0B0"), ["text.linkHot"] = HC_WHITE, ["close.hot"] = hex("#FF5050"),
+    ["text.disabled"] = hex("#B0B0B0"), ["text.linkHot"] = HC_WHITE, ["btnPrimary.hover"] = HC_WHITE, ["close.hot"] = hex("#FF5050"),
     ["gtip.body"] = HC_WHITE,
     ["drawer.bgOpen"] = hex("#000000"), ["drawer.boxBg"] = hex("#000000"),
     ["drawer.borderOpen"] = HC_YELLOW, ["drawer.summarySet"] = HC_YELLOW,
     ["card.bg"] = hex("#000000"), ["card.border"] = HC_WHITE,
     ["panel.bg"] = hex("#000000"), ["panel.border"] = HC_WHITE, ["section.rule"] = HC_YELLOW,
     ["list.hover"] = rgba(255, 230, 0, 0.2), ["menu.hover"] = rgba(255, 230, 0, 0.25),
-    ["scroll.thumbOn"] = HC_YELLOW, ["scroll.thumbOff"] = HC_WHITE,
+    ["scroll.thumbOn"] = HC_YELLOW, ["scroll.thumbOff"] = HC_WHITE, ["scroll.thumbFill"] = HC_YELLOW,
     ["tab.glow"] = rgba(255, 255, 255, 0.25),
     -- No faint or translucent bind state: the gray and off-white ones in the palette, opaque.
     ["sem.boundNone"] = hex("#B0B0B0"), ["sem.boundBoE"] = HC_WHITE,
@@ -667,7 +696,7 @@ register("contrast", "High Contrast", "Black and white with yellow focus, 2px ed
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Cinzel titles over the client body.
 register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel titles.",
   { "#1a0e0a", "#6a2e17", "#c98a3a", "#ff7a33" }, {
-    tfont = "Ka0s Cinzel", titleSize = 15,
+    fs = 12, tfont = "Ka0s Cinzel", titleSize = 12.5,
     win = rgba(26, 14, 10, 0.95), winBorder = edge(1, "flat", hex("#6a2e17")),
     winInner = rgba(201, 138, 58, 0.45), radius = 0,
     titleBg = grad(hex("#3a1a0f"), hex("#24100a")), titleColor = hex("#FFB45A"),
@@ -677,7 +706,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel title
     btnBg = grad(hex("#4a2012"), hex("#2a120a")), btnBorder = edge(1, "flat", hex("#8a3c1c")),
     btnText = hex("#FFCF9A"), btnRadius = 0,
     priBg = grad(hex("#e0662a"), hex("#a63d12")), priBorder = edge(1, "flat", hex("#ff9a5a")),
-    priText = hex("#1C0A04"),
+    priText = hex("#FFFFFF"),
     inBg = hex("#140a07"), inBorder = edge(1, "flat", hex("#5a2a16")), inRadius = 0,
     inText = hex("#F4E7DC"), inPh = hex("#A88A76"),
     hdrBg = rgba(255, 122, 51, 0.08), hdrText = hex("#FFB45A"), rowAlt = rgba(255, 255, 255, 0.025),
@@ -687,7 +716,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel title
     scTrack = rgba(0, 0, 0, 0.4), scThumb = hex("#8a3c1c"), scRadius = 0,
     chkBg = hex("#140a07"), chkBorder = edge(1, "flat", hex("#8a3c1c")), chkMark = hex("#FF7A33"),
     chkRadius = 0,
-    slTrack = hex("#2a140c"), slTrackBorder = edge(1, "flat", hex("#5a2a16")),
+    slTrack = hex("#4a2416"), slTrackBorder = edge(0, "flat", CLEAR),
     slFill = hex("#FF7A33"), slThumb = hex("#FFCF9A"),
     navBg = rgba(0, 0, 0, 0.3), navBorder = edge(1, "flat", hex("#5a2a16")),
     navText = hex("#C7A993"), navSelBg = rgba(255, 122, 51, 0.2), navSelText = hex("#FFE2C4"),
@@ -705,40 +734,44 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Cinzel title
     ["card.bg"] = rgba(42, 20, 12, 0.85), ["card.border"] = hex("#5a2a16"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#5a2a16"),
     ["icon.hot"] = hex("#FFB45A"), ["scroll.thumbOn"] = hex("#C7A993"),
+    ["scroll.thumbFill"] = rgba(255, 122, 51, 0.9),
   })
 
 -- ── WoW Default ── mockup `wowdefault`: the vanilla client. Its CSS ridge and outset edges are
 -- Blizzard's own art here: the window is BACKDROP_DIALOG_32_32's edge (LSM `Blizzard Dialog`,
 -- UI-DialogBox-Border, 32px) over UI-DialogBox-Background-Dark tiled on the window fill; buttons
--- are a red gradient with a 2px bevelOut gold edge; tabs are UI-OptionsFrame-ActiveTab /
--- InActiveTab; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
+-- are the red gradient under a thin dark rim, the client's own button, with the primary a brighter
+-- red under a thin gold edge (minor 7: the 2px bevelOut gold edge read as a frame, not a button); tabs are UI-OptionsFrame-ActiveTab in both
+-- states (the InActiveTab art is drawn shorter, so idle tabs stood lower than the selected one; the
+-- owner's note, round 3), the selected tab told by its white label; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
 -- An art token draws that art at its own colors; the color token beside it is the fallback when
 -- the art does not load. The client's own fonts: no font token.
-local GOLD_EDGE = hex("#a07c2c")
 local WOW_RED = grad(hex("#b3200f"), hex("#640c05"))
 register("wow", "WoW Default", "The vanilla client: dialog-box border, red buttons, gold text.",
   { "#1e1c19", "#a8a8a8", "#640c05", "#ffd100" }, {
+    fs = 12, titleSize = 14,
     win = hex("#1e1c19"), winBorder = edge(32, "nine:Blizzard Dialog", hex("#FFFFFF")),
     winInner = false, radius = 0,
     titleBg = grad(hex("#4b4b4b"), hex("#252525")), titleColor = hex("#FFD100"),
     divider = hex("#6e6e6e"),
     text = hex("#FFFFFF"), muted = hex("#B8B8B8"), accent = hex("#FFD100"),
     closeColor = hex("#D9D9D9"),
-    btnBg = WOW_RED, btnBorder = edge(2, "bevelOut", GOLD_EDGE), btnText = hex("#FFD100"),
+    btnBg = WOW_RED, btnBorder = edge(1, "flat", hex("#1a0805")), btnText = hex("#FFD100"),
     btnRadius = 0,
-    priBg = WOW_RED, priBorder = edge(2, "bevelOut", GOLD_EDGE), priText = hex("#FFD100"),
-    inBg = hex("#000000"), inBorder = edge(2, "bevelIn", hex("#7a7a7a")), inRadius = 0,
+    priBg = grad(hex("#d42a16"), hex("#7e1007")), priBorder = edge(1, "flat", hex("#e0b040")),
+    priText = hex("#FFFFFF"),
+    inBg = hex("#000000"), inBorder = edge(1, "bevelIn", hex("#7a7a7a")), inRadius = 0,
     inText = hex("#FFFFFF"), inPh = hex("#9A9A9A"),
     hdrBg = rgba(255, 255, 255, 0.07), hdrText = hex("#FFD100"), rowAlt = rgba(255, 255, 255, 0.03),
     rowSel = rgba(255, 209, 0, 0.18),
     tabBg = hex("#262626"), tabText = hex("#C9B048"), tabBorder = edge(2, "bevelOut", hex("#7a7a7a")),
     tabRadius = 0, tabOnBg = hex("#4a4a4a"), tabOnText = hex("#FFFFFF"), tabOnLine = CLEAR,
     scTrack = hex("#000000"), scThumb = hex("#9A7B2A"), scRadius = 0,
-    chkBg = hex("#111111"), chkBorder = edge(2, "bevelIn", hex("#8a8a8a")), chkMark = hex("#FFD100"),
+    chkBg = hex("#111111"), chkBorder = edge(0, "flat", false), chkMark = hex("#FFD100"),
     chkRadius = 0,
-    slTrack = hex("#000000"), slTrackBorder = edge(1, "flat", hex("#7a7a7a")), slFill = CLEAR,
+    slTrack = hex("#3a3a3a"), slTrackBorder = edge(0, "flat", CLEAR), slFill = hex("#C9A24A"),
     slThumb = hex("#C9A84A"),
-    navBg = rgba(0, 0, 0, 0.4), navBorder = edge(2, "bevelIn", hex("#6e6e6e")),
+    navBg = rgba(0, 0, 0, 0.4), navBorder = edge(1, "bevelIn", hex("#6e6e6e")),
     navText = hex("#FFD100"), navSelBg = rgba(90, 120, 220, 0.38), navSelText = hex("#FFFFFF"),
     navSelBar = CLEAR,
     drawerBg = hex("#262626"), drawerBorder = edge(2, "bevelOut", hex("#6e6e6e")),
@@ -750,12 +783,13 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     footBg = rgba(0, 0, 0, 0.3),
   }, {
     ["win.bgTexture"] = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-    ["tab.texture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-InActiveTab",
+    ["tab.texture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["tab.onTexture"] = "Interface\\OptionsFrame\\UI-OptionsFrame-ActiveTab",
     ["scroll.thumbTexture"] = "Interface\\Buttons\\UI-ScrollBar-Knob",
+    ["scroll.thumbFill"] = rgba(255, 209, 0, 0.9),
     ["check.texture"] = "Interface\\Buttons\\UI-CheckBox-Up",
     ["check.markTexture"] = "Interface\\Buttons\\UI-CheckBox-Check",
-    ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFFFFF"),
+    ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFD100"),
     ["text.disabled"] = hex("#808080"),
     ["drawer.bgOpen"] = hex("#3a3a3a"), ["drawer.boxBg"] = hex("#111111"),
     ["card.bg"] = rgba(0, 0, 0, 0.4), ["card.border"] = hex("#6e6e6e"),
@@ -763,20 +797,22 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
   })
 
 -- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 2px
--- #b08a3e window edge and the gradient tokens; no Blizzard art. Cinzel titles, centered.
+-- #b08a3e window edge and the gradient tokens; no Blizzard art. Cinzel titles, centered. Minor 7 (the
+-- owner's 2026-10-26 notes): the buttons leave WoW Default's red for night violet under a gold edge,
+-- and the primary button is the brighter violet of the accent.
 local MN_GOLD, MN_BG = hex("#b08a3e"), grad(hex("#171a2e"), hex("#0f1020"))
 register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, centered Cinzel titles.",
   { "#171a2e", "#b08a3e", "#2a2347", "#b48cff" }, {
-    tfont = "Ka0s Cinzel", titleSize = 15,
+    fs = 12, tfont = "Ka0s Cinzel", titleSize = 12.5,
     win = MN_BG, winBorder = edge(2, "flat", MN_GOLD), winInner = hex("#3d2f12"), radius = 0,
     titleBg = grad(hex("#2a2347"), hex("#17142b")), titleColor = hex("#F6D27A"),
     titleAlign = "CENTER", divider = hex("#4a3d1e"),
     text = hex("#F2EEF8"), muted = hex("#B4AFC8"), accent = hex("#B48CFF"),
     closeColor = hex("#F6D27A"),
-    btnBg = grad(hex("#8a1c14"), hex("#4f0d08")), btnBorder = edge(1, "flat", hex("#c9a24a")),
-    btnText = hex("#FFD866"), btnRadius = 0,
-    priBg = grad(hex("#f0c14b"), hex("#a87a1e")), priBorder = edge(1, "flat", hex("#ffe08a")),
-    priText = hex("#1A1205"),
+    btnBg = grad(hex("#3a2f6b"), hex("#1d1838")), btnBorder = edge(1, "flat", MN_GOLD),
+    btnText = hex("#F6D27A"), btnRadius = 0,
+    priBg = grad(hex("#7a5ad6"), hex("#3f2c86")), priBorder = edge(1, "flat", hex("#F6D27A")),
+    priText = hex("#FFFFFF"),
     inBg = hex("#08091a"), inBorder = edge(1, "flat", hex("#5a4a26")), inRadius = 0,
     inText = hex("#F2EEF8"), inPh = hex("#9A95B0"),
     hdrBg = rgba(180, 140, 255, 0.08), hdrText = hex("#F6D27A"), rowAlt = rgba(255, 255, 255, 0.025),
@@ -786,7 +822,7 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     scTrack = rgba(0, 0, 0, 0.4), scThumb = MN_GOLD, scRadius = 0,
     chkBg = hex("#08091a"), chkBorder = edge(1, "flat", MN_GOLD), chkMark = hex("#F6D27A"),
     chkRadius = 0,
-    slTrack = hex("#1a1730"), slTrackBorder = edge(1, "flat", hex("#5a4a26")),
+    slTrack = hex("#2c2550"), slTrackBorder = edge(0, "flat", CLEAR),
     slFill = hex("#B48CFF"), slThumb = hex("#F6D27A"),
     navBg = rgba(0, 0, 0, 0.3), navBorder = edge(1, "flat", hex("#4a3d1e")),
     navText = hex("#F6D27A"), navSelBg = rgba(180, 140, 255, 0.25), navSelText = hex("#FFFFFF"),
@@ -805,23 +841,25 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     ["card.bg"] = rgba(26, 23, 48, 0.85), ["card.border"] = hex("#4a3d1e"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#4a3d1e"),
     ["icon.hot"] = hex("#F6D27A"), ["scroll.thumbOn"] = hex("#F6D27A"),
+    ["scroll.thumbFill"] = rgba(246, 210, 122, 0.9),
   })
 
 -- ── WoW Forever ── mockup `forever`, the EllesmereUI-on-WoW-Forever look (OWNER_SCOPE R4): warm
 -- charcoal (the mockup's radial fill as a vertical gradient, no texture), black title bars with
--- centered white titles, a tan accent, gold headings, thin 1px edges, Barlow.
+-- centered white titles, a tan accent, gold headings, thin 1px edges. SkinDefs minor 8 (the owner's
+-- notes): Atkinson Hyperlegible for the blurry Barlow, and the charcoal a step browner.
 local FV_TAN, FV_EDGE = hex("#C9A07A"), hex("#3a3530")
-local FV_BG = grad(hex("#27231f"), hex("#13110f"))
+local FV_BG = grad(hex("#2e251c"), hex("#18120d"))
 register("forever", "WoW Forever", "Warm charcoal, black title bars with centered white titles, tan accent.",
-  { "#1d1a17", "#3a3530", "#050505", "#c9a07a" }, {
-    font = "Ka0s Barlow", tfont = "Ka0s Barlow SemiBold", fs = 12, titleSize = 14,
+  { "#231c15", "#3a3530", "#050505", "#c9a07a" }, {
+    font = "Ka0s Atkinson", tfont = "Ka0s Atkinson Bold", fs = 12, titleSize = 14,
     win = FV_BG, winBorder = edge(1, "flat", FV_EDGE), winInner = false, radius = 0,
     titleBg = hex("#050505"), titleColor = hex("#FFFFFF"), titleAlign = "CENTER",
     divider = hex("#2e2a26"), headColor = hex("#F2B33D"),
     text = hex("#FFFFFF"), muted = hex("#A39E97"), accent = FV_TAN, closeColor = hex("#FFFFFF"),
     btnBg = hex("#1f1d1b"), btnBorder = edge(1, "flat", hex("#48433d")), btnText = hex("#FFFFFF"),
     btnRadius = 0,
-    priBg = hex("#1f1d1b"), priBorder = edge(1, "flat", FV_TAN), priText = hex("#FFFFFF"),
+    priBg = hex("#9C7A58"), priBorder = edge(1, "flat", FV_TAN), priText = hex("#FFFFFF"),
     inBg = hex("#0a0908"), inBorder = edge(1, "flat", hex("#3e3934")), inRadius = 0,
     inText = hex("#FFFFFF"), inPh = hex("#8F8A83"),
     hdrBg = rgba(0, 0, 0, 0.35), hdrText = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.025),
@@ -842,7 +880,7 @@ register("forever", "WoW Forever", "Warm charcoal, black title bars with centere
     tipMuted = hex("#A39E97"),
     footBg = hex("#050505"), gloss = false,
   }, {
-    ["btnPrimary.hover"] = FV_TAN, ["drawer.textSet"] = hex("#F2B33D"),
+    ["btnPrimary.hover"] = hex("#FFE9D2"), ["drawer.textSet"] = hex("#F2B33D"),
     ["text.disabled"] = hex("#7A756E"), ["text.linkHot"] = hex("#E0C3A6"),
     ["drawer.bgOpen"] = hex("#24211e"), ["drawer.boxBg"] = hex("#0a0908"),
     ["drawer.summarySet"] = hex("#E0C3A6"),

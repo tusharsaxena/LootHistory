@@ -55,7 +55,7 @@ function Analytics:Attach(pane)
   scroll:SetScrollChild(content)
   self.content = content
   scroll:SetScript("OnSizeChanged", function() Analytics:Layout() end)
-  -- The template's bar is the skin's (stock on Ka0s Default); a recorded frame the library repaints.
+  -- The template's bar is the skin's, under every skin; a recorded frame the library repaints.
   if scroll.ScrollBar then NS.Skin.ScrollBar(scroll.ScrollBar) end
 
   -- Cards: the skin's Card (card.bg under card.border, the headline in the heading gold), which on
@@ -68,6 +68,7 @@ function Analytics:Attach(pane)
     -- and `richest` cards keep the big headline font (bigStr) and shrink-to-fit in Layout instead.
     local fontTemplate = (def.str and not def.bigStr) and "GameFontNormal" or "GameFontNormalHuge"
     local num = card:CreateFontString(nil, "OVERLAY", fontTemplate)
+    NS.Skin.Font(num)
     if def.bigStr then num:SetWordWrap(false) end
     num:SetPoint("TOP", 0, -9)
     num:SetPoint("LEFT", 2, 0)
@@ -75,6 +76,7 @@ function Analytics:Attach(pane)
     num:SetJustifyH("CENTER")
     NS.Skin.Card(card, { title = num })
     local cl = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    NS.Skin.Font(cl)
     cl:SetPoint("BOTTOM", 0, 7)
     cl:SetText(def.label)
     cl:SetTextColor(NS.SkinColor("text.disabled"))
@@ -222,6 +224,7 @@ function Analytics:BuildCharts(content)
   self.itemValuePanel = listPanel(content, "Top Items By Value")
   self.currencyStrip = CreateFrame("Frame", nil, content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
+  NS.Skin.Font(self.emptyText)
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:SetTextColor(NS.SkinColor("text.disabled"))
   self.emptyText:Hide()

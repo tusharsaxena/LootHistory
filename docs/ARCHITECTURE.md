@@ -84,10 +84,11 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-five rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Twenty-seven rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Appearance and Keybindings; Filters and
-Keybindings hold no rows (Keybindings is the library's, options-ui-§20), and Appearance's two rows,
-`settings.appearance.source` and `.skin`, are drawn by the library's own Appearance tab (skinning-§3).
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20), and Appearance's four rows,
+`settings.appearance.source` and `.skin` and the Scope's `.ignorePanel` and `.ignoreFonts`, are drawn
+by the library's own Appearance tab (skinning-§3).
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -345,11 +346,15 @@ facade with this addon as its **owner**.
   `NS.SkinRGB`, `NS.SkinEscape`, `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` /
   `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
   of the Ka0s Default tokens this addon reads, which `tests/test_surface_parity.lua` holds to the
-  library's values. The choice is two profile keys, `settings.appearance.source` and `.skin`
-  ([schema.md](schema.md)), drawn by the library's Appearance tab on the General page, just before
-  Keybindings ([settings-panel.md](settings-panel.md)).
+  library's values. The choice is two profile keys, `settings.appearance.source` and `.skin`, and the
+  tab's Scope two more, `.ignorePanel` (**Ignore settings panel**: this addon's settings pages stay
+  the client's; on in a new profile) and `.ignoreFonts` (**Ignore fonts**: every string keeps its own
+  face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways)
+  ([schema.md](schema.md)). All four are drawn by the library's Appearance tab on the General page,
+  just before Keybindings ([settings-panel.md](settings-panel.md)).
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
-  event (`core/LootHistory.lua`), and from each Appearance row with only its own half. It calls
+  event (`core/LootHistory.lua`), applying the stored Scope with the stored skin, and from each
+  Appearance row with only its own half. It calls
   `Skin:SetChoice`, which resolves the skin, repaints every frame recorded for this owner (each
   primitive re-runs in repaint mode) and then fires `NS.Skin.OnLooksChanged`. Surfaces that cannot be
   repainted in place subscribe there: markup built once (sort arrows, AH ticks), pooled rows (both
@@ -396,11 +401,19 @@ Outside the gate's reach, also on purpose:
   names it (LH-04).
 - **The TEST MODE / SIMULATION badge colors** in `modules/Browser.lua`: drawn only on a degraded
   install, where no skin exists and the badge stands in for the strip.
-- **Fonts.** The skin's fonts reach every text the facade's primitives draw (title bars, buttons,
-  edit boxes, dropdowns, `S.Text`, the AceGUI controls). The addon's own FontStrings built from
-  `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH table) keep the client
-  font: their layout is measured against it (column widths, the cards' shrink-to-fit headlines) and
-  the goldens pin it. Leg 2's re-check.
+- **Fonts.** The skin's face reaches every text the addon shows. The facade's primitives draw their
+  own (title bars, buttons, edit boxes, dropdowns, `S.Text`, the AceGUI controls), and the addon's own
+  FontStrings built from `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH
+  table, the filter bar's hint) take the skin's face through `S.Font`, face only, their colors still
+  the addon's. Sizes are relative to Ka0s Default's (LibKa0s SkinPaint minor 4), so each keeps its
+  template's size scaled by the skin's, and the layouts measured against it hold. Ka0s Default's face
+  is Friz Quadrata (LibKa0s SkinDefs minor 8), the one the `GameFont*` templates carry, so on it they
+  read as before; with **Ignore fonts** on, every string keeps its own face and size and the skin
+  still colors it. Two strings stay on their own face: the row's
+  direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
+  read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
+  are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished
+  on its parchment); on Ka0s Default the two are the same gray and gold.
 - **The minimap button and the broker tooltip** stay stock: LibDBIcon gives every addon's button one
   look, and the LDB tooltip's backdrop and the library's lines (including Launcher's semantic
   green/red status escapes, `libs/LibKa0s/Launcher.lua`) are the library's. The host's one line, the

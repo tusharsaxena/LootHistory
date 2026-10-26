@@ -517,6 +517,18 @@ local ROWS = {
     page = "General", group = "Appearance", label = "Skin",
     tooltip = "The Ka0s skin this addon wears. Changes every window and panel right away.",
     onChange = function(v) NS.ApplySkinChoice(nil, v) end },
+  -- The Scope's two exceptions (LibKa0s-Skin-1.0 minor 5), drawn by the same tab as check boxes, so
+  -- `skipRender` as well; each onChange applies only its own half, for the reason above.
+  { path = "settings.appearance.ignorePanel", default = PD.settings.appearance.ignorePanel, type = "bool",
+    widget = "CheckBox", skipRender = true,
+    page = "General", group = "Appearance", label = "Ignore settings panel",
+    tooltip = "Keep this addon's settings panel in the game's own look. Its windows still wear the skin.",
+    onChange = function(v) NS.ApplySkinIgnore(v, nil) end },
+  { path = "settings.appearance.ignoreFonts", default = PD.settings.appearance.ignoreFonts, type = "bool",
+    widget = "CheckBox", skipRender = true,
+    page = "General", group = "Appearance", label = "Ignore fonts",
+    tooltip = "Keep every font in this addon as the game draws it. The skin still colors the text.",
+    onChange = function(v) NS.ApplySkinIgnore(nil, v) end },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared

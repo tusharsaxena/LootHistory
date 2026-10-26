@@ -1505,7 +1505,7 @@ Total.
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
 - Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
-### test_skinsetup.lua (9)
+### test_skinsetup.lua (13)
 
 - Skin seam: the owner is the folder name, and NS.Skin is its facade
 - Skin seam: the read answers Ka0s Default before the profile store exists
@@ -1516,6 +1516,10 @@ Total.
 - Skin seam: one tab pick is one effective SetChoice, one repaint and no reload
 - Skin seam: another addon's copy to every Ka0s addon repaints LootHistory once
 - Skin seam: a profile switch applies the new profile's skin first, window built or not
+- Skin seam: a new profile ignores the settings panel and skins the fonts, as two Appearance rows
+- Skin seam: the tab's Ignore fonts reaches the library and the profile, one repaint
+- Skin seam: a profile's stored exceptions are applied with its skin
+- Skin seam: /lh set reaches an exception, and only its own half
 
 ### test_skin_chrome.lua (6)
 
@@ -1526,15 +1530,16 @@ Total.
 - skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
 
-### test_skin_table.lua (7)
+### test_skin_table.lua (8)
 
 - skin table: on Ka0s Default every table surface draws the value it drew before skins
 - skin table: the row menu is the skin's MenuFrame, call for call today's backdrop
 - skin table: the header and row tooltips read gtip.*
 - skin table: the sample tooltip reads q.* and gtip.*
 - skin table: a skin switch repaints the table live, pooled free rows too, and Ka0s Default puts it back
-- skin table: NS.QualityColor reads q.* where the skin sets it, else the client's color
+- skin table: NS.QualityColor reads q.*, which Ka0s Default sets to the client's colors
 - skin table: the degraded facade draws the row menu today's way
+- skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
 ### test_skin_insights.lua (11)
 
@@ -1550,14 +1555,15 @@ Total.
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
 
-### test_skin_settings.lua (7)
+### test_skin_settings.lua (8)
 
 - skin settings: under a non-default skin the panel's own widgets paint, past the proxy
 - skin settings: a release hands every painted widget back stock, the pool clean
-- skin settings: under Ka0s Default nothing is painted and nothing is wrapped
+- skin settings: under Ka0s Default the panel's own widgets paint like every skin's
 - skin settings: the AH placeholder's cleanup rides the release chain and still parks the host
-- skin settings: the AH table's held check boxes follow a switch and go stock on Ka0s Default
-- skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default none
+- skin settings: the AH table's held check boxes are painted on Ka0s Default and follow a switch
+- skin settings: Ignore settings panel hands the held check boxes back stock, live
+- skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
 ### test_skin_tools.lua (6)
@@ -2086,11 +2092,11 @@ Total.
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
-| test_skinsetup.lua | 9 |
+| test_skinsetup.lua | 13 |
 | test_skin_chrome.lua | 6 |
-| test_skin_table.lua | 7 |
+| test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
-| test_skin_settings.lua | 7 |
+| test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 6 |
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
@@ -2120,4 +2126,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1782** |
+| **Total** | **1788** |

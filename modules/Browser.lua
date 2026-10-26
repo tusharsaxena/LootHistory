@@ -172,7 +172,7 @@ function B:SelectTab(name)
   for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
-    frame.tabs[t].label:SetTextColor(NS.SkinColor(active and "tab.onText" or "tab.text"))
+    NS.Skin.Text(frame.tabs[t].label, active and "accent" or "muted")
     frame.tabs[t].underline:SetShown(active)
   end
   BuildPane(name)
@@ -281,14 +281,17 @@ end
 
 -- The tabs on a skin switch (OnLooksChanged, below). They are not the skin's Tab primitive: on Ka0s
 -- Default that draws the settings tab strip's gradient backing, which these tabs never had, so the
--- tabs keep their own two calls and take only the colors from the skin -- each label in
--- `tab.onText` / `tab.text` by the active tab, as SelectTab paints it, and the underline in
--- `tab.onLine`. Nothing to do before the window is built: LayoutTabButtons and SelectTab read the
+-- tabs keep their own two calls and take only the colors from the skin -- each label through
+-- `S.Text` in `accent` / `muted` by the active tab, as SelectTab paints it, and the underline in
+-- `tab.onLine`. The text roles, not `tab.onText` / `tab.text`: those are colored for a tab's own
+-- backing, which these tabs have none of, while the text roles are held to read on the window in
+-- every skin (Azeroth's cream `tab.text` vanished on its parchment). Ka0s Default's are the same
+-- gray and gold. Nothing to do before the window is built: LayoutTabButtons and SelectTab read the
 -- skin when they first paint.
 local function ReskinTabs()
   if not (frame and frame.tabs) then return end
   for name, tab in pairs(frame.tabs) do
-    tab.label:SetTextColor(NS.SkinColor(name == lastTab and "tab.onText" or "tab.text"))
+    NS.Skin.Text(tab.label, name == lastTab and "accent" or "muted")
     tab.underline:SetColorTexture(NS.SkinColor("tab.onLine"))
   end
 end

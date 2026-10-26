@@ -262,6 +262,7 @@ function B.MakeFlatButton(parent, text, width, height, onClick, opts)
     b.icon = tex
   end
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  NS.Skin.Font(fs)
   fs:SetPoint("CENTER")
   fs:SetText(text)
   b.text = fs

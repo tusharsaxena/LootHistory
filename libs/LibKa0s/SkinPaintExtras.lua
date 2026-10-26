@@ -8,17 +8,20 @@
 -- SkinPaint.lua's helpers (`lib.__P`), so it attaches only when that file attached to the same
 -- shell. The technique, the holder rule and the Ka0s Default rule are SkinPaint.lua's header.
 --
--- Every extra's overlay goes on one of the target's holders (fills and washes on the fill holder
--- under the target's text, edges and lines on the holder over it) or, for a frame that wears a
--- backdrop, into that backdrop: never as a direct region of a frame that may reach an EllesmereUI
--- primitive.
+-- Every extra's edges and lines go on the holder over the target, its fills and washes are regions
+-- of the target under everything it draws (P.SUB, P.subTex), and a frame that wears a backdrop
+-- takes its fill in that backdrop.
 -- No primitive here draws a LibKa0s-Media icon.
 
 local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local EXTRAS_MINOR = 1
+-- Minor 2 (the owner's notes, round 2): Footer, Card and Cover give the strings they color the
+-- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
+-- Minor 3: a wash is a region of its frame at the bottom of BACKGROUND (SkinPaint minor 7's P.SUB),
+-- not of the fill holder, which could tie the frame's parent for frame level.
+local EXTRAS_MINOR = 3
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -58,9 +61,9 @@ local function justify(rec, fs, align)
 end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
---- gradient), the bar's backdrop when it has one, else on the fill holder under the text; its text (`opts.text`, else
---- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Ka0s Default sets
---- no title fill and no alignment, so only the text color is painted. Draws no Media icon.
+--- gradient), the bar's backdrop when it has one, else a region of the bar under its text; its text (`opts.text`, else
+--- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Draws no Media
+--- icon.
 prim.TitleBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "TitleBar", opts)
@@ -94,7 +97,7 @@ prim.Divider = function(owner, target, opts)
   t:Show()
 end
 
---- S.Footer(frame, opts): a footer band, `foot.bg` (nil in Ka0s Default: nothing drawn), its text
+--- S.Footer(frame, opts): a footer band, `foot.bg`, its text
 --- (`opts.text`, else `frame.text`) in `text.muted`. Draws no Media icon.
 prim.Footer = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
@@ -103,7 +106,7 @@ prim.Footer = function(owner, frame, opts)
   local T = P.T(owner)
   P.box(rec, frame, T, FOOT, opts)
   local fs = textOf(frame, opts, "text", { "text" })
-  if fs then P.tint(rec, fs, T, "text.muted") end
+  if fs then P.label(owner, rec, fs, T, "text.muted") end
 end
 
 --- S.Card(frame, opts): a card (LootHistory's KPI cards), `card.bg` under `card.border` as the
@@ -115,12 +118,12 @@ prim.Card = function(owner, frame, opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   P.box(rec, frame, T, CARD, opts)
-  if P.isFS(opts.title) then P.tint(rec, opts.title, T, "text.heading") end
-  if P.isFS(opts.text) then P.tint(rec, opts.text, T, "text.body") end
+  if P.isFS(opts.title) then P.label(owner, rec, opts.title, T, "text.heading", "title") end
+  if P.isFS(opts.text) then P.label(owner, rec, opts.text, T, "text.body") end
 end
 
--- A wash: a texture colored in place, or a region of the fill holder filling a frame (under the
--- frame's own text).
+-- A wash: a texture colored in place, or a region of a frame filling it, under the frame's own text
+-- and art (P.SUB.wash).
 local function wash(owner, target, name, token, opts)
   if type(target) ~= "table" then return nil end
   local rec = P.track(owner, target, name, opts)
@@ -129,20 +132,19 @@ local function wash(owner, target, name, token, opts)
     if c then target:SetColorTexture(rgba(c)) end
     return rec
   end
-  local h = c and P.under(rec, target)
-  local t = h and P.tex(rec, "wash", h, "BACKGROUND")
+  local t = c and P.subTex(rec, "wash", target, P.SUB.wash)
   if not t then
     P.hide(rec, "wash")
     return rec
   end
-  t:SetAllPoints(h)
+  t:SetAllPoints(target)
   t:SetColorTexture(rgba(c))
   t:Show()
   return rec
 end
 
 --- S.Strip(target, opts): the test / simulation strip's wash, `strip.test` or `strip.sim`
---- (`opts.kind`), on a texture in place (`W.TestStrip`'s fill) or on a frame's fill holder. The strip's
+--- (`opts.kind`), on a texture in place (`W.TestStrip`'s fill) or as a region of a frame. The strip's
 --- meaning colors are the library's; a skin changes only their legibility. Draws no Media icon.
 prim.Strip = function(owner, target, opts)
   local kind = type(opts) == "table" and opts.kind == "sim" and "sim" or "test"
@@ -154,13 +156,12 @@ end
 prim.Cover = function(owner, target, opts)
   local rec = wash(owner, target, "Cover", "cover.dim", opts)
   if rec and type(opts) == "table" and P.isFS(opts.text) then
-    P.tint(rec, opts.text, P.T(owner), "cover.text")
+    P.label(owner, rec, opts.text, P.T(owner), "cover.text")
   end
 end
 
 --- S.Tooltip(frame): a LIBRARY-OWNED tooltip frame, never GameTooltip. Its backdrop is recolored
---- with `tooltip.bg` / `tooltip.border`, both nil in Ka0s Default (the frame keeps its look).
---- Draws no Media icon.
+--- with `tooltip.bg` / `tooltip.border`. Draws no Media icon.
 prim.Tooltip = function(owner, frame)
   if not P.hasBackdrop(frame) then return end
   local rec = P.track(owner, frame, "Tooltip")
@@ -189,8 +190,8 @@ prim.MenuFrame = function(owner, frame, opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   if opts.popup then
-    -- The frame is built once and kept, so a nil token (Ka0s Default has no `popup.border`) puts
-    -- that half back as the frame wore it before the first paint, not as the last skin left it.
+    -- The frame is built once and kept, so a nil token puts that half back as the frame wore it
+    -- before the first paint, not as the last skin left it.
     P.saveBackdrop(rec, frame)
     local s, bg, border = rec.regions.backdrop, T["popup.bg"], T["popup.border"]
     if s and s.bd then

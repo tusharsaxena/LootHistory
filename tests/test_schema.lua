@@ -661,9 +661,10 @@ local PARTITION = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     { "Interface", 5 }, { "History", 2 },
-    -- The skin's two rows (skinning-§3), after History in the strip's order; the library's
-    -- Appearance tab draws them, so both are skipRender.
-    { "Appearance", 2 },
+    -- The skin's two rows (skinning-§3) and the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5),
+    -- after History in the strip's order; the library's Appearance tab draws all four, so all four
+    -- are skipRender.
+    { "Appearance", 4 },
   },
 }
 
@@ -812,7 +813,8 @@ local NUMBER_WORD = {
   ten = 10, eleven = 11, twelve = 12, thirteen = 13, fourteen = 14, fifteen = 15,
   sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
   ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23, ["twenty-four"] = 24,
-  ["twenty-five"] = 25,
+  ["twenty-five"] = 25, ["twenty-six"] = 26, ["twenty-seven"] = 27, ["twenty-eight"] = 28,
+  ["twenty-nine"] = 29, thirty = 30,
 }
 
 local COUNT_CLAIMS = {
@@ -1235,6 +1237,8 @@ end
 local STORED_SETTINGS = [[
 minimap.shown | bool | true | nil | nil | nil
 settings.alpha | number | 1 | 0 | 1 | 0.05
+settings.appearance.ignoreFonts | bool | false | nil | nil | nil
+settings.appearance.ignorePanel | bool | true | nil | nil | nil
 settings.appearance.skin | string | "ka0s" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil

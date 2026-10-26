@@ -62,7 +62,10 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- (OptionsCompose minor 12's companions; LK-07 of the skinning run).
 -- Minor 4: OwnerLabel and WriteChoice, the read and the write of a registration the Appearance tab's copy to
 -- every Ka0s addon needs (OptionsAppearance.lua; LK-10 of the skinning run).
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 4
+-- Minor 5: each owner's two exceptions, the Appearance tab's "Ignore settings panel" and "Ignore
+-- fonts" (the owner's request, 2026-10-27): GetIgnore, SetIgnore, WriteChoice's third argument, and
+-- the two questions the paint paths ask (__PanelSkinned, __FontsIgnored).
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -232,7 +235,8 @@ local function takeHooks(o, opts, owner)
 end
 
 --- Register `owner` (the addon folder name) at the consumer's file load. `opts.get()` answers the
---- profile's `{ source, skin }`; `opts.set(source, skin)` writes it (copy to every Ka0s addon);
+--- profile's `{ source, skin }`; `opts.set(source, skin, ignore)` writes it (copy to every Ka0s
+--- addon; `ignore` since minor 5, `{ panel, fonts }` or nil, see WriteChoice);
 --- `opts.label` names the addon to the player; `opts.log(line)`, optional, takes the one line the
 --- EllesmereUI provider writes when it refuses or stops (SkinEUI.lua). The choice is read once,
 --- here; afterwards it moves only through `SetChoice`. A second call updates the hooks and keeps the
@@ -278,13 +282,17 @@ end
 
 --- Write (source, skin) into `owner`'s profile through the setter it registered (`opts.set`), under
 --- pcall: the write of the Appearance tab's copy to every Ka0s addon, which reaches each addon only
---- through its own write seam. Never moves the applied choice (SetChoice does). Answers true when a
---- setter ran and did not raise; false for an unregistered owner, one with no setter, or a raise
---- (handed to the client's error handler).
-function lib:WriteChoice(owner, source, skin)
+--- through its own write seam. `ignore` (minor 5), optional, is `{ panel = bool, fonts = bool }`
+--- and reaches the setter as its third argument; a setter written before minor 5 ignores it. Never
+--- moves the applied choice (SetChoice and SetIgnore do). Answers true when a setter ran and did not
+--- raise; false for an unregistered owner, one with no setter, or a raise (handed to the client's
+--- error handler).
+function lib:WriteChoice(owner, source, skin, ignore)
   local o = self.owners[owner]
   if not o or type(o.set) ~= "function" then return false end
-  local ok, err = pcall(o.set, cleanSource(source), cleanSkin(skin))
+  if type(ignore) == "table" then ignore = { panel = ignore.panel == true, fonts = ignore.fonts == true }
+  else ignore = nil end
+  local ok, err = pcall(o.set, cleanSource(source), cleanSkin(skin), ignore)
   if not ok then report(err); return false end
   return true
 end
@@ -389,6 +397,49 @@ function lib:SetChoice(owner, source, skin)
   self:Repaint(owner)
   notify(o)
   return true, false
+end
+
+-- ── the owner's two exceptions ───────────────────────────────────────────────────────────────
+
+--- The owner's exceptions: ignorePanel (its settings panel stays the client's), ignoreFonts (every
+--- string keeps the face and size it was given). false, false for an unregistered owner.
+function lib:GetIgnore(owner)
+  local o = self.owners[owner]
+  if not o then return false, false end
+  return o.ignorePanel == true, o.ignoreFonts == true
+end
+
+--- Set `owner`'s exceptions; nil keeps that half. Never writes the host's profile (WriteChoice's
+--- third argument does). A change repaints every frame recorded for the owner and fires its
+--- OnLooksChanged listeners, so both apply live: fonts go back or come back, and the Options
+--- instance hands its chrome back as it was and re-renders its pages (OptionsScroll minor 7).
+--- Answers changed, reload; `reload` is always false (kept so a caller's two-value read holds).
+function lib:SetIgnore(owner, panel, fonts)
+  requireOwner(owner, "SetIgnore")
+  local o = self.owners[owner]
+  if not o then return false, false end
+  if panel == nil then panel = o.ignorePanel == true else panel = panel == true end
+  if fonts == nil then fonts = o.ignoreFonts == true else fonts = fonts == true end
+  if panel == (o.ignorePanel == true) and fonts == (o.ignoreFonts == true) then return false, false end
+  o.ignorePanel, o.ignoreFonts = panel, fonts
+  if not o.pendingReload then
+    self:Repaint(owner)
+    notify(o)
+  end
+  return true, false
+end
+
+--- True while `owner`'s settings panel is to be painted (a registered owner whose ignorePanel is
+--- off); the Options chrome and the AceGUI rows ask it before they paint. Internal.
+function lib:__PanelSkinned(owner)
+  local o = self.owners[owner]
+  return o ~= nil and not o.ignorePanel
+end
+
+--- True when `owner` ignores fonts: P.font gives every string back its own face. Internal.
+function lib:__FontsIgnored(owner)
+  local o = self.owners[owner]
+  return o ~= nil and o.ignoreFonts == true
 end
 
 --- Call `fn(source, skin)` after each change of the owner's skin. Registering the same function

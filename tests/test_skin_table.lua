@@ -25,6 +25,7 @@ local Skin = mocks.LibStub("LibKa0s-Skin-1.0")
 local OptionsLib = mocks.LibStub("LibKa0s-Options-1.0")
 local installPaint = dofile("tests/_kit/mock_paint.lua")
 local OWNER = "LootHistory"
+local SW = dofile("tests/skin_support.lua")
 
 -- ── the skin back on Ka0s Default (tests/test_skin_chrome.lua's reset) ──────────────────────────
 local WAS_SHOWN
@@ -193,15 +194,17 @@ test("skin table: on Ka0s Default every table surface draws the value it drew be
     assertTable(today, "Ka0s Default")
     local data = rows()[2]
     assertEqual(rgba(rawget(data.boundIcon, "__vertex")), rgba({ 0.30, 0.82, 0.42 }), "BoP green, as before")
-    local c = mocks.ITEM_QUALITY_COLORS[4]
-    assertEqual(textColor(data.cells.item), rgba({ c.r, c.g, c.b }), "the client's epic color, as before")
+    -- Ka0s Default writes the client's quality colors out as q.* (LibKa0s SkinDefs minor 8), so the
+    -- epic is the client's purple by value; the mock's ITEM_QUALITY_COLORS answer white for all.
+    assertEqual(textColor(data.cells.item), rgba({ 0.64, 0.21, 0.93 }), "the client's epic color, as before")
     assertTrue(rawget(rows()[1].header, "__text"):find("|cff808080(3)|r", 1, true) ~= nil, "the count's bytes")
-    -- The header band and the scroll bar are recorded, and paint nothing on Ka0s Default.
+    -- The header band and the scroll bar are recorded. The header lays no band of its own; the scroll
+    -- bar takes its track, as under every skin (LibKa0s SkinPaintControls minor 4).
     assertTrue(recorded(BT.headerFrame, "SortHeaderBar"), "the header is the skin's SortHeaderBar")
     assertEqual(#(rawget(BT.headerFrame, "__paintRegions") or {}), 0, "Ka0s Default lays no band under the header")
     local sb = rawget(BT.scroll, "ScrollBar")
     assertTrue(recorded(sb, "ScrollBar"), "the scroll bar is the skin's ScrollBar")
-    assertEqual(#(rawget(sb, "__paintRegions") or {}), 0, "Ka0s Default lays no track under the bar")
+    assertTrue(#(rawget(sb, "__paintRegions") or {}) > 0, "Ka0s Default lays the track under the bar")
     assertEqual(textColor(BT.emptyText), today("text.disabled"), "the empty-state line")
   end)
 end)
@@ -278,13 +281,13 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
     BT.displayList = { LIST[1], LIST[2] }
     BT:Bind()
     assertTrue(#BT.rowPool.free >= 1, "no row on the free list")
-    NS.ApplySkinChoice("ka0s", "azeroth")
-    -- The case means something only where Azeroth differs from today.
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
+    -- The case means something only where the switch skin differs from today.
     for _, name in ipairs({ "list.header.text", "list.stripe", "list.hover", "text.body", "gtip.title",
                             "menu.bg", "menu.hover" }) do
-      assertTrue(tokenOf(name) ~= today(name), "Azeroth's " .. name .. " is today's value: pick another skin")
+      assertTrue(tokenOf(name) ~= today(name), "the switch skin's " .. name .. " is today's value")
     end
-    assertTrue(tokenOf("sem.boundBoP") ~= rgba({ 0.30, 0.82, 0.42, 1 }), "Azeroth's BoP is today's")
+    assertTrue(tokenOf("sem.boundBoP") ~= rgba({ 0.30, 0.82, 0.42, 1 }), "the switch skin's BoP is today's")
     assertTrue(#BT.rowPool.free >= 1, "the switch's rebind took the free row")
     for _, row in ipairs(BT.rowPool.free) do
       assertEqual(rgba(rawget(row.stripe, "__color")), tokenOf("list.stripe"), "a free row's stripe")
@@ -292,14 +295,14 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
     end
     BT.displayList = LIST
     BT:Bind()
-    assertTable(tokenOf, "Azeroth")
-    -- The menu opened under Azeroth wears Azeroth; Delete takes sem.danger.
+    assertTable(tokenOf, "the switch skin")
+    -- The menu opened under the switch skin wears it; Delete takes sem.danger.
     BT:ShowRowMenu(rows()[2], RECORD)
     local m = BT:MenuFrame()
     assertEqual(rgba(rawget(m, "__backdropColor")), tokenOf("menu.bg"), "the menu fill follows the skin")
     assertEqual(rgba(rawget(m.buttons[1].hl, "__color")), tokenOf("menu.hover"), "the menu hover")
     local danger = escape({ Skin:Color(OWNER, "sem.danger") })
-    assertTrue(danger ~= "|cffff5555", "Azeroth's sem.danger is today's")
+    assertTrue(danger ~= "|cffff5555", "the switch skin's sem.danger is today's")
     assertTrue(rawget(m.buttons[5].fs, "__text"):find(danger .. "Delete|r", 1, true) ~= nil, "Delete in sem.danger")
     m:Hide()
     local lines = tipLines(function() BT.headerFrame.buttons.item:__fire("OnEnter") end)
@@ -315,12 +318,12 @@ end)
 
 -- ── the seam helpers and the degraded facade ────────────────────────────────────────────────────
 
-test("skin table: NS.QualityColor reads q.* where the skin sets it, else the client's color", function()
-  local c = mocks.ITEM_QUALITY_COLORS[4]
-  assertEqual(rgba({ NS.QualityColor(4) }), rgba({ c.r, c.g, c.b }), "Ka0s Default sets no q.*")
-  NS.ApplySkinChoice("ka0s", "azeroth")
+test("skin table: NS.QualityColor reads q.*, which Ka0s Default sets to the client's colors", function()
+  assertEqual(rgba({ NS.QualityColor(4) }), rgba({ Skin:Color(OWNER, "q.epic") }), "Ka0s Default's q.epic")
+  assertEqual(rgba({ NS.QualityColor(4) }), rgba({ 0.64, 0.21, 0.93 }), "the client's epic, written out")
+  NS.ApplySkinChoice("ka0s", SW.key(Skin))
   local ok, err = pcall(function()
-    assertEqual(rgba({ NS.QualityColor(5) }), rgba({ Skin:Color(OWNER, "q.legendary") }), "Azeroth's legendary")
+    assertEqual(rgba({ NS.QualityColor(5) }), rgba({ Skin:Color(OWNER, "q.legendary") }), "the switch skin's legendary")
     assertEqual(select("#", NS.QualityColor(5)), 3, "three components")
   end)
   reset()
@@ -343,4 +346,42 @@ test("skin table: the degraded facade draws the row menu today's way", function(
   assertEqual(seen.fill, today("menu.bg"))
   assertEqual(seen.edge, today("menu.borderAlt"))
   assertEqual(dns.SkinEscape("sem.danger"), "|cffff5555", "Delete's bytes degraded too")
+end)
+
+test("skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock", function()
+  -- The owner's note (2026-10-26): on Azeroth the table's text was the client's font under its dark
+  -- drop shadow. red under: cells built from GameFont templates and never handed to the skin's Font.
+  withFreshTable(function()
+    BT.displayList = LIST
+    BT:Bind()
+    local cell
+    for _, row in ipairs(rows()) do
+      for _, fs in pairs(row.cells or {}) do cell = cell or fs end
+    end
+    assertTrue(cell ~= nil, "a bound data row has cells")
+    -- The face the cell draws: through the owner's font object where the client has CreateFont, else
+    -- set by path (this suite's case); either way GetFont answers the skin's face.
+    local FACE = "Fonts\\AtkinsonHyperlegible-Regular.ttf"
+    local function owned(fs) return (fs:GetFont()) == FACE end
+    -- The suite's strings answer no template font, so the cell is given the face its GameFont
+    -- template would hand it in the client; that is the face Ka0s Default must put back.
+    cell:SetFont("Fonts\\FRIZQT__.TTF", 10, "")
+    assertTrue(not owned(cell), "Ka0s Default sets no face: the cell keeps its template's font")
+    -- This suite loads no LibSharedMedia, so no skin face resolves and Font rightly leaves every cell
+    -- alone. The face is answered here, for the case's length, at the engine's one media lookup.
+    local P = Skin.__P
+    local media = P.media
+    P.media = function(kind, key)
+      if kind == "font" and key == "Ka0s Atkinson" then return FACE end
+      return media(kind, key)
+    end
+    local ok, err = pcall(function()
+      NS.ApplySkinChoice("ka0s", "azeroth")
+      assertTrue(owned(cell), "under Azeroth the cell wears the skin's body face")
+      NS.ApplySkinChoice("ka0s", "ka0s")
+    end)
+    P.media = media
+    if not ok then error(err, 0) end
+    assertEqual((cell:GetFont()), "Fonts\\FRIZQT__.TTF", "and Ka0s Default puts the template's face back")
+  end)
 end)

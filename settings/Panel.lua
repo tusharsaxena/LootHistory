@@ -31,8 +31,9 @@ local LOGO_SIZE     = 300  -- landing-page logo display size
 -- Every AceGUI widget this file acquires itself, painted for this addon's skin (skinning-§3).
 -- NS.AceGUI is normally the Options instance's owner proxy, which paints on Create already; the
 -- explicit NS.SkinPaintAce repaints in place for the same owner, so the host does not depend on
--- which handle it was given. Ka0s Default paints nothing, and the release puts the widget back in
--- AceGUI's shared pool stock (the library chains its restore onto the widget's OnRelease).
+-- which handle it was given. Nothing is painted while the Scope's Ignore settings panel is on, and
+-- the release puts the widget back in AceGUI's shared pool stock (the library chains its restore
+-- onto the widget's OnRelease).
 local function acquire(wtype)
   local w = NS.AceGUI:Create(wtype)
   NS.SkinPaintAce(w)
@@ -881,6 +882,7 @@ local function buildAuctionTable(ctx)
     ctx._priHeads = {}
     local function header(x, text)
       local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+      NS.Skin.Font(fs)
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
       fs:SetText(text); fs:SetTextColor(NS.SkinColor("text.headingAlt"))
       ctx._priHeads[#ctx._priHeads + 1] = fs
@@ -901,6 +903,7 @@ local function buildAuctionTable(ctx)
 
       local function fs(x)
         local f = rf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        NS.Skin.Font(f)
         f:SetPoint("LEFT", rf, "LEFT", gutter + x, 0); f:SetJustifyH("LEFT"); return f
       end
       r.tick = fs(ACOL.tick); r.addon = fs(ACOL.addon)
