@@ -804,7 +804,7 @@ end)
 -- OptionsKeybinds 5 and the new thirteenth file OptionsAppearance 1 (the Appearance tab);
 -- PerfPanel 10 and SimPanel 7 (the tool windows follow their owner); kit revision 43 (the paint
 -- recorder). Every other file unchanged. The local tag was re-cut four times before it shipped
--- (fb7b7a3 -> a3790f4 -> 7ec0e0a -> 65a23cb -> 585d40e): Media 7 skips a key LibSharedMedia
+-- (fb7b7a3 -> a3790f4 -> 7ec0e0a -> 65a23cb -> 7bc3e9b): Media 7 skips a key LibSharedMedia
 -- already holds (LK-A1), SkinDefs 5 adds the bind-state and danger Semantic tokens (LK-A2),
 -- SkinDefs 6 adds eleven tokens for the rest of LootHistory's constants (LK-A3), and SkinPaint 3
 -- puts an EditBox's face back by path, never its anonymous font object (LK-A4: the Forever ->

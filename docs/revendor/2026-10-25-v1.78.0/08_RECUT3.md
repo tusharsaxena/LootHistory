@@ -1,14 +1,17 @@
-# Re-cut 3: v1.78.0 at 585d40e (LootHistory)
+# Re-cut 3: v1.78.0 at 7bc3e9b (LootHistory)
 
 Run by the 2026-10-25 skinning run (item `LH-RV4`) on branch `feat/2026-10-25-skinning`. After
-`LH-RV3` vendored the tag at `65a23cb`, the local annotated tag v1.78.0 moved again, to `585d40e`
+`LH-RV3` vendored the tag at `65a23cb`, the local annotated tag v1.78.0 moved again, to `7bc3e9b`
 (LK-A4). It is still local and unpushed, and the version did not change. So the CLAUDE.md provenance
 line stays `v1.78.0`, and the `LibKa0s icons:` line is unchanged.
 
 The payload came from `git -C ../LibKa0s archive v1.78.0 LibKa0s testkit tools | tar -x -C <scratch>`.
 It was copied whole over `libs/LibKa0s/` and `tests/_kit/`, then pruned with the tag's own
 `tools/prune-icons.lua`: 16 icons declared, 17 files kept, 5,823 removed, the same set as before.
-The tag was never checked out.
+The tag was never checked out. The copy was taken at `585d40e`. The tag then moved to `7bc3e9b`, a
+docs-only LibKa0s commit that adds the CHANGELOG's release-gate line. `diff -r` of that tag's
+`LibKa0s/` and `testkit/` against this copy is empty apart from the pruned icons, so the copy did not
+change.
 
 **What moved.** Outside the pruned `media/icons/`, only one file differs, and `tests/_kit/` is
 byte-identical (kit revision stays 43):
