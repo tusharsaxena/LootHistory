@@ -22,9 +22,10 @@ ignore:
   - tests
   - _dev
   - "*.bak"
-  # Tracked, and the only entries here that change a download. Four screenshots,
-  # 3.6M -- project-page art the
-  # CurseForge CDN already serves. CLAUDE.md and DEPENDENCIES.md are developer
+  # Tracked, and the only entries here that change a download. media/screenshots
+  # holds the four project-page screenshots the CurseForge CDN already serves, and
+  # under skins/ the skin screenshots and showcases (tens of MB), reference art for
+  # the repository only. CLAUDE.md and DEPENDENCIES.md are developer
   # documentation; README.md and LICENSE stay, because players do read those.
   - media/screenshots
   - CLAUDE.md
