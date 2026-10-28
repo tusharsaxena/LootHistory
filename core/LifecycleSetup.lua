@@ -181,6 +181,9 @@ local STAND_DOWN_STEPS = {
   method("Timeline", "Disable"), method("Rollup", "Disable"),
   method("Attribution", "DisableOut"),
   call("DropLedgerResetOffer"),
+  -- The first-run skin picker is a frame this addon shows; it goes down unmarked, so it comes back
+  -- on the next login the addon stands up for (core/SkinSetup.lua).
+  call("HideSkinPicker"),
   cancelDeferralsStep,
   -- Hidden here as well as refused in the ladder, and both are needed: the ladder stops the window
   -- coming back, this takes down the one that is already up.

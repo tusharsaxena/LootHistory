@@ -107,6 +107,10 @@ function NS.OnProfileEvent(event, key)
   if NS.SimStop then NS.SimStop("profile") end
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
+  -- The first-run skin picker (core/SkinSetup.lua): a new or reset profile starts from the
+  -- defaults, `pickerSeen` false, so it shows; one that has seen it takes a shown picker down.
+  -- After the latch, so a profile with the addon switched off shows nothing.
+  if NS.MaybeShowSkinPicker then NS.MaybeShowSkinPicker() end
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end
   -- The one SettingsChanged("profile") every setting's reactor already listens to
   -- (docs/message-bus.md). Through the Schema module, the message's one sender.
@@ -171,4 +175,8 @@ function addon:OnEnterWorld()
   end)
   -- One-time reset recommendation (spec 9.2); in combat it holds for PLAYER_REGEN_ENABLED.
   NS.After(5, function() if NS.OfferLedgerReset then NS.OfferLedgerReset() end end)
+  -- The first-run skin picker (core/SkinSetup.lua), once per session, on a profile that has not
+  -- closed it: two seconds in, off the login spike, and cancelable like the rest. The stored skin
+  -- was applied in OnInitialize; in combat it holds for PLAYER_REGEN_ENABLED.
+  NS.After(2, function() if NS.MaybeShowSkinPicker then NS.MaybeShowSkinPicker() end end)
 end

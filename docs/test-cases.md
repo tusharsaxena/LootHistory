@@ -1533,6 +1533,20 @@ Total.
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
 
+### test_skin_picker.lua (11)
+
+- Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
+- Skin picker: the spec names this owner, its seams, the Skin tab and the eye
+- Skin picker: an unseen profile shows it; a seen one does not
+- Skin picker: it shows once after login, two seconds in, on the once-per-session path
+- Skin picker: in combat a start waits for PLAYER_REGEN_ENABLED, once
+- Skin picker: a held start is dropped by the stand-down's HideSkinPicker
+- Skin picker: never while the addon is switched off
+- Skin picker: a new profile and a reset profile show it again
+- Skin picker: the player's close marks it seen; this addon's own hide does not
+- Skin picker: a profile that has seen it takes a shown picker down, unmarked
+- Skin picker: the eye opens the History window in test mode
+
 ### test_skin_chrome.lua (6)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
@@ -2107,6 +2121,7 @@ Total.
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 9 |
+| test_skin_picker.lua | 11 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
@@ -2140,4 +2155,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1798** |
+| **Total** | **1809** |
