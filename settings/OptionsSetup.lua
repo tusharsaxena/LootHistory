@@ -62,6 +62,8 @@ if not lib then
     -- build draws no panel, so the no-op is all the surface owes.
     Drawer = noop,
     RegisterOptionsPage = noop, CreateOptionsPanel = noop,
+    -- The live one takes an optional page key since OptionsRegistry minor 4 (LibKa0s v1.79.0);
+    -- without the library there is no page to open either way.
     OpenOptionsPanel = function()
       NS.Print(NS.LIBKA0S_MISSING .. ", so the settings panel is unavailable.")
     end,
@@ -135,14 +137,20 @@ if not lib then
     -- General page's header Defaults. Pure on the live instance; the stub answers the tail alone
     -- (the library's suggested stub), and no panel reads it on this path.
     ResetAllTooltip = function(tail) return type(tail) == "string" and tail or "" end,
-    -- The Appearance tab (LibKa0s v1.78.0, OptionsAppearance minor 1; skinning-§3). Every Options
+    -- The Skin tab (LibKa0s v1.78.0, OptionsAppearance minor 1; skinning-§3). Every Options
     -- stub owes both members, adopted or not. On this path RenderTabbedSchema answers no tabs and
     -- EnsureScroll answers nil, so the entry is inert and AppearanceRows answers nil, as the live
     -- one does when it cannot draw.
+    -- Labeled "Skin" since OptionsAppearance minor 3 (LibKa0s v1.79.0); the key stays "Appearance".
     AppearanceTab = function()
-      return { key = "Appearance", label = "Appearance", render = noop }
+      return { key = "Appearance", label = "Skin", render = noop }
     end,
     AppearanceRows = function() return nil end,
+    -- The first-run skin picker (LibKa0s v1.79.0, OptionsSkinPicker minor 1). Without the library
+    -- there is no skin to pick: SkinPicker draws nothing and answers nil (never the live one's
+    -- second value, "queued": there is no queue), HideSkinPicker is a no-op.
+    SkinPicker = function() return nil end,
+    HideSkinPicker = noop,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.

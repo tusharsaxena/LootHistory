@@ -6,7 +6,7 @@ local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-fr
 local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip strings route through it
 
 -- The window GEOMETRY this addon owns: every height the layout is measured from. No color is here.
--- The window's look is the player's skin (the Appearance tab; core/SkinSetup.lua's NS.Skin, over
+-- The window's look is the player's skin (the Skin tab; core/SkinSetup.lua's NS.Skin, over
 -- LibKa0s-Skin-1.0): the edge, the title bar, the divider, the close control, the tab labels and
 -- underline, the bar's buttons and the footer all read its tokens and follow a skin switch with no
 -- reload. Ka0s Default is the look this window always had.

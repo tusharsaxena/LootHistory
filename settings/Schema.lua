@@ -529,6 +529,26 @@ local ROWS = {
     page = "General", group = "Appearance", label = "Ignore fonts",
     tooltip = "Keep every font in this addon as the game draws it. The skin still colors the text.",
     onChange = function(v) NS.ApplySkinIgnore(nil, v) end },
+  -- The Font and texture section's two overrides (LibKa0s-Skin-1.0 minor 6), drawn by the same tab
+  -- as dropdowns of LibSharedMedia keys, so `skipRender` as well; "" is the skin's own. Declared as
+  -- free text, not a Dropdown with `values`: a media pack may register its keys after this file
+  -- loads, and `/lh set` takes any key. Each onChange applies its own half.
+  { path = "settings.appearance.font", default = PD.settings.appearance.font, type = "string",
+    widget = "EditBox", dialogControl = "EditBox", skipRender = true,
+    page = "General", group = "Appearance", label = "Font",
+    tooltip = "The font this addon's text uses, over the skin's own. Empty keeps the skin's.",
+    onChange = function(v) NS.ApplySkinOverride(v, nil) end },
+  { path = "settings.appearance.texture", default = PD.settings.appearance.texture, type = "string",
+    widget = "EditBox", dialogControl = "EditBox", skipRender = true,
+    page = "General", group = "Appearance", label = "Texture",
+    tooltip = "The texture this addon's bars use, over the skin's own. Empty keeps the skin's.",
+    onChange = function(v) NS.ApplySkinOverride(nil, v) end },
+  -- The first-run skin picker's memory (NS.MaybeShowSkinPicker, core/SkinSetup.lua): set when the
+  -- picker closes, so it shows once per profile. Drawn by nothing; a reset puts it back to false.
+  { path = "settings.appearance.pickerSeen", default = PD.settings.appearance.pickerSeen, type = "bool",
+    widget = "CheckBox", skipRender = true,
+    page = "General", group = "Appearance", label = "Skin picker seen",
+    tooltip = "Whether the first-run skin picker was closed on this profile." },
 }
 
 -- ONE array, Master controls first. The composed block is spliced at the HEAD rather than declared

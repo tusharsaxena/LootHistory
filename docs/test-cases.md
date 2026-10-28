@@ -1413,7 +1413,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (47)
+### test_panel.lua (48)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1434,6 +1434,7 @@ Total.
 - Panel: a slider is given the row's own min, max and step
 - Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS
 - Panel: a subgroup heading never repeats its own tab's name (options-ui-§7)
+- Panel: no heading on the library's Skin tab repeats the tab's own label (options-ui-§7)
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: the Test mode checkbox starts test mode, and a refused start redraws it unticked
 - Panel: choosing a dropdown entry writes the stored value
@@ -1521,6 +1522,46 @@ Total.
 - Skin seam: a profile's stored exceptions are applied with its skin
 - Skin seam: /lh set reaches an exception, and only its own half
 
+### test_skin_overrides.lua (9)
+
+- Skin overrides: the font and texture keys default to the skin's own, as two Skin tab rows
+- Skin overrides: the stored pair reads false, false before the profile store exists
+- Skin overrides: the write seam stores media's halves, "" for the skin's own
+- Skin overrides: a write with no media leaves both stored halves alone
+- Skin overrides: one Font pick on the tab is one SetOverride, one repaint, in the profile
+- Skin overrides: the Texture dropdown sits beside Font and writes its own half
+- Skin overrides: /lh set reaches an override, and only its own half
+- Skin overrides: a profile's stored pair is applied with its skin, "" clearing
+- Skin overrides: a profile switch applies the new profile's overrides
+
+### test_skin_picker.lua (25)
+
+- Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
+- Skin picker: the spec names this owner, its seams, the Skin tab and the eye
+- Skin picker: an unseen profile shows it; a seen one does not
+- Skin picker: it shows once after login, two seconds in, on the once-per-session path
+- Skin picker: in combat a start waits for PLAYER_REGEN_ENABLED, once
+- Skin picker: a held start is dropped by the stand-down's HideSkinPicker
+- Skin picker: never while the addon is switched off
+- Skin picker: a new profile and a reset profile show it again
+- Skin picker: the player's close marks it seen; this addon's own hide does not
+- Skin picker: a profile that has seen it takes a shown picker down, unmarked
+- Skin picker: the eye opens the History window in test mode
+- Skin picker: the title names this addon
+- Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
+- Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
+- Skin picker: the gear saves the pick and opens General on its Skin tab
+- Skin picker: behind another addon's picker it queues, answers nil, "queued", then shows
+- Skin picker: the other addon's Apply to all dismisses this queued picker, seen and skinned
+- Skin picker: this addon's own hide takes a queued picker out of the queue, unseen
+- Skin picker: a profile switch with a preview pending wears the new profile's skin
+- Skin picker: the eye raises the picker over the History window it opens
+- Skin picker: a close after the store moved under a preview wears the stored skin
+- Skin picker: the stand-down with a preview pending puts the old skin back, unsaved, unseen
+- Skin picker: the stand-down takes a queued picker out of the queue, unseen
+- Skin picker: a close leaves the put-back to the library; the host moves no skin
+- Skin picker: a picker queued behind another addon's waits for combat to end
+
 ### test_skin_chrome.lua (6)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
@@ -1541,7 +1582,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (11)
+### test_skin_insights.lua (17)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1554,6 +1595,12 @@ Total.
 - skin holdings: a switch rebuilds the arrows and repaints every pooled row live
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
+- skin bars: every Insights bar of data is the skin's BarTexture; tracks and rules are not
+- skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color
+- skin bars: with no status bar resolved, a bar keeps its flat color
+- skin bars: a Texture override paints every bar in that texture, tinted its own color
+- skin bars: the Timeline's gain and loss columns are the skin's BarTexture
+- skin bars: NS.SkinBar paints flat when the target is not a Texture or the facade lacks it
 
 ### test_skin_settings.lua (8)
 
@@ -1625,7 +1672,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (37)
+### test_libka0s.lua (38)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1664,6 +1711,7 @@ Total.
 - v1.76.0: the vendored minors and the kit revision match the release
 - v1.77.0: the vendored minors and the kit revision match the release
 - v1.78.0: the vendored minors and the kit revision match the release
+- v1.79.0: the vendored minors and the kit revision match the branch
 
 ### test_surface_parity.lua (20)
 
@@ -2088,20 +2136,22 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 47 |
+| test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
+| test_skin_overrides.lua | 9 |
+| test_skin_picker.lua | 25 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 11 |
+| test_skin_insights.lua | 17 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 6 |
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 37 |
+| test_libka0s.lua | 38 |
 | test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2126,4 +2176,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1788** |
+| **Total** | **1830** |

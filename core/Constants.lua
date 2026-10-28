@@ -366,7 +366,9 @@ C.TIMELINE = {
 --   MEDIUM             LibDBIcon minimap button (the library's, fixed).
 --   HIGH     WINDOW    the History window, toplevel and clamped; every pane, table, chart and strip
 --                      in it inherits. Shares HIGH with Blizzard's Settings panel; both are
---                      toplevel, so the last one clicked is on top.
+--                      toplevel, so the last one clicked is on top. Peer: the library's first-run
+--                      skin picker (OptionsSkinPicker), HIGH and toplevel too, which the eye's
+--                      History window would cover; core/SkinSetup.lua raises it after the eye.
 --   DIALOG   MODAL     the Export modal, toplevel and clamped. Peers by the library's and Blizzard's
 --                      choice: the debug console, perf panel and sim panel (toplevel from LibKa0s
 --                      v1.77.0) and the StaticPopup confirmations.

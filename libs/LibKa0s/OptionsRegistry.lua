@@ -29,7 +29,11 @@ if not lib then return end
 -- the descriptor's `debug`, the pair to the parked line (gap G3 of the 2026-09-30 debug-gaps run).
 -- Minor 3: the AceGUI handle re-resolved here is handed to the AceGUI rows' skin again
 -- (`lib.__AttachSkinAce`, OptionsScroll.lua minor 6), as lib:New hands the first one.
-local REGISTRY_MINOR = 3
+-- Minor 4: O.OpenOptionsPanel(pageKey) opens that page's own subcategory (the builder's answer when
+-- it is a category, else the main category's subcategory of the page's registered name), so the
+-- skin picker's gear lands on the page and not on the landing page (PK-02). No page key, or one
+-- that names no built page, opens the main category as before.
+local REGISTRY_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__registryMinor and lib.__registryMinor >= REGISTRY_MINOR
@@ -122,6 +126,9 @@ function lib.__AttachRegistry(O, d)
   local function buildPage(page)
     local ok, err = pcall(page.builder, mainCategory)
     if ok then
+      -- A builder that answers its subcategory (minor 4) is opened by it; one that answers nothing
+      -- is looked up by name when it is opened.
+      if type(err) == "table" then page.category = err end
       builtPages[#builtPages + 1] = page
       return true
     end
@@ -239,7 +246,31 @@ function lib.__AttachRegistry(O, d)
     end)
   end
 
-  --- Open the host's settings category.
+  --- The category ID of the built page `pageKey`: its builder's answer when that has an ID, else the
+  --- main category's subcategory carrying the page's registered name. nil when neither is found.
+  --- Under pcall: GetSubcategories is SettingsCategoryMixin's, read only here.
+  local function pageCategoryID(pageKey)
+    local page
+    for _, p in ipairs(builtPages) do
+      if p.key == pageKey then page = p break end
+    end
+    if not page then return nil end
+    local ok, id = pcall(function()
+      local cat = page.category
+      if cat and type(cat.GetID) == "function" then return cat:GetID() end
+      if type(mainCategory.GetSubcategories) ~= "function" then return nil end
+      for _, sub in ipairs(mainCategory:GetSubcategories() or {}) do
+        if type(sub.GetName) == "function" and sub:GetName() == page.name and type(sub.GetID) == "function" then
+          return sub:GetID()
+        end
+      end
+    end)
+    return ok and id or nil
+  end
+
+  --- Open the host's settings category, or with `pageKey` (minor 4) that page's own subcategory: the
+  --- key `O.RegisterOptionsPage` was given. A key that names no built page, or a page whose
+  --- category cannot be found, opens the main category, as no key does.
   ---
   --- REFUSES under combat, and does not defer-and-replay. Blizzard's category switch is protected,
   --- so calling it under lockdown taints the panel for the rest of the session (options-ui-§2).
@@ -253,7 +284,7 @@ function lib.__AttachRegistry(O, d)
   ---         still printed); nil when there is no category to open -- CreateOptionsPanel has not
   ---         registered one yet (or is parked for the end of combat), or the client has no
   ---         Settings.OpenToCategory. (minor 24; every earlier minor returned nothing.)
-  function O.OpenOptionsPanel()
+  function O.OpenOptionsPanel(pageKey)
     if InCombatLockdown and InCombatLockdown() then
       if type(d.debug) == "function" then d.debug("Cfg", "open refused (in combat)") end
       print(lib.STRINGS.COMBAT_REFUSED)
@@ -261,8 +292,9 @@ function lib.__AttachRegistry(O, d)
     end
     if not (Settings and Settings.OpenToCategory) then return nil end
     if not mainCategoryID then return nil end
-    if type(d.debug) == "function" then d.debug("Cfg", "opened") end
-    Settings.OpenToCategory(mainCategoryID)
+    local id = pageKey ~= nil and pageCategoryID(pageKey) or nil
+    if type(d.debug) == "function" then d.debug("Cfg", id and ("opened " .. tostring(pageKey)) or "opened") end
+    Settings.OpenToCategory(id or mainCategoryID)
     expandMainCategory()
     return true
   end

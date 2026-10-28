@@ -364,9 +364,10 @@ local SUBGROUPS = {
   -- The window subsection names its window (item 020, LOO-L03).
   ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
-  -- The library's Appearance tab (skinning-§3): its three subjects, the source, the skin and the
-  -- Scope (OptionsAppearance minor 2).
-  ["Appearance"]      = { "Skin source", "Skin", "Scope" },
+  -- The library's Skin tab (key "Appearance"; skinning-§3): its four subjects, the source, the
+  -- skins (headed "Look" since PK-02, so no heading repeats the tab's "Skin", options-ui-§7), the
+  -- font and texture overrides and the Scope (OptionsAppearance minor 3).
+  ["Appearance"]      = { "Skin source", "Look", "Font and texture", "Scope" },
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},
 }
@@ -407,6 +408,22 @@ test("Panel: a subgroup heading never repeats its own tab's name (options-ui-§7
         row.path .. ": subgroup '" .. row.subgroup .. "' repeats its tab's name")
     end
   end
+end)
+
+test("Panel: no heading on the library's Skin tab repeats the tab's own label (options-ui-§7)", function()
+  -- The schema case above cannot see the library's tab: its headings are the library's strings.
+  -- red under: the skins heading back to "Skin" (OptionsAppearance minor 3 before PK-02), or a
+  -- translation that names a heading after the tab.
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Appearance"))
+  local label = mocks.LibStub("LibKa0s-Options-1.0").APPEARANCE_STRINGS.TAB_LABEL
+  assertEqual(label, "Skin", "the tab's label")
+  local headings = widgetsOfType(created, "Heading")
+  assertTrue(#headings > 0, "the Skin tab drew no heading to check")
+  for i, h in ipairs(headings) do
+    assertTrue(h.text ~= label, "Skin tab heading " .. i .. " repeats its tab's name")
+  end
+  homeTab(ctx)
 end)
 
 -- ── the write path ───────────────────────────────────────────────────────────────────────────

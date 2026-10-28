@@ -4,7 +4,10 @@
 -- What this pins: on Ka0s Default each of these surfaces draws the values it drew before the skin
 -- engine (the KPI cards and list panels call for call through the skin's Card and Panel, the chart
 -- chrome, the series palette, the signed escapes' bytes, the toggle, the Holdings rows, the AH
--- table's colors and ticks), a skin switch repaints them live with no reload (the pooled widgets on
+-- table's colors and ticks), with one exception since LibKa0s#63: the bars of data wear the skin's
+-- bar texture (Ka0s Default's `bar.texture` is the "Ka0s Default" bar LibKa0s Media minor 9 ships
+-- and registers, SkinDefs minor 14; pinned below against the vendored LibSharedMedia itself) in the
+-- colors they had, a skin switch repaints them live with no reload (the pooled widgets on
 -- the free list too, the palette and the meaning colors synced, the markup rebuilt, the parked AH
 -- host repainted), and Ka0s Default puts them back. tests/analytics_golden.txt and
 -- tests/panel_auction_golden.txt pin the Ka0s Default render itself and stay unchanged.
@@ -558,4 +561,173 @@ test("skin insights: the degraded facade draws the KPI card and the list panel t
   dns.Skin.Panel(panel)
   assertEqual(p.fill, today("panel.bg")); assertEqual(p.edge, today("panel.border"))
   assertEqual(dns.LedgerFormat.SignedCount(3), "|cff40ff40+3|r", "the signed bytes degraded too")
+end)
+
+-- ── the bar texture (LibKa0s SkinPaintExtras minor 4, LibKa0s#63) ──────────────────────────────
+
+-- A LibSharedMedia stand-in that resolves the one status bar key, so an override has a file to
+-- paint; this harness loads no LibSharedMedia. Put back whatever `fn` raised.
+local PROBE_BAR = "Probe Bar"
+local PROBE_PATH = "Interface\\AddOns\\Probe\\bar"
+local function withProbeBar(fn)
+  local libs = mocks.__libs
+  local saved = libs["LibSharedMedia-3.0"]
+  libs["LibSharedMedia-3.0"] = {
+    Fetch = function(_, kind, key) if kind == "statusbar" and key == PROBE_BAR then return PROBE_PATH end end,
+    List = function() return { PROBE_BAR } end,
+  }
+  local ok, err = pcall(fn)
+  Skin:SetOverride(OWNER, nil, false)
+  libs["LibSharedMedia-3.0"] = saved
+  if not ok then error(err, 0) end
+end
+
+-- Every bar of data Insights draws, active and parked: the strip bars' fills, the ranked bars'
+-- fills, the stacked bars' shown segments and the ledger's two halves.
+local function insightsBars()
+  local out = {}
+  local function each(pool, fn) for _, w in ipairs(pool.active) do fn(w) end end
+  each(A.pool.day, function(f) out[#out + 1] = f.fill end)
+  each(A.pool.source, function(b) out[#out + 1] = b.fill end)
+  each(A.pool.chsource, function(b)
+    for _, seg in ipairs(b.segs) do if seg:IsShown() then out[#out + 1] = seg.tex end end
+  end)
+  each(A.ledgerUI.pools.reason, function(b)
+    if b.left:IsShown() then out[#out + 1] = b.left end
+    if b.right:IsShown() then out[#out + 1] = b.right end
+  end)
+  return out
+end
+
+test("skin bars: every Insights bar of data is the skin's BarTexture; tracks and rules are not", function()
+  -- red under: a data bar still painted with SetColorTexture directly (no record: a skin switch or
+  -- a Texture override would never reach it), or a track or rule moved onto the bar texture.
+  withInsights(function()
+    local bars = insightsBars()
+    assertTrue(#bars >= 4, "the fixture drew too few bars to prove anything")
+    for i, t in ipairs(bars) do assertTrue(recorded(t, "BarTexture"), "bar " .. i .. " is not the skin's BarTexture") end
+    for _, b in ipairs(A.pool.source.active) do
+      assertTrue(not recorded(b.track, "BarTexture"), "a track is a flat color, never the bar texture")
+    end
+    for _, rule in ipairs(A.lootDivider.rules) do assertTrue(not recorded(rule, "BarTexture"), "a rule stays flat") end
+  end)
+end)
+
+-- Run `fn` with the vendored LibSharedMedia itself (libs/LibSharedMedia-3.0) as the owner's media
+-- library, so a case sees the file the client resolves rather than a stand-in. Its chunk gets a
+-- private LibStub (a fresh library and a CallbackHandler stub), so the shared mock's registry is
+-- left alone; the file reads `bit.band` through getfenv(0), which plain Lua 5.1 lacks, so a stand-in
+-- sits there for the load only. LibKa0s Media then registers its catalog into it, as
+-- core/MediaSetup.lua's file-load call does in the client. Put back whatever `fn` raised.
+local Media = mocks.LibStub("LibKa0s-Media-1.0")
+local KA0S_BAR = Media.Texture(OWNER, "Ka0s Default")
+local function withVendoredLSM(fn)
+  local lsm = {}
+  local stub = setmetatable({
+    NewLibrary = function() return lsm end,
+    GetLibrary = function(_, major)
+      if major == "CallbackHandler-1.0" then return { New = function() return { Fire = function() end } end } end
+    end,
+  }, { __call = function(self, major) return self:GetLibrary(major) end })
+  local chunk = assert(loadfile("libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua"))
+  setfenv(chunk, setmetatable({ LibStub = stub, GetLocale = function() return "enUS" end }, { __index = _G }))
+  local G = getfenv(0)
+  local savedBit = rawget(G, "bit")
+  if savedBit == nil then rawset(G, "bit", { band = function() return 0 end }) end
+  local loaded, loadErr = pcall(chunk)
+  rawset(G, "bit", savedBit)
+  if not loaded then error(loadErr, 0) end
+  local libs = mocks.__libs
+  local saved = libs["LibSharedMedia-3.0"]
+  libs["LibSharedMedia-3.0"] = lsm
+  local ok, err = pcall(function()
+    Media.RegisterLSM(OWNER)
+    fn()
+  end)
+  libs["LibSharedMedia-3.0"] = saved
+  if not ok then error(err, 0) end
+end
+
+test("skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color", function()
+  -- SO-06 (LibKa0s SkinDefs minor 14, Media minor 9) moved Ka0s Default's bar.texture from the
+  -- client's "Blizzard" status bar to the generated "Ka0s Default" bar the library ships.
+  -- red under: Ka0s Default's bar.texture no longer resolving through the vendored LibSharedMedia
+  -- (the bars would go back to flat without SKIN-1 and SKIN-23 saying so), the old Blizzard bar
+  -- (Interface\TargetingFrame\UI-StatusBar), or a tint lost to it.
+  assertTrue(type(KA0S_BAR) == "string" and KA0S_BAR:find("ka0s%-default$") ~= nil,
+    "the Ka0s Default bar's file: " .. tostring(KA0S_BAR))
+  withInsights(function()
+    withVendoredLSM(function()
+      local f = A.pool.day.active[1]
+      local want = today("chart.bar")
+      Skin:Repaint(OWNER)   -- what the client's first paint draws, with its LibSharedMedia loaded
+      assertEqual(rawget(f.fill, "__texture"), KA0S_BAR, "the strip bar's file")
+      assertEqual(rgba(rawget(f.fill, "__vertex")), want, "tinted chart.bar")
+      for i, t in ipairs(insightsBars()) do
+        assertEqual(rawget(t, "__texture"), KA0S_BAR, "bar " .. i .. " is not the Ka0s Default bar")
+      end
+    end)
+    Skin:Repaint(OWNER)   -- back to the harness's flat bars for the cases after this one
+    assertEqual(rawget(A.pool.day.active[1].fill, "__texture"), nil, "the flat bar is back")
+  end)
+end)
+
+test("skin bars: with no status bar resolved, a bar keeps its flat color", function()
+  -- The harness's own media library resolves no status bar: the fallback a client takes when the
+  -- skin's texture key is unknown to its LibSharedMedia.
+  withInsights(function()
+    local f = A.pool.day.active[1]
+    assertEqual(texColor(f.fill), today("chart.bar"), "the strip bar's flat color")
+    assertEqual(rawget(f.fill, "__texture"), nil, "and no file")
+  end)
+end)
+
+test("skin bars: a Texture override paints every bar in that texture, tinted its own color", function()
+  -- red under: a bar the primitive did not record, or a tint lost to the texture (every bar white).
+  withInsights(function()
+    withProbeBar(function()
+      local f = A.pool.day.active[1]
+      local want = today("chart.bar")
+      Skin:SetOverride(OWNER, nil, PROBE_BAR)
+      for i, t in ipairs(insightsBars()) do
+        assertEqual(rawget(t, "__texture"), PROBE_PATH, "bar " .. i .. " did not take the override")
+      end
+      assertEqual(rgba(rawget(f.fill, "__vertex")), want, "the strip bar keeps chart.bar as its tint")
+      Skin:SetOverride(OWNER, nil, false)
+      assertEqual(rawget(f.fill, "__texture"), nil, "clearing the override puts the flat bar back")
+      assertEqual(texColor(f.fill), want)
+    end)
+  end)
+end)
+
+test("skin bars: the Timeline's gain and loss columns are the skin's BarTexture", function()
+  withTimeline(function()
+    -- One day's gain and loss in the rollup (tests/test_timelinetab.lua's seedFlow), redrawn.
+    local daily, day = NS.db.global.daily, NS.Ledger.DayKey(os.time())
+    daily[day] = daily[day] or {}
+    daily[day]["Mock-Realm"] = daily[day]["Mock-Realm"] or {}
+    daily[day]["Mock-Realm"].g = { i = 20000, o = 5000 }
+    TL:Refresh()
+    TL:Layout(640, 320)
+    local pool = TL.stripPool
+    assertTrue(pool ~= nil and #pool.active > 0, "the fixture drew no flow column")
+    for _, bar in ipairs(pool.active) do
+      if bar.up:IsShown() then assertTrue(recorded(bar.up, "BarTexture"), "a gain column") end
+      if bar.down:IsShown() then assertTrue(recorded(bar.down, "BarTexture"), "a loss column") end
+    end
+    assertTrue(not recorded(TL.stripAxis, "BarTexture"), "the strip's axis stays a flat rule")
+  end)
+end)
+
+test("skin bars: NS.SkinBar paints flat when the target is not a Texture or the facade lacks it", function()
+  local seen
+  local target = { GetObjectType = function() return "Frame" end,
+                   SetColorTexture = function(_, ...) seen = rgba({ ... }) end }
+  NS.SkinBar(target, 0.1, 0.2, 0.3, 0.4)
+  assertEqual(seen, "0.100,0.200,0.300,0.400", "a frame takes the flat color")
+  local dns = dofile("tests/degraded_env.lua")()
+  seen = nil
+  target.GetObjectType = function() return "Texture" end
+  dns.SkinBar(target, 0.5, 0.5, 0.5, 1)
+  assertEqual(seen, "0.500,0.500,0.500,1.000", "the degraded facade draws the flat bar")
 end)

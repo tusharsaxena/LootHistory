@@ -34,6 +34,9 @@ local LIB_FILES = {
   -- New in v1.75.0: LibKa0s-Glow-1.0, the stateless LibCustomGlow driver. This addon draws no
   -- glow and wires nothing from it; the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/Glow.lua",
+  -- New in v1.79.0 (unreleased): LibKa0s-Toast-1.0, the toast notifier. This addon raises no toast
+  -- and wires nothing from it; the client loads every file of the XML, so the suite must too.
+  "libs/LibKa0s/Toast.lua",
   "libs/LibKa0s/Media.lua",
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
@@ -110,6 +113,9 @@ local LIB_FILES = {
   -- New in v1.78.0: the Appearance tab (OptionsAppearance 1), a thirteenth file of
   -- LibKa0s-Options-1.0. The stub in settings/OptionsSetup.lua carries its two members for parity.
   "libs/LibKa0s/OptionsAppearance.lua",
+  -- New in v1.79.0 (unreleased): the first-run skin picker (OptionsSkinPicker 1), a fourteenth file
+  -- of LibKa0s-Options-1.0. The stub in settings/OptionsSetup.lua carries its two members for parity.
+  "libs/LibKa0s/OptionsSkinPicker.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
@@ -827,13 +833,13 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   end
   assertEqual(modules("LibKa0s-Core-1.0").Core, 13)
   local media = modules("LibKa0s-Media-1.0")
-  assertEqual(media.Media, 8)
+  assertTrue(media.Media >= 8) -- 9 since v1.79.0, pinned there
   assertEqual(media.MediaIcons, 1)
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 5)
-  assertEqual(skin.SkinDefs, 13)
+  assertTrue(skin.Skin >= 5) -- 6 since v1.79.0, pinned there
+  assertTrue(skin.SkinDefs >= 13) -- 14 since v1.79.0, pinned there
   assertEqual(skin.SkinPaint, 10)
-  assertEqual(skin.SkinPaintExtras, 3)
+  assertTrue(skin.SkinPaintExtras >= 3) -- 4 since v1.79.0, pinned there
   assertEqual(skin.SkinPaintControls, 8)
   assertEqual(skin.SkinEUI, 1)
   assertEqual(skin.SkinAce, 3)
@@ -846,11 +852,11 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(widgets.WidgetsCopyWindow, 1)
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertEqual(debugLog.DebugLog, 22)
-  assertEqual(debugLog.DebugLogDiagnostics, 4)
+  assertTrue(debugLog.DebugLogDiagnostics >= 4) -- 5 since v1.79.0, pinned there
   assertEqual(debugLog.DebugLogWindow, 1)
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.Options, 33)
-  assertEqual(options.OptionsRegistry, 3)
+  assertTrue(options.Options >= 33) -- 34 since v1.79.0, pinned there
+  assertTrue(options.OptionsRegistry >= 3) -- 4 since v1.79.0, pinned there
   assertEqual(options.OptionsWidgets, 35)
   assertEqual(options.OptionsIds, 4)
   assertEqual(options.OptionsIdList, 6)
@@ -861,11 +867,48 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsNav, 3)
   assertEqual(options.OptionsDrawer, 2)
   assertEqual(options.OptionsKeybinds, 5)
-  assertEqual(options.OptionsAppearance, 2)
+  assertTrue(options.OptionsAppearance >= 2) -- 3 since v1.79.0, pinned there
   -- The Appearance tab's two members attach to each instance lib:New builds.
   assertTrue(type(NS.Options.AppearanceTab) == "function", "O.AppearanceTab missing: OptionsAppearance did not attach")
   assertTrue(type(NS.Options.AppearanceRows) == "function", "O.AppearanceRows missing: OptionsAppearance did not attach")
   assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 10)
   assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 7)
-  assertEqual(T.KIT_VERSION, 43)
+  assertTrue(T.KIT_VERSION >= 43) -- 44 since v1.79.0, pinned there
+end)
+
+-- v1.79.0 (unreleased, branch feat/2026-10-28-skin-overrides-picker): the font and texture
+-- overrides and the first-run skin picker (LibKa0s#63, #64). Skin 6 (GetOverride, SetOverride, the
+-- overrides laid over the tokens, WriteChoice's media), SkinPaintExtras 4 (S.BarTexture),
+-- OptionsAppearance 3 (the tab labeled "Skin" and its Font and texture section), Options 34 with
+-- the new fourteenth file OptionsSkinPicker 1 (O.SkinPicker, O.HideSkinPicker), DebugLogDiagnostics
+-- 5 (Toast in the report's major list) and the new major LibKa0s-Toast-1.0 (Toast 1); kit revision
+-- 44 (StatusBar fidelity in the paint mock). Then SO-06 and PK-02 on the same branch: Media 9 (the
+-- Oxanium faces and the generated "Ka0s Default" bar), SkinDefs 14 (Ka0s Default draws them; every
+-- other skin keeps Friz Quadrata and the Blizzard bar), OptionsRegistry 4 (O.OpenOptionsPanel takes
+-- a page key), and OptionsAppearance 3 and OptionsSkinPicker 1 amended in place (the "Look" heading;
+-- the picker previews, Apply saves, one window across addons). Every other file unchanged.
+test("v1.79.0: the vendored minors and the kit revision match the branch", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.79.0")
+    return lib.MODULES
+  end
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 6)
+  assertEqual(skin.SkinDefs, 14)
+  assertEqual(skin.SkinPaintExtras, 4)
+  assertEqual(modules("LibKa0s-Media-1.0").Media, 9)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 5)
+  assertEqual(modules("LibKa0s-Toast-1.0").Toast, 1)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.Options, 34)
+  assertEqual(options.OptionsRegistry, 4)
+  assertEqual(options.OptionsAppearance, 3)
+  assertEqual(options.OptionsSkinPicker, 1)
+  assertTrue(type(NS.Options.SkinPicker) == "function", "O.SkinPicker missing: OptionsSkinPicker did not attach")
+  assertTrue(type(NS.Options.HideSkinPicker) == "function", "O.HideSkinPicker missing: OptionsSkinPicker did not attach")
+  local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
+  assertTrue(type(Skin.GetOverride) == "function" and type(Skin.SetOverride) == "function",
+    "Skin:GetOverride / Skin:SetOverride missing: re-vendor v1.79.0")
+  assertEqual(T.KIT_VERSION, 44)
 end)

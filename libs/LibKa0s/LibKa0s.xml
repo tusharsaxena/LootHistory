@@ -8,6 +8,7 @@
 	<Script file="Pool.lua"/>
 	<Script file="Item.lua"/>
 	<Script file="Glow.lua"/>
+	<Script file="Toast.lua"/>
 	<Script file="Media.lua"/>
 	<Script file="MediaIcons.lua"/>
 	<Script file="Skin.lua"/>
@@ -43,6 +44,7 @@
 	<Script file="OptionsDrawer.lua"/>
 	<Script file="OptionsKeybinds.lua"/>
 	<Script file="OptionsAppearance.lua"/>
+	<Script file="OptionsSkinPicker.lua"/>
 	<Script file="Perf.lua"/>
 	<Script file="PerfSampler.lua"/>
 	<Script file="PerfCommands.lua"/>

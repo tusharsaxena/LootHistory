@@ -1052,7 +1052,7 @@ local GENERAL_TABS = {
   { key = "History" },
 }
 
--- skinning-§3: the Appearance tab, after History and before Keybindings, which stays last. The
+-- skinning-§3: the Skin tab, after History and before Keybindings, which stays last. The
 -- library's own entry (O.AppearanceTab): the skin source, the nine skins, "Copy to every Ka0s
 -- addon..." and the note, drawn from LibKa0s-Skin-1.0 for the owner core/SkinSetup.lua registered.
 -- `get` and `set` are that file's read and write seams, so a pick lands through NS.Schema:Set like

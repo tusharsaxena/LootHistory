@@ -1,7 +1,7 @@
 -- LibKa0s-Skin-1.0 — the Ka0s paint primitives, part two: the window family's Ka0s extras
 -- (TitleBar, Divider, Footer, Card, Strip, Cover, Tooltip, MenuFrame), the text and font
--- primitives (Text, Font, White) and the getters (GetAccentColor, GetPanelColor, GetFont,
--- GlowColor, ChartStyle, BarStyle).
+-- primitives (Text, Font, White), the bar texture (BarTexture) and the getters (GetAccentColor,
+-- GetPanelColor, GetFont, GlowColor, ChartStyle, BarStyle).
 --
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: it is part of the same
 -- major, paired on the shell's minor (`__extrasMinor` / `__extrasShellMinor`), and it paints with
@@ -21,7 +21,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
 -- Minor 3: a wash is a region of its frame at the bottom of BACKGROUND (SkinPaint minor 7's P.SUB),
 -- not of the fill holder, which could tie the frame's parent for frame level.
-local EXTRAS_MINOR = 3
+-- Minor 4: BarTexture, the owner's bar texture (`bar.texture`, its texture override when it sets
+-- one, Skin minor 6) on a Texture or a StatusBar, tinted and recorded (LibKa0s#63). A repaint and a
+-- nil color keep the bar's live color (a host's own recolor included), never a first-paint snapshot.
+local EXTRAS_MINOR = 4
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -238,6 +241,65 @@ prim.White = function(owner, fs)
   local rec = P.track(owner, fs, "White")
   P.font(owner, rec, fs, "body")
   P.tint(rec, fs, P.T(owner), "text.body")
+end
+
+-- ── the bar texture ──────────────────────────────────────────────────────────────────────────
+
+--- The color a bar wears now: a Texture's vertex color, a StatusBar's bar color, alpha 1 if absent.
+local function liveTint(target, statusBar)
+  local get = statusBar and target.GetStatusBarColor or target.GetVertexColor
+  local c = type(get) == "function" and { get(target) } or {}
+  return { tonumber(c[1]) or 1, tonumber(c[2]) or 1, tonumber(c[3]) or 1, tonumber(c[4]) or 1 }
+end
+
+local function isWhite(c) return c[1] == 1 and c[2] == 1 and c[3] == 1 and c[4] == 1 end
+
+--- The tint a BarTexture call paints with. A host's call that names a color paints that color.
+--- Anything else, a nil color or any repaint, paints the bar's LIVE color, read on every call, so a
+--- host's own SetVertexColor or SetStatusBarColor between paints is kept rather than undone. The one
+--- color that cannot be read is a flat Texture's (its tint lives in SetColorTexture, its vertex
+--- color is the white this primitive set): while that white is unchanged the remembered tint paints.
+--- The memory belongs to the record that made it, so a texture Skin:Untrack handed back to a pool
+--- starts from its own color, never the previous user's.
+local function barTint(rec, target, statusBar, r, g, b, a)
+  local mem = P.saved(rec, "barTint")
+  local tint
+  if type(r) == "number" and not lib.__repainting then
+    tint = { r, tonumber(g) or 0, tonumber(b) or 0, tonumber(a) or 1 }
+  else
+    tint = liveTint(target, statusBar)
+    if mem.rec == rec and mem.flat and isWhite(tint) then tint = mem.tint end
+  end
+  mem.rec, mem.tint, mem.flat = rec, tint, false
+  return mem, unpack(tint)
+end
+
+--- S.BarTexture(target, r, g, b, a): the owner's bar texture (`bar.texture`, an LSM statusbar key;
+--- the owner's texture override when it sets one) on a bar of data, tinted r, g, b, a. A Texture
+--- takes SetTexture and SetVertexColor; a StatusBar SetStatusBarTexture and SetStatusBarColor. With
+--- no texture resolved a Texture falls back to SetColorTexture(r, g, b, a), the flat look (its
+--- vertex color white), and a StatusBar to WHITE8X8. Recorded, so a skin switch or an override
+--- change re-applies the texture. The color is the bar's own from then on: a repaint keeps whatever
+--- color the bar wears, a host's direct recolor included, and a nil color paints the bar's current
+--- color on every call. Draws no Media icon.
+prim.BarTexture = function(owner, target, r, g, b, a)
+  if type(target) ~= "table" then return end
+  local statusBar = P.kind(target) == "StatusBar"
+  if not statusBar and not P.isTexture(target) then return end
+  local rec = P.track(owner, target, "BarTexture", r, g, b, a)
+  local path = P.media("statusbar", P.T(owner)["bar.texture"])
+  local mem, tr, tg, tb, ta = barTint(rec, target, statusBar, r, g, b, a)
+  if statusBar then
+    target:SetStatusBarTexture(path or P.WHITE8)
+    return target:SetStatusBarColor(tr, tg, tb, ta)
+  end
+  if path then
+    target:SetTexture(path)
+    return target:SetVertexColor(tr, tg, tb, ta)
+  end
+  target:SetColorTexture(tr, tg, tb, ta)
+  target:SetVertexColor(1, 1, 1, 1)
+  mem.flat = true
 end
 
 -- ── the getters (never recorded: they paint nothing) ─────────────────────────────────────────

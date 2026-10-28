@@ -30,7 +30,7 @@ settings canvas with its tab strip and Master-controls composer, the settings sc
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
 the flat dropdowns, the Timeline's line chart and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because seventeen of its eighteen majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because eighteen of its nineteen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -84,11 +84,12 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-seven rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
-Master controls, Capture, Filters, AH price, Interface, History, Appearance and Keybindings; Filters and
-Keybindings hold no rows (Keybindings is the library's, options-ui-§20), and Appearance's four rows,
-`settings.appearance.source` and `.skin` and the Scope's `.ignorePanel` and `.ignoreFonts`, are drawn
-by the library's own Appearance tab (skinning-§3).
+Thirty rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
+`Appearance`) holds seven: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
+`.ignoreFonts`, and the Font and texture overrides `.font` and `.texture` are drawn by the library's
+own Skin tab (skinning-§3), and `.pickerSeen`, the first-run skin picker's memory, is drawn by nothing.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -343,18 +344,31 @@ facade with this addon as its **owner**.
 - **The seam.** `core/SkinSetup.lua` registers the owner `"LootHistory"` (the folder name) at file
   load with its read and write seams (`NS.SkinChoice`, `NS.WriteSkinChoice`, both through
   `NS.Schema`), publishes `NS.Skin` (the owner's facade) and the call-site helpers `NS.SkinColor`,
-  `NS.SkinRGB`, `NS.SkinEscape`, `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` /
-  `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
+  `NS.SkinRGB`, `NS.SkinEscape`, `NS.SkinBar` (a bar of data in the skin's bar texture),
+  `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` / `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
   of the Ka0s Default tokens this addon reads, which `tests/test_surface_parity.lua` holds to the
   library's values. The choice is two profile keys, `settings.appearance.source` and `.skin`, and the
   tab's Scope two more, `.ignorePanel` (**Ignore settings panel**: this addon's settings pages stay
   the client's; on in a new profile) and `.ignoreFonts` (**Ignore fonts**: every string keeps its own
-  face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways)
-  ([schema.md](schema.md)). All four are drawn by the library's Appearance tab on the General page,
-  just before Keybindings ([settings-panel.md](settings-panel.md)).
+  face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways), and the
+  tab's Font and texture two more, `.font` and `.texture` (an LSM key each, `""` for the skin's own),
+  applied through `NS.ApplySkinOverride` (`Skin:SetOverride`, live) ([schema.md](schema.md)). All six
+  are drawn by the library's Skin tab (key `Appearance`) on the General page, just before
+  Keybindings ([settings-panel.md](settings-panel.md)). A seventh key, `.pickerSeen`, is the
+  first-run skin picker's memory.
+- **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
+  (`O.SkinPicker`, LibKa0s OptionsSkinPicker 1) while the profile's `pickerSeen` is false: two
+  seconds after login on an addon that stands up, and after every profile event. Never while the
+  addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. A pick only previews (the skin
+  is worn, not saved); **Apply** and the gear save it through `NS.WriteSkinChoice`, and the close
+  control and Escape put the old skin back. Apply, the close, the gear and Escape set the key, and
+  so does another Ka0s addon's **Apply to all Ka0s addons** for this picker while it is queued
+  (one picker is up at a time across Ka0s addons; a queued call answers `nil, "queued"`).
+  `NS.HideSkinPicker` (the stand-down, and first on every profile event, so the put-back lands
+  before the new profile's skin) takes it down without setting it. Its eye turns test mode on.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
-  event (`core/LootHistory.lua`), applying the stored Scope with the stored skin, and from each
-  Appearance row with only its own half. It calls
+  event (`core/LootHistory.lua`), applying the stored Scope and overrides with the stored skin, and
+  from each Skin tab row with only its own half. It calls
   `Skin:SetChoice`, which resolves the skin, repaints every frame recorded for this owner (each
   primitive re-runs in repaint mode) and then fires `NS.Skin.OnLooksChanged`. Surfaces that cannot be
   repainted in place subscribe there: markup built once (sort arrows, AH ticks), pooled rows (both
@@ -363,7 +377,7 @@ facade with this addon as its **owner**.
 - **The EllesmereUI provider.** The library's (`SkinEUI.lua`). With source `eui` and its gate holding
   (EllesmereUI's `RegisterSkin` and `EllesmereUIBlizzardSkin` loaded, third-party skins on, this
   addon not switched off in its list), EllesmereUI's facade paints the vocabulary it has; otherwise
-  the addon wears its Ka0s skin and the Appearance tab names the failing condition. Ka0s to
+  the addon wears its Ka0s skin and the Skin tab names the failing condition. Ka0s to
   EllesmereUI applies live; EllesmereUI back to Ka0s asks for a reload. The read of `EllesmereUIDB`
   is the library's documented deviation, not this addon's.
 - **Owners on every library surface.** Each LibKa0s factory is handed the owner in the form it reads:
@@ -407,9 +421,10 @@ Outside the gate's reach, also on purpose:
   table, the filter bar's hint) take the skin's face through `S.Font`, face only, their colors still
   the addon's. Sizes are relative to Ka0s Default's (LibKa0s SkinPaint minor 4), so each keeps its
   template's size scaled by the skin's, and the layouts measured against it hold. Ka0s Default's face
-  is Friz Quadrata (LibKa0s SkinDefs minor 8), the one the `GameFont*` templates carry, so on it they
-  read as before; with **Ignore fonts** on, every string keeps its own face and size and the skin
-  still colors it. Two strings stay on their own face: the row's
+  is Oxanium (SemiBold for body text, Bold for titles; LibKa0s SkinDefs minor 14, the owner's choice,
+  2026-10-28), so on it the addon's strings no longer read in the `GameFont*` templates' Friz
+  Quadrata, which every other skin without a face of its own still draws; with **Ignore fonts** on,
+  every string keeps its own face and size and the skin still colors it. Two strings stay on their own face: the row's
   direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
   read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
   are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished
@@ -564,11 +579,12 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
-then `tests/test_browsertable.lua` at 1392 and `modules/BrowserTable.lua` at 1305 (`git ls-files '*.lua' |
-grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-23, after `modules/BrowserTable.lua`
-shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1298,
-its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added characterization cases to
-`tests/test_browsertable.lua` and split the last five functions above CCN 15); the
+then `modules/BrowserTable.lua` at 1407, `tests/test_browsertable.lua` at 1392 and `modules/Browser.lua`
+at 1384 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-29).
+On 2026-10-23 `modules/BrowserTable.lua` had shed its display-list layer to
+`modules/BrowserTableGroup.lua` and `modules/Browser.lua` its dropdown-option kit to
+`modules/BrowserWidgets.lua`, and `LH-14` had added characterization cases to
+`tests/test_browsertable.lua` and split the last five functions above CCN 15; the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---

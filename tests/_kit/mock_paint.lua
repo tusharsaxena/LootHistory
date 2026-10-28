@@ -1,5 +1,6 @@
 -- testkit/mock_paint.lua — the kit's opt-in paint recorder (revision 43): textures, font strings,
 -- backdrops and NineSlice pieces that remember how they were painted, for a suite that asserts a skin.
+-- Revision 44 adds the StatusBar family (below), for the skin's bar-texture primitive.
 --
 -- Returns an INSTALLER, called on a finished mock, which returns its RESTORE:
 --
@@ -38,6 +39,16 @@
 --   SetBackdropBorderColor / GetBackdropBorderColor  likewise
 --   SetAlpha(a) / GetAlpha()                         1 until set
 --
+-- A STATUSBAR (a frame CreateFrame was asked for as "StatusBar", revision 44) also answers, rawset:
+--
+--   GetObjectType() / IsObjectType(kind)             "StatusBar" (and "Frame", "Region")
+--   SetStatusBarTexture(asset) / GetStatusBarTexture()   the bar's fill: a Texture region of the bar,
+--                                                    made on first use, whose SetTexture takes a
+--                                                    path; a Texture handed in becomes the fill
+--   SetStatusBarColor(r, g, b, a) / GetStatusBarColor()  the fill's vertex color, white until set,
+--                                                    kept across a SetStatusBarTexture as in the client
+--   SetMinMaxValues / GetMinMaxValues, SetValue / GetValue   0, 1 and 0 until set
+--
 -- Show / Hide / IsShown, the scripts and HookScript's chaining are the base's, untouched. SetBackdrop
 -- answers on any recorded frame, BackdropTemplate or not: the template is recorded by the base
 -- (`__template`), and a suite that cares asserts it there.
@@ -58,8 +69,8 @@
 -- THE SURVEY. M.__paint(obj) -> a fresh table of what was painted on a region or a recorded frame:
 -- kind, frameType, template, shown, alpha, layer, sublevel, color, vertex, gradient, texture, atlas,
 -- texCoord, desaturated, blend, text, textColor, font, fontObject, shadowOffset, shadowColor,
--- backdrop, backdropColor, backdropBorderColor (nil where nothing was painted; kind is "Frame" for
--- a frame).
+-- backdrop, backdropColor, backdropBorderColor, and for a StatusBar statusBarTexture (the fill's
+-- file) and statusBarColor (nil where nothing was painted; kind is "Frame" for a frame).
 
 local NINE_SLICE_KEYS = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomRightCorner",
                           "TopEdge", "BottomEdge", "LeftEdge", "RightEdge", "Center" }
@@ -73,7 +84,11 @@ local NINE_SLICE_TEMPLATES = {
 local FRAME_METHODS = { "CreateTexture", "CreateFontString", "GetRegions", "GetNumRegions",
                         "GetChildren", "GetNumChildren", "SetBackdrop", "GetBackdrop",
                         "SetBackdropColor", "GetBackdropColor", "SetBackdropBorderColor",
-                        "GetBackdropBorderColor", "SetAlpha", "GetAlpha", "__paintRegions" }
+                        "GetBackdropBorderColor", "SetAlpha", "GetAlpha", "__paintRegions",
+                        -- the StatusBar family (revision 44), put back too on an in-place frame
+                        "GetObjectType", "IsObjectType", "SetStatusBarTexture", "GetStatusBarTexture",
+                        "SetStatusBarColor", "GetStatusBarColor", "SetMinMaxValues", "GetMinMaxValues",
+                        "SetValue", "GetValue", "__barFill" }
 
 local WHITE = { 1, 1, 1, 1 }
 local FULL_COORDS = { 0, 0, 0, 1, 1, 0, 1, 1 }
@@ -268,6 +283,44 @@ local function childrenOf(frames, parent)
   return out
 end
 
+-- ── the StatusBar half (revision 44) ────────────────────────────────────────────────────────
+
+--- The bar's fill texture, made once as a region of the bar (the client's bar texture is one).
+local function barFill(bar, sizes)
+  local fill = rawget(bar, "__barFill")
+  if not fill then
+    fill = newRegion(sizes, bar, "Texture", nil, "ARTWORK")
+    rawset(bar, "__barFill", fill)
+  end
+  return fill
+end
+
+local function decorateStatusBar(f, sizes)
+  rawset(f, "GetObjectType", function() return "StatusBar" end)
+  rawset(f, "IsObjectType", function(_, kind) return kind == "StatusBar" or kind == "Frame" or kind == "Region" end)
+  rawset(f, "SetStatusBarTexture", function(self, asset)
+    if type(asset) == "table" then
+      -- A Texture handed in becomes the fill, taking the color the old fill carried.
+      local old = rawget(self, "__barFill")
+      if old and old ~= asset then asset:SetVertexColor(old:GetVertexColor()) end
+      rawset(self, "__barFill", asset)
+      return
+    end
+    barFill(self, sizes):SetTexture(asset)
+  end)
+  rawset(f, "GetStatusBarTexture", function(self) return barFill(self, sizes) end)
+  rawset(f, "SetStatusBarColor", function(self, r, g, b, a) barFill(self, sizes):SetVertexColor(r, g, b, a) end)
+  rawset(f, "GetStatusBarColor", function(self)
+    local fill = rawget(self, "__barFill")
+    if not fill then return 1, 1, 1, 1 end
+    return fill:GetVertexColor()
+  end)
+  rawset(f, "SetMinMaxValues", function(self, lo, hi) rawset(self, "__minMax", { lo, hi }) end)
+  rawset(f, "GetMinMaxValues", function(self) return unpackOr(rawget(self, "__minMax"), { 0, 1 }) end)
+  rawset(f, "SetValue", function(self, v) rawset(self, "__value", v) end)
+  rawset(f, "GetValue", function(self) return rawget(self, "__value") or 0 end)
+end
+
 local function decorate(f, frames, sizes)
   if rawget(f, "__paintRegions") then return f end
   rawset(f, "__paintRegions", {})
@@ -297,6 +350,7 @@ local function decorate(f, frames, sizes)
   rawset(f, "GetBackdropBorderColor", backdropColorGetter("__backdropBorderColor"))
   rawset(f, "SetAlpha", function(self, a) rawset(self, "__alpha", a) end)
   rawset(f, "GetAlpha", function(self) return rawget(self, "__alpha") or 1 end)
+  if rawget(f, "__frameType") == "StatusBar" then decorateStatusBar(f, sizes) end
   return f
 end
 
@@ -315,6 +369,11 @@ local function survey(obj)
   for key, field in pairs(SURVEY) do out[key] = rawget(obj, field) end
   out.kind = out.kind or "Frame"
   out.alpha = out.alpha or 1
+  local fill = rawget(obj, "__barFill")
+  if fill then
+    out.statusBarTexture = rawget(fill, "__texture")
+    out.statusBarColor = rawget(fill, "__vertex")
+  end
   return out
 end
 

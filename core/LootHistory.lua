@@ -97,7 +97,13 @@ end
 
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
-  -- FIRST, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
+  -- FIRST, the first-run skin picker down, quietly (core/SkinSetup.lua): a showing belongs to the
+  -- profile it opened on, and taking it down puts back a pending preview (the stored skin, through
+  -- the library's revert), so it lands before NS.ApplySkinChoice below and the new profile's whole
+  -- pair, exceptions and overrides with it, is the last skin written. A new or reset profile still
+  -- shows it, fresh, below.
+  if NS.HideSkinPicker then NS.HideSkinPicker() end
+  -- Then, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
   -- repaints every recorded frame and fires OnLooksChanged whether or not the History window was
   -- ever built (B:AdoptProfile returns early when it was not), so the skin cannot depend on it. No
   -- simulation is built under a skin, so this moves nothing the stop below protects.
@@ -107,6 +113,11 @@ function NS.OnProfileEvent(event, key)
   if NS.SimStop then NS.SimStop("profile") end
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
+  -- The first-run skin picker (core/SkinSetup.lua): a new or reset profile starts from the
+  -- defaults, `pickerSeen` false, so it shows, a fresh showing over the new profile's skin; one
+  -- that has seen it stays down. After the latch, so a profile with the addon switched off shows
+  -- nothing.
+  if NS.MaybeShowSkinPicker then NS.MaybeShowSkinPicker() end
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end
   -- The one SettingsChanged("profile") every setting's reactor already listens to
   -- (docs/message-bus.md). Through the Schema module, the message's one sender.
@@ -171,4 +182,8 @@ function addon:OnEnterWorld()
   end)
   -- One-time reset recommendation (spec 9.2); in combat it holds for PLAYER_REGEN_ENABLED.
   NS.After(5, function() if NS.OfferLedgerReset then NS.OfferLedgerReset() end end)
+  -- The first-run skin picker (core/SkinSetup.lua), once per session, on a profile that has not
+  -- closed it: two seconds in, off the login spike, and cancelable like the rest. The stored skin
+  -- was applied in OnInitialize; in combat it holds for PLAYER_REGEN_ENABLED.
+  NS.After(2, function() if NS.MaybeShowSkinPicker then NS.MaybeShowSkinPicker() end end)
 end
