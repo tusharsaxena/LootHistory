@@ -817,7 +817,8 @@ end)
 -- (-> 55883fa) for the owner's fifth round (R5-01..R5-04 of docs/2026-10-28-SKIN_ROUND5/): a scroll
 -- corridor and one flat knob (SkinDefs 10, SkinPaintControls 7, OptionsScroll 8), the window edge
 -- on a holder above its children (SkinPaint 9), a font family per skin (Media 8, SkinDefs 11), and
--- arrows in each skin's accent (SkinDefs 12, SkinPaint 10, SkinPaintControls 8). The kit stays at 43.
+-- arrows in each skin's accent (SkinDefs 12, SkinPaint 10, SkinPaintControls 8); then (-> b2f6ec6)
+-- Azeroth's window frame as thin as the others' (SkinDefs 13, R5-09). The kit stays at 43.
 test("v1.78.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -830,7 +831,7 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(media.MediaIcons, 1)
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 5)
-  assertEqual(skin.SkinDefs, 12)
+  assertEqual(skin.SkinDefs, 13)
   assertEqual(skin.SkinPaint, 10)
   assertEqual(skin.SkinPaintExtras, 3)
   assertEqual(skin.SkinPaintControls, 8)

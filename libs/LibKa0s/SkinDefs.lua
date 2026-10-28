@@ -77,7 +77,7 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- paging, dropdown and sort arrows), Ka0s Default's gold and every other skin's accent (FOLLOW); the
 -- art is yellow and a tint only multiplies it, so every skin drew yellow arrows. WoW Forever's check
 -- mark is its tan accent, no longer Ka0s gold.
-local DEFS_MINOR = 12
+local DEFS_MINOR = 13
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -572,7 +572,7 @@ local AZ_TEXT, AZ_WAX = hex("#E9DDBC"), grad(hex("#a3241a"), hex("#5e1009"))
 register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Vollkorn type.",
   { "#2b1d12", "#6b4a22", "#e2b659", "#8e1b10" }, {
     font = "Ka0s Vollkorn", fs = 13, tfont = "Ka0s Vollkorn Bold", titleSize = 14,
-    win = AZ_LEATHER, winBorder = edge(3, "flat", AZ_EDGE), winInner = hex("#8a6a36"), radius = 0,
+    win = AZ_LEATHER, winBorder = edge(1, "flat", AZ_EDGE), winInner = hex("#8a6a36"), radius = 0,
     titleBg = hex("#1a110a"), titleColor = hex("#F5C542"), divider = AZ_EDGE,
     text = AZ_TEXT, muted = hex("#B8A07A"), accent = AZ_GOLD, closeColor = hex("#F5C542"),
     btnBg = grad(hex("#5a3d1d"), hex("#3a2614")), btnBorder = edge(1, "flat", hex("#24160a")),
