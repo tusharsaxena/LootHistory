@@ -120,7 +120,11 @@ end
 -- Every chrome color the two windows draw, against `want(name)` (a token name -> "r,g,b,a").
 local function assertChrome(win, exp, want, label)
   assertEqual(rgba(rawget(win, "__backdropColor")), want("win.bg"), label .. ": the window fill")
-  assertEqual(rgba(rawget(win, "__backdropBorderColor")), want("win.border"), label .. ": the window edge")
+  -- Since LibKa0s v1.78.0 (SkinPaint 9) the edge is a region of a holder above the window's
+  -- children, so a title bar or footer cannot cover it at the corners.
+  local edge = Skin.painted[win] and Skin.painted[win].regions.edgeTop
+  assertTrue(edge ~= nil, label .. ": the window has no edge on its holder")
+  assertEqual(rgba(rawget(edge, "__color")), want("win.border"), label .. ": the window edge")
   assertEqual(textColor(win.title), want("title.text"), label .. ": the window title")
   local line = dividerLine(win.dividerBar)
   assertTrue(line ~= nil, label .. ": the divider drew no line on its holder")

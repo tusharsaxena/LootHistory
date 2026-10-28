@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -146,30 +146,42 @@ lib.ICONS = {
 -- debug console has always asked its host for; carrying it here is what stops each host answering
 -- with a different one.
 --
--- THE FIVE "Ka0s" FACES ARE THE SKINS' (minor 6), SIL OFL 1.1 each: Barlow (Obsidian, Glass, WoW
--- Forever), Cinzel SemiBold (the Azeroth, Ember and WoW Midnight titles) and Atkinson Hyperlegible
--- (High Contrast). `tools/artwork/fonts.py` is their provenance record: the pinned upstream commits,
--- and the static SemiBold it cuts from Cinzel's variable font. A skin names a face by this key and
--- resolves it through LSM, never by path.
+-- THE "Ka0s" FACES ARE THE SKINS' (minor 6; minor 8 gave every skin a family of its own, body and
+-- titles alike, the owner's round-5 notes), SIL OFL 1.1 each: Inter (Obsidian), Nunito (Glass),
+-- Vollkorn (Azeroth), Bitter (Ember), Philosopher (WoW Midnight), Fira Sans (WoW Forever) and
+-- Atkinson Hyperlegible (High Contrast); Ka0s Default and WoW Default draw the client's Friz
+-- Quadrata. Barlow and Cinzel, minor 6's, left at minor 8, never released. `tools/artwork/fonts.py`
+-- is their provenance record: the pinned upstream commits, and the static weights it cuts from the
+-- four variable fonts. A skin names a face by this key and resolves it through LSM, never by path.
 --
 -- THE MASK IS PER FACE (minor 6; minor 5 had one for all). LibSharedMedia refuses a font whose mask
 -- lacks the client's locale bit, which is the point: a face that draws a player's text as boxes does
--- not belong in their dropdown. JetBrains Mono has Latin and Cyrillic, so western + ruRU; the skin
--- faces are western only (Cinzel and Atkinson have no Cyrillic, none of the five has Hangul or Han),
--- and on another client the skin falls back to the client's own font.
+-- not belong in their dropdown. JetBrains Mono and the six new families have Latin and Cyrillic, so
+-- western + ruRU; Atkinson has no Cyrillic and is western only. None has Hangul or Han, and on such a
+-- client the skin falls back to the client's own font.
+local WEST_RU = { "western", "ruRU" }
 lib.FONTS = {
-  ["JetBrains Mono"]       = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
-                               langmask = { "western", "ruRU" } },
-  ["Ka0s Barlow"]          = { file = "Barlow-Regular.ttf", license = "Barlow-OFL.txt",
-                               langmask = { "western" } },
-  ["Ka0s Barlow SemiBold"] = { file = "Barlow-SemiBold.ttf", license = "Barlow-OFL.txt",
-                               langmask = { "western" } },
-  ["Ka0s Cinzel"]          = { file = "Cinzel-SemiBold.ttf", license = "Cinzel-OFL.txt",
-                               langmask = { "western" } },
-  ["Ka0s Atkinson"]        = { file = "AtkinsonHyperlegible-Regular.ttf",
-                               license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
-  ["Ka0s Atkinson Bold"]   = { file = "AtkinsonHyperlegible-Bold.ttf",
-                               license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
+  ["JetBrains Mono"]          = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Inter"]              = { file = "Inter-Regular.ttf", license = "Inter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Inter SemiBold"]     = { file = "Inter-SemiBold.ttf", license = "Inter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Nunito"]             = { file = "Nunito-Regular.ttf", license = "Nunito-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Nunito SemiBold"]    = { file = "Nunito-SemiBold.ttf", license = "Nunito-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Vollkorn"]           = { file = "Vollkorn-Regular.ttf", license = "Vollkorn-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Vollkorn Bold"]      = { file = "Vollkorn-Bold.ttf", license = "Vollkorn-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Bitter"]             = { file = "Bitter-Regular.ttf", license = "Bitter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Bitter Bold"]        = { file = "Bitter-Bold.ttf", license = "Bitter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Philosopher"]        = { file = "Philosopher-Regular.ttf", license = "Philosopher-OFL.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Philosopher Bold"]   = { file = "Philosopher-Bold.ttf", license = "Philosopher-OFL.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Fira Sans"]          = { file = "FiraSans-Regular.ttf", license = "FiraSans-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Fira Sans SemiBold"] = { file = "FiraSans-SemiBold.ttf", license = "FiraSans-OFL.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Atkinson"]           = { file = "AtkinsonHyperlegible-Regular.ttf",
+                                  license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
+  ["Ka0s Atkinson Bold"]      = { file = "AtkinsonHyperlegible-Bold.ttf",
+                                  license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is

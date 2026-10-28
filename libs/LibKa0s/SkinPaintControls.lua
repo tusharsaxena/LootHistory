@@ -35,7 +35,14 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- P.SUB), not of the fill holder, which could tie the row's parent for frame level.
 -- Minor 6: ScrollBar lays `scroll.thumbFill`, when the skin sets it, as a flat fill over the bar's
 -- own thumb, following the thumb's Show and Hide (SkinDefs minor 9).
-local CONTROLS_MINOR = 6
+-- Minor 7 (the owner's round-5 notes): ScrollBar draws a corridor and one knob in every skin. The
+-- bar's own thumb art is faded and a flat knob laid in its place (`scroll.thumbFill`, retired with
+-- SkinDefs minor 10, was a second knob over the tinted art); the corridor is laid under the
+-- always-shown bar too.
+-- Minor 8 (the owner's round-5 showroom audit): the paging arrow, a dropdown's arrow and a sort
+-- header's arrows take `icon.arrow` through P.glyph, desaturated first, so they wear the skin's color
+-- and not the art's yellow.
+local CONTROLS_MINOR = 8
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -288,7 +295,7 @@ prim.Dropdown = function(owner, dd, opts)
   P.fadeAll(rec, P.stockRegions(dd, opts))
   P.box(rec, dd, T, INPUT, opts)
   local arrow = P.field(dd, "arrow", "Texture") or P.field(dd, "Arrow", "Texture")
-  if arrow then P.tint(rec, arrow, T, "icon.tint", "SetVertexColor") end
+  if arrow then P.glyph(rec, arrow, T, "icon.arrow") end
   local fs = P.field(dd, "text", "FontString") or P.field(dd, "Text", "FontString")
   if fs then
     P.tint(rec, fs, T, "input.text")
@@ -301,81 +308,72 @@ local function thumbOf(sb, opts)
   return P.call(sb, "GetThumbTexture", "Texture") or P.field(sb, "ThumbTexture", "Texture"), false
 end
 
--- The thumb: a texture the caller drew is filled; the bar's own thumb is tinted, or takes the
--- enabled / disabled state the caller asks for.
-local function paintThumb(_, rec, sb, T, opts)
-  local thumb, own = thumbOf(sb, opts)
-  if not thumb then return end
-  if opts.state then
-    local c = T[opts.state == "off" and "scroll.thumbOff" or "scroll.thumbOn"]
-    if c then thumb:SetVertexColor(rgba(c)) end
-    return
-  end
-  if own then
-    if T["scroll.thumb"] then thumb:SetColorTexture(rgba(T["scroll.thumb"])) end
-    return
-  end
-  local art = P.media("background", T["scroll.thumbTexture"])
-  if art then
-    thumb:SetTexture(art)
-  else
-    P.tint(rec, thumb, T, "scroll.thumb", "SetVertexColor")
-  end
-end
+-- The knob (minor 7, the owner's round-5 note: "a knob and a scroll corridor" in every skin, and High
+-- Contrast drew two knobs): a thumb the caller drew is filled `scroll.thumb`; the bar's own thumb
+-- art is faded and a flat knob laid in its place, `scroll.thumb` (`scroll.thumbOn` / `thumbOff` for
+-- the state the caller asks for), KNOB_INSET inside the corridor and 2px inside the thumb's ends,
+-- anchored to the thumb so it moves with it and shown and hidden with it (a hook on the thumb's
+-- Show / Hide / SetShown, once). The client's art is never tinted: a tint only darkens it, and a
+-- tinted knob under a flat one is the two knobs the owner saw.
+local KNOB_INSET = 3
 
--- The thumb fill (minor 6): `scroll.thumbFill` as a flat region over the bar's own thumb, inset to
--- the knob's middle, anchored to it so it moves with it, shown and hidden with it (a hook on the
--- thumb's Show / Hide / SetShown, once), at half alpha while the caller says the bar is off. A
--- texture the caller drew (`opts.thumb`) is filled already and takes none.
-local function syncThumbFill(rec, thumb)
-  local t = rec.regions.thumbFill
-  if t and rec.regions.thumbFillOn then t:SetShown(thumb:IsShown()) end
+local function syncKnob(rec, thumb)
+  local t = rec.regions.knob
+  if t and rec.regions.knobOn then t:SetShown(thumb:IsShown()) end
 end
 
 local function hookThumb(rec, thumb)
   if rec.regions.thumbHooked or type(hooksecurefunc) ~= "function" then return end
   rec.regions.thumbHooked = true
   for _, m in ipairs({ "Show", "Hide", "SetShown" }) do
-    if type(thumb[m]) == "function" then hooksecurefunc(thumb, m, function() syncThumbFill(rec, thumb) end) end
+    if type(thumb[m]) == "function" then hooksecurefunc(thumb, m, function() syncKnob(rec, thumb) end) end
   end
 end
 
-local function paintThumbFill(rec, sb, T, opts)
-  local c = T["scroll.thumbFill"]
+local function knobColor(T, state)
+  if state == "on" then return T["scroll.thumbOn"] end
+  if state == "off" then return T["scroll.thumbOff"] end
+  return T["scroll.thumb"]
+end
+
+local function paintKnob(rec, sb, T, opts)
   local thumb, own = thumbOf(sb, opts)
-  if not (c and thumb and not own) then
-    rec.regions.thumbFillOn = false
-    return P.hide(rec, "thumbFill")
+  if own then
+    if T["scroll.thumb"] then thumb:SetColorTexture(rgba(T["scroll.thumb"])) end
+    return P.hide(rec, "knob")
   end
-  local t = P.tex(rec, "thumbFill", sb, "OVERLAY", 7)
-  if not t then return end
-  local w = type(thumb.GetWidth) == "function" and thumb:GetWidth() or 0
-  local inset = (w and w > 8) and math.floor(w / 4) or 0
+  local c = thumb and knobColor(T, opts.state)
+  local t = c and P.tex(rec, "knob", sb, "OVERLAY", 7)
+  if not t then
+    rec.regions.knobOn = false
+    return P.hide(rec, "knob")
+  end
+  P.fade(rec, thumb)
   t:ClearAllPoints()
-  t:SetPoint("TOPLEFT", thumb, "TOPLEFT", inset, -2)
-  t:SetPoint("BOTTOMRIGHT", thumb, "BOTTOMRIGHT", -inset, 2)
-  local a = (c[4] or 1) * (opts.state == "off" and 0.5 or 1)
-  t:SetColorTexture(c[1], c[2], c[3], a)
-  rec.regions.thumbFillOn = true
+  t:SetPoint("TOP", thumb, "TOP", 0, -2)
+  t:SetPoint("BOTTOM", thumb, "BOTTOM", 0, 2)
+  t:SetPoint("LEFT", sb, "LEFT", KNOB_INSET, 0)
+  t:SetPoint("RIGHT", sb, "RIGHT", -KNOB_INSET, 0)
+  t:SetColorTexture(rgba(c))
+  rec.regions.knobOn = true
   hookThumb(rec, thumb)
   t:SetShown(type(thumb.IsShown) ~= "function" or thumb:IsShown())
 end
 
---- S.ScrollBar(sb, opts): a scroll bar. `opts.track` / `opts.thumb`, textures the caller drew,
---- are filled with `scroll.track` / `scroll.thumb` (DebugLog's console bar); `opts.state` "on" /
---- "off" tints the bar's own thumb `scroll.thumbOn` / `scroll.thumbOff` (OptionsScroll's
---- always-shown bar); otherwise the bar's own thumb takes `scroll.thumbTexture` art or
---- `scroll.thumb`, and a `scroll.track` region is laid under it, away from Ka0s Default only.
---- Draws no Media icon.
+--- S.ScrollBar(sb, opts): a scroll bar, a corridor and one knob in every skin. `opts.track` /
+--- `opts.thumb`, textures the caller drew, are filled with `scroll.track` / `scroll.thumb`
+--- (DebugLog's console bar). Otherwise the bar's own thumb art is faded and a flat knob laid in its
+--- place, in `scroll.thumb`, or `scroll.thumbOn` / `scroll.thumbOff` for `opts.state` "on" / "off"
+--- (OptionsScroll's always-shown bar); and a `scroll.track` corridor is laid under it, the bar's
+--- full size. Draws no Media icon.
 prim.ScrollBar = function(owner, sb, opts)
   if type(sb) ~= "table" then return end
   local rec = P.track(owner, sb, "ScrollBar", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
-  paintThumb(owner, rec, sb, T, opts)
-  paintThumbFill(rec, sb, T, opts)
-  if opts.track or opts.state or not T["scroll.track"] then return P.hide(rec, "track") end
+  paintKnob(rec, sb, T, opts)
+  if opts.track or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
   if not t then return end
   t:SetAllPoints(sb)
@@ -555,7 +553,7 @@ prim.PageButton = function(owner, btn, dir)
   t:SetSize(12, 12)
   t:SetTexture(ARROW_ART)
   t:SetRotation(PAGE_ROTATION[dir] or 0)
-  P.tint(rec, t, T, "btn.icon", "SetVertexColor")
+  P.glyph(rec, t, T, "icon.arrow")
   t:Show()
 end
 
@@ -594,7 +592,7 @@ prim.SortHeaderBar = function(owner, bar, opts)
     if P.isFS(fs) then P.label(owner, rec, fs, T, "list.header.text") end
   end
   for _, t in ipairs(type(opts.arrows) == "table" and opts.arrows or {}) do
-    if P.isTexture(t) then P.tint(rec, t, T, "icon.tint", "SetVertexColor") end
+    if P.isTexture(t) then P.glyph(rec, t, T, "icon.arrow") end
   end
 end
 

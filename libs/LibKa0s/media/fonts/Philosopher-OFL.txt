@@ -1,14 +1,8 @@
-Cinzel-SemiBold.ttf is a static instance of upstream's variable Cinzel[wght].ttf at wght 600,
-made with fontTools.varLib.instancer by tools/artwork/fonts.py in the LibKa0s repository,
-which pins the source commit and records the change. Only the weight axis was fixed and the
-name table renamed to "Cinzel SemiBold"; no glyph was edited. It remains under the license
-below.
-
-Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)
+Copyright 2011 The Philosopher Project Authors (https://github.com/alexeiva/philosopher)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-http://scripts.sil.org/OFL
+https://openfontlicense.org
 
 
 -----------------------------------------------------------
