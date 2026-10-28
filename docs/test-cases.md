@@ -1413,7 +1413,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 
-### test_panel.lua (47)
+### test_panel.lua (48)
 
 - Panel: the parent category and its ONE sub-page are registered
 - Panel: registration is idempotent
@@ -1434,6 +1434,7 @@ Total.
 - Panel: a slider is given the row's own min, max and step
 - Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its SUBSECTIONS
 - Panel: a subgroup heading never repeats its own tab's name (options-ui-§7)
+- Panel: no heading on the library's Skin tab repeats the tab's own label (options-ui-§7)
 - Panel: clicking a checkbox writes through NS.Schema:Set
 - Panel: the Test mode checkbox starts test mode, and a refused start redraws it unticked
 - Panel: choosing a dropdown entry writes the stored value
@@ -1533,7 +1534,7 @@ Total.
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
 
-### test_skin_picker.lua (11)
+### test_skin_picker.lua (19)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
 - Skin picker: the spec names this owner, its seams, the Skin tab and the eye
@@ -1546,6 +1547,14 @@ Total.
 - Skin picker: the player's close marks it seen; this addon's own hide does not
 - Skin picker: a profile that has seen it takes a shown picker down, unmarked
 - Skin picker: the eye opens the History window in test mode
+- Skin picker: the title names this addon
+- Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
+- Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
+- Skin picker: the gear saves the pick and opens General on its Skin tab
+- Skin picker: behind another addon's picker it queues, answers nil, "queued", then shows
+- Skin picker: the other addon's Apply to all dismisses this queued picker, seen and skinned
+- Skin picker: this addon's own hide takes a queued picker out of the queue, unseen
+- Skin picker: a profile switch with a preview pending wears the new profile's skin
 
 ### test_skin_chrome.lua (6)
 
@@ -2121,13 +2130,13 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 16 |
-| test_panel.lua | 47 |
+| test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 9 |
-| test_skin_picker.lua | 11 |
+| test_skin_picker.lua | 19 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 17 |
@@ -2161,4 +2170,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1815** |
+| **Total** | **1824** |

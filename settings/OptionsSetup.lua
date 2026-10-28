@@ -62,6 +62,8 @@ if not lib then
     -- build draws no panel, so the no-op is all the surface owes.
     Drawer = noop,
     RegisterOptionsPage = noop, CreateOptionsPanel = noop,
+    -- The live one takes an optional page key since OptionsRegistry minor 4 (LibKa0s v1.79.0);
+    -- without the library there is no page to open either way.
     OpenOptionsPanel = function()
       NS.Print(NS.LIBKA0S_MISSING .. ", so the settings panel is unavailable.")
     end,
@@ -145,7 +147,8 @@ if not lib then
     end,
     AppearanceRows = function() return nil end,
     -- The first-run skin picker (LibKa0s v1.79.0, OptionsSkinPicker minor 1). Without the library
-    -- there is no skin to pick: SkinPicker draws nothing and answers nil, HideSkinPicker is a no-op.
+    -- there is no skin to pick: SkinPicker draws nothing and answers nil (never the live one's
+    -- second value, "queued": there is no queue), HideSkinPicker is a no-op.
     SkinPicker = function() return nil end,
     HideSkinPicker = noop,
 

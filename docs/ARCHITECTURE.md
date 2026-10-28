@@ -359,8 +359,13 @@ facade with this addon as its **owner**.
 - **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
   (`O.SkinPicker`, LibKa0s OptionsSkinPicker 1) while the profile's `pickerSeen` is false: two
   seconds after login on an addon that stands up, and after every profile event. Never while the
-  addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. The player's close sets the key;
-  the stand-down's `NS.HideSkinPicker` takes it down without setting it. Its eye turns test mode on.
+  addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. A pick only previews (the skin
+  is worn, not saved); **Apply** and the gear save it through `NS.WriteSkinChoice`, and the close
+  control and Escape put the old skin back. Apply, the close, the gear and Escape set the key, and
+  so does another Ka0s addon's **Apply to all Ka0s addons** for this picker while it is queued
+  (one picker is up at a time across Ka0s addons; a queued call answers `nil, "queued"`).
+  `NS.HideSkinPicker` (the stand-down, and first on every profile event, so the put-back lands
+  before the new profile's skin) takes it down without setting it. Its eye turns test mode on.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
   event (`core/LootHistory.lua`), applying the stored Scope and overrides with the stored skin, and
   from each Skin tab row with only its own half. It calls
@@ -416,9 +421,10 @@ Outside the gate's reach, also on purpose:
   table, the filter bar's hint) take the skin's face through `S.Font`, face only, their colors still
   the addon's. Sizes are relative to Ka0s Default's (LibKa0s SkinPaint minor 4), so each keeps its
   template's size scaled by the skin's, and the layouts measured against it hold. Ka0s Default's face
-  is Friz Quadrata (LibKa0s SkinDefs minor 8), the one the `GameFont*` templates carry, so on it they
-  read as before; with **Ignore fonts** on, every string keeps its own face and size and the skin
-  still colors it. Two strings stay on their own face: the row's
+  is Oxanium (SemiBold for body text, Bold for titles; LibKa0s SkinDefs minor 14, the owner's choice,
+  2026-10-28), so on it the addon's strings no longer read in the `GameFont*` templates' Friz
+  Quadrata, which every other skin without a face of its own still draws; with **Ignore fonts** on,
+  every string keeps its own face and size and the skin still colors it. Two strings stay on their own face: the row's
   direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
   read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
   are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished

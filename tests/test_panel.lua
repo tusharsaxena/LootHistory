@@ -410,6 +410,22 @@ test("Panel: a subgroup heading never repeats its own tab's name (options-ui-§7
   end
 end)
 
+test("Panel: no heading on the library's Skin tab repeats the tab's own label (options-ui-§7)", function()
+  -- The schema case above cannot see the library's tab: its headings are the library's strings.
+  -- red under: the skins heading back to "Skin" (OptionsAppearance minor 3 before PK-02), or a
+  -- translation that names a heading after the tab.
+  local ctx = NS.Panel.general
+  local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Appearance"))
+  local label = mocks.LibStub("LibKa0s-Options-1.0").APPEARANCE_STRINGS.TAB_LABEL
+  assertEqual(label, "Skin", "the tab's label")
+  local headings = widgetsOfType(created, "Heading")
+  assertTrue(#headings > 0, "the Skin tab drew no heading to check")
+  for i, h in ipairs(headings) do
+    assertTrue(h.text ~= label, "Skin tab heading " .. i .. " repeats its tab's name")
+  end
+  homeTab(ctx)
+end)
+
 -- ── the write path ───────────────────────────────────────────────────────────────────────────
 
 test("Panel: clicking a checkbox writes through NS.Schema:Set", function()

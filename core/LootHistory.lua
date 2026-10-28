@@ -97,7 +97,12 @@ end
 
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
-  -- FIRST, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
+  -- FIRST, the first-run skin picker down, quietly (core/SkinSetup.lua): a showing belongs to the
+  -- profile it opened on, and taking it down puts back the skin its window opened with, the OLD
+  -- profile's, so it must land before the new profile's skin rather than over it. A new or reset
+  -- profile still shows it, fresh, below.
+  if NS.HideSkinPicker then NS.HideSkinPicker() end
+  -- Then, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
   -- repaints every recorded frame and fires OnLooksChanged whether or not the History window was
   -- ever built (B:AdoptProfile returns early when it was not), so the skin cannot depend on it. No
   -- simulation is built under a skin, so this moves nothing the stop below protects.
@@ -108,8 +113,9 @@ function NS.OnProfileEvent(event, key)
   NS.OnEnabledChanged()
   traceProfileEvent(event, key)
   -- The first-run skin picker (core/SkinSetup.lua): a new or reset profile starts from the
-  -- defaults, `pickerSeen` false, so it shows; one that has seen it takes a shown picker down.
-  -- After the latch, so a profile with the addon switched off shows nothing.
+  -- defaults, `pickerSeen` false, so it shows, a fresh showing over the new profile's skin; one
+  -- that has seen it stays down. After the latch, so a profile with the addon switched off shows
+  -- nothing.
   if NS.MaybeShowSkinPicker then NS.MaybeShowSkinPicker() end
   if NS.Browser and NS.Browser.AdoptProfile then NS.Browser:AdoptProfile() end
   -- The one SettingsChanged("profile") every setting's reactor already listens to

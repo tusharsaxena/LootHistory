@@ -322,10 +322,21 @@ end
 -- PLAYER_REGEN_ENABLED edge, one target at most, the idiom of the ledger reset offer
 -- (settings/Slash.lua NS.OfferLedgerReset).
 --
--- SEEN. The library calls `onClose` once per close, by any route (its close control, the gear,
--- Escape); that is the one write of `pickerSeen`, through NS.Schema:Set. A close this addon makes
--- itself (NS.HideSkinPicker) is not the player's and writes nothing. Picking a skin and the eye
--- leave the picker up (owner decision D6).
+-- SEEN. The library calls `onClose` once per showing, by any route the player takes (Apply, its
+-- close control, the gear, Escape), and once for a picker still queued behind another Ka0s addon's
+-- when that addon's "Apply to all Ka0s addons" dismisses it unshown; that is the one write of
+-- `pickerSeen`, through NS.Schema:Set. A close this addon makes itself (NS.HideSkinPicker: the
+-- stand-down, a profile event) is not the player's and writes nothing.
+--
+-- PREVIEW (LibKa0s PK-02, owner decision D6 as changed). A pick only previews: the Skin major moves
+-- and the addon repaints, but `set` (NS.WriteSkinChoice) runs only on Apply, the gear or Apply to
+-- all. The close control and Escape put back the skin the window opened with. So a profile event
+-- takes the picker down FIRST (NS.OnProfileEvent), before the new profile's skin is applied, and a
+-- new or reset profile then shows it fresh. The eye leaves the picker up.
+--
+-- QUEUED. One picker is up at a time across every Ka0s addon (lib.__pickerQueue): while another
+-- addon's is up, O.SkinPicker queues this one and answers nil, "queued", which
+-- NS.MaybeShowSkinPicker passes through; it shows when the other closes.
 
 local PICKER_PATH = "settings.appearance.pickerSeen"
 local pickerTarget       -- the one-shot PLAYER_REGEN_ENABLED target, while a start is held
@@ -353,8 +364,9 @@ end
 function NS.SkinPickerSpec()
   return {
     owner = addonName, get = NS.SkinChoice, set = NS.WriteSkinChoice,
-    -- The gear's default: the settings panel opened, then O.SelectTab("General", "Appearance"),
-    -- the Skin tab's key on this addon's one schema page (settings/Panel.lua).
+    -- The gear's default: O.OpenOptionsPanel("General") (OptionsRegistry minor 4 opens that page's
+    -- own subcategory, not the landing page), then O.SelectTab("General", "Appearance"), the Skin
+    -- tab's key on this addon's one schema page (settings/Panel.lua).
     page = "General", tab = "Appearance",
     onPreview = previewSkin, onClose = pickerClosed,
   }
@@ -382,6 +394,8 @@ function NS.HideSkinPicker()
   if not ok then error(err, 0) end
 end
 
+--- Show the picker when this profile has not seen it: answers O.SkinPicker's frame, or nil, "queued"
+--- while another Ka0s addon's picker is up (it shows when that one closes), or nil.
 function NS.MaybeShowSkinPicker()
   local O = NS.Options
   if not (O and type(O.SkinPicker) == "function") then return nil end
