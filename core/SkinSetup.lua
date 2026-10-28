@@ -332,11 +332,17 @@ end
 --
 -- PREVIEW (LibKa0s PK-02, owner decision D6 as changed). A pick only previews: the Skin major moves
 -- and the addon repaints, but `set` (NS.WriteSkinChoice) runs only on Apply, the gear or Apply to
--- all. The close control and Escape put back the skin the window opened with, and the player's
--- close then re-applies the stored pair, in case the store moved under the preview. So a profile
--- event takes the picker down FIRST (NS.OnProfileEvent), before the new profile's skin is applied,
--- and a new or reset profile then shows it fresh. The eye leaves the picker up, raised over the
--- History window it opens.
+-- all. The close control and Escape put back the owner's stored choice as it reads at the close
+-- (the library's revert reads `get`, NS.SkinChoice, since PK-03), so a store that moved under the
+-- preview is worn without a host re-apply. A profile event still takes the picker down FIRST
+-- (NS.OnProfileEvent), before the new profile's skin is applied, so the new profile's whole pair
+-- (exceptions and overrides with it) is what NS.ApplySkinChoice leaves worn, and a new or reset
+-- profile then shows it fresh. The eye leaves the picker up: the library's window is DIALOG and
+-- raised after onPreview returns (PK-03), so the HIGH History window it opens cannot cover it.
+--
+-- COMBAT. The library's queue waits out combat before it shows the NEXT owner's picker (PK-03), but
+-- a first O.SkinPicker call with nothing up shows at once, whatever the lockdown, so this addon's
+-- own start is still held to PLAYER_REGEN_ENABLED below.
 --
 -- QUEUED. One picker is up at a time across every Ka0s addon (lib.__pickerQueue): while another
 -- addon's is up, O.SkinPicker queues this one and answers nil, "queued", which
@@ -346,23 +352,10 @@ local PICKER_PATH = "settings.appearance.pickerSeen"
 local pickerTarget       -- the one-shot PLAYER_REGEN_ENABLED target, while a start is held
 local quietClose = false -- true while NS.HideSkinPicker takes the picker down
 
---- This addon's picker back on top of its strata, when it is the one up. The picker and the History
---- window are both HIGH and toplevel, and the client raises a toplevel frame it shows, so the window
---- the eye opens would come up over the picker. The frame is read from the shared queue's `current`
---- (lib.__pickerQueue, OptionsSkinPicker's header), because a picker shown out of the queue never
---- hands its frame back to this addon.
-local function raisePicker()
-  local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
-  local q = lib and lib.__pickerQueue
-  local cur = type(q) == "table" and q.current
-  local f = type(cur) == "table" and cur.owner == addonName and cur.frame
-  if f and type(f.Raise) == "function" then f:Raise() end
-end
-
---- The eye: the History window in test mode, so the player sees the skin on this addon's frames,
---- then the picker raised over it. SetTestMode's start opens the window itself; a mode already on
---- only needs the window shown. A refused start (the window not allowed on screen) prints its own
---- line.
+--- The eye: the History window in test mode, so the player sees the skin on this addon's frames;
+--- the library raises the picker over it once this returns. SetTestMode's start opens the window
+--- itself; a mode already on only needs the window shown. A refused start (the window not allowed
+--- on screen) prints its own line.
 local function previewSkin()
   local BT = NS.BrowserTable
   if not (BT and BT.SetTestMode) then return end
@@ -371,19 +364,15 @@ local function previewSkin()
   else
     BT:SetTestMode(true, "skin picker")
   end
-  raisePicker()
 end
 
---- The player's close: the picker seen, then the stored pair re-applied. The library's put-back
---- wears the skin the window OPENED with without reading the store, so a store that moved under a
---- pending preview (the Skin tab, `/lh set`, another addon's copy) would otherwise be worn wrong
---- until a reload. In the usual case the stored pair is the one worn and Skin:SetChoice moves nothing.
+--- The player's close: the picker seen, and nothing else. The library's put-back already wears the
+--- stored choice (PK-03 reads `get` at the close), so the skin is not this callback's to move.
 local function pickerClosed()
   if quietClose then return end
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
   S:Set(PICKER_PATH, true)
-  NS.ApplySkinChoice()
 end
 
 function NS.SkinPickerSpec()

@@ -9,7 +9,8 @@
 -- and one owner's skin copy (lib.__skinOthers, lib.__copySkinTo).
 --
 -- WHAT IT DRAWS, top to bottom, in one window about 280 wide, its center 75% of the way up the
--- screen (re-anchored on every show, so it sits above the addon's main window the eye opens):
+-- screen (re-anchored on every show, so it sits clear of the middle, where most addons' main windows
+-- open; what keeps it in front of the window the eye opens is LAYERING, below):
 --   * the title, "Choose a skin for <the addon's label>", and the close control;
 --   * a dropdown button: the skin worn now, as three swatches and its name, with the eye and the
 --     gear beside it. A click opens the list of every skin (Skin:Skins() order) inside the window,
@@ -19,7 +20,7 @@
 --     called and no popup is raised. It closes the list, not the window;
 --   * the eye (Media icon "eye"), only when `spec.onPreview` is a function: the host's test mode, so
 --     the player sees the skin on the addon's own frames; it keeps working while a preview is
---     pending;
+--     pending, and the window is Raise()d once onPreview returns;
 --   * the gear (Media icon "settings"): saves the pending pick as Apply does, then `spec.onSettings`,
 --     by default the settings panel opened at `spec.page` (O.OpenOptionsPanel(page), OptionsRegistry
 --     minor 4) and O.SelectTab(page, spec.tab or "Appearance"); then the window closes;
@@ -31,11 +32,12 @@
 --     naming every addon that needs one, then this window closes and every queued picker is
 --     dismissed (its `spec.onClose` runs; it never shows).
 -- The close control and Escape dismiss WITHOUT saving: a pending preview is put back (Skin:SetChoice
--- to the choice the window opened with, no write), then the window closes. Every close route (Apply,
--- the close control, the gear, Escape, O.HideSkinPicker) calls `spec.onClose` once, where the host
--- records that the picker was seen. Apply, Apply to all, the gear and a pick are refused in combat
--- and leave the window up; the close control and Escape still close it, and the preview put back is
--- no write.
+-- to the owner's stored choice as it reads NOW, through spec.get, no write: only the unsaved preview
+-- is undone, so a skin the Skin tab or a profile change stored while the window was up stays), then
+-- the window closes. Every close route (Apply, the close control, the gear, Escape,
+-- O.HideSkinPicker) calls `spec.onClose` once, where the host records that the picker was seen.
+-- Apply, Apply to all, the gear and a pick are refused in combat and leave the window up; the close
+-- control and Escape still close it, and the preview put back is no write.
 --
 -- ONE WINDOW ACROSS ADDONS. LibStub keeps one copy of this major for the whole client, so its library
 -- table is every Ka0s addon's, and lib.__pickerQueue (created if absent, adopted by a newer minor)
@@ -45,9 +47,24 @@
 -- waiting shows. O.HideSkinPicker() on an instance takes its queued owners out of the queue (they were
 -- never seen, so no onClose) and hides its window when it is the one up.
 --
--- LAYERING (frame-layering §1, §4): an on-demand window, T4: HIGH, toplevel, clamped, movable by
--- its body. The list is part of the window (the window grows to hold it), not a transient popup,
--- so it needs no strata of its own and closes with the window by construction.
+-- NEVER SHOWN MID-COMBAT BY THE QUEUE. A close under InCombatLockdown() shows no next owner: the
+-- queue waits out combat on OptionsRegistry.lua's end-of-combat park (lib.__parkRegistration, its
+-- one PLAYER_REGEN_ENABLED frame, registered only while something is parked) and advances when combat
+-- ends. While it waits, O.SkinPicker for any other owner queues behind it too. The predicate is the
+-- client's InCombatLockdown() alone, as the park's own is: the page lock's flag is cleared by another
+-- frame's handler for the same event, which may run after the park's replay. A copy without the park
+-- shows the next owner at once, as before.
+--
+-- LAYERING (frame-layering §1, §4): a dialog the player answers, T6: DIALOG, toplevel, clamped,
+-- movable by its body. Not T4's HIGH: the eye's onPreview typically shows the addon's own main
+-- window, itself HIGH and toplevel, and a toplevel window comes up over its strata peers when it is
+-- shown or clicked, so at HIGH the window the eye opened covered the picker (and covered it again on
+-- every click into it). At DIALOG no HIGH window can, whatever its level; the picker is also
+-- Raise()d after onPreview returns, for a host whose preview shows a DIALOG window of its own (a
+-- debug console, a sim panel). On every show it re-raises a shown StaticPopup (Core's
+-- RaiseStaticPopups, frame-layering §4), so the reload popup one picker's Apply raised stays above
+-- the next queued picker. The list is part of the window (the window grows to hold it), not a
+-- transient popup, so it needs no strata of its own and closes with the window by construction.
 --
 -- SKIN. Every piece is painted for the owner through the Skin facade (Core.ApplySkin's Shell, the
 -- close control's CloseButton, Dropdown, Button, MenuFrame, ListRow), so a skin switch repaints it
@@ -65,7 +82,10 @@ if not lib then return end
 -- and Escape put the preview back; "Apply to all Ka0s addons"; one window across addons through
 -- lib.__pickerQueue, a queued call answering nil, "queued"; the default gear opens spec.page itself.
 -- A close acts on the picker it closes, never the instance's current one (the client's synchronous
--- OnHide can show the instance's next owner inside the hide).
+-- OnHide can show the instance's next owner inside the hide). PK-03 (the consumer reviews): DIALOG,
+-- not HIGH, raised after onPreview, re-raising a shown StaticPopup on show; a dismissal puts back
+-- the owner's stored choice as it reads now, not the one the window opened with; the queue waits out
+-- combat rather than showing the next owner mid-combat.
 local PICKER_MINOR = 1
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
@@ -124,8 +144,9 @@ end
 -- ── the queue (library level) ────────────────────────────────────────────────────────────────
 --
 -- `current` is `{ owner, inst, frame }`, the picker shown now; `waiting` the owners queued behind it,
--- oldest first, each `{ owner, inst, spec, show }` (`show(spec)` shows it on its own instance). Read
--- through queue() at call time, never cached: a newer minor adopts the same table.
+-- oldest first, each `{ owner, inst, spec, show }` (`show(spec)` shows it on its own instance);
+-- `parked` is true while the queue waits out combat. Read through queue() at call time, never
+-- cached: a newer minor adopts the same table.
 
 local function queue()
   local q = lib.__pickerQueue
@@ -150,10 +171,34 @@ local function enqueue(entry)
   q.waiting[#q.waiting + 1] = entry
 end
 
---- The shown picker closed: the next owner waiting shows, skipping one that can no longer.
-local function advance()
+--- The client's lockdown, the park's own predicate (see the header: not the page lock's flag).
+local function inLockdown()
+  return (InCombatLockdown ~= nil and InCombatLockdown()) and true or false
+end
+
+local advance
+
+--- Park the queue until combat ends (OptionsRegistry.lua's lib.__parkRegistration), once however
+--- many closes ask. The replay advances only when nothing came up meanwhile. Answers whether the
+--- queue is parked; false without the park, and the caller then shows at once.
+local function waitOutCombat(q)
+  if q.parked then return true end
+  if type(lib.__parkRegistration) ~= "function" then return false end
+  local ok = lib.__parkRegistration(function()
+    local now = queue()
+    now.parked = nil
+    if not now.current then advance() end
+  end)
+  q.parked = ok and true or nil
+  return ok and true or false
+end
+
+--- The shown picker closed: the next owner waiting shows, skipping one that can no longer; in combat
+--- the queue waits for its end instead.
+function advance()
   local q = queue()
   q.current = nil
+  if #q.waiting > 0 and inLockdown() and waitOutCombat(q) then return end
   while not q.current and #q.waiting > 0 do
     local e = table.remove(q.waiting, 1)
     safeCall(e.show, e.spec)
@@ -287,9 +332,12 @@ function lib.__AttachSkinPicker(O, d)
     return O.__combatRefused and O.__combatRefused("skin picker", P.owner)
   end
 
-  --- The owner's stored choice: `spec.get` (`{ source, skin }` or two values), else the Skin major's.
-  local function readChoice()
-    local Skin, get = P.Skin, P.spec.get
+  --- The owner's stored choice for picker `p` (default the one shown last): `spec.get`
+  --- (`{ source, skin }` or two values), each half it gives no usable value for taken from
+  --- `fallback` (a `{ source, skin }` pair), else from the Skin major's applied choice.
+  local function readChoice(p, fallback)
+    p = p or P
+    local Skin, get = p.Skin, p.spec.get
     local source, skin
     if type(get) == "function" then
       local ok, a, b = pcall(get)
@@ -297,8 +345,11 @@ function lib.__AttachSkinPicker(O, d)
       elseif ok then source, skin = a, b
       else report(a) end
     end
-    if source ~= "eui" and source ~= "ka0s" then source = select(1, Skin:GetChoice(P.owner)) end
-    if type(skin) ~= "string" or not Skin:GetSkin(skin) then skin = select(2, Skin:GetChoice(P.owner)) end
+    local fs, fk
+    if fallback then fs, fk = fallback[1], fallback[2]
+    else fs, fk = Skin:GetChoice(p.owner) end
+    if source ~= "eui" and source ~= "ka0s" then source = fs end
+    if type(skin) ~= "string" or not Skin:GetSkin(skin) then skin = fk end
     return source, skin
   end
 
@@ -372,13 +423,16 @@ function lib.__AttachSkinPicker(O, d)
     return reload
   end
 
-  --- A dismissal of picker `p`: its pending preview put back, the Skin major moved to the choice
-  --- its window opened with. No write.
+  --- A dismissal of picker `p`: its pending preview put back, the Skin major moved to the owner's
+  --- stored choice as it reads now (spec.get, each half it gives no usable value for taken from the
+  --- choice the window opened with), so only the unsaved preview is undone: a skin the Skin tab or
+  --- a profile change stored meanwhile stays. Never the Skin major's applied choice: the pick moved
+  --- it to the preview. No write.
   local function revert(p)
     if p.pending == nil then return end
     p.pending, p.reload = nil, false
-    local opened = p.opened or {}
-    p.Skin:SetChoice(p.owner, opened[1], opened[2])
+    local source, skin = readChoice(p, p.opened or {})
+    p.Skin:SetChoice(p.owner, source, skin)
   end
 
   --- Picker `p`'s window has gone, by any route: a pending preview put back, `spec.onClose` once per
@@ -453,8 +507,13 @@ function lib.__AttachSkinPicker(O, d)
     hide()
   end
 
+  --- The eye: the host's preview, then the window raised, so the addon window it showed (or raised)
+  --- does not cover it among its DIALOG peers (a HIGH window cannot: see LAYERING).
   local function preview()
-    safeCall(P.spec.onPreview)
+    local p = P
+    safeCall(p.spec.onPreview)
+    local f = p.frame
+    if f and f:IsShown() and type(f.Raise) == "function" then f:Raise() end
   end
 
   --- One icon button: the Media icon `icon` for the owner, else the text glyph.
@@ -598,7 +657,7 @@ function lib.__AttachSkinPicker(O, d)
     P.frame = f
     f:Hide()
     f:SetSize(WIDTH, BASE_H)
-    f:SetFrameStrata("HIGH")
+    f:SetFrameStrata("DIALOG")   -- T6, not HIGH: the eye's HIGH, toplevel main window cannot cover it
     f:SetToplevel(true)
     f:SetClampedToScreen(true)
     f:SetMovable(true)
@@ -655,15 +714,18 @@ function lib.__AttachSkinPicker(O, d)
     setOpen(false)
     refresh()
     f:Show()
+    local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
+    if core and type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
     P.shown = true
     queue().current = { owner = owner, inst = O, frame = f }
     return f
   end
 
   --- Show the skin picker for `spec.owner` (default the descriptor's `addonName`), and answer its
-  --- frame. One picker is up at a time across every Ka0s addon: while another owner's is up, the call
-  --- queues this one and answers nil, "queued" (a repeat refreshes its spec); it shows when the one
-  --- up closes. A call for the owner already up on another instance answers that window. Answers nil
+  --- frame. One picker is up at a time across every Ka0s addon: while another owner's is up, or while
+  --- the queue waits out combat, the call queues this one and answers nil, "queued" (a repeat
+  --- refreshes its spec); it shows when the one up closes, or when combat ends. A call for the owner
+  --- already up on another instance answers that window. Answers nil
   --- without the Skin major, a client, or for an owner that never registered. `spec`: get and set
   --- (the Skin tab's seams: set MUST be the owner's write seam, called by Apply, Apply to all and the
   --- gear, never by a pick), onPreview (the eye; absent without it), onSettings (the gear; default:
@@ -676,8 +738,9 @@ function lib.__AttachSkinPicker(O, d)
     local owner = spec.owner or defaultOwner or (P and P.owner)
     if not (Skin and type(Skin.IsOwner) == "function" and Skin:IsOwner(owner)) then return nil end
     if type(CreateFrame) ~= "function" then return nil end
-    local cur = queue().current
-    if cur and cur.owner ~= owner then
+    local q = queue()
+    local cur = q.current
+    if (cur and cur.owner ~= owner) or (not cur and q.parked) then
       enqueue({ owner = owner, inst = O, spec = spec, show = function(s) return show(owner, s, Skin) end })
       return nil, "queued"
     end

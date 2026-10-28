@@ -17,7 +17,9 @@
 -- profile's skin (NS.OnProfileEvent takes the picker down before applying it). Then the eye raising
 -- the picker over the History window it opens, a close after the store moved under a preview
 -- wearing the stored skin, and the stand-down putting a pending preview back unsaved and taking a
--- queued picker out of the queue, both unseen.
+-- queued picker out of the queue, both unseen. Last, since the library's PK-03 took the raise and
+-- the stored-skin put-back over from this addon: a close that moves no skin of the host's own, and a
+-- picker queued behind another addon's waiting out combat.
 --
 -- After test_skin_overrides; leaves the harness on `Default`, the picker down and marked unseen.
 
@@ -323,7 +325,7 @@ test("Skin picker: the close control puts the old skin back, saves nothing, and 
   assertTrue(f.close ~= nil, "the window has a close control")
   f.close:__fire("OnClick")
   assertFalse(f:IsShown(), "the close control closes the window")
-  assertEqual(worn(), "ka0s", "closing puts back the skin the window opened with")
+  assertEqual(worn(), "ka0s", "closing puts back the stored skin, the one the window opened with")
   assertEqual(stored(), "ka0s", "and writes nothing")
   assertEqual(NS.Schema:Get(PATH), true, "a close by the player still counts as seen")
 end))
@@ -448,9 +450,10 @@ end))
 -- ── the eye's window, a store moved under a preview, and the stand-down (LH-01 review) ───────
 
 test("Skin picker: the eye raises the picker over the History window it opens", onWindow(function(f)
-  -- Both are HIGH and toplevel, and the client raises a toplevel frame it shows, so the History
-  -- window would come up over the picker. red under: a previewSkin that shows the window and never
-  -- raises the picker after it.
+  -- The History window is HIGH and toplevel, and the client raises a toplevel frame it shows. The
+  -- library's eye (PK-03) raises its DIALOG window after onPreview returns; this pins that the host's
+  -- onPreview shows the window synchronously, before that raise. red under: a previewSkin that
+  -- defers the window past its return, or a library that never raises after it.
   local BT, B = NS.BrowserTable, NS.Browser
   local raisedOver
   rawset(f, "Raise", function()
@@ -471,9 +474,9 @@ test("Skin picker: the eye raises the picker over the History window it opens", 
 end))
 
 test("Skin picker: a close after the store moved under a preview wears the stored skin", onWindow(function(f)
-  -- The library's put-back wears the skin the window OPENED with, without reading the store. red
-  -- under: a pickerClosed that does not re-apply the stored pair (worn and stored would disagree
-  -- until a reload).
+  -- The library's put-back reads spec.get at the close (PK-03), so the store moved under the
+  -- preview is what is worn. red under: a spec.get that is not NS.SkinChoice, or a library put-back
+  -- of the skin the window opened with (worn and stored would disagree until a reload).
   pickRow(f, "obsidian")
   NS.WriteSkinChoice("ka0s", "azeroth")
   f.close:__fire("OnClick")
@@ -508,5 +511,53 @@ test("Skin picker: the stand-down takes a queued picker out of the queue, unseen
     assertEqual(NS.Schema:Get(PATH), false, "and was never seen")
   end)
   NS.Schema:Set("settings.enabled", true)
+  if not ok then error(err, 0) end
+end))
+
+-- ── what the library now does itself (PK-03) ─────────────────────────────────────────────────
+
+test("Skin picker: a close leaves the put-back to the library; the host moves no skin", onWindow(function(f)
+  -- PK-03's revert reads spec.get at the close, so the host's old re-apply of the stored pair in
+  -- pickerClosed is a second SetChoice for nothing. red under: a pickerClosed that still calls
+  -- NS.ApplySkinChoice (a close with no preview pending would move the Skin major once).
+  local real, calls = Skin.SetChoice, 0
+  rawset(Skin, "SetChoice", function(...) calls = calls + 1; return real(...) end)
+  local ok, err = pcall(function()
+    f.close:__fire("OnClick")
+    assertFalse(f:IsShown())
+    assertEqual(calls, 0, "a close with nothing previewed moved the Skin major")
+    assertEqual(NS.Schema:Get(PATH), true, "the close still marks the picker seen")
+  end)
+  rawset(Skin, "SetChoice", real)
+  if not ok then error(err, 0) end
+end))
+
+test("Skin picker: a picker queued behind another addon's waits for combat to end", onWindow(function(mine)
+  -- red under: a queue that shows the next owner's picker on a close made in combat (the old
+  -- OptionsSkinPicker advance(), which never read InCombatLockdown()).
+  NS.HideSkinPicker()
+  local inst, spec = probe()
+  local theirs = inst.SkinPicker(spec)
+  assertTrue(theirs ~= nil and theirs:IsShown(), "the other addon's picker is up")
+  assertTrue(select(2, NS.MaybeShowSkinPicker()) == "queued", "this addon's picker queued")
+  local real = mocks.InCombatLockdown
+  mocks.InCombatLockdown = function() return true end
+  local ok, err = pcall(function()
+    theirs.close:__fire("OnClick")
+    assertFalse(theirs:IsShown(), "the close control still closes in combat")
+    assertFalse(mine:IsShown(), "the queued picker showed mid-combat")
+    assertEqual(NS.Schema:Get(PATH), false, "waiting is not seen")
+    assertTrue(OptionsLib.__parkFrame ~= nil, "the queue did not park on OptionsRegistry's frame")
+    mocks.InCombatLockdown = function() return false end
+    -- The park frame's registration is raw (frame:RegisterEvent), which the mock records and
+    -- __fireEvent does not reach, so the event goes to it as the client would deliver it.
+    OptionsLib.__parkFrame:__fire("OnEvent", "PLAYER_REGEN_ENABLED")
+    assertTrue(mine:IsShown(), "combat's end shows the queued picker")
+  end)
+  mocks.InCombatLockdown = real
+  -- A park a failed assertion left behind is drained, so no later suite finds the event registered.
+  if OptionsLib.__parkedPanels and #OptionsLib.__parkedPanels > 0 then
+    pcall(OptionsLib.__OnParkEvent, "PLAYER_REGEN_ENABLED")
+  end
   if not ok then error(err, 0) end
 end))

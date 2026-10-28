@@ -2140,7 +2140,9 @@ Hover it → a tooltip says it opens test mode. Check it with the picker where i
 up the screen, where a default History window's top edge reaches it) and again after dragging the
 picker onto the middle of the screen. Fail: the History window over the picker, or the preview lost
 when the eye is pressed. (Amended by LH-01, 2026-10-28: the addon raises the picker after the eye
-opens the window.) Result:
+opens the window. Amended again by LH-01 the same day, LibKa0s PK-03: the library keeps the picker
+above it, a DIALOG window raised after the eye returns, and the addon no longer raises it itself.)
+Result:
 
 **SKIN-30. The picker's gear (LH-01; LibKa0s#64, PK-02).** On a fresh profile, preview **Obsidian**
 and press the gear → the settings panel opens on **General** itself with its **Skin** tab selected
@@ -2161,7 +2163,9 @@ doing nothing. Then, on a fresh profile, preview **Obsidian**, leave the picker 
 settings.appearance.skin azeroth` → close the picker with its close mark → the addon wears Azeroth, the
 stored skin, not Ka0s Default; `/lh get settings.appearance.skin` prints `azeroth`. Fail: Ka0s Default
 worn while the profile stores Azeroth. (Rewritten by LH-01, 2026-10-28, LibKa0s PK-02: a close saves
-nothing; amended by LH-01 the same day: a close wears the stored skin.) Result:
+nothing; amended by LH-01 the same day: a close wears the stored skin. Amended again by LH-01 the same
+day, LibKa0s PK-03: the library's close puts back the skin the profile stores as it reads at the
+close, and the addon no longer re-applies it after the close.) Result:
 
 **SKIN-32. The picker and the addon switched off (LH-01; LibKa0s#64, PK-02).** With the picker open,
 `/lh disable` → the picker closes; `/lh enable`, then `/reload` → the picker opens again, because the
@@ -2170,7 +2174,9 @@ the picker closes, the addon goes back to Ka0s Default, and `/lh get settings.ap
 `ka0s`. With a second Ka0s addon's picker up and Loot History's waiting behind it, `/lh disable`, then
 close the other addon's picker → no Loot History picker appears. Fail: the previewed skin left on or
 saved after the stand-down, or a Loot History picker shown while the addon is off. (Amended by LH-01,
-2026-10-28, LibKa0s PK-02: a pending preview and a queued picker.) Result:
+2026-10-28, LibKa0s PK-02: a pending preview and a queued picker. Since LibKa0s PK-03 the put-back on
+the stand-down is the library's, the skin the profile stores; the addon only takes the picker down.)
+Result:
 
 **SKIN-33. Apply saves the pick (LH-01; LibKa0s PK-02).** On a fresh profile, preview **Obsidian**,
 then press **Apply** → the picker closes and the addon stays in Obsidian; the Skin tab shows Obsidian
@@ -2211,6 +2217,13 @@ taint warning. Result:
 to the Azeroth profile on the Profiles page → the picker closes and the addon wears **Azeroth** (never
 Ka0s Default or Obsidian). Switch back to the fresh profile → Ka0s Default, and the picker opens there
 again because it was never closed on that profile. Result:
+
+**SKIN-38. A queued picker waits for combat to end (LH-01; LibKa0s PK-03).** With Loot History and a
+second Ka0s addon that uses skins both on fresh profiles, `/reload` → one picker opens and the other
+addon's waits behind it. Enter combat (a target dummy), then close the open picker with its close mark
+→ it closes, and **no** second picker opens while you are in combat. Leave combat → the waiting
+addon's picker opens then, titled for that addon, with no Lua error and no taint warning. Fail: the
+second picker opening mid-combat, or never opening after combat ends. Result:
 
 ## Vendored icons## Vendored icons
 
@@ -2381,4 +2394,7 @@ back), and SKIN-33 to SKIN-37 (new: Apply, Apply to all Ka0s addons, one picker 
 addons, combat, and a profile switch with a preview pending). After the review of that rework: SKIN-29
 (amended: the picker raised over the eye's window, at its own place and dragged), SKIN-31 (amended: a
 close wears the stored skin when the store moved under the preview) and SKIN-32 (amended: the
-stand-down with a preview pending and with the picker queued).
+stand-down with a preview pending and with the picker queued). After LibKa0s PK-03 moved the
+picker's raise, its put-back of the stored skin and a combat wait into the library: SKIN-29, SKIN-31
+and SKIN-32 (amended: the library, not the addon, raises the picker and puts back the stored skin)
+and SKIN-38 (new: a queued picker waits for combat to end).

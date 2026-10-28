@@ -98,9 +98,10 @@ end
 --- `key` is AceDB's third argument: the profile switched TO, or the SOURCE of a copy; nil on a reset.
 function NS.OnProfileEvent(event, key)
   -- FIRST, the first-run skin picker down, quietly (core/SkinSetup.lua): a showing belongs to the
-  -- profile it opened on, and taking it down puts back the skin its window opened with, the OLD
-  -- profile's, so it must land before the new profile's skin rather than over it. A new or reset
-  -- profile still shows it, fresh, below.
+  -- profile it opened on, and taking it down puts back a pending preview (the stored skin, through
+  -- the library's revert), so it lands before NS.ApplySkinChoice below and the new profile's whole
+  -- pair, exceptions and overrides with it, is the last skin written. A new or reset profile still
+  -- shows it, fresh, below.
   if NS.HideSkinPicker then NS.HideSkinPicker() end
   -- Then, before anything rebuilds: the new profile's skin (core/SkinSetup.lua). Skin:SetChoice
   -- repaints every recorded frame and fires OnLooksChanged whether or not the History window was

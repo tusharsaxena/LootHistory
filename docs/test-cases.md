@@ -1534,7 +1534,7 @@ Total.
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
 
-### test_skin_picker.lua (19)
+### test_skin_picker.lua (25)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
 - Skin picker: the spec names this owner, its seams, the Skin tab and the eye
@@ -1555,6 +1555,12 @@ Total.
 - Skin picker: the other addon's Apply to all dismisses this queued picker, seen and skinned
 - Skin picker: this addon's own hide takes a queued picker out of the queue, unseen
 - Skin picker: a profile switch with a preview pending wears the new profile's skin
+- Skin picker: the eye raises the picker over the History window it opens
+- Skin picker: a close after the store moved under a preview wears the stored skin
+- Skin picker: the stand-down with a preview pending puts the old skin back, unsaved, unseen
+- Skin picker: the stand-down takes a queued picker out of the queue, unseen
+- Skin picker: a close leaves the put-back to the library; the host moves no skin
+- Skin picker: a picker queued behind another addon's waits for combat to end
 
 ### test_skin_chrome.lua (6)
 
@@ -2136,7 +2142,7 @@ Total.
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 9 |
-| test_skin_picker.lua | 19 |
+| test_skin_picker.lua | 25 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 17 |
@@ -2170,4 +2176,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1824** |
+| **Total** | **1830** |
