@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 32 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64) |
+| SKIN-1 to 32 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64) |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -1957,8 +1957,11 @@ from a **fresh client start** after checking out the branch (see *Before you sta
 
 **SKIN-1. Ka0s Default looks as before (SK-01; LH-01 to LH-06).** With the skin on **Ka0s Default**,
 open the History window and walk its tabs, the Export modal and its copy window, Insights, the
-Timeline, Holdings and every settings page → each looks exactly as before the skinning run. Fail: any
-changed color, edge, font or spacing. Result:
+Timeline, Holdings and every settings page → each looks exactly as before the skinning run, except that
+the bars of data (the Insights strip, ranked and stacked bars, the gains-vs-losses halves and the
+Timeline's day columns) wear Blizzard's status bar in the colors they had (SKIN-23). Fail: any changed
+color, edge, font or spacing, or a bar of data still flat. (Amended by LH-01, 2026-10-28, LibKa0s#63:
+the bars of data take the skin's bar texture, and Ka0s Default's is Blizzard's status bar.) Result:
 
 **SKIN-2. The Skin tab (SK-02; LH-01).** Settings → General → **Skin** → it sits second to
 last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches, the
@@ -2283,8 +2286,9 @@ LH-05: the skinning run's checks, CT-01's SK rows), SKIN-7 (amended, R5-03: a fa
 SKIN-19 and SKIN-20 (new, R5-01 and R5-02 of the 2026-10-28 skin round: scroll bars, window corners).
 
 Owed from the font and texture overrides and the first-run skin picker (LH-01 of Ka0sAddonsCommonTasks
-`docs/2026-10-28-SKIN_OVERRIDES_AND_PICKER/`, LibKa0s#63 and #64, 2026-10-28): PANEL-3, PANEL-22 and
-SKIN-2 (amended: the tab labeled **Skin**, its Font and texture and Scope), and SKIN-21 to SKIN-32
+`docs/2026-10-28-SKIN_OVERRIDES_AND_PICKER/`, LibKa0s#63 and #64, 2026-10-28): PANEL-3, PANEL-22,
+SKIN-1 (amended: the bars of data on Ka0s Default wear Blizzard's status bar) and SKIN-2 (amended: the
+tab labeled **Skin**, its Font and texture and Scope), and SKIN-21 to SKIN-32
 (new: the Font and texture rows, the overrides live, Ignore fonts winning, the copy, profiles, and
 the picker on a fresh profile and after a reset, its dropdown, eye, gear, close and the addon
 switched off).

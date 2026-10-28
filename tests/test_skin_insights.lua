@@ -4,7 +4,9 @@
 -- What this pins: on Ka0s Default each of these surfaces draws the values it drew before the skin
 -- engine (the KPI cards and list panels call for call through the skin's Card and Panel, the chart
 -- chrome, the series palette, the signed escapes' bytes, the toggle, the Holdings rows, the AH
--- table's colors and ticks), a skin switch repaints them live with no reload (the pooled widgets on
+-- table's colors and ticks), with one exception since LibKa0s#63: the bars of data wear the skin's
+-- bar texture (Ka0s Default's `bar.texture` is LibSharedMedia's "Blizzard" status bar, pinned below
+-- against the vendored LibSharedMedia itself) in the colors they had, a skin switch repaints them live with no reload (the pooled widgets on
 -- the free list too, the palette and the meaning colors synced, the markup rebuilt, the parked AH
 -- host repainted), and Ka0s Default puts them back. tests/analytics_golden.txt and
 -- tests/panel_auction_golden.txt pin the Ka0s Default render itself and stay unchanged.
@@ -610,8 +612,58 @@ test("skin bars: every Insights bar of data is the skin's BarTexture; tracks and
   end)
 end)
 
-test("skin bars: on Ka0s Default with no texture resolved, a bar keeps its flat color", function()
-  -- The harness resolves no status bar, the path a client without the skin's texture takes.
+-- Run `fn` with the vendored LibSharedMedia itself (libs/LibSharedMedia-3.0) as the owner's media
+-- library, so a case sees the file the client resolves rather than a stand-in. Its chunk gets a
+-- private LibStub (a fresh library and a CallbackHandler stub), so the shared mock's registry is
+-- left alone; the file reads `bit.band` through getfenv(0), which plain Lua 5.1 lacks, so a stand-in
+-- sits there for the load only. Put back whatever `fn` raised.
+local BLIZZARD_BAR = "Interface\\TargetingFrame\\UI-StatusBar"
+local function withVendoredLSM(fn)
+  local lsm = {}
+  local stub = setmetatable({
+    NewLibrary = function() return lsm end,
+    GetLibrary = function(_, major)
+      if major == "CallbackHandler-1.0" then return { New = function() return { Fire = function() end } end } end
+    end,
+  }, { __call = function(self, major) return self:GetLibrary(major) end })
+  local chunk = assert(loadfile("libs/LibSharedMedia-3.0/LibSharedMedia-3.0.lua"))
+  setfenv(chunk, setmetatable({ LibStub = stub, GetLocale = function() return "enUS" end }, { __index = _G }))
+  local G = getfenv(0)
+  local savedBit = rawget(G, "bit")
+  if savedBit == nil then rawset(G, "bit", { band = function() return 0 end }) end
+  local loaded, loadErr = pcall(chunk)
+  rawset(G, "bit", savedBit)
+  if not loaded then error(loadErr, 0) end
+  local libs = mocks.__libs
+  local saved = libs["LibSharedMedia-3.0"]
+  libs["LibSharedMedia-3.0"] = lsm
+  local ok, err = pcall(fn)
+  libs["LibSharedMedia-3.0"] = saved
+  if not ok then error(err, 0) end
+end
+
+test("skin bars: on Ka0s Default the client draws the Blizzard status bar, tinted each bar's color", function()
+  -- red under: Ka0s Default's bar.texture no longer resolving through the vendored LibSharedMedia
+  -- (the bars would go back to flat without SKIN-1 and SKIN-23 saying so), or a tint lost to it.
+  withInsights(function()
+    withVendoredLSM(function()
+      local f = A.pool.day.active[1]
+      local want = today("chart.bar")
+      Skin:Repaint(OWNER)   -- what the client's first paint draws, with its LibSharedMedia loaded
+      assertEqual(rawget(f.fill, "__texture"), BLIZZARD_BAR, "the strip bar's file")
+      assertEqual(rgba(rawget(f.fill, "__vertex")), want, "tinted chart.bar")
+      for i, t in ipairs(insightsBars()) do
+        assertEqual(rawget(t, "__texture"), BLIZZARD_BAR, "bar " .. i .. " is not the Blizzard status bar")
+      end
+    end)
+    Skin:Repaint(OWNER)   -- back to the harness's flat bars for the cases after this one
+    assertEqual(rawget(A.pool.day.active[1].fill, "__texture"), nil, "the flat bar is back")
+  end)
+end)
+
+test("skin bars: with no status bar resolved, a bar keeps its flat color", function()
+  -- The harness's own media library resolves no status bar: the fallback a client takes when the
+  -- skin's texture key is unknown to its LibSharedMedia.
   withInsights(function()
     local f = A.pool.day.active[1]
     assertEqual(texColor(f.fill), today("chart.bar"), "the strip bar's flat color")
