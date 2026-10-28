@@ -682,7 +682,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   assertEqual(modules("LibKa0s-Item-1.0").Item, 3)
   assertEqual(modules("LibKa0s-Glow-1.0").Glow, 1)
   local media = modules("LibKa0s-Media-1.0")
-  assertTrue(media.Media >= 5) -- 7 since v1.78.0 (re-cut), pinned there
+  assertTrue(media.Media >= 5) -- 8 since v1.78.0 (re-cut), pinned there
   assertEqual(media.MediaIcons, 1)
   local widgets = modules("LibKa0s-Widgets-1.0")
   assertTrue(widgets.Widgets >= 13) -- 14 since v1.76.0, pinned there
@@ -813,8 +813,11 @@ end)
 -- skins, SkinPaint 4 makes font sizes relative to Ka0s Default's, SkinPaintControls 2 dims a
 -- disabled button and squares Ka0s Default's checkbox. Re-cut a sixth time (-> 8291ecc) for the
 -- owner's second round (SF-16..SF-22): SkinPaint 5 and SkinPaintExtras 2 give every labeled string
--- the skin's face (dark labels shadowless), SkinPaintControls 3 draws one slider shape. The kit
--- stays at 43.
+-- the skin's face (dark labels shadowless), SkinPaintControls 3 draws one slider shape. Re-cut again
+-- (-> 55883fa) for the owner's fifth round (R5-01..R5-04 of docs/2026-10-28-SKIN_ROUND5/): a scroll
+-- corridor and one flat knob (SkinDefs 10, SkinPaintControls 7, OptionsScroll 8), the window edge
+-- on a holder above its children (SkinPaint 9), a font family per skin (Media 8, SkinDefs 11), and
+-- arrows in each skin's accent (SkinDefs 12, SkinPaint 10, SkinPaintControls 8). The kit stays at 43.
 test("v1.78.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -823,14 +826,14 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   end
   assertEqual(modules("LibKa0s-Core-1.0").Core, 13)
   local media = modules("LibKa0s-Media-1.0")
-  assertEqual(media.Media, 7)
+  assertEqual(media.Media, 8)
   assertEqual(media.MediaIcons, 1)
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 5)
-  assertEqual(skin.SkinDefs, 9)
-  assertEqual(skin.SkinPaint, 8)
+  assertEqual(skin.SkinDefs, 12)
+  assertEqual(skin.SkinPaint, 10)
   assertEqual(skin.SkinPaintExtras, 3)
-  assertEqual(skin.SkinPaintControls, 6)
+  assertEqual(skin.SkinPaintControls, 8)
   assertEqual(skin.SkinEUI, 1)
   assertEqual(skin.SkinAce, 3)
   local widgets = modules("LibKa0s-Widgets-1.0")
@@ -853,7 +856,7 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsTabs, 10)
   assertEqual(options.OptionsCombat, 3)
   assertEqual(options.OptionsCompose, 12)
-  assertEqual(options.OptionsScroll, 7)
+  assertEqual(options.OptionsScroll, 8)
   assertEqual(options.OptionsNav, 3)
   assertEqual(options.OptionsDrawer, 2)
   assertEqual(options.OptionsKeybinds, 5)

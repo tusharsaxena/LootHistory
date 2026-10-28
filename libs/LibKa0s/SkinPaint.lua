@@ -92,7 +92,13 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Minor 8: P.font gives a string back its own face, size and shadow while its owner ignores fonts
 -- (Skin minor 5's SetIgnore, the Appearance tab's "Ignore fonts"); the skin still colors it.
 -- And Panel's nav-rail recolor saves the rail's colors first, so P.unpaint gives them back.
-local PAINT_MINOR = 8
+-- Minor 9 (the owner's round-5 notes: the title bar and footer covered a wide window edge at its
+-- four corners): Shell draws the window's edge and its inner rule on an edge holder EDGE_LEVEL frame
+-- levels above the window (P.edgeHolder), over every child band; the backdrop's own edge is clear
+-- and Core's inner rule is cleared, its color given back on unpaint. P.edges takes a holder.
+-- Minor 10 (the owner's round-5 showroom audit: the arrows were yellow in every skin): P.glyph
+-- desaturates in-client arrow art before it tints it, and unpaint gives the desaturation back.
+local PAINT_MINOR = 10
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -279,6 +285,17 @@ end
 --- The record's holder, for edges: a child frame over the target, one frame level up, made once.
 function P.holder(rec, frame) return holderAt(rec, frame, "holder", 1) end
 
+-- How far above its window a window's edge is drawn (minor 9). The window's own children (a title
+-- bar, a footer, their buttons, the rows under them) sit one to a few levels up; an edge drawn at
+-- the window's level or one above it can tie them, and a band that reaches into a wide edge then
+-- covers it at the corners (the owner's round-5 notes: Azeroth's 3px edge, High Contrast's and WoW
+-- Midnight's 2px). The holder draws nothing but the edge ring, so above the children is harmless.
+local EDGE_LEVEL = 10
+
+--- The record's edge holder for a window: a child frame over the target at its frame level +
+--- EDGE_LEVEL, made once (minor 9).
+function P.edgeHolder(rec, frame) return holderAt(rec, frame, "over", EDGE_LEVEL) end
+
 --- The record's fill holder: a child frame over the target, one frame level down (never below 0),
 --- made once. Kept for a sibling file's older copy; since minor 7 nothing here draws on it (P.SUB).
 function P.under(rec, frame) return holderAt(rec, frame, "under", -1) end
@@ -381,6 +398,26 @@ function P.tint(rec, obj, T, name, method)
     obj[method](obj, unpack(priors[obj]))
     priors[obj] = nil
   end
+end
+
+--- Color in-client glyph art `tex` (an arrow drawn in its own yellow) with token `name`: desaturated
+--- first (minor 10), so the token's hue is what shows; a vertex color alone only multiplies the
+--- art's own. The prior desaturation is recorded and given back on unpaint, as the tint is.
+function P.glyph(rec, tex, T, name)
+  if type(tex) ~= "table" or type(tex.SetDesaturated) ~= "function" then
+    return P.tint(rec, tex, T, name, "SetVertexColor")
+  end
+  local priors = saved(rec, "SetDesaturated")
+  if T[name] then
+    if priors[tex] == nil then
+      priors[tex] = { type(tex.IsDesaturated) == "function" and tex:IsDesaturated() or false }
+    end
+    tex:SetDesaturated(true)
+  elseif priors[tex] then
+    tex:SetDesaturated(unpack(priors[tex]))
+    priors[tex] = nil
+  end
+  P.tint(rec, tex, T, name, "SetVertexColor")
 end
 
 --- Hook `script` on `frame` once per record: `fn(frame, rec)` runs after the frame's own handler,
@@ -533,8 +570,8 @@ local function mix(c, to, f)
 end
 
 local function clearNine(rec, frame)
-  local h = rec.regions.holder
-  if not (h and rec.regions.nine) then return end
+  local h = rec.regions.nine
+  if not P.isFrame(h) then return end
   h:SetBackdrop(nil)
   h:ClearAllPoints()
   h:SetAllPoints(frame)
@@ -557,7 +594,7 @@ local function nineEdge(rec, frame, h, path, size, color)
   h:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", o, -o)
   h:SetBackdrop({ edgeFile = path, edgeSize = size })
   h:SetBackdropBorderColor(rgba(color))
-  rec.regions.nine = true
+  rec.regions.nine = h
 end
 
 local function bevelColors(color, style)
@@ -568,10 +605,10 @@ end
 
 --- Draw the target's border on its holder: `style` "flat", "bevelOut", "bevelIn" or
 --- "nine:<LSM border key>", `size` pixels, `color` the edge color (a nine-slice's vertex color).
---- A nil color hides it.
-function P.edges(rec, frame, color, style, size)
+--- A nil color hides it. `holder` draws it on another holder of the record (P.edgeHolder).
+function P.edges(rec, frame, color, style, size, holder)
   if not color then return P.hideEdges(rec, frame) end
-  local h = P.holder(rec, frame)
+  local h = holder or P.holder(rec, frame)
   if not h then return end
   size = type(size) == "number" and size or 1
   local key = type(style) == "string" and style:match("^nine:(.+)$")
@@ -716,6 +753,8 @@ function P.unpaint(rec, frame)
   for fs in pairs(s.font or {}) do P.unfont(rec, fs) end
   restoreColors(rec, "SetTextColor")
   restoreColors(rec, "SetVertexColor")
+  restoreColors(rec, "SetBackdropBorderColor")
+  restoreColors(rec, "SetDesaturated")
   if P.hasBackdrop(frame) then restoreBackdrop(rec, frame) end
   P.hideEdges(rec, frame)
   for key, r in pairs(rec.regions) do
@@ -754,17 +793,61 @@ end
 local WHITE_CORE = "Interface\\Buttons\\WHITE8x8"   -- Core.SKIN's spelling
 
 -- The table Shell hands Core.ApplySkin, in Core.SKIN's shape, from the skin's tokens (Ka0s Default's
--- included since minor 6: they carry Core.SKIN's values).
-local function shellSkin(_, T, opts, flat)
+-- included since minor 6: they carry Core.SKIN's values). The backdrop's edge is clear and it has
+-- no inner rule (minor 9): both are drawn on the window's edge holder, over its children.
+local function shellSkin(_, T, flat)
   local size = flat and (T["win.borderSize"] or 1) or 1
   return {
     bgFile = WHITE_CORE, edgeFile = WHITE_CORE, edgeSize = size,
     insets = { left = size, right = size, top = size, bottom = size },
     bg = T["win.bg"] or CLEAR,
-    border = (flat and not opts.noBorder) and T["win.border"] or CLEAR,
-    innerBorder = (not opts.noBorder) and T["win.inner"] or nil,
+    border = CLEAR,
     divider = T["divider"], title = T["title.text"],
   }
+end
+
+-- The window's inner rule (`win.inner`, 1px just inside its edge), on the edge holder; none when
+-- the skin sets none or the caller asks for no border.
+local function inward(point, inset)
+  return point:find("RIGHT") and -inset or inset, point:find("BOTTOM") and inset or -inset
+end
+
+local function innerRule(rec, h, c, inset)
+  for _, side in ipairs(SIDES) do
+    local key = "inner" .. side
+    local t = c and h and P.tex(rec, key, h, "BORDER")
+    if t then
+      local a = SIDE_ANCHOR[side]
+      t:ClearAllPoints()
+      t:SetPoint(a[1], h, a[1], inward(a[1], inset))
+      t:SetPoint(a[2], h, a[2], inward(a[2], inset))
+      t[a[3]](t, 1)
+      t:SetColorTexture(rgba(c))
+      t:Show()
+    else
+      P.hide(rec, key)
+    end
+  end
+end
+
+-- The window's edge and inner rule, on the edge holder (minor 9): over every child of the window,
+-- so a title bar or footer that reaches into a wide edge never covers it. Core's own inner rule (a
+-- child frame ApplySkin made earlier) is cleared, its color recorded for P.unpaint.
+local function shellEdges(rec, frame, T, opts, style)
+  local inner = rawget(frame, "innerBorder")
+  if P.isFrame(inner) and type(inner.SetBackdropBorderColor) == "function" then
+    local priors = saved(rec, "SetBackdropBorderColor")
+    if priors[inner] == nil then priors[inner] = { inner:GetBackdropBorderColor() } end
+    inner:SetBackdropBorderColor(0, 0, 0, 0)
+  end
+  if opts.noBorder or not T["win.border"] then
+    P.hideEdges(rec, frame)
+    return innerRule(rec, nil, nil, 0)
+  end
+  local h = P.edgeHolder(rec, frame)
+  local size = T["win.borderSize"] or 1
+  P.edges(rec, frame, T["win.border"], style, size, h)
+  innerRule(rec, h, T["win.inner"], style == "flat" and size or 1)
 end
 
 -- A band of the window (the gradient, the tiled art, the top and bottom bars): a region of the
@@ -818,25 +901,16 @@ local function shellBands(rec, frame, T, opts, inset)
   end
 end
 
--- A frame with no backdrop: the fill as a region, every edge on the holder.
-local function shellRegions(rec, frame, T, opts)
+-- A frame with no backdrop: the fill as a region.
+local function shellRegions(rec, frame, T)
   local t = band(rec, frame, "fill", -8, 0)
   P.fill(rec, t, T, "win.bg")
-  local c = not opts.noBorder and T["win.border"] or nil
-  P.edges(rec, frame, c, T["win.borderStyle"], T["win.borderSize"])
 end
 
--- A frame with a backdrop: Core.ApplySkin with the skin's table, the inner rule cleared when the
--- skin has none (ApplySkin leaves an existing one tinted), and a non-flat edge on the holder.
-local function shellBackdrop(owner, rec, frame, T, opts, style)
-  local flat = style == "flat"
+-- A frame with a backdrop: Core.ApplySkin with the skin's table, its edge clear (shellEdges draws it).
+local function shellBackdrop(owner, frame, T, style)
   local c = core()
-  local skin = shellSkin(owner, T, opts, flat)
-  if c and type(c.ApplySkin) == "function" then c.ApplySkin(frame, skin) end
-  local inner = rawget(frame, "innerBorder")
-  if not skin.innerBorder and P.isFrame(inner) then inner:SetBackdropBorderColor(0, 0, 0, 0) end
-  if flat or opts.noBorder then return P.hideEdges(rec, frame) end
-  P.edges(rec, frame, T["win.border"], style, T["win.borderSize"])
+  if c and type(c.ApplySkin) == "function" then c.ApplySkin(frame, shellSkin(owner, T, style == "flat")) end
 end
 
 --- S.Shell(frame, opts): a window. On a frame with a backdrop it is Core.ApplySkin, from the skin's
@@ -857,10 +931,11 @@ prim.Shell = function(owner, frame, opts)
   local style = T["win.borderStyle"] or "flat"
   if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
   if P.hasBackdrop(frame) then
-    shellBackdrop(owner, rec, frame, T, opts, style)
+    shellBackdrop(owner, frame, T, style)
   else
-    shellRegions(rec, frame, T, opts)
+    shellRegions(rec, frame, T)
   end
+  shellEdges(rec, frame, T, opts, style)
   local inset = style == "flat" and T["win.borderSize"] or 1
   shellBands(rec, frame, T, opts, inset or 1)
   local title = rawget(frame, "title")

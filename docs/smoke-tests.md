@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 18 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged, the Appearance tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged |
+| SKIN-1 to 20 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged, the Appearance tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -1976,7 +1976,7 @@ dropdowns, edit boxes and drawers are skinned; the other addons' pages are **sto
 AceGUI pool leak check). Result:
 
 **SKIN-5. WoW Forever (SK-05; LH-02).** Pick **WoW Forever** → warm charcoal panels, black title bars
-with centered white titles, a tan accent, gold headings, thin borders, and Barlow on the text the skin
+with centered white titles, a tan accent, gold headings, thin borders, and Fira Sans on the text the skin
 primitives draw (title bars, buttons, edit boxes, dropdowns, the settings controls) and on the
 table, Insights, Timeline and Holdings text too (2026-10-26: those take the skin's face, at their own
 sizes). No column truncates any differently than on Ka0s Default. Result:
@@ -1985,9 +1985,13 @@ sizes). No column truncates any differently than on Ka0s Default. Result:
 Atkinson text on the primitives' text, and the History row whose right-click menu is open is outlined
 in yellow. Result:
 
-**SKIN-7. Fonts (SK-07; LK fonts).** On an English client the Barlow, Cinzel and Atkinson faces render
-(no fallback squares) on the skins that use them, and
-`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Barlow")` prints `true`. Result:
+**SKIN-7. Fonts (SK-07; LK fonts; R5-03).** On an English client each skin draws its own family, body
+and titles alike, with no fallback squares: Obsidian Inter, Azeroth Vollkorn, Glass Nunito, High
+Contrast Atkinson Hyperlegible, Ember Bitter, WoW Midnight Philosopher, WoW Forever Fira Sans; Ka0s
+Default and WoW Default the client's Friz Quadrata. Titles are the family's heavier weight, never a
+different face. `/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Vollkorn")` prints `true`.
+Fail: a title in a face its body text does not share, two skins other than Ka0s Default and WoW
+Default in the same face, or an empty square where a letter should be. Result:
 
 **SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
 (Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
@@ -2035,6 +2039,17 @@ row boxes and handle in the skin's colors. Result:
 a non-default skin, open two other Ka0s addons' windows, debug consoles, sim panels or test strips and
 settings pages → each looks and behaves exactly as before this run. Then disable LootHistory,
 `/reload` and compare → still unchanged. Result:
+
+**SKIN-19. Scroll bars (R5-01).** Under every skin, open the History table with enough rows to scroll,
+and the settings panel's longest page → each scroll bar shows a corridor that stands apart from the
+window and one flat knob in the skin's color inside it, moving with the scroll. Fail: a bare line with
+no corridor, two knobs drawn over each other (High Contrast showed both before), or a knob that stays
+where it was when the list scrolls. Result:
+
+**SKIN-20. Window corners (R5-02).** Under **Azeroth**, **High Contrast** and **WoW Midnight**, look at
+the History window's four corners → the edge runs unbroken round each corner; the title bar and footer
+sit inside it. Ka0s Default's 1px edge is where it was. Fail: a title bar or footer fill drawn over the
+edge at a corner. Result:
 
 ## Vendored icons
 
@@ -2183,4 +2198,5 @@ PANEL-22 (new, LH-01: the Appearance tab), HIST-43 (new, LH-02: the window chrom
 HIST-44 (new, LH-03: the History table on the skin), and INS-23, TL-18, LED-13 and PANEL-23 (new,
 LH-04: Insights, the Timeline, Holdings and the AH price table on the skin), and PANEL-24 (new,
 LH-06: the panel's own controls and the Profiles page on the skin), and SKIN-1 to SKIN-18 (new,
-LH-05: the skinning run's checks, CT-01's SK rows).
+LH-05: the skinning run's checks, CT-01's SK rows), SKIN-7 (amended, R5-03: a family per skin) and
+SKIN-19 and SKIN-20 (new, R5-01 and R5-02 of the 2026-10-28 skin round: scroll bars, window corners).

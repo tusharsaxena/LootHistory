@@ -148,12 +148,15 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
 licensed under the SIL Open Font License 1.1.
 
-The skins draw on three more SIL Open Font License 1.1 faces:
-[Barlow](https://github.com/jpt/barlow) by the Barlow Project Authors,
-[Cinzel](https://github.com/NDISCOVER/Cinzel) by the Cinzel Project Authors (its SemiBold weight,
-cut from the variable font), and
+The skins draw on seven more SIL Open Font License 1.1 faces, one family per skin:
+[Inter](https://github.com/rsms/inter) by The Inter Project Authors,
+[Nunito](https://github.com/googlefonts/nunito) by The Nunito Project Authors,
+[Vollkorn](https://github.com/FAlthausen/Vollkorn-Typeface) by The Vollkorn Project Authors,
+[Bitter](https://github.com/solmatas/BitterPro) by The Bitter Project Authors,
+[Philosopher](https://github.com/alexeiva/philosopher) by The Philosopher Project Authors,
+[Fira Sans](https://github.com/mozilla/Fira) by The Mozilla Foundation and Telefonica S.A., and
 [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/) by the Braille Institute of
-America.
+America. Inter, Nunito, Vollkorn and Bitter are static weights cut from upstream's variable fonts.
 
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the

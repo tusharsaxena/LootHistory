@@ -27,7 +27,10 @@ if not lib then return end
 -- so turning the exception off re-renders the open pages in the skin, and turning it on hands every
 -- chrome target the owner's skin painted back as it was (lib.__chromeRelease): no reload. And a
 -- page's backdrop is never the page itself, which a bare CreateTexture stub answers.
-local SCROLL_MINOR = 7
+-- Minor 8: a released bar is handed back through lib.__chromeUnpaint, not only untracked: the skin's
+-- ScrollBar fades the bar's own knob art (SkinPaintControls minor 7), and the pooled widget must get
+-- it back.
+local SCROLL_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -206,7 +209,9 @@ function lib.PatchAlwaysShowScrollbar(scroll, owner)
     self.__stockFixScroll     = nil
     currentEnabled  = nil
     if thumb and thumb.SetVertexColor then thumb:SetVertexColor(unpack(THUMB_ON)) end
-    if owner ~= nil and scrollbar and lib.__chromeGiveBack then lib.__chromeGiveBack(scrollbar) end
+    -- Handed back as it was (minor 8): the skin fades the bar's knob art under its flat knob, and a
+    -- pooled bar only untracked would reach the next addon with no knob at all.
+    if owner ~= nil and scrollbar and lib.__chromeUnpaint then lib.__chromeUnpaint(scrollbar) end
     if scrollbar and scrollbar.Enable then scrollbar:Enable() end
     if upBtn   and upBtn.Enable   then upBtn:Enable()   end
     if downBtn and downBtn.Enable then downBtn:Enable() end

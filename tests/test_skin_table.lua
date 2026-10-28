@@ -361,7 +361,7 @@ test("skin table: a skin with a face reaches the table's cells, and Ka0s Default
     assertTrue(cell ~= nil, "a bound data row has cells")
     -- The face the cell draws: through the owner's font object where the client has CreateFont, else
     -- set by path (this suite's case); either way GetFont answers the skin's face.
-    local FACE = "Fonts\\AtkinsonHyperlegible-Regular.ttf"
+    local FACE = "Fonts\\Vollkorn-Regular.ttf"
     local function owned(fs) return (fs:GetFont()) == FACE end
     -- The suite's strings answer no template font, so the cell is given the face its GameFont
     -- template would hand it in the client; that is the face Ka0s Default must put back.
@@ -372,7 +372,7 @@ test("skin table: a skin with a face reaches the table's cells, and Ka0s Default
     local P = Skin.__P
     local media = P.media
     P.media = function(kind, key)
-      if kind == "font" and key == "Ka0s Atkinson" then return FACE end
+      if kind == "font" and key == "Ka0s Vollkorn" then return FACE end
       return media(kind, key)
     end
     local ok, err = pcall(function()
