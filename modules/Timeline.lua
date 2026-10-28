@@ -353,13 +353,13 @@ function TL:FormatAxis(v)
   return tostring(v)
 end
 
--- A day's column: the gain up in sem.good and the loss down in sem.bad, at .9.
+-- A day's column: the gain up in sem.good and the loss down in sem.bad, at .9, in the bar texture.
 local function paintFlow(bar, f, peak, half, w)
   local gr, gg, gb = NS.Skin.Color("sem.good")
   local lr, lg, lb = NS.Skin.Color("sem.bad")
   bar.up:ClearAllPoints(); bar.down:ClearAllPoints()
-  bar.up:SetColorTexture(gr, gg, gb, 0.9)
-  bar.down:SetColorTexture(lr, lg, lb, 0.9)
+  NS.SkinBar(bar.up, gr, gg, gb, 0.9)
+  NS.SkinBar(bar.down, lr, lg, lb, 0.9)
   bar.up:SetPoint("BOTTOMLEFT", bar, "LEFT", 0, 1)
   bar.up:SetSize(w, math.max(f.i > 0 and 1 or 0, f.i / peak * half))
   bar.up:SetShown(f.i > 0)

@@ -135,10 +135,10 @@ local function placeBar(bar, content, pad, y, w, row)
   local gr, gg, gb = NS.Skin.Color("sem.good")
   local lw, rw = half * row.leftFrac, half * row.rightFrac
   bar.left:ClearAllPoints(); bar.left:SetPoint("RIGHT", bar.track, "CENTER", 0, 0)
-  bar.left:SetSize(math.max(1, lw), BAR_H - 4); bar.left:SetColorTexture(lr, lg, lb, 0.95)
+  bar.left:SetSize(math.max(1, lw), BAR_H - 4); NS.SkinBar(bar.left, lr, lg, lb, 0.95)
   bar.left:SetShown(lw > 0)
   bar.right:ClearAllPoints(); bar.right:SetPoint("LEFT", bar.track, "CENTER", 0, 0)
-  bar.right:SetSize(math.max(1, rw), BAR_H - 4); bar.right:SetColorTexture(gr, gg, gb, 0.95)
+  bar.right:SetSize(math.max(1, rw), BAR_H - 4); NS.SkinBar(bar.right, gr, gg, gb, 0.95)
   bar.right:SetShown(rw > 0)
 end
 

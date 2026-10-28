@@ -34,6 +34,10 @@ local addonName, NS = ...
 --                           color tables' shape).
 --   NS.SkinEscape(name)     a color token as a "|cffrrggbb" escape, rounded to the byte, so markup
 --                           written as a literal keeps its bytes on Ka0s Default (|cffff5555).
+--   NS.SkinBar(t, r,g,b,a)  a bar of data (a chart fill, a stacked segment, a Timeline column):
+--                           the owner's bar texture tinted r, g, b, a through `S.BarTexture`
+--                           (SkinPaintExtras minor 4), recorded, so a skin switch or a Texture
+--                           override re-applies it; SetColorTexture, the flat look, without it.
 --   NS.QualityColor(q)      an item quality's r, g, b: the skin's q.* token where it sets one (a
 --                           legibility override), else the client's ITEM_QUALITY_COLORS; nil for none.
 --   NS.SkinPaintAce(w)      an AceGUI widget this addon acquired itself, painted for this owner:
@@ -211,6 +215,21 @@ function NS.SkinEscape(name)
   if r == nil then return nil end
   local function byte(v) return math.floor(v * 255 + 0.5) end
   return ("|cff%02x%02x%02x"):format(byte(r), byte(g), byte(b))
+end
+
+--- A bar of data in the owner's bar texture, tinted r, g, b, a (LibKa0s#63). Never a track, a
+--- rule, an axis, a swatch chip, a stripe or a highlight: those stay flat colors. Read through
+--- NS.Skin at call time. A facade without BarTexture (a Skin copy before SkinPaintExtras minor 4),
+--- or a target that is neither a Texture nor a StatusBar (which the primitive leaves alone), paints
+--- today's flat color, so no bar ever goes unpainted.
+function NS.SkinBar(tex, r, g, b, a)
+  if type(tex) ~= "table" then return end
+  local paint = NS.Skin and NS.Skin.BarTexture
+  local kind = type(tex.GetObjectType) == "function" and tex:GetObjectType() or nil
+  if type(paint) == "function" and (kind == "Texture" or kind == "StatusBar") then
+    return paint(tex, r, g, b, a)
+  end
+  if type(tex.SetColorTexture) == "function" then tex:SetColorTexture(r, g, b, a) end
 end
 
 -- The six qualities the skin schema names (q.poor .. q.legendary); every other quality (artifact,
@@ -497,6 +516,10 @@ if not Skin then
     frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
     frame:SetBackdropColor(color("menu.bg"))
     frame:SetBackdropBorderColor(color(type(opts) == "table" and opts.alt and "menu.borderAlt" or "menu.border"))
+  end
+  -- A bar of data as it was drawn before the skin engine: the flat color, no texture.
+  S.BarTexture = function(tex, r, g, b, a)
+    if type(tex) == "table" and type(tex.SetColorTexture) == "function" then tex:SetColorTexture(r, g, b, a) end
   end
   S.GetPanelColor = function() return color("win.bg") end
   S.GetFont = function() return STANDARD_TEXT_FONT end

@@ -121,7 +121,7 @@ local function positionStacked(bar, content, pad, y, barW, segments)
     if sd and sd.frac and sd.frac > 0 then
       local segW = math.max(1, trackW * math.min(1, sd.frac))
       seg:ClearAllPoints(); seg:SetPoint("LEFT", bar.track, "LEFT", x, 0); seg:SetSize(segW, BAR_H - 4)
-      seg.tex:SetColorTexture(sd.color[1], sd.color[2], sd.color[3], 0.95)
+      NS.SkinBar(seg.tex, sd.color[1], sd.color[2], sd.color[3], 0.95)
       seg._info = sd.tip
       seg:Show()
       x = x + segW
@@ -131,9 +131,9 @@ local function positionStacked(bar, content, pad, y, barW, segments)
   end
 end
 
--- A strip bar's fill (chart.bar) and its rotated axis label (text.muted).
+-- A strip bar's fill (chart.bar, in the bar texture) and its rotated axis label (text.muted).
 local function paintStripBar(f)
-  f.fill:SetColorTexture(NS.SkinColor("chart.bar"))
+  NS.SkinBar(f.fill, NS.SkinColor("chart.bar"))
   f.axis:SetTextColor(NS.SkinColor("text.muted"))
 end
 
@@ -274,7 +274,7 @@ function Analytics:renderBarSection(pool, header, rows, y, w, pad, legendPool)
   local innerW = w - pad * 2
   for _, row in ipairs(rows) do
     local bar = NS.Pool.Acquire(pool, function() return makeBar(self.content) end)
-    bar.fill:SetColorTexture(row.color[1], row.color[2], row.color[3], 0.95)
+    NS.SkinBar(bar.fill, row.color[1], row.color[2], row.color[3], 0.95)
     bar._fullLabel = Analytics._tipText(row.label, row.value)
     bar.label:SetText((Analytics._truncate(row.label, LABEL_MAXCHARS)))
     local lc = row.labelColor or row.color -- default the label color to its bar color
