@@ -1625,7 +1625,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (37)
+### test_libka0s.lua (38)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1664,6 +1664,7 @@ Total.
 - v1.76.0: the vendored minors and the kit revision match the release
 - v1.77.0: the vendored minors and the kit revision match the release
 - v1.78.0: the vendored minors and the kit revision match the release
+- v1.79.0: the vendored minors and the kit revision match the branch
 
 ### test_surface_parity.lua (20)
 
@@ -2101,7 +2102,7 @@ Total.
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 37 |
+| test_libka0s.lua | 38 |
 | test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2126,4 +2127,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1788** |
+| **Total** | **1789** |

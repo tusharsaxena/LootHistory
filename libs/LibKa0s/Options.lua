@@ -41,7 +41,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- painted for a registered owner and given back stock on release. One attach line, no member.
 -- Minor 33: lib:New attaches OptionsAppearance.lua, the Appearance tab (skinning-§3). One attach
 -- line, no member: the tab's members are that file's.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 33
+-- Minor 34: lib:New attaches OptionsSkinPicker.lua, the first-run skin picker (LibKa0s#64). One
+-- attach line, no member: O.SkinPicker and O.HideSkinPicker are that file's.
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 34
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1324,6 +1326,7 @@ function lib:New(d)
     if lib.__AttachDrawer  then lib.__AttachDrawer(O)     end
     if lib.__AttachKeybinds then lib.__AttachKeybinds(O, d) end
     if lib.__AttachAppearance then lib.__AttachAppearance(O, d) end   -- minor 33: the Appearance tab
+    if lib.__AttachSkinPicker then lib.__AttachSkinPicker(O, d) end   -- minor 34: the skin picker
     if lib.__AttachSkinAce then lib.__AttachSkinAce(O, d) end   -- minor 32: O.AceGUI's rows
   end
   attachHalves()

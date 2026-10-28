@@ -55,15 +55,15 @@ runner, testing-§15) before every commit; in-game checks are in
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.78.0 (MIT).
-LibKa0s icons: ban, chat, chevron-down, chevron-right, circle-check, clear, close, confirm, copy, graph, info, lock, segment, sort-down, sort-up, spreadsheet.
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.79.0 (unreleased, branch feat/2026-10-28-skin-overrides-picker) (MIT).
+LibKa0s icons: ban, chat, chevron-down, chevron-right, circle-check, clear, close, confirm, copy, eye, graph, info, lock, segment, settings, sort-down, sort-up, spreadsheet.
 
 That is the Ka0s-owned shared library behind the chat printer, the debug console, the
 slash-command interface, the settings panel and the filter-bar dropdowns, vendored whole-folder
 into `libs/LibKa0s/` with its test kit under `tests/_kit/`, apart from `media/icons/`, which holds
 only the icons the declaration line above names. That line is what the tag's `tools/prune-icons.lua`
 and the vendor gate read. A mark the library draws for this addon (`close`, `copy`, `clear`,
-`info`) or one this addon passes in that is missing from the line resolves to a path, draws blank,
+`info`, and the skin picker's `eye` and `settings`) or one this addon passes in that is missing from the line resolves to a path, draws blank,
 and leaves every suite green.
 
 The provenance line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag
@@ -71,3 +71,7 @@ it names, and diffs both vendored payloads against what LibKa0s published at tha
 provenance line and a payload that disagree fail the run. **Bump the line and re-vendor the bytes in
 the same commit**; a maintainer's question about which build carries which library is answered here
 rather than in the player-facing README.
+
+An unreleased re-vendor writes the line as `v1.79.0 (unreleased, branch <name>)`, and the gate then
+compares the payloads against that branch's head in the sibling checkout, because no tag carries
+them yet. The re-vendor of the tag puts the line back in its tagged shape.

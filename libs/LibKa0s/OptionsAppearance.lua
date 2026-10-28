@@ -1,6 +1,7 @@
 -- LibKa0s-Options-1.0 -- the Appearance tab (skinning-§3): where a player picks the skin an addon
 -- wears. The instance members O.AppearanceTab and O.AppearanceRows, attached through
--- lib.__AttachAppearance, and the words, lib.APPEARANCE_STRINGS.
+-- lib.__AttachAppearance, and the words, lib.APPEARANCE_STRINGS. Its key stays "Appearance"; since
+-- minor 3 its label reads "Skin" (hosts name the key in `before` and in a stored active tab).
 --
 -- A thirteenth file of the Options major (minor 1), guarded with the same multi-file idiom as
 -- OptionsKeybinds.lua; Options minor 33 attaches it. It loads after OptionsKeybinds.lua, so its
@@ -13,17 +14,22 @@
 --     one with its one-line fix;
 --   * the SKIN: one radio choice per registered skin (Skin:Skins(), registration order), each with
 --     its four swatches, its name and its one-line description;
+--   * FONT AND TEXTURE (minor 3): two dropdowns side by side, the owner's font and bar texture
+--     (LibSharedMedia-3.0's font and statusbar keys, sorted), each led by "Skin's own (<its key>)",
+--     through Skin:SetOverride and `spec.set`'s fourth argument (LibKa0s-Skin-1.0 minor 6);
 --   * SCOPE (minor 2): two check boxes, "Ignore settings panel" (this addon's settings pages stay the
 --     client's) and "Ignore fonts" (every string keeps its own face and size), through
 --     Skin:SetIgnore and `spec.set`'s third argument;
 --   * COPY TO EVERY KA0S ADDON...: a button that, after a confirmation naming the other loaded owners
---     by label, gives each of them this owner's source, skin and scope, through Skin:SetChoice and
---     Skin:SetIgnore (a live repaint) and then its own registered setter (Skin:WriteChoice). With no
+--     by label, gives each of them this owner's source, skin, scope, font and texture, through
+--     Skin:SetChoice, Skin:SetIgnore and Skin:SetOverride (a live repaint) and then its own registered
+--     setter (Skin:WriteChoice). With no
 --     other owner loaded it is disabled and a line says why;
 --   * the library's fixed note about what a skin changes.
 --
--- THE WRITE SEAM. The tab writes this owner's choice only through `spec.set(source, skin, ignore)`,
--- `ignore` being `{ panel, fonts }` on a scope write and nil on a source or skin write, which
+-- THE WRITE SEAM. The tab writes this owner's choice only through `spec.set(source, skin, ignore,
+-- media)`, `ignore` being `{ panel, fonts }` on a scope write, `media` `{ font, texture }` (each an
+-- LSM key or false) on a font or texture write, and both nil on a source or skin write, which
 -- MUST be the owner's write seam (options-ui-§1): Skin:SetChoice first, so the repaint is the
 -- library's and an owner's onChange calling SetChoice again is a no-op (SetChoice is idempotent),
 -- then spec.set. The reload popup is raised once, by the tab, from SetChoice's pending-reload answer.
@@ -38,7 +44,12 @@ if not lib then return end
 -- Minor 1: O.AppearanceTab, O.AppearanceRows, lib.APPEARANCE_STRINGS and the two popups.
 -- Minor 2: the Scope section (Ignore settings panel, Ignore fonts) between the skins and the copy
 -- button, and the copy carries both (the owner's request, 2026-10-27; LibKa0s-Skin-1.0 minor 5).
-local APPEARANCE_MINOR = 2
+-- Minor 3 (LibKa0s#63): the tab is labeled "Skin" (its key stays "Appearance"); a "Font and texture"
+-- section between the skins and the scope, two dropdowns through Skin:SetOverride and `spec.set`'s
+-- fourth argument; and the copy carries them (LibKa0s-Skin-1.0 minor 6). "Skin's own" names the face
+-- the owner wears without its overrides (Skin:__BaseTokens, EllesmereUI's when it paints), and a
+-- stored key LibSharedMedia lacks stays listed as "<key> (not loaded)".
+local APPEARANCE_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -57,8 +68,9 @@ lib.MODULES.OptionsAppearance = APPEARANCE_MINOR
 -- ASCII throughout but for COPY's ellipsis, which options-ui-§21 asks of a button that opens a
 -- confirmation (tests/test_prose.lua ratifies it for this file alone).
 lib.APPEARANCE_STRINGS = {
-  TAB_LABEL      = "Appearance",
-  TAB_TIP        = "The skin this addon wears: its windows, panels, settings pages and HUD.",
+  TAB_LABEL      = "Skin",
+  TAB_TIP        = "The skin this addon wears: its windows, panels, settings pages and HUD, and the " ..
+                   "font and bar texture it draws them with.",
   SOURCE_HEADING = "Skin source",
   SOURCE_KA0S    = "Ka0s skins",
   SOURCE_KA0S_TIP = "Draw this addon with the Ka0s skin chosen below.",
@@ -71,6 +83,14 @@ lib.APPEARANCE_STRINGS = {
   SKIN_HEADING   = "Skin",
   SKIN_EUI_NOTE  = "While EllesmereUI skins this addon, the skin below is used only if it cannot.",
   COPY           = "Copy to every Ka0s addon\226\128\166",
+  MEDIA_HEADING  = "Font and texture",
+  FONT           = "Font",
+  FONT_TIP       = "Replace every font this addon's skin draws with this one. \"Ignore fonts\" wins: " ..
+                   "with it on, every string keeps the game's own font.",
+  TEXTURE        = "Texture",
+  TEXTURE_TIP    = "Replace the bar texture of every bar and chart this addon draws.",
+  SKIN_OWN       = "Skin's own (%s)",
+  MEDIA_MISSING  = "%s (not loaded)",
   SCOPE_HEADING  = "Scope",
   IGNORE_PANEL   = "Ignore settings panel",
   IGNORE_PANEL_TIP = "Keep this addon's settings panel in the game's own look. Its windows still " ..
@@ -79,10 +99,10 @@ lib.APPEARANCE_STRINGS = {
   IGNORE_FONTS_TIP = "Keep every font in this addon as the game draws it, face and size. The skin " ..
                    "still colors the text.",
   COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source, " ..
-                   "skin and scope. You are asked first.",
+                   "skin, scope, font and texture. You are asked first.",
   COPY_NONE      = "No other loaded Ka0s addon uses skins yet.",
-  COPY_CONFIRM   = "Give these addons the skin source, skin and scope of %s?\n\n%s\n\nAddons that " ..
-                   "are not loaded are unchanged.",
+  COPY_CONFIRM   = "Give these addons the skin source, skin, scope, font and texture of %s?\n\n%s" ..
+                   "\n\nAddons that are not loaded are unchanged.",
   COPY_ACCEPT    = "Copy",
   CANCEL         = "Cancel",
   RELOAD         = "%s needs a reload to stop using the EllesmereUI skin.",
@@ -99,6 +119,11 @@ local MARK_OK   = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14|t"
 local MARK_FAIL = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14:14|t"
 local SWATCH    = "|TInterface\\Buttons\\WHITE8X8:12:12:0:0:8:8:0:8:0:8:%d:%d:%d|t"
 local COPY_POPUP, RELOAD_POPUP = "LIBKA0S_SKIN_COPY", "LIBKA0S_SKIN_RELOAD"
+-- The dropdown value that means "the skin's own" (LibKa0s-Skin-1.0's FROM_SKIN), and the two
+-- overrides: the LSM kind each lists and the skin token its first entry names.
+local FROM_SKIN = "@skin"
+local MEDIA = { font = { kind = "font", token = "font.body" },
+                texture = { kind = "statusbar", token = "bar.texture" } }
 
 --- The Skin major, or nil. Asked at call time: it loads before this major, but a client may lack it.
 local function skinMajor()
@@ -144,6 +169,20 @@ local function conditionText(S, c, label)
   local hint = S["COND_" .. tostring(c.key) .. "_HINT"]
   hint = hint and hint:format(label) or c.hint
   return MARK_FAIL .. " " .. text .. ". " .. tostring(hint)
+end
+
+--- LibSharedMedia-3.0's keys of `kind`, sorted, or an empty list without it. Asked at call time.
+local function mediaKeys(kind)
+  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+  local out = {}
+  if not LSM then return out end
+  if type(LSM.List) == "function" then
+    for _, key in ipairs(LSM:List(kind) or {}) do out[#out + 1] = key end
+  elseif type(LSM.HashTable) == "function" then
+    for key in pairs(LSM:HashTable(kind) or {}) do out[#out + 1] = key end
+  end
+  table.sort(out)
+  return out
 end
 
 -- ── the popups ───────────────────────────────────────────────────────────────────────────────
@@ -287,8 +326,16 @@ function lib.__AttachAppearance(O, d)
     return { panel = panel == true, fonts = fonts == true }
   end
 
-  --- Give every other owner this owner's choice and scope: SetChoice and SetIgnore (the live
-  --- repaint) then its own setter. Refused in combat here too: the confirmation is a StaticPopup
+  --- This owner's overrides, `{ font, texture }` (each an LSM key or false for the skin's own), or nil
+  --- on a Skin copy before minor 6.
+  local function readMedia(view)
+    if type(view.Skin.GetOverride) ~= "function" then return nil end
+    local font, texture = view.Skin:GetOverride(view.owner)
+    return { font = font or false, texture = texture or false }
+  end
+
+  --- Give every other owner this owner's choice, scope, font and texture: SetChoice, SetIgnore and
+  --- SetOverride (the live repaint) then its own setter. Refused in combat here too: the confirmation is a StaticPopup
   --- above the page's combat cover, so it can be accepted after combat starts, long after onCopy's
   --- own check.
   local function copyTo(view, names)
@@ -296,11 +343,13 @@ function lib.__AttachAppearance(O, d)
     local Skin = view.Skin
     local source, skin = readChoice(view)
     local ignore = readIgnore(view)
+    local media = readMedia(view)
     local reloads = {}
     for _, name in ipairs(names) do
       local _, reload = Skin:SetChoice(name, source, skin)
       if type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end
-      Skin:WriteChoice(name, source, skin, ignore)
+      if media then Skin:SetOverride(name, media.font, media.texture) end
+      Skin:WriteChoice(name, source, skin, ignore, media)
       if reload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
     end
     if #reloads > 0 then lib.__appearanceReload(view.S, table.concat(reloads, ", ")) end
@@ -330,6 +379,75 @@ function lib.__AttachAppearance(O, d)
     if view.ctx.__renderDisabled then cb:SetDisabled(true) end
     group:AddChild(cb)
     return cb
+  end
+
+  --- Move this owner's font or texture (`which`) to `value` (an LSM key, or FROM_SKIN for the
+  --- skin's own): the Skin major first (the live repaint), then the owner's write seam with both
+  --- halves. Refused in combat, as every settings write is.
+  local function setMedia(view, which, value)
+    if O.__combatRefused and O.__combatRefused("appearance", view.owner) then return end
+    local media = readMedia(view)
+    media[which] = (type(value) == "string" and value ~= "" and value ~= FROM_SKIN) and value or false
+    view.Skin:SetOverride(view.owner, media.font, media.texture)
+    if type(view.spec.set) == "function" then
+      local ok, err = pcall(view.spec.set, nil, nil, nil, media)
+      if not ok then report(err) end
+    end
+  end
+
+  --- The owner's tokens without its overrides: what it wears as "the skin's own" (EllesmereUI's
+  --- table while that paints it). ResolveSkin on a Skin copy without `__BaseTokens`.
+  local function baseTokens(view)
+    if type(view.Skin.__BaseTokens) == "function" then return view.Skin:__BaseTokens(view.owner) end
+    local _, skin = view.Skin:GetChoice(view.owner)
+    return view.Skin:ResolveSkin(skin)
+  end
+
+  --- The list one media dropdown offers: "Skin's own (<the face worn without overrides>)" first,
+  --- then LSM's keys, then the stored override when LSM lacks it, so the field never shows blank.
+  local function mediaList(view, which)
+    local spec = MEDIA[which]
+    local own = baseTokens(view)[spec.token]
+    local items, order = { [FROM_SKIN] = view.S.SKIN_OWN:format(tostring(own or "-")) }, { FROM_SKIN }
+    for _, key in ipairs(mediaKeys(spec.kind)) do
+      if items[key] == nil then
+        items[key] = key
+        order[#order + 1] = key
+      end
+    end
+    local media = readMedia(view)
+    local stored = media and media[which]
+    if stored and items[stored] == nil then
+      items[stored] = view.S.MEDIA_MISSING:format(stored)
+      order[#order + 1] = stored
+    end
+    return items, order
+  end
+
+  --- One media dropdown in `group`.
+  local function mediaDropdown(view, group, which, label, tip)
+    local dd = O.AceGUI:Create("Dropdown")
+    dd:SetLabel(label)
+    dd:SetRelativeWidth(O.BUTTON_PAIR_REL or 0.492)
+    dd:SetList(mediaList(view, which))
+    dd:SetCallback("OnValueChanged", function(_, _, value)
+      setMedia(view, which, value)
+      view.sync()
+    end)
+    if O.AttachTooltip and tip then O.AttachTooltip(dd, label, tip) end
+    if view.ctx.__renderDisabled then dd:SetDisabled(true) end
+    group:AddChild(dd)
+    return dd
+  end
+
+  --- The font and texture section: two dropdowns, side by side. Absent on a Skin copy before minor 6.
+  local function drawMedia(view)
+    local S = view.S
+    if type(view.Skin.SetOverride) ~= "function" then return end
+    heading(view, S.MEDIA_HEADING)
+    local group = flowGroup(view)
+    view.media.font = mediaDropdown(view, group, "font", S.FONT, S.FONT_TIP)
+    view.media.texture = mediaDropdown(view, group, "texture", S.TEXTURE, S.TEXTURE_TIP)
   end
 
   --- The scope section: the two exceptions, side by side. Absent on a Skin copy before minor 5.
@@ -421,7 +539,7 @@ function lib.__AttachAppearance(O, d)
   local function newView(ctx, spec, parent, Skin, owner)
     local view = { ctx = ctx, spec = spec, parent = parent, Skin = Skin, owner = owner,
                    S = mergeStrings(spec.strings), label = Skin:OwnerLabel(owner) or owner,
-                   source = {}, skins = {}, order = {}, conditions = {}, ignore = {} }
+                   source = {}, skins = {}, order = {}, conditions = {}, ignore = {}, media = {} }
     function view.sync()
       local source, skin = readChoice(view)
       if view.source.ka0s then view.source.ka0s:SetValue(source == "ka0s") end
@@ -430,6 +548,11 @@ function lib.__AttachAppearance(O, d)
       local ignore = readIgnore(view)
       if view.ignore.panel then view.ignore.panel:SetValue(ignore.panel) end
       if view.ignore.fonts then view.ignore.fonts:SetValue(ignore.fonts) end
+      local media = readMedia(view)
+      for which, dd in pairs(view.media) do
+        dd:SetList(mediaList(view, which))   -- the skin's own entry names the skin worn now
+        dd:SetValue(media and media[which] or FROM_SKIN)
+      end
     end
     return view
   end
@@ -449,11 +572,12 @@ function lib.__AttachAppearance(O, d)
   end
 
   --- Draw the Appearance rows into `parent` (default: the page's scroll). Answers the view
-  --- `{ owner, source = { ka0s, eui }, skins = { [key] = choice }, ignore = { panel, fonts }, order,
-  --- conditions, copy, note, sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that
+  --- `{ owner, source = { ka0s, eui }, skins = { [key] = choice }, media = { font, texture },
+  --- ignore = { panel, fonts }, order, conditions, copy, note, sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that
   --- never registered: then one line says skins are not available). `spec`: get (the owner's read,
   --- `{ source, skin }` or two values), set (MUST be the owner's write seam, called as
-  --- set(source, skin) and, from the Scope section, set(nil, nil, { panel, fonts })), owner (the
+  --- set(source, skin), from the Scope section set(nil, nil, { panel, fonts }), and from the Font
+  --- and texture section set(nil, nil, nil, { font, texture })), owner (the
   --- skin owner, default the descriptor's `addonName`), strings (translations); key and before are
   --- the tab's.
   function O.AppearanceRows(ctx, spec, parent)
@@ -470,6 +594,7 @@ function lib.__AttachAppearance(O, d)
     view = newView(ctx, spec, parent, Skin, owner)
     drawSource(view)
     drawSkins(view)
+    drawMedia(view)
     drawScope(view)
     drawCopy(view)
     view.sync()

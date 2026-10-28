@@ -289,6 +289,7 @@ if not Skin then
     "GetAccentColor", "GetPanelColor", "GetFont",
     "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
     "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
+    "BarTexture",
   }) do S[name] = noop end
 
   S.Token = function(name)

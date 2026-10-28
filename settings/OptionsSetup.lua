@@ -139,10 +139,15 @@ if not lib then
     -- stub owes both members, adopted or not. On this path RenderTabbedSchema answers no tabs and
     -- EnsureScroll answers nil, so the entry is inert and AppearanceRows answers nil, as the live
     -- one does when it cannot draw.
+    -- Labeled "Skin" since OptionsAppearance minor 3 (LibKa0s v1.79.0); the key stays "Appearance".
     AppearanceTab = function()
-      return { key = "Appearance", label = "Appearance", render = noop }
+      return { key = "Appearance", label = "Skin", render = noop }
     end,
     AppearanceRows = function() return nil end,
+    -- The first-run skin picker (LibKa0s v1.79.0, OptionsSkinPicker minor 1). Without the library
+    -- there is no skin to pick: SkinPicker draws nothing and answers nil, HideSkinPicker is a no-op.
+    SkinPicker = function() return nil end,
+    HideSkinPicker = noop,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.

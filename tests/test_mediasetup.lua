@@ -25,7 +25,7 @@ local VENDORED = "Interface\\AddOns\\LootHistory\\libs\\LibKa0s\\media\\"
 -- plus the names the row menus carry as data (`icon = "..."` in BrowserTable:RowMenuItems and
 -- HoldingsTab.RowActions -- `graph` is "Show in Timeline" on both), the one
 -- passed as a trailing argument to a button factory ("spreadsheet", on the export window's
--- "Export to CSV" -- the filter bar's Export button is deliberately unmarked), and the three the
+-- "Export to CSV" -- the filter bar's Export button is deliberately unmarked), and the ones the
 -- LIBRARY draws on this addon's behalf once core/DebugLogSetup.lua tells it the folder name.
 local DRAWN = {
   -- this addon's own art
@@ -43,6 +43,9 @@ local DRAWN = {
   -- copy and clear; `clear` is listed once, above, because the row menus draw it too), and the
   -- Options id list's help mark (`info`, above: settings/Panel.lua's IdList passes no helpIcon)
   "close", "copy",
+  -- and the first-run skin picker's eye and gear (LibKa0s OptionsSkinPicker 1, LibKa0s#64), which
+  -- reads each through the owner's Media.Icon
+  "eye", "settings",
 }
 
 -- ---------------------------------------------------------------------------

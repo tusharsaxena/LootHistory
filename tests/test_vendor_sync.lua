@@ -35,6 +35,23 @@
 -- regenerated in the same commit. The count does not move — a rename is not a
 -- count change.
 
+-- AN UNRELEASED RE-VENDOR NAMES ITS BRANCH. A run that adopts library work before its tag is cut
+-- writes the line as `... v1.79.0 (unreleased, branch feat/...) (MIT).`, and the gate then compares
+-- the payloads against that branch's head in the sibling checkout, since no tag carries them yet.
+-- The kit's default pattern still finds the line (for the icon declaration and the prune), and a
+-- line back in the tagged shape drops this override by itself.
+
 local VendorSync = dofile("tests/_kit/vendor_sync.lua")
 
-VendorSync.register(_G.LH_TEST, {})
+local BRANCH_PATTERN = "[Bb]undles %[LibKa0s%]%b() v[%d%.]+ %(unreleased, branch ([%w%._/%-]+)%)"
+
+local function provenancePattern()
+    local fh = io.open("CLAUDE.md", "rb")
+    if not fh then return nil end
+    local doc = fh:read("*a")
+    fh:close()
+    if doc:match(BRANCH_PATTERN) then return BRANCH_PATTERN end
+    return nil
+end
+
+VendorSync.register(_G.LH_TEST, { provenancePattern = provenancePattern() })
