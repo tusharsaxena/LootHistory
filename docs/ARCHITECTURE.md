@@ -30,7 +30,7 @@ settings canvas with its tab strip and Master-controls composer, the settings sc
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
 the flat dropdowns, the Timeline's line chart and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because seventeen of its eighteen majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because eighteen of its nineteen majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -579,11 +579,12 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
-then `tests/test_browsertable.lua` at 1392 and `modules/BrowserTable.lua` at 1305 (`git ls-files '*.lua' |
-grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-23, after `modules/BrowserTable.lua`
-shed its display-list layer to `modules/BrowserTableGroup.lua` and `modules/Browser.lua`, now 1298,
-its dropdown-option kit to `modules/BrowserWidgets.lua`, and after `LH-14` added characterization cases to
-`tests/test_browsertable.lua` and split the last five functions above CCN 15); the
+then `modules/BrowserTable.lua` at 1407, `tests/test_browsertable.lua` at 1392 and `modules/Browser.lua`
+at 1384 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-29).
+On 2026-10-23 `modules/BrowserTable.lua` had shed its display-list layer to
+`modules/BrowserTableGroup.lua` and `modules/Browser.lua` its dropdown-option kit to
+`modules/BrowserWidgets.lua`, and `LH-14` had added characterization cases to
+`tests/test_browsertable.lua` and split the last five functions above CCN 15; the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---
