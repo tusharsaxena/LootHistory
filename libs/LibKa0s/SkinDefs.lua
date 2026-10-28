@@ -77,7 +77,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- paging, dropdown and sort arrows), Ka0s Default's gold and every other skin's accent (FOLLOW); the
 -- art is yellow and a tint only multiplies it, so every skin drew yellow arrows. WoW Forever's check
 -- mark is its tan accent, no longer Ka0s gold.
-local DEFS_MINOR = 13
+-- Minor 14 (the owner's choice, 2026-10-28): Ka0s Default draws Oxanium (SemiBold for body and HUD
+-- text, Bold for titles) and the Ka0s Default bar (Media minor 9 ships both). Every other skin inherits
+-- Ka0s Default's tokens, so `KEEP` holds the four values they inherited until now, Friz Quadrata and
+-- the client's Blizzard bar, and each keeps them unless it sets its own.
+local DEFS_MINOR = 14
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -191,10 +195,11 @@ local SERIES = {
 }
 
 local KA0S = {
-  -- Fonts (minor 8, the owner's ruling: Ka0s Default sets a font like every skin): Friz Quadrata,
-  -- the face the client's GameFont objects carry and so Ka0s Default's look, set explicitly; the
-  -- mono face DebugLog's console names; no outline, the client's 1, -1 shadow.
-  ["font.body"] = "Friz Quadrata TT", ["font.title"] = "Friz Quadrata TT", ["font.mono"] = "JetBrains Mono",
+  -- Fonts (minor 8, the owner's ruling: Ka0s Default sets a font like every skin; minor 14, the
+  -- owner's choice of face): Oxanium, SemiBold for the body and Bold for titles; the mono face
+  -- DebugLog's console names; no outline, the client's 1, -1 shadow.
+  ["font.body"] = "Ka0s Oxanium SemiBold", ["font.title"] = "Ka0s Oxanium Bold",
+  ["font.mono"] = "JetBrains Mono",
   ["font.outline"] = "", ["font.shadow"] = true,
   -- Window: Core.SKIN, the CopyWindow backdrop, LootHistory's title bar.
   ["win.bg"] = { 0.06, 0.06, 0.08, 0.92 }, ["win.bgDense"] = { 0.06, 0.06, 0.08, 0.95 },
@@ -287,8 +292,8 @@ local KA0S = {
   ["strip.test"] = { 1, 0.65, 0.15, 0.12 }, ["strip.sim"] = { 0.35, 0.8, 1, 0.12 },
   ["cover.dim"] = { 0, 0, 0, 0.6 }, ["cover.text"] = { 0.667, 0.667, 0.667, 1 },
   -- HUD: OptionsCompose's FontGroup / BorderGroup / BarGroup defaults.
-  ["bar.texture"] = "Blizzard", ["bar.gloss"] = false, ["bar.borderStyle"] = "None",
-  ["bar.borderSize"] = 1, ["hud.font"] = "Friz Quadrata TT", ["hud.fontSize"] = 12,
+  ["bar.texture"] = "Ka0s Default", ["bar.gloss"] = false, ["bar.borderStyle"] = "None",
+  ["bar.borderSize"] = 1, ["hud.font"] = "Ka0s Oxanium SemiBold", ["hud.fontSize"] = 12,
   ["hud.outline"] = "OUTLINE",
   -- Charts: Widgets LINE_CHART, LootHistory AnalyticsCharts / AnalyticsLedger / C.TIMELINE.
   ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 }, ["chart.axisAlt"] = { 0.55, 0.55, 0.60, 0.9 },
@@ -498,6 +503,11 @@ local function putRow(out, row, v)
   end
 end
 
+-- What every other skin inherited from Ka0s Default before minor 14 gave it Oxanium and the Ka0s
+-- Default bar: the client's Friz Quadrata and its Blizzard bar. A skin that sets its own keeps that.
+local FRIZ = "Friz Quadrata TT"
+local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["hud.font"] = FRIZ, ["bar.texture"] = "Blizzard" }
+
 --- A skin's tokens: its mockup entry through MOCK_MAP, the accent and text washes, then its extras.
 local function translate(mock, extra)
   local out = {}
@@ -512,6 +522,9 @@ local function translate(mock, extra)
   for name, v in pairs(extra or {}) do put(out, name, v) end
   for _, f in ipairs(FOLLOW) do
     if out[f[1]] == nil and out[f[2]] ~= nil then out[f[1]] = out[f[2]] end
+  end
+  for name, v in pairs(KEEP) do
+    if out[name] == nil then out[name] = v end
   end
   return out
 end
@@ -764,7 +777,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Bitter type.
 -- states (the InActiveTab art is drawn shorter, so idle tabs stood lower than the selected one; the
 -- owner's note, round 3), the selected tab told by its white label; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
 -- An art token draws that art at its own colors; the color token beside it is the fallback when
--- the art does not load. The client's own fonts: no font token.
+-- the art does not load. The client's own Friz Quadrata, through KEEP: no font token.
 local WOW_RED = grad(hex("#b3200f"), hex("#640c05"))
 register("wow", "WoW Default", "The vanilla client: dialog-box border, red buttons, gold text.",
   { "#1e1c19", "#a8a8a8", "#640c05", "#ffd100" }, {

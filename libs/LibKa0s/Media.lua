@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -159,6 +159,11 @@ lib.ICONS = {
 -- not belong in their dropdown. JetBrains Mono and the six new families have Latin and Cyrillic, so
 -- western + ruRU; Atkinson has no Cyrillic and is western only. None has Hangul or Han, and on such a
 -- client the skin falls back to the client's own font.
+--
+-- OXANIUM IS KA0S DEFAULT'S FACE (minor 9, 2026-10-28): SemiBold for body and HUD text, Bold for
+-- titles, SIL OFL 1.1 like the rest. The owner first chose Prototype, a squared techno face that is
+-- free for personal use only; Oxanium is the free face nearest its look, at Prototype's weight.
+-- Latin only, so western.
 local WEST_RU = { "western", "ruRU" }
 lib.FONTS = {
   ["JetBrains Mono"]          = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
@@ -182,11 +187,14 @@ lib.FONTS = {
                                   license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
   ["Ka0s Atkinson Bold"]      = { file = "AtkinsonHyperlegible-Bold.ttf",
                                   license = "AtkinsonHyperlegible-OFL.txt", langmask = { "western" } },
+  ["Ka0s Oxanium SemiBold"]   = { file = "Oxanium-SemiBold.ttf", license = "Oxanium-OFL.txt",
+                                  langmask = { "western" } },
+  ["Ka0s Oxanium Bold"]       = { file = "Oxanium-Bold.ttf", license = "Oxanium-OFL.txt", langmask = { "western" } },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is
 -- also the name a player sees in a bar-texture dropdown and the string a profile stores. `file` is
--- the basename; there is no per-file license row because unlike the icons and the font, nothing here
+-- the basename; there is no per-file license row because unlike the icons and the fonts, nothing here
 -- came from anywhere: `tools/artwork/bar_textures.py` synthesizes every pixel, and that file is both
 -- the provenance record and the license answer.
 --
@@ -198,7 +206,11 @@ lib.FONTS = {
 -- the way type does. The number is a multiple of the base band (2px of 32), so `4` is four times the
 -- line and NOT four pixels -- a name carrying a pixel count would be wrong the moment the canvas
 -- changed. Every one of them is the same 256x32 canvas, so a frame sized for one is sized for all
--- seven and a player switching between them gets a different line, never a different-shaped widget.
+-- of them and a player switching between them gets a different line, never a different-shaped widget.
+--
+-- KA0S DEFAULT (minor 9, 2026-10-28) is Ka0s Default's bar: dim at the top, a highlight low on the
+-- bar and a short lip, in the manner of the "Melli Dark" bar the owner asked for, drawn by the same
+-- tool rather than copied, because that file's author is not recorded.
 lib.TEXTURES = {
   ["Ka0s Gradient"]    = { file = "gradient.tga" },
   ["Ka0s Underline 1"] = { file = "underline-1.tga" },
@@ -207,6 +219,7 @@ lib.TEXTURES = {
   ["Ka0s Overline 1"]  = { file = "overline-1.tga" },
   ["Ka0s Overline 2"]  = { file = "overline-2.tga" },
   ["Ka0s Overline 4"]  = { file = "overline-4.tga" },
+  ["Ka0s Default"]     = { file = "ka0s-default.tga" },
 }
 
 -- The LSM `border` and `background` catalogs (minor 6): shipped art for a frame's edge and fill,

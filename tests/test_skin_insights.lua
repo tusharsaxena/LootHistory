@@ -5,8 +5,9 @@
 -- engine (the KPI cards and list panels call for call through the skin's Card and Panel, the chart
 -- chrome, the series palette, the signed escapes' bytes, the toggle, the Holdings rows, the AH
 -- table's colors and ticks), with one exception since LibKa0s#63: the bars of data wear the skin's
--- bar texture (Ka0s Default's `bar.texture` is LibSharedMedia's "Blizzard" status bar, pinned below
--- against the vendored LibSharedMedia itself) in the colors they had, a skin switch repaints them live with no reload (the pooled widgets on
+-- bar texture (Ka0s Default's `bar.texture` is the "Ka0s Default" bar LibKa0s Media minor 9 ships
+-- and registers, SkinDefs minor 14; pinned below against the vendored LibSharedMedia itself) in the
+-- colors they had, a skin switch repaints them live with no reload (the pooled widgets on
 -- the free list too, the palette and the meaning colors synced, the markup rebuilt, the parked AH
 -- host repainted), and Ka0s Default puts them back. tests/analytics_golden.txt and
 -- tests/panel_auction_golden.txt pin the Ka0s Default render itself and stay unchanged.
@@ -616,8 +617,10 @@ end)
 -- library, so a case sees the file the client resolves rather than a stand-in. Its chunk gets a
 -- private LibStub (a fresh library and a CallbackHandler stub), so the shared mock's registry is
 -- left alone; the file reads `bit.band` through getfenv(0), which plain Lua 5.1 lacks, so a stand-in
--- sits there for the load only. Put back whatever `fn` raised.
-local BLIZZARD_BAR = "Interface\\TargetingFrame\\UI-StatusBar"
+-- sits there for the load only. LibKa0s Media then registers its catalog into it, as
+-- core/MediaSetup.lua's file-load call does in the client. Put back whatever `fn` raised.
+local Media = mocks.LibStub("LibKa0s-Media-1.0")
+local KA0S_BAR = Media.Texture(OWNER, "Ka0s Default")
 local function withVendoredLSM(fn)
   local lsm = {}
   local stub = setmetatable({
@@ -637,23 +640,31 @@ local function withVendoredLSM(fn)
   local libs = mocks.__libs
   local saved = libs["LibSharedMedia-3.0"]
   libs["LibSharedMedia-3.0"] = lsm
-  local ok, err = pcall(fn)
+  local ok, err = pcall(function()
+    Media.RegisterLSM(OWNER)
+    fn()
+  end)
   libs["LibSharedMedia-3.0"] = saved
   if not ok then error(err, 0) end
 end
 
-test("skin bars: on Ka0s Default the client draws the Blizzard status bar, tinted each bar's color", function()
+test("skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color", function()
+  -- SO-06 (LibKa0s SkinDefs minor 14, Media minor 9) moved Ka0s Default's bar.texture from the
+  -- client's "Blizzard" status bar to the generated "Ka0s Default" bar the library ships.
   -- red under: Ka0s Default's bar.texture no longer resolving through the vendored LibSharedMedia
-  -- (the bars would go back to flat without SKIN-1 and SKIN-23 saying so), or a tint lost to it.
+  -- (the bars would go back to flat without SKIN-1 and SKIN-23 saying so), the old Blizzard bar
+  -- (Interface\TargetingFrame\UI-StatusBar), or a tint lost to it.
+  assertTrue(type(KA0S_BAR) == "string" and KA0S_BAR:find("ka0s%-default$") ~= nil,
+    "the Ka0s Default bar's file: " .. tostring(KA0S_BAR))
   withInsights(function()
     withVendoredLSM(function()
       local f = A.pool.day.active[1]
       local want = today("chart.bar")
       Skin:Repaint(OWNER)   -- what the client's first paint draws, with its LibSharedMedia loaded
-      assertEqual(rawget(f.fill, "__texture"), BLIZZARD_BAR, "the strip bar's file")
+      assertEqual(rawget(f.fill, "__texture"), KA0S_BAR, "the strip bar's file")
       assertEqual(rgba(rawget(f.fill, "__vertex")), want, "tinted chart.bar")
       for i, t in ipairs(insightsBars()) do
-        assertEqual(rawget(t, "__texture"), BLIZZARD_BAR, "bar " .. i .. " is not the Blizzard status bar")
+        assertEqual(rawget(t, "__texture"), KA0S_BAR, "bar " .. i .. " is not the Ka0s Default bar")
       end
     end)
     Skin:Repaint(OWNER)   -- back to the harness's flat bars for the cases after this one

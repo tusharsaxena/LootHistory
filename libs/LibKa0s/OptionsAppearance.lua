@@ -48,7 +48,10 @@ if not lib then return end
 -- section between the skins and the scope, two dropdowns through Skin:SetOverride and `spec.set`'s
 -- fourth argument; and the copy carries them (LibKa0s-Skin-1.0 minor 6). "Skin's own" names the face
 -- the owner wears without its overrides (Skin:__BaseTokens, EllesmereUI's when it paints), and a
--- stored key LibSharedMedia lacks stays listed as "<key> (not loaded)".
+-- stored key LibSharedMedia lacks stays listed as "<key> (not loaded)". Amended before release
+-- (PK-02): the skins' heading reads "Look", not the tab's own "Skin" (options-ui-§7), and the
+-- other owners and one owner's skin copy are library-level (lib.__skinOthers, lib.__copySkinTo),
+-- so the skin picker's "Apply to all Ka0s addons" shares them.
 local APPEARANCE_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
@@ -80,7 +83,7 @@ lib.APPEARANCE_STRINGS = {
   EUI_READY      = "EllesmereUI can skin this addon.",
   EUI_NOT_READY  = "EllesmereUI cannot skin this addon yet:",
   EUI_MISSING    = "EllesmereUI skins are not available with this copy of the library.",
-  SKIN_HEADING   = "Skin",
+  SKIN_HEADING   = "Look",
   SKIN_EUI_NOTE  = "While EllesmereUI skins this addon, the skin below is used only if it cannot.",
   COPY           = "Copy to every Ka0s addon\226\128\166",
   MEDIA_HEADING  = "Font and texture",
@@ -215,6 +218,30 @@ function lib.__appearanceConfirmCopy(S, label, names, run)
   }, label, table.concat(names, "\n"), run)
 end
 
+-- ── the other owners, and one owner's copy ───────────────────────────────────────────────────
+
+--- Every registered skin owner but `owner`, sorted (Skin:Owners() order). Internal: the copy button
+--- here and the skin picker's "Apply to all Ka0s addons" (OptionsSkinPicker.lua) both read it.
+function lib.__skinOthers(Skin, owner)
+  local out = {}
+  for _, name in ipairs(Skin:Owners()) do
+    if name ~= owner then out[#out + 1] = name end
+  end
+  return out
+end
+
+--- Give `name` (source, skin) and, when given, the scope `ignore` and the overrides `media`: the Skin
+--- major first (SetChoice, SetIgnore, SetOverride: the live repaint), then the owner's own setter
+--- (Skin:WriteChoice, with the same two halves, nil leaving that half of its profile alone).
+--- Answers the reload flag SetChoice answered. Internal; the caller refuses combat.
+function lib.__copySkinTo(Skin, name, source, skin, ignore, media)
+  local _, reload = Skin:SetChoice(name, source, skin)
+  if ignore and type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end
+  if media and type(Skin.SetOverride) == "function" then Skin:SetOverride(name, media.font, media.texture) end
+  Skin:WriteChoice(name, source, skin, ignore, media)
+  return reload
+end
+
 -- ── the attach ───────────────────────────────────────────────────────────────────────────────
 
 --- Called by lib:New (Options minor 33), guarded. Attaches the tab's two members.
@@ -311,11 +338,7 @@ function lib.__AttachAppearance(O, d)
   end
 
   local function others(view)
-    local out = {}
-    for _, name in ipairs(view.Skin:Owners()) do
-      if name ~= view.owner then out[#out + 1] = name end
-    end
-    return out
+    return lib.__skinOthers(view.Skin, view.owner)
   end
 
   --- This owner's scope, `{ panel, fonts }`: the Skin major's applied pair (false, false on a copy
@@ -346,11 +369,9 @@ function lib.__AttachAppearance(O, d)
     local media = readMedia(view)
     local reloads = {}
     for _, name in ipairs(names) do
-      local _, reload = Skin:SetChoice(name, source, skin)
-      if type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end
-      if media then Skin:SetOverride(name, media.font, media.texture) end
-      Skin:WriteChoice(name, source, skin, ignore, media)
-      if reload then reloads[#reloads + 1] = Skin:OwnerLabel(name) or name end
+      if lib.__copySkinTo(Skin, name, source, skin, ignore, media) then
+        reloads[#reloads + 1] = Skin:OwnerLabel(name) or name
+      end
     end
     if #reloads > 0 then lib.__appearanceReload(view.S, table.concat(reloads, ", ")) end
   end

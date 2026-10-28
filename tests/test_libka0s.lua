@@ -833,11 +833,11 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   end
   assertEqual(modules("LibKa0s-Core-1.0").Core, 13)
   local media = modules("LibKa0s-Media-1.0")
-  assertEqual(media.Media, 8)
+  assertTrue(media.Media >= 8) -- 9 since v1.79.0, pinned there
   assertEqual(media.MediaIcons, 1)
   local skin = modules("LibKa0s-Skin-1.0")
   assertTrue(skin.Skin >= 5) -- 6 since v1.79.0, pinned there
-  assertEqual(skin.SkinDefs, 13)
+  assertTrue(skin.SkinDefs >= 13) -- 14 since v1.79.0, pinned there
   assertEqual(skin.SkinPaint, 10)
   assertTrue(skin.SkinPaintExtras >= 3) -- 4 since v1.79.0, pinned there
   assertEqual(skin.SkinPaintControls, 8)
@@ -856,7 +856,7 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertEqual(debugLog.DebugLogWindow, 1)
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.Options >= 33) -- 34 since v1.79.0, pinned there
-  assertEqual(options.OptionsRegistry, 3)
+  assertTrue(options.OptionsRegistry >= 3) -- 4 since v1.79.0, pinned there
   assertEqual(options.OptionsWidgets, 35)
   assertEqual(options.OptionsIds, 4)
   assertEqual(options.OptionsIdList, 6)
@@ -882,7 +882,11 @@ end)
 -- OptionsAppearance 3 (the tab labeled "Skin" and its Font and texture section), Options 34 with
 -- the new fourteenth file OptionsSkinPicker 1 (O.SkinPicker, O.HideSkinPicker), DebugLogDiagnostics
 -- 5 (Toast in the report's major list) and the new major LibKa0s-Toast-1.0 (Toast 1); kit revision
--- 44 (StatusBar fidelity in the paint mock). Every other file unchanged.
+-- 44 (StatusBar fidelity in the paint mock). Then SO-06 and PK-02 on the same branch: Media 9 (the
+-- Oxanium faces and the generated "Ka0s Default" bar), SkinDefs 14 (Ka0s Default draws them; every
+-- other skin keeps Friz Quadrata and the Blizzard bar), OptionsRegistry 4 (O.OpenOptionsPanel takes
+-- a page key), and OptionsAppearance 3 and OptionsSkinPicker 1 amended in place (the "Look" heading;
+-- the picker previews, Apply saves, one window across addons). Every other file unchanged.
 test("v1.79.0: the vendored minors and the kit revision match the branch", function()
   local function modules(major)
     local lib = T.mocks.LibStub(major, true)
@@ -891,11 +895,14 @@ test("v1.79.0: the vendored minors and the kit revision match the branch", funct
   end
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 6)
+  assertEqual(skin.SkinDefs, 14)
   assertEqual(skin.SkinPaintExtras, 4)
+  assertEqual(modules("LibKa0s-Media-1.0").Media, 9)
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 5)
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 1)
   local options = modules("LibKa0s-Options-1.0")
   assertEqual(options.Options, 34)
+  assertEqual(options.OptionsRegistry, 4)
   assertEqual(options.OptionsAppearance, 3)
   assertEqual(options.OptionsSkinPicker, 1)
   assertTrue(type(NS.Options.SkinPicker) == "function", "O.SkinPicker missing: OptionsSkinPicker did not attach")

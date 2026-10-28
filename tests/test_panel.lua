@@ -365,8 +365,9 @@ local SUBGROUPS = {
   ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
   -- The library's Skin tab (key "Appearance"; skinning-§3): its four subjects, the source, the
-  -- skin, the font and texture overrides and the Scope (OptionsAppearance minor 3).
-  ["Appearance"]      = { "Skin source", "Skin", "Font and texture", "Scope" },
+  -- skins (headed "Look" since PK-02, so no heading repeats the tab's "Skin", options-ui-§7), the
+  -- font and texture overrides and the Scope (OptionsAppearance minor 3).
+  ["Appearance"]      = { "Skin source", "Look", "Font and texture", "Scope" },
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},
 }

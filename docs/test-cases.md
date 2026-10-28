@@ -1567,7 +1567,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (16)
+### test_skin_insights.lua (17)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1581,7 +1581,8 @@ Total.
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
 - skin bars: every Insights bar of data is the skin's BarTexture; tracks and rules are not
-- skin bars: on Ka0s Default with no texture resolved, a bar keeps its flat color
+- skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color
+- skin bars: with no status bar resolved, a bar keeps its flat color
 - skin bars: a Texture override paints every bar in that texture, tinted its own color
 - skin bars: the Timeline's gain and loss columns are the skin's BarTexture
 - skin bars: NS.SkinBar paints flat when the target is not a Texture or the facade lacks it
@@ -2129,7 +2130,7 @@ Total.
 | test_skin_picker.lua | 11 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 16 |
+| test_skin_insights.lua | 17 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 6 |
 | test_skin_literals.lua | 3 |
@@ -2160,4 +2161,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1814** |
+| **Total** | **1815** |

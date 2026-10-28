@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1814%2F1814_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1815%2F1815_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -148,7 +148,10 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 The debug console and the export window use [JetBrains Mono](https://www.jetbrains.com/lp/mono/),
 licensed under the SIL Open Font License 1.1.
 
-The skins draw on seven more SIL Open Font License 1.1 faces, one family per skin:
+Ka0s Default, the skin every profile starts on, draws [Oxanium](https://github.com/sevmeyer/oxanium)
+by The Oxanium Project Authors, also SIL Open Font License 1.1.
+
+The other skins draw on seven more SIL Open Font License 1.1 faces, one family per skin:
 [Inter](https://github.com/rsms/inter) by The Inter Project Authors,
 [Nunito](https://github.com/googlefonts/nunito) by The Nunito Project Authors,
 [Vollkorn](https://github.com/FAlthausen/Vollkorn-Typeface) by The Vollkorn Project Authors,
@@ -156,7 +159,8 @@ The skins draw on seven more SIL Open Font License 1.1 faces, one family per ski
 [Philosopher](https://github.com/alexeiva/philosopher) by The Philosopher Project Authors,
 [Fira Sans](https://github.com/mozilla/Fira) by The Mozilla Foundation and Telefonica S.A., and
 [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/) by the Braille Institute of
-America. Inter, Nunito, Vollkorn and Bitter are static weights cut from upstream's variable fonts.
+America. Inter, Nunito, Vollkorn, Bitter and Oxanium are static weights cut from upstream's
+variable fonts.
 
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
