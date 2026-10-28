@@ -290,10 +290,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   resolved a path and `settings/Schema.lua` has built its rows. **The fallback is a real client
   font**: `SetFont` accepts a path to a file that is not there, fails to load it, and the text
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
-- **No LSM media pickers, by design.** There is no per-surface font/texture/border setting, and
-  this addon uses LSM only for the registration above (no `Fetch`/`List`). The look is
-  user-configurable as a whole instead: the Appearance tab picks a skin, and `LibKa0s-Skin-1.0`
-  resolves that skin's faces and art itself (core/SkinSetup.lua). That is the LibKa0s seam the
+- **No per-surface LSM media pickers, by design.** There is no per-surface font/texture/border
+  setting, and this addon's own code uses LSM only for the registration above (no `Fetch`/`List`).
+  The look is user-configurable as a whole instead: the Skin tab picks a skin, and its Font and
+  texture dropdowns (the library's, which list LSM's keys) override the skin's face and bar texture
+  for the whole addon; `LibKa0s-Skin-1.0` resolves the faces and art itself (core/SkinSetup.lua). That is the LibKa0s seam the
   old post-1.0.0 TODO in `modules/Browser.lua` pointed at; the History window's chrome reads it
   since LH-02.
 

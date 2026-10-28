@@ -57,7 +57,7 @@ NS.defaults.profile = {
     -- ("ka0s", the Ka0s skins, or "eui", EllesmereUI's) and which Ka0s skin. "ka0s"/"ka0s" is Ka0s
     -- Default, today's look. New keys with defaults, so AceDB merges them into every existing
     -- profile and no migration is owed. Applied through core/SkinSetup.lua. The two exceptions
-    -- (the Appearance tab's Scope, LibKa0s-Skin-1.0 minor 5): leave the settings panel the client's,
+    -- (the Skin tab's Scope, LibKa0s-Skin-1.0 minor 5): leave the settings panel the client's,
     -- leave every font the client's. New keys with defaults too: a new profile leaves the settings
     -- panel the client's and skins the fonts (the owner's call, 2026-10-27). The font and texture
     -- overrides (the Skin tab's Font and texture, LibKa0s-Skin-1.0 minor 6): an LSM key each, ""

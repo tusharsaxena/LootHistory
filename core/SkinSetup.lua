@@ -64,7 +64,7 @@ local addonName, NS = ...
 --
 -- ── WHY A ROW'S onChange PASSES ONE HALF ─────────────────────────────────────────────────────
 --
--- The Appearance tab and another addon's "Copy to every Ka0s addon" both call Skin:SetChoice
+-- The Skin tab and another addon's "Copy to every Ka0s addon" both call Skin:SetChoice
 -- FIRST and write the store after, one half at a time. A row reaction that re-applied the whole
 -- stored pair would apply the half-written one in between: a second repaint, to a skin the player
 -- never picked. Applying only the row's own half against the applied choice makes each write a
@@ -547,7 +547,7 @@ Skin:RegisterOwner(addonName, {
 })
 
 -- The one line a reload request earns on the path that has no popup of its own (a profile event
--- leaving an EllesmereUI that painted this session). The Appearance tab raises the library's popup
+-- leaving an EllesmereUI that painted this session). The Skin tab raises the library's popup
 -- for its own picks.
 local RELOAD_LINE = NS.L and NS.L["Reload your interface (/reload) to finish changing the skin."]
   or "Reload your interface (/reload) to finish changing the skin."

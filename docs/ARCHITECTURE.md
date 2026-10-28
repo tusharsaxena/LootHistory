@@ -344,18 +344,26 @@ facade with this addon as its **owner**.
 - **The seam.** `core/SkinSetup.lua` registers the owner `"LootHistory"` (the folder name) at file
   load with its read and write seams (`NS.SkinChoice`, `NS.WriteSkinChoice`, both through
   `NS.Schema`), publishes `NS.Skin` (the owner's facade) and the call-site helpers `NS.SkinColor`,
-  `NS.SkinRGB`, `NS.SkinEscape`, `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` /
-  `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
+  `NS.SkinRGB`, `NS.SkinEscape`, `NS.SkinBar` (a bar of data in the skin's bar texture),
+  `NS.QualityColor`, `NS.SkinPaintAce` / `NS.SkinPaintAceTree` / `NS.SkinOnRelease`. Its degraded arm answers every facade name from `NS.SKIN_FALLBACK`, a host copy
   of the Ka0s Default tokens this addon reads, which `tests/test_surface_parity.lua` holds to the
   library's values. The choice is two profile keys, `settings.appearance.source` and `.skin`, and the
   tab's Scope two more, `.ignorePanel` (**Ignore settings panel**: this addon's settings pages stay
   the client's; on in a new profile) and `.ignoreFonts` (**Ignore fonts**: every string keeps its own
-  face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways)
-  ([schema.md](schema.md)). All four are drawn by the library's Appearance tab on the General page,
-  just before Keybindings ([settings-panel.md](settings-panel.md)).
+  face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways), and the
+  tab's Font and texture two more, `.font` and `.texture` (an LSM key each, `""` for the skin's own),
+  applied through `NS.ApplySkinOverride` (`Skin:SetOverride`, live) ([schema.md](schema.md)). All six
+  are drawn by the library's Skin tab (key `Appearance`) on the General page, just before
+  Keybindings ([settings-panel.md](settings-panel.md)). A seventh key, `.pickerSeen`, is the
+  first-run skin picker's memory.
+- **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
+  (`O.SkinPicker`, LibKa0s OptionsSkinPicker 1) while the profile's `pickerSeen` is false: two
+  seconds after login on an addon that stands up, and after every profile event. Never while the
+  addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. The player's close sets the key;
+  the stand-down's `NS.HideSkinPicker` takes it down without setting it. Its eye turns test mode on.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
-  event (`core/LootHistory.lua`), applying the stored Scope with the stored skin, and from each
-  Appearance row with only its own half. It calls
+  event (`core/LootHistory.lua`), applying the stored Scope and overrides with the stored skin, and
+  from each Skin tab row with only its own half. It calls
   `Skin:SetChoice`, which resolves the skin, repaints every frame recorded for this owner (each
   primitive re-runs in repaint mode) and then fires `NS.Skin.OnLooksChanged`. Surfaces that cannot be
   repainted in place subscribe there: markup built once (sort arrows, AH ticks), pooled rows (both
@@ -364,7 +372,7 @@ facade with this addon as its **owner**.
 - **The EllesmereUI provider.** The library's (`SkinEUI.lua`). With source `eui` and its gate holding
   (EllesmereUI's `RegisterSkin` and `EllesmereUIBlizzardSkin` loaded, third-party skins on, this
   addon not switched off in its list), EllesmereUI's facade paints the vocabulary it has; otherwise
-  the addon wears its Ka0s skin and the Appearance tab names the failing condition. Ka0s to
+  the addon wears its Ka0s skin and the Skin tab names the failing condition. Ka0s to
   EllesmereUI applies live; EllesmereUI back to Ka0s asks for a reload. The read of `EllesmereUIDB`
   is the library's documented deviation, not this addon's.
 - **Owners on every library surface.** Each LibKa0s factory is handed the owner in the form it reads:
