@@ -14,7 +14,10 @@
 -- (a probe owner on a second Options instance sharing the library table) a queued nil, "queued",
 -- shown when that one closes, dismissed seen and skinned by its "Apply to all Ka0s addons", and taken
 -- out unseen by this addon's own hide; and a profile switch with a preview pending wearing the new
--- profile's skin (NS.OnProfileEvent takes the picker down before applying it).
+-- profile's skin (NS.OnProfileEvent takes the picker down before applying it). Then the eye raising
+-- the picker over the History window it opens, a close after the store moved under a preview
+-- wearing the stored skin, and the stand-down putting a pending preview back unsaved and taking a
+-- queued picker out of the queue, both unseen.
 --
 -- After test_skin_overrides; leaves the harness on `Default`, the picker down and marked unseen.
 
@@ -440,4 +443,70 @@ test("Skin picker: a profile switch with a preview pending wears the new profile
   assertEqual(worn(), "ka0s", "and back on Default, its own stored skin")
   assertEqual(stored(), "ka0s", "the preview was never saved")
   if db.DeleteProfile then pcall(db.DeleteProfile, db, "PickerProbe", true) end
+end))
+
+-- ── the eye's window, a store moved under a preview, and the stand-down (LH-01 review) ───────
+
+test("Skin picker: the eye raises the picker over the History window it opens", onWindow(function(f)
+  -- Both are HIGH and toplevel, and the client raises a toplevel frame it shows, so the History
+  -- window would come up over the picker. red under: a previewSkin that shows the window and never
+  -- raises the picker after it.
+  local BT, B = NS.BrowserTable, NS.Browser
+  local raisedOver
+  rawset(f, "Raise", function()
+    local w = B:GetWindow()
+    raisedOver = w ~= nil and w:IsShown()
+  end)
+  local ok, err = pcall(function()
+    pickRow(f, "obsidian")
+    f.preview:__fire("OnClick")
+    assertTrue(B:GetWindow():IsShown(), "the eye did not show the History window")
+    assertEqual(raisedOver, true, "the picker was not raised after the History window showed")
+    assertTrue(f:IsShown(), "the eye leaves the picker up")
+  end)
+  rawset(f, "Raise", nil)
+  if BT.testMode then BT:SetTestMode(false) end
+  B:Hide()
+  if not ok then error(err, 0) end
+end))
+
+test("Skin picker: a close after the store moved under a preview wears the stored skin", onWindow(function(f)
+  -- The library's put-back wears the skin the window OPENED with, without reading the store. red
+  -- under: a pickerClosed that does not re-apply the stored pair (worn and stored would disagree
+  -- until a reload).
+  pickRow(f, "obsidian")
+  NS.WriteSkinChoice("ka0s", "azeroth")
+  f.close:__fire("OnClick")
+  assertFalse(f:IsShown())
+  assertEqual(stored(), "azeroth")
+  assertEqual(worn(), "azeroth", "the close wore the opened skin over the stored one")
+end))
+
+test("Skin picker: the stand-down with a preview pending puts the old skin back, unsaved, unseen", onWindow(function(f)
+  pickRow(f, "obsidian")
+  NS.Schema:Set("settings.enabled", false)
+  local ok, err = pcall(function()
+    assertTrue(NS.IsStoodDown(), "the switch stood the addon down")
+    assertFalse(f:IsShown(), "the stand-down takes the picker down")
+    assertEqual(worn(), "ka0s", "the pending preview is put back")
+    assertEqual(stored(), "ka0s", "and never saved")
+    assertEqual(NS.Schema:Get(PATH), false, "a stand-down is not the player's close")
+  end)
+  NS.Schema:Set("settings.enabled", true)
+  if not ok then error(err, 0) end
+end))
+
+test("Skin picker: the stand-down takes a queued picker out of the queue, unseen", onWindow(function(mine)
+  NS.HideSkinPicker()
+  local inst, spec = probe()
+  inst.SkinPicker(spec)
+  assertTrue(select(2, NS.MaybeShowSkinPicker()) == "queued")
+  NS.Schema:Set("settings.enabled", false)
+  local ok, err = pcall(function()
+    inst.HideSkinPicker()
+    assertFalse(mine:IsShown(), "a picker queued before the stand-down showed after it")
+    assertEqual(NS.Schema:Get(PATH), false, "and was never seen")
+  end)
+  NS.Schema:Set("settings.enabled", true)
+  if not ok then error(err, 0) end
 end))
