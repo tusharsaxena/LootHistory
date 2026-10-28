@@ -211,6 +211,13 @@ lib.FONTS = {
 -- KA0S DEFAULT (minor 9, 2026-10-28) is Ka0s Default's bar: dim at the top, a highlight low on the
 -- bar and a short lip, in the manner of the "Melli Dark" bar the owner asked for, drawn by the same
 -- tool rather than copied, because that file's author is not recorded.
+--
+-- EVERY SKIN'S OWN BAR (minor 9, SO-04, the owner's approved mockup): Ka0s Matte (Obsidian), Ka0s
+-- Parchment (Azeroth), Ka0s Glass Bar (Glass), Ka0s Solid (High Contrast), Ka0s Forge (Ember), Ka0s
+-- Satin (WoW Midnight) and Ka0s Classic (WoW Forever), from the same tool on the same canvas. WoW
+-- Default keeps the client's `Blizzard` bar, so it has none here. GLASS BAR, not Glass: `Ka0s Glass`
+-- is already the Glass border and background, and one name in three LSM catalogs would read in a
+-- dropdown as one asset.
 lib.TEXTURES = {
   ["Ka0s Gradient"]    = { file = "gradient.tga" },
   ["Ka0s Underline 1"] = { file = "underline-1.tga" },
@@ -220,6 +227,13 @@ lib.TEXTURES = {
   ["Ka0s Overline 2"]  = { file = "overline-2.tga" },
   ["Ka0s Overline 4"]  = { file = "overline-4.tga" },
   ["Ka0s Default"]     = { file = "ka0s-default.tga" },
+  ["Ka0s Matte"]       = { file = "matte.tga" },
+  ["Ka0s Parchment"]   = { file = "parchment.tga" },
+  ["Ka0s Glass Bar"]   = { file = "glass-bar.tga" },
+  ["Ka0s Solid"]       = { file = "solid.tga" },
+  ["Ka0s Forge"]       = { file = "forge.tga" },
+  ["Ka0s Satin"]       = { file = "satin.tga" },
+  ["Ka0s Classic"]     = { file = "classic.tga" },
 }
 
 -- The LSM `border` and `background` catalogs (minor 6): shipped art for a frame's edge and fill,

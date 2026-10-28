@@ -721,6 +721,16 @@ function lib.__AttachSkinPicker(O, d)
     return f
   end
 
+  --- The Skin major and the owner `spec` names (default the descriptor's `addonName`, then the
+  --- owner last shown here), or nil without the major, a client, or for an unregistered owner.
+  local function pickerTarget(spec)
+    local Skin = skinMajor()
+    local owner = spec.owner or defaultOwner or (P and P.owner)
+    if not (Skin and type(Skin.IsOwner) == "function" and Skin:IsOwner(owner)) then return nil end
+    if type(CreateFrame) ~= "function" then return nil end
+    return Skin, owner
+  end
+
   --- Show the skin picker for `spec.owner` (default the descriptor's `addonName`), and answer its
   --- frame. One picker is up at a time across every Ka0s addon: while another owner's is up, or while
   --- the queue waits out combat, the call queues this one and answers nil, "queued" (a repeat
@@ -734,10 +744,8 @@ function lib.__AttachSkinPicker(O, d)
   --- Apply to all dismisses), strings.
   function O.SkinPicker(spec)
     spec = type(spec) == "table" and spec or {}
-    local Skin = skinMajor()
-    local owner = spec.owner or defaultOwner or (P and P.owner)
-    if not (Skin and type(Skin.IsOwner) == "function" and Skin:IsOwner(owner)) then return nil end
-    if type(CreateFrame) ~= "function" then return nil end
+    local Skin, owner = pickerTarget(spec)
+    if not Skin then return nil end
     local q = queue()
     local cur = q.current
     if (cur and cur.owner ~= owner) or (not cur and q.parked) then

@@ -2225,7 +2225,19 @@ addon's waits behind it. Enter combat (a target dummy), then close the open pick
 addon's picker opens then, titled for that addon, with no Lua error and no taint warning. Fail: the
 second picker opening mid-combat, or never opening after combat ends. Result:
 
-## Vendored icons## Vendored icons
+**SKIN-39. Every skin's bars wear its own texture (LH-02; LibKa0s SO-04).** Fully restart the client
+(new texture files), clear any **Texture** override (*Skin's own*), and open Insights with a range that
+draws its charts. Pick each skin in turn on General → Skin, and after each pick look at the strip,
+ranked and stacked bars and the gains-vs-losses halves, then the Timeline's day columns → every bar
+shows the skin's own texture, as **Texture** names it: Ka0s Default: Ka0s Default; Obsidian: Ka0s
+Matte; Azeroth: Ka0s Parchment; Glass: Ka0s Glass Bar; High Contrast: Ka0s Solid; Ember: Ka0s Forge;
+WoW Midnight: Ka0s Satin; WoW Forever: Ka0s Classic; WoW Default: Blizzard. Each bar keeps its own
+color, and the seven new textures are visibly distinct from one another (Parchment mottled, Solid flat,
+Glass Bar glossy, Classic like the client's bar). Fail: a bar that stays on the previous skin's
+texture, a white or missing fill, a texture that tiles with a visible seam, or a skin whose bars look
+like another's. Result:
+
+## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
 declares. A drawn name missing from that line still resolves to a path and draws **blank**, with no
@@ -2398,3 +2410,6 @@ stand-down with a preview pending and with the picker queued). After LibKa0s PK-
 picker's raise, its put-back of the stored skin and a combat wait into the library: SKIN-29, SKIN-31
 and SKIN-32 (amended: the library, not the addon, raises the picker and puts back the stored skin)
 and SKIN-38 (new: a queued picker waits for combat to end).
+
+After LibKa0s v1.79.0 was tagged with SO-04's bar textures (LH-02): SKIN-39 (new: every skin's bars
+wear its own texture).
