@@ -661,10 +661,11 @@ local PARTITION = {
     { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     { "Interface", 5 }, { "History", 2 },
-    -- The skin's two rows (skinning-§3) and the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5),
-    -- after History in the strip's order; the library's Appearance tab draws all four, so all four
-    -- are skipRender.
-    { "Appearance", 4 },
+    -- The skin's two rows (skinning-§3), the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5), the
+    -- font and texture overrides (minor 6) and the first-run picker's memory, after History in the
+    -- strip's order; the library's Skin tab draws six of them and nothing draws the seventh, so all
+    -- seven are skipRender.
+    { "Appearance", 7 },
   },
 }
 
@@ -1237,10 +1238,13 @@ end
 local STORED_SETTINGS = [[
 minimap.shown | bool | true | nil | nil | nil
 settings.alpha | number | 1 | 0 | 1 | 0.05
+settings.appearance.font | string | "" | nil | nil | nil
 settings.appearance.ignoreFonts | bool | false | nil | nil | nil
 settings.appearance.ignorePanel | bool | true | nil | nil | nil
+settings.appearance.pickerSeen | bool | false | nil | nil | nil
 settings.appearance.skin | string | "ka0s" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil
+settings.appearance.texture | string | "" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
 settings.auction.enabled | bool | true | nil | nil | nil
 settings.enabled | bool | true | nil | nil | nil

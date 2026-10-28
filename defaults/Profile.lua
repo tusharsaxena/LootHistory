@@ -59,8 +59,12 @@ NS.defaults.profile = {
     -- profile and no migration is owed. Applied through core/SkinSetup.lua. The two exceptions
     -- (the Appearance tab's Scope, LibKa0s-Skin-1.0 minor 5): leave the settings panel the client's,
     -- leave every font the client's. New keys with defaults too: a new profile leaves the settings
-    -- panel the client's and skins the fonts (the owner's call, 2026-10-27).
-    appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = true, ignoreFonts = false },
+    -- panel the client's and skins the fonts (the owner's call, 2026-10-27). The font and texture
+    -- overrides (the Skin tab's Font and texture, LibKa0s-Skin-1.0 minor 6): an LSM key each, ""
+    -- for the skin's own. `pickerSeen`: the first-run skin picker was closed on this profile, so a
+    -- new or reset profile shows it once (LibKa0s OptionsSkinPicker 1).
+    appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = true, ignoreFonts = false,
+                         font = "", texture = "", pickerSeen = false },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,

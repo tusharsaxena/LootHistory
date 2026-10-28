@@ -84,11 +84,12 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Twenty-seven rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
-Master controls, Capture, Filters, AH price, Interface, History, Appearance and Keybindings; Filters and
-Keybindings hold no rows (Keybindings is the library's, options-ui-§20), and Appearance's four rows,
-`settings.appearance.source` and `.skin` and the Scope's `.ignorePanel` and `.ignoreFonts`, are drawn
-by the library's own Appearance tab (skinning-§3).
+Thirty rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
+Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
+`Appearance`) holds seven: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
+`.ignoreFonts`, and the Font and texture overrides `.font` and `.texture` are drawn by the library's
+own Skin tab (skinning-§3), and `.pickerSeen`, the first-run skin picker's memory, is drawn by nothing.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the

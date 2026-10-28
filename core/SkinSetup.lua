@@ -9,15 +9,22 @@ local addonName, NS = ...
 --                           OnLooksChanged. Every surface that draws reads its colors here.
 --   NS.SkinChoice()         the stored (source, skin) pair, read through NS.Schema:Get; "ka0s",
 --                           "ka0s" before NS:InitDB has built the profile store.
---   NS.WriteSkinChoice(s,k,i) the write seam: both halves through NS.Schema:Set, the one seam
+--   NS.WriteSkinChoice(s,k,i,m) the write seam: both halves through NS.Schema:Set, the one seam
 --                           `/lh set` and the panel already write through (architecture-§5); `i`,
---                           the Scope's `{ panel, fonts }`, writes the two exceptions.
+--                           the Scope's `{ panel, fonts }`, writes the two exceptions, and `m`, the
+--                           Font and texture section's `{ font, texture }` (LibKa0s-Skin-1.0 minor
+--                           6), writes the two overrides, "" for false (the skin's own).
 --   NS.ApplySkinIgnore(p,f) moves the applied exceptions: `Skin:SetIgnore`, live; no argument
 --                           applies the stored pair, a nil half keeps that half.
+--   NS.SkinOverride()       the stored overrides: font, texture, each an LSM key or false for the
+--                           skin's own; false, false before NS:InitDB.
+--   NS.ApplySkinOverride(f,t) moves the applied overrides: `Skin:SetOverride`, live; no argument
+--                           applies the stored pair, a nil half keeps that half, false or "" clears.
 --   NS.ApplySkinChoice(s,k) moves the applied skin: `Skin:SetChoice`, which resolves, repaints
 --                           every frame recorded for this owner and THEN fires OnLooksChanged. No
 --                           argument applies the stored pair (addon:OnInitialize, the profile
---                           events); a nil half keeps that half (each Appearance row's onChange).
+--                           events), and with it the stored exceptions and overrides; a nil half
+--                           keeps that half (each Skin tab row's onChange).
 --   NS.SKIN_SOURCE_OPTIONS  the source row's values, and NS.SKIN_OPTIONS the skin row's (every
 --   NS.SKIN_OPTIONS         registered skin, in the library's order). settings/Schema.lua reads both.
 --   NS.SKIN_FALLBACK        the host copy of the Ka0s Default tokens the degraded facade answers.
@@ -62,6 +69,7 @@ local Skin = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 
 local SOURCE_PATH, SKIN_PATH = "settings.appearance.source", "settings.appearance.skin"
 local PANEL_PATH, FONTS_PATH = "settings.appearance.ignorePanel", "settings.appearance.ignoreFonts"
+local FONT_PATH, TEXTURE_PATH = "settings.appearance.font", "settings.appearance.texture"
 local DEFAULT = "ka0s"
 
 -- The Ka0s Default tokens the DEGRADED facade answers, copied from the library and limited to the
@@ -239,8 +247,17 @@ function NS.SkinChoice()
   return S:Get(SOURCE_PATH) or DEFAULT, S:Get(SKIN_PATH) or DEFAULT
 end
 
+--- A stored override as the profile keeps it: the LSM key, or "" for the skin's own (false, nil, "").
+local function storedKey(v)
+  if type(v) == "string" and v ~= "" then return v end
+  return ""
+end
+
 --- The write seam: both halves through NS.Schema:Set (validate, store, the [Set] line, onChange).
-function NS.WriteSkinChoice(source, skin, ignore)
+--- `media` (LibKa0s-Skin-1.0 minor 6) is `{ font = key|false, texture = key|false }`: the Skin tab's
+--- Font and texture pick and another addon's copy both hand it here, after Skin:SetOverride moved
+--- the applied pair, so each row's onChange re-applies its own half as a no-op.
+function NS.WriteSkinChoice(source, skin, ignore, media)
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
   if source ~= nil then S:Set(SOURCE_PATH, source) end
@@ -249,6 +266,19 @@ function NS.WriteSkinChoice(source, skin, ignore)
     S:Set(PANEL_PATH, ignore.panel == true)
     S:Set(FONTS_PATH, ignore.fonts == true)
   end
+  if type(media) == "table" then
+    S:Set(FONT_PATH, storedKey(media.font))
+    S:Set(TEXTURE_PATH, storedKey(media.texture))
+  end
+end
+
+--- The stored overrides, nil-safely: each an LSM key, or false for the skin's own; false, false
+--- until the profile store exists.
+function NS.SkinOverride()
+  local S = NS.Schema
+  if not (NS.db and S and S.Get) then return false, false end
+  local font, texture = storedKey(S:Get(FONT_PATH)), storedKey(S:Get(TEXTURE_PATH))
+  return font ~= "" and font or false, texture ~= "" and texture or false
 end
 
 --- The stored exceptions, nil-safely: false, false until the profile store exists.
@@ -381,6 +411,7 @@ if not Skin then
   NS.Skin = S
   function NS.ApplySkinChoice() return false, false end
   function NS.ApplySkinIgnore() return false, false end
+  function NS.ApplySkinOverride() return false end
   -- Nothing to paint an AceGUI row with: stock AceGUI, as the client draws it.
   function NS.SkinPaintAce() return false end
   function NS.SkinPaintAceTree() return 0 end
@@ -431,13 +462,24 @@ function NS.ApplySkinIgnore(panel, fonts)
   return changed, reload
 end
 
---- No argument applies the stored pair AND the stored exceptions (addon:OnInitialize, the profile
---- events); a nil half keeps that half and leaves the exceptions alone (each Appearance row).
+--- No argument applies the stored overrides; a nil half keeps that half, false or "" clears it
+--- (the skin's own). A copy without SetOverride (a Skin major before minor 6) moves nothing.
+function NS.ApplySkinOverride(font, texture)
+  if type(Skin.SetOverride) ~= "function" then return false end
+  if font == nil and texture == nil then font, texture = NS.SkinOverride() end
+  return Skin:SetOverride(addonName, font, texture)
+end
+
+--- No argument applies the stored pair AND the stored exceptions and overrides (addon:OnInitialize,
+--- the profile events); a nil half keeps that half and leaves the rest alone (each Skin tab row).
 function NS.ApplySkinChoice(source, skin)
   local whole = source == nil and skin == nil
   if whole then source, skin = NS.SkinChoice() end
   local changed, reload = Skin:SetChoice(addonName, source, skin)
   if reload and NS.Print then NS.Print(RELOAD_LINE) end
-  if whole then NS.ApplySkinIgnore() end
+  if whole then
+    NS.ApplySkinIgnore()
+    NS.ApplySkinOverride()
+  end
   return changed, reload
 end

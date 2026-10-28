@@ -1521,6 +1521,18 @@ Total.
 - Skin seam: a profile's stored exceptions are applied with its skin
 - Skin seam: /lh set reaches an exception, and only its own half
 
+### test_skin_overrides.lua (9)
+
+- Skin overrides: the font and texture keys default to the skin's own, as two Skin tab rows
+- Skin overrides: the stored pair reads false, false before the profile store exists
+- Skin overrides: the write seam stores media's halves, "" for the skin's own
+- Skin overrides: a write with no media leaves both stored halves alone
+- Skin overrides: one Font pick on the tab is one SetOverride, one repaint, in the profile
+- Skin overrides: the Texture dropdown sits beside Font and writes its own half
+- Skin overrides: /lh set reaches an override, and only its own half
+- Skin overrides: a profile's stored pair is applied with its skin, "" clearing
+- Skin overrides: a profile switch applies the new profile's overrides
+
 ### test_skin_chrome.lua (6)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
@@ -2094,6 +2106,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
+| test_skin_overrides.lua | 9 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 11 |
@@ -2127,4 +2140,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1789** |
+| **Total** | **1798** |

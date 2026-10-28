@@ -109,7 +109,7 @@ The **row vocabulary is LibKa0s's** (`O.RenderField` and the flow engine in `lib
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Twenty-seven rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
+**Thirty rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
@@ -118,7 +118,7 @@ The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/
 | General | **AH price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
 | General | **Interface** | 5 | *History window:* `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines`, `settings.showTransfers`; *Simulator:* `settings.sim.stepDelay` |
 | General | **History** | 2 | `settings.retentionDays`, `settings.rollupRetentionDays` |
-| General | **Appearance** | 4 | `settings.appearance.source`, `settings.appearance.skin`, `settings.appearance.ignorePanel`, `settings.appearance.ignoreFonts` (all `skipRender`: the library's Appearance tab draws them) |
+| General | **Skin** (key `Appearance`) | 7 | `settings.appearance.source`, `settings.appearance.skin`, `settings.appearance.ignorePanel`, `settings.appearance.ignoreFonts`, `settings.appearance.font`, `settings.appearance.texture`, `settings.appearance.pickerSeen` (all `skipRender`: the library's Skin tab draws the first six, and nothing draws the picker's memory) |
 
 The **Master controls** block is **composed, never hand-written**: `O.MasterControls` (`libs/LibKa0s/OptionsCompose.lua`) emits the canonical block — eight rows plus the closing button pair — from one declaration in `settings/Schema.lua`, which is what stops nine addons drifting into nine orders (options-ui-§15). This addon passes `prefix = "settings."`, its own `defaults` (so `defaults/Profile.lua` stays the one declaration site for every shipped value, and the two session rows default to `false`), both reset handlers, `minimapPath = "minimap.shown"` (verbatim and unprefixed; the row path is in the row's own sense and the one stored key underneath is `minimap.hide`, because LibDBIcon's own table lives in the **global** store outside the block's `settings.` prefix — launcher-§3) and `testModePath = "state.testMode"`, which are what add the `Minimap button` and `Test mode` rows; it is **not** `frameless`, because `modules/Browser.lua` and `modules/Export.lua` both call `SetMovable(true)`, so it draws all four of §15's frame-only controls — the `scale`, `alpha` and `locked` rows, plus the **Reset position** half of the closing button pair (the composer's `frameless` branch drops exactly those four together). What the composer does not know — this addon's `onChange` hooks, the `fmt` the CLI prints a scale with, the two session toggles' `get`/`set`, and the test-mode row's own tooltip — is stamped onto the emitted rows by path (`stamp`, `Schema.lua`), never typed into a second copy of the block.
 
