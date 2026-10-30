@@ -1578,7 +1578,7 @@ visit a banker. Check each of these:
 
 - History gets `UNTRACKED` rows for **exactly** the difference: one IN or OUT per item that changed,
   each with the changed count, on the character for the bank and on **Warband** for the tab. No row
-  is a MOVE (↔), and no row has a guessed reason such as Vendor or Loot.
+  is a MOVE (⇄), and no row has a guessed reason such as Vendor or Loot.
 - Deposit one more item in the same visit → one MOVE row (bags → bank), not `UNTRACKED`.
 - The Holdings tab's bank and warband counts match the bank you see.
 - A bank never read before (a new character's first visit) writes no rows at all.
@@ -1636,17 +1636,17 @@ The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-
 every gain, loss and transfer written as History rows. Run on the live account with **Track holdings
 and losses** and **Record gold** ticked, History's Direction filter set to **All** (Direction
 dropdown, row 1 of the filter bar) so transfers show, and Quality left on its default. A move inside
-one holder is one `↔` row; since Phase 7 a move between two holders is a loss on the sender and a
+one holder is one `⇄` row; since Phase 7 a move between two holders is a loss on the sender and a
 gain on the receiver under the action's reason (TR-1 to TR-3). **Bracketed lines are API facts the headless suite could not verify**:
 when one fails, the fix is a Compat or mock correction in a follow-up commit, and the check is
 re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are recorded.
 
 **LED-P2-01. Bank deposit and withdraw.** At a banker, deposit a stack from your bags, then withdraw
-half of it → only `↔` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
-row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `↔` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
+half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
+row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `⇄` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
 
 **LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
-`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `↔`). [`ACCOUNT_MONEY` fires on a warband gold
+`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
 deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-03. Vendor.** Sell a junk item, repair, buy one item, buy one back → item `OUT SELL` and
@@ -1665,7 +1665,7 @@ adding a second. Result: pass (owner-marked 2026-10-08; not every scenario was e
 
 **LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `OUT ALT_MAIL` rows on the
 sender (Phase 7), and a gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail →
-`IN ALT_MAIL` rows on the alt, no `↔` and no second loss.
+`IN ALT_MAIL` rows on the alt, no `⇄` and no second loss.
 [`SendMail` is a post-hook and `GetSendMailItem` / `GetSendMailMoney` still return the staged
 attachments when it runs; `MAIL_SEND_SUCCESS` fires after the bags change or within the 10 s window.]
 Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
@@ -1674,12 +1674,12 @@ Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 you won → `IN MAIL` and `IN AH`, chat-claimed when a loot line fires. [`GetInboxItem(i, a)` returns
 `name, itemID, texture, count`.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
-**LED-P2-08. AH post.** Post one item and one commodity → `↔` to `me/auctions` for each and gold
+**LED-P2-08. AH post.** Post one item and one commodity → `⇄` to `me/auctions` for each and gold
 `OUT AH_POST_FEE`. [`C_AuctionHouse.PostItem(itemLocation, duration, quantity, bid, buyout)` and
 `PostCommodity(itemLocation, duration, quantity, unitPrice)`: the third argument is the quantity;
 `C_Item.GetItemID(itemLocation)` resolves it.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
-**LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `↔`), let another
+**LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `⇄`), let another
 sell (take the money: item `OUT AH_SOLD` and gold `IN AH_SOLD`). [`OWNED_AUCTIONS_UPDATED` fires after
 opening the Auctions tab; `GetOwnedAuctionInfo(i).status` uses `Enum.AuctionStatus.Active` / `Sold`;
 `AUCTION_SOLD_MAIL_SUBJECT` matches the sale mail subject and its `%s` is the item name only.]
@@ -1750,21 +1750,21 @@ hookable global.] Result: pass (owner-marked 2026-10-08; not every scenario was 
 ### Holder moves (timeline ledger Phase 7)
 
 Owner decision 2026-10-06: a move between two **different** holders is a loss on the sender and a
-gain on the receiver, each under the action's reason; a move inside one holder stays one `↔` row.
+gain on the receiver, each under the action's reason; a move inside one holder stays one `⇄` row.
 History's **Character** column names the row's holder (the Warband reads **Warband**), and the
 Character filter matches it. Same setup as above (Direction **All**).
 
 **TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
 the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
-character, both reason **Warband Withdraw**, same quantity; no `↔ Transfer` row. With the Character
+character, both reason **Warband Withdraw**, same quantity; no `⇄ Transfer` row. With the Character
 filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
 Insights → Gains Vs Losses By Reason has a **Warband Withdraw** row with both sides. Result: pass (owner-marked 2026-10-10)
 
 **TR-2. Bags to your own bank.** Deposit an item stack from your bags into your character bank →
-exactly one `↔ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result: pass (owner-marked 2026-10-10)
+exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result: pass (owner-marked 2026-10-10)
 
 **TR-3. Mail an item to an alt.** Send an item to an own alt → a `▼ Loss` on the sender, reason
-**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `↔`
+**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `⇄`
 row and no `UNTRACKED` row. Result: pass (owner-marked 2026-10-10)
 
 ## Timeline
@@ -2481,5 +2481,6 @@ SKIN-1 to SKIN-39, each recorded on its `Result:` line as `pass (owner-marked 20
 
 Added or re-opened by the skin fonts and feedback run (LibKa0s v1.82.0, 2026-10-30), awaiting the
 owner: SLASH-2, SLASH-10, PANEL-10, PANEL-25, HIST-8, LED-11, LED-P2-17, SKIN-40, SKIN-41 and SKIN-42.
-LH-02 also respelled the Transfer glyph `⇄` as `↔` in the passed checks that only name it (CAP and
-LED rows about which rows are transfers); their results stand, since what they check did not move.
+LH-02 changed the Transfer glyph from `⇄` to `↔`. The passed checks that only name it (LED-10,
+LED-P2-01, 02, 06, 08 and 09, TR-1 to TR-3) keep the `⇄` the owner ran them against, and their
+results stand unedited; LED-11, LED-P2-17 and SKIN-42 carry the new glyph.

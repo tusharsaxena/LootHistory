@@ -263,6 +263,53 @@ test("skin insights: a switch repaints Insights live, the free list too, and syn
   end)
 end)
 
+-- The headline cards shrink to fit in Layout from a saved base face. That base is read again after
+-- every repaint (Analytics:Reskin), so a skin switch or a live Font outline change reaches the seven
+-- numbers instead of Layout putting the build-time face and flags back (LH-01's review; SKIN-40,
+-- SKIN-41). red under: Layout's SetFont from the face Attach saved.
+test("skin insights: the headline cards follow a skin switch and a live Font outline change", function()
+  withInsights(function()
+    -- This suite loads no LibSharedMedia, so a face is answered at the engine's one media lookup
+    -- (tests/test_skin_table.lua's way).
+    local FACE = "Fonts\\Vollkorn-Regular.ttf"
+    local P = Skin.__P
+    local media = P.media
+    P.media = function(kind, key)
+      if kind == "font" and key == "Ka0s Vollkorn" then return FACE end
+      return media(kind, key)
+    end
+    local ok, err = pcall(function()
+      local big = {}
+      for key, c in pairs(A.cards) do if c.bigStr then big[#big + 1] = key end end
+      assertEqual(#big, 7, "the bigStr headline cards")
+      local function each(fn) for _, key in ipairs(big) do fn(key, A.cards[key].num:GetFont()) end end
+      each(function(key, face) assertTrue(face ~= FACE, "card " .. key .. " starts on the skin's face") end)
+      NS.ApplySkinChoice("ka0s", "azeroth")
+      mocks.__fireTimers()
+      A:Layout()
+      each(function(key, face) assertEqual(face, FACE, "card " .. key .. " keeps the old skin's face") end)
+      local outlined = Skin:Token(OWNER, "font.outline")
+      assertTrue(type(outlined) == "string" and outlined ~= "", "Azeroth outlines its text, or Off proves nothing")
+      Skin:SetOutline(OWNER, "off")
+      mocks.__fireTimers()
+      A:Layout()
+      each(function(key, face, _, flags)
+        assertEqual(face, FACE, "card " .. key .. ": the face under Off")
+        assertEqual(flags, "", "card " .. key .. " keeps its outline under Off")
+      end)
+      Skin:SetOutline(OWNER, "all")
+      mocks.__fireTimers()
+      A:Layout()
+      each(function(key, _, _, flags) assertEqual(flags, outlined, "card " .. key .. " under All text") end)
+    end)
+    P.media = media
+    Skin:SetOutline(OWNER, "all")
+    NS.ApplySkinChoice("ka0s", "ka0s")
+    mocks.__fireTimers()
+    if not ok then error(err, 0) end
+  end)
+end)
+
 test("skin insights: the signed figures keep their bytes on Ka0s Default and follow a switch", function()
   local LF = NS.LedgerFormat
   assertEqual(LF.SignedCount(3), "|cff40ff40+3|r")

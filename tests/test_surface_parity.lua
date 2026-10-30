@@ -405,6 +405,20 @@ test("parity: each host-copy skin token is the live library's Ka0s Default value
   assertTrue(n > 0, "the host copy is empty, so this case asserts nothing")
 end)
 
+test("parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts", function()
+  -- The names alone are pinned above; this pins the answers (LH-01's review). red under: a nil that
+  -- SetFont refuses, "" read as OUTLINE, or a bad size passed through.
+  local S = degradedNS.Skin
+  assertEqual(S.FontFlags(S.FROM_SKIN), "OUTLINE", "From skin reads as the default mode's outline")
+  assertEqual(S.FontFlags(nil), "OUTLINE", "none reads as the default mode's outline")
+  assertEqual(S.FontFlags(""), "", "a picked no-outline is kept")
+  assertEqual(S.FontFlags("THICKOUTLINE"), "THICKOUTLINE", "a picked flag as is")
+  assertEqual(S.HudFontSize(0), 12, "a zero size")
+  assertEqual(S.HudFontSize("x"), 12, "a size that is not a number")
+  assertEqual(S.HudFontSize(nil), 12, "no size")
+  assertEqual(S.HudFontSize(14), 14, "a positive size, unscaled")
+end)
+
 test("parity: the degraded facade draws today's edge, and the file-load markup still builds", function()
   -- Shell routes to core/CoreSetup.lua's pre-library NS.ApplySkin, so a degraded window wears the
   -- edge it always wore; every other painting name is a no-op that never raises. The markup this
