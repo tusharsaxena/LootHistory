@@ -1,7 +1,8 @@
 -- LibKa0s-Skin-1.0 — the Ka0s paint primitives, part one: the painter helpers every primitive
--- shares, the window primitives of EllesmereUI's vocabulary (Shell, Panel, Inset) and the
--- stock-art faders (FadeRegions, FadeNineSlice). SkinPaintExtras.lua carries the window family's
--- Ka0s extras, the text and font primitives and the getters; SkinPaintControls.lua the controls.
+-- shares and the window primitives of EllesmereUI's vocabulary (Shell, Panel, Inset).
+-- SkinPaintExtras.lua carries the stock-art faders (FadeRegions, FadeNineSlice, moved there at
+-- minor 11), the window family's Ka0s extras, the text and font primitives and the getters;
+-- SkinPaintControls.lua the controls.
 --
 -- ── WHY IT IS A FILE OF ITS OWN ──────────────────────────────────────────────────────────────
 --
@@ -98,7 +99,23 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- and Core's inner rule is cleared, its color given back on unpaint. P.edges takes a holder.
 -- Minor 10 (the owner's round-5 showroom audit: the arrows were yellow in every skin): P.glyph
 -- desaturates in-client arrow art before it tints it, and unpaint gives the desaturation back.
-local PAINT_MINOR = 10
+-- Minor 11 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): `opts.tokens`, a slot
+-- remap on Shell, Panel and Inset (P.remap): each slot paints from the library or owner token the
+-- caller names instead of the primitive's own, a fill slot carrying that token's gradient pair or
+-- none. No `opts.tokens` paints exactly as before. The faders moved, unchanged, to
+-- SkinPaintExtras.lua (minor 5) so this file stays out of layout-§1's 1000-line band; P.NINE_KEYS.
+-- Then (LK-05, still minor 11): Panel and Inset moved, unchanged, to SkinPaintExtras.lua
+-- (P.FILL_SLOTS shared) to stay out of the band.
+-- Minor 12 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-2): the
+-- stock look is retired. `opts.stockDefault` (minor 11's P.keepStock and its `stockKept` mark) is
+-- ignored, so Ka0s Default paints the Ka0s look everywhere; `opts.stock` stays the fade list it is
+-- under every skin. P.markStock keeps the `stock` mark. And P.unpaint gives back the text alignment
+-- a TitleBar set (D-08). And (LK-06a of the same run, ruling R-5, D-02, still minor 12): a hook laid
+-- by P.hook does nothing while its record is given back on a settings panel (`rec.panelOff`,
+-- SkinPaintExtras' P.panelIgnored), so a panel-scoped search box's focus line stays its own.
+-- And (LK-A1, still minor 12): P.fontSize reads a stock size of 0 or below as none, and P.unfont
+-- gives no such size back, so SetFont never gets an invalid font height.
+local PAINT_MINOR = 12
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -144,6 +161,7 @@ local STOCK_KEYS = { "Left", "Middle", "Right", "Mid", "LeftActive", "MiddleActi
                      "RightHighlight" }
 local NINE_KEYS = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomRightCorner",
                     "TopEdge", "BottomEdge", "LeftEdge", "RightEdge", "Center" }
+P.NINE_KEYS = NINE_KEYS
 
 -- ── reading the skin ─────────────────────────────────────────────────────────────────────────
 
@@ -153,6 +171,8 @@ local function core() return LibStub("LibKa0s-Core-1.0", true) end
 --- paints the owner the primitives read the table SkinEUI.lua derives from EllesmereUI's getters.
 function P.T(owner) return lib:__Tokens(owner) end
 
+--- `T` through a caller's `opts.tokens` slot remap (minor 11): `Skin:__Remap`.
+function P.remap(...) return lib:__Remap(...) end
 
 --- Answers false, always (minor 6): no skin is special, Ka0s Default included, so nothing branches
 --- on it. Kept because LibKa0s-Options-1.0 asks it (OptionsScroll's `__chromeAway`, which draws a
@@ -428,7 +448,7 @@ function P.hook(rec, frame, script, fn)
   hooks[script] = true
   frame:HookScript(script, function(self, ...)
     local r = lib.painted[self]
-    if r then fn(self, r, ...) end
+    if r and not r.panelOff then fn(self, r, ...) end   -- given back on a settings panel (P.panelIgnored)
   end)
 end
 
@@ -483,7 +503,7 @@ function P.unfont(rec, fs)
   local obj = namedFont(fs, s.obj)
   if obj then
     fs:SetFontObject(obj)
-  elseif s.path then
+  elseif s.path and type(s.size) == "number" and s.size > 0 then   -- never a height SetFont refuses
     fs:SetFont(s.path, s.size, s.flags)
     if s.shadowOffset and type(fs.SetShadowOffset) == "function" then
       fs:SetShadowOffset(unpack(s.shadowOffset))
@@ -504,11 +524,14 @@ end
 
 --- The size a target of stock size `stock` takes under the owner's skin: `stock` scaled by the
 --- skin's size token over Ka0s Default's (minor 4). A target with no stock size reads the reference
---- itself; a skin or a reference without the token leaves the stock size alone.
+--- itself; a skin or a reference without the token leaves the stock size alone. A stock size that is
+--- not a number above 0 (a string with no font yet reports 0) counts as none, so the answer is never
+--- a height SetFont refuses (minor 12, LK-A1).
 function P.fontSize(owner, token, stock)
   local want = P.T(owner)[token]
   local ref = lib:ResolveSkin(lib.DEFAULT)[token]
   stock = tonumber(stock)
+  if stock and stock <= 0 then stock = nil end
   if type(want) ~= "number" then return stock or ref or 12 end
   if not stock or type(ref) ~= "number" or ref <= 0 then return want end
   return stock * want / ref
@@ -744,12 +767,14 @@ local function restoreColors(rec, method)
 end
 
 --- Undo everything a primitive did to a target: faded art back to its alpha, fonts, text and vertex
---- colors and a backdrop back to what they were, every Ka0s region and both holders hidden. The
---- regions are kept for reuse.
+--- colors, text alignment (minor 12) and a backdrop back to what they were, every Ka0s region and
+--- both holders hidden. The regions are kept for reuse.
 function P.unpaint(rec, frame)
   local s = rec.regions.saved or {}
   for region, a in pairs(s.alpha or {}) do region:SetAlpha(a) end
   s.alpha = nil
+  for fs, align in pairs(s.justify or {}) do fs:SetJustifyH(align) end
+  s.justify = nil
   for fs in pairs(s.font or {}) do P.unfont(rec, fs) end
   restoreColors(rec, "SetTextColor")
   restoreColors(rec, "SetVertexColor")
@@ -763,12 +788,11 @@ function P.unpaint(rec, frame)
   if rec.regions.holder then rec.regions.holder:Hide() end
 end
 
---- Mark a stock target (one wearing the client's template art) on its record, so its art is faded
---- under every skin. Answers false: since minor 6 no skin leaves a stock target as the client draws
---- it, Ka0s Default included, so the caller always paints. The owner argument is kept for callers.
-function P.stockDefault(_, rec, frame, opts)
-  if P.hasStock(frame, opts) then rec.regions.stock = true end
-  return false
+--- Mark a stock target (one wearing the client's template art, or naming some in `opts.stock`) on
+--- its record, so the caller fades that art. No skin leaves a stock target as the client draws it,
+--- Ka0s Default included (minor 6); minor 12 retired `opts.stockDefault`, the one exception.
+function P.markStock(rec, frame, opts)
+  if rec and P.hasStock(frame, opts) then rec.regions.stock = true end
 end
 
 --- Record that `prim` painted `target` for `owner` (Skin:Track), and answer the record. A target
@@ -913,21 +937,32 @@ local function shellBackdrop(owner, frame, T, style)
   if c and type(c.ApplySkin) == "function" then c.ApplySkin(frame, shellSkin(owner, T, style == "flat")) end
 end
 
+-- The slots `opts.tokens` remaps on a window (minor 11), and the fill slots among every box's.
+local SHELL_SLOTS = { bg = "win.bg", border = "win.border", inner = "win.inner", top = "title.bg",
+                      bottom = "foot.bg", text = "title.text", divider = "divider" }
+local FILL_SLOTS = { bg = true, top = true, bottom = true }
+P.FILL_SLOTS = FILL_SLOTS   -- Panel and Inset's too (SkinPaintExtras.lua since minor 11)
+
 --- S.Shell(frame, opts): a window. On a frame with a backdrop it is Core.ApplySkin, from the skin's
 --- tokens (the backdrop, the inner rule, `frame.title`'s color and `frame.divider`'s), plus what a
 --- backdrop cannot draw: a nine-slice or bevel edge on the holder, the window gradient, the tiled
 --- art, and the top bar (`title.bg`, unless `opts.noTopBar`) and bottom bar (`foot.bg`, when
 --- `opts.bottomBar`, a height or true). `opts.noBorder` draws no edge and no inner rule.
---- Draws no Media icon.
+--- `opts.tokens` (minor 11) remaps a slot to a library or owner token by NAME: `bg` (`win.bg`, and
+--- its gradient pair), `border` (`win.border`), `inner` (`win.inner`), `top` (the top bar's
+--- `title.bg`), `bottom` (the bottom bar's `foot.bg`), `text` (`title.text`), `divider` (`divider`).
+--- A template-built window has its art (`NineSlice` and the textures `opts.stock` names) faded under
+--- every skin, Ka0s Default included. Draws no Media icon.
 prim.Shell = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
   local rec = P.track(owner, frame, "Shell", opts)
   opts = type(opts) == "table" and opts or {}
-  if P.stockDefault(owner, rec, frame, opts) then return end
+  P.markStock(rec, frame, opts)
   local T = P.T(owner)
   -- A payload with no SkinDefs.lua registers no skin, so no token resolves: the window is left as
   -- it is rather than painted with nothing (the header's degraded engine).
   if T["win.bg"] == nil then return end
+  T = P.remap(owner, T, opts.tokens, SHELL_SLOTS, FILL_SLOTS, "Shell")
   local style = T["win.borderStyle"] or "flat"
   if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
   if P.hasBackdrop(frame) then
@@ -942,58 +977,3 @@ prim.Shell = function(owner, frame, opts)
   if P.isFS(title) then P.font(owner, rec, title, "title") end
 end
 
-local PANEL = { fill = "panel.bg", border = "panel.border" }
-local INSET = { fill = "input.bg", border = "input.border", style = "input.borderStyle",
-                size = "input.borderSize" }
-
-local function panel(owner, frame, opts, name, spec)
-  if type(frame) ~= "table" then return end
-  local rec = P.track(owner, frame, name, opts)
-  opts = type(opts) == "table" and opts or {}
-  if P.stockDefault(owner, rec, frame, opts) then return end
-  local T = P.T(owner)
-  if opts.nav then
-    -- The settings nav rail keeps its own backdrop art and is recolored (OptionsNav's pane); its
-    -- colors are saved first, so P.unpaint can put them back (minor 8: the panel exception, live).
-    if P.hasBackdrop(frame) then saveBackdrop(rec, frame) end
-    return P.recolor(frame, T["nav.bg"], T["nav.border"])
-  end
-  if opts.inset then spec = INSET end
-  P.box(rec, frame, T, spec, opts)
-end
-
---- S.Panel(frame, opts): a flat panel, `panel.bg` under a `panel.border` edge (LootHistory's list
---- panels). `opts.inset` paints it as an inset (`input.*`); `opts.noBg`, `opts.noBorder` leave out
---- either half; `opts.nav` recolors the backdrop the frame already wears with `nav.bg` /
---- `nav.border` (the settings nav rail). Draws no Media icon.
-prim.Panel = function(owner, frame, opts) return panel(owner, frame, opts, "Panel", PANEL) end
-
---- S.Inset(frame, opts): a recessed area, the input colors (`input.bg`, `input.border`, its style
---- and size). Draws no Media icon.
-prim.Inset = function(owner, frame, opts) return panel(owner, frame, opts, "Inset", INSET) end
-
---- S.FadeRegions(frame, ...): fade every texture region of `frame` (and of each further frame) that
---- no primitive made, prior alphas recorded, under every skin (Ka0s Default too since minor 6).
-prim.FadeRegions = function(owner, frame, ...)
-  if not P.isFrame(frame) then return end
-  local rec = P.track(owner, frame, "FadeRegions", ...)
-  rec.regions.stock = true
-  local frames = { frame, ... }
-  for _, f in ipairs(frames) do
-    if P.isFrame(f) and type(f.GetRegions) == "function" then
-      for _, r in ipairs({ f:GetRegions() }) do
-        if P.isTexture(r) and not lib.__ours[r] then P.fade(rec, r) end
-      end
-    end
-  end
-end
-
---- S.FadeNineSlice(frame): fade the nine pieces of `frame.NineSlice`, under every skin.
-prim.FadeNineSlice = function(owner, frame)
-  if not P.isFrame(frame) then return end
-  local rec = P.track(owner, frame, "FadeNineSlice")
-  rec.regions.stock = true
-  local ns = rawget(frame, "NineSlice")
-  if not P.isFrame(ns) then return end
-  for _, k in ipairs(NINE_KEYS) do P.fade(rec, P.field(ns, k, "Texture")) end
-end

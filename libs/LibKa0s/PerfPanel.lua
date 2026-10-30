@@ -11,10 +11,15 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 10
+local PANEL_MINOR = 11
 -- Minor 9: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
 -- Minor 10: the panel follows its skin owner (THE SKIN OWNER below; LK-09 of Ka0sAddonsCommonTasks
 -- docs/2026-10-25-SKINNING).
+-- Minor 11: an owned panel's step and command columns in its skin's body face through the facade
+-- (`S.Font`, a recorded paint), so a switch and "Ignore fonts" reach them (Oxanium under Ka0s
+-- Default, decision D-13); its resize grip takes the owner (Core minor 14). A window, so "Ignore
+-- settings panel" leaves it skinned (D-01). LK-06b of Ka0sAddonsCommonTasks
+-- docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5.
 -- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
 local function raisePopups()
   if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
@@ -154,7 +159,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
   --- Build one step row. The click handler re-checks PanelIsActionable rather than trusting the
   --- button's enabled state: the mock (and a sufficiently determined user) can fire a script
   --- directly, and a step that runs out of order corrupts the run it was meant to protect.
-  local function makeStepButton(parent, step, index)
+  local function makeStepButton(parent, step, index, S)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(ROW_W, ROW_H)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", PAD, -(TITLE_H + PAD + (index - 1) * (ROW_H + GAP)))
@@ -168,6 +173,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     b.dot = dot
 
     local cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    if S then S.Font(cmd) end   -- minor 11: the skin's body face, recorded
     cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     cmd:SetJustifyH("RIGHT")
     cmd:SetText(P.slash .. " " .. step.command)
@@ -179,6 +185,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     -- step has a command, so the right bound is always the command's natural-width left edge, and
     -- the anchors (not a width) follow a resize.
     local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    if S then S.Font(fs) end
     fs:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
     fs:SetPoint("RIGHT", cmd, "LEFT", -LABEL_GAP, 0)
     fs:SetJustifyH("LEFT")
@@ -214,10 +221,12 @@ function lib.__AttachPanel(P, d, tr, runCommand)
   --- WIDTH ONLY, from panel minor 6, when the Core under it has the grip (Core minor 9). The row
   --- count is fixed, so height the player added would be empty space: the height is pinned at the
   --- computed one. Today's width is the minimum. Guarded, so an older Core leaves the fixed panel.
-  local function makeResizable(width, height)
+  --- Minor 11: `skinOwner`, the registered owner whose `icon.grip` the grip wears (Core minor 14;
+  --- an older Core ignores the key), or nil.
+  local function makeResizable(width, height, skinOwner)
     if type(core.MakeResizable) ~= "function" then return end
     core.MakeResizable(frame, {
-      minWidth = width, minHeight = height, widthOnly = true, onResize = stretchRows,
+      minWidth = width, minHeight = height, widthOnly = true, onResize = stretchRows, owner = skinOwner,
     })
   end
 
@@ -277,7 +286,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
 
     frame.buttons = {}
     for i, step in ipairs(P.STEPS) do
-      frame.buttons[step.key] = makeStepButton(frame, step, i)
+      frame.buttons[step.key] = makeStepButton(frame, step, i, S)
     end
 
     if S then
@@ -297,7 +306,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     if type(UISpecialFrames) == "table" then
       table.insert(UISpecialFrames, name)
     end
-    makeResizable(width, height)
+    makeResizable(width, height, S and owner or nil)
     return frame
   end
 

@@ -19,7 +19,10 @@
 -- confirmation is never buried by a window shown after it" (XS-08), called by the three tool windows.
 -- Minor 13: ApplySkin and MakeCloseButton paint through a skin owner's facade (LibKa0s-Skin-1.0,
 -- resolved at call time) when the caller names a registered owner; any other call is minor 12's.
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 13
+-- Minor 14: MakeResizable's `opts.owner`, a registered skin owner whose `icon.grip` tints the grip's
+-- art, live (LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5);
+-- any other call is minor 13's.
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -679,6 +682,47 @@ local function buildGrip(parent)
   return grip
 end
 
+-- ── the grip's skin (minor 14) ──
+--
+-- The grip's three art textures, as the Button answers them. Only real textures: a frame that
+-- cannot answer one is left alone.
+local GRIP_GETTERS = { "GetNormalTexture", "GetHighlightTexture", "GetPushedTexture" }
+local function gripArt(grip)
+  local out = {}
+  for _, get in ipairs(GRIP_GETTERS) do
+    local fn = grip[get]
+    local tex = type(fn) == "function" and fn(grip) or nil
+    if type(tex) == "table" and type(tex.GetObjectType) == "function" and tex:GetObjectType() == "Texture"
+      and type(tex.SetVertexColor) == "function" then
+      out[#out + 1] = tex
+    end
+  end
+  return out
+end
+
+--- Paint the grip from the owner's `icon.grip`: a color desaturates the art and tints it, so the
+--- token's hue is what shows (the arrows' rule, SkinPaint's P.glyph); `false` (Ka0s Default, WoW
+--- Default) or a Skin major without the token draws the client's art as drawn. A grip this never
+--- tinted is not touched, so Ka0s Default's grip is minor 13's, call for call.
+local function paintGrip(grip, S)
+  local c = S.Token("icon.grip")
+  local tint = type(c) == "table"
+  if not tint and not grip.__gripTinted then return end
+  for _, tex in ipairs(gripArt(grip)) do
+    if type(tex.SetDesaturated) == "function" then tex:SetDesaturated(tint) end
+    if tint then tex:SetVertexColor(c[1], c[2], c[3]) else tex:SetVertexColor(1, 1, 1) end
+  end
+  grip.__gripTinted = tint or nil
+end
+
+--- A registered owner's grip: painted now and again after each of the owner's skin switches.
+local function skinGrip(grip, owner)
+  local S = lib.__SkinFacade(owner)
+  if not S then return end
+  paintGrip(grip, S)
+  if type(S.OnLooksChanged) == "function" then S.OnLooksChanged(function() paintGrip(grip, S) end) end
+end
+
 -- The two mouse handlers. Sizing that never started (a right-click, a mouse-down `canResize`
 -- refused, or a mouse-up that arrives without a mouse-down) is not stopped, so a stray mouse-up
 -- cannot rewrite the user-placed flag, and runs neither `relayout` nor `onStop`. `canResize` is
@@ -736,6 +780,13 @@ end
 ---   gripParent           table     (minor 10) the frame the grip is built on, anchored to and
 ---                                  leveled from; default `frame`. Sizing, bounds, the user-placed
 ---                                  flag and `frame.resizeGrip` stay on `frame`.
+---   owner                string    (minor 14) an addon folder name. When it names a REGISTERED
+---                                  skin owner (LibKa0s-Skin-1.0's `IsOwner`, resolved at call
+---                                  time) the grip's art takes that owner's `icon.grip`, and again
+---                                  after each of its skin switches: desaturated and tinted for a
+---                                  color, the client's art as drawn for `false` (Ka0s Default and
+---                                  WoW Default). A window's grip, so neither Ignore switch applies.
+---                                  Any other value draws minor 13's grip.
 ---
 --- A value of the wrong type for any of these is ignored. None of the callbacks is pcall'd: one that
 --- raises is a host bug and reaches the error handler. The grip is shown once, at build, and the
@@ -761,6 +812,7 @@ function lib.MakeResizable(frame, opts)
 
   local grip = buildGrip(gripParent)
   wireGrip(grip, frame, relayout, canResize, onStop)
+  skinGrip(grip, opts.owner)
   -- Hooked, not set: a host may already own the window's OnSizeChanged.
   if type(frame.HookScript) == "function" then
     frame:HookScript("OnSizeChanged", function(_, w, h) relayout(w, h) end)

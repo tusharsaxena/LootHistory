@@ -28,7 +28,11 @@
 -- `O.AceGUI` in a proxy whose `Create(type)` calls AceGUI's own Create and then paints the widget
 -- for `d.addonName`, so no widget maker grows. A host that acquires a widget itself (through the
 -- proxy it is handed as `O.AceGUI`, or straight from AceGUI) paints it with `Skin:PaintAce(owner,
--- widget)` or a whole container with `Skin:PaintAceTree(owner, container)`.
+-- widget)` or a whole container with `Skin:PaintAceTree(owner, container)`. A host that registers
+-- an AceGUI widget type of its own built from a stock one (AuraMaster's AuraMasterDropdown is the
+-- Dropdown under a second pool name) names that base once with `Skin:AliasAceType(hostType,
+-- baseType)`: the base's painter paints it, the base's durability hooks keep it, and its release
+-- gives it back stock like the base (minor 4).
 --
 -- DURABILITY. AceGUI recolors a widget's text from SetDisabled (and a CheckBox's SetValue calls it),
 -- the Slider recolors its edit box's edge on enter and leave, and a Label's SetFontObject sets a
@@ -43,7 +47,9 @@
 -- come from the provider's derived tokens and the painting is this file's, LK-05's ruling); a
 -- widget another skinning addon already skinned (ElvUI's `backdrop` / `template`, AddOnSkins'
 -- `isSkinned`) is left to it; LSM30_* widgets and their pull-out lists, TabGroup and Blizzard's
--- ColorPickerFrame stay stock (the spec's non-goals). Every field is guarded: a widget type or a
+-- ColorPickerFrame stay stock (the spec's non-goals). TreeGroup is painted since minor 4: both
+-- panes, the row buttons, the selection and the tree's scroll bar, in the `nav.*` family whose Ka0s
+-- Default values are the TreeGroup's own; its plus/minus toggles, row icons and dragger stay stock. Every field is guarded: a widget type or a
 -- field a later AceGUI drops is skipped, never raised on.
 --
 -- Draws no LibKa0s-Media icon: every overlay is WHITE8X8 or the skin's own art.
@@ -56,7 +62,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 3: nothing is painted while the owner ignores its settings panel (Skin minor 5's
 -- __PanelSkinned, the Appearance tab's "Ignore settings panel"); a widget acquired then stays stock,
 -- and one this owner painted before is handed back stock when PaintAce is asked again.
-local ACE_MINOR = 3
+-- Minor 4: Skin:AliasAceType, a host widget type painted as the stock type it is built from, and a
+-- TreeGroup painter (LK-03 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT).
+local ACE_MINOR = 4
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
 lib.__aceMinor      = ACE_MINOR
@@ -77,6 +85,9 @@ lib.__ace = lib.__ace or setmetatable({}, WEAK)
 lib.__aceProxy = lib.__aceProxy or setmetatable({}, WEAK)
 -- The failure lines written this session, so each is written once.
 lib.__aceLogged = lib.__aceLogged or {}
+-- Host widget types painted as a stock type (hostType -> baseType), shared by every copy: an
+-- alias names a fact about AceGUI's client-wide pools, not about one owner.
+lib.__aceAlias = lib.__aceAlias or {}
 
 local SIDES = { "Top", "Bottom", "Left", "Right" }
 local PIECES = { "Left", "Middle", "Right" }
@@ -143,6 +154,23 @@ local function disabled(w) return rawget(w, "disabled") and true or false end
 
 --- The token a field of typed text takes: `input.text`, else the body text.
 local function inputTok(T) return T["input.text"] and "input.text" or "text.body" end
+
+--- The painter type of a widget type: its own when the library paints it, else the base type a
+--- host aliased it to, else nil.
+local function paintType(t)
+  if type(t) ~= "string" then return nil end
+  local paint = lib.__acePaint
+  if type(paint) == "table" and paint[t] then return t end
+  local base = lib.__aceAlias[t]
+  if type(paint) == "table" and type(base) == "string" and paint[base] then return base end
+  return nil
+end
+
+--- The painter of widget `w`: its type's, or its aliased base type's.
+local function painterOf(w)
+  local t = paintType(rawget(w, "type"))
+  return t and lib.__acePaint[t] or nil
+end
 
 -- ── state ────────────────────────────────────────────────────────────────────────────────────
 
@@ -255,7 +283,7 @@ end
 
 --- The painter of `w`'s type, run again for its owner (a durability hook), under pcall.
 local function repaint(w, st)
-  local paint = lib.__acePaint and lib.__acePaint[rawget(w, "type")]
+  local paint = painterOf(w)
   if type(paint) ~= "function" or not st.owner then return end
   local ok, err = pcall(paint, st.owner, w, st, P.T(st.owner))
   if not ok then logOnce(err) end
@@ -484,8 +512,9 @@ PAINT.InlineGroup = function(owner, w, st, T)
   if P.isFrame(border) and border ~= frame then flat(part(st, "border", border), border, T, "panel.bg", "panel.border") end
 end
 
-PAINT.ScrollFrame = function(_, w, st, T)
-  local sb = frameOf(w, "scrollbar")
+--- A scroll bar's track in `scroll.track`: its stock BACKGROUND art faded, the skin's track drawn
+--- over the bar. Nothing when the skin sets no track.
+local function scrollTrack(st, sb, T)
   if not (sb and T["scroll.track"]) then return end
   local rec = part(st, "scrollbar", sb)
   if type(sb.GetRegions) == "function" then
@@ -499,6 +528,103 @@ PAINT.ScrollFrame = function(_, w, st, T)
   t:SetAllPoints(sb)
   t:SetColorTexture(rgba(T["scroll.track"]))
   t:Show()
+end
+
+PAINT.ScrollFrame = function(_, w, st, T)
+  scrollTrack(st, frameOf(w, "scrollbar"), T)
+end
+
+-- ── the tree ─────────────────────────────────────────────────────────────────────────────────
+--
+-- AceGUI's TreeGroup: a tree pane and a content pane (each a BackdropTemplate frame), the tree's
+-- row buttons (OptionsListButtonTemplate, made as the tree first needs them and kept with the widget
+-- for every later acquisition), and a UIPanelScrollBarTemplate bar. UpdateButton re-dresses each row
+-- on every RefreshTree (its font object by level, LockHighlight for the selection), so RefreshTree
+-- is a durability hook and a row's record is checked against what the painter last left on it.
+
+--- A row's label: its template `text`, else its font string.
+local function rowLabel(btn)
+  local fs = rawget(btn, "text")
+  if P.isFS(fs) then return fs end
+  return P.call(btn, "GetFontString", "FontString")
+end
+
+local function sameColor(a, b)
+  for i = 1, 4 do
+    if math.abs((a[i] or 1) - (b[i] or 1)) > 0.001 then return false end
+  end
+  return true
+end
+
+--- When AceGUI re-dressed `fs` since the painter last left it (UpdateButton set its level's font or
+--- color), what it set is the stock a release puts back: the older records are forgotten, so the
+--- repaint records the new ones.
+local function redressed(rec, fs)
+  local left = rec.aceLeft and rec.aceLeft[fs]
+  local s = rec.regions.saved
+  if not (left and s) then return end
+  local path = fs:GetFont()
+  if s.font and (fs:GetFontObject() ~= left.obj or path ~= left.path) then s.font[fs] = nil end
+  if s.SetTextColor and not sameColor({ fs:GetTextColor() }, left.color) then s.SetTextColor[fs] = nil end
+end
+
+--- Remember what the painter left on `fs`, for `redressed`.
+local function leave(rec, fs)
+  rec.aceLeft = rec.aceLeft or setmetatable({}, WEAK)
+  local path = fs:GetFont()
+  rec.aceLeft[fs] = { obj = fs:GetFontObject(), path = path, color = { fs:GetTextColor() } }
+end
+
+--- The token a row's label takes: `nav.text` for a first-level row at rest; `nav.selText` for a
+--- deeper row (AceGUI draws every level below the first white), the selected row and the hovered one.
+local function rowToken(btn, hover)
+  if hover or rawget(btn, "selected") then return "nav.selText" end
+  local level = tonumber(rawget(btn, "level")) or 1
+  return level > 1 and "nav.selText" or "nav.text"
+end
+
+--- Paint row button `btn` (row `i` of the tree), its label read as hovered while `hover`.
+local function paintRow(owner, st, T, i, btn, hover)
+  local rec = part(st, "row" .. i, btn)
+  local fs = rowLabel(btn)
+  if fs then
+    redressed(rec, fs)
+    P.tint(rec, fs, T, rowToken(btn, hover))
+    P.font(owner, rec, fs, "body")
+    leave(rec, fs)
+  end
+  local hl = P.call(btn, "GetHighlightTexture", "Texture")
+  if hl then P.tint(rec, hl, T, "nav.selBg", "SetVertexColor") end
+end
+
+-- The pointer on a row: the label in nav.selText, then back to its resting token. Read at call time
+-- from the row's current state, so the hook installed under one acquisition serves every later one.
+local function rowHover(i, on)
+  return function(w, s)
+    local buttons = rawget(w, "buttons")
+    local btn = type(buttons) == "table" and buttons[i] or nil
+    if P.isFrame(btn) then paintRow(s.owner, s, P.T(s.owner), i, btn, on) end
+  end
+end
+
+--- A pane: the TreeGroup's tooltip-edged backdrop flattened into `nav.bg` under a `nav.border` edge.
+local function pane(st, key, frame, T)
+  if not (frame and P.hasBackdrop(frame) and T["nav.bg"]) then return end
+  P.backdrop(part(st, key, frame), frame, T["nav.bg"], T["nav.border"], T["nav.borderSize"] or 1)
+end
+
+PAINT.TreeGroup = function(owner, w, st, T)
+  pane(st, "treeframe", frameOf(w, "treeframe"), T)
+  pane(st, "border", frameOf(w, "border"), T)
+  scrollTrack(st, frameOf(w, "scrollbar"), T)
+  local buttons = rawget(w, "buttons")
+  for i, btn in ipairs(type(buttons) == "table" and buttons or {}) do
+    if P.isFrame(btn) then
+      paintRow(owner, st, T, i, btn, false)
+      hookScript(w, st, "row" .. i .. ":OnEnter", btn, "OnEnter", rowHover(i, true))
+      hookScript(w, st, "row" .. i .. ":OnLeave", btn, "OnLeave", rowHover(i, false))
+    end
+  end
 end
 
 -- ── the dropdown and its pull-out ────────────────────────────────────────────────────────────
@@ -586,7 +712,8 @@ end
 lib.__acePaint = PAINT
 
 -- Durability hooks per type, beyond SetDisabled (every painted type has it when AceGUI does).
-local EXTRA_HOOKS = { CheckBox = { "SetType" }, Label = { "SetFontObject" }, InteractiveLabel = { "SetFontObject" } }
+local EXTRA_HOOKS = { CheckBox = { "SetType" }, Label = { "SetFontObject" }, InteractiveLabel = { "SetFontObject" },
+                      TreeGroup = { "RefreshTree" } }
 
 -- ── restore, and the release chain ───────────────────────────────────────────────────────────
 
@@ -654,7 +781,7 @@ local function hookLabelFont(w, st)
 end
 
 local function installHooks(w, st)
-  local t = rawget(w, "type")
+  local t = paintType(rawget(w, "type"))
   if t == "Label" or t == "InteractiveLabel" then hookLabelFont(w, st) end
   hookMethod(w, st, "SetDisabled")
   for _, name in ipairs(EXTRA_HOOKS[t] or {}) do hookMethod(w, st, name) end
@@ -670,7 +797,7 @@ end
 --- first. Answers true when it painted.
 function lib:PaintAce(owner, widget)
   if type(widget) ~= "table" or type(rawget(widget, "frame")) ~= "table" then return false end
-  local paint = lib.__acePaint[rawget(widget, "type")]
+  local paint = painterOf(widget)
   if type(paint) ~= "function" or not self:IsOwner(owner) then return false end
   if type(self.__PanelSkinned) == "function" and not self:__PanelSkinned(owner) then
     local held = lib.__ace[widget]
@@ -687,6 +814,32 @@ function lib:PaintAce(owner, widget)
   local ok, err = pcall(paint, owner, widget, st, P.T(owner))
   if not ok then logOnce(err) end
   return ok
+end
+
+--- Paint AceGUI widget type `hostType`, a host's own type built from the stock type `baseType`
+--- (AuraMaster's AuraMasterDropdown is AceGUI's Dropdown under a second pool name), with
+--- `baseType`'s painter: PaintAce, the proxy, the durability hooks and the release restore all treat
+--- it as the base. One alias per host type for the session, shared by every copy of a host; saying
+--- the same alias again answers true. Refused (false, logged once per refusal) when either name is
+--- not a string, `baseType` has no painter, `hostType` has a painter of its own, or `hostType` is
+--- already aliased to another base. Answers true when the alias holds.
+function lib:AliasAceType(hostType, baseType)
+  local why
+  if type(hostType) ~= "string" or hostType == "" or type(baseType) ~= "string" then
+    why = "a host type and a base type are strings"
+  elseif lib.__acePaint[hostType] then
+    why = hostType .. " has a painter of its own"
+  elseif not lib.__acePaint[baseType] then
+    why = baseType .. " has no painter"
+  elseif lib.__aceAlias[hostType] and lib.__aceAlias[hostType] ~= baseType then
+    why = hostType .. " is already painted as " .. lib.__aceAlias[hostType]
+  end
+  if why then
+    logOnce("AliasAceType(" .. tostring(hostType) .. ", " .. tostring(baseType) .. ") refused: " .. why)
+    return false
+  end
+  lib.__aceAlias[hostType] = baseType
+  return true
 end
 
 --- PaintAce over `container` and every widget under it (its `children`, depth first). Answers how

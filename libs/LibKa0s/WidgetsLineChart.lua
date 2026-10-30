@@ -32,6 +32,14 @@
 -- (a series' or a marker's `color`) are the host's and win. Without an owner, or for an unregistered
 -- name, the chart reads `lib.LINE_CHART` as minor 3 did, and a `colorIndex` draws `LINE`.
 --
+-- -- THE SCOPE SWITCHES (minor 5) ---------------------------------------------------------------
+--
+-- An owned chart draws its tick labels in the skin's body face (the shell's THE SCOPE SWITCHES;
+-- Oxanium under Ka0s Default, D-13), so "Ignore fonts" gives them the template back, live. A host's
+-- `opts.font` is the host's and is never touched. `opts.panel = true` puts the chart on its owner's
+-- settings page: while that owner ignores its settings panel the chart reads `lib.LINE_CHART` and the
+-- template face, live both ways. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. Reads the client's
 -- `date` and `time` for the time axis.
 
@@ -39,7 +47,8 @@ local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
 -- Minor 4: the skin owner (the header's THE SKIN OWNER).
-local CHART_MINOR = 4
+-- Minor 5: the tick labels' face and `opts.panel` (the header's THE SCOPE SWITCHES).
+local CHART_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -73,11 +82,14 @@ lib.ChartMath = Math
 local function colors(c) return c.__pal or LC end
 
 --- A skin owner's chart colors in `lib.LINE_CHART`'s shape, plus `SERIES` and `LABEL`; nil for a
---- chart with no registered skin owner (or a shell that predates the check).
-local function chartPalette(owner)
+--- chart with no registered skin owner (or a shell that predates the check). Nil too, with the Skin
+--- major still answered, while a panel-scoped chart's owner ignores its settings panel (minor 5).
+local function chartPalette(owner, panel)
   local skinOf = lib.__skinOf
   local Skin = type(skinOf) == "function" and skinOf(owner) or nil
   if not Skin then return nil, nil end
+  local panelOff = lib.__panelOff
+  if type(panelOff) == "function" and panelOff(Skin, owner, panel) then return nil, Skin end
   local st = Skin:For(owner).ChartStyle() or {}
   return { AXIS = st.axis or LC.AXIS, GRID = st.grid or LC.GRID, CROSSHAIR = st.crosshair or LC.CROSSHAIR,
            MARKER = st.marker or LC.MARKER, LINE = st.line or LC.LINE, SERIES = st.series,
@@ -332,6 +344,12 @@ local function acquireLabel(c)
   end
   local label = c.__pal and c.__pal.LABEL
   if label then fs:SetTextColor(label[1], label[2], label[3]) end
+  -- Minor 5: an owned chart's label in the skin's body face, or the template back; a host's face
+  -- stays the host's.
+  local skinFont = lib.__skinFont
+  if not c.__opts.font and type(skinFont) == "function" then
+    skinFont(fs, c.__opts.owner, c.__pal and c.__skin or nil, "GameFontDisableSmall")
+  end
   fs:ClearAllPoints()
   fs:Show()
   return fs
@@ -541,9 +559,16 @@ local function attachMethods(c)
   end
 end
 
---- Re-read a skinned chart's colors and redraw it (minor 4): run after each skin switch.
+--- Re-read a skinned chart's colors and redraw it (minor 4): run after each skin switch. A
+--- panel-scoped chart whose owner ignores its settings panel reads `lib.LINE_CHART` (minor 5), and its
+--- pooled labels, hidden ones included, take the template back.
 local function chartRepaint(c, owner)
-  c.__pal = chartPalette(owner) or c.__pal
+  local pal, Skin = chartPalette(owner, c.__opts.panel == true)
+  if Skin then c.__pal = pal end
+  local skinFont = lib.__skinFont
+  if not pal and not c.__opts.font and type(skinFont) == "function" then
+    for _, fs in ipairs(c.__labelPool) do skinFont(fs, owner, nil, "GameFontDisableSmall") end
+  end
   local x = colors(c).CROSSHAIR
   c.__cross:SetColorTexture(x[1], x[2], x[3], x[4])
   if c.__data and c.__lastW then render(c, c.__lastW, c.__lastH) end
@@ -554,7 +579,8 @@ function lib.LineChart(parent, opts)
   local c = CreateFrame("Frame", nil, parent)
   c.__opts = opts or {}
   local Skin
-  c.__pal, Skin = chartPalette(c.__opts.owner)
+  c.__pal, Skin = chartPalette(c.__opts.owner, c.__opts.panel == true)
+  c.__skin = Skin
   local X = colors(c).CROSSHAIR
   c.__linePool, c.__lineUsed, c.__labelPool, c.__labelUsed = {}, 0, {}, 0
   -- The crosshair is the chart's FIRST CreateLine, made here before any render draws from the pool.

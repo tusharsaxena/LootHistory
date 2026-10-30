@@ -54,7 +54,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- strip's own paint -- each tab (S.Tab: the client's atlases faded away from Ka0s Default), the
 -- content box (S.Panel over the inner-frame art) and the banner hairline (S.Divider, `tab.rule`).
 -- No member is added (the band's trigger); the helpers are OptionsScroll.lua's (LK-07).
-local TABS_MINOR = 10
+-- Minor 11: a tab's tooltip title through O.__tipColor (`gtip.value`; OptionsScroll minor 9), read
+-- off the instance that dressed the tab last (LK-06d of the 2026-10-30 skin follow-ups).
+local TABS_MINOR = 11
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -712,7 +714,7 @@ function lib.__AttachTabs(O, d)
       if not (GameTooltip and b.__ka0sTabTip) then return end
       GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
       if b.__ka0sTabTipLabel and b.__ka0sTabTipLabel ~= "" then
-        GameTooltip:SetText(b.__ka0sTabTipLabel, 1, 1, 1)
+        GameTooltip:SetText(b.__ka0sTabTipLabel, b.__ka0sTabO.__tipColor("gtip.value", 1, 1, 1))
       end
       GameTooltip:AddLine(b.__ka0sTabTip, nil, nil, nil, true)
       GameTooltip:Show()
@@ -788,7 +790,7 @@ function lib.__AttachTabs(O, d)
       if refused("tab", tab.key) then return end
       if onSelect then pcall(onSelect, tab.key) end
     end)
-    b.__ka0sTabTipLabel, b.__ka0sTabTip = tab.label, tab.tooltip
+    b.__ka0sTabTipLabel, b.__ka0sTabTip, b.__ka0sTabO = tab.label, tab.tooltip, O
 
     return width
   end

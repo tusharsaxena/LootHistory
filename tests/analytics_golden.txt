@@ -73,20 +73,20 @@ pool chboundleg active=5 free=0
 pool chquality active=3 free=0
   chquality#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
     seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Common: 7"
-    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=0.640,0.210,0.930,0.950 info="Epic: 7"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=0.639,0.208,0.933,0.950 info="Epic: 7"
   chquality#2 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Alpha:  13" label="Alpha"/0.780,0.610,0.430 value="13"/0.800,0.800,0.820
-    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=236.571 h=12.000 ct=0.620,0.620,0.620,0.950 info="Poor: 6"
-    seg2 pt=LEFT>frame.LEFT(236.571,0.000) w=276.000 h=12.000 ct=0.000,0.440,0.870,0.950 info="Rare: 7"
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=236.571 h=12.000 ct=0.616,0.616,0.616,0.950 info="Poor: 6"
+    seg2 pt=LEFT>frame.LEFT(236.571,0.000) w=276.000 h=12.000 ct=0.000,0.439,0.867,0.950 info="Rare: 7"
   chquality#3 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Gamma:  13" label="Gamma"/1.000,1.000,1.000 value="13"/0.800,0.800,0.820
-    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=0.120,1.000,0.000,0.950 info="Uncommon: 7"
-    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=236.571 h=12.000 ct=1.000,0.500,0.000,0.950 info="Legendary: 6"
+    seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=0.118,1.000,0.000,0.950 info="Uncommon: 7"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=236.571 h=12.000 ct=1.000,0.502,0.000,0.950 info="Legendary: 6"
 pool chqualityleg active=6 free=0
-  chqualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1422.000) w=120.000 h=10.000 ct=0.620,0.620,0.620,0.950 _full="Poor" fs="Poor"/0.800,0.800,0.820
+  chqualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1422.000) w=120.000 h=10.000 ct=0.616,0.616,0.616,0.950 _full="Poor" fs="Poor"/0.800,0.800,0.820
   chqualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1422.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common" fs="Common"/0.800,0.800,0.820
-  chqualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1422.000) w=120.000 h=10.000 ct=0.120,1.000,0.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
-  chqualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1422.000) w=120.000 h=10.000 ct=0.000,0.440,0.870,0.950 _full="Rare" fs="Rare"/0.800,0.800,0.820
-  chqualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1422.000) w=120.000 h=10.000 ct=0.640,0.210,0.930,0.950 _full="Epic" fs="Epic"/0.800,0.800,0.820
-  chqualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1438.000) w=120.000 h=10.000 ct=1.000,0.500,0.000,0.950 _full="Legendary" fs="Legendary"/0.800,0.800,0.820
+  chqualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1422.000) w=120.000 h=10.000 ct=0.118,1.000,0.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
+  chqualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1422.000) w=120.000 h=10.000 ct=0.000,0.439,0.867,0.950 _full="Rare" fs="Rare"/0.800,0.800,0.820
+  chqualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1422.000) w=120.000 h=10.000 ct=0.639,0.208,0.933,0.950 _full="Epic" fs="Epic"/0.800,0.800,0.820
+  chqualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1438.000) w=120.000 h=10.000 ct=1.000,0.502,0.000,0.950 _full="Legendary" fs="Legendary"/0.800,0.800,0.820
 pool chsource active=3 free=0
   chsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Beta:  14" label="Beta"/0.250,0.780,0.920 value="14"/0.800,0.800,0.820
     seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=78.857 h=12.000 ct=0.830,0.370,0.000,0.950 info="Container: 2"
@@ -292,26 +292,26 @@ pool hour active=24 free=0
   hour#23 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(700.333,0.000) w=14.000 h=4.889 ct=0.400,0.600,0.950,0.900 info="22:00  1" axis="22"/0.700,0.700,0.720
   hour#24 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(732.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="23:00  0" axis="23"/0.700,0.700,0.720
 pool item active=10 free=0
-  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,0.500,0.000 count="3"/0.800,0.800,0.820
-  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,0.500,0.000 count="3"/0.800,0.800,0.820
-  item#3 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 4:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 4"/0.640,0.210,0.930 count="3"/0.800,0.800,0.820
-  item#4 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/0.640,0.210,0.930 count="3"/0.800,0.800,0.820
-  item#5 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  3" name="Item 3"/0.000,0.440,0.870 count="3"/0.800,0.800,0.820
-  item#6 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-100.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  3" name="Item 9"/0.000,0.440,0.870 count="3"/0.800,0.800,0.820
-  item#7 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="Item 2:  3" name="Item 2"/0.120,1.000,0.000 count="3"/0.800,0.800,0.820
-  item#8 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 8:  3" name="Item 8"/0.120,1.000,0.000 count="3"/0.800,0.800,0.820
+  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,0.502,0.000 count="3"/0.800,0.800,0.820
+  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,0.502,0.000 count="3"/0.800,0.800,0.820
+  item#3 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 4:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 4"/0.639,0.208,0.933 count="3"/0.800,0.800,0.820
+  item#4 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  3" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/0.639,0.208,0.933 count="3"/0.800,0.800,0.820
+  item#5 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  3" name="Item 3"/0.000,0.439,0.867 count="3"/0.800,0.800,0.820
+  item#6 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-100.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  3" name="Item 9"/0.000,0.439,0.867 count="3"/0.800,0.800,0.820
+  item#7 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="Item 2:  3" name="Item 2"/0.118,1.000,0.000 count="3"/0.800,0.800,0.820
+  item#8 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 8:  3" name="Item 8"/0.118,1.000,0.000 count="3"/0.800,0.800,0.820
   item#9 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-148.000) w=368.000 h=16.000 ct=- _fullName="Item 1:  3" name="Item 1"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
   item#10 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-164.000) w=368.000 h=16.000 ct=- _fullName="Item 7:  3" name="Item 7"/1.000,1.000,1.000 count="3"/0.800,0.800,0.820
 pool itemval active=10 free=0
-  itemval#1 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  18g 75s 68c" name="Item 9"/0.000,0.440,0.870 count="18g 75s 68c"/0.800,0.800,0.820
+  itemval#1 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Item 9:  18g 75s 68c" name="Item 9"/0.000,0.439,0.867 count="18g 75s 68c"/0.800,0.800,0.820
   itemval#2 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Item 7:  17g 27s 60c" name="Item 7"/1.000,1.000,1.000 count="17g 27s 60c"/0.800,0.800,0.820
-  itemval#3 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  16g 53s 56c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/0.640,0.210,0.930 count="16g 53s 56c"/0.800,0.800,0.820
-  itemval#4 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  15g 5s 48c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,0.500,0.000 count="15g 5s 48c"/0.800,0.800,0.820
-  itemval#5 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  14g 31s 44c" name="Item 3"/0.000,0.440,0.870 count="14g 31s 44c"/0.800,0.800,0.820
+  itemval#3 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 10:  16g 53s 56c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 10"/0.639,0.208,0.933 count="16g 53s 56c"/0.800,0.800,0.820
+  itemval#4 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-68.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 11:  15g 5s 48c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 11"/1.000,0.502,0.000 count="15g 5s 48c"/0.800,0.800,0.820
+  itemval#5 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-84.000) w=368.000 h=16.000 ct=- _fullName="Item 3:  14g 31s 44c" name="Item 3"/0.000,0.439,0.867 count="14g 31s 44c"/0.800,0.800,0.820
   itemval#6 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-100.000) w=368.000 h=16.000 ct=- _fullName="Item 1:  12g 83s 36c" name="Item 1"/1.000,1.000,1.000 count="12g 83s 36c"/0.800,0.800,0.820
-  itemval#7 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  10g 61s 24c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,0.500,0.000 count="10g 61s 24c"/0.800,0.800,0.820
-  itemval#8 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 12:  9g 62s 52c" name="Item 12"/0.620,0.620,0.620 count="9g 62s 52c"/0.800,0.800,0.820
-  itemval#9 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-148.000) w=368.000 h=16.000 ct=- _fullName="Item 6:  9g 13s 16c" name="Item 6"/0.620,0.620,0.620 count="9g 13s 16c"/0.800,0.800,0.820
+  itemval#7 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-116.000) w=368.000 h=16.000 ct=- _fullName="|A:PetJournal-FavoritesIcon:12:12|a Item 5:  10g 61s 24c" name="|A:PetJournal-FavoritesIcon:12:12|a Item 5"/1.000,0.502,0.000 count="10g 61s 24c"/0.800,0.800,0.820
+  itemval#8 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-132.000) w=368.000 h=16.000 ct=- _fullName="Item 12:  9g 62s 52c" name="Item 12"/0.616,0.616,0.616 count="9g 62s 52c"/0.800,0.800,0.820
+  itemval#9 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-148.000) w=368.000 h=16.000 ct=- _fullName="Item 6:  9g 13s 16c" name="Item 6"/0.616,0.616,0.616 count="9g 13s 16c"/0.800,0.800,0.820
   itemval#10 shown pt=TOPLEFT>itemValuePanel.TOPLEFT(4.000,-164.000) w=368.000 h=16.000 ct=- _fullName="Item 13:  6g 54s 2c" name="Item 13"/1.000,1.000,1.000 count="6g 54s 2c"/0.800,0.800,0.820
 pool itype active=7 free=0
   itype#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.900,0.250,0.250,0.950 _fullLabel="Consumable:  6" label="Consumable"/0.900,0.250,0.250 value="6"/0.800,0.800,0.820
@@ -330,19 +330,19 @@ pool itypeleg active=7 free=0
   itypeleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1637.000) w=120.000 h=10.000 ct=0.420,0.380,0.820,0.950 _full="Armor:  5" fs="Armor"/0.800,0.800,0.820
   itypeleg#7 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1637.000) w=120.000 h=10.000 ct=0.720,0.420,0.860,0.950 _full="Miscellaneous:  5" fs="Miscellaneous"/0.800,0.800,0.820
 pool quality active=6 free=0
-  quality#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=0.620,0.620,0.620,0.950 _fullLabel="Poor:  6" label="Poor"/0.620,0.620,0.620 value="6"/0.800,0.800,0.820
+  quality#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=0.616,0.616,0.616,0.950 _fullLabel="Poor:  6" label="Poor"/0.616,0.616,0.616 value="6"/0.800,0.800,0.820
   quality#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Common:  7" label="Common"/1.000,1.000,1.000 value="7"/0.800,0.800,0.820
-  quality#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.120,1.000,0.000,0.950 _fullLabel="Uncommon:  7" label="Uncommon"/0.120,1.000,0.000 value="7"/0.800,0.800,0.820
-  quality#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.000,0.440,0.870,0.950 _fullLabel="Rare:  7" label="Rare"/0.000,0.440,0.870 value="7"/0.800,0.800,0.820
-  quality#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.640,0.210,0.930,0.950 _fullLabel="Epic:  7" label="Epic"/0.640,0.210,0.930 value="7"/0.800,0.800,0.820
-  quality#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=1.000,0.500,0.000,0.950 _fullLabel="Legendary:  6" label="Legendary"/1.000,0.500,0.000 value="6"/0.800,0.800,0.820
+  quality#3 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.118,1.000,0.000,0.950 _fullLabel="Uncommon:  7" label="Uncommon"/0.118,1.000,0.000 value="7"/0.800,0.800,0.820
+  quality#4 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.000,0.439,0.867,0.950 _fullLabel="Rare:  7" label="Rare"/0.000,0.439,0.867 value="7"/0.800,0.800,0.820
+  quality#5 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.639,0.208,0.933,0.950 _fullLabel="Epic:  7" label="Epic"/0.639,0.208,0.933 value="7"/0.800,0.800,0.820
+  quality#6 shown pt=LEFT>self.LEFT(0.000,0.000) w=473.143 h=12.000 ct=1.000,0.502,0.000,0.950 _fullLabel="Legendary:  6" label="Legendary"/1.000,0.502,0.000 value="6"/0.800,0.800,0.820
 pool qualityleg active=6 free=0
-  qualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1283.000) w=120.000 h=10.000 ct=0.620,0.620,0.620,0.950 _full="Poor:  6" fs="Poor"/0.800,0.800,0.820
+  qualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1283.000) w=120.000 h=10.000 ct=0.616,0.616,0.616,0.950 _full="Poor:  6" fs="Poor"/0.800,0.800,0.820
   qualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-1283.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common:  7" fs="Common"/0.800,0.800,0.820
-  qualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1283.000) w=120.000 h=10.000 ct=0.120,1.000,0.000,0.950 _full="Uncommon:  7" fs="Uncommon"/0.800,0.800,0.820
-  qualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1283.000) w=120.000 h=10.000 ct=0.000,0.440,0.870,0.950 _full="Rare:  7" fs="Rare"/0.800,0.800,0.820
-  qualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1283.000) w=120.000 h=10.000 ct=0.640,0.210,0.930,0.950 _full="Epic:  7" fs="Epic"/0.800,0.800,0.820
-  qualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1299.000) w=120.000 h=10.000 ct=1.000,0.500,0.000,0.950 _full="Legendary:  6" fs="Legendary"/0.800,0.800,0.820
+  qualityleg#3 shown pt=TOPLEFT>content.TOPLEFT(362.000,-1283.000) w=120.000 h=10.000 ct=0.118,1.000,0.000,0.950 _full="Uncommon:  7" fs="Uncommon"/0.800,0.800,0.820
+  qualityleg#4 shown pt=TOPLEFT>content.TOPLEFT(482.000,-1283.000) w=120.000 h=10.000 ct=0.000,0.439,0.867,0.950 _full="Rare:  7" fs="Rare"/0.800,0.800,0.820
+  qualityleg#5 shown pt=TOPLEFT>content.TOPLEFT(602.000,-1283.000) w=120.000 h=10.000 ct=0.639,0.208,0.933,0.950 _full="Epic:  7" fs="Epic"/0.800,0.800,0.820
+  qualityleg#6 shown pt=TOPLEFT>content.TOPLEFT(122.000,-1299.000) w=120.000 h=10.000 ct=1.000,0.502,0.000,0.950 _full="Legendary:  6" fs="Legendary"/0.800,0.800,0.820
 pool source active=12 free=0
   source#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.830,0.370,0.000,0.950 _fullLabel="Container:  5  10%" label="Container"/0.830,0.370,0.000 value="5  10%"/0.800,0.800,0.820
   source#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.680,0.270,0.260,0.950 _fullLabel="Kill:  5  10%" label="Kill"/0.680,0.270,0.260 value="5  10%"/0.800,0.800,0.820
@@ -458,10 +458,10 @@ pool chboundleg active=1 free=4
 pool chquality active=1 free=2
   chquality#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
     seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=1.000,1.000,1.000,0.950 info="Common: 6"
-    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=0.120,1.000,0.000,0.950 info="Uncommon: 6"
+    seg2 pt=LEFT>frame.LEFT(276.000,0.000) w=276.000 h=12.000 ct=0.118,1.000,0.000,0.950 info="Uncommon: 6"
 pool chqualityleg active=2 free=4
   chqualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-582.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common" fs="Common"/0.800,0.800,0.820
-  chqualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-582.000) w=120.000 h=10.000 ct=0.120,1.000,0.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
+  chqualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-582.000) w=120.000 h=10.000 ct=0.118,1.000,0.000,0.950 _full="Uncommon" fs="Uncommon"/0.800,0.800,0.820
 pool chsource active=1 free=2
   chsource#1 shown pt=LEFT>114.000.0(nil,nil) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.060 _fullLabel="Solo:  12" label="Solo"/0.700,0.700,0.720 value="12"/0.800,0.800,0.820
     seg1 pt=LEFT>frame.LEFT(0.000,0.000) w=276.000 h=12.000 ct=0.680,0.270,0.260,0.950 info="Kill: 6"
@@ -573,8 +573,8 @@ pool hour active=24 free=0
   hour#23 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(700.333,0.000) w=14.000 h=4.889 ct=0.400,0.600,0.950,0.900 info="22:00  1" axis="22"/0.700,0.700,0.720
   hour#24 shown pt=BOTTOMLEFT>hourStrip.BOTTOMLEFT(732.167,0.000) w=14.000 h=1.000 ct=0.400,0.600,0.950,0.900 info="23:00  0" axis="23"/0.700,0.700,0.720
 pool item active=3 free=7
-  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Plain 0:  4" name="Plain 0"/0.120,1.000,0.000 count="4"/0.800,0.800,0.820
-  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Plain 1:  4" name="Plain 1"/0.120,1.000,0.000 count="4"/0.800,0.800,0.820
+  item#1 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-20.000) w=368.000 h=16.000 ct=- _fullName="Plain 0:  4" name="Plain 0"/0.118,1.000,0.000 count="4"/0.800,0.800,0.820
+  item#2 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-36.000) w=368.000 h=16.000 ct=- _fullName="Plain 1:  4" name="Plain 1"/0.118,1.000,0.000 count="4"/0.800,0.800,0.820
   item#3 shown pt=TOPLEFT>itemPanel.TOPLEFT(4.000,-52.000) w=368.000 h=16.000 ct=- _fullName="Plain 2:  4" name="Plain 2"/1.000,1.000,1.000 count="4"/0.800,0.800,0.820
 pool itemval active=0 free=10
 pool itype active=1 free=6
@@ -583,10 +583,10 @@ pool itypeleg active=1 free=6
   itypeleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-651.000) w=120.000 h=10.000 ct=0.900,0.250,0.250,0.950 _full="Junk:  12" fs="Junk"/0.800,0.800,0.820
 pool quality active=2 free=4
   quality#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=1.000,1.000,1.000,0.950 _fullLabel="Common:  6" label="Common"/1.000,1.000,1.000 value="6"/0.800,0.800,0.820
-  quality#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.120,1.000,0.000,0.950 _fullLabel="Uncommon:  6" label="Uncommon"/0.120,1.000,0.000 value="6"/0.800,0.800,0.820
+  quality#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.118,1.000,0.000,0.950 _fullLabel="Uncommon:  6" label="Uncommon"/0.118,1.000,0.000 value="6"/0.800,0.800,0.820
 pool qualityleg active=2 free=4
   qualityleg#1 shown pt=TOPLEFT>content.TOPLEFT(122.000,-497.000) w=120.000 h=10.000 ct=1.000,1.000,1.000,0.950 _full="Common:  6" fs="Common"/0.800,0.800,0.820
-  qualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-497.000) w=120.000 h=10.000 ct=0.120,1.000,0.000,0.950 _full="Uncommon:  6" fs="Uncommon"/0.800,0.800,0.820
+  qualityleg#2 shown pt=TOPLEFT>content.TOPLEFT(242.000,-497.000) w=120.000 h=10.000 ct=0.118,1.000,0.000,0.950 _full="Uncommon:  6" fs="Uncommon"/0.800,0.800,0.820
 pool source active=2 free=10
   source#1 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.680,0.270,0.260,0.950 _fullLabel="Kill:  6  50%" label="Kill"/0.680,0.270,0.260 value="6  50%"/0.800,0.800,0.820
   source#2 shown pt=LEFT>self.LEFT(0.000,0.000) w=552.000 h=12.000 ct=0.650,0.510,0.000,0.950 _fullLabel="Quest:  6  50%" label="Quest"/0.650,0.510,0.000 value="6  50%"/0.800,0.800,0.820

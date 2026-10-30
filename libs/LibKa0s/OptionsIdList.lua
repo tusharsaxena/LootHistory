@@ -22,7 +22,15 @@ if not lib then return end
 -- Minor 6: on a registered skin owner's page wearing a skin other than Ka0s Default, the help mark's
 -- tints come from the skin (`text.accent`, `sem.bad`, `text.disabled`, `icon.hot`), read at draw;
 -- Ka0s Default and an owner-less page keep minor 5's constants (LK-07 of the skinning run).
-local IDLIST_MINOR = 6
+-- Minor 7: the help mark's tooltip through O.__tipColor (OptionsScroll minor 9): the name
+-- `gtip.value`, the note lines `gtip.body` (Ka0s Default's 0.9 where minor 6 drew 0.8, DECISIONS
+-- D-14); an owner-less page keeps the literals (LK-06d of Ka0sAddonsCommonTasks
+-- docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS).
+-- Still minor 7 (LK-06c of the same run, ruling R-5, decisions D-07 and D-14): an owned entry's
+-- highlight art takes `list.hoverArt` (O.__hoverArt) and is given back to the client's on release;
+-- the id gray in its labels and notes is OptionsIds minor 5's `idGray`, the owner's
+-- `text.disabled`. The help mark's comments say what minor 6's tints do since SkinPaint minor 6.
+local IDLIST_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -41,6 +49,8 @@ function lib.__AttachIdList(O, d, ids)
   local print, refused = ids.print, ids.refused
   local startRow, renderRowGuarded = ids.startRow, ids.renderRowGuarded
   local ID_MAIN_REL, ID_ACTION_REL, ID_GRAY = ids.ID_MAIN_REL, ids.ID_ACTION_REL, ids.ID_GRAY
+  -- The page's id gray (OptionsIds minor 5); the constant from a copy without it.
+  local idGray = ids.idGray or function() return ID_GRAY end
   local idKind, kindWords, nameColor, idText = ids.idKind, ids.kindWords, ids.nameColor, ids.idText
   local callHost, disableIfRender, underDisable = ids.callHost, ids.disableIfRender, ids.underDisable
   local entryNamed, drawIdInput = ids.entryNamed, ids.drawIdInput
@@ -317,11 +327,11 @@ function lib.__AttachIdList(O, d, ids)
     if type(name) == "string" and name ~= "" then
       local color = nameColor(k, id)
       if color then name = color .. name .. "|r" end
-      text = name .. " " .. ID_GRAY .. "(" .. tostring(id) .. ")|r"
+      text = name .. " " .. idGray() .. "(" .. tostring(id) .. ")|r"
     else
       text = idText(spec, "unknown", { noun = (kindWords(k)), id = id })
     end
-    if suffix then text = text .. " " .. ID_GRAY .. suffix .. "|r" end
+    if suffix then text = text .. " " .. idGray() .. suffix .. "|r" end
     return text
   end
 
@@ -550,12 +560,16 @@ function lib.__AttachIdList(O, d, ids)
     return ID_HELP_LEVELS[level] or ID_HELP_TINT, level
   end
 
-  -- Each help tint's skin token (minor 6), read only away from Ka0s Default: none of the four
-  -- constants is a Ka0s Default token, and that skin must draw the mark exactly as minor 5 did.
+  -- Each help tint's skin token (minor 6), read wherever O.__chromeAway answers: on every skinned
+  -- page, Ka0s Default included, since SkinPaint minor 6 made no skin special (so Ka0s Default
+  -- draws the mark in its `text.accent`, `sem.bad`, `text.disabled` and `icon.hot`, not in the four
+  -- constants below, which an owner-less page and an ignored settings panel keep). Kept so rather
+  -- than giving the constants tokens of their own: Ka0s Default looking like every other skin is
+  -- what ruling R-2 asks (DECISIONS D-07).
   local HELP_TOKEN = { [ID_HELP_TINT] = "text.accent", [ID_HELP_BLOCKED] = "sem.bad",
                        [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot" }
 
-  --- `tint`, or its token in the page owner's skin when that skin is not Ka0s Default.
+  --- `tint`, or its token in the page owner's skin while the chrome is skinned.
   local function skinTint(tint)
     local S = O.__chromeAway and O.__chromeAway()
     local c = S and HELP_TOKEN[tint] and S.Token(HELP_TOKEN[tint])
@@ -610,9 +624,10 @@ function lib.__AttachIdList(O, d, ids)
         end
         if not GameTooltip then return end
         GameTooltip:SetOwner(h.frame or h, "ANCHOR_RIGHT")
-        GameTooltip:SetText(name or tostring(entry.id), 1, 1, 1)
+        GameTooltip:SetText(name or tostring(entry.id), O.__tipColor("gtip.value", 1, 1, 1))
+        local lr, lg, lb = O.__tipColor("gtip.body", 0.8, 0.8, 0.8)
         for i = 1, #lines do
-          GameTooltip:AddLine(lines[i], 0.8, 0.8, 0.8, true)
+          GameTooltip:AddLine(lines[i], lr, lg, lb, true)
         end
         GameTooltip:Show()
       end)
@@ -818,9 +833,13 @@ function lib.__AttachIdList(O, d, ids)
   ---
   --- `__highlight` records the art, as `__removeAtlas` does, for a harness whose fake has no
   --- SetHighlight to call.
+  ---
+  --- The art takes the page owner's `list.hoverArt` (minor 7, O.__hoverArt): AceGUI's own texture,
+  --- `lbl.highlight`, which entryRelease hands back as the client draws it.
   local function entryHighlight(lbl)
     lbl.__highlight = ID_ENTRY_HILITE
     if type(lbl.SetHighlight) == "function" then lbl:SetHighlight(ID_ENTRY_HILITE) end
+    if O.__hoverArt then O.__hoverArt(lbl.highlight) end
   end
 
   --- The ONE "OnRelease" an entry's label gets, and everything that has to happen inside it.
@@ -856,6 +875,9 @@ function lib.__AttachIdList(O, d, ids)
       if fs and type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
       w.__wordWrap = nil
       w.__highlight = nil
+      -- The pooled label's highlight art goes back untinted (minor 7): OnAcquire clears the
+      -- texture, never its color.
+      if O.__hoverArt then O.__hoverArt(w.highlight, true) end
     end)
   end
 
@@ -903,7 +925,7 @@ function lib.__AttachIdList(O, d, ids)
     -- and an entry carrying both keeps the suffix inline and still takes its own full-width row.
     if type(entry.note) == "string" and entry.note ~= "" then
       local n = O.AceGUI:Create("Label")
-      n:SetText(ID_GRAY .. entry.note .. "|r")
+      n:SetText(idGray() .. entry.note .. "|r")
       n:SetRelativeWidth(ID_MAIN_REL)
       line:AddChild(n)
     end

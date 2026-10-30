@@ -43,7 +43,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 33: each refusal names what it refused, for the shell's Cfg line (gap G3, 2026-09-30).
 -- Minor 34: RenderGrid takes a parent and opts.gap, and a failed item leaves no row (KickCD#10).
 -- Minor 35: a row's `skinValue()`, when it answers, is what its widget shows (compose minor 12).
-local WIDGETS_MINOR = 35
+-- Minor 36: O.AttachTooltip's title through O.__tipColor (`gtip.value`; OptionsScroll minor 9).
+local WIDGETS_MINOR = 36
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -412,6 +413,7 @@ function lib.__AttachWidgets(O, d)
   -- `O.__print` is always there, and a caller that attached the maker set to some other table
   -- should fall silent rather than raise.
   local print = O.__print or d.print or function() end
+  O.__tipColor = function(_, r, g, b) return r, g, b end   -- the literals until OptionsScroll's (minor 36)
 
   -- A ROW WITH NO PATH IS READ AND WRITTEN THROUGH ITS OWN get / set (minor 15). That is the flow
   -- engine's half of OptionsCompose.lua's record-backed arm: a composed block bound to a registry
@@ -520,9 +522,7 @@ function lib.__AttachWidgets(O, d)
     local function show()
       if not GameTooltip then return end
       GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
-      if label and label ~= "" then
-        GameTooltip:SetText(label, 1, 1, 1)
-      end
+      if label and label ~= "" then GameTooltip:SetText(label, O.__tipColor("gtip.value", 1, 1, 1)) end
       if tooltip and tooltip ~= "" then
         GameTooltip:AddLine(tooltip, nil, nil, nil, true)
       end

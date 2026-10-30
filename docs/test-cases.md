@@ -1547,7 +1547,7 @@ Total.
 - Skin picker: the player's close marks it seen; this addon's own hide does not
 - Skin picker: a profile that has seen it takes a shown picker down, unmarked
 - Skin picker: the eye opens the History window in test mode
-- Skin picker: the title names this addon
+- Skin picker: the title is "Choose a skin" and the owner line names this addon
 - Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
 - Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
 - Skin picker: the gear saves the pick and opens General on its Skin tab
@@ -1582,7 +1582,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (17)
+### test_skin_insights.lua (18)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1594,6 +1594,7 @@ Total.
 - skin holdings: Ka0s Default draws today's header, arrows, rows and cells
 - skin holdings: a switch rebuilds the arrows and repaints every pooled row live
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
+- skin AH table: Ignore settings panel gives the table its pre-skin look, live
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
 - skin bars: every Insights bar of data is the skin's BarTexture; tracks and rules are not
 - skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color
@@ -1613,13 +1614,14 @@ Total.
 - skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
-### test_skin_tools.lua (6)
+### test_skin_tools.lua (7)
 
 - the debug console's descriptor names the owner and passes no applySkin
 - the live debug console and its copy window are painted for this owner
 - the console's palette follows a skin switch without a reload
 - the export copy window is painted for this owner
 - the reorder list seam names the owner
+- the AH drag list follows Ignore settings panel: stock while it is on, skinned when off
 - every remaining factory seam passes the owner
 
 ### test_skin_literals.lua (3)
@@ -1672,7 +1674,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (38)
+### test_libka0s.lua (40)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1712,6 +1714,8 @@ Total.
 - v1.77.0: the vendored minors and the kit revision match the release
 - v1.78.0: the vendored minors and the kit revision match the release
 - v1.79.0: the vendored minors and the kit revision match the branch
+- v1.80.0: the vendored minors and the kit revision match the release
+- v1.81.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (20)
 
@@ -2145,13 +2149,13 @@ Total.
 | test_skin_picker.lua | 25 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 17 |
+| test_skin_insights.lua | 18 |
 | test_skin_settings.lua | 8 |
-| test_skin_tools.lua | 6 |
+| test_skin_tools.lua | 7 |
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 38 |
+| test_libka0s.lua | 40 |
 | test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2176,4 +2180,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1830** |
+| **Total** | **1834** |

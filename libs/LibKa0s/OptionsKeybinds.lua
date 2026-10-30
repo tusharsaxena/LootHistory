@@ -64,7 +64,9 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- Minor 5: on a registered skin owner's page wearing a skin other than Ka0s Default, the rows' text
 -- takes the skin's roles (the action's name `text.body`, the set and outcome lines `text.muted`),
 -- through the widgets' own SetColor, which AceGUI resets when it hands a Label out again (LK-07).
-local KEYBINDS_MINOR = 5
+-- Minor 6: the key button's tooltip title through O.__tipColor (`gtip.value`; OptionsScroll minor 9)
+-- (LK-06d of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS).
+local KEYBINDS_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__keybindsMinor and lib.__keybindsMinor >= KEYBINDS_MINOR
   and lib.__keybindsShellMinor == lib.MINOR then return end
@@ -654,7 +656,8 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     }
   end
 
-  --- Color one AceGUI label in the page owner's text role `token`, away from Ka0s Default only.
+  --- Color one AceGUI label in the page owner's text role `token` while the chrome is skinned
+  --- (O.__chromeAway: every skin, Ka0s Default included, since SkinPaint minor 6).
   local function skinLabel(w, token)
     local S = O.__chromeAway and O.__chromeAway()
     if not (S and w and type(w.SetColor) == "function") then return end
@@ -727,7 +730,7 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     btn:SetCallback("OnEnter", function()
       if not GameTooltip then return end
       GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
-      GameTooltip:SetText(S.KEY, 1, 1, 1)
+      GameTooltip:SetText(S.KEY, O.__tipColor("gtip.value", 1, 1, 1))
       GameTooltip:AddLine(S.SLOT_TIP, nil, nil, nil, true)
       local keys = boundKeys(row.command)
       if #keys > 1 then

@@ -357,7 +357,8 @@ facade with this addon as its **owner**.
   Keybindings ([settings-panel.md](settings-panel.md)). A seventh key, `.pickerSeen`, is the
   first-run skin picker's memory.
 - **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
-  (`O.SkinPicker`, LibKa0s OptionsSkinPicker 1) while the profile's `pickerSeen` is false: two
+  (`O.SkinPicker`, LibKa0s OptionsSkinPicker 2: titled "Choose a skin", with the brand on its own
+  line above the dropdown, `frame.ownerLabel`) while the profile's `pickerSeen` is false: two
   seconds after login on an addon that stands up, and after every profile event. Never while the
   addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. A pick only previews (the skin
   is worn, not saved); **Apply** and the gear save it through `NS.WriteSkinChoice`, and the close
@@ -389,6 +390,17 @@ facade with this addon as its **owner**.
   Options instance's `addonName` for the settings chrome. The console and both copy windows pass **no
   `applySkin`**, because a host hook owns the whole job and the library never paints over it.
   `tests/test_skin_tools.lua` pins each.
+- **The Scope's settings-panel half (LibKa0s v1.81.0; D-01 to D-03 of the skin library
+  follow-ups).** *Ignore settings panel* covers the settings panel and nothing else: every window
+  (History, Export, the debug console, the copy windows, the perf and sim panels, the strips, the
+  first-run picker) wears the skin whatever it says. On the panel, the AceGUI rows and the Options
+  chrome are the library's; the AH drag list is panel-scoped by default (WidgetsReorder minor 3, so
+  the seam passes no `panel`); and the AH price table's own paints go through `NS.SkinPanelColor`
+  (Ka0s Default's value while the panel is ignored, `NS.SkinPanelIgnored()` being the public
+  `Skin:GetIgnore` panel half) and its strings through `S.Text(fs, token, { panel = true })`, so one
+  page never mixes stock and skinned. No dropdown, search box, strip, chart or autocomplete of this
+  addon sits on the settings panel, so none passes `panel = true`. *Ignore fonts* reaches every string
+  the library paints; this addon has no HUD.
 - **The color gate.** `tests/test_skin_literals.lua` fails on a numeric literal in a color position
   (r, g or b) of `SetTextColor`, `SetColorTexture`, `SetVertexColor`, `SetBackdropColor`,
   `SetBackdropBorderColor`, `AddLine` and `AddDoubleLine`, and on any `|cff` escape in code, in every

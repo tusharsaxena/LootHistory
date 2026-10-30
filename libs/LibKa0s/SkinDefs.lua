@@ -25,8 +25,9 @@
 -- sites draw one role in two colors, both survive as two tokens (`text.heading` and
 -- `text.headingAlt`, `menu.border` and `menu.borderAlt`, ...) rather than one pixel changing; the
 -- list is docs/api/Skin's "Split roles", the candidates for leg 2. Meaning-carrying colors (item
--- quality) stay the client's: the `q.*` tokens are nil in Ka0s Default, which reads the client's
--- ITEM_QUALITY_COLORS.
+-- quality) stay the client's: Ka0s Default's `q.*` tokens are the client's ITEM_QUALITY_COLORS
+-- written out exactly, hex / 255 (minor 16), never read from the client at load, when it may not
+-- have filled them yet.
 --
 -- Geometry (`title.height`, `scroll.width`, `scroll.gutter`, `win.inset`) is skin-invariant in leg
 -- 1: every skin carries Ka0s Default's value, so a live switch and a reload lay out the same.
@@ -85,7 +86,34 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- `barTex` in its mockup entry (Media minor 9 ships them): Obsidian Ka0s Matte, Azeroth Ka0s
 -- Parchment, Glass Ka0s Glass Bar, High Contrast Ka0s Solid, Ember Ka0s Forge, WoW Midnight Ka0s
 -- Satin and WoW Forever Ka0s Classic. WoW Default sets none and keeps the Blizzard bar through KEEP.
-local DEFS_MINOR = 14
+-- Minor 15 (LK-04 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT, gap DW-G14): the icon
+-- border family, `icon.borderStyle` (a LibSharedMedia border key, as `bar.borderStyle` is; "Solid" is
+-- the flat WHITE8X8 edge and "None" draws none) and `icon.borderSize` beside `icon.border`, so an item
+-- icon's border can follow the skin (S.IconBorder's `opts.fromSkin`, OptionsCompose's
+-- `BorderGroup{ fromSkin = "icon" }`). Ka0s Default's is Drop Watcher's Window › Icons border today,
+-- Solid 2px; every other skin sets its own (ICON_EDGE below). No existing token moves.
+-- Minor 16 (LK-09 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, the owner's
+-- ruling R-8): Ka0s Default's `q.*` tokens equal the client's quality colors exactly, hex / 255
+-- (9d9d9d, ffffff, 1eff00, 0070dd, a335ee, ff8000), where they were rounded to two places (0.64,
+-- 0.21, 0.93 is a3 36 ed, not the client's a335ee). Every skin that sets no `q.*` of its own, and
+-- the eui source, inherits them. Then (LK-04, the owner's ruling R-4, DECISIONS D-11, still minor
+-- 16): every skin names a HUD face of its own (HUD_FACE below), its text's family at the heavier
+-- shipped weight: Obsidian Inter SemiBold, Azeroth Vollkorn Bold, Glass Nunito SemiBold, High Contrast
+-- Atkinson Bold, Ember Bitter Bold, WoW Midnight Philosopher Bold, WoW Forever Fira Sans SemiBold, and
+-- WoW Default the client's Friz Quadrata, set explicitly. `hud.font` leaves KEEP, which minor 14 had
+-- send every one of them to Friz Quadrata. `hud.outline` (OUTLINE) and `hud.fontSize` (12) stay Ka0s
+-- Default's everywhere. The eui source derives from Ka0s Default and keeps its Oxanium. Then (LK-08,
+-- the owner's ruling R-7, DECISIONS D-14, still minor 16): `gtip.footer`, the drag handle's tooltip footer,
+-- Ka0s Default's 0.6 gray (the literal WidgetsDragHandle drew) and every other skin's `gtip.muted`
+-- through FOLLOW. The eui source derives it from Ka0s Default. Then (LK-06b, ruling R-5, decision
+-- D-14, still minor 16): `icon.grip`, the resize grip's art color (Core.MakeResizable's
+-- `opts.owner`), `false` in Ka0s Default and WoW Default (the client's size-grabber art as drawn) and
+-- every other skin's `icon.tint` through FOLLOW. The eui source derives it from Ka0s Default. Then
+-- (LK-06c, ruling R-5, decision D-14, still minor 16): `list.hoverArt`, the settings chrome's hover
+-- art color (the drawer head, the nav entry, the id list entry, the id suggestion row), `false` in
+-- Ka0s Default and WoW Default (the client's ADD highlight art as drawn) and every other skin's
+-- `text.accent` through FOLLOW. The eui source derives it from Ka0s Default.
+local DEFS_MINOR = 16
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -109,7 +137,7 @@ local GROUPS = {
     .. "text.accent:color text.disabled:color text.link:color text.linkHot:color "
     .. "gtip.title:color gtip.body:color gtip.muted:color text.faint:color log.ts:color "
     .. "log.tag:color log.text:color log.count:color text.value:color text.bodyAlt:color "
-    .. "text.subtle:color text.highlight:color gtip.value:color gtip.subtle:color" },
+    .. "text.subtle:color text.highlight:color gtip.value:color gtip.subtle:color gtip.footer:color" },
   { "Buttons", "btn.bg:color btn.bgTop:color? btn.bgBottom:color? btn.border:color "
     .. "btn.borderSize:number? btn.borderStyle:string? btn.text:color btn.hover:color "
     .. "btn.icon:color btn.radius:number btnPrimary.bg:color btnPrimary.bgTop:color? "
@@ -141,13 +169,14 @@ local GROUPS = {
     .. "panel.bg:color panel.border:color section.rule:color icon.tint:color icon.hot:color "
     .. "handle.bg:color handle.edge:color handle.rest:color list.dropLine:color list.ghostBg:color "
     .. "list.box:color list.boxDim:color list.boxEdge:color list.boxEdgeDim:color icon.dim:color "
-    .. "icon.arrow:color" },
+    .. "icon.arrow:color icon.grip:color? list.hoverArt:color?" },
   { "Overlays", "popup.bg:color popup.border:color? popup.borderSize:number? "
     .. "popup.borderStyle:string? popup.radius:number tooltip.bg:color? tooltip.border:color? "
     .. "strip.test:color strip.sim:color cover.dim:color cover.text:color" },
   { "HUD", "bar.texture:string bar.gloss:bool bar.bg:color? bar.border:color? "
     .. "bar.borderStyle:string bar.borderSize:number icon.border:color? glow.color:color? "
-    .. "hud.font:string hud.fontSize:number hud.outline:string" },
+    .. "hud.font:string hud.fontSize:number hud.outline:string icon.borderStyle:string "
+    .. "icon.borderSize:number" },
   { "Charts", "chart.axis:color chart.axisAlt:color chart.grid:color chart.crosshair:color "
     .. "chart.marker:color chart.line:color chart.bar:color chart.track:color chart.total:color "
     .. "chart.other:color chart.otherLine:color chart.series:colors" },
@@ -230,6 +259,8 @@ local KA0S = {
   ["text.value"] = { 0.8, 0.8, 0.82, 1 }, ["text.bodyAlt"] = { 0.86, 0.86, 0.86, 1 },
   ["text.subtle"] = { 0.85, 0.85, 0.85, 1 }, ["text.highlight"] = WHITE,
   ["gtip.value"] = WHITE, ["gtip.subtle"] = { 0.7, 0.7, 0.7, 1 },
+  -- The drag handle's tooltip footer (minor 16, LK-08): the 0.6 gray WidgetsDragHandle drew.
+  ["gtip.footer"] = { 0.6, 0.6, 0.6, 1 },
   -- Buttons: LootHistory's flat buttons (BrowserFilterBar, Export, Timeline). No primary today.
   ["btn.bg"] = CTL_FILL, ["btn.border"] = CTL_LINE, ["btn.borderSize"] = 1,
   ["btn.borderStyle"] = "flat", ["btn.text"] = WHITE, ["btn.hover"] = GOLD,
@@ -279,10 +310,15 @@ local KA0S = {
   -- Lists and cards: BrowserTable / HoldingsTab rows, Analytics KPI cards and list panels.
   ["list.header.text"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.03 },
   ["list.hover"] = { 1, 0.82, 0, 0.10 },
+  -- The settings chrome's hover art (minor 16, LK-06c): `false`, the client's ADD highlight art
+  -- as it draws it (the drawer head, the nav entry, the id list entry, the suggestion row).
+  ["list.hoverArt"] = false,
   ["card.bg"] = { 0.1, 0.1, 0.12, 0.85 }, ["card.border"] = CTL_LINE,
   ["panel.bg"] = { 0.08, 0.08, 0.10, 0.6 }, ["panel.border"] = { 0.24, 0.24, 0.27, 0.7 },
   ["section.rule"] = { 1, 0.82, 0, 0.35 },
-  ["icon.tint"] = GRAY, ["icon.hot"] = WHITE, ["icon.arrow"] = GOLD, ["handle.bg"] = { 0, 0, 0, 0.75 },
+  ["icon.tint"] = GRAY, ["icon.hot"] = WHITE, ["icon.arrow"] = GOLD,
+  -- The resize grip (minor 16, LK-06b): `false`, the client's size-grabber art as it draws it.
+  ["icon.grip"] = false, ["handle.bg"] = { 0, 0, 0, 0.75 },
   -- Widgets: WidgetsDragHandle's gold edge; WidgetsReorder's handle at rest, its insertion line, its
   -- carried copy and lib.ROW_BOX's fills and edges.
   ["handle.edge"] = { 1, 0.82, 0, 0.6 }, ["handle.rest"] = { 0.7, 0.7, 0.7, 1 },
@@ -299,6 +335,10 @@ local KA0S = {
   ["bar.texture"] = "Ka0s Default", ["bar.gloss"] = false, ["bar.borderStyle"] = "None",
   ["bar.borderSize"] = 1, ["hud.font"] = "Ka0s Oxanium SemiBold", ["hud.fontSize"] = 12,
   ["hud.outline"] = "OUTLINE",
+  -- The icon border (minor 15): Drop Watcher's Window › Icons border, the one item-icon border a Ka0s
+  -- addon draws today (its defaults/Profile.lua icons.borderStyle "Solid", icons.borderSize 2; the
+  -- color is `icon.border`'s black, below).
+  ["icon.borderStyle"] = "Solid", ["icon.borderSize"] = 2,
   -- Charts: Widgets LINE_CHART, LootHistory AnalyticsCharts / AnalyticsLedger / C.TIMELINE.
   ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 }, ["chart.axisAlt"] = { 0.55, 0.55, 0.60, 0.9 },
   ["chart.grid"] = { 1, 1, 1, 0.07 }, ["chart.crosshair"] = { 1, 1, 1, 0.35 },
@@ -355,9 +395,11 @@ local KA0S = {
   ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
   ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },
   ["glow.color"] = GOLD,
-  -- The client's ITEM_QUALITY_COLORS, written out: the values every Blizzard frame draws.
-  ["q.poor"] = { 0.62, 0.62, 0.62, 1 }, ["q.common"] = WHITE, ["q.uncommon"] = { 0.12, 1, 0, 1 },
-  ["q.rare"] = { 0, 0.44, 0.87, 1 }, ["q.epic"] = { 0.64, 0.21, 0.93, 1 }, ["q.legendary"] = { 1, 0.5, 0, 1 },
+  -- The client's ITEM_QUALITY_COLORS, written out exactly (hex / 255, minor 16): the values every
+  -- Blizzard frame draws.
+  ["q.poor"] = { 0x9d / 255, 0x9d / 255, 0x9d / 255, 1 }, ["q.common"] = WHITE,
+  ["q.uncommon"] = { 0x1e / 255, 1, 0, 1 }, ["q.rare"] = { 0, 0x70 / 255, 0xdd / 255, 1 },
+  ["q.epic"] = { 0xa3 / 255, 0x35 / 255, 0xee / 255, 1 }, ["q.legendary"] = { 1, 0x80 / 255, 0, 1 },
 }
 
 lib:RegisterSkin({
@@ -473,7 +515,8 @@ local FOLLOW = {
   { "log.ts", "sem.info" }, { "log.tag", "text.headingAlt" },
   { "sem.stepReady", "text.body" }, { "sem.stepBusy", "text.accent" },
   { "sem.stepLocked", "text.disabled" }, { "sem.stepCancel", "sem.off" }, { "sem.stepCancelHot", "sem.bad" },
-  { "icon.arrow", "text.accent" },
+  { "icon.arrow", "text.accent" }, { "gtip.footer", "gtip.muted" },
+  { "icon.grip", "icon.tint" }, { "list.hoverArt", "text.accent" },
 }
 
 local function blend(a, b)
@@ -509,9 +552,10 @@ end
 
 -- What every other skin inherited from Ka0s Default before minor 14 gave it Oxanium and the Ka0s
 -- Default bar: the client's Friz Quadrata and its Blizzard bar. A skin that sets its own keeps that;
--- of the bars, WoW Default is the one skin that sets none, so the Blizzard bar is its.
+-- WoW Default is the one skin that sets no face and no bar, so these are its. The HUD face left KEEP
+-- in minor 16: every skin names its own (HUD_FACE below).
 local FRIZ = "Friz Quadrata TT"
-local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["hud.font"] = FRIZ, ["bar.texture"] = "Blizzard" }
+local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["bar.texture"] = "Blizzard" }
 
 --- A skin's tokens: its mockup entry through MOCK_MAP, the accent and text washes, then its extras.
 local function translate(mock, extra)
@@ -534,9 +578,31 @@ local function translate(mock, extra)
   return out
 end
 
+-- Each skin's icon border (minor 15), a style and a size of its own: a flat edge as thin as the
+-- skin's own control edges (1px where its edges are hairlines, 2px where they are heavier), and WoW
+-- Default the client's tooltip edge, its one Blizzard-art skin. The mockups draw no icon border, so
+-- none comes through MOCK_MAP; a skin's `extra` may still override.
+local ICON_EDGE = {
+  obsidian = { "Solid", 1 }, azeroth = { "Solid", 2 }, glass = { "Solid", 1 }, contrast = { "Solid", 2 },
+  ember = { "Solid", 2 }, wow = { "Blizzard Tooltip", 2 }, midnight = { "Solid", 2 }, forever = { "Solid", 1 },
+}
+
+-- Each skin's HUD face (minor 16, R-4): its own family at the heavier shipped weight, since HUD text
+-- is 12px under an OUTLINE and a Regular's thin strokes close up under it; WoW Default the client's
+-- own face, named here rather than left to a fallback. A skin's `extra` may still override.
+local HUD_FACE = {
+  obsidian = "Ka0s Inter SemiBold", azeroth = "Ka0s Vollkorn Bold", glass = "Ka0s Nunito SemiBold",
+  contrast = "Ka0s Atkinson Bold", ember = "Ka0s Bitter Bold", wow = FRIZ,
+  midnight = "Ka0s Philosopher Bold", forever = "Ka0s Fira Sans SemiBold",
+}
+
 local function register(key, label, desc, swatches, mock, extra)
-  lib:RegisterSkin({ key = key, label = label, desc = desc, swatches = swatches,
-    tokens = translate(mock, extra) })
+  local tokens = translate(mock, extra)
+  if tokens["hud.font"] == nil then tokens["hud.font"] = HUD_FACE[key] end
+  local icon = ICON_EDGE[key]
+  if icon and tokens["icon.borderStyle"] == nil then tokens["icon.borderStyle"] = icon[1] end
+  if icon and tokens["icon.borderSize"] == nil then tokens["icon.borderSize"] = icon[2] end
+  lib:RegisterSkin({ key = key, label = label, desc = desc, swatches = swatches, tokens = tokens })
 end
 
 -- ── Obsidian ── mockup `obsidian`. Inter, the mockup's own face (Barlow until minor 11).
@@ -836,6 +902,9 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     ["drawer.bgOpen"] = hex("#3a3a3a"), ["drawer.boxBg"] = hex("#111111"),
     ["card.bg"] = rgba(0, 0, 0, 0.4), ["card.border"] = hex("#6e6e6e"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#6e6e6e"),
+    -- The client's own resize grip and hover art, as the client draws them (minor 16): FOLLOW
+    -- would tint them.
+    ["icon.grip"] = false, ["list.hoverArt"] = false,
   })
 
 -- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 2px

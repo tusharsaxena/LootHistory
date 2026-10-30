@@ -1,7 +1,8 @@
 -- LibKa0s-Skin-1.0 — the Ka0s paint primitives, part two: the window family's Ka0s extras
--- (TitleBar, Divider, Footer, Card, Strip, Cover, Tooltip, MenuFrame), the text and font
--- primitives (Text, Font, White), the bar texture (BarTexture) and the getters (GetAccentColor,
--- GetPanelColor, GetFont, GlowColor, ChartStyle, BarStyle).
+-- (TitleBar, Divider, Footer, Card, Strip, Cover, Tooltip, MenuFrame), the stock-art faders of
+-- EllesmereUI's vocabulary (FadeRegions, FadeNineSlice, from SkinPaint.lua since its minor 11), the
+-- text and font primitives (Text, Font, White), the bar texture (BarTexture) and the getters
+-- (GetAccentColor, GetPanelColor, GetFont, GlowColor, ChartStyle, BarStyle).
 --
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: it is part of the same
 -- major, paired on the shell's minor (`__extrasMinor` / `__extrasShellMinor`), and it paints with
@@ -24,7 +25,26 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 4: BarTexture, the owner's bar texture (`bar.texture`, its texture override when it sets
 -- one, Skin minor 6) on a Texture or a StatusBar, tinted and recorded (LibKa0s#63). A repaint and a
 -- nil color keep the bar's live color (a host's own recolor included), never a first-paint snapshot.
-local EXTRAS_MINOR = 4
+-- Minor 5 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): Card's `opts.tokens`
+-- slot remap (`bg`, `border`, `title`, `text`; SkinPaint minor 11's P.remap), and the two faders,
+-- moved here unchanged from SkinPaint.lua, which they would have taken into layout-§1's band.
+-- Then (LK-05 of the same run, still minor 5): TitleBar's and FadeNineSlice's `opts.stockDefault`
+-- (SkinPaint minor 11's P.keepStock, retired at SkinPaint minor 12), and Panel and Inset, moved here
+-- unchanged from SkinPaint.lua for the same reason. And (LK-01's review, still minor 5): S.Text takes an owner or library token
+-- NAME as well as a role, so an owner token is drawn through a tracked, replayed primitive.
+-- Minor 6 (LK-01 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-1):
+-- BarStyle's `font`, `fontKey` and `outline` are nil while the owner ignores fonts, read through
+-- `Skin:Token` like every host read, so the host's own setting stands.
+-- Then (LK-05 of the same run, ruling R-5, decision D-02, still minor 6): P.panelIgnored, the
+-- settings-panel scope every primitive and widget can share, and S.Text's `opts.panel`. It lives here
+-- rather than in SkinPaint.lua, so that file stays out of layout-§1's 1000-line band.
+-- Then (LK-02 of the same run, ruling R-2, still minor 6): the stock look is retired. TitleBar,
+-- FadeNineSlice, Panel and Inset ignore a stale `opts.stockDefault` and paint under Ka0s Default as
+-- under every skin (SkinPaint minor 12, which gives a TitleBar's alignment back in P.unpaint).
+-- Then (LK-06a of the same run, ruling R-5, decision D-02, still minor 6): S.Strip takes
+-- `opts.panel` as S.Text does, for `W.TestStrip`'s `opts.panel`; P.panelIgnored records its answer
+-- as `rec.panelOff` for P.hook.
+local EXTRAS_MINOR = 6
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -35,6 +55,26 @@ lib.MODULES.SkinPaintExtras = EXTRAS_MINOR
 
 local prim, P = lib.prim, lib.__P
 local rgba = P.rgba
+
+--- The settings-panel scope (minor 6, LK-05, decision D-02): true when `opts.panel == true` puts the
+--- target on its owner's settings panel and that owner ignores its panel (the public
+--- `Skin:GetIgnore(owner)` panel half, which is false for an unregistered owner, so an owner-less
+--- facade keeps reading Ka0s Default). Then everything the target wears from the library is given
+--- back (P.unpaint) and the caller paints nothing. The call stays recorded, so `SetIgnore`'s repaint
+--- replays it and the switch is live both ways. Without `opts.panel` it answers false: a window wears
+--- the skin whatever that switch says (D-01).
+--- The answer is kept on the record as `rec.panelOff` (LK-06a, still minor 6), so a hook a primitive
+--- laid (P.hook: the search box's focus line) stands down with the paint it belongs to, live both ways.
+--- Dropdown, EditBox and Strip take the same `opts.panel` from LK-06a, for the Widgets controls.
+function P.panelIgnored(owner, rec, frame, opts)
+  if not rec then return false end
+  local off = type(opts) == "table" and opts.panel == true
+    and type(lib.GetIgnore) == "function" and lib:GetIgnore(owner) == true
+  rec.panelOff = off or nil
+  if not off then return false end
+  P.unpaint(rec, frame)
+  return true
+end
 
 -- ── the Ka0s extras of the window family ─────────────────────────────────────────────────────
 
@@ -65,8 +105,8 @@ end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
 --- gradient), the bar's backdrop when it has one, else a region of the bar under its text; its text (`opts.text`, else
---- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`. Draws no Media
---- icon.
+--- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`, every one given
+--- back by P.unpaint (the alignment since SkinPaint minor 12). Draws no Media icon.
 prim.TitleBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "TitleBar", opts)
@@ -112,14 +152,19 @@ prim.Footer = function(owner, frame, opts)
   if fs then P.label(owner, rec, fs, T, "text.muted") end
 end
 
+local CARD_SLOTS = { bg = "card.bg", border = "card.border", title = "text.heading", text = "text.body" }
+local CARD_FILLS = { bg = true }
+
 --- S.Card(frame, opts): a card (LootHistory's KPI cards), `card.bg` under `card.border` as the
---- flat-control backdrop; `opts.title` takes `text.heading`, `opts.text` `text.body`. Draws no
---- Media icon.
+--- flat-control backdrop; `opts.title` takes `text.heading`, `opts.text` `text.body`. `opts.tokens`
+--- (minor 5) remaps `bg`, `border`, `title` and `text` to a library or owner token by NAME (an
+--- alternate card fill, a callout). Draws no Media icon.
 prim.Card = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
   local rec = P.track(owner, frame, "Card", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
+  if P.remap then T = P.remap(owner, T, opts.tokens, CARD_SLOTS, CARD_FILLS, "Card") end
   P.box(rec, frame, T, CARD, opts)
   if P.isFS(opts.title) then P.label(owner, rec, opts.title, T, "text.heading", "title") end
   if P.isFS(opts.text) then P.label(owner, rec, opts.text, T, "text.body") end
@@ -130,6 +175,7 @@ end
 local function wash(owner, target, name, token, opts)
   if type(target) ~= "table" then return nil end
   local rec = P.track(owner, target, name, opts)
+  if P.panelIgnored(owner, rec, target, opts) then return rec end
   local c = P.T(owner)[token]
   if P.isTexture(target) then
     if c then target:SetColorTexture(rgba(c)) end
@@ -148,7 +194,10 @@ end
 
 --- S.Strip(target, opts): the test / simulation strip's wash, `strip.test` or `strip.sim`
 --- (`opts.kind`), on a texture in place (`W.TestStrip`'s fill) or as a region of a frame. The strip's
---- meaning colors are the library's; a skin changes only their legibility. Draws no Media icon.
+--- meaning colors are the library's; a skin changes only their legibility. `opts.panel = true`
+--- (minor 6, LK-06a): the strip is on its owner's settings panel, so nothing is painted while the
+--- owner ignores its panel (P.panelIgnored); a texture's own color cannot be read back, so the caller
+--- puts it back (`W.TestStrip` does). Draws no Media icon.
 prim.Strip = function(owner, target, opts)
   local kind = type(opts) == "table" and opts.kind == "sim" and "sim" or "test"
   wash(owner, target, "Strip", "strip." .. kind, opts)
@@ -206,6 +255,73 @@ prim.MenuFrame = function(owner, frame, opts)
   P.box(rec, frame, T, opts.alt and MENU_ALT or MENU, opts)
 end
 
+-- ── the panels (SkinPaint.lua's until its minor 11, LK-05; moved unchanged) ────────────────────
+
+local PANEL = { fill = "panel.bg", border = "panel.border" }
+local NAV_SLOTS = { bg = "nav.bg", border = "nav.border" }
+local INSET = { fill = "input.bg", border = "input.border", style = "input.borderStyle",
+                size = "input.borderSize" }
+
+local function panel(owner, frame, opts, name, spec)
+  if type(frame) ~= "table" then return end
+  local rec = P.track(owner, frame, name, opts)
+  opts = type(opts) == "table" and opts or {}
+  P.markStock(rec, frame, opts)
+  local T = P.T(owner)
+  if opts.nav then
+    -- The settings nav rail keeps its own backdrop art and is recolored (OptionsNav's pane); its
+    -- colors are saved first, so P.unpaint can put them back (minor 8: the panel exception, live).
+    if P.hasBackdrop(frame) then P.saveBackdrop(rec, frame) end
+    T = P.remap(owner, T, opts.tokens, NAV_SLOTS, nil, name)
+    return P.recolor(frame, T["nav.bg"], T["nav.border"])
+  end
+  if opts.inset then spec = INSET end
+  T = P.remap(owner, T, opts.tokens, { bg = spec.fill, border = spec.border }, P.FILL_SLOTS, name)
+  P.box(rec, frame, T, spec, opts)
+end
+
+--- S.Panel(frame, opts): a flat panel, `panel.bg` under a `panel.border` edge (LootHistory's list
+--- panels). `opts.inset` paints it as an inset (`input.*`); `opts.noBg`, `opts.noBorder` leave out
+--- either half; `opts.nav` recolors the backdrop the frame already wears with `nav.bg` /
+--- `nav.border` (the settings nav rail). `opts.tokens` (SkinPaint minor 11) remaps `bg` and `border` (the
+--- panel's, the inset's or the nav rail's) to a library or owner token by NAME (a caution callout).
+--- Draws no Media icon.
+prim.Panel = function(owner, frame, opts) return panel(owner, frame, opts, "Panel", PANEL) end
+
+--- S.Inset(frame, opts): a recessed area, the input colors (`input.bg`, `input.border`, its style
+--- and size). `opts.tokens` remaps `bg` and `border` as Panel's does. Draws no Media icon.
+prim.Inset = function(owner, frame, opts) return panel(owner, frame, opts, "Inset", INSET) end
+
+-- ── the stock-art faders (SkinPaint.lua's until its minor 11) ───────────────────────────────
+
+--- S.FadeRegions(frame, ...): fade every texture region of `frame` (and of each further frame) that
+--- no primitive made, prior alphas recorded, under every skin, Ka0s Default included (SkinPaint
+--- minor 6).
+prim.FadeRegions = function(owner, frame, ...)
+  if not P.isFrame(frame) then return end
+  local rec = P.track(owner, frame, "FadeRegions", ...)
+  rec.regions.stock = true
+  local frames = { frame, ... }
+  for _, f in ipairs(frames) do
+    if P.isFrame(f) and type(f.GetRegions) == "function" then
+      for _, r in ipairs({ f:GetRegions() }) do
+        if P.isTexture(r) and not lib.__ours[r] then P.fade(rec, r) end
+      end
+    end
+  end
+end
+
+--- S.FadeNineSlice(frame, opts): fade the nine pieces of `frame.NineSlice`, under every skin, Ka0s
+--- Default included.
+prim.FadeNineSlice = function(owner, frame, opts)
+  if not P.isFrame(frame) then return end
+  local rec = P.track(owner, frame, "FadeNineSlice", opts)
+  rec.regions.stock = true
+  local ns = rawget(frame, "NineSlice")
+  if not P.isFrame(ns) then return end
+  for _, k in ipairs(P.NINE_KEYS or {}) do P.fade(rec, P.field(ns, k, "Texture")) end
+end
+
 -- ── text and fonts ───────────────────────────────────────────────────────────────────────────
 
 local TEXT_ROLE = {
@@ -217,12 +333,24 @@ local TEXT_FONT = { title = "title", heading = "title", headingAlt = "title" }
 
 --- S.Text(fs, role): a text role, "body", "muted", "heading", "headingAlt", "accent", "disabled",
 --- "link", "linkHot" or "title": its color and its font (the title font for the title and heading
---- roles, the body font for the rest). Draws no Media icon.
-prim.Text = function(owner, fs, role)
+--- roles, the body font for the rest). Or (minor 5) a token NAME, library or owner ("dw.note",
+--- "sem.good"): the color from that token, in the body font, replayed on a skin switch like a role.
+--- A name the owner cannot read (logged once) or a token that is not a color draws as "body".
+--- S.Text(fs, role, { panel = true }) (minor 6, LK-05): the string is on the owner's settings panel,
+--- so it is given back, its own color and font, while the owner ignores its panel (P.panelIgnored),
+--- live both ways. Without it Text paints whatever that switch says, as a window string must; Ignore
+--- fonts reaches it either way, through P.font. Draws no Media icon.
+prim.Text = function(owner, fs, role, opts)
   if not P.isFS(fs) then return end
-  local rec = P.track(owner, fs, "Text", role)
-  role = TEXT_ROLE[role] and role or "body"
-  P.tint(rec, fs, P.T(owner), TEXT_ROLE[role])
+  local rec = P.track(owner, fs, "Text", role, opts)
+  if P.panelIgnored(owner, rec, fs, opts) then return end
+  local T, token = P.T(owner), TEXT_ROLE[role]
+  if not token and type(role) == "string" and role:find(".", 1, true)
+    and type(lib.__RemapName) == "function" and lib:__RemapName(owner, role, "Text")
+    and (T[role] == nil or type(T[role]) == "table") then   -- a color token; never a face or a size
+    token = role
+  end
+  P.tint(rec, fs, T, token or "text.body")
   P.font(owner, rec, fs, TEXT_FONT[role] or "body")
 end
 
@@ -336,14 +464,16 @@ end
 
 --- S.BarStyle(): a fresh table of the HUD tokens: `texture` (the LSM path, or nil), `textureKey`,
 --- `gloss`, `bg`, `border`, `borderStyle`, `borderSize`, `font` (path or nil), `fontKey`, `fontSize`,
---- `outline`, `iconBorder`.
+--- `outline`, `iconBorder`. `font`, `fontKey` and `outline` are nil while the owner ignores fonts
+--- (minor 6, R-1): they read through `Skin:Token`, which leaves the HUD's face and outline alone then.
 prim.BarStyle = function(owner)
   local T = P.T(owner)
+  local face, outline = lib:Token(owner, "hud.font"), lib:Token(owner, "hud.outline")
   return {
     texture = P.media("statusbar", T["bar.texture"]), textureKey = T["bar.texture"],
     gloss = T["bar.gloss"] == true, bg = T["bar.bg"], border = T["bar.border"],
     borderStyle = T["bar.borderStyle"], borderSize = T["bar.borderSize"],
-    font = P.media("font", T["hud.font"]), fontKey = T["hud.font"], fontSize = T["hud.fontSize"],
-    outline = T["hud.outline"], iconBorder = T["icon.border"],
+    font = P.media("font", face), fontKey = face, fontSize = T["hud.fontSize"],
+    outline = outline, iconBorder = T["icon.border"],
   }
 end

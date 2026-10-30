@@ -48,11 +48,16 @@
 --     menu, the reorder ghost, any library singleton) are NEVER handed to EllesmereUI: they keep the
 --     library's technique, colored from EllesmereUI's getters, because a one-way paint on a pooled
 --     frame would follow it into another addon.
+--   * A call that remaps a slot to another token (`opts.tokens`, minor 2) is the library's too: a
+--     danger button or a callout keeps its meaning, painted with the library's technique from the
+--     EllesmereUI-derived tokens, since EllesmereUI's facade has no slot to take it.
 
 local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 
-local EUI_MINOR = 1
+-- Minor 2 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): a call whose options
+-- carry a non-empty `tokens` remap takes the library's technique rather than EllesmereUI's.
+local EUI_MINOR = 2
 if lib.__euiMinor and lib.__euiMinor >= EUI_MINOR
   and lib.__euiShellMinor == lib.MINOR then return end
 lib.__euiMinor      = EUI_MINOR
@@ -247,11 +252,19 @@ local function trackEUI(owner, target, name, ...)
   return lib:Track(owner, target, name, ...)
 end
 
+--- True when a call's options table remaps a slot (`opts.tokens`, non-empty): EllesmereUI's facade
+--- cannot take it, so the library paints it (minor 2).
+local function remapped(opts)
+  return type(opts) == "table" and type(opts.GetObjectType) ~= "function"
+    and type(opts.tokens) == "table" and next(opts.tokens) ~= nil
+end
+
 --- One EllesmereUI call for `owner`: recorded, the options stripped, under pcall. A shared target,
---- or an owner EllesmereUI stopped painting, takes the library's technique instead.
+--- a call that remaps a slot, or an owner EllesmereUI stopped painting, takes the library's
+--- technique instead.
 local function euiCall(name)
   return function(owner, target, ...)
-    if isShared(target) or lib.euiRefused[owner] then
+    if isShared(target) or lib.euiRefused[owner] or remapped((...)) then
       local fn = lib.prim[name]
       if fn then return fn(owner, target, ...) end
       return

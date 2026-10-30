@@ -17,7 +17,8 @@
 -- never repaints the other's frames.
 --
 --   lib.skins[key]       the registered skin definitions (SkinDefs.lua registers them)
---   lib.owners[owner]    { label, get, set, source, skin, font, texture, pendingReload, listeners }
+--   lib.owners[owner]    { label, get, set, source, skin, font, texture, pendingReload, listeners,
+--                          tokens, tokGen }
 --   lib.painted[frame]   weak-keyed: { owner, seq, calls = { [prim] = args }, order = { prim, ... } }
 --   lib.byOwner[owner]   weak-keyed set of that owner's painted frames
 --   lib.facades[owner]   the owner's facade S, one table kept across minors
@@ -61,7 +62,8 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 
 -- Minor 3: ResetToSkin sets a setting's `<key>FromSkin` companion where it has one, and a bool key
 -- (a companion named directly) to true, so the sentinel never lands in a media pick or a bool
--- (OptionsCompose minor 12's companions; LK-07 of the skinning run).
+-- (OptionsCompose minor 12's companions; LK-07 of the skinning run). Only a STORED companion was
+-- seen until minor 8, which recognizes one by its name.
 -- Minor 4: OwnerLabel and WriteChoice, the read and the write of a registration the Appearance tab's copy to
 -- every Ka0s addon needs (OptionsAppearance.lua; LK-10 of the skinning run).
 -- Minor 5: each owner's two exceptions, the Appearance tab's "Ignore settings panel" and "Ignore
@@ -75,7 +77,27 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- LibSharedMedia cannot resolve leaves the skin's own token in place, and the owner repaints when a
 -- media pack registers the key later (`LibSharedMedia_Registered`); `FROM_SKIN` stored as an
 -- override means the skin's own; `__BaseTokens` answers the owner's table without its overrides.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 6
+-- Minor 7: owner tokens (LK-01 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT).
+-- `RegisterOwner(owner, { tokens = { ["<ns>.<name>"] = { default, follow, skins } } })` names an
+-- addon's own colors (or any token value), laid over the owner's table in `__Tokens` after its
+-- overrides, so `Token`, `Color`, the facade and every primitive that reads a token NAME resolve
+-- them. Ka0s Default answers `default` (the addon's pixels today), a skin its `skins` entry, else the
+-- `follow` library token's value in that skin; the eui source the follow token's EllesmereUI value. A
+-- name with no dot, a schema name or a malformed definition is refused and logged once. And
+-- `__RemapName`, the check a primitive's `opts.tokens` slot remap makes of each name (LK-02).
+-- And `__DrawsKey`, the key an owner draws by, which a primitive's `opts.stockDefault` asks (LK-05).
+-- Minor 8: ResetToSkin sets a companion named directly (a key ending in `FromSkin`) to true whether
+-- it is stored or not, where minor 3 recognized one only when it already held a bool and wrote the
+-- sentinel into an absent one, which Resolve reads as not following (AceDB strips a companion equal
+-- to its default). `opts.companions` sets every listed pick's companion, stored or not, for a host
+-- that names its picks (LK-07 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, R-6).
+-- And `DrawsKey`, minor 7's `__DrawsKey` made public (lib-level, not a facade member; LK-10, R-9):
+-- `__DrawsKey` stays one release as its alias. And Ignore fonts reaches the HUD (LK-01, R-1, D-09):
+-- while the owner ignores fonts, `Token` answers nil for `hud.font` and `hud.outline` and `Resolve`
+-- answers the stored value for them (nil for a stored FROM_SKIN), whatever the companion says.
+-- And the stock look is retired (LK-02, R-2): no primitive reads `opts.stockDefault` any more
+-- (SkinPaint minor 12), so the library itself no longer asks `DrawsKey`; a host may.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 8
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -123,6 +145,12 @@ lib.__resolved = {}
 -- Each owner's token table with its overrides over it, `{ base, font, texture, t }`. A cache like
 -- `__resolved`, emptied on load so a newer minor's override rules apply.
 lib.__overTok = {}
+-- Each owner's token table with its owner tokens over it, `{ from, key, gen, t }` (minor 7). A cache
+-- like `__overTok`, emptied on load.
+lib.__ownTok = {}
+-- The owner token names refused per owner, `[owner][name] = why`, so each is logged once. Kept across
+-- minors: a newer copy re-registering the same bad name must not log it again.
+lib.__tokRefused = lib.__tokRefused or {}
 
 local SOURCE_OK = { ka0s = true, eui = true }
 
@@ -255,6 +283,129 @@ local function takeHooks(o, opts, owner)
   o.label = type(opts.label) == "string" and opts.label or o.label or owner
 end
 
+-- ── owner tokens (minor 7) ───────────────────────────────────────────────────────────────────
+
+--- True when `name` is a library token (a `lib.SCHEMA` name). With no SkinDefs.lua loaded nothing is.
+local function isSchemaName(name)
+  local idx = lib.__schemaIndex
+  return idx ~= nil and idx[name] ~= nil
+end
+
+--- True when `ns` (a name's first dotted segment) is a library token family (`text`, `sem`,
+--- `gtip`, ...: the first segment of any `lib.SCHEMA` name), so a later SkinDefs minor may add a
+--- library token under it. The set is built once per schema index.
+local function isFamily(ns)
+  local idx = lib.__schemaIndex
+  if idx == nil then return false end
+  if lib.__famFrom ~= idx then
+    local fam = {}
+    for n in pairs(idx) do fam[n:match("^[^%.]+")] = true end
+    lib.__fam, lib.__famFrom = fam, idx
+  end
+  return lib.__fam[ns] == true
+end
+
+--- Why `name` cannot be an owner token's name, or nil: it needs a dot inside it, and its namespace
+--- is never a library token family, so no later library token can take it.
+local function nameProblem(name)
+  if type(name) ~= "string" or not name:find("^[^%.].*%.") or name:sub(-1) == "." then
+    return "a name carries the owner's namespace and a dot (\"dw.upgrade\")"
+  end
+  local ns = name:match("^[^%.]+")
+  if isSchemaName(name) or isFamily(ns) then return "its namespace, " .. ns .. ", is a library token family" end
+  return nil
+end
+
+-- The Lua type a schema kind's value has.
+local KIND_TYPE = { color = "table", colors = "table", string = "string", number = "number", bool = "boolean" }
+
+--- Why `def` cannot be an owner token's definition, or nil. A `follow` token's kind must agree
+--- with the default's type (a color never follows `font.body`).
+local function defProblem(def)
+  if type(def) ~= "table" then return "the definition is not a table { default, follow, skins }" end
+  if def.default == nil then return "it has no default (Ka0s Default's value)" end
+  local follow = def.follow
+  if follow ~= nil and not (type(follow) == "string" and (lib.__schemaIndex == nil or isSchemaName(follow))) then
+    return "follow names no library token"
+  end
+  local want = follow and KIND_TYPE[kindOf(follow)]
+  if want and want ~= type(def.default) then
+    return "follow is a " .. kindOf(follow) .. " token and the default a " .. type(def.default)
+  end
+  if def.skins ~= nil and type(def.skins) ~= "table" then return "skins is not a table" end
+  return nil
+end
+
+--- Why owner token `name` with definition `def` cannot be taken, or nil when it can.
+local function tokenProblem(name, def)
+  return nameProblem(name) or defProblem(def)
+end
+
+--- Refuse owner token `name` and log it once per owner and name: through the owner's `opts.log`
+--- when it gave one, else to the client's error handler.
+local function refuseToken(o, owner, name, why, verb)
+  local seen = lib.__tokRefused[owner] or {}
+  lib.__tokRefused[owner] = seen
+  local key = tostring(name)
+  if seen[key] then return end
+  seen[key] = why
+  local line = MAJOR .. ": " .. owner .. " token " .. key .. " " .. (verb or "refused") .. ": " .. why
+  if type(o.log) ~= "function" then return report(line) end
+  local ok, err = pcall(o.log, line)
+  if not ok then report(err) end
+end
+
+--- A definition's `skins` as taken: an entry whose value's type is not the default's is refused
+--- (logged once, the rest kept); a key no registered skin carries is kept, for a skin registered
+--- later, and logged once, since it is most often a misspelling.
+local function takeSkins(o, owner, name, def)
+  if def.skins == nil then return nil end
+  local out, want = {}, type(def.default)
+  for k, v in pairs(def.skins) do
+    local at = name .. ".skins." .. tostring(k)
+    if v ~= false and type(v) ~= want then
+      refuseToken(o, owner, at, "the value is a " .. type(v) .. " and the default a " .. want)
+    else
+      if not lib.skins[k] then refuseToken(o, owner, at, "no registered skin has this key", "kept") end
+      out[k] = v
+    end
+  end
+  return out
+end
+
+--- Take a registration's owner tokens onto the record: each good name added or replaced, each bad
+--- one refused. Nothing when `tokens` is not a table.
+local function takeTokens(o, owner, tokens)
+  if type(tokens) ~= "table" then return end
+  o.tokens = o.tokens or {}
+  for name, def in pairs(tokens) do
+    local why = tokenProblem(name, def)
+    if why then
+      refuseToken(o, owner, name, why)
+    else
+      o.tokens[name] = { default = def.default, follow = def.follow, skins = takeSkins(o, owner, name, def) }
+    end
+  end
+  o.tokGen = (o.tokGen or 0) + 1
+end
+
+--- True when `name` names a token `owner` can read: a library token, or one of the owner's own
+--- tokens. Anything else (a name no token carries, or a value where a name belongs) answers false,
+--- logged once per owner, `where` and name (opts.log, else the client's error handler). The question
+--- a primitive's `opts.tokens` remap asks of each slot (SkinPaint minor 11). Internal.
+function lib:__RemapName(owner, name, where)
+  local o = self.owners[owner]
+  if type(name) == "string" then
+    if self.__schemaIndex == nil or isSchemaName(name) then return true end
+    if o and o.tokens and o.tokens[name] then return true end
+  end
+  if o then
+    local label = tostring(where) .. " " .. (type(name) == "string" and name or "<" .. type(name) .. ">")
+    refuseToken(o, owner, label, "the remap names no token (a library or owner token NAME)")
+  end
+  return false
+end
+
 --- Register `owner` (the addon folder name) at the consumer's file load. `opts.get()` answers the
 --- profile's `{ source, skin }`; `opts.set(source, skin, ignore, media)` writes it (copy to every
 --- Ka0s addon; `ignore` since minor 5, `{ panel, fonts }` or nil, and `media` since minor 6,
@@ -263,6 +414,13 @@ end
 --- EllesmereUI provider writes when it refuses or stops (SkinEUI.lua). The choice is read once,
 --- here; afterwards it moves only through `SetChoice`. A second call updates the hooks and keeps the
 --- applied choice. Answers the owner's facade.
+--- `opts.tokens` (minor 7), optional, is the owner's own tokens, `{ ["<ns>.<name>"] = { default =
+--- <Ka0s Default's value>, follow = "<library token>", skins = { [<skin key>] = <value>|false } } }`:
+--- read through `Token`, `Color`, the facade and any primitive opt that names a token, like a library
+--- token. A name carries the owner's namespace and a dot, never a library token family's (`text`,
+--- `sem`, ...); a bad name or definition is refused and logged once (`opts.log`, else the client's error handler), and the
+--- rest still land. A second call adds its tokens and replaces a name it repeats; it does not repaint,
+--- so register them at file load, before the first paint.
 function lib:RegisterOwner(owner, opts)
   requireOwner(owner, "RegisterOwner")
   opts = type(opts) == "table" and opts or {}
@@ -273,6 +431,7 @@ function lib:RegisterOwner(owner, opts)
     self.owners[owner] = o
   end
   takeHooks(o, opts, owner)
+  takeTokens(o, owner, opts.tokens)
   local hook = self.__euiOnOwner
   if type(hook) == "function" then
     local ok, err = pcall(hook, owner)
@@ -489,6 +648,15 @@ function lib:__FontsIgnored(owner)
   return o ~= nil and o.ignoreFonts == true
 end
 
+-- The HUD's two font tokens: while the owner ignores fonts, the stored value wins for them in
+-- `Resolve` and `Token` (minor 8, R-1). `hud.fontSize` is out of scope; `__Tokens` is unchanged,
+-- since P.font already hands every painted string back through `__FontsIgnored`.
+local HUD_FONT = { ["hud.font"] = true, ["hud.outline"] = true }
+
+local function hudFontIgnored(self, owner, name)
+  return HUD_FONT[name] == true and self:__FontsIgnored(owner)
+end
+
 -- ── the owner's font and texture ─────────────────────────────────────────────────────────────
 
 --- The owner's overrides: font, texture, each an LSM key (a `font` and a `statusbar` key), or nil
@@ -583,29 +751,90 @@ local function withOverrides(owner, base)
   return t
 end
 
---- The owner's token table without its overrides (minor 6): its skin resolved (`ResolveSkin`), or,
---- while EllesmereUI paints the owner, the table SkinEUI.lua derives from EllesmereUI's accent, panel
---- color and font. What the Skin tab's "Skin's own" entries name. Shared: never write to it.
---- Internal.
-function lib:__BaseTokens(owner)
-  local hook = self.__euiTokens
+--- The owner's base table and the key its owner tokens resolve by: "eui" while EllesmereUI paints
+--- the owner, else the skin key it draws.
+local function baseOf(owner)
+  local hook = lib.__euiTokens
   local t = type(hook) == "function" and hook(owner) or nil
-  if t then return t end
-  local _, skin = self:GetChoice(owner)
-  return self:ResolveSkin(skin)
+  if t then return t, "eui" end
+  local _, skin = lib:GetChoice(owner)
+  local key = effectiveKey(skin)
+  return lib:ResolveSkin(key), key
+end
+
+--- The owner's token table without its overrides (minor 6) or its owner tokens (minor 7): its skin
+--- resolved (`ResolveSkin`), or, while EllesmereUI paints the owner, the table SkinEUI.lua derives
+--- from EllesmereUI's accent, panel color and font. What the Skin tab's "Skin's own" entries name.
+--- Shared: never write to it. Internal.
+function lib:__BaseTokens(owner)
+  return (baseOf(owner))
+end
+
+--- The key `owner` draws by: "eui" while EllesmereUI paints it (its derived tokens, the library's
+--- technique when EllesmereUI is refused included), else the skin key it wears (`lib.DEFAULT` for
+--- Ka0s Default, for a key no skin registers, and for an owner on `eui` before EllesmereUI paints
+--- it: the live fallback). An unregistered owner answers `lib.DEFAULT`. Minor 7 (LK-05 of the
+--- skinning rollout); public since minor 8 (R-9), lib-level and never a facade member.
+function lib:DrawsKey(owner)
+  local _, key = baseOf(owner)
+  return key
+end
+--- Minor 7's internal name, kept one release as an alias for a copy or test that still names it.
+lib.__DrawsKey = lib.DrawsKey
+
+--- One owner token's value under `key` (a skin key, or "eui"), reading the follow token from `t`.
+--- Ka0s Default answers the default, unless the owner's font or texture override moved the follow
+--- token (`t` against the un-overridden `base`): then the override; a skin its own entry (`false` is
+--- none, unless the token is a bool); otherwise, and always under eui, the follow token's value,
+--- else the default.
+local function ownValue(def, key, t, base)
+  if key == lib.DEFAULT then
+    local f = def.follow and t[def.follow]
+    if f ~= nil and f ~= base[def.follow] then return f end
+    return def.default
+  end
+  local v
+  if key ~= "eui" and def.skins then v = def.skins[key] end
+  if v ~= nil and v ~= false then return v end
+  if v == false then
+    if type(def.default) == "boolean" then return false end
+    return nil
+  end
+  local f = def.follow and t[def.follow]
+  if f ~= nil then return f end
+  return def.default
+end
+
+--- `t` with `owner`'s owner tokens over it (minor 7): `t` itself when the owner registered none,
+--- else a derived copy cached on (t, key, the owner's token generation). `base` is `t` without the
+--- overrides.
+local function withOwnTokens(owner, t, key, base)
+  local o = lib.owners[owner]
+  local own = o and o.tokens
+  if not own or next(own) == nil then return t end
+  local c = lib.__ownTok[owner]
+  if c and c.from == t and c.key == key and c.gen == o.tokGen then return c.t end
+  local out = {}
+  overlay(out, t)
+  for name, def in pairs(own) do out[name] = ownValue(def, key, t, base) end
+  lib.__ownTok[owner] = { from = t, key = key, gen = o.tokGen, t = out }
+  return out
 end
 
 --- The owner's complete token table: `__BaseTokens`, with the owner's font and texture overrides
---- over it (minor 6) where they resolve. Shared: never write to it. An unregistered owner reads Ka0s
---- Default. Internal (SkinPaint.lua's P.T and `Token` read it); a host reads tokens through `Token`
---- and `Color`.
+--- over it (minor 6) where they resolve, and its owner tokens over that (minor 7). Shared: never
+--- write to it. An unregistered owner reads Ka0s Default. Internal (SkinPaint.lua's P.T and `Token`
+--- read it); a host reads tokens through `Token` and `Color`.
 function lib:__Tokens(owner)
-  return withOverrides(owner, self:__BaseTokens(owner))
+  local base, key = baseOf(owner)
+  return withOwnTokens(owner, withOverrides(owner, base), key, base)
 end
 
 --- The owner's resolved token `name` (from `__Tokens`): a color is `{ r, g, b, a }`, shared, never
---- written to. An unregistered owner reads Ka0s Default. nil for a token the skin leaves alone.
+--- written to. An unregistered owner reads Ka0s Default. nil for a token the skin leaves alone,
+--- which `hud.font` and `hud.outline` are while the owner ignores fonts (minor 8, R-1).
 function lib:Token(owner, name)
+  if hudFontIgnored(self, owner, name) then return nil end
   return self:__Tokens(owner)[name]
 end
 
@@ -616,14 +845,59 @@ function lib:Color(owner, name)
   return c[1], c[2], c[3], c[4] or 1
 end
 
+-- A remapped slot whose named token resolves to nil: the view answers nil, not the primitive's own.
+local NONE = {}
+
+local function orNone(v) if v == nil then return NONE end return v end
+
+--- `T` seen through a caller's slot remap (LK-02; SkinPaint minor 11's P.remap): `tokens` is the
+--- caller's `opts.tokens`, `{ [slot] = token name }`; `slots` maps each slot the primitive has to the
+--- library token it paints from; `fills` names the slots that are fills, whose `<token>Top` /
+--- `<token>Bottom` gradient pair follows the named token's (none when it has none). A slot whose
+--- name is not a token the owner can read, or whose token is not a color (`bar.texture`), is left
+--- as it was and logged once (`__RemapName`, from `where`). Answers `T` itself when nothing is remapped, else a read-only view over it. Internal.
+function lib:__Remap(owner, T, tokens, slots, fills, where)
+  if type(tokens) ~= "table" or next(tokens) == nil then return T end
+  local ov
+  for slot, target in pairs(slots) do
+    local name = tokens[slot]
+    local at = tostring(where) .. "." .. slot
+    local ok = name ~= nil and self:__RemapName(owner, name, at)
+    local v = ok and T[name]
+    if ok and v ~= nil and type(v) ~= "table" then   -- a string, number or bool token: no color
+      local o = self.owners[owner]
+      if o then refuseToken(o, owner, at .. " " .. name, "the remap names a " .. type(v) .. " token, not a color") end
+    elseif ok then
+      ov = ov or {}
+      ov[target] = orNone(T[name])
+      if fills and fills[slot] then
+        ov[target .. "Top"], ov[target .. "Bottom"] = orNone(T[name .. "Top"]), orNone(T[name .. "Bottom"])
+      end
+    end
+  end
+  if not ov then return T end
+  return setmetatable({}, { __index = function(_, k)
+    local v = ov[k]
+    if v == NONE then return nil end
+    if v ~= nil then return v end
+    return T[k]
+  end })
+end
+
 --- True when `value` is the FROM_SKIN sentinel.
 function lib.IsFromSkin(value)
   return value == lib.FROM_SKIN
 end
 
 --- `value`, or the owner's token `kind` when `value` is the FROM_SKIN sentinel or `fromSkin` (a
---- setting's companion "follow the skin" bool) is true.
+--- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`
+--- and `hud.outline` answer the stored `value` whatever the companion says, and nil for a stored
+--- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands.
 function lib:Resolve(owner, kind, value, fromSkin)
+  if hudFontIgnored(self, owner, kind) then
+    if value == self.FROM_SKIN then return nil end
+    return value
+  end
   if value == self.FROM_SKIN or fromSkin == true then return self:Token(owner, kind) end
   return value
 end
@@ -641,21 +915,26 @@ local function walk(t, path)
   return parent, segs[#segs]
 end
 
---- Put every listed key of `profile` back on the skin (the owner's ruling R3). A key holding a
---- color (a table), or one with a `<key>FromSkin` companion beside it (OptionsCompose's `fromSkin`
---- pickers, minor 3), keeps its value and gets the companion set to true; a bool key (a companion
---- named directly) is set to true; any other key takes the FROM_SKIN sentinel. Keys may be dotted
---- paths into nested tables; a path whose table does not exist is skipped. Answers how many keys it
---- set. Called as `Skin.ResetToSkin(p, keys)`.
-function lib.ResetToSkin(profile, keys, extra)
-  if profile == lib then profile, keys = keys, extra end
+--- Put every listed key of `profile` back on the skin (the owner's ruling R3). A key whose name
+--- ends in `FromSkin` is a companion named directly and is set to true, stored or not and whatever
+--- it held (minor 8). A key holding a color (a table), or one with a `<key>FromSkin` companion
+--- beside it (OptionsCompose's `fromSkin` pickers, minor 3), keeps its value and gets the companion
+--- set to true; with `opts.companions` every listed key does, stored or not (minor 8); any other
+--- bool key is set to true; any other key takes the FROM_SKIN sentinel. Keys may be dotted paths
+--- into nested tables; a path whose table does not exist is skipped. Answers how many keys it set.
+--- Called as `Skin.ResetToSkin(p, keys[, opts])`.
+function lib.ResetToSkin(profile, keys, opts, extra)
+  if profile == lib then profile, keys, opts = keys, opts, extra end
   if type(profile) ~= "table" or type(keys) ~= "table" then return 0 end
+  local companions = type(opts) == "table" and opts.companions == true
   local n = 0
   for _, path in ipairs(keys) do
     local parent, leaf = walk(profile, tostring(path))
     if type(parent) == "table" then
       local v = parent[leaf]
-      if type(v) == "table" or parent[leaf .. "FromSkin"] ~= nil then
+      if leaf:match("FromSkin$") then
+        parent[leaf] = true
+      elseif companions or type(v) == "table" or parent[leaf .. "FromSkin"] ~= nil then
         parent[leaf .. "FromSkin"] = true
       elseif type(v) == "boolean" then
         parent[leaf] = true

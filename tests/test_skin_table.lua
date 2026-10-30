@@ -194,9 +194,10 @@ test("skin table: on Ka0s Default every table surface draws the value it drew be
     assertTable(today, "Ka0s Default")
     local data = rows()[2]
     assertEqual(rgba(rawget(data.boundIcon, "__vertex")), rgba({ 0.30, 0.82, 0.42 }), "BoP green, as before")
-    -- Ka0s Default writes the client's quality colors out as q.* (LibKa0s SkinDefs minor 8), so the
-    -- epic is the client's purple by value; the mock's ITEM_QUALITY_COLORS answer white for all.
-    assertEqual(textColor(data.cells.item), rgba({ 0.64, 0.21, 0.93 }), "the client's epic color, as before")
+    -- Ka0s Default writes the client's quality colors out as q.* (LibKa0s SkinDefs minor 8; byte for
+    -- byte since minor 16, a335ee), so the epic is the client's purple by value; the mock's
+    -- ITEM_QUALITY_COLORS answer white for all.
+    assertEqual(textColor(data.cells.item), rgba({ 163 / 255, 53 / 255, 238 / 255 }), "the client's epic color, as before")
     assertTrue(rawget(rows()[1].header, "__text"):find("|cff808080(3)|r", 1, true) ~= nil, "the count's bytes")
     -- The header band and the scroll bar are recorded. The header lays no band of its own; the scroll
     -- bar takes its track, as under every skin (LibKa0s SkinPaintControls minor 4).
@@ -320,7 +321,7 @@ end)
 
 test("skin table: NS.QualityColor reads q.*, which Ka0s Default sets to the client's colors", function()
   assertEqual(rgba({ NS.QualityColor(4) }), rgba({ Skin:Color(OWNER, "q.epic") }), "Ka0s Default's q.epic")
-  assertEqual(rgba({ NS.QualityColor(4) }), rgba({ 0.64, 0.21, 0.93 }), "the client's epic, written out")
+  assertEqual(rgba({ NS.QualityColor(4) }), rgba({ 163 / 255, 53 / 255, 238 / 255 }), "the client's epic (a335ee), written out")
   NS.ApplySkinChoice("ka0s", SW.key(Skin))
   local ok, err = pcall(function()
     assertEqual(rgba({ NS.QualityColor(5) }), rgba({ Skin:Color(OWNER, "q.legendary") }), "the switch skin's legendary")
