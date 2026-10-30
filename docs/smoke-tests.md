@@ -1978,8 +1978,8 @@ clipped or overlapping because the face is wider, or a bar of data still flat or
 status bar. Since LibKa0s v1.81.0 the strings the library draws for this addon's controls and tool
 windows are Oxanium too where they read Friz Quadrata before: the filter bar's dropdown menus, the
 Search suggestions, the Timeline chart's tick labels, the test-mode and simulation strips' line, the
-AH list's drag label, the debug console's title-bar words, the perf panel's columns and the sim
-panel's labels; the strips' line keeps its gold. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
+debug console's title-bar words, the perf panel's columns and the sim
+panel's labels; the strips' line keeps its gold, and the AH list's drag ghost keeps the game's face. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
 SO-06 gave Ka0s Default the Oxanium face and its own Ka0s Default bar; by LH-02 of the skin library
 follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result:
 
@@ -2127,7 +2127,7 @@ texture. Result:
 on → with no reload every string goes back to the game's own face; the override stays selected in
 **Font**. Since LibKa0s v1.81.0 that includes the strings the library draws for this addon: the
 filter bar's dropdown menus, the Search suggestions, the Timeline's tick labels, the test-mode and
-simulation strips, the AH list's drag label, and the debug console's, perf panel's and sim panel's
+simulation strips, and the debug console's, perf panel's and sim panel's
 labels. Turn it off → the override's face comes back. Loot History has no HUD, so there is no HUD
 text to check. Fail: a string that keeps the override or the skin's face with **Ignore fonts** on.
 (Amended by LH-02 of the skin library follow-ups, 2026-10-30, R-1 and R-5.) Result:
