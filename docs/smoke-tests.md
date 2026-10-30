@@ -17,7 +17,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 9 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version` |
-| PANEL-1 to 23 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin |
+| PANEL-1 to 24 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 37 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02) |
+| SKIN-1 to 39 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -340,7 +340,8 @@ stick, a reload prompt on a Ka0s-to-Ka0s pick, or a Lua error. (Amended by LH-01
 LibKa0s#63: the label.) Result:
 
 **PANEL-23. The AH price table follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s
-Default**, `/lh config` → General → **AH price** with one price addon installed and a source ticked
+Default**, with **Ignore settings panel** off on the Skin tab (a new profile has it on; PANEL-24
+covers it on), `/lh config` → General → **AH price** with one price addon installed and a source ticked
 → the table looks exactly as before the skinning run: off-gold column headers, a live row's addon
 name near-white and its module white-gray, idle and missing rows gray, the green tick on a collecting
 row and the red mark on the others, **Collecting data** green, **Not collecting data** yellow,
@@ -349,7 +350,8 @@ white title over a gold description. Switch to **Skin**, pick **Azeroth**, come 
 price** → with no reload the headers, row text, ticks, status words and ⓘ marks take Azeroth's
 colors and stay readable. Pick **Ka0s Default** again → the first look comes back exactly. Fail: a
 row or tick that keeps the old skin until `/reload`, a changed look on Ka0s Default, or a Lua
-error. Result:
+error. (Amended by LH-02 of the skin library follow-ups, 2026-10-30, D-03: the Scope it assumes.)
+Result:
 
 **PANEL-24. The panel's own controls and the Profiles page follow the skin (LH-06; SK-02).** On
 **Ka0s Default**, with **Ignore settings panel** off on the Skin tab, `/lh config` → General →
@@ -359,10 +361,18 @@ dropdown wears Ka0s Default's look, like the library-drawn rows beside them. Swi
 **Profiles** → with no reload the Filters tab's **Clear all…**, the History tab's storage line and
 **Purge history…**, the AH price table's **On** check boxes and the Profiles page's controls take
 Obsidian's look like the library-drawn rows beside them. Pick **Ka0s Default** again → its look
-comes back. Turn **Ignore settings panel** on → with no reload those controls go back stock. Then open another addon's AceGUI options (WeakAuras, or any Ace3 config window) → its
+comes back. Turn **Ignore settings panel** on → with no reload those controls go back stock, and
+the **AH price** table goes with them while Obsidian is still picked: its drag handles, row boxes and
+drag ghost are stock, its headers and row text read in the game's own Friz Quadrata in the table's
+first (Ka0s Default) colors, the status words still green, yellow and red, the ticks green and red,
+and an ⓘ's tooltip a white title over a gold description. Turn it off → the table takes Obsidian back
+with no reload. Then open another addon's AceGUI options (WeakAuras, or any Ace3 config window) → its
 check boxes and buttons are stock, carrying nothing of Loot History's skin. Fail: a control that
-keeps the old skin until `/reload`, a skinned control with **Ignore settings panel** on, another addon's widget
-wearing this skin, the AH price host left floating over another tab, or a Lua error. Result:
+keeps the old skin until `/reload`, a skinned control with **Ignore settings panel** on, an AH table
+header, row, tick, mark or drag box still in Obsidian with it on (one tab mixing stock and skinned),
+another addon's widget wearing this skin, the AH price host left floating over another tab, or a Lua
+error. (Amended by LH-02 of the skin library follow-ups, 2026-10-30, R-5 and D-03: the AH table and
+its drag list follow the Scope.) Result:
 
 ## Profiles
 
@@ -1965,8 +1975,13 @@ Timeline's day columns) wear the **Ka0s Default** bar (dim at the top, a highlig
 short lip) in the colors they had (SKIN-23). Fail: any changed color, edge or spacing, a string still in
 Friz Quadrata (other than the direction glyphs and the close mark, which keep their own face), text
 clipped or overlapping because the face is wider, or a bar of data still flat or on Blizzard's plain
-status bar. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
-SO-06 gave Ka0s Default the Oxanium face and its own Ka0s Default bar.) Result:
+status bar. Since LibKa0s v1.81.0 the strings the library draws for this addon's controls and tool
+windows are Oxanium too where they read Friz Quadrata before: the filter bar's dropdown menus, the
+Search suggestions, the Timeline chart's tick labels, the test-mode and simulation strips' line, the
+AH list's drag label, the debug console's title-bar words, the perf panel's columns and the sim
+panel's labels; the strips' line keeps its gold. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
+SO-06 gave Ka0s Default the Oxanium face and its own Ka0s Default bar; by LH-02 of the skin library
+follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result:
 
 **SKIN-2. The Skin tab (SK-02; LH-01).** Settings → General → **Skin** → it sits second to
 last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches under a
@@ -2018,7 +2033,15 @@ Quadrata.) Result:
 each wears LootHistory's skin: the window edge and title, the console's log lines, line counter and
 scroll bar, the copy windows' scroll bar and dense fill, the panels' buttons. Switch back to **Ka0s
 Default** with the console open → its lines recolor with no reload, and every window looks as before
-the run. Fail: a window, log line or scroll bar on the old colors, or a Lua error. Result:
+the run. Since LibKa0s v1.81.0, also: under Azeroth the console's title-bar words, the perf panel's
+step and command columns and the sim panel's labels read in Azeroth's face, the sim panel's two
+dropdowns and their menus wear the skin, the sim panel's row and button tooltips take the skin's
+tooltip colors, and each window's resize grip takes the skin's icon tint (under Ka0s Default and WoW
+Default it is the game's own grip). Turn **Ignore settings panel** on → none of these windows changes:
+they are windows, not the settings panel. Fail: a window, log line or scroll bar on the old colors, a
+window label still in Friz Quadrata under Azeroth, a window that goes stock with **Ignore settings
+panel**, or a Lua error. (Amended by LH-02 of the skin library follow-ups, 2026-10-30, R-5: the tool
+windows' labels, dropdowns, tooltips and grips.) Result:
 
 **SKIN-9. EllesmereUI on (SK-09; LK EUI).** With EllesmereUI loaded, its third-party skinning on and
 LootHistory on in its Third-Party list → Skin → **Skin source** offers **EllesmereUI**; choosing
@@ -2049,9 +2072,14 @@ Result:
 a History row, an Insights bar and a Timeline point → the tooltip lines are readable and the tooltip
 frame itself is Blizzard's; the reset and purge confirmation popups are stock. Result:
 
-**SKIN-17. The AH price table (SK-17; LH-04, LH-05).** Settings → General → **AH price** under a
-non-default skin → the table follows the skin, and dragging a collecting row shows the drag ghost,
-row boxes and handle in the skin's colors. Result:
+**SKIN-17. The AH price table (SK-17; LH-04, LH-05).** With **Ignore settings panel** off on the
+Skin tab, Settings → General → **AH price** under a non-default skin → the table follows the skin,
+and dragging a collecting row shows the drag ghost, row boxes and handle in the skin's colors; the
+handle's **Drag to re-rank** tooltip line is white. Turn **Ignore settings panel** on (the
+new-profile default) → with no reload the ghost, row boxes and handle are stock (the look the list has with no skin), and so is the table's text (PANEL-24); dragging still re-ranks.
+Fail: drag chrome in the skin's colors with **Ignore settings panel** on, stock drag chrome with it
+off, or a drag that no longer re-ranks. (Amended by LH-02 of the skin library follow-ups, 2026-10-30,
+R-5, R-7 and D-03: the list follows the Scope.) Result:
 
 **SKIN-18. Other Ka0s addons unchanged (CT-01, the leg-2 deferral row; LK-90).** With LootHistory on
 a non-default skin, open two other Ka0s addons' windows, debug consoles, sim panels or test strips and
@@ -2097,7 +2125,12 @@ texture. Result:
 
 **SKIN-24. Ignore fonts wins (LH-01; LibKa0s#63).** With a font override set, turn **Ignore fonts**
 on → with no reload every string goes back to the game's own face; the override stays selected in
-**Font**. Turn it off → the override's face comes back. Result:
+**Font**. Since LibKa0s v1.81.0 that includes the strings the library draws for this addon: the
+filter bar's dropdown menus, the Search suggestions, the Timeline's tick labels, the test-mode and
+simulation strips, the AH list's drag label, and the debug console's, perf panel's and sim panel's
+labels. Turn it off → the override's face comes back. Loot History has no HUD, so there is no HUD
+text to check. Fail: a string that keeps the override or the skin's face with **Ignore fonts** on.
+(Amended by LH-02 of the skin library follow-ups, 2026-10-30, R-1 and R-5.) Result:
 
 **SKIN-25. The copy carries the font and texture (LH-01; LibKa0s#63).** With another Ka0s addon that
 uses skins loaded (Ka0s Skin Tester), set a skin, a font and a texture on Loot History's Skin tab and
@@ -2111,17 +2144,20 @@ that profile's own font and texture (the skin's own on a fresh one), with no rel
 yours again. Reset the profile → both back to *Skin's own*. Result:
 
 **SKIN-27. The skin picker on a fresh profile (LH-01; LibKa0s#64, PK-02).** On the Profiles page create
-a new profile → a small window titled **Choose a skin for Ka0s Loot History** opens with its center
-about three quarters of the way up the screen (not in the middle): a dropdown showing the skin worn
+a new profile → a small window titled **Choose a skin** opens with its center
+about three quarters of the way up the screen (not in the middle), with **Ka0s Loot History** whole
+on its own line under the title and above the dropdown (the window widens to fit it): a dropdown showing the skin worn
 now, an eye button and a gear button beside it, an **Apply** button under it, and a close mark. With
 no other Ka0s addon that uses skins loaded there is no **Apply to all Ka0s addons** button. Drag the
 picker elsewhere, close it, then reset the profile → it opens again, back at the three-quarters spot.
 Also, for a character that never ran this build: log in → the window opens about two seconds after
 the world loads, already painted in the profile's skin. It never opens while the addon is switched off,
-and in combat it waits until combat ends. Fail: a centered window, a title that does not name Ka0s
-Loot History, no window on a new or reset profile, a window on a profile that already closed it, or
+and in combat it waits until combat ends. Fail: a centered window, no **Ka0s Loot History** line
+above the dropdown, a title or name that is cut off, the old **Choose a skin for Ka0s Loot History**
+title, no window on a new or reset profile, a window on a profile that already closed it, or
 one while the addon is off. (Rewritten by LH-01, 2026-10-28, LibKa0s PK-02: its place, its title and
-Apply.) Result:
+Apply. Amended by LH-02 of the skin library follow-ups, 2026-10-30, R-11: the title and the name's
+own line.) Result:
 
 **SKIN-28. The picker's dropdown previews (LH-01; LibKa0s#64, PK-02).** Click the picker's dropdown →
 the window grows to list every skin, each row three color swatches and the skin's name in that skin's
@@ -2413,3 +2449,12 @@ and SKIN-38 (new: a queued picker waits for combat to end).
 
 After LibKa0s v1.79.0 was tagged with SO-04's bar textures (LH-02): SKIN-39 (new: every skin's bars
 wear its own texture).
+
+Owed from the skin library follow-ups (LH-02 of Ka0sAddonsCommonTasks
+`docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS/`, LibKa0s v1.81.0, 2026-10-30): PANEL-23 (amended: with
+**Ignore settings panel** off), PANEL-24 (amended: the AH price table and its drag list go stock with
+the panel, D-03), SKIN-1 (amended: the strings the library newly draws in Oxanium, D-13), SKIN-8
+(amended: the tool windows' labels, dropdowns, tooltips and grips), SKIN-17 (amended: the drag list
+follows the Scope and its handle's tooltip), SKIN-24 (amended: Ignore fonts reaches the library's
+strings) and SKIN-27 (amended: titled **Choose a skin**, the addon's name on its own line above the
+dropdown).
