@@ -605,6 +605,21 @@ local STATUS_TOKEN = {
   collecting = "sem.statusOk", notcollecting = "sem.statusWarn", notinstalled = "sem.statusBad",
 }
 
+-- THE SETTINGS-PANEL SCOPE. The AH price table is on the settings panel, so it follows the Scope's
+-- "Ignore settings panel" like the AceGUI rows and the drag list (LibKa0s WidgetsReorder minor 3,
+-- panel-scoped by default) beside it, and one page never mixes stock and skinned (D-03 of
+-- Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS/). Every paint this file makes on the
+-- table reads NS.SkinPanelColor, which answers Ka0s Default's value (the table's look before skins)
+-- while the panel is ignored. Its strings go through S.Text(fs, token, PANEL), a recorded paint
+-- that gives each its template face back while the panel is ignored, live both ways; the color is
+-- then written over it (the same value while the panel is skinned), because the status colors are
+-- the column's meaning and stay on a stock page.
+local PANEL = { panel = true }
+local function paintText(fs, token)
+  NS.Skin.Text(fs, token, PANEL)
+  fs:SetTextColor(NS.SkinPanelColor(token))
+end
+
 -- The tick column's two states, built once (and again on a skin change, rebuildTicks) the way
 -- modules/BrowserTable.lua builds its sort arrows — the row loop repaints pooled slots on every
 -- refresh and has no business reformatting a constant string each time.
@@ -618,9 +633,9 @@ local STATUS_TOKEN = {
 -- install still reads green-or-red, a shade darker.
 local TICK_ON, TICK_OFF
 local function rebuildTicks()
-  local r, g, b = NS.Skin.Color(STATUS_TOKEN.collecting)
+  local r, g, b = NS.SkinPanelColor(STATUS_TOKEN.collecting)
   TICK_ON = NS.IconMarkup("circle-check", READY, 16, r, g, b)
-  r, g, b = NS.Skin.Color(STATUS_TOKEN.notinstalled)
+  r, g, b = NS.SkinPanelColor(STATUS_TOKEN.notinstalled)
   TICK_OFF = NS.IconMarkup("ban", NOTREADY, 16, r, g, b)
 end
 rebuildTicks()
@@ -667,11 +682,11 @@ local function tipScripts(btn, getTitle, getBody)
     local title = getTitle and getTitle()
     if not title or title == "" then return end
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-    GameTooltip:SetText(title, NS.SkinColor("gtip.value"))
+    GameTooltip:SetText(title, NS.SkinPanelColor("gtip.value"))
     local body = getBody and getBody()
     -- In the tooltip's own default line color (the client's gold), now named: gtip.title.
     if body then
-      local r, g, b = NS.SkinColor("gtip.title")
+      local r, g, b = NS.SkinPanelColor("gtip.title")
       GameTooltip:AddLine(body, r, g, b, true)
     end
     GameTooltip:Show()
@@ -731,9 +746,9 @@ local function paintAuctionRow(r, tag, capture)
 
   -- Addon name: no per-provider color any more — just near-white, dimmed when inactive.
   r.addon:SetText(providerNameOf(tag))
-  r.addon:SetTextColor(NS.SkinColor(live and "text.bodyAlt" or "text.disabled"))
+  paintText(r.addon, live and "text.bodyAlt" or "text.disabled")
 
-  r.module:SetText(dataLabelOf(tag)); r.module:SetTextColor(NS.SkinColor(live and "text.body" or "text.disabled"))
+  r.module:SetText(dataLabelOf(tag)); paintText(r.module, live and "text.body" or "text.disabled")
   -- ⓘ trails the Price module text with a small gap (per-row, since the text width varies).
   local mw = r.module:GetStringWidth() or 0
   r.info:ClearAllPoints()
@@ -741,9 +756,9 @@ local function paintAuctionRow(r, tag, capture)
 
   local text, token = auctionStatus(avail, on)
   r.status:SetText(text)
-  r.status:SetTextColor(NS.SkinColor(token))
+  paintText(r.status, token)
 
-  r.info.tex:SetVertexColor(NS.SkinColor(live and "icon.hot" or "icon.dim"))
+  r.info.tex:SetVertexColor(NS.SkinPanelColor(live and "icon.hot" or "icon.dim"))
 
   -- Enabled box: checked only when actually collecting (an uninstalled source reads unchecked),
   -- and non-interactive when the addon isn't present.
@@ -812,7 +827,7 @@ local function repaintAuctionTable()
   rebuildTicks()
   local ctx = auctionCtx
   if not (ctx and ctx._priRows) then return end
-  for _, fs in ipairs(ctx._priHeads or {}) do fs:SetTextColor(NS.SkinColor("text.headingAlt")) end
+  for _, fs in ipairs(ctx._priHeads or {}) do paintText(fs, "text.headingAlt") end
   local capture = NS.db.profile.settings.auction.capture or {}
   for _, r in ipairs(ctx._priRows) do
     if r._tag then paintAuctionRow(r, r._tag, capture) end
@@ -882,9 +897,8 @@ local function buildAuctionTable(ctx)
     ctx._priHeads = {}
     local function header(x, text)
       local fs = hf:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-      NS.Skin.Font(fs)
       fs:SetPoint("TOPLEFT", hf, "TOPLEFT", gutter + x, HEAD_Y); fs:SetJustifyH("LEFT")
-      fs:SetText(text); fs:SetTextColor(NS.SkinColor("text.headingAlt"))
+      fs:SetText(text); paintText(fs, "text.headingAlt")
       ctx._priHeads[#ctx._priHeads + 1] = fs
     end
     header(ACOL.addon, "Addon"); header(ACOL.module, "Price module")
@@ -901,9 +915,10 @@ local function buildAuctionTable(ctx)
       rf:SetHeight(AROW_H)
       local r = { frame = rf, _gutter = gutter }
 
+      -- The text cells take their face and color from paintAuctionRow (paintText); the tick column
+      -- holds only an inline texture, so its face sets nothing a player sees.
       local function fs(x)
         local f = rf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        NS.Skin.Font(f)
         f:SetPoint("LEFT", rf, "LEFT", gutter + x, 0); f:SetJustifyH("LEFT"); return f
       end
       r.tick = fs(ACOL.tick); r.addon = fs(ACOL.addon)

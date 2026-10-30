@@ -483,9 +483,14 @@ end)
 
 -- ── the AH price table (settings/Panel.lua) ─────────────────────────────────────────────────────
 
+-- The table is on the settings panel, so it follows the skin only while the panel is skinned
+-- (D-03): each case starts with Ignore settings panel off (a new profile has it on) and puts the
+-- applied pair back after.
 local function withAuctionTable(fn)
   reset()
   local ctx = NS.Panel.general
+  local wasPanel, wasFonts = Skin:GetIgnore(OWNER)
+  NS.ApplySkinIgnore(false, false)
   local savedAvail = NS.AuctionPrice.IsProviderAvailable
   local savedCapture = NS.Schema:Get("settings.auction.capture")
   NS.AuctionPrice.IsProviderAvailable = function(_, prov) return prov == "tsm" end
@@ -499,6 +504,7 @@ local function withAuctionTable(fn)
     PS.homeTab(ctx)
     fn(ctx)
   end)
+  NS.ApplySkinIgnore(wasPanel, wasFonts)
   NS.AuctionPrice.IsProviderAvailable = savedAvail
   NS.Schema:Set("settings.auction.capture", savedCapture)
   PS.homeTab(ctx)
@@ -510,7 +516,8 @@ local function rowFor(ctx, tag)
   for _, r in ipairs(ctx._priRows) do if r._tag == tag then return r end end
 end
 
-local function assertAuction(ctx, want, label)
+-- `tint`, the collecting tick's r, g, b: the owner's live sem.statusOk unless a case says otherwise.
+local function assertAuction(ctx, want, label, tint)
   for i, fs in ipairs(ctx._priHeads) do
     assertEqual(rgba(rawget(fs, "__color")), want("text.headingAlt"), label .. ": header " .. i)
   end
@@ -523,7 +530,8 @@ local function assertAuction(ctx, want, label)
   assertEqual(rgba(rawget(absent.status, "__color")), want("sem.statusBad"), label .. ": not installed")
   assertEqual(rgba(live.info.tex.__vc), want("icon.hot"), label .. ": a live info mark")
   assertEqual(rgba(idle.info.tex.__vc), want("icon.dim"), label .. ": an idle info mark")
-  local r, g, b = Skin:Color(OWNER, "sem.statusOk")
+  local r, g, b
+  if tint then r, g, b = tint() else r, g, b = Skin:Color(OWNER, "sem.statusOk") end
   assertEqual(rawget(live.tick, "__text"), NS.IconMarkup("circle-check", "Interface\\RaidFrame\\ReadyCheck-Ready", 16, r, g, b),
     label .. ": the collecting tick's tint")
 end
@@ -536,6 +544,48 @@ test("skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s 
     assertAuction(ctx, tokenOf, "Azeroth")
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertAuction(ctx, today, "back on Ka0s Default")
+  end)
+end)
+
+-- Every S.Text call the AH table makes while `fn` runs, as { fs = token .. opts.panel }. The shared
+-- mock's FontString is the frame itself, so the library's Text cannot tell it is a string and the
+-- face it would give back is not observable here: what is pinned is that each string asks for it.
+local function textCalls(fn)
+  local calls, real = {}, NS.Skin.Text
+  NS.Skin.Text = function(fs, token, opts)
+    calls[fs] = tostring(token) .. " panel=" .. tostring(type(opts) == "table" and opts.panel)
+    return real(fs, token, opts)
+  end
+  local ok, err = pcall(fn)
+  NS.Skin.Text = real
+  if not ok then error(err, 0) end
+  return calls
+end
+
+test("skin AH table: Ignore settings panel gives the table its pre-skin look, live", function()
+  -- D-03 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS/: the table is on the
+  -- settings panel, so while this owner ignores its panel its own paints draw Ka0s Default's values
+  -- (what it drew before skins) and its strings their template face, as the AceGUI rows and the
+  -- drag list (WidgetsReorder minor 3) beside it go stock; turning it off gives the skin back.
+  -- red under: a host paint that reads the live skin whatever the Scope says.
+  withAuctionTable(function(ctx)
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
+    assertAuction(ctx, tokenOf, "the switch skin, panel skinned")
+    local ok, err = pcall(function()
+      local calls = textCalls(function() NS.ApplySkinIgnore(true, nil) end)
+      local function todayTick() local c = TODAY["sem.statusOk"]; return c[1], c[2], c[3] end
+      assertAuction(ctx, today, "the switch skin, panel ignored", todayTick)
+      -- The face: every string is a panel-scoped S.Text, which the library gives back while ignored.
+      assertEqual(calls[ctx._priHeads[1]], "text.headingAlt panel=true", "a header is on the settings panel")
+      local live = rowFor(ctx, "tsm:dbmarket")
+      assertEqual(calls[live.addon], "text.bodyAlt panel=true", "a row's addon name")
+      assertEqual(calls[live.module], "text.body panel=true", "a row's module")
+      assertEqual(calls[live.status], "sem.statusOk panel=true", "a row's status")
+      NS.ApplySkinIgnore(false, nil)
+      assertAuction(ctx, tokenOf, "the switch skin, panel skinned again")
+    end)
+    NS.ApplySkinIgnore(false, nil)
+    if not ok then error(err, 0) end
   end)
 end)
 

@@ -46,6 +46,12 @@ local addonName, NS = ...
 --                           release restores stock.
 --   NS.SkinOnRelease(w, fn) host release work chained onto the widget's own OnRelease
 --                           (`Skin:OnRelease`), so it and the skin's restore both run.
+--   NS.SkinPanelIgnored()   true while this owner ignores its settings panel: the public
+--                           `Skin:GetIgnore` panel half; false degraded or before the owner exists.
+--   NS.SkinPanelColor(name) a color token for a HOST paint on the settings panel (the AH price
+--                           table), as NS.SkinColor writes it: the live skin's, or Ka0s Default's (the
+--                           value the surface drew before skins) while the panel is ignored, so one
+--                           page never mixes stock and skinned (D-03 of the skin library follow-ups).
 --   NS.MaybeShowSkinPicker() the first-run skin picker (LibKa0s OptionsSkinPicker 1, LibKa0s#64):
 --                           `O.SkinPicker` while the profile's `pickerSeen` is false and the addon
 --                           stands up; held to PLAYER_REGEN_ENABLED in combat. Answers the frame,
@@ -562,6 +568,9 @@ if not Skin then
   function NS.SkinPaintAce() return false end
   function NS.SkinPaintAceTree() return 0 end
   NS.SkinOnRelease = releaseByCallback
+  -- No library, no Scope: the settings panel is never "ignored", and a panel paint is a plain one.
+  function NS.SkinPanelIgnored() return false end
+  NS.SkinPanelColor = NS.SkinColor
   return
 end
 
@@ -598,6 +607,21 @@ end
 function NS.SkinOnRelease(widget, fn)
   if type(Skin.OnRelease) ~= "function" then return releaseByCallback(widget, fn) end
   return Skin:OnRelease(widget, fn)
+end
+
+function NS.SkinPanelIgnored()
+  if type(Skin.GetIgnore) ~= "function" then return false end
+  return (Skin:GetIgnore(addonName)) == true
+end
+
+--- The skin's value, or while the panel is ignored Ka0s Default's own (`Skin:ResolveSkin`, the
+--- library's table for a skin key), in NS.SkinColor's arity. nil for a token neither sets.
+function NS.SkinPanelColor(name)
+  if not NS.SkinPanelIgnored() or type(Skin.ResolveSkin) ~= "function" then return NS.SkinColor(name) end
+  local c = Skin:ResolveSkin(Skin.DEFAULT or DEFAULT)[name]
+  if type(c) ~= "table" then return nil end
+  if c[4] == nil or c[4] == 1 then return c[1], c[2], c[3] end
+  return c[1], c[2], c[3], c[4]
 end
 
 function NS.ApplySkinIgnore(panel, fonts)

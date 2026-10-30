@@ -1582,7 +1582,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (17)
+### test_skin_insights.lua (18)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1594,6 +1594,7 @@ Total.
 - skin holdings: Ka0s Default draws today's header, arrows, rows and cells
 - skin holdings: a switch rebuilds the arrows and repaints every pooled row live
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
+- skin AH table: Ignore settings panel gives the table its pre-skin look, live
 - skin insights: the degraded facade draws the KPI card and the list panel today's way
 - skin bars: every Insights bar of data is the skin's BarTexture; tracks and rules are not
 - skin bars: on Ka0s Default the client draws the Ka0s Default bar, tinted each bar's color
@@ -1613,13 +1614,14 @@ Total.
 - skin settings: the Profiles page paints the tree AceConfigDialog drew, Ka0s Default too
 - skin settings: degraded, PaintAce and PaintAceTree paint nothing and a release still runs
 
-### test_skin_tools.lua (6)
+### test_skin_tools.lua (7)
 
 - the debug console's descriptor names the owner and passes no applySkin
 - the live debug console and its copy window are painted for this owner
 - the console's palette follows a skin switch without a reload
 - the export copy window is painted for this owner
 - the reorder list seam names the owner
+- the AH drag list follows Ignore settings panel: stock while it is on, skinned when off
 - every remaining factory seam passes the owner
 
 ### test_skin_literals.lua (3)
@@ -2147,9 +2149,9 @@ Total.
 | test_skin_picker.lua | 25 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 17 |
+| test_skin_insights.lua | 18 |
 | test_skin_settings.lua | 8 |
-| test_skin_tools.lua | 6 |
+| test_skin_tools.lua | 7 |
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
@@ -2178,4 +2180,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1832** |
+| **Total** | **1834** |

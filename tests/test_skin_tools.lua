@@ -138,10 +138,37 @@ test("the export copy window is painted for this owner", function()
 end)
 
 test("the reorder list seam names the owner", function()
+  -- With the settings panel skinned: the list is panel-scoped (WidgetsReorder minor 3), so its
+  -- palette is nil while the owner ignores its panel, the case below.
+  local wasPanel, wasFonts = Skin:GetIgnore(OWNER)
+  NS.ApplySkinIgnore(false, nil)
   local list = NS.MakeReorderList({ stride = 20 })
-  assertTrue(list ~= nil, "the reorder controller")
-  assertTrue(list.skin ~= nil, "the drag list takes no skin palette: the seam passed no owner")
-  list:Cancel()
+  local ok, err = pcall(function()
+    assertTrue(list ~= nil, "the reorder controller")
+    assertTrue(list.skin ~= nil, "the drag list takes no skin palette: the seam passed no owner")
+  end)
+  if list then list:Cancel() end
+  NS.ApplySkinIgnore(wasPanel, wasFonts)
+  if not ok then error(err, 0) end
+end)
+
+test("the AH drag list follows Ignore settings panel: stock while it is on, skinned when off", function()
+  -- The AH price list is on the settings panel, and WidgetsReorder minor 3 makes a list
+  -- panel-scoped by default, so the seam passes no `panel` (false would keep the skin on a stock
+  -- page). red under: a seam that passes panel = false.
+  local wasPanel, wasFonts = Skin:GetIgnore(OWNER)
+  local lists = {}
+  local ok, err = pcall(function()
+    NS.ApplySkinIgnore(true, nil)
+    lists[1] = NS.MakeReorderList({ stride = 20 })
+    assertTrue(lists[1] ~= nil and lists[1].skin == nil, "stock while the panel is ignored")
+    NS.ApplySkinIgnore(false, nil)
+    lists[2] = NS.MakeReorderList({ stride = 20 })
+    assertTrue(lists[2] ~= nil and lists[2].skin ~= nil, "the skin's palette while it is not")
+  end)
+  for _, list in pairs(lists) do list:Cancel() end
+  NS.ApplySkinIgnore(wasPanel, wasFonts)
+  if not ok then error(err, 0) end
 end)
 
 test("every remaining factory seam passes the owner", function()
