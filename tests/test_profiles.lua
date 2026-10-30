@@ -436,10 +436,10 @@ test("profile verb: a COMMANDS row after resetall, and the whole verb order pinn
   -- red under: a missing row, one placed away from the settings verbs, or a changed description.
   local order = {}
   for i, c in ipairs(NS.COMMANDS) do order[i] = c[1] end
-  assertEqual(table.concat(order, " "), "show hide toggle config enable disable version get set "
+  assertEqual(table.concat(order, " "), "show hide toggle config skin enable disable version get set "
     .. "list reset resetall profile holdings debug diagnostics perf test sim purge help")
-  assertEqual(#NS.COMMANDS, 21, "twenty-one verbs")
-  assertEqual(NS.COMMANDS[13][2], "List profiles, or switch to one: profile <name>")
+  assertEqual(#NS.COMMANDS, 22, "twenty-two verbs")
+  assertEqual(NS.COMMANDS[14][2], "List profiles, or switch to one: profile <name>")
 end)
 
 test("profile verb: help prints the header and one row per verb, profile among them", function()

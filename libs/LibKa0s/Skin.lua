@@ -97,7 +97,14 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- answers the stored value for them (nil for a stored FROM_SKIN), whatever the companion says.
 -- And the stock look is retired (LK-02, R-2): no primitive reads `opts.stockDefault` any more
 -- (SkinPaint minor 12), so the library itself no longer asks `DrawsKey`; a host may.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 8
+-- Minor 9: each owner's font outline, the Skin tab's "Font outline" (LK-03 of Ka0sAddonsCommonTasks
+-- docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling D-06): `OUTLINE_MODES` ("all", the
+-- default, "hud", "off"), GetOutline, SetOutline, WriteChoice's `media.outline`, and `__Tokens`
+-- answering "" for `font.outline` under "hud" and for both `font.outline` and `hud.outline` under
+-- "off". "all" reads the skin as it states them, and every skin states OUTLINE for both (SkinDefs
+-- minor 17). The mode is applied here and nowhere else; P.font, BarStyle, Token and Resolve follow.
+-- And VOCAB gains FontFlags (LK-04, D-07) and HudFontSize (LK-06, D-09), SkinPaintExtras minor 7's.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -123,7 +130,7 @@ lib.VOCAB = {
   "GetAccentColor", "GetPanelColor", "GetFont",
   "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
   "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
-  "BarTexture",
+  "BarTexture", "FontFlags", "HudFontSize",
 }
 
 local WEAK_KEYS = { __mode = "k" }
@@ -148,11 +155,16 @@ lib.__overTok = {}
 -- Each owner's token table with its owner tokens over it, `{ from, key, gen, t }` (minor 7). A cache
 -- like `__overTok`, emptied on load.
 lib.__ownTok = {}
+-- Each owner's token table with its font outline mode applied, `{ from, mode, t }` (minor 9). A cache
+-- like `__overTok`, emptied on load.
+lib.__outTok = {}
 -- The owner token names refused per owner, `[owner][name] = why`, so each is logged once. Kept across
 -- minors: a newer copy re-registering the same bad name must not log it again.
 lib.__tokRefused = lib.__tokRefused or {}
 
 local SOURCE_OK = { ka0s = true, eui = true }
+-- The font outline modes (minor 9; `lib.OUTLINE_MODES`, below, is their order).
+local OUTLINE_OK = { all = true, hud = true, off = true }
 
 --- Hand `err` to the client's error handler and carry on: one raising listener or primitive must
 --- not stop the repaint of every frame after it.
@@ -408,12 +420,12 @@ end
 
 --- Register `owner` (the addon folder name) at the consumer's file load. `opts.get()` answers the
 --- profile's `{ source, skin }`; `opts.set(source, skin, ignore, media)` writes it (copy to every
---- Ka0s addon; `ignore` since minor 5, `{ panel, fonts }` or nil, and `media` since minor 6,
---- `{ font, texture }` or nil, see WriteChoice);
---- `opts.label` names the addon to the player; `opts.log(line)`, optional, takes the one line the
---- EllesmereUI provider writes when it refuses or stops (SkinEUI.lua). The choice is read once,
---- here; afterwards it moves only through `SetChoice`. A second call updates the hooks and keeps the
---- applied choice. Answers the owner's facade.
+--- Ka0s addon; `ignore` (minor 5) `{ panel, fonts }` or nil, `media` (minor 6) `{ font, texture,
+--- outline }` or nil, its `outline` (minor 9) a mode or nil the host stores and restores with
+--- `SetOutline`, see WriteChoice); `opts.label` names the addon to the player; `opts.log(line)`,
+--- optional, takes the one line the EllesmereUI provider writes when it refuses or stops
+--- (SkinEUI.lua). The choice is read once, here; afterwards it moves only through `SetChoice`. A
+--- second call updates the hooks and keeps the applied choice. Answers the owner's facade.
 --- `opts.tokens` (minor 7), optional, is the owner's own tokens, `{ ["<ns>.<name>"] = { default =
 --- <Ka0s Default's value>, follow = "<library token>", skins = { [<skin key>] = <value>|false } } }`:
 --- read through `Token`, `Color`, the facade and any primitive opt that names a token, like a library
@@ -468,15 +480,19 @@ end
 --- moves the applied choice (SetChoice and SetIgnore do). `media` (minor 6), optional, is
 --- `{ font = key|false, texture = key|false }` and reaches the setter as its fourth argument, each
 --- half an LSM key or false for "the skin's own"; a setter written before minor 6 ignores it, and
---- it never moves the applied overrides (SetOverride does). Answers true when a setter ran and did
---- not raise; false for an unregistered owner, one with no setter, or a raise (handed to the
---- client's error handler).
+--- it never moves the applied overrides (SetOverride does). `media.outline` (minor 9), optional, one
+--- of `OUTLINE_MODES` (else nil: left alone), never moves the applied mode (SetOutline does); a caller
+--- writing it passes both overrides too, as a minor-6 setter stores both halves of any `media`.
+--- Answers true when a setter ran and did not raise; false for an unregistered owner, one with no
+--- setter, or a raise (handed to the client's error handler).
 function lib:WriteChoice(owner, source, skin, ignore, media)
   local o = self.owners[owner]
   if not o or type(o.set) ~= "function" then return false end
   if type(ignore) == "table" then ignore = { panel = ignore.panel == true, fonts = ignore.fonts == true }
   else ignore = nil end
-  if type(media) == "table" then media = { font = mediaKey(media.font) or false, texture = mediaKey(media.texture) or false }
+  if type(media) == "table" then
+    media = { font = mediaKey(media.font) or false, texture = mediaKey(media.texture) or false,
+              outline = OUTLINE_OK[media.outline] and media.outline or nil }
   else media = nil end
   local ok, err = pcall(o.set, cleanSource(source), cleanSkin(skin), ignore, media)
   if not ok then report(err); return false end
@@ -657,6 +673,42 @@ local function hudFontIgnored(self, owner, name)
   return HUD_FONT[name] == true and self:__FontsIgnored(owner)
 end
 
+-- ── the owner's font outline (minor 9) ───────────────────────────────────────────────────────
+
+--- Where the skin's font flags apply for an owner (the Skin tab's "Font outline", D-06), in the tab's
+--- order: "all" (the default), every string painted for the owner but the mono role, and the HUD;
+--- "hud", the HUD only (`hud.outline`); "off", neither.
+lib.OUTLINE_MODES = { "all", "hud", "off" }
+lib.OUTLINE_DEFAULT = "all"
+-- The tokens each mode answers "" for in `__Tokens`; "all" leaves both as the skin states them.
+local OUTLINE_DROP = { hud = { "font.outline" }, off = { "font.outline", "hud.outline" } }
+
+--- The owner's font outline mode, one of `OUTLINE_MODES`: "all" for an owner that never set one
+--- and for an unregistered owner.
+function lib:GetOutline(owner)
+  local o = self.owners[owner]
+  return o and o.outline or self.OUTLINE_DEFAULT
+end
+
+--- Set `owner`'s font outline mode; a value not in `OUTLINE_MODES` (nil included) is "all".
+--- Idempotent. Never writes the host's profile (WriteChoice's `media.outline` does). A change
+--- repaints every frame recorded for the owner and fires its OnLooksChanged listeners, unless a
+--- reload is pending. "Ignore fonts" wins: P.font gives every string its own font, and `Token`
+--- leaves `hud.outline` alone, whatever the mode. Answers changed.
+function lib:SetOutline(owner, mode)
+  requireOwner(owner, "SetOutline")
+  local o = self.owners[owner]
+  if not o then return false end
+  if not OUTLINE_OK[mode] then mode = self.OUTLINE_DEFAULT end
+  if mode == (o.outline or self.OUTLINE_DEFAULT) then return false end
+  o.outline = mode
+  if not o.pendingReload then
+    self:Repaint(owner)
+    notify(o)
+  end
+  return true
+end
+
 -- ── the owner's font and texture ─────────────────────────────────────────────────────────────
 
 --- The owner's overrides: font, texture, each an LSM key (a `font` and a `statusbar` key), or nil
@@ -751,6 +803,22 @@ local function withOverrides(owner, base)
   return t
 end
 
+--- `t` with `owner`'s font outline mode applied (minor 9): `t` itself under "all" and for an
+--- unregistered owner, else a derived copy, cached on (t, mode), whose dropped tokens answer "".
+local function withOutline(owner, t)
+  local o = lib.owners[owner]
+  local mode = o and o.outline
+  local drop = mode and OUTLINE_DROP[mode]
+  if not drop then return t end
+  local c = lib.__outTok[owner]
+  if c and c.from == t and c.mode == mode then return c.t end
+  local out = {}
+  overlay(out, t)
+  for _, name in ipairs(drop) do out[name] = "" end
+  lib.__outTok[owner] = { from = t, mode = mode, t = out }
+  return out
+end
+
 --- The owner's base table and the key its owner tokens resolve by: "eui" while EllesmereUI paints
 --- the owner, else the skin key it draws.
 local function baseOf(owner)
@@ -822,12 +890,12 @@ local function withOwnTokens(owner, t, key, base)
 end
 
 --- The owner's complete token table: `__BaseTokens`, with the owner's font and texture overrides
---- over it (minor 6) where they resolve, and its owner tokens over that (minor 7). Shared: never
---- write to it. An unregistered owner reads Ka0s Default. Internal (SkinPaint.lua's P.T and `Token`
---- read it); a host reads tokens through `Token` and `Color`.
+--- over it (minor 6) where they resolve, its font outline mode applied (minor 9), and its owner
+--- tokens over that (minor 7). Shared: never write to it. An unregistered owner reads Ka0s Default.
+--- Internal (SkinPaint.lua's P.T and `Token` read it); a host reads tokens through `Token` and `Color`.
 function lib:__Tokens(owner)
   local base, key = baseOf(owner)
-  return withOwnTokens(owner, withOverrides(owner, base), key, base)
+  return withOwnTokens(owner, withOutline(owner, withOverrides(owner, base)), key, base)
 end
 
 --- The owner's resolved token `name` (from `__Tokens`): a color is `{ r, g, b, a }`, shared, never

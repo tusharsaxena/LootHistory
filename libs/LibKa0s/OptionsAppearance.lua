@@ -7,31 +7,37 @@
 -- OptionsKeybinds.lua; Options minor 33 attaches it. It loads after OptionsKeybinds.lua, so its
 -- default place on a strip names that file's tab key.
 --
--- WHAT IT DRAWS, top to bottom, under the page's own headings:
+-- WHAT IT DRAWS, top to bottom, under the page's own headings (the order since minor 4, LK-08):
 --   * the skin SOURCE: Ka0s skins | EllesmereUI, two radio choices. EllesmereUI is choosable only
 --     while LibKa0s-Skin-1.0's gate holds for the owner (Skin:GetEUIStatus); under it, every one of
 --     the gate's conditions is listed with the client's ready-check mark or cross, and a failing
 --     one with its one-line fix;
---   * the SKIN: one radio choice per registered skin (Skin:Skins(), registration order), each with
---     its four swatches, its name and its one-line description;
+--   * the LOOK: the library's fixed note about what a skin changes, then one radio choice per
+--     registered skin (Skin:Skins(), registration order), each with its four swatches, its name and
+--     its one-line description;
 --   * FONT AND TEXTURE (minor 3): two dropdowns side by side, the owner's font and bar texture
 --     (LibSharedMedia-3.0's font and statusbar keys, sorted), each led by "Skin's own (<its key>)",
---     through Skin:SetOverride and `spec.set`'s fourth argument (LibKa0s-Skin-1.0 minor 6);
---   * SCOPE (minor 2): two check boxes, "Ignore settings panel" (this addon's settings pages stay the
---     client's) and "Ignore fonts" (every string keeps its own face and size), through
---     Skin:SetIgnore and `spec.set`'s third argument;
---   * COPY TO EVERY KA0S ADDON...: a button that, after a confirmation naming the other loaded owners
---     by label, gives each of them this owner's source, skin, scope, font and texture, through
---     Skin:SetChoice, Skin:SetIgnore and Skin:SetOverride (a live repaint) and then its own registered
---     setter (Skin:WriteChoice). With no
---     other owner loaded it is disabled and a line says why;
---   * the library's fixed note about what a skin changes.
+--     through Skin:SetOverride and `spec.set`'s fourth argument (LibKa0s-Skin-1.0 minor 6); under
+--     each (minor 4) its "Reset font" / "Reset texture" button, at the dropdown's width, disabled
+--     while that half is already the skin's own; under those (minor 4) the "Font outline" dropdown,
+--     All text | HUD text only | Off, through Skin:SetOutline and `media.outline` in `spec.set`'s
+--     fourth argument, disabled while "Ignore fonts" is on (which wins);
+--   * SCOPE (minor 2): two check boxes on the dropdowns' half-width grid, "Ignore settings panel"
+--     (this addon's settings pages stay the client's) and "Ignore fonts" (every string keeps its own
+--     face and size), through Skin:SetIgnore and `spec.set`'s third argument;
+--   * OTHER KA0S ADDONS (its own heading since minor 4): COPY TO EVERY KA0S ADDON..., a button that,
+--     after a confirmation naming the other loaded owners by label, gives each of them this owner's
+--     source, skin, scope, font, texture and font outline, through Skin:SetChoice, Skin:SetIgnore,
+--     Skin:SetOverride and Skin:SetOutline (a live repaint) and then its own registered setter
+--     (Skin:WriteChoice). With no other owner loaded it is disabled and a line says why.
 --
 -- THE WRITE SEAM. The tab writes this owner's choice only through `spec.set(source, skin, ignore,
 -- media)`, `ignore` being `{ panel, fonts }` on a scope write, `media` `{ font, texture }` (each an
--- LSM key or false) on a font or texture write, and both nil on a source or skin write, which
--- MUST be the owner's write seam (options-ui-§1): Skin:SetChoice first, so the repaint is the
--- library's and an owner's onChange calling SetChoice again is a no-op (SetChoice is idempotent),
+-- LSM key or false) on a font or texture write, and both nil on a source or skin write (a skin
+-- write that reset the overrides is followed by a media write, minor 4), which
+-- MUST be the owner's write seam (options-ui-§1). Since minor 4 `media` carries `outline` too (one of
+-- Skin's OUTLINE_MODES), and every media write carries all three. Skin:SetChoice first, so the repaint
+-- is the library's and an owner's onChange calling SetChoice again is a no-op (SetChoice is idempotent),
 -- then spec.set. The reload popup is raised once, by the tab, from SetChoice's pending-reload answer.
 --
 -- POPUPS. Both are Blizzard StaticPopups (LIBKA0S_SKIN_COPY, LIBKA0S_SKIN_RELOAD), defined when they
@@ -52,7 +58,20 @@ if not lib then return end
 -- (PK-02): the skins' heading reads "Look", not the tab's own "Skin" (options-ui-§7), and the
 -- other owners and one owner's skin copy are library-level (lib.__skinOthers, lib.__copySkinTo),
 -- so the skin picker's "Apply to all Ka0s addons" shares them.
-local APPEARANCE_MINOR = 3
+-- Minor 4 (LK-03 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling
+-- D-06): the "Font outline" dropdown under the Scope's check boxes (LibKa0s-Skin-1.0 minor 9's
+-- SetOutline), grayed while Ignore fonts is on; `media` gains `outline` and every media write carries
+-- the font, the texture and the outline; the copy carries it, and lib.__copySkinTo takes a `media`
+-- with any of its halves left out (nil: the target's own). Still minor 4 (LK-07, the owner's item 1
+-- and ruling D-10): choosing another skin resets the font and texture overrides to the new skin's
+-- own, through lib.__chooseSkin (the look drawn, Skin:DrawsKey, before against after), from the
+-- tab's pick, its copy and the skin picker's Apply to all (lib.__copySkinTo); never inside
+-- Skin:SetChoice, which re-applies a stored skin at load. And still minor 4 (LK-08, the owner's item
+-- 6 and ruling D-11): "Reset font" and "Reset texture" under the two dropdowns, each disabled while
+-- its half is the skin's own; the Font outline dropdown moves from the Scope into the Font and
+-- texture section, under them; the Scope's check boxes take the dropdowns' half width; the copy
+-- button gets its own heading, "Other Ka0s addons"; and the note leads the Look section.
+local APPEARANCE_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -101,10 +120,22 @@ lib.APPEARANCE_STRINGS = {
   IGNORE_FONTS   = "Ignore fonts",
   IGNORE_FONTS_TIP = "Keep every font in this addon as the game draws it, face and size. The skin " ..
                    "still colors the text.",
+  OUTLINE        = "Font outline",
+  OUTLINE_TIP    = "Where the skin draws its outline around text: on all of this addon's text, on " ..
+                   "its HUD text only, or nowhere. A font outline you set on an element yourself " ..
+                   "still applies. Not read while \"Ignore fonts\" is on.",
+  OUTLINE_ALL    = "All text",
+  OUTLINE_HUD    = "HUD text only",
+  OUTLINE_OFF    = "Off",
+  RESET_FONT     = "Reset font",
+  RESET_FONT_TIP = "Use the skin's own font again (%s).",
+  RESET_TEXTURE  = "Reset texture",
+  RESET_TEXTURE_TIP = "Use the skin's own bar texture again (%s).",
+  COPY_HEADING   = "Other Ka0s addons",
   COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source, " ..
-                   "skin, scope, font and texture. You are asked first.",
+                   "skin, scope, font, texture and font outline. You are asked first.",
   COPY_NONE      = "No other loaded Ka0s addon uses skins yet.",
-  COPY_CONFIRM   = "Give these addons the skin source, skin, scope, font and texture of %s?\n\n%s" ..
+  COPY_CONFIRM   = "Give these addons the skin source, skin, scope, font, texture and font outline of %s?\n\n%s" ..
                    "\n\nAddons that are not loaded are unchanged.",
   COPY_ACCEPT    = "Copy",
   CANCEL         = "Cancel",
@@ -118,6 +149,9 @@ lib.APPEARANCE_STRINGS = {
 
 -- The column width of one choice, relative, three to a line under the clip inset (options-ui-§8).
 local W_CHOICE = 0.32
+-- Half the row, two to a line (options-ui-§6's 50/50 cells): the dropdowns, their reset buttons, the
+-- scope's check boxes and the copy button share it, so they line up (minor 4, D-11).
+local function halfWidth(O) return O.BUTTON_PAIR_REL or 0.492 end
 local MARK_OK   = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14|t"
 local MARK_FAIL = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14:14|t"
 local SWATCH    = "|TInterface\\Buttons\\WHITE8X8:12:12:0:0:8:8:0:8:0:8:%d:%d:%d|t"
@@ -125,8 +159,12 @@ local COPY_POPUP, RELOAD_POPUP = "LIBKA0S_SKIN_COPY", "LIBKA0S_SKIN_RELOAD"
 -- The dropdown value that means "the skin's own" (LibKa0s-Skin-1.0's FROM_SKIN), and the two
 -- overrides: the LSM kind each lists and the skin token its first entry names.
 local FROM_SKIN = "@skin"
-local MEDIA = { font = { kind = "font", token = "font.body" },
-                texture = { kind = "statusbar", token = "bar.texture" } }
+local MEDIA = { font = { kind = "font", token = "font.body", reset = "RESET_FONT" },
+                texture = { kind = "statusbar", token = "bar.texture", reset = "RESET_TEXTURE" } }
+-- The font outline modes in the dropdown's order (LibKa0s-Skin-1.0 minor 9's OUTLINE_MODES), each
+-- with its word's key.
+local OUTLINE_ORDER = { "all", "hud", "off" }
+local OUTLINE_WORD = { all = "OUTLINE_ALL", hud = "OUTLINE_HUD", off = "OUTLINE_OFF" }
 
 --- The Skin major, or nil. Asked at call time: it loads before this major, but a client may lack it.
 local function skinMajor()
@@ -230,14 +268,51 @@ function lib.__skinOthers(Skin, owner)
   return out
 end
 
+--- `name`'s applied media, `{ font, texture, outline }` (each override an LSM key or false for the
+--- skin's own; `outline` nil on a Skin copy before minor 9), or nil on a Skin copy before minor 6.
+local function appliedMedia(Skin, name)
+  if type(Skin.GetOverride) ~= "function" then return nil end
+  local font, texture = Skin:GetOverride(name)
+  return { font = font or false, texture = texture or false,
+           outline = type(Skin.GetOutline) == "function" and Skin:GetOutline(name) or nil }
+end
+
+--- Move `name` to (source, skin) and, when the look it draws changed (Skin:DrawsKey before and
+--- after; any change of the choice on a Skin copy without it), its font and texture back to the
+--- skin's own (D-10: choosing another skin resets both overrides). Never inside Skin:SetChoice,
+--- which also runs at load to re-apply a stored skin and must keep the stored overrides. Writes no
+--- profile. Answers changed, reload (SetChoice's) and cleared (true when an override was reset).
+--- Internal: the Skin tab's pick, its copy and the skin picker's Apply to all share it.
+function lib.__chooseSkin(Skin, name, source, skin)
+  local draws = type(Skin.DrawsKey) == "function"
+  local before = draws and Skin:DrawsKey(name)
+  local changed, reload = Skin:SetChoice(name, source, skin)
+  if not (changed and type(Skin.SetOverride) == "function" and type(Skin.GetOverride) == "function") then
+    return changed, reload, false
+  end
+  local font, texture = Skin:GetOverride(name)
+  if not (font or texture) or (draws and Skin:DrawsKey(name) == before) then return changed, reload, false end
+  Skin:SetOverride(name, false, false)
+  return changed, reload, true
+end
+
 --- Give `name` (source, skin) and, when given, the scope `ignore` and the overrides `media`: the Skin
---- major first (SetChoice, SetIgnore, SetOverride: the live repaint), then the owner's own setter
---- (Skin:WriteChoice, with the same two halves, nil leaving that half of its profile alone).
---- Answers the reload flag SetChoice answered. Internal; the caller refuses combat.
+--- major first (lib.__chooseSkin, so a target whose look changes starts from the new skin's own
+--- font and texture, then SetIgnore, SetOverride and, for `media.outline`, SetOutline: the live
+--- repaint), then the owner's own setter (Skin:WriteChoice, nil leaving that half of its profile
+--- alone). A `media` half left out (nil) keeps the target's own after the move, and the write
+--- carries the target's applied font, texture and outline, so a setter that stores every half it is
+--- given keeps what it has (minor 4); with no `media`, a reset the move made is written the same
+--- way, so the target's profile matches what it wears. Answers the reload flag SetChoice answered.
+--- Internal; the caller refuses combat.
 function lib.__copySkinTo(Skin, name, source, skin, ignore, media)
-  local _, reload = Skin:SetChoice(name, source, skin)
+  local _, reload, cleared = lib.__chooseSkin(Skin, name, source, skin)
   if ignore and type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end
-  if media and type(Skin.SetOverride) == "function" then Skin:SetOverride(name, media.font, media.texture) end
+  if media then
+    if type(Skin.SetOverride) == "function" then Skin:SetOverride(name, media.font, media.texture) end
+    if media.outline ~= nil and type(Skin.SetOutline) == "function" then Skin:SetOutline(name, media.outline) end
+  end
+  if media or cleared then media = appliedMedia(Skin, name) or media end
   Skin:WriteChoice(name, source, skin, ignore, media)
   return reload
 end
@@ -325,14 +400,20 @@ function lib.__AttachAppearance(O, d)
     return source, skin
   end
 
-  --- Move this owner to (source, skin): the Skin major first, then the owner's write seam, then the
-  --- one reload popup SetChoice asks for. Refused in combat, as every settings write is.
+  --- Move this owner to (source, skin): the Skin major first (lib.__chooseSkin: a change of the look
+  --- it draws resets its font and texture to the new skin's own), then the owner's write seam, with
+  --- every media half after it when the move reset an override, then the one reload popup SetChoice
+  --- asks for. Refused in combat, as every settings write is.
   local function choose(view, source, skin)
     if O.__combatRefused and O.__combatRefused("appearance", view.owner) then return end
-    local _, reload = view.Skin:SetChoice(view.owner, source, skin)
+    local _, reload, cleared = lib.__chooseSkin(view.Skin, view.owner, source, skin)
     if type(view.spec.set) == "function" then
       local ok, err = pcall(view.spec.set, source, skin)
       if not ok then report(err) end
+      if cleared then
+        ok, err = pcall(view.spec.set, nil, nil, nil, appliedMedia(view.Skin, view.owner))
+        if not ok then report(err) end
+      end
     end
     if reload then lib.__appearanceReload(view.S, view.label) end
   end
@@ -349,12 +430,11 @@ function lib.__AttachAppearance(O, d)
     return { panel = panel == true, fonts = fonts == true }
   end
 
-  --- This owner's overrides, `{ font, texture }` (each an LSM key or false for the skin's own), or nil
+  --- This owner's overrides, `{ font, texture, outline }` (each override an LSM key or false for the
+  --- skin's own; `outline` the applied font outline mode, nil on a Skin copy before minor 9), or nil
   --- on a Skin copy before minor 6.
   local function readMedia(view)
-    if type(view.Skin.GetOverride) ~= "function" then return nil end
-    local font, texture = view.Skin:GetOverride(view.owner)
-    return { font = font or false, texture = texture or false }
+    return appliedMedia(view.Skin, view.owner)
   end
 
   --- Give every other owner this owner's choice, scope, font and texture: SetChoice, SetIgnore and
@@ -391,7 +471,7 @@ function lib.__AttachAppearance(O, d)
   local function toggle(view, group, label, tip, onToggle)
     local cb = O.AceGUI:Create("CheckBox")
     cb:SetLabel(label)
-    cb:SetRelativeWidth(W_CHOICE)
+    cb:SetRelativeWidth(halfWidth(O))   -- the dropdowns' grid above, not the skins' (minor 4, D-11)
     cb:SetCallback("OnValueChanged", function(_, _, value)
       onToggle(value == true)
       view.sync()
@@ -414,6 +494,36 @@ function lib.__AttachAppearance(O, d)
       local ok, err = pcall(view.spec.set, nil, nil, nil, media)
       if not ok then report(err) end
     end
+  end
+
+  --- Move this owner's font outline to `mode`: the Skin major first (the live repaint), then the
+  --- owner's write seam with every media half. Refused in combat, as every settings write is.
+  local function setOutline(view, mode)
+    if O.__combatRefused and O.__combatRefused("appearance", view.owner) then return end
+    view.Skin:SetOutline(view.owner, mode)
+    if type(view.spec.set) == "function" then
+      local ok, err = pcall(view.spec.set, nil, nil, nil, readMedia(view))
+      if not ok then report(err) end
+    end
+  end
+
+  --- The font outline dropdown in `group` (minor 4), its three modes in OUTLINE_ORDER.
+  local function outlineDropdown(view, group)
+    local S = view.S
+    local items = {}
+    for _, mode in ipairs(OUTLINE_ORDER) do items[mode] = S[OUTLINE_WORD[mode]] end
+    local dd = O.AceGUI:Create("Dropdown")
+    dd:SetLabel(S.OUTLINE)
+    dd:SetRelativeWidth(halfWidth(O))
+    dd:SetList(items, OUTLINE_ORDER)
+    dd:SetCallback("OnValueChanged", function(_, _, value)
+      setOutline(view, value)
+      view.sync()
+    end)
+    if O.AttachTooltip then O.AttachTooltip(dd, S.OUTLINE, S.OUTLINE_TIP) end
+    view.outlineLocked = view.ctx.__renderDisabled == true   -- a page drawn disabled stays so; sync reads it
+    group:AddChild(dd)
+    return dd
   end
 
   --- The owner's tokens without its overrides: what it wears as "the skin's own" (EllesmereUI's
@@ -449,7 +559,7 @@ function lib.__AttachAppearance(O, d)
   local function mediaDropdown(view, group, which, label, tip)
     local dd = O.AceGUI:Create("Dropdown")
     dd:SetLabel(label)
-    dd:SetRelativeWidth(O.BUTTON_PAIR_REL or 0.492)
+    dd:SetRelativeWidth(halfWidth(O))
     dd:SetList(mediaList(view, which))
     dd:SetCallback("OnValueChanged", function(_, _, value)
       setMedia(view, which, value)
@@ -461,7 +571,24 @@ function lib.__AttachAppearance(O, d)
     return dd
   end
 
-  --- The font and texture section: two dropdowns, side by side. Absent on a Skin copy before minor 6.
+  --- One media half's reset button in `group` (minor 4, D-11): the skin's own again, through the
+  --- same seam as the dropdown's "Skin's own" entry. `sync` disables it while that half is the
+  --- skin's own, and words its tooltip with the skin's own key.
+  local function resetButton(view, group, which)
+    local btn = O.AceGUI:Create("Button")
+    btn:SetText(view.S[MEDIA[which].reset])
+    btn:SetRelativeWidth(halfWidth(O))
+    btn:SetCallback("OnClick", function()
+      if btn.disabled then return end
+      setMedia(view, which, FROM_SKIN)
+      view.sync()
+    end)
+    group:AddChild(btn)
+    return btn
+  end
+
+  --- The font and texture section: two dropdowns side by side, their reset buttons under them, and
+  --- the Font outline under those. Absent on a Skin copy before minor 6 (the outline, before minor 9).
   local function drawMedia(view)
     local S = view.S
     if type(view.Skin.SetOverride) ~= "function" then return end
@@ -469,6 +596,12 @@ function lib.__AttachAppearance(O, d)
     local group = flowGroup(view)
     view.media.font = mediaDropdown(view, group, "font", S.FONT, S.FONT_TIP)
     view.media.texture = mediaDropdown(view, group, "texture", S.TEXTURE, S.TEXTURE_TIP)
+    -- A row of its own: a button on the dropdowns' line would top-align with their labels.
+    local resets = flowGroup(view)
+    view.resetLocked = view.ctx.__renderDisabled == true   -- a page drawn disabled stays so; sync reads it
+    view.reset.font = resetButton(view, resets, "font")
+    view.reset.texture = resetButton(view, resets, "texture")
+    if type(view.Skin.SetOutline) == "function" then view.outline = outlineDropdown(view, flowGroup(view)) end
   end
 
   --- The scope section: the two exceptions, side by side. Absent on a Skin copy before minor 5.
@@ -520,10 +653,12 @@ function lib.__AttachAppearance(O, d)
     end
   end
 
-  --- The skin section: one choice per registered skin.
+  --- The skin section: the note about what a skin changes (its lead line since minor 4), then one
+  --- choice per registered skin.
   local function drawSkins(view)
     local S = view.S
     heading(view, S.SKIN_HEADING)
+    view.note = textLine(view, S.NOTE, true)
     if readChoice(view) == "eui" then textLine(view, S.SKIN_EUI_NOTE, true) end
     local group = flowGroup(view)
     for _, def in ipairs(view.Skin:Skins()) do
@@ -538,29 +673,44 @@ function lib.__AttachAppearance(O, d)
     end
   end
 
-  --- The copy button, its hint while no other owner is loaded, and the note.
+  --- The other Ka0s addons section (its own heading since minor 4, D-11): the copy button in a row
+  --- of its own, and its hint while no other owner is loaded.
   local function drawCopy(view)
     local S = view.S
-    O.AddSpacer(view.parent, O.ROW_VSPACER)
+    heading(view, S.COPY_HEADING)
     local btn = O.AceGUI:Create("Button")
     btn:SetText(S.COPY)
-    btn:SetRelativeWidth(O.BUTTON_PAIR_REL or 0.492)
+    btn:SetRelativeWidth(halfWidth(O))
     btn:SetCallback("OnClick", function() onCopy(view) end)
     if O.AttachTooltip then O.AttachTooltip(btn, S.COPY, S.COPY_TIP) end
     local lonely = #others(view) == 0 or type(view.Skin.WriteChoice) ~= "function"
     if lonely or view.ctx.__renderDisabled then btn:SetDisabled(true) end
-    view.parent:AddChild(btn)
+    flowGroup(view):AddChild(btn)
     view.copy = btn
     if lonely then textLine(view, S.COPY_NONE, true) end
-    O.AddSpacer(view.parent, O.ROW_VSPACER)
-    view.note = textLine(view, S.NOTE, true)
+  end
+
+  --- The reset buttons from the applied overrides: each disabled while its half is the skin's own
+  --- (or the page was drawn disabled), its tooltip naming the skin's own key worn now.
+  local function syncResets(view, media)
+    if not next(view.reset) then return end
+    local own = baseTokens(view)
+    for which, btn in pairs(view.reset) do
+      local spec = MEDIA[which]
+      btn:SetDisabled(view.resetLocked or not (media and media[which]))
+      if O.AttachTooltip then
+        local tip = view.S[spec.reset .. "_TIP"]
+        O.AttachTooltip(btn, view.S[spec.reset], tip:format(tostring(own[spec.token] or "-")))
+      end
+    end
   end
 
   --- O.AppearanceRows' view: the controls, and `sync`, which re-reads the store into them.
   local function newView(ctx, spec, parent, Skin, owner)
     local view = { ctx = ctx, spec = spec, parent = parent, Skin = Skin, owner = owner,
                    S = mergeStrings(spec.strings), label = Skin:OwnerLabel(owner) or owner,
-                   source = {}, skins = {}, order = {}, conditions = {}, ignore = {}, media = {} }
+                   source = {}, skins = {}, order = {}, conditions = {}, ignore = {}, media = {},
+                   reset = {} }
     function view.sync()
       local source, skin = readChoice(view)
       if view.source.ka0s then view.source.ka0s:SetValue(source == "ka0s") end
@@ -573,6 +723,11 @@ function lib.__AttachAppearance(O, d)
       for which, dd in pairs(view.media) do
         dd:SetList(mediaList(view, which))   -- the skin's own entry names the skin worn now
         dd:SetValue(media and media[which] or FROM_SKIN)
+      end
+      syncResets(view, media)
+      if view.outline then
+        view.outline:SetValue(view.Skin:GetOutline(view.owner))
+        view.outline:SetDisabled(ignore.fonts or view.outlineLocked)   -- Ignore fonts wins
       end
     end
     return view
@@ -594,11 +749,13 @@ function lib.__AttachAppearance(O, d)
 
   --- Draw the Appearance rows into `parent` (default: the page's scroll). Answers the view
   --- `{ owner, source = { ka0s, eui }, skins = { [key] = choice }, media = { font, texture },
-  --- ignore = { panel, fonts }, order, conditions, copy, note, sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that
+  --- reset = { font, texture } (the two reset buttons, minor 4), ignore = { panel, fonts }, outline
+  --- (the Font outline dropdown, minor 4; nil on a Skin copy before minor 9), order, conditions,
+  --- copy, note, sync }`, or nil when degraded (no AceGUI, no Skin major, or an owner that
   --- never registered: then one line says skins are not available). `spec`: get (the owner's read,
   --- `{ source, skin }` or two values), set (MUST be the owner's write seam, called as
   --- set(source, skin), from the Scope section set(nil, nil, { panel, fonts }), and from the Font
-  --- and texture section set(nil, nil, nil, { font, texture })), owner (the
+  --- and texture section and the Font outline set(nil, nil, nil, { font, texture, outline })), owner (the
   --- skin owner, default the descriptor's `addonName`), strings (translations); key and before are
   --- the tab's.
   function O.AppearanceRows(ctx, spec, parent)

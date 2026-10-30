@@ -364,10 +364,12 @@ local SUBGROUPS = {
   -- The window subsection names its window (item 020, LOO-L03).
   ["Interface"]       = { "History window", "Simulator" },
   ["History"]         = {},
-  -- The library's Skin tab (key "Appearance"; skinning-§3): its four subjects, the source, the
+  -- The library's Skin tab (key "Appearance"; skinning-§3): its five subjects, the source, the
   -- skins (headed "Look" since PK-02, so no heading repeats the tab's "Skin", options-ui-§7), the
-  -- font and texture overrides and the Scope (OptionsAppearance minor 3).
-  ["Appearance"]      = { "Skin source", "Look", "Font and texture", "Scope" },
+  -- font and texture overrides with the Font outline under them, the Scope, and since
+  -- OptionsAppearance minor 4 (LibKa0s v1.82.0, ruling D-11) the copy to every Ka0s addon under its
+  -- own "Other Ka0s addons" heading.
+  ["Appearance"]      = { "Skin source", "Look", "Font and texture", "Scope", "Other Ka0s addons" },
   -- The library's Keybindings tab (options-ui-§20): an intro, the rows, the set line; no heading.
   ["Keybindings"]     = {},
 }

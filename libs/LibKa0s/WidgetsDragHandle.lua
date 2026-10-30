@@ -2,8 +2,9 @@
 -- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, from minor 4
 -- an opt-in host hook that places the tooltip (`tooltipPlace`), from minor 5 an opt-in frame
 -- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), from minor 6 a
--- skin owner (`owner`: the shell's SKIN OWNERS), and from minor 7 an owned strip's tooltip in its
--- skin's tooltip colors, its label in its skin's body face, and `panel`.
+-- skin owner (`owner`: the shell's SKIN OWNERS), from minor 7 an owned strip's tooltip in its
+-- skin's tooltip colors, its label in its skin's body face, and `panel`, and from minor 8 a fitted
+-- strip that re-fits its title after every repaint of its skin (`FIT_SLACK`, `spec.onRefit`).
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -30,11 +31,30 @@
 --
 -- Every string, where the strip sits, when it shows, whether a drag is allowed, what a right-click
 -- means, and where the moved frame's position is saved. After the constructor returns, this file
--- never calls SetPoint, SetShown, Show, Hide or SetWidth of its own accord — both hosts defer
+-- never calls SetPoint, SetShown, Show, Hide or SetWidth of its own accord (one exception from
+-- minor 8, THE RE-FIT below) — both hosts defer
 -- layout work around a protected frame to PLAYER_REGEN_ENABLED, and a widget that re-measured
 -- itself on a timer or on an event would poke that frame from inside the library, where neither
 -- host's combat contract can see it. `ApplyWidth` is a method the host calls, not a pass the
 -- widget runs.
+--
+-- THE RE-FIT (minor 8, LK-09 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK,
+-- decision D-12). A strip's width is measured in its label's face, and an owned strip's face is its
+-- skin's: a skin switch, "Ignore fonts" or the outline setting changes the face under a width the
+-- host measured in the old one, and a wider face truncated the title (the owner's image-43..45).
+-- So once the HOST has fitted a strip (its first ApplyWidth), each repaint of the strip's skin
+-- re-applies that same fit, with the floor the host last passed, in the new face. The width is
+-- still the host's call: the widget only repeats the host's own last one, and a strip the host
+-- never fitted is never sized. A host that sizes its strip itself (AuraMaster caps it and shortens
+-- the name) passes `spec.onRefit`, which is called instead, under pcall, after every repaint. A
+-- host that sizes the strip itself with SetWidth or SetSize after an ApplyWidth ends the default
+-- re-fit until its next ApplyWidth: its own width is never overridden by a fit it no longer made
+-- (AuraMaster's capped strips, which call SetWidth on one path and ApplyWidth on the other).
+-- COMBAT: the re-fit can run in combat, because a repaint can (a skin pick is refused there, but an
+-- external restyle is not). That is safe for the strip itself, which is not a protected frame, and
+-- the measure reads through `spec.number`; it rests on no consumer anchoring a protected frame to
+-- the strip (ConsumableMaster's bar sits beside its strip, not on it). A host that ever does MUST
+-- pass `spec.onRefit` and defer the work to PLAYER_REGEN_ENABLED itself.
 --
 -- THE ONE EXCEPTION IS BIRTH, and it is deliberate rather than an oversight: the constructor ends
 -- on handle:Hide(). A strip is born with no width and no anchor point, because placing and sizing
@@ -64,7 +84,14 @@ if not lib then return end
 -- and MEASURED in that face, so "Ignore fonts" gives it the template back, live; a host's
 -- `spec.labelFont` is never touched. `spec.panel = true` puts the strip on its owner's settings page:
 -- while that owner ignores its settings panel the strip is minor 5's, live both ways.
-local DRAG_MINOR = 7
+-- Minor 8 (LK-09 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, decision D-12):
+-- the label's width is measured unbounded where the client can (GetUnboundedStringWidth), ceiled,
+-- and Measure() adds `DRAG_HANDLE.FIT_SLACK` (2 px), so a fractional width, pixel snapping or an
+-- outline never trips the ellipsis on an exact fit. The measurer sits on a SHOWN host parked off
+-- screen (a hidden one may never load the face it is asked to measure) and wears the label's own
+-- font: its font object, or its path, size and flags where it has none. A fitted strip re-fits
+-- after each skin repaint, and `spec.onRefit` replaces that re-fit (THE RE-FIT above).
+local DRAG_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -128,6 +155,7 @@ lib.DRAG_HANDLE = {
   HELP_HIT   = 18,   -- the mark's FRAME: the click target, the full strip height
   HELP_INSET = 4,    -- px from the strip's right edge to the mark's FRAME
   HELP_CLEAR = 12,   -- px of empty space between the label's bound and the mark's art
+  FIT_SLACK  = 2,    -- minor 8: px Measure() adds to the label, so an exact fit never truncates
 }
 
 -- The gutter the art is centered in, and the reserve each side of the label gives up.
@@ -216,29 +244,47 @@ end
 -- own label into the mark. `spec.labelFont` now sets both or neither.
 local LABEL_FONT_DEFAULT = "GameFontNormalSmall"
 
--- The measuring FontStrings, one per face, never anchored to anything.
+-- The measuring FontStrings, one per face, never anchored to anything, on one host frame.
 --
 -- LOAD-BEARING, NOT TIDY. AuraMaster's label hangs off the strip, the strip off an anchor, and an
 -- anchor attached to an engine container inherits its SECRET geometry -- reading the label's own
 -- width answered a secret number and the width arithmetic raised out of combat. Measuring on a
 -- string parented to a hidden frame of ours on UIParent is what that host already had to do, and
 -- it is the widget's now. Module state, and safe: each is written and read inside one call.
+--
+-- THE HOST IS SHOWN, OFF SCREEN (minor 8). It was hidden, and the library's own font preload says
+-- why that is wrong: the client may skip work for a hidden or fully transparent region
+-- (OptionsScroll.lua's preloadFrame), so a first measure could come back in a fallback face. It is
+-- parked the way preloadFrame parks its own: 1x1, alpha 1, shown, at TOPRIGHT of UIParent's TOPLEFT.
 local measurers = {}
+local measureHost
 
---- The hidden FontString a label is measured on, in `face` (default `GameFontNormalSmall`).
---- A test replaces this function to measure on a stand-in.
---- @return table|nil  nil when the client cannot make one, which is a width of 0, not a raise
-function lib.__DragHandleMeasurer(face)
-  face = face or LABEL_FONT_DEFAULT
-  if measurers[face] then return measurers[face] end
-  if not CreateFrame then return nil end
+--- The one host every measuring FontString hangs off, built on first use.
+local function dhMeasureHost()
+  if measureHost then return measureHost end
   local host = CreateFrame("Frame", nil, UIParent)
   if not (host and host.CreateFontString) then return nil end
-  if host.Hide then host:Hide() end
+  if host.SetSize then host:SetSize(1, 1) end
+  if host.SetPoint and UIParent then host:SetPoint("TOPRIGHT", UIParent, "TOPLEFT", -64, 0) end
+  if host.SetAlpha then host:SetAlpha(1) end
+  if host.Show then host:Show() end
+  measureHost = host
+  return host
+end
+
+--- The FontString a label is measured on, in `face` (default `GameFontNormalSmall`), and its host.
+--- A test replaces this function to measure on a stand-in.
+--- @return table|nil, table|nil  nil when the client cannot make one, which is a width of 0, not a raise
+function lib.__DragHandleMeasurer(face)
+  face = face or LABEL_FONT_DEFAULT
+  if measurers[face] then return measurers[face], measureHost end
+  if not CreateFrame then return nil end
+  local host = dhMeasureHost()
+  if not host then return nil end
   local fs = host:CreateFontString(nil, "OVERLAY", face)
   if not (fs and fs.GetStringWidth) then return nil end
   measurers[face] = fs
-  return fs
+  return fs, host
 end
 
 --- A host's numeric guard if it passed one, and a plain `tonumber` otherwise. AuraMaster passes
@@ -251,24 +297,60 @@ end
 -- Measurers wearing a skin face a label lent them (minor 7), so the next plain measure resets them.
 local lent = setmetatable({}, { __mode = "k" })
 
---- The width `text` takes in the label's face, or 0 when nothing can be measured. The face is the
---- one the label is DRAWN in; see LABEL_FONT_DEFAULT. A label in its skin's face (minor 7) lends the
---- measurer that font object first: the measurer is shared per template, so it is put back on the
---- template for the next label that wears none.
+--- Whether a font object still draws the path, size and flags a label answers (an object that
+--- answers no path draws whatever it draws, and counts as the same).
+local function dhObjectDraws(obj, path, size, flags)
+  if type(obj.GetFont) ~= "function" then return true end
+  local oPath, oSize, oFlags = obj:GetFont()
+  return oPath == nil or (oPath == path and oSize == size and (oFlags or "") == (flags or ""))
+end
+
+--- Lend the measurer the label's own skin font (minor 7): its font object, or (minor 8) its path,
+--- size and flags where the skin set it by path. Answers true when it lent one.
+---
+--- The object is lent only while it still draws what the label draws. In the client a FontString
+--- built from a template keeps answering that template as its font object after SetFont(path),
+--- so the label's own GetFont() is compared with the object's, and a mismatch lends the path.
+local function dhLendFont(fs, label)
+  local obj = label.GetFontObject and label:GetFontObject()
+  local path, size, flags
+  if label.GetFont then path, size, flags = label:GetFont() end
+  local byPath = type(path) == "string" and type(size) == "number" and size > 0 and fs.SetFont
+  if type(obj) == "table" and fs.SetFontObject then
+    if not byPath or dhObjectDraws(obj, path, size, flags) then
+      fs:SetFontObject(obj)
+      return true
+    end
+  end
+  if not byPath then return false end
+  fs:SetFont(path, size, flags)
+  return true
+end
+
+--- The measured string's width: unbounded where the client answers it (minor 8: a bounded string
+--- answers its bound, not its text), the plain width otherwise.
+local function dhRawWidth(fs)
+  local unbounded = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+  if type(unbounded) == "number" then return unbounded end
+  return fs:GetStringWidth()
+end
+
+--- The width `text` takes in the label's face, ceiled, or 0 when nothing can be measured. The face
+--- is the one the label is DRAWN in; see LABEL_FONT_DEFAULT. A label in its skin's face (minor 7)
+--- lends the measurer its font first: the measurer is shared per template, so it is put back on
+--- the template for the next label that wears none.
 local function dhLabelWidth(spec, text, label)
   local fs = lib.__DragHandleMeasurer(spec.labelFont)
   if not fs then return 0 end
   local fonted = lib.__fonted
-  local obj = label and fonted and fonted[label] and label.GetFontObject and label:GetFontObject()
-  if obj and fs.SetFontObject then
-    fs:SetFontObject(obj)
+  if label and fonted and fonted[label] and dhLendFont(fs, label) then
     lent[fs] = true
   elseif lent[fs] and fs.SetFontObject then
     fs:SetFontObject(spec.labelFont or LABEL_FONT_DEFAULT)
     lent[fs] = nil
   end
   fs:SetText(text or "")
-  return dhNumber(spec, fs:GetStringWidth(), 0)
+  return math.ceil(dhNumber(spec, dhRawWidth(fs), 0))
 end
 
 --- Four 1px strips rather than a BackdropTemplate, and that is not a style choice. Under an anchor
@@ -582,8 +664,21 @@ local function dhFontLabel(handle, owner, Skin)
   skinFont(handle.label, owner, handle.__pal ~= DH_PAL and Skin or nil, LABEL_FONT_DEFAULT)
 end
 
---- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch. A host's
---- own `spec.edge` pixels are the host's and are not redrawn.
+--- THE RE-FIT (minor 8): the host's `spec.onRefit(handle)` under pcall where it passed one, else
+--- the host's own last fit again (ApplyWidth with its last floor) once the host has fitted the strip.
+local function dhRefit(handle)
+  local onRefit = handle.__onRefit
+  if onRefit then
+    local ok, err = pcall(onRefit, handle)
+    if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
+    return
+  end
+  if handle.__fitted then handle:ApplyWidth(handle.__fitFloor) end
+end
+
+--- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch, then
+--- re-fit it in its new face (minor 8). A host's own `spec.edge` pixels are the host's and are not
+--- redrawn.
 local function dhRepaint(handle, owner)
   local pal, Skin = dhPalette(owner, handle.__panel)
   handle.__pal = pal
@@ -596,6 +691,7 @@ local function dhRepaint(handle, owner)
   for _, mark in ipairs({ handle.help, handle.close }) do
     if mark then dhTint(mark.icon, pal.tint) end
   end
+  dhRefit(handle)
 end
 
 --- The centered gold label, or nil where the client cannot make a FontString. Drawn in the same
@@ -680,8 +776,24 @@ local function dhParentAlpha(handle, spec)
   if type(handle.SetIgnoreParentAlpha) == "function" then handle:SetIgnoreParentAlpha(true) end
 end
 
+--- THE HOST'S OWN WIDTH (minor 8). SetWidth and SetSize on the instance clear the fit, so a host
+--- that sizes the strip itself after an ApplyWidth is not re-fitted over (THE RE-FIT at the top).
+--- Each calls the frame's own method; ApplyWidth goes through SetWidth and then re-marks the fit.
+local function dhShadowSizing(handle)
+  for _, name in ipairs({ "SetWidth", "SetSize" }) do
+    local raw = handle[name]
+    if type(raw) == "function" then
+      handle[name] = function(self, ...)
+        self.__fitted = nil
+        return raw(self, ...)
+      end
+    end
+  end
+end
+
 --- The methods a host calls. Attached per instance, because every field of the spec is.
 local function dhAttachMethods(handle, spec)
+  dhShadowSizing(handle)
   --- Re-text the strip. The width is NOT applied here: a host decides when it may touch geometry.
   function handle:SetLabel(text)
     self.__label = text or ""
@@ -689,13 +801,13 @@ local function dhAttachMethods(handle, spec)
     return self
   end
 
-  --- The strip's natural width: the label, plus what each side of it keeps clear. The reserve is
-  --- spent TWICE -- once on the right, where it pays for the marks' inset, their frames and the
+  --- The strip's natural width: the label (ceiled, plus FIT_SLACK from minor 8), plus what each
+  --- side of it keeps clear. The reserve is spent TWICE -- once on the right, where it pays for the marks' inset, their frames and the
   --- clearance in front of the leftmost art, and once on the left as the matching empty gap, which
   --- is what keeps the label optically centered. Both hosts wrote this expression out; neither
   --- does now.
   function handle:Measure()
-    return dhLabelWidth(spec, self.__label, self.label) + dhReserve(spec) * 2
+    return dhLabelWidth(spec, self.__label, self.label) + lib.DRAG_HANDLE.FIT_SLACK + dhReserve(spec) * 2
   end
 
   --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE without a close
@@ -706,10 +818,14 @@ local function dhAttachMethods(handle, spec)
   end
 
   --- Set the width to the natural one, floored by `minWidth` -- ConsumableMaster's bar width,
-  --- AuraMaster's element size. Called by the host, never by the widget.
+  --- AuraMaster's element size. Called by the host; from minor 8 the widget repeats the host's
+  --- last call, with the same floor, after each repaint of its skin (THE RE-FIT at the top).
+  --- The flags are written after the SetWidth below, because the host's own SetWidth (the shadow
+  --- dhShadowSizing puts on the instance) clears them.
   function handle:ApplyWidth(minWidth)
     local w = math.max(self:Measure(), dhNumber(spec, minWidth, 0))
     self:SetWidth(w)
+    self.__fitted, self.__fitFloor = true, minWidth
     return w
   end
 
@@ -792,6 +908,10 @@ end
 ---                                 measured in that skin's body face unless `labelFont` names one.
 ---   panel       boolean|nil       minor 7. true: the strip sits on the owner's settings page, so
 ---                                 while the owner ignores its settings panel it is minor 5's.
+---   onRefit     function|nil      minor 8. onRefit(handle), called under pcall after every repaint
+---                                 of the owner's skin INSTEAD of the default re-fit (ApplyWidth
+---                                 with the host's last floor), for a host that sizes or shortens
+---                                 the strip itself. Never called on an owner-less strip.
 --- @return table|nil handle  nil with no parent and nil in a process with no CreateFrame
 function lib.DragHandle(parent, spec)
   spec = spec or {}
@@ -802,6 +922,7 @@ function lib.DragHandle(parent, spec)
   handle:SetHeight(lib.DRAG_HANDLE.HEIGHT)
   local Skin
   handle.__panel, handle.__hostFace = spec.panel == true, spec.labelFont ~= nil
+  handle.__onRefit = type(spec.onRefit) == "function" and spec.onRefit or nil
   handle.__pal, Skin = dhPalette(spec.owner, handle.__panel)
   -- Before anything is built on it: the marks are born at the handle's level + 1.
   dhLevel(handle, spec, parent)

@@ -163,16 +163,29 @@ end
 --- the failure would name a line-ending problem in a file that has no lines. None of the 49 TGAs
 --- LibKa0s v1.9.0 ships contains that pair today — which is exactly why this is written down,
 --- because the gate would have passed and the next icon added could have broken it for a reason
---- nobody would look for here. The list matches `.gitattributes`' binary pins.
+--- nobody would look for here.
+---
+--- The list is every extension `.gitattributes` pins `binary`, in that file's order, and
+--- `tests/test_kit_vendor_sync.lua` reads that file and fails on any binary line this table lacks.
+--- It is pinned rather than read at run time because the bytes compared are the LIBRARY's, and the
+--- consumer's checkout is the only `.gitattributes` the gate could reach. Until kit revision 45 it
+--- stopped at `zip`, while saying it matched: the v1.82.0 payload's `Expressway-EULA.pdf` then had
+--- its CRs stripped, and a byte-identical copy failed its own vendor-sync case in every consumer
+--- (`LK-A2` of Ka0sAddonsCommonTasks `docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK/`).
 local BINARY_EXT = {
-    tga = true, png = true, jpg = true, jpeg = true, gif = true, bmp = true, ico = true,
-    blp = true, ttf = true, otf = true, mp3 = true, ogg = true, wav = true, zip = true,
+    png = true, jpg = true, jpeg = true, gif = true, bmp = true, ico = true, tga = true,
+    blp = true,                                                       -- images and textures
+    ttf = true, otf = true,                                           -- fonts
+    mp3 = true, ogg = true, wav = true,                               -- audio
+    zip = true, tar = true, gz = true, ["7z"] = true, pdf = true, bin = true,
+    param = true,                                                     -- archives, opaque data
 }
 
 local function isBinary(path)
     local ext = path:match("%.([%a%d]+)$")
     return ext ~= nil and BINARY_EXT[ext:lower()] == true
 end
+VendorSync.isBinary = isBinary
 
 -- ── the icon declaration (kit revision 40) ────────────────────────────────────────────────────
 --

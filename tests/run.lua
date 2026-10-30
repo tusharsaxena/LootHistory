@@ -99,10 +99,17 @@ local SUITES = {
   -- write seam's media, one pick's single repaint, /lh set, the profile events. After
   -- test_skinsetup; leaves the harness on `Default` with no overrides.
   "test_skin_overrides",
+  -- The Skin tab's Font outline on the seam (LibKa0s v1.82.0, Skin minor 9): the key, the row, the
+  -- write seam's media.outline, /lh set, the profile events. After test_skin_overrides; leaves the
+  -- outline on "all", stored and applied.
+  "test_skin_outline",
   -- The first-run skin picker on the seam (LibKa0s OptionsSkinPicker 1): its spec, when it shows
   -- (login, the profile events, never stood down, held through combat) and what marks it seen.
   -- After test_skin_overrides; leaves the harness on `Default`, the picker down and unseen.
   "test_skin_picker",
+  -- The reserved `/lh skin` verb (LibKa0s v1.82.0's O.SkinVerb): its row, a seen profile, combat,
+  -- disabled. After test_skin_picker; leaves the picker down and unseen.
+  "test_skin_verb",
   -- The History window's and the export modal's chrome on the skin (LH-02): Ka0s Default draws
   -- today's values, a switch repaints live. Builds fresh windows under the kit's paint recorder and
   -- puts the session's back; leaves the skin on Ka0s Default.

@@ -665,7 +665,7 @@ local PARTITION = {
     -- font and texture overrides (minor 6) and the first-run picker's memory, after History in the
     -- strip's order; the library's Skin tab draws six of them and nothing draws the seventh, so all
     -- seven are skipRender.
-    { "Appearance", 7 },
+    { "Appearance", 8 },
   },
 }
 
@@ -815,7 +815,7 @@ local NUMBER_WORD = {
   sixteen = 16, seventeen = 17, eighteen = 18, nineteen = 19, twenty = 20,
   ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23, ["twenty-four"] = 24,
   ["twenty-five"] = 25, ["twenty-six"] = 26, ["twenty-seven"] = 27, ["twenty-eight"] = 28,
-  ["twenty-nine"] = 29, thirty = 30,
+  ["twenty-nine"] = 29, thirty = 30, ["thirty-one"] = 31, ["thirty-two"] = 32,
 }
 
 local COUNT_CLAIMS = {
@@ -1241,6 +1241,7 @@ settings.alpha | number | 1 | 0 | 1 | 0.05
 settings.appearance.font | string | "" | nil | nil | nil
 settings.appearance.ignoreFonts | bool | false | nil | nil | nil
 settings.appearance.ignorePanel | bool | true | nil | nil | nil
+settings.appearance.outline | string | "all" | nil | nil | nil
 settings.appearance.pickerSeen | bool | false | nil | nil | nil
 settings.appearance.skin | string | "ka0s" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil

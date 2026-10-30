@@ -116,6 +116,10 @@ local LIB_FILES = {
   -- New in v1.79.0 (unreleased): the first-run skin picker (OptionsSkinPicker 1), a fourteenth file
   -- of LibKa0s-Options-1.0. The stub in settings/OptionsSetup.lua carries its two members for parity.
   "libs/LibKa0s/OptionsSkinPicker.lua",
+  -- New in v1.82.0: the switched sections (OptionsSwitch 1, `shownWhen`) peeled out of
+  -- OptionsWidgets.lua, a fifteenth file of LibKa0s-Options-1.0. It adds no instance member, and
+  -- no page here switches a section.
+  "libs/LibKa0s/OptionsSwitch.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
@@ -897,20 +901,20 @@ test("v1.79.0: the vendored minors and the kit revision match the branch", funct
   assertTrue(skin.Skin >= 6) -- 7 since v1.80.0, 8 since v1.81.0, pinned there
   assertTrue(skin.SkinDefs >= 14) -- 15 since v1.80.0, 16 since v1.81.0, pinned there
   assertTrue(skin.SkinPaintExtras >= 4) -- 5 since v1.80.0, 6 since v1.81.0, pinned there
-  assertEqual(modules("LibKa0s-Media-1.0").Media, 9)
+  assertTrue(modules("LibKa0s-Media-1.0").Media >= 9) -- 10 since v1.82.0, pinned there
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 5)
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 1)
   local options = modules("LibKa0s-Options-1.0")
   assertEqual(options.Options, 34)
   assertEqual(options.OptionsRegistry, 4)
-  assertEqual(options.OptionsAppearance, 3)
+  assertTrue(options.OptionsAppearance >= 3) -- 4 since v1.82.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 1) -- 2 since v1.81.0, pinned there
   assertTrue(type(NS.Options.SkinPicker) == "function", "O.SkinPicker missing: OptionsSkinPicker did not attach")
   assertTrue(type(NS.Options.HideSkinPicker) == "function", "O.HideSkinPicker missing: OptionsSkinPicker did not attach")
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.GetOverride) == "function" and type(Skin.SetOverride) == "function",
     "Skin:GetOverride / Skin:SetOverride missing: re-vendor v1.79.0")
-  assertEqual(T.KIT_VERSION, 44)
+  assertTrue(T.KIT_VERSION >= 44) -- 45 since v1.82.0, pinned there
 end)
 
 -- v1.80.0 (the skinning rollout's library half; vendored here only as the step to v1.81.0, since
@@ -932,10 +936,10 @@ test("v1.80.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinPaintControls >= 9) -- 10 since v1.81.0, pinned there
   assertEqual(skin.SkinEUI, 2)
   assertEqual(skin.SkinAce, 4)
-  assertEqual(modules("LibKa0s-Options-1.0").OptionsCompose, 13)
+  assertTrue(modules("LibKa0s-Options-1.0").OptionsCompose >= 13) -- 14 since v1.82.0, pinned there
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.AliasAceType) == "function", "Skin:AliasAceType missing: re-vendor v1.81.0")
-  assertEqual(T.KIT_VERSION, 44)
+  assertTrue(T.KIT_VERSION >= 44) -- 45 since v1.82.0, pinned there
 end)
 
 -- v1.81.0 (Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS/, LH-RV): the skin library
@@ -955,20 +959,20 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
     return lib.MODULES
   end
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 8)
-  assertEqual(skin.SkinDefs, 16)
-  assertEqual(skin.SkinPaint, 12)
-  assertEqual(skin.SkinPaintExtras, 6)
-  assertEqual(skin.SkinPaintControls, 10)
+  assertTrue(skin.Skin >= 8) -- 9 since v1.82.0, pinned there
+  assertTrue(skin.SkinDefs >= 16) -- 17 since v1.82.0, pinned there
+  assertTrue(skin.SkinPaint >= 12) -- 13 since v1.82.0, pinned there
+  assertTrue(skin.SkinPaintExtras >= 6) -- 7 since v1.82.0, pinned there
+  assertTrue(skin.SkinPaintControls >= 10) -- 11 since v1.82.0, pinned there
   local widgets = modules("LibKa0s-Widgets-1.0")
   assertEqual(widgets.Widgets, 17)
   assertEqual(widgets.WidgetsReorder, 3)
-  assertEqual(widgets.WidgetsDragHandle, 7)
+  assertTrue(widgets.WidgetsDragHandle >= 7) -- 8 since v1.82.0, pinned there
   assertEqual(widgets.WidgetsLineChart, 5)
   assertEqual(widgets.WidgetsAutocomplete, 5)
   assertEqual(widgets.WidgetsCopyWindow, 2)
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.OptionsWidgets, 36)
+  assertTrue(options.OptionsWidgets >= 36) -- 37 since v1.82.0, pinned there
   assertEqual(options.OptionsIds, 5)
   assertEqual(options.OptionsIdList, 7)
   assertEqual(options.OptionsTabs, 11)
@@ -976,12 +980,49 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsNav, 4)
   assertEqual(options.OptionsDrawer, 3)
   assertEqual(options.OptionsKeybinds, 6)
-  assertEqual(options.OptionsSkinPicker, 2)
+  assertTrue(options.OptionsSkinPicker >= 2) -- 3 since v1.82.0, pinned there
   assertEqual(modules("LibKa0s-Core-1.0").Core, 14)
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogWindow, 2)
   assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 11)
   assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 8)
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.DrawsKey) == "function", "Skin:DrawsKey missing: re-vendor v1.81.0")
-  assertEqual(T.KIT_VERSION, 44)
+  assertTrue(T.KIT_VERSION >= 44) -- 45 since v1.82.0, pinned there
+end)
+-- v1.82.0 (Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, LH-01): the skin fonts
+-- and feedback batch. Media 10 (Prototype, Expressway and Fira Sans Medium in; Inter, Oxanium and
+-- Fira Sans Regular out), Skin 9 (the font outline: GetOutline, SetOutline, OUTLINE_MODES; VOCAB
+-- gains FontFlags and HudFontSize), SkinDefs 17 (re-measured sizes, the per-skin HUD factor),
+-- SkinPaint 13 and SkinPaintControls 11 (a label's alpha restored when enabled), SkinPaintExtras 7
+-- (S.FontFlags, S.HudFontSize), WidgetsDragHandle 8 (the strip re-fits with 2 px slack), the
+-- settings chrome (OptionsWidgets 37 with the new fifteenth file OptionsSwitch 1, OptionsCompose 14's
+-- From skin flags, OptionsAppearance 4's Font outline and reset buttons, OptionsSkinPicker 3's
+-- O.SkinVerb), and kit revision 45 (glyphs.lua's display-glyph guard).
+test("v1.82.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.82.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Media-1.0").Media, 10)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 9)
+  assertEqual(skin.SkinDefs, 17)
+  assertEqual(skin.SkinPaint, 13)
+  assertEqual(skin.SkinPaintExtras, 7)
+  assertEqual(skin.SkinPaintControls, 11)
+  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle, 8)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.OptionsWidgets, 37)
+  assertEqual(options.OptionsSwitch, 1)
+  assertEqual(options.OptionsCompose, 14)
+  assertEqual(options.OptionsAppearance, 4)
+  assertEqual(options.OptionsSkinPicker, 3)
+  assertTrue(type(NS.Options.SkinVerb) == "function", "O.SkinVerb missing: OptionsSkinPicker did not attach")
+  local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
+  assertTrue(type(Skin.SetOutline) == "function" and type(Skin.GetOutline) == "function",
+    "Skin:SetOutline / Skin:GetOutline missing: re-vendor v1.82.0")
+  assertTrue(type(NS.Skin.FontFlags) == "function" and type(NS.Skin.HudFontSize) == "function",
+    "S.FontFlags / S.HudFontSize missing: re-vendor v1.82.0")
+  assertEqual(T.KIT_VERSION, 45)
 end)

@@ -84,12 +84,12 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Thirty rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Thirty-one rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
 Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
-`Appearance`) holds seven: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
-`.ignoreFonts`, and the Font and texture overrides `.font` and `.texture` are drawn by the library's
-own Skin tab (skinning-§3), and `.pickerSeen`, the first-run skin picker's memory, is drawn by nothing.
+`Appearance`) holds eight: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
+`.ignoreFonts`, the Font and texture overrides `.font` and `.texture`, and the Font outline `.outline`
+(LibKa0s v1.82.0: `all`, `hud` or `off`) are drawn by the library's own Skin tab (skinning-§3), and `.pickerSeen`, the first-run skin picker's memory, is drawn by nothing.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -352,10 +352,13 @@ facade with this addon as its **owner**.
   the client's; on in a new profile) and `.ignoreFonts` (**Ignore fonts**: every string keeps its own
   face and size), applied through `NS.ApplySkinIgnore` (`Skin:SetIgnore`, live both ways), and the
   tab's Font and texture two more, `.font` and `.texture` (an LSM key each, `""` for the skin's own),
-  applied through `NS.ApplySkinOverride` (`Skin:SetOverride`, live) ([schema.md](schema.md)). All six
-  are drawn by the library's Skin tab (key `Appearance`) on the General page, just before
-  Keybindings ([settings-panel.md](settings-panel.md)). A seventh key, `.pickerSeen`, is the
-  first-run skin picker's memory.
+  applied through `NS.ApplySkinOverride` (`Skin:SetOverride`, live), and its Font outline one more,
+  `.outline` (`all`, `hud` or `off`; LibKa0s v1.82.0), applied through `NS.ApplySkinOutline`
+  (`Skin:SetOutline`, live) ([schema.md](schema.md)). All seven are drawn by the library's Skin tab
+  (key `Appearance`) on the General page, just before Keybindings
+  ([settings-panel.md](settings-panel.md)). An eighth key, `.pickerSeen`, is the first-run skin
+  picker's memory, and `/lh skin` (`NS.RunSkinVerb`, the library's `O.SkinVerb`) opens the picker
+  again on demand.
 - **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
   (`O.SkinPicker`, LibKa0s OptionsSkinPicker 2: titled "Choose a skin", with the brand on its own
   line above the dropdown, `frame.ownerLabel`) while the profile's `pickerSeen` is false: two

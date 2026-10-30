@@ -1,6 +1,7 @@
 -- testkit/mock_paint.lua — the kit's opt-in paint recorder (revision 43): textures, font strings,
 -- backdrops and NineSlice pieces that remember how they were painted, for a suite that asserts a skin.
 -- Revision 44 adds the StatusBar family (below), for the skin's bar-texture primitive.
+-- Revision 45: SetTextColor given no alpha keeps the alpha the string already had, as the client does.
 --
 -- Returns an INSTALLER, called on a finished mock, which returns its RESTORE:
 --
@@ -196,7 +197,12 @@ local FONTSTRING = {}
 function FONTSTRING:SetText(v) self.__text = v end
 function FONTSTRING:GetText() return self.__text end
 function FONTSTRING:SetFormattedText(fmt, ...) self.__text = string.format(fmt, ...) end
-function FONTSTRING:SetTextColor(r, g, b, a) self.__textColor = color(r, g, b, a) end
+-- No alpha keeps the alpha the string had (revision 45): the client's rule, measured off DpsRace's
+-- Arm Race label, which drew its enabled color at the 0.4 of an earlier disabled paint.
+function FONTSTRING:SetTextColor(r, g, b, a)
+  if a == nil and self.__textColor then a = self.__textColor[4] end
+  self.__textColor = color(r, g, b, a)
+end
 function FONTSTRING:GetTextColor() return unpackOr(self.__textColor, WHITE) end
 function FONTSTRING:SetFont(path, size, flags) self.__font = { path, size, flags or "" } end
 function FONTSTRING:GetFont()

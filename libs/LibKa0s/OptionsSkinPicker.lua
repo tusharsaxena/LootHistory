@@ -19,25 +19,29 @@
 --     gear beside it. A click opens the list of every skin (Skin:Skins() order) inside the window,
 --     under the button, each row three swatches and the skin's name in that skin's own body face and
 --     size. A pick PREVIEWS it: refused in combat; otherwise Skin:SetChoice, so the addon repaints
---     live, and the reload flag SetChoice answers is kept for Apply. The owner's write seam is not
---     called and no popup is raised. It closes the list, not the window;
+--     live, and the reload flag SetChoice answers is kept for Apply. A pick whose look differs from
+--     the one the window opened with previews with the font and texture overrides cleared, as Apply
+--     will save it (minor 3); a pick back to it restores them. The owner's write seam is not called
+--     and no popup is raised. It closes the list, not the window;
 --   * the eye (Media icon "eye"), only when `spec.onPreview` is a function: the host's test mode, so
 --     the player sees the skin on the addon's own frames; it keeps working while a preview is
 --     pending, and the window is Raise()d once onPreview returns;
 --   * the gear (Media icon "settings"): saves the pending pick as Apply does, then `spec.onSettings`,
 --     by default the settings panel opened at `spec.page` (O.OpenOptionsPanel(page), OptionsRegistry
 --     minor 4) and O.SelectTab(page, spec.tab or "Appearance"); then the window closes;
---   * "Apply" (a primary button): saves the pending pick (spec.set(source, key), then the one reload
---     popup when any pick in this showing asked for one), then closes the window;
+--   * "Apply" (a primary button): saves the pending pick (spec.set(source, key), then, when the pick
+--     reset the overrides, spec.set(nil, nil, nil, media), then the one reload popup when any pick in
+--     this showing asked for one), then closes the window;
 --   * "Apply to all Ka0s addons", shown only while another skin owner is registered: Apply, then
---     every other owner gets the same source and skin (Skin:SetChoice, then Skin:WriteChoice: the
---     skin half of the Skin tab's copy; their scope and overrides are left alone), one reload popup
+--     every other owner gets the same source and skin (lib.__copySkinTo with no scope or media: the
+--     skin half of the Skin tab's copy; their scope is left alone, and an owner whose look changes
+--     goes back to its new skin's own font and texture, minor 3), one reload popup
 --     naming every addon that needs one, then this window closes and every queued picker is
 --     dismissed (its `spec.onClose` runs; it never shows).
 -- The close control and Escape dismiss WITHOUT saving: a pending preview is put back (Skin:SetChoice
 -- to the owner's stored choice as it reads NOW, through spec.get, no write: only the unsaved preview
--- is undone, so a skin the Skin tab or a profile change stored while the window was up stays), then
--- the window closes. Every close route (Apply, the close control, the gear, Escape,
+-- is undone, so a skin the Skin tab or a profile change stored while the window was up stays, and
+-- the overrides the window opened with, when the preview cleared them), then the window closes. Every close route (Apply, the close control, the gear, Escape,
 -- O.HideSkinPicker) calls `spec.onClose` once, where the host records that the picker was seen.
 -- Apply, Apply to all, the gear and a pick are refused in combat and leave the window up; the close
 -- control and Escape still close it, and the preview put back is no write.
@@ -93,7 +97,22 @@ if not lib then return end
 -- title is TITLE, "Choose a skin" (TITLE_FOR retired: a long label was cut off in a one-line title);
 -- the addon's label has its own line, frame.ownerLabel, above the dropdown, painted "heading"; the
 -- window widens to fit it on every show and skin change, never narrower than 280.
-local PICKER_MINOR = 2
+-- Minor 3 (LK-07 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's item 1
+-- and ruling D-10): choosing another skin resets the font and texture overrides to its own. A pick
+-- whose look differs from the one the window opened with (Skin:DrawsKey) previews with the owner's
+-- overrides cleared (Skin:SetOverride, no write); a pick back to it restores them; Apply (and the
+-- gear, and Apply to all) then writes the cleared overrides through spec.set's fourth argument; a
+-- dismissal puts back the overrides the window opened with. Apply to all resets them for every other
+-- owner whose look changes (lib.__copySkinTo, through lib.__chooseSkin, OptionsAppearance minor 4).
+-- Still minor 3 (LK-11 of the same run, the owner's item 12 and ruling D-16): O.SkinVerb(spec), the
+-- act behind every addon's `/<slash> skin` verb. The host hands it the spec its first-run start
+-- builds, so it shows the same picker a new profile shows, whatever the profile's seen flag says. In
+-- combat it shows nothing and prints VERB_COMBAT on every call (never through O.__combatRefused,
+-- which prints once per combat), with one Cfg line through the descriptor's `debug`; queued, it
+-- prints VERB_QUEUED; with no picker to show, VERB_UNAVAILABLE and a Cfg line naming the cause.
+-- The row and the disabled refusal are the host's (slash-commands-§3: the verb table lives in the
+-- addon).
+local PICKER_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -118,11 +137,17 @@ lib.SKIN_PICKER_STRINGS = {
   APPLY_TIP      = "Keep this skin and close the window.",
   APPLY_ALL      = "Apply to all Ka0s addons",
   APPLY_ALL_TIP  = "Keep this skin, and give every other loaded Ka0s addon that uses skins the same " ..
-                   "skin source and skin. Their scope, font and texture stay as they are.",
+                   "skin source and skin. Their scope stays as it is; an addon whose skin changes " ..
+                   "goes back to that skin's own font and texture.",
   PREVIEW_TIP    = "Preview: open test mode",
   SETTINGS_TIP   = "Keep this skin and open the Skin settings",
   PREVIEW_GLYPH  = "o",
   SETTINGS_GLYPH = "*",
+  -- O.SkinVerb's words (LK-11). VERB_HELP is the `skin` row's help text, one wording for every host.
+  VERB_HELP        = "Choose a skin: open the skin picker",
+  VERB_COMBAT      = "|cffaaaaaacannot open the skin picker during combat|r",
+  VERB_QUEUED      = "Another Ka0s addon's skin picker is open; this one opens when it closes.",
+  VERB_UNAVAILABLE = "Skins are unavailable: LibKa0s-Skin-1.0 did not load.",
 }
 
 local WIDTH, PAD, TOP = 280, 12, 40
@@ -326,9 +351,12 @@ end
 --- Called by lib:New (Options minor 34), guarded. Attaches the picker's two members.
 function lib.__AttachSkinPicker(O, d)
   local defaultOwner = type(d) == "table" and type(d.addonName) == "string" and d.addonName or nil
-  -- The picker shown last: { frame, spec, S, owner, Skin, Sk, rows, open, shown, opened, pending,
-  -- reload }. `opened` is the applied choice when the showing began, `pending` the skin a pick
-  -- previews and Apply has not saved, `reload` whether any pick in this showing asked for a reload.
+  -- The picker shown last: { frame, spec, S, owner, Skin, Sk, rows, open, shown, opened, openedDraws,
+  -- openedMedia, cleared, pending, reload }. `opened` is the applied choice when the showing began,
+  -- `openedDraws` the look it drew then (Skin:DrawsKey) and `openedMedia` its overrides then
+  -- (`{ font, texture }`, each a key or false); `cleared` is true while a preview has cleared those
+  -- overrides (minor 3); `pending` the skin a pick previews and Apply has not saved, `reload` whether
+  -- any pick in this showing asked for a reload.
   local P
   local pickers = {}   -- every owner's picker on this instance, so a window is never orphaned
 
@@ -413,26 +441,69 @@ function lib.__AttachSkinPicker(O, d)
     return P.Skin:OwnerLabel(name) or name
   end
 
-  --- Preview `key`: refused in combat; otherwise the Skin major moves (the addon repaints live) and
-  --- the reload flag it answers is kept for Apply. No write, no popup. Closes the list, not the window.
+  --- The look `p`'s owner draws now: Skin:DrawsKey, else (a Skin copy without it) its skin key.
+  local function drawsNow(p)
+    if type(p.Skin.DrawsKey) == "function" then return p.Skin:DrawsKey(p.owner) end
+    return select(2, p.Skin:GetChoice(p.owner))
+  end
+
+  --- `p`'s overrides as the window opened with them, put back (no write) when a preview cleared them,
+  --- and only while nothing else moved them since: the look drawn now is the opened one, and the
+  --- overrides are still the cleared pair the preview left. A Skin-tab write made while the window
+  --- was up (another skin's reset, or an override) stays live, as the profile holds it.
+  local function restoreMedia(p)
+    if not p.cleared then return end
+    p.cleared = false
+    if drawsNow(p) ~= p.openedDraws then return end
+    if type(p.Skin.GetOverride) == "function" then
+      local font, texture = p.Skin:GetOverride(p.owner)
+      if font or texture then return end
+    end
+    local m = p.openedMedia or {}
+    p.Skin:SetOverride(p.owner, m.font or false, m.texture or false)
+  end
+
+  --- After a preview moved the Skin major: a look other than the one the window opened with wears
+  --- its own font and texture (the overrides cleared, no write); the opened look gets its overrides
+  --- back (minor 3, D-10).
+  local function previewMedia()
+    local m = P.openedMedia
+    if not (m and (m.font or m.texture) and type(P.Skin.SetOverride) == "function") then return end
+    if drawsNow(P) == P.openedDraws then return restoreMedia(P) end
+    if P.cleared then return end
+    P.Skin:SetOverride(P.owner, false, false)
+    P.cleared = true
+  end
+
+  --- Preview `key`: refused in combat; otherwise the Skin major moves (the addon repaints live), the
+  --- overrides follow the look (previewMedia), and the reload flag SetChoice answers is kept for
+  --- Apply. No write, no popup. Closes the list, not the window.
   local function pick(key)
     setOpen(false)
     if refused() then return end
     local source = readChoice()
     local _, reload = P.Skin:SetChoice(P.owner, source, key)
+    previewMedia()
     P.pending = key
     if reload then P.reload = true end
     refresh()
   end
 
-  --- Save the pending pick through the owner's write seam, the stored source kept. Answers whether
-  --- any pick in this showing asked for a reload; the caller raises the popup.
+  --- Save the pending pick through the owner's write seam, the stored source kept, then the cleared
+  --- overrides when the preview reset them (every media half, as the Skin tab writes them). Answers
+  --- whether any pick in this showing asked for a reload; the caller raises the popup.
   local function save()
     local key = P.pending
     if key == nil then return false end
     local source = readChoice()
     P.pending = nil
     safeCall(P.spec.set, source, key)
+    if P.cleared then
+      P.cleared = false
+      P.openedMedia = { font = false, texture = false }
+      local outline = type(P.Skin.GetOutline) == "function" and P.Skin:GetOutline(P.owner) or nil
+      safeCall(P.spec.set, nil, nil, nil, { font = false, texture = false, outline = outline })
+    end
     local reload = P.reload
     P.reload = false
     return reload
@@ -442,12 +513,14 @@ function lib.__AttachSkinPicker(O, d)
   --- stored choice as it reads now (spec.get, each half it gives no usable value for taken from the
   --- choice the window opened with), so only the unsaved preview is undone: a skin the Skin tab or
   --- a profile change stored meanwhile stays. Never the Skin major's applied choice: the pick moved
-  --- it to the preview. No write.
+  --- it to the preview. The overrides the window opened with come back when the preview cleared
+  --- them. No write.
   local function revert(p)
     if p.pending == nil then return end
     p.pending, p.reload = nil, false
     local source, skin = readChoice(p, p.opened or {})
     p.Skin:SetChoice(p.owner, source, skin)
+    restoreMedia(p)
   end
 
   --- Picker `p`'s window has gone, by any route: a pending preview put back, `spec.onClose` once per
@@ -488,8 +561,9 @@ function lib.__AttachSkinPicker(O, d)
   end
 
   --- Apply to all: Apply for this owner, then every other owner gets the same source and skin (the
-  --- skin half of the Skin tab's copy), one reload popup naming each that needs it, every queued
-  --- picker dismissed, then the close. Refused in combat with the window left up.
+  --- skin half of the Skin tab's copy: lib.__copySkinTo resets the overrides of one whose look
+  --- changes), one reload popup naming each that needs it, every queued picker dismissed, then the
+  --- close. Refused in combat with the window left up.
   local function applyAll()
     if O.__combatRefused and O.__combatRefused("skin picker", "copy") then return end
     local Skin = P.Skin
@@ -733,7 +807,11 @@ function lib.__AttachSkinPicker(O, d)
     syncRows()
     applySpec(f)
     if fresh then
-      P.pending, P.reload, P.opened = nil, false, { Skin:GetChoice(owner) }
+      P.pending, P.reload, P.opened, P.cleared = nil, false, { Skin:GetChoice(owner) }, false
+      P.openedDraws = drawsNow(P)
+      local font, texture
+      if type(Skin.GetOverride) == "function" then font, texture = Skin:GetOverride(owner) end
+      P.openedMedia = { font = font or false, texture = texture or false }
       place(f)
     end
     setOpen(false)
@@ -786,5 +864,44 @@ function lib.__AttachSkinPicker(O, d)
   function O.HideSkinPicker()
     dropWaiting(O)
     hide()
+  end
+
+  --- Why pickerTarget answered nil, for the verb's Cfg line: the one printed wording covers all three.
+  local function unavailableCause(spec)
+    local Skin = skinMajor()
+    if not (Skin and type(Skin.IsOwner) == "function") then return "no Skin major" end
+    if not Skin:IsOwner(spec.owner or defaultOwner or (P and P.owner)) then return "owner not registered" end
+    return "no client"
+  end
+
+  --- The `/<slash> skin` verb's act (LK-11): O.SkinPicker(spec) on demand, saying why when nothing
+  --- shows. The host passes the spec its first-run start builds. In combat: nothing shows, one gray
+  --- VERB_COMBAT line on every call and one Cfg line, answering nil, "combat". Queued behind another
+  --- owner's picker: VERB_QUEUED, nil, "queued". No picker to show (no Skin major, no client, an
+  --- unregistered owner): VERB_UNAVAILABLE, nil, "unavailable", with a Cfg line naming which.
+  --- Otherwise the picker's frame.
+  function O.SkinVerb(spec)
+    spec = type(spec) == "table" and spec or {}
+    local S = mergeStrings(spec.strings)
+    local say = O.__print or function() end
+    local function cfg(what)
+      if type(d) == "table" and type(d.debug) == "function" then
+        d.debug("Cfg", "skin picker " .. tostring(spec.owner or defaultOwner) .. " " .. what)
+      end
+    end
+    if inLockdown() then
+      say(S.VERB_COMBAT)
+      cfg("refused (in combat)")
+      return nil, "combat"
+    end
+    local f, why = O.SkinPicker(spec)
+    if f then return f end
+    if why == "queued" then
+      say(S.VERB_QUEUED)
+      return nil, "queued"
+    end
+    say(S.VERB_UNAVAILABLE)
+    cfg("unavailable (" .. unavailableCause(spec) .. ")")
+    return nil, "unavailable"
   end
 end

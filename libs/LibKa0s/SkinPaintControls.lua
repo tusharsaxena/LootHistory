@@ -61,7 +61,11 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Still minor 10 (LK-06c, ruling R-5, decisions D-13 and D-14): Drawer labels its label and summary
 -- through P.label (the body face, so Ignore fonts reaches them), colors `opts.chevron` with
 -- `icon.arrow` and `opts.hover` with `list.hoverArt`; NavItem colors `opts.hover` the same way.
-local CONTROLS_MINOR = 10
+-- Minor 11 (LK-14 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, D-25): a button's
+-- label and a close button's glyph take their color through SkinPaint minor 13's P.color, so an
+-- opaque color is drawn opaque over a label an owner's faded disabled color reached first (DpsRace's
+-- Arm Race read disabled while enabled, image-55..57).
+local CONTROLS_MINOR = 11
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -71,7 +75,9 @@ lib.MODULES = lib.MODULES or {}
 lib.MODULES.SkinPaintControls = CONTROLS_MINOR
 
 local prim, P = lib.prim, lib.__P
-local rgb, rgba = P.rgb, P.rgba
+local rgba = P.rgba
+-- SkinPaint minor 13's P.color; the opaque three-number call before it.
+local paintColor = P.color or function(obj, method, c) return obj[method](obj, P.rgb(c)) end
 
 local ARROW_ART = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 local SLIDER_BAR = 4   -- the slider track's height, Ka0s Default's host-drawn bar
@@ -155,7 +161,7 @@ local function buttonLabel(btn, rec, hot)
   else
     c = T[base .. (hot and ".hover" or ".text")]
   end
-  if fs and c then fs:SetTextColor(rgb(c)) end
+  if fs and c then paintColor(fs, "SetTextColor", c) end
 end
 
 local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on) end
@@ -541,7 +547,7 @@ end
 local function closeHover(btn, rec, on)
   local art, method = closeArt(btn, rec)
   local c = P.T(rec.owner)[on and "close.hot" or "close.rest"]
-  if art and c then art[method](art, rgb(c)) end
+  if art and c then paintColor(art, method, c) end
 end
 
 -- A stock close button, under every skin: its art faded, an ASCII "x" drawn in its place

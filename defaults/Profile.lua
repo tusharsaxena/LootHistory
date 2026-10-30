@@ -62,9 +62,10 @@ NS.defaults.profile = {
     -- panel the client's and skins the fonts (the owner's call, 2026-10-27). The font and texture
     -- overrides (the Skin tab's Font and texture, LibKa0s-Skin-1.0 minor 6): an LSM key each, ""
     -- for the skin's own. `pickerSeen`: the first-run skin picker was closed on this profile, so a
-    -- new or reset profile shows it once (LibKa0s OptionsSkinPicker 1).
+    -- new or reset profile shows it once (LibKa0s OptionsSkinPicker 1). `outline`: the Skin tab's
+    -- Font outline (LibKa0s-Skin-1.0 minor 9, ruling D-06), "all" text, "hud" text only, or "off".
     appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = true, ignoreFonts = false,
-                         font = "", texture = "", pickerSeen = false },
+                         font = "", texture = "", outline = "all", pickerSeen = false },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,

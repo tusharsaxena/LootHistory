@@ -1049,7 +1049,7 @@ Total.
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 - /lh holdings <query> prints the matching name and its account-wide total
 
-### test_slash_degraded.lua (15)
+### test_slash_degraded.lua (17)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -1062,6 +1062,8 @@ Total.
 - library-less install: resetall resets the whole profile and says so on one line
 - library-less install: resetall is the same act through the verb table
 - library-less install: both report forms answer with the library-absent line and nothing else
+- library-less install: /lh skin answers with the library-absent line and nothing else
+- library-less install: the degraded help does not offer /lh skin
 - library-less install: the degraded help does not offer /lh diagnostics
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
@@ -1534,6 +1536,18 @@ Total.
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
 
+### test_skin_outline.lua (9)
+
+- Skin outline: a fresh profile stores All text, the library's default
+- Skin outline: the row is a skip-render Skin tab row offering the library's three modes
+- Skin outline: the stored mode reads "all" before the profile store exists
+- Skin outline: the write seam stores media.outline, and leaves it alone when it is nil
+- Skin outline: another addon's copy reaches the store through WriteChoice
+- Skin outline: /lh set moves the applied mode live
+- Skin outline: /lh set refuses a mode the library does not know
+- Skin outline: the stored mode is applied with the skin
+- Skin outline: a profile switch applies the incoming profile's mode, and back
+
 ### test_skin_picker.lua (25)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
@@ -1561,6 +1575,13 @@ Total.
 - Skin picker: the stand-down takes a queued picker out of the queue, unseen
 - Skin picker: a close leaves the put-back to the library; the host moves no skin
 - Skin picker: a picker queued behind another addon's waits for combat to end
+
+### test_skin_verb.lua (4)
+
+- Skin verb: a skin row right after config, worded as the library words it
+- Skin verb: /lh skin shows the picker on a profile that has already seen it
+- Skin verb: in combat nothing shows and the gray line prints on every call
+- Skin verb: refused while the addon is disabled, with the one refusal line
 
 ### test_skin_chrome.lua (6)
 
@@ -1674,7 +1695,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (40)
+### test_libka0s.lua (41)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1716,6 +1737,7 @@ Total.
 - v1.79.0: the vendored minors and the kit revision match the branch
 - v1.80.0: the vendored minors and the kit revision match the release
 - v1.81.0: the vendored minors and the kit revision match the release
+- v1.82.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (20)
 
@@ -2128,7 +2150,7 @@ Total.
 | test_launcher.lua | 22 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 63 |
-| test_slash_degraded.lua | 15 |
+| test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 73 |
 | test_schema_stub.lua | 9 |
@@ -2146,7 +2168,9 @@ Total.
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 9 |
+| test_skin_outline.lua | 9 |
 | test_skin_picker.lua | 25 |
+| test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 18 |
@@ -2155,7 +2179,7 @@ Total.
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 40 |
+| test_libka0s.lua | 41 |
 | test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2180,4 +2204,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1834** |
+| **Total** | **1850** |
