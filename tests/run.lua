@@ -134,6 +134,10 @@ local SUITES = {
   -- The hard-coded color gate (LH-05): no numeric color literal in a paint call and no |cff escape
   -- outside core/SkinSetup.lua and its named allow-list. Reads the checkout, no addon state.
   "test_skin_literals",
+  -- The display-glyph guard (LH-02, ruling D-19): every display string in characters every shipped
+  -- skin face draws (the kit's assertDisplayGlyphs), and the four sites that changed. Reads the
+  -- checkout and the built General page; writes nothing.
+  "test_glyphs",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
   "test_profiles", "test_harness", "test_libka0s",

@@ -1651,6 +1651,14 @@ Total.
 - every allow-list entry carries its reason
 - the gate is falsifiable: a planted literal of each shape is reported
 
+### test_glyphs.lua (5)
+
+- glyphs: every display string uses only characters every shipped skin face draws
+- glyphs: the History window's footer reads "Database ~1.6 MB"
+- glyphs: the History tab's storage line reads "Database size: ~"
+- glyphs: the Transfer glyph is ↔, which the mono face draws
+- glyphs: the Quality column's tooltip reads "Poor to Legendary"
+
 ### test_profiles.lua (31)
 
 - Migrate v8->v9: every stored setting lands in the Default profile and leaves global
@@ -2177,6 +2185,7 @@ Total.
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
 | test_skin_literals.lua | 3 |
+| test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
 | test_libka0s.lua | 41 |
@@ -2204,4 +2213,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1850** |
+| **Total** | **1855** |

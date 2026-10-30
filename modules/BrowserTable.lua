@@ -35,7 +35,7 @@ local function headerRGB() return NS.SkinColor("list.header.text") end
 -- The Bound lock, one size for the header and the rows. They were 14 and briefly disagreed; a
 -- column label and the cells beneath it drawing the same mark at two sizes reads as two marks.
 local LOCK_SIZE = 11
--- The Direction cell's glyph (▲/▼/⇄) is its own FontString, drawn in the mono face at the left of
+-- The Direction cell's glyph (▲/▼/↔) is its own FontString, drawn in the mono face at the left of
 -- the cell, with the label ("Gain"/"Loss"/"Transfer") in the row font beside it -- BankLedger's
 -- Direction column (LedgerTable.lua), same 12px glyph and 2px gap. The default font has none of the
 -- three glyphs and draws boxes, so only the glyph takes C.FONT_MONO; the label stays in the row font
@@ -234,7 +234,7 @@ BrowserTable.COLUMNS = {
     valueFn = function(r) return NS.LedgerFormat.QtyText(r) end,
     sortFn = function(r) return NS.LedgerFormat.SignedQty(r) end },
   { key = "quality", label = "Quality", width = 64, align = "LEFT",
-    desc = "Item quality (Poor → Legendary).",
+    desc = "Item quality (Poor to Legendary).",
     valueFn = function(r) return r.quality ~= nil and NS.Item.QualityLabel(r.quality) or "" end,
     sortFn = function(r) return r.quality or 0 end },
   { key = "type", label = "Type", width = 76, align = "LEFT",

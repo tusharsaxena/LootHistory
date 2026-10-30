@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 39 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own |
+| SKIN-1 to 42 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -270,9 +270,10 @@ height and the visible row count follows, with no row clipped at the bottom; bac
 looks as it did before the slider existed; `/lh get settings.rowHeight` echoes the value. Result: pass (owner-marked 2026-10-10)
 
 **PANEL-10. History tab readout.** Open the History tab → the storage readout ("N items collected
-over D days", "Database size: ≈ …") with **Purge history…** beside it and nothing else. Loot
+over D days", "Database size: ~…") with **Purge history…** beside it and nothing else. Loot
 something → the count rises on its own; click to Capture and back, loot again → it still rises.
-Result: pass (owner-marked 2026-10-10)
+(Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30: the estimate reads `~`, never
+a box.) Result:
 
 **PANEL-11. Reset position.** Move the History window, then **Reset position** → the window returns
 to the screen center, no dialog appears and no setting changes. Result: pass (owner-marked 2026-10-10)
@@ -766,9 +767,10 @@ values in **Bound**, **Quality**, **Type**, **SubType**, **Source**, **Zone**, *
 (the filters intersect), a two-value menu reads "N selected", and the bottom-left footer "Showing X of
 Y" updates live. Result: pass (owner-marked 2026-10-10)
 
-**HIST-8. Database size footer.** Read the bottom-right footer → "Database ≈ <size>", matching the
-panel's estimate; it does not change with filters, and does change after a new loot or a delete.
-Result: pass (owner-marked 2026-10-10)
+**HIST-8. Database size footer.** Read the bottom-right footer → "Database ~<size>" (for example
+"Database ~1.6 MB"), matching the panel's estimate; it does not change with filters, and does change
+after a new loot or a delete. (Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30:
+`~` replaced the `≈` Obsidian drew as a box, image-19.) Result:
 
 **HIST-9. Zone filter keys on the name.** With loot from a multi-floor dungeon (Halls of Atonement,
 Dire Maul, The Deadmines), open **Zone** → each zone once; picking it shows every row from any floor;
@@ -1576,7 +1578,7 @@ visit a banker. Check each of these:
 
 - History gets `UNTRACKED` rows for **exactly** the difference: one IN or OUT per item that changed,
   each with the changed count, on the character for the bank and on **Warband** for the tab. No row
-  is a MOVE (⇄), and no row has a guessed reason such as Vendor or Loot.
+  is a MOVE (↔), and no row has a guessed reason such as Vendor or Loot.
 - Deposit one more item in the same visit → one MOVE row (bags → bank), not `UNTRACKED`.
 - The Holdings tab's bank and warband counts match the bank you see.
 - A bank never read before (a new character's first visit) writes no rows at all.
@@ -1592,7 +1594,7 @@ Result: pass (owner-marked 2026-10-10)
 gains, losses and transfers all show. Check each of these:
 
 - The column header reads **Direction**, and the column is wide enough that `Transfer` is not cut off.
-- A gain reads `▲ Gain` in green, a loss `▼ Loss` in red, a transfer `⇄ Transfer` in gray. The glyph
+- A gain reads `▲ Gain` in green, a loss `▼ Loss` in red, a transfer `↔ Transfer` in gray. The glyph
   and the label share one color, and the glyph is a real arrow, not a box.
 - A row recorded before the ledger existed (no direction stored) reads `▲ Gain` in green.
 - Scroll the list up and down several pages so rows are reused: every row keeps the glyph, label and
@@ -1600,7 +1602,8 @@ gains, losses and transfers all show. Check each of these:
 - Pick **Group: Direction**: the group-header rows show no glyph, and the rows under each header
   match it. Click the Direction header to sort: gains, losses, transfers (and the reverse).
 
-Result: pass (owner-marked 2026-10-10)
+(Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30: the Transfer glyph is now ↔,
+which the mono face draws; it was ⇄, a box.) Result:
 
 **LED-13. Holdings follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
 show` → **Holdings** with gold on two characters and the Warband (or `/lh test`) → it looks exactly
@@ -1633,17 +1636,17 @@ The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-
 every gain, loss and transfer written as History rows. Run on the live account with **Track holdings
 and losses** and **Record gold** ticked, History's Direction filter set to **All** (Direction
 dropdown, row 1 of the filter bar) so transfers show, and Quality left on its default. A move inside
-one holder is one `⇄` row; since Phase 7 a move between two holders is a loss on the sender and a
+one holder is one `↔` row; since Phase 7 a move between two holders is a loss on the sender and a
 gain on the receiver under the action's reason (TR-1 to TR-3). **Bracketed lines are API facts the headless suite could not verify**:
 when one fails, the fix is a Compat or mock correction in a follow-up commit, and the check is
 re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are recorded.
 
 **LED-P2-01. Bank deposit and withdraw.** At a banker, deposit a stack from your bags, then withdraw
-half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
-row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `⇄` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
+half of it → only `↔` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
+row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `↔` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
 
 **LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
-`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
+`OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `↔`). [`ACCOUNT_MONEY` fires on a warband gold
 deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
 **LED-P2-03. Vendor.** Sell a junk item, repair, buy one item, buy one back → item `OUT SELL` and
@@ -1662,7 +1665,7 @@ adding a second. Result: pass (owner-marked 2026-10-08; not every scenario was e
 
 **LED-P2-06. Mail to your own alt.** Send items and gold to an alt → `OUT ALT_MAIL` rows on the
 sender (Phase 7), and a gold `OUT MAIL_SEND` for the postage. Log the alt in and take the mail →
-`IN ALT_MAIL` rows on the alt, no `⇄` and no second loss.
+`IN ALT_MAIL` rows on the alt, no `↔` and no second loss.
 [`SendMail` is a post-hook and `GetSendMailItem` / `GetSendMailMoney` still return the staged
 attachments when it runs; `MAIL_SEND_SUCCESS` fires after the bags change or within the 10 s window.]
 Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
@@ -1671,12 +1674,12 @@ Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 you won → `IN MAIL` and `IN AH`, chat-claimed when a loot line fires. [`GetInboxItem(i, a)` returns
 `name, itemID, texture, count`.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
-**LED-P2-08. AH post.** Post one item and one commodity → `⇄` to `me/auctions` for each and gold
+**LED-P2-08. AH post.** Post one item and one commodity → `↔` to `me/auctions` for each and gold
 `OUT AH_POST_FEE`. [`C_AuctionHouse.PostItem(itemLocation, duration, quantity, bid, buyout)` and
 `PostCommodity(itemLocation, duration, quantity, unitPrice)`: the third argument is the quantity;
 `C_Item.GetItemID(itemLocation)` resolves it.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
-**LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `⇄`), let another
+**LED-P2-09. AH outcomes.** Cancel one auction (the return, then taking it, is a `↔`), let another
 sell (take the money: item `OUT AH_SOLD` and gold `IN AH_SOLD`). [`OWNED_AUCTIONS_UPDATED` fires after
 opening the Auctions tab; `GetOwnedAuctionInfo(i).status` uses `Enum.AuctionStatus.Active` / `Sold`;
 `AUCTION_SOLD_MAIL_SUBJECT` matches the sale mail subject and its `%s` is the item name only.]
@@ -1712,10 +1715,11 @@ if they do not.] Result: pass (owner-marked 2026-10-08; not every scenario was e
 **LED-P2-16. Resume drift.** `/lh disable`, loot something, `/lh enable` → the loot appears as
 `UNTRACKED` about one second after enabling. Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
-**LED-P2-17. History display.** The glyphs ▲ ▼ ⇄ render (no boxes) in the mono face, colored (green,
+**LED-P2-17. History display.** The glyphs ▲ ▼ ↔ render (no boxes) in the mono face, colored (green,
 red, gray); Qty reads `+3` / `-3`; gold rows show in pale gold; the Direction filter defaults to Gains +
 Losses; ticking **Show transfers by default** then **Clear** includes transfers; Group by Direction and
-by Holder both work. [JetBrains Mono carries U+21C4.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
+by Holder both work. [JetBrains Mono carries U+2194; the Transfer glyph was U+21C4 until LH-02 of the
+skin fonts and feedback run, 2026-10-30, which no shipped face draws.] (Re-opened by that item.) Result:
 
 **LED-P2-18. Insights.** With losses in range: Gained, Lost, Net and Transfers cards, and the "Gains
 vs losses by reason / character / kind" charts above LOOT. Under the default Direction filter the
@@ -1746,21 +1750,21 @@ hookable global.] Result: pass (owner-marked 2026-10-08; not every scenario was 
 ### Holder moves (timeline ledger Phase 7)
 
 Owner decision 2026-10-06: a move between two **different** holders is a loss on the sender and a
-gain on the receiver, each under the action's reason; a move inside one holder stays one `⇄` row.
+gain on the receiver, each under the action's reason; a move inside one holder stays one `↔` row.
 History's **Character** column names the row's holder (the Warband reads **Warband**), and the
 Character filter matches it. Same setup as above (Direction **All**).
 
 **TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
 the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
-character, both reason **Warband Withdraw**, same quantity; no `⇄ Transfer` row. With the Character
+character, both reason **Warband Withdraw**, same quantity; no `↔ Transfer` row. With the Character
 filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
 Insights → Gains Vs Losses By Reason has a **Warband Withdraw** row with both sides. Result: pass (owner-marked 2026-10-10)
 
 **TR-2. Bags to your own bank.** Deposit an item stack from your bags into your character bank →
-exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result: pass (owner-marked 2026-10-10)
+exactly one `↔ Transfer` row (Bags to Bank) on the character, and no gain or loss. Result: pass (owner-marked 2026-10-10)
 
 **TR-3. Mail an item to an alt.** Send an item to an own alt → a `▼ Loss` on the sender, reason
-**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `⇄`
+**Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `↔`
 row and no `UNTRACKED` row. Result: pass (owner-marked 2026-10-10)
 
 ## Timeline
@@ -2321,6 +2325,14 @@ none is, the numbers still fitting. The Direction column's arrows and the debug 
 monospace face, never outlined in any mode. Fail: a string that ignores the Font outline, an
 outlined mono glyph, or a KPI number overflowing its card. Result:
 
+**SKIN-42. No box where a character should be, in any skin (LH-02; ruling D-19, image-19).** Have at
+least one Transfer row in History (a bank deposit). Pick each skin in turn, **Obsidian** and **WoW
+Default** above all, and read: the History window's footer → "Database ~1.6 MB" (your size), with no
+empty box; General → **History** tab → "Database size: ~… (estimated)"; the Direction column → every
+Transfer row reads `↔ Transfer`, a two-headed arrow in gray, never a box; hover the **Quality** column
+header → "Item quality (Poor to Legendary)."; and ▲ Gain / ▼ Loss still draw. Fail: a box, a missing
+character, or the old `≈`, `⇄` or `→`. Result:
+
 ## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
@@ -2468,4 +2480,6 @@ library follow-ups passed: PANEL-3, PANEL-22 to PANEL-24, HIST-43, HIST-44, INS-
 SKIN-1 to SKIN-39, each recorded on its `Result:` line as `pass (owner-marked 2026-10-30)`.
 
 Added or re-opened by the skin fonts and feedback run (LibKa0s v1.82.0, 2026-10-30), awaiting the
-owner: SLASH-2, SLASH-10, PANEL-25, SKIN-40 and SKIN-41.
+owner: SLASH-2, SLASH-10, PANEL-10, PANEL-25, HIST-8, LED-11, LED-P2-17, SKIN-40, SKIN-41 and SKIN-42.
+LH-02 also respelled the Transfer glyph `⇄` as `↔` in the passed checks that only name it (CAP and
+LED rows about which rows are transfers); their results stand, since what they check did not move.

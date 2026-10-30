@@ -145,8 +145,9 @@ local function renderHistory(ctx)
       line1 = string.format("%s %s collected over %d %s.",
         tostring(count), s.count == 1 and "item" or "items", s.days, s.days == 1 and "day" or "days")
     end
-    -- \226\137\136 = "≈"  (real SavedVariables file size can't be read in-game; estimated)
-    statsLabel:SetText(line1 .. "\nDatabase size: \226\137\136 " ..
+    -- "~" marks the estimate (real SavedVariables file size can't be read in-game). Not U+2248, which
+    -- two skin faces cannot draw (ruling D-19, tests/test_glyphs.lua).
+    statsLabel:SetText(line1 .. "\nDatabase size: ~" ..
       NS.Util.FormatBytes(s.bytes) .. "  (estimated)")
   end
   ctx.refreshers[#ctx.refreshers + 1] = refreshStats
