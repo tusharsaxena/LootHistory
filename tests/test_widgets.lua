@@ -145,7 +145,12 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- (a registered skin owner paints through its facade) and peels CopyWindow into its own file. No
   -- member is added or removed, and an unregistered owner or none paints as minor 15 did; the
   -- owner is passed in its own commit when this addon adopts skins.
-  assertEqual(lib.MODULES.Widgets, 16, "this adoption is written against Widgets minor 16")
+  --
+  -- Minor 17 (LibKa0s v1.81.0, docs/api/Widgets/version-17.3.7.5.5.2-docs.md) paints an owned
+  -- control's strings in the skin's face (so Ignore fonts reaches them) and adds `panel = true` for a
+  -- control on its owner's settings page. No member is added or removed; this addon's dropdowns sit
+  -- on its windows, never its settings panel, so none passes `panel`.
+  assertEqual(lib.MODULES.Widgets, 17, "this adoption is written against Widgets minor 17")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

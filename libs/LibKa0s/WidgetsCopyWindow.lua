@@ -19,7 +19,10 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local COPY_MINOR = 1
+local COPY_MINOR = 2
+-- Minor 2: a skinned window's resize grip wears its owner's skin (Core minor 14's `opts.owner`; an
+-- older Core ignores the key). LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS,
+-- ruling R-5.
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsReorder.lua is.
 if lib.__copyMinor and lib.__copyMinor >= COPY_MINOR
   and lib.__copyShellMinor == lib.MINOR then return end
@@ -116,13 +119,15 @@ end
 --- `height` stay the size it opens at, and a named window keeps its own size for the session: the
 --- frame is built once per handle and never resized on a later Show. The scroll frame is anchored
 --- to both corners and follows on its own; the edit box inside it is a scroll CHILD and does not,
---- so its width is set again on every resize.
+--- so its width is set again on every resize. Minor 2: the grip wears the window's skin owner, the
+--- same owner paintCopyFrame paints for (none when the host passed its own applySkin).
 local function makeCopyResizable(f, d, coreLib)
   if not (coreLib and type(coreLib.MakeResizable) == "function") then return end
   coreLib.MakeResizable(f, {
     minWidth  = math.min(COPY_MIN_W, d.width),
     minHeight = math.min(COPY_MIN_H, d.height),
     onResize  = function(w) f.edit:SetWidth(copyEditWidth(f, d, w)) end,
+    owner     = (not d.applySkin and skinOf(d.addonName)) and d.addonName or nil,
   })
 end
 

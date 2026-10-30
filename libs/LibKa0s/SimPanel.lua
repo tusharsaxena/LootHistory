@@ -63,10 +63,20 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 7
+local SIM_PANEL_MINOR = 8
 -- Minor 6: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
 -- Minor 7: the panel and its buttons follow the skin owner (THE SKIN OWNER below; LK-09 of
 -- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
+-- Minor 8: an owned panel's tooltips take its tooltip tokens: the key column `gtip.title` (Ka0s
+-- Default's gold where minor 7 drew 0.9, 0.82, 0.5, DECISIONS D-14) and every white line
+-- `gtip.value`; the title still names no color. A window, so Ignore settings panel leaves them
+-- skinned (D-01). LK-06d of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
+-- Then (LK-06b of the same run, ruling R-5, decisions D-01 and D-13, still minor 8): an owned
+-- panel's row, command and button labels in its skin's body face through the facade (`S.Font`, a
+-- recorded paint), so a switch and "Ignore fonts" reach them (Oxanium under Ka0s Default); the
+-- picker's two dropdowns are built with the panel's owner, where minor 7 built them with none and
+-- they drew Widgets' literals in every skin (finding F-2); and the resize grip takes the owner
+-- (Core minor 14). An owner-less panel is minor 7's, call for call.
 -- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
 local function raisePopups()
   if type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
@@ -157,10 +167,12 @@ local function setColor(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
 -- switch. Any other panel draws the constants, call for call; Ka0s Default's tokens equal them.
 local TOKENS = { done = "sem.on", used = "sem.on", ready = "sem.stepReady", busy = "sem.stepBusy",
   locked = "sem.stepLocked", cancel = "sem.stepCancel", cmd = "text.faint", hover = "text.accent",
-  hoverCancel = "sem.stepCancelHot", rest = "sem.stepReady", hot = "text.accent", off = "text.faint" }
+  hoverCancel = "sem.stepCancelHot", rest = "sem.stepReady", hot = "text.accent", off = "text.faint",
+  tipKey = "gtip.title", tipValue = "gtip.value" }
 -- The constants (and the buttons' rest / hot / off labels), for every panel without an owner.
 local DEFAULT = { cmd = CMD_COLOR, hover = HOVER_GOLD, hoverCancel = HOVER_CANCEL,
-  rest = { 0.9, 0.9, 0.92 }, hot = { 1, 0.82, 0 }, off = { 0.45, 0.45, 0.48 } }
+  rest = { 0.9, 0.9, 0.92 }, hot = { 1, 0.82, 0 }, off = { 0.45, 0.45, 0.48 },
+  tipKey = { 0.9, 0.82, 0.5 }, tipValue = { 1, 1, 1 } }
 for state, c in pairs(COLORS) do DEFAULT[state] = c end
 
 local function fillPalette(pal, S)
@@ -296,7 +308,7 @@ local function StepPanel(d)
     if row.actionable then setColor(b.text, row.state == "cancel" and pal.hoverCancel or pal.hover) end
     if row.tip ~= nil and type(d.tooltip) == "function" then
       b.__tipShown = true
-      d.tooltip(b, row)
+      d.tooltip(b, row, pal)
     end
   end
 
@@ -331,12 +343,14 @@ local function StepPanel(d)
       b.check:Hide()
     end
     b.cmd = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    if frame.__skin then frame.__skin.Font(b.cmd) end   -- minor 8: the skin's body face, recorded
     b.cmd:SetPoint("RIGHT", b, "RIGHT", -CMD_PAD, 0)
     b.cmd:SetJustifyH("RIGHT")
     setColor(b.cmd, pal.cmd)
     -- One line, bounded on both sides (LK-91), so a long label truncates with an ellipsis instead
     -- of running under the command; the right bound is set by paintRow (anchorLabel).
     b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    if frame.__skin then frame.__skin.Font(b.text) end
     b.text:SetJustifyH("LEFT")
     b.text:SetWordWrap(false)
     b.__index = index
@@ -421,6 +435,7 @@ local function StepPanel(d)
     if type(core.MakeResizable) == "function" then
       core.MakeResizable(frame, {
         minWidth = minW, minHeight = heightFor(n), widthOnly = true, onResize = stretchRows,
+        owner = S and d.addonName or nil,   -- minor 8: the grip wears the skin (Core minor 14)
       })
     end
     pinnedCount = n
@@ -677,19 +692,21 @@ local function act(P, row)
   return ok
 end
 
---- GameTooltip: the row's label, then each tip line ({left, right?} or a string).
-local function showTip(owner, row)
+--- GameTooltip: the row's label, then each tip line ({left, right?} or a string). The colors are
+--- `pal`'s, the panel's palette at this hover (minor 8; DEFAULT's literals for an owner-less one).
+local function showTip(owner, row, pal)
   local tip = GameTooltip
   if type(tip) ~= "table" then return end
+  local k, v = (pal or DEFAULT).tipKey or DEFAULT.tipKey, (pal or DEFAULT).tipValue or DEFAULT.tipValue
   tip:SetOwner(owner, "ANCHOR_RIGHT")
   tip:SetText(tostring(row.label))
   for _, line in ipairs(row.tip or {}) do
     if type(line) ~= "table" then
-      tip:AddLine(tostring(line), 1, 1, 1)
+      tip:AddLine(tostring(line), v[1], v[2], v[3])
     elseif line[2] ~= nil then
-      tip:AddDoubleLine(tostring(line[1]), tostring(line[2]), 0.9, 0.82, 0.5, 1, 1, 1)
+      tip:AddDoubleLine(tostring(line[1]), tostring(line[2]), k[1], k[2], k[3], v[1], v[2], v[3])
     else
-      tip:AddLine(tostring(line[1]), 1, 1, 1)
+      tip:AddLine(tostring(line[1]), v[1], v[2], v[3])
     end
   end
   tip:Show()
@@ -707,6 +724,7 @@ local function makeButton(f, parent, width, text, onClick, typed)
   core.ApplySkin(b)
   if f.__skin then f.__skin.Shell(b, { noTopBar = true }) end
   b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  if f.__skin then f.__skin.Font(b.label) end   -- minor 8: the skin's body face, recorded
   b.label:SetPoint("CENTER", b, "CENTER", 0, 0)
   b.label:SetText(text)
   setColor(b.label, pal.rest)
@@ -715,7 +733,7 @@ local function makeButton(f, parent, width, text, onClick, typed)
   hoverWhileDisabled(b)
   b:SetScript("OnEnter", function()
     if b:IsEnabled() then setColor(b.label, pal.hot) end
-    showTip(b, { label = b.__label, tip = { { typed() } } })
+    showTip(b, { label = b.__label, tip = { { typed() } } }, pal)
   end)
   b:SetScript("OnLeave", function()
     setColor(b.label, b:IsEnabled() and pal.rest or pal.off)
@@ -761,7 +779,10 @@ end
 
 local function buildPicker(P, f)
   local pk = bar(f)
-  pk.scenario = W.Dropdown(pk, SCENARIO_W)
+  -- Minor 8 (F-2): an owned panel's dropdowns wear its skin, and their menu opens in it; an
+  -- owner-less panel builds them with no opts, as minor 7 did. A window's, so not `panel`.
+  local ddOpts = f.__skin and { owner = tostring(P.ctx.d.name) } or nil
+  pk.scenario = W.Dropdown(pk, SCENARIO_W, ddOpts)
   pk.scenario:SetPoint("LEFT", pk, "LEFT", 0, 0)
   -- One line: a label too long for the width truncates rather than wrapping out of the box.
   local label = pk.scenario.text
@@ -770,7 +791,7 @@ local function buildPicker(P, f)
     if defOf(P, v) then P.choice.scenario = v end
     P.refresh()
   end
-  pk.size = W.Dropdown(pk, SIZE_W)
+  pk.size = W.Dropdown(pk, SIZE_W, ddOpts)
   pk.size:SetPoint("LEFT", pk, "LEFT", SCENARIO_W + BUTTON_GAP, 0)
   pk.size.onSelect = function(v)
     P.choice.size = tonumber(v) or 0

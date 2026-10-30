@@ -300,9 +300,12 @@ local function onWindow(fn)
   end)
 end
 
-test("Skin picker: the title names this addon", onWindow(function(f)
-  -- red under: the old fixed TITLE (the window could be any addon's), or no owner label passed.
-  assertEqual(f.title:GetText(), "Choose a skin for " .. NS.BRAND)
+test("Skin picker: the title is \"Choose a skin\" and the owner line names this addon", onWindow(function(f)
+  -- red under: no owner label passed (the line would read the folder name), or the retired
+  -- "Choose a skin for <label>" title, which the client cut off (LibKa0s OptionsSkinPicker minor 2).
+  assertEqual(f.title:GetText(), "Choose a skin")
+  assertTrue(f.ownerLabel ~= nil, "the picker has an owner line (frame.ownerLabel)")
+  assertEqual(f.ownerLabel:GetText(), NS.BRAND)
 end))
 
 test("Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen", onWindow(function(f)

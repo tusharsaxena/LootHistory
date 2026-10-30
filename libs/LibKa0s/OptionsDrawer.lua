@@ -30,7 +30,13 @@ if not lib then return end
 -- box's padding (lib.__drawerPad).
 -- Minor 2: a registered skin owner's drawer paints through its facade after its own paint (S.Drawer:
 -- the label, the summary, the head's edge set open or closed, the box's) (LK-07 of the skinning run).
-local DRAWER_MINOR = 2
+-- Minor 3: the head's tooltip title through O.__tipColor (`gtip.value`; OptionsScroll minor 9)
+-- (LK-06d of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS).
+-- Still minor 3 (LK-06c of the same run, ruling R-5): an owned head's label and summary wear the
+-- skin's body face, its chevron `icon.arrow` and its hover art `list.hoverArt` (S.Drawer's
+-- `chevron` and `hover`); every dress puts the faces, the chevron and the hover art back on the
+-- client's first, so a pooled head drawn for no owner never keeps another owner's.
+local DRAWER_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__drawerMinor and lib.__drawerMinor >= DRAWER_MINOR
   and lib.__drawerShellMinor == lib.MINOR then return end
@@ -75,6 +81,16 @@ local BOX_EDGE     = { 0.24, 0.2, 0.13, 1 }
 local HOVER_TEX    = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight"
 local CHEVRON_TEX  = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 local FLAT_TEX     = "Interface\\Buttons\\WHITE8X8"
+-- The head's two strings' templates: what a dress puts back before the skin paints (minor 3).
+local LABEL_FONT   = "GameFontNormal"
+local SUMMARY_FONT = "GameFontHighlightSmall"
+
+--- In-client art as the client draws it: not desaturated, no tint (minor 3; S.Drawer's paint
+--- desaturates and colors the chevron and the hover art).
+local function clientArt(tex)
+  if tex.SetDesaturated then tex:SetDesaturated(false) end
+  tex:SetVertexColor(1, 1, 1)
+end
 
 -- ── the frames' decoration ───────────────────────────────────────────────────────────────────
 
@@ -122,17 +138,18 @@ local function newHead(parent)
   chev:SetTexture(CHEVRON_TEX)
   chev:SetSize(CHEVRON_SIZE, CHEVRON_SIZE)
   chev:SetPoint("LEFT", b, "LEFT", CHEVRON_X, 0)
-  local label = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  local label = b:CreateFontString(nil, "OVERLAY", LABEL_FONT)
   label:SetPoint("LEFT", b, "LEFT", LABEL_X, 0)
   label:SetJustifyH("LEFT")
   -- One line, cut with an ellipsis by the client where it meets the right edge: a summary is a
   -- glance, and the box holds the whole value.
-  local summary = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local summary = b:CreateFontString(nil, "OVERLAY", SUMMARY_FONT)
   summary:SetPoint("LEFT", label, "RIGHT", SUMMARY_GAP, 0)
   summary:SetPoint("RIGHT", b, "RIGHT", -SUMMARY_PAD, 0)
   summary:SetJustifyH("RIGHT")
   if summary.SetWordWrap then summary:SetWordWrap(false) end
   b.__ka0sDrawerChevron, b.__ka0sDrawerLabelFS, b.__ka0sDrawerSummaryFS = chev, label, summary
+  b.__ka0sDrawerHover = hover
   b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
   return b
 end
@@ -254,10 +271,17 @@ function lib.__AttachDrawer(O)
       head.__ka0sDrawerChevron:SetRotation(open and -math.pi / 2 or 0)
     end
     paintEdges(head.__ka0sDrawerEdges, open and HEAD_FILL_OPEN or HEAD_FILL, open and HEAD_EDGE_OPEN or HEAD_EDGE)
+    -- The client's faces and art first (minor 3): the head is pooled, and the skin's paint below
+    -- is given back only to the owner that made it, so this dress owns every property it touches.
+    head.__ka0sDrawerLabelFS:SetFontObject(LABEL_FONT)
+    head.__ka0sDrawerSummaryFS:SetFontObject(SUMMARY_FONT)
+    clientArt(head.__ka0sDrawerChevron)
+    clientArt(head.__ka0sDrawerHover)
     -- The owner's skin over it (minor 2); the head is pooled, so an owner-less dress gives it back.
     if O.__chromePaint then
       O.__chromePaint("Drawer", head, { label = head.__ka0sDrawerLabelFS, summary = head.__ka0sDrawerSummaryFS,
-        set = set, open = open, edges = head.__ka0sDrawerEdges })
+        set = set, open = open, edges = head.__ka0sDrawerEdges, chevron = head.__ka0sDrawerChevron,
+        hover = head.__ka0sDrawerHover })
     end
     head:Show()
   end
@@ -281,7 +305,7 @@ function lib.__AttachDrawer(O)
     head:SetScript("OnEnter", function()
       if not (GameTooltip and spec.tooltip) then return end
       GameTooltip:SetOwner(head, "ANCHOR_RIGHT")
-      GameTooltip:SetText(spec.label or "", 1, 1, 1)
+      GameTooltip:SetText(spec.label or "", O.__tipColor("gtip.value", 1, 1, 1))
       GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
       GameTooltip:Show()
     end)

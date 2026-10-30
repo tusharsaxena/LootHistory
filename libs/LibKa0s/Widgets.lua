@@ -75,6 +75,23 @@
 -- (DragHandle, ReorderList, LineChart, Autocomplete, CopyWindow) take it the same way and share the
 -- helpers below, which are internal (`__`) and not host contract.
 --
+-- ── THE SCOPE SWITCHES (minor 17) ─────────────────────────────────────────────────────────────
+--
+-- An owned control draws EVERY string it makes in its skin's body face, through the facade: the
+-- menu's rows (and the string the menu is measured on), the strip's line (in `text.accent`, the
+-- template's gold under Ka0s Default), and, in the secondary files, the autocomplete's rows, the
+-- chart's tick labels and the drag handle's label. Under Ka0s Default that face is Oxanium where the
+-- template drew Friz Quadrata (decision D-13). The paint is recorded, so the owner's "Ignore fonts"
+-- gives each string its template back, live. A face a host named (`opts.font`, `spec.labelFont`,
+-- `opts.glyphFont`) is the host's and is never touched.
+--
+-- `opts.panel = true` on any owned constructor (Dropdown, SearchBox, TestStrip, Autocomplete,
+-- LineChart, DragHandle) says the control sits on its owner's SETTINGS PAGE: while that owner ignores
+-- its settings panel (`Skin:GetIgnore(owner)`'s panel half) the control is drawn as an owner-less one,
+-- live both ways, as the AceGUI rows and the reorder list are. Without it a control is a window's,
+-- and wears the skin whatever that switch says (decisions D-01, D-02). LK-06a of
+-- Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5.
+--
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
@@ -84,7 +101,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 15: the shared dropdown menu is clamped to the screen (EnsureMenu), so a dropdown near a
 -- screen edge drops a menu that stays on screen (frame-layering-§4; XS-22).
 -- Minor 16: the skin owner (the header's SKIN OWNERS).
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 16
+-- Minor 17: the scope switches (the header's THE SCOPE SWITCHES): every string an owned control draws
+-- in its skin's body face, and `opts.panel`.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 17
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -110,6 +129,10 @@ local SKIN = {
 local CHEVRON_FALLBACK = "Interface\\Buttons\\Arrow-Down-Up"
 local CHECK_FALLBACK   = "Interface\\Buttons\\UI-CheckBox-Check"
 
+-- The gray the search box's icon wears without a skin, and again while a panel-scoped one is given
+-- back (minor 17).
+local SEARCH_ICON_TINT = { 0.7, 0.7, 0.72 }
+
 local MENU_ROW_H = 16
 
 -- ── the skin owner (minor 16; the header's SKIN OWNERS) ──────────────────────────────────────
@@ -122,6 +145,39 @@ local function skinOf(owner)
   return nil
 end
 lib.__skinOf = skinOf
+
+--- True while a control built with `panel` (`opts.panel == true`) sits on the settings page of an
+--- owner that ignores its settings panel (minor 17): the control is then drawn as an owner-less one.
+--- `Skin` is the Skin major `skinOf` answered, or nil. Read at call time.
+local function panelOff(Skin, owner, panel)
+  return panel == true and Skin ~= nil and type(Skin.GetIgnore) == "function"
+    and Skin:GetIgnore(owner) == true
+end
+lib.__panelOff = panelOff
+
+-- Strings __skinFont put a skin face on, so an owner-less paint knows which to give back.
+lib.__fonted = lib.__fonted or setmetatable({}, { __mode = "k" })
+
+--- Put `owner`'s body face on `fs` through the owner's facade (minor 17), a recorded paint, so a skin
+--- switch and "Ignore fonts" reach it; or, with no `Skin`, give a string this put a face on its
+--- `template` back and forget it. A string it never fonted is not touched, so an owner-less control
+--- paints exactly what it did.
+function lib.__skinFont(fs, owner, Skin, template)
+  if type(fs) ~= "table" then return end
+  if Skin then
+    Skin:For(owner).Font(fs)
+    lib.__fonted[fs] = true
+    return
+  end
+  if not lib.__fonted[fs] then return end
+  lib.__fonted[fs] = nil
+  local S = LibStub("LibKa0s-Skin-1.0", true)
+  if S and type(S.Untrack) == "function" then S:Untrack(fs) end
+  if template and type(fs.SetFontObject) == "function" then fs:SetFontObject(template) end
+end
+
+-- The opts a panel-scoped control hands its primitive. Read-only.
+local PANEL = { panel = true }
 
 -- owner -> weak-keyed { [target] = fn(target, owner) }, re-run after each of the owner's skin
 -- changes; owner -> true once the one OnLooksChanged listener for it exists. Kept across minors.
@@ -176,6 +232,8 @@ local function menuWidth(menu, dd, opts)
     menu.measure = menu:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     menu.measure:Hide()
   end
+  -- Minor 17: measured in the face the rows wear, else a long label in a wider face truncates.
+  lib.__skinFont(menu.measure, menu.__fontOwner, menu.__fontSkin, "GameFontHighlightSmall")
   for _, opt in ipairs(opts) do
     menu.measure:SetText((dd.multi and dd.__check or "") .. (opt.label or ""))
     local pad = opt.glyph and 38 or 24   -- a glyphed row indents its text by a further 14px
@@ -298,10 +356,13 @@ end
 
 --- Repaint the shared menu for the dropdown opening it (minor 16): its owner's skin when it has a
 --- registered one, else Ka0s Default once an owner has painted it. An owner-less open of a menu no
---- owner ever painted touches nothing.
+--- owner ever painted touches nothing. A panel-scoped dropdown whose owner ignores its settings
+--- panel opens it as an owner-less one (minor 17); the rows' face is the opener's (Populate).
 local function skinMenu(m, dd)
   local owner = dd.__owner
   local Skin = skinOf(owner)
+  if panelOff(Skin, owner, dd.__panel) then Skin = nil end
+  m.__fontSkin, m.__fontOwner = Skin, Skin and owner or nil
   if Skin then
     if type(Skin.__MarkShared) == "function" then Skin:__MarkShared(m) end
     Skin:For(owner).MenuFrame(m)
@@ -384,6 +445,8 @@ local function EnsureMenu()
         b = makeMenuRow(self)
         self.buttons[i] = b
       end
+      -- Minor 17: the opener's face on every open, or the template back; the rows are pooled.
+      lib.__skinFont(b.fs, self.__fontOwner, self.__fontSkin, "GameFontHighlightSmall")
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
@@ -538,9 +601,11 @@ local function MakeDropdown(parent, width, opts)
     m:RegisterEvent("GLOBAL_MOUSE_DOWN")
   end)
   -- Minor 16: the skin owner, read by skinMenu on every open; its button wears the owner's skin.
+  -- Minor 17: `opts.panel`, a dropdown on its owner's settings page (the header's SCOPE SWITCHES).
   dd.__owner = opts.owner
+  dd.__panel = opts.panel == true
   local Skin = skinOf(opts.owner)
-  if Skin then Skin:For(opts.owner).Dropdown(dd) end
+  if Skin then Skin:For(opts.owner).Dropdown(dd, dd.__panel and PANEL or nil) end
   return dd
 end
 
@@ -550,7 +615,9 @@ end
 --- @param width number         the collapsed button's width; the menu never drops narrower
 --- @param opts table|nil       { chevron =, check =, glyphFont = }, each a resolved path or nil;
 ---                             `owner` (minor 16), a registered skin owner: the button and the menu
----                             it drops wear that owner's skin (the header's SKIN OWNERS)
+---                             it drops wear that owner's skin (the header's SKIN OWNERS), the
+---                             menu's rows in its body face from minor 17; `panel` (minor 17), true
+---                             for a dropdown on the owner's settings page (THE SCOPE SWITCHES)
 --- @return table  the dropdown
 function lib.Dropdown(parent, width, opts)
   return MakeDropdown(parent, width, opts)
@@ -599,10 +666,12 @@ local function paintSearchBorder(box, c)
   if box.SetBackdropBorderColor then box:SetBackdropBorderColor(unpack(c)) end
 end
 
---- A skinned search box's icon in its owner's `icon.tint` (minor 16).
-local function tintSearchIcon(icon, owner)
+--- A skinned search box's icon in its owner's `icon.tint` (minor 16), or its own gray while a
+--- panel-scoped box's owner ignores its settings panel (minor 17).
+local function tintSearchIcon(icon, owner, panel)
   local Skin = skinOf(owner)
   local c = Skin and token(Skin, owner, "icon.tint", nil)
+  if panelOff(Skin, owner, panel) then c = SEARCH_ICON_TINT end
   if c then icon:SetVertexColor(c[1], c[2], c[3]) end
 end
 
@@ -619,7 +688,8 @@ end
 --- @param opts table|nil     { hint = string|nil, icon = path|fileID|nil,
 ---                             onChange = function(text, box)|nil, owner = string|nil }; `owner`
 ---                             (minor 16) is a registered skin owner: the box, its hint, its focus
----                             line and its icon wear that owner's skin
+---                             line and its icon wear that owner's skin; `panel` (minor 17), true
+---                             for a box on the owner's settings page (THE SCOPE SWITCHES)
 --- @return table  the EditBox, with `box.hint` (FontString) and `box.icon` (Texture or nil)
 function lib.SearchBox(parent, width, opts)
   opts = opts or {}
@@ -642,7 +712,7 @@ function lib.SearchBox(parent, width, opts)
     tex:SetSize(SEARCH_ICON_SIZE, SEARCH_ICON_SIZE)
     tex:SetPoint("LEFT", SEARCH_ICON_X, 0)
     tex:SetTexture(icon)
-    tex:SetVertexColor(0.7, 0.7, 0.72)
+    tex:SetVertexColor(SEARCH_ICON_TINT[1], SEARCH_ICON_TINT[2], SEARCH_ICON_TINT[3])
     box.icon = tex
     left = SEARCH_INSET_ICON
   end
@@ -667,12 +737,15 @@ function lib.SearchBox(parent, width, opts)
   box:SetScript("OnEditFocusLost", function(self) paintSearchBorder(self, SKIN.line) end)
   hint:SetShown(searchText(box) == "")
   -- Minor 16: after the scripts, so the facade's focus hooks run after the gold / gray line.
+  -- Minor 17: `opts.panel`, the primitive given back and the icon its own gray while ignored.
   local Skin = skinOf(opts.owner)
   if Skin then
-    Skin:For(opts.owner).EditBox(box)
+    local panel = opts.panel == true
+    Skin:For(opts.owner).EditBox(box, panel and PANEL or nil)
     if box.icon then
-      lib.__onSkin(Skin, opts.owner, box.icon, tintSearchIcon)
-      tintSearchIcon(box.icon, opts.owner)
+      local function tint(tex, owner) tintSearchIcon(tex, owner, panel) end
+      lib.__onSkin(Skin, opts.owner, box.icon, tint)
+      tint(box.icon, opts.owner)
     end
   end
   return box
@@ -694,42 +767,9 @@ local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
 --- table moves nothing: the constructor reads the file-local.
 lib.TEST_STRIP = { HEIGHT = STRIP_H }
 
---- Build the mode strip: a full-width band a window lays between its chrome and its data, saying
---- the data under it is not real, in test mode (amber, the default) or a simulation
---- (`kind = "sim"`, cyan). It draws itself and nothing else.
----
---- Born HIDDEN, UNANCHORED and `TEST_STRIP.HEIGHT` tall, with the mouse never enabled. After this
---- returns the strip never anchors, shows, hides, re-measures or changes its height or its text's
---- anchors, so a host's later `SetHeight`, `strip.text:SetWordWrap` and `strip.text:SetText`
---- stick. The icon art is HOST-PASSED, a resolved path or a fileID (the host's `info` icon),
---- because this file cannot call Media (the header): a host that passes one declares that icon's
---- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
----
---- @param parent table     the frame to parent it to
---- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner }; text is the host's
----                         localized line ('' when absent), no icon puts the text at LEFT+6, any
----                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
----                         and `owner` (minor 16) is a registered skin owner whose skin the wash
----                         follows
---- @return table  the Frame, with `strip.text` (FontString, OVERLAY, GameFontNormalSmall, LEFT at
----                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
----                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
----                repaints nothing
-function lib.TestStrip(parent, opts)
-  opts = type(opts) == "table" and opts or {}
-  local kind = opts.kind == "sim" and "sim" or "test"
-  local s = CreateFrame("Frame", nil, parent)
-  s:SetHeight(STRIP_H)   -- the local, not lib.TEST_STRIP: a host write cannot move it
-
-  local fill = s:CreateTexture(nil, "BACKGROUND")
-  fill:SetAllPoints(s)
-  fill:SetColorTexture(unpack(STRIP_FILL[kind]))
-  s.__fill = fill
-  -- Minor 16: a registered skin owner's strip takes its wash from that skin (`strip.test` /
-  -- `strip.sim`); the meaning colors are the library's, a skin changes only their legibility.
-  local Skin = skinOf(opts.owner)
-  if Skin then Skin:For(opts.owner).Strip(fill, { kind = kind }) end
-
+-- The strip's icon (host-passed art, optional) and its line, laid out left to right; split out of
+-- TestStrip so the constructor stays under CCN 15 (the v1.81.0 release run measured it at 16).
+local function stripLine(s, opts)
   local icon = opts.icon
   if type(icon) == "string" or type(icon) == "number" then
     local tex = s:CreateTexture(nil, "ARTWORK")
@@ -750,8 +790,60 @@ function lib.TestStrip(parent, opts)
   text:SetJustifyH("LEFT")
   text:SetWordWrap(false)   -- with both anchors, a long line truncates with an ellipsis
   text:SetText(type(opts.text) == "string" and opts.text or "")
+  return text
+end
+
+--- Build the mode strip: a full-width band a window lays between its chrome and its data, saying
+--- the data under it is not real, in test mode (amber, the default) or a simulation
+--- (`kind = "sim"`, cyan). It draws itself and nothing else.
+---
+--- Born HIDDEN, UNANCHORED and `TEST_STRIP.HEIGHT` tall, with the mouse never enabled. After this
+--- returns the strip never anchors, shows, hides, re-measures or changes its height or its text's
+--- anchors, so a host's later `SetHeight`, `strip.text:SetWordWrap` and `strip.text:SetText`
+--- stick. The icon art is HOST-PASSED, a resolved path or a fileID (the host's `info` icon),
+--- because this file cannot call Media (the header): a host that passes one declares that icon's
+--- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
+---
+--- @param parent table     the frame to parent it to
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel }; text is the host's
+---                         localized line ('' when absent), no icon puts the text at LEFT+6, any
+---                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
+---                         and `owner` (minor 16) is a registered skin owner whose skin the wash
+---                         follows, and the line from minor 17 (`text.accent` in the body face);
+---                         `panel` (minor 17), true for a strip on the owner's settings page
+--- @return table  the Frame, with `strip.text` (FontString, OVERLAY, GameFontNormalSmall, LEFT at
+---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
+---                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
+---                repaints nothing
+function lib.TestStrip(parent, opts)
+  opts = type(opts) == "table" and opts or {}
+  local kind = opts.kind == "sim" and "sim" or "test"
+  local s = CreateFrame("Frame", nil, parent)
+  s:SetHeight(STRIP_H)   -- the local, not lib.TEST_STRIP: a host write cannot move it
+
+  local fill = s:CreateTexture(nil, "BACKGROUND")
+  fill:SetAllPoints(s)
+  fill:SetColorTexture(unpack(STRIP_FILL[kind]))
+  s.__fill = fill
+  -- Minor 16: a registered skin owner's strip takes its wash from that skin (`strip.test` /
+  -- `strip.sim`); the meaning colors are the library's, a skin changes only their legibility.
+  local Skin = skinOf(opts.owner)
+  local panel = opts.panel == true
+  if Skin then Skin:For(opts.owner).Strip(fill, { kind = kind, panel = panel or nil }) end
+
+  local text = stripLine(s, opts)
   s.text = text
   s.kind = kind
+  -- Minor 17: an owned strip's line in `text.accent` and the body face; a panel-scoped strip's fill
+  -- is put back to its own wash while ignored (the primitive cannot read a texture's color back).
+  if Skin then
+    Skin:For(opts.owner).Text(text, "accent", panel and PANEL or nil)
+    if panel then
+      lib.__onSkin(Skin, opts.owner, fill, function(f, owner)
+        if panelOff(skinOf(owner), owner, true) then f:SetColorTexture(unpack(STRIP_FILL[kind])) end
+      end)
+    end
+  end
 
   s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
   return s

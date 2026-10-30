@@ -1547,7 +1547,7 @@ Total.
 - Skin picker: the player's close marks it seen; this addon's own hide does not
 - Skin picker: a profile that has seen it takes a shown picker down, unmarked
 - Skin picker: the eye opens the History window in test mode
-- Skin picker: the title names this addon
+- Skin picker: the title is "Choose a skin" and the owner line names this addon
 - Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
 - Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
 - Skin picker: the gear saves the pick and opens General on its Skin tab
@@ -1672,7 +1672,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (38)
+### test_libka0s.lua (40)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1712,6 +1712,8 @@ Total.
 - v1.77.0: the vendored minors and the kit revision match the release
 - v1.78.0: the vendored minors and the kit revision match the release
 - v1.79.0: the vendored minors and the kit revision match the branch
+- v1.80.0: the vendored minors and the kit revision match the release
+- v1.81.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (20)
 
@@ -2151,7 +2153,7 @@ Total.
 | test_skin_literals.lua | 3 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 38 |
+| test_libka0s.lua | 40 |
 | test_surface_parity.lua | 20 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2176,4 +2178,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1830** |
+| **Total** | **1832** |

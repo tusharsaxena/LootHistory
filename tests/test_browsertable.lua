@@ -1071,7 +1071,10 @@ test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows 
     BT:BindRow(row, dataEntry(sample), 1)
     row:GetScript("OnEnter")(row)
     assertEqual(lines[1][1], sample.itemName)
-    assertEqual(lines[1][2], 0.64); assertEqual(lines[1][4], 0.93, "the name is in its quality color")
+    -- NS.QualityColor reads the q.epic token before the client's table, so the name is in the
+    -- token's color (the client's a335ee exactly since LibKa0s SkinDefs minor 16).
+    local qr, _, qb = NS.QualityColor(4)
+    assertEqual(lines[1][2], qr); assertEqual(lines[1][4], qb, "the name is in its quality color")
     assertEqual(lines[2][1], sample.itemType .. " \194\183 " .. sample.itemSubType)
     local texts = {}
     for i, l in ipairs(lines) do texts[i] = l[1] end

@@ -30,7 +30,15 @@ if not lib then return end
 -- Minor 8: a released bar is handed back through lib.__chromeUnpaint, not only untracked: the skin's
 -- ScrollBar fades the bar's own knob art (SkinPaintControls minor 7), and the pooled widget must get
 -- it back.
-local SCROLL_MINOR = 8
+-- Minor 9: `O.__tipColor`, the one color every tooltip line the chrome writes takes (the owner's
+-- tooltip token while the chrome is skinned, else the literal it replaces; LK-06d of
+-- Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5, DECISIONS D-14).
+-- Still minor 9 (LK-06c of the same run, ruling R-5, decisions D-07 and D-14): `O.__hoverArt`, the
+-- one paint for hover art the chrome keeps outside a primitive (the id list entry, the id
+-- suggestion row): `list.hoverArt` while the chrome is skinned, the client's art otherwise and on a
+-- give-back. `__chromeAway`'s comments say what it does: since SkinPaint minor 6 no skin is special,
+-- so it answers the facade wherever `__chromeSkin` does, Ka0s Default included.
+local SCROLL_MINOR = 9
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -264,8 +272,13 @@ function lib.__chromeSkin(owner)
   return S
 end
 
---- `owner`'s facade when it is registered AND wears a skin other than Ka0s Default (or EllesmereUI
---- paints it), else nil. The question a page asks before it draws something Ka0s Default never draws.
+--- `owner`'s facade when the chrome is skinned (lib.__chromeSkin's answer), else nil. It was the
+--- question "does the owner wear a skin other than Ka0s Default?", asked before a page drew something
+--- Ka0s Default never drew; since SkinPaint minor 6 `P.isDefault` answers false always, no skin is
+--- special and Ka0s Default draws all of it too, which is what the retired stock look (ruling R-2)
+--- asks. Kept, and kept asking `P.isDefault`, because a Skin copy older than that minor still
+--- answers true for Ka0s Default, and its callers (the id list's help mark, the keybind rows, the Skin
+--- tab's muted labels, the page's backdrop) then draw that copy's Ka0s Default as it did.
 function lib.__chromeAway(owner)
   local S = lib.__chromeSkin(owner)
   if not S then return nil end
@@ -333,9 +346,9 @@ end
 
 --- The page canvas's header and backdrop for a registered owner: the title in the skin's title role,
 --- the divider atlas tinted `title.text` (Ka0s Default's gold is the title font's, as minor 1 tinted
---- it), and, away from Ka0s Default only, an opaque backdrop from `win.bg` at full alpha under
---- everything the page draws, so a light skin stays legible over the client's settings window. A
---- texture rather than S.Panel, which would draw on Ka0s Default too.
+--- it), and, wherever lib.__chromeAway answers (every skin, Ka0s Default included, since SkinPaint
+--- minor 6), an opaque backdrop from `win.bg` at full alpha under everything the page draws, so a
+--- light skin stays legible over the client's settings window. A texture rather than S.Panel.
 --- Put a page's header and backdrop back as the client drew them (minor 7): the title from its
 --- record, the divider's own tint, the backdrop hidden.
 local function unpaintPage(panel)
@@ -459,10 +472,39 @@ function lib.__AttachScroll(O, d)
     return F and lib.__chromeSkin(owner) or nil
   end
 
-  --- The facade when the owner wears a skin other than Ka0s Default, else nil.
+  --- lib.__chromeAway for this instance's owner: the facade wherever the chrome is skinned.
   function O.__chromeAway()
     if not O.__chromeSkin() then return nil end
     return lib.__chromeAway(owner)
+  end
+
+  --- A tooltip line's color (minor 9): the owner's color token `token` while the chrome is
+  --- skinned, read at hover so a switch reaches the next one; else `r, g, b`, the literal the line
+  --- drew before, which is what an owner-less page and an owner ignoring its settings panel get. One
+  --- helper for every line the chrome writes (O.AttachTooltip, the drawer head, the nav entry, the
+  --- tab, the key button, the id list's help mark); a line that names no color stays the client's.
+  function O.__tipColor(token, r, g, b)
+    local S = O.__chromeSkin()
+    local c = S and type(S.Token) == "function" and S.Token(token) or nil
+    if type(c) == "table" and c[1] and c[2] and c[3] then return c[1], c[2], c[3] end
+    return r, g, b
+  end
+
+  --- Hover art `tex` (an ADD highlight the client draws in its own color) for this page: while the
+  --- chrome is skinned and the owner's `list.hoverArt` is a color, desaturated and tinted with it,
+  --- read at the call; otherwise, and always with `back` (a pooled widget handed on), the art as the
+  --- client draws it, not desaturated and untinted. For hover art outside a primitive (the id list
+  --- entry, the id suggestion row); the drawer head's and the nav entry's go through S.Drawer and
+  --- S.NavItem. Not a texture: nothing.
+  function O.__hoverArt(tex, back)
+    if type(tex) ~= "table" or type(tex.GetObjectType) ~= "function" then return end
+    local ok, kind = pcall(tex.GetObjectType, tex)
+    if not ok or kind ~= "Texture" then return end
+    local S = not back and O.__chromeSkin() or nil
+    local c = S and type(S.Token) == "function" and S.Token("list.hoverArt") or nil
+    local tinted = type(c) == "table" and c[1] ~= nil
+    if type(tex.SetDesaturated) == "function" then tex:SetDesaturated(tinted) end
+    if tinted then tex:SetVertexColor(c[1], c[2], c[3]) else tex:SetVertexColor(1, 1, 1) end
   end
 
   --- lib.__chromePaint for this instance's owner.

@@ -23,6 +23,16 @@
 -- skin, or back to the defaults once a skinned list has painted it. Without an owner, or for an
 -- unregistered name, every color is minor 1's.
 --
+-- ── THE SETTINGS-PANEL SCOPE (minor 3) ───────────────────────────────────────────────────────
+--
+-- A reorder list is on a settings page: every consumer puts it on one. So it obeys its owner's
+-- "Ignore settings panel" by default, as an AceGUI row does: while the owner ignores its panel
+-- (`Skin:GetIgnore(owner)`'s panel half) every color is minor 1's, the ghost included. `opts.panel =
+-- false` opts out, for a list on a window, which wears the skin whatever that switch says. The
+-- switch is live the way a skin switch is: the settings page re-renders on it, and the next
+-- controller reads the new answer. The ghost's text has no skin face, so Ignore fonts has nothing
+-- to give back here. LK-05 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. A payload without this
 -- file loads whole and simply has no `lib.ReorderList` and no `lib.ROW_BOX`.
 
@@ -30,7 +40,9 @@ local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
 -- Minor 2: the skin owner (the header's THE SKIN OWNER).
-local REORDER_MINOR = 2
+-- Minor 3: the settings-panel scope (the header's THE SETTINGS-PANEL SCOPE), with `opts.panel`, and
+-- the handle's tooltip line in the palette's `gtip.value` (white while unskinned; LK-06d).
+local REORDER_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a list that
 -- attached to an older shell would publish `lib.ReorderList` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -50,13 +62,19 @@ local GHOST_BG   = { 0.12, 0.12, 0.12, 0.95 }
 local GHOST_TEXT = { 1, 0.82, 0 }
 local HANDLE_REST, HANDLE_HOVER = { 0.7, 0.7, 0.7 }, { 1, 0.82, 0 }
 local LINE_COLOR = { 1, 0.82, 0, 0.9 }
+-- The handle's tooltip line (minor 3): the white it always drew; a skinned list's is `gtip.value`.
+local TIP_TEXT = { 1, 1, 1 }
 
 --- A list's colors from its skin owner (minor 2), or nil for a list with none (or an unregistered
 --- name, or a shell that predates the check): every reader then falls back to minor 1's values.
-local function skinPalette(owner)
+--- Nil too while a panel-scoped list's owner ignores its settings panel (minor 3).
+local function skinPalette(owner, panel)
   local skinOf = lib.__skinOf
   local Skin = type(skinOf) == "function" and skinOf(owner) or nil
   if not Skin then return nil end
+  if panel ~= false and type(Skin.GetIgnore) == "function" and Skin:GetIgnore(owner) == true then
+    return nil
+  end
   local R = lib.ROW_BOX
   local function tok(name, fallback) return Skin:Token(owner, name) or fallback end
   return {
@@ -64,7 +82,7 @@ local function skinPalette(owner)
             EDGE = tok("list.boxEdge", R.EDGE), EDGE_DIM = tok("list.boxEdgeDim", R.EDGE_DIM) },
     rest = tok("handle.rest", HANDLE_REST), hover = tok("text.accent", HANDLE_HOVER),
     line = tok("list.dropLine", LINE_COLOR), ghostBg = tok("list.ghostBg", GHOST_BG),
-    ghostText = tok("text.accent", GHOST_TEXT),
+    ghostText = tok("text.accent", GHOST_TEXT), tip = tok("gtip.value", TIP_TEXT),
   }
 end
 
@@ -499,6 +517,18 @@ local function beginDrag(row)
   list.say("grab %d at y=%.1f", row.index, row.startY)
 end
 
+-- The list's colors, resolved once per render: an explicit option, else the owner's palette, else
+-- the constants. The line, the handle's two tints and the ghost's text are minor 2's; the tooltip's is
+-- minor 3's. Split out of ReorderList so the constructor stays under CCN 15 (the v1.81.0 release run
+-- measured it at 17).
+local function listColors(list, opts, pal)
+  list.color       = opts.lineColor or (pal and pal.line) or LINE_COLOR
+  list.handleRest  = opts.handleColor or (pal and pal.rest) or HANDLE_REST
+  list.handleHover = opts.handleHoverColor or (pal and pal.hover) or HANDLE_HOVER
+  list.ghostText   = (pal and pal.ghostText) or GHOST_TEXT
+  list.tipText     = (pal and pal.tip) or TIP_TEXT
+end
+
 --- Build a reorderable list controller.
 ---
 --- One controller per RENDER, not one per list: it holds the rows of the pass that built it, and a
@@ -533,28 +563,27 @@ end
 ---   owner      string|nil        minor 2. A registered skin owner (the addon folder name): the
 ---                                defaults above come from that owner's skin (the header's THE SKIN
 ---                                OWNER). An explicit color option still wins.
+---   panel      boolean|nil       minor 3. false: the list is on a window, so it keeps the skin
+---                                while the owner ignores its settings panel. Default: a settings
+---                                page, drawn as minor 1 did while that switch is on.
 --- @return table controller
 function lib.ReorderList(opts)
   opts = opts or {}
-  local pal = skinPalette(opts.owner)
+  local pal = skinPalette(opts.owner, opts.panel)
 
   local list = {
     stride     = opts.stride or 30,
     boundary   = opts.boundary,
     onMove     = opts.onMove,
     handleIcon = opts.handleIcon,
-    color      = opts.lineColor or (pal and pal.line) or LINE_COLOR,
     skin       = pal,
-    -- The handle's two tints and the ghost's text, resolved once per render (minor 2).
-    handleRest = opts.handleColor or (pal and pal.rest) or HANDLE_REST,
-    handleHover = opts.handleHoverColor or (pal and pal.hover) or HANDLE_HOVER,
-    ghostText  = (pal and pal.ghostText) or GHOST_TEXT,
     rowBox     = opts.rowBox ~= false,
     rows       = {},
     handles    = {},
     boxes      = {},
     dead       = false,
   }
+  listColors(list, opts, pal)
 
   function list.say(fmt, ...)
     if opts.debug then opts.debug(fmt, ...) end
@@ -623,7 +652,8 @@ function lib.ReorderList(opts)
       local tip = self.__tooltip
       if tip and GameTooltip then
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(tip, 1, 1, 1)
+        local c = self.__tipColor or TIP_TEXT
+        GameTooltip:AddLine(tip, c[1], c[2], c[3])
         GameTooltip:Show()
       end
     end)
@@ -705,6 +735,7 @@ function lib.ReorderList(opts)
     handle.__restColor  = list.handleRest
     handle.__hoverColor = list.handleHover
     handle.__tooltip    = opts.handleTooltip
+    handle.__tipColor   = list.tipText
 
     handle:SetParent(parent)
     handle:SetSize(opts.handleSize or lib.ROW_BOX.HANDLE_W, spec.height or self.stride)

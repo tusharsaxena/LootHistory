@@ -8,10 +8,13 @@
 -- reuses that file's reload popup (lib.__appearanceReload), its words for it, and its other owners
 -- and one owner's skin copy (lib.__skinOthers, lib.__copySkinTo).
 --
--- WHAT IT DRAWS, top to bottom, in one window about 280 wide, its center 75% of the way up the
+-- WHAT IT DRAWS, top to bottom, in one window at least 280 wide, its center 75% of the way up the
 -- screen (re-anchored on every show, so it sits clear of the middle, where most addons' main windows
 -- open; what keeps it in front of the window the eye opens is LAYERING, below):
---   * the title, "Choose a skin for <the addon's label>", and the close control;
+--   * the title, "Choose a skin", and the close control;
+--   * the addon's label (Skin:OwnerLabel, else the owner's name), frame.ownerLabel, on a line of its
+--     own, painted as a heading and never cut off: the window widens to the label's unbounded width
+--     (plus the side padding) on every show and every change of the owner's looks (minor 2, R-11);
 --   * a dropdown button: the skin worn now, as three swatches and its name, with the eye and the
 --     gear beside it. A click opens the list of every skin (Skin:Skins() order) inside the window,
 --     under the button, each row three swatches and the skin's name in that skin's own body face and
@@ -86,7 +89,11 @@ if not lib then return end
 -- not HIGH, raised after onPreview, re-raising a shown StaticPopup on show; a dismissal puts back
 -- the owner's stored choice as it reads now, not the one the window opened with; the queue waits out
 -- combat rather than showing the next owner mid-combat.
-local PICKER_MINOR = 1
+-- Minor 2 (LK-11, ruling R-11 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS): the
+-- title is TITLE, "Choose a skin" (TITLE_FOR retired: a long label was cut off in a one-line title);
+-- the addon's label has its own line, frame.ownerLabel, above the dropdown, painted "heading"; the
+-- window widens to fit it on every show and skin change, never narrower than 280.
+local PICKER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -100,10 +107,11 @@ lib.MODULES.OptionsSkinPicker = PICKER_MINOR
 --
 -- A literal table, as lib.APPEARANCE_STRINGS is; `spec.strings` overrides any key, `SKIN_<key>` a
 -- skin's name, and the reload popup's keys (RELOAD, RELOAD_ACCEPT, RELOAD_LATER) default to
--- lib.APPEARANCE_STRINGS'. TITLE_FOR takes the addon's label for its %s. The two glyphs stand in for
--- the icons on a payload without LibKa0s-Media-1.0. ASCII throughout.
+-- lib.APPEARANCE_STRINGS'. TITLE is shown as it is; the addon's label is never a word here (it is
+-- the owner's, on its own line). The two glyphs stand in for the icons on a payload without
+-- LibKa0s-Media-1.0. ASCII throughout.
 lib.SKIN_PICKER_STRINGS = {
-  TITLE_FOR      = "Choose a skin for %s",
+  TITLE          = "Choose a skin",
   CHOOSE_TIP     = "Pick a skin to try it on this addon. Apply keeps it; closing this window puts " ..
                    "back the skin you had. You can change it later in its settings.",
   APPLY          = "Apply",
@@ -119,7 +127,10 @@ lib.SKIN_PICKER_STRINGS = {
 
 local WIDTH, PAD, TOP = 280, 12, 40
 local DD_H, ROW_H, ICON, BTN_H, APPLY_W = 26, 22, 24, 24, 80
-local BASE_H = TOP + DD_H + PAD + BTN_H + 10
+-- The owner's line sits at TOP; the dropdown row one line below it.
+local LABEL_H = 18
+local DD_TOP = TOP + LABEL_H + 4
+local BASE_H = DD_TOP + DD_H + PAD + BTN_H + 10
 local SWATCH = 10
 local ARROW = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 -- Where the window's center sits, as a share of UIParent's height from its bottom edge.
@@ -235,13 +246,6 @@ local function mergeStrings(overrides)
     end
   end
   return S
-end
-
---- "Choose a skin for <label>": TITLE_FOR with the owner's label (Skin:OwnerLabel, else its name);
---- a translation that does not format is shown as it is.
-local function titleText(S, Skin, owner)
-  local ok, text = pcall(string.format, S.TITLE_FOR, tostring(Skin:OwnerLabel(owner) or owner))
-  return ok and text or tostring(S.TITLE_FOR)
 end
 
 --- r, g, b from "#rrggbb", or nil.
@@ -382,6 +386,17 @@ function lib.__AttachSkinPicker(O, d)
     f.list:SetHeight(listH)
     f:SetHeight(BASE_H + (p.open and (listH + 2) or 0))
     if p.open then f.list:Show() else f.list:Hide() end
+  end
+
+  --- The window as wide as the owner's line needs, never narrower than WIDTH: the label's unbounded
+  --- width (GetStringWidth, with both side anchors set, reports only what fits), for picker `p`.
+  local function fit(p)
+    p = p or P
+    local fs = p and p.frame and p.frame.ownerLabel
+    if not fs then return end
+    local w = type(fs.GetUnboundedStringWidth) == "function" and fs:GetUnboundedStringWidth()
+      or fs:GetStringWidth()
+    p.frame:SetWidth(math.max(WIDTH, math.ceil(tonumber(w) or 0) + 2 * PAD))
   end
 
   local function setOpen(open, p)
@@ -585,8 +600,8 @@ function lib.__AttachSkinPicker(O, d)
   --- The list: under the dropdown row, the window's full inner width.
   local function buildList(f)
     local list = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    list:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(TOP + DD_H + 2))
-    list:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(TOP + DD_H + 2))
+    list:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(DD_TOP + DD_H + 2))
+    list:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(DD_TOP + DD_H + 2))
     f.list = list
     P.Sk.MenuFrame(list)
     syncRows()
@@ -616,13 +631,13 @@ function lib.__AttachSkinPicker(O, d)
   local function anchorDropdown(f)
     local beside = f.preview:IsShown() and f.preview or f.settings
     f.dd:ClearAllPoints()
-    f.dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -TOP)
+    f.dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -DD_TOP)
     f.dd:SetPoint("RIGHT", beside, "LEFT", -6, 0)
   end
 
   local function buildButtons(f)
     f.settings = iconButton(f, "settings", P.S.SETTINGS_GLYPH, P.S.SETTINGS_TIP, openSettings)
-    f.settings:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(TOP + (DD_H - ICON) / 2))
+    f.settings:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(DD_TOP + (DD_H - ICON) / 2))
     f.preview = iconButton(f, "eye", P.S.PREVIEW_GLYPH, P.S.PREVIEW_TIP, preview)
     f.preview:SetPoint("RIGHT", f.settings, "LEFT", -6, 0)
     f.apply = textButton(f, P.S.APPLY, P.S.APPLY_TIP, apply, true)
@@ -639,6 +654,14 @@ function lib.__AttachSkinPicker(O, d)
     title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -28, -8)
     if type(title.SetWordWrap) == "function" then title:SetWordWrap(false) end
     f.title = title
+    -- The addon's label, one line, never cut off: fit() widens the window to it.
+    local owner = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    owner:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -TOP)
+    owner:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -TOP)
+    if type(owner.SetWordWrap) == "function" then owner:SetWordWrap(false) end
+    if type(owner.SetJustifyH) == "function" then owner:SetJustifyH("LEFT") end
+    f.ownerLabel = owner
+    P.Sk.Text(owner, "heading")
     local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
     if core and type(core.ApplySkin) == "function" then core.ApplySkin(f, nil, P.owner) else P.Sk.Shell(f) end
     if core and type(core.MakeCloseButton) == "function" then
@@ -678,7 +701,7 @@ function lib.__AttachSkinPicker(O, d)
     buildButtons(f)
     buildList(f)
     P.Sk.OnLooksChanged(function()
-      if P == mine then refresh() end
+      if P == mine then refresh(); fit(mine) end
     end)
     if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, name) end
     return f
@@ -687,7 +710,9 @@ function lib.__AttachSkinPicker(O, d)
   --- The words and the controls that come and go, from the spec now.
   local function applySpec(f)
     local S = P.S
-    f.title:SetText(titleText(S, P.Skin, P.owner))
+    f.title:SetText(tostring(S.TITLE))
+    f.ownerLabel:SetText(tostring(P.Skin:OwnerLabel(P.owner) or P.owner))
+    fit(P)
     f.dd.__tip, f.settings.__tip, f.preview.__tip = S.CHOOSE_TIP, S.SETTINGS_TIP, S.PREVIEW_TIP
     f.apply.__tip, f.applyAll.__tip = S.APPLY_TIP, S.APPLY_ALL_TIP
     f.apply.text:SetText(S.APPLY)

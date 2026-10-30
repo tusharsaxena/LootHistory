@@ -30,7 +30,15 @@ if not lib then return end
 -- start of combat, closes a suggestion list one of the instance's pages opened (BAN-S11).
 -- Minor 4: a registered skin owner's suggestion list takes its popup colors on every open
 -- (S.MenuFrame, `popup`) after its own backdrop (LK-07 of the skinning run).
-local IDS_MINOR = 4
+-- Minor 5: on a registered skin owner's page the suggestion rows wear the skin too, on every open:
+-- each row's label `menu.text` in the body face (S.Text; the dropdown menu's rows' color), the
+-- "+N more" line `text.disabled`, each row's highlight art `list.hoverArt` (O.__hoverArt), and the
+-- gray every id is drawn in (here and in the id list, through the `idGray` this file hands
+-- OptionsIdList.lua) the owner's `text.disabled`, `|cff808080` exactly in Ka0s Default. An
+-- owner-less page and an owner ignoring its settings panel draw the templates, the client's art and
+-- `|cff808080` (LK-06c of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5,
+-- decisions D-13 and D-14).
+local IDS_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idsMinor and lib.__idsMinor >= IDS_MINOR
@@ -677,6 +685,17 @@ function lib.__AttachIds(O, w)
   local ID_WARN_R, ID_WARN_G, ID_WARN_B = 1, 0.5, 0
   local ID_GRAY = "|cff808080"
 
+  --- The gray an id is drawn in on this page (minor 5): the owner's `text.disabled` as a color code
+  --- while the chrome is skinned, else ID_GRAY. Asked whenever a label is built, so a skin switch
+  --- reaches the next render.
+  local function idGray()
+    local S = O.__chromeSkin and O.__chromeSkin()
+    local c = S and type(S.Token) == "function" and S.Token("text.disabled") or nil
+    if type(c) ~= "table" or type(c[1]) ~= "number" then return ID_GRAY end
+    local function byte(x) return math.floor(math.max(0, math.min(1, x)) * 255 + 0.5) end
+    return string.format("|cff%02x%02x%02x", byte(c[1]), byte(c[2]), byte(c[3]))
+  end
+
   O.ResolveId = resolveId
   O.UnnamedCandidates = unnamedCandidates
   -- The default name hints, per named kind, for a host's tooltip. A copy per instance, so a host
@@ -1000,7 +1019,14 @@ function lib.__AttachIds(O, w)
   --- A row the player can click: it adds its entry for whichever box owns the dropdown then.
   local function newSuggestRow(frame, i)
     local row = newSuggestLine(frame, i, "GameFontHighlightSmall")
-    row:SetHighlightTexture(SUGGEST_HIGHLIGHT, "ADD")
+    -- The highlight is a texture of the row's own (minor 5), so the skin can color it: the same art,
+    -- blend and extent the path form drew.
+    local hl = row:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetTexture(SUGGEST_HIGHLIGHT)
+    hl:SetBlendMode("ADD")
+    hl:SetAllPoints(row)
+    row:SetHighlightTexture(hl)
+    row.__ka0sHover = hl
     row:SetScript("OnClick", function(self)
       local owner = suggest.owner
       if owner and self.entry then pickSuggestion(owner, self.entry) end
@@ -1036,7 +1062,7 @@ function lib.__AttachIds(O, w)
     local color = nameColor(k, e.id)
     if color then name = color .. name .. "|r" end
     if e.rankLabel then name = name .. " " .. e.rankLabel end
-    local text = name .. " " .. ID_GRAY .. "(" .. tostring(e.id) .. ")|r"
+    local text = name .. " " .. idGray() .. "(" .. tostring(e.id) .. ")|r"
     -- THE HOST'S TAG (minor 28), after the id. `rank` beside it is the LIBRARY's answer about an
     -- id -- a spell's rank, an item's quality -- and a host cannot supply one; this is the other
     -- half, a short word the host knows and the library cannot.
@@ -1114,7 +1140,15 @@ function lib.__AttachIds(O, w)
     local rows = math.min(#matches, SUGGEST_ROWS)
     fillMore(parts.spec, f.more, #matches - rows)
     placeSuggest(f, parts.edit, rows + (#matches > rows and 1 or 0))
-    if O.__chromePaint then O.__chromePaint("MenuFrame", f, { popup = true }) end
+    if O.__chromePaint then
+      O.__chromePaint("MenuFrame", f, { popup = true })
+      -- The rows and the more line (minor 5): the owner's roles, or given back as they were.
+      for _, row in ipairs(f.rows) do
+        O.__chromePaint("Text", row.label, "menu.text")
+        if O.__hoverArt then O.__hoverArt(row.__ka0sHover) end
+      end
+      O.__chromePaint("Text", f.more.label, "disabled")
+    end
     f:Show()
   end
 
@@ -1370,7 +1404,7 @@ function lib.__AttachIds(O, w)
   -- its head (drawIdInput), and shares its words, its host-call guard and its kind lookups.
   return {
     print = print, refused = refused, startRow = startRow, renderRowGuarded = renderRowGuarded,
-    ID_MAIN_REL = ID_MAIN_REL, ID_ACTION_REL = ID_ACTION_REL, ID_GRAY = ID_GRAY,
+    ID_MAIN_REL = ID_MAIN_REL, ID_ACTION_REL = ID_ACTION_REL, ID_GRAY = ID_GRAY, idGray = idGray,
     idKind = idKind, kindWords = kindWords, nameColor = nameColor, idText = idText,
     callHost = callHost, disableIfRender = disableIfRender, underDisable = underDisable,
     entryNamed = entryNamed, drawIdInput = drawIdInput,

@@ -26,6 +26,18 @@
 -- title bar, the line counter and the log draw from the palette, refilled from the owner's tokens on
 -- each of its skin switches; the visible log is rebuilt from the buffer in the new colors.
 --
+-- ── THE SCOPE SWITCHES (minor 2) ─────────────────────────────────────────────────────────────
+--
+-- An owned console draws every label of its title bar (the toggle, the Diagnostics link, and the
+-- Copy and Clear words where the art is missing) in its skin's body face through the facade
+-- (`S.Font`, a recorded paint), so a skin switch reaches them and the owner's "Ignore fonts" gives
+-- each its template back, live. Under Ka0s Default that face is Oxanium where the template drew Friz
+-- Quadrata (decision D-13). The link is measured in the face it wears, again after each switch. The
+-- log and the line counter keep the descriptor's face, mono by contract. The console is a window,
+-- not the settings panel, so "Ignore settings panel" leaves it skinned (D-01). Its resize grip takes
+-- the owner too (Core minor 14's `opts.owner`). LK-06b of Ka0sAddonsCommonTasks
+-- docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5.
+--
 -- Depends on LibStub, on the DebugLog shell and on LibKa0s-Core-1.0, and on no addon framework. A
 -- payload without this file loads whole and its consoles simply never build a window: `D:Show`
 -- does nothing and logging still lands in the buffer, as on a client with no UI.
@@ -35,7 +47,7 @@ if not lib then return end
 -- Core is guaranteed present here: DebugLog.lua refuses to register without it.
 local core = LibStub("LibKa0s-Core-1.0", true)
 
-local WINDOW_MINOR = 1
+local WINDOW_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -139,12 +151,19 @@ end
 
 local function setText(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
 
+--- An owned console's label in its skin's body face (minor 2): the facade's `Font`, which records
+--- the paint, so a switch and "Ignore fonts" reach it. `S` nil (no owner) touches nothing.
+local function skinFont(S, fs)
+  if S then S.Font(fs) end
+end
+
 -- Small flat text button for the title bar (Copy / Clear). The close button comes from Core; this
 -- one has no other consumer yet, so it stays private until a second module wants it.
-local function makeTextButton(parent, text, width, onClick, pal)
+local function makeTextButton(parent, text, width, onClick, pal, S)
   local b = CreateFrame("Button", nil, parent)
   b:SetSize(width, 18)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  skinFont(S, fs)
   fs:SetPoint("CENTER")
   fs:SetText(text)
   setText(fs, pal.rest)
@@ -197,7 +216,7 @@ end
 ---
 --- @param titleBar table
 --- @param spec table  { addonName, close = f(parent,onClick,addonName), onClose, onClear, onCopy,
----                      clearLabel, copyLabel, pal }
+---                      clearLabel, copyLabel, pal, S (the owner's facade or nil, minor 2) }
 --- @return table close, table clear, table copy, table offsets
 local function buildTitleControls(titleBar, spec)
   -- Anchored to the bar's right edge by absolute offset rather than to each other, because a
@@ -226,9 +245,9 @@ local function buildTitleControls(titleBar, spec)
   if clear then
     clearW = ICON_W
   else
-    clear = makeTextButton(titleBar, spec.clearLabel, clearW, spec.onClear, spec.pal)
+    clear = makeTextButton(titleBar, spec.clearLabel, clearW, spec.onClear, spec.pal, spec.S)
   end
-  copy = copy or makeTextButton(titleBar, spec.copyLabel, COPY_W, spec.onCopy, spec.pal)
+  copy = copy or makeTextButton(titleBar, spec.copyLabel, COPY_W, spec.onCopy, spec.pal, spec.S)
 
   local clearRight = -PAD - closeW - PAD
   local copyRight  = clearRight - clearW - PAD
@@ -251,13 +270,15 @@ end
 --- reaches from the bar's left (the WIDER toggle word's case); nil and 0 without the report. Its
 --- click is what `/<prefix> diagnostics` runs, D:RunDiagnostics(), which turns logging on. ANCHORED
 --- TO THE LABEL'S FONT STRING, not the toggle's 80-wide button, so the gap holds after either word;
---- a level above that button, which runs on under it.
-local function buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal)
+--- a level above that button, which runs on under it. An owned link wears the skin's face before it
+--- is measured (minor 2).
+local function buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal, S)
   if type(D.RunDiagnostics) ~= "function" then return nil, 0 end
   local labelW = math.max(textWidth(toggleFS, D:Text("DEBUG_ON")),
     textWidth(toggleFS, D:Text("DEBUG_OFF")))
   local b = CreateFrame("Button", nil, titleBar)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  skinFont(S, fs)
   fs:SetPoint("LEFT")
   local w = textWidth(fs, D:Text("DIAGNOSTICS"))
   b:SetSize(w, 18)
@@ -413,7 +434,7 @@ end
 
 --- The title bar: the drag bar, the centered title, the divider under it, Copy | Clear | Close on the
 --- right, the toggle and the Diagnostics link on the left. Answers what the minimum width reads.
-local function buildTitleBar(f, D, ctx, pal)
+local function buildTitleBar(f, D, ctx, pal, S)
   local d = ctx.d
   local titleBar = dragBar(f, TITLE_H)
 
@@ -451,6 +472,7 @@ local function buildTitleBar(f, D, ctx, pal)
     clearLabel = D:Text("CLEAR"),
     copyLabel  = D:Text("COPY"),
     pal        = pal,
+    S          = S,
   })
   -- Recorded for the same reason `titleText` is: an anchor cannot be read back through the frame
   -- API, so these are the only handle a host's own test has on what its close button did to the
@@ -464,6 +486,7 @@ local function buildTitleBar(f, D, ctx, pal)
   toggleBtn:SetSize(TOGGLE_W, 18)
   toggleBtn:SetPoint("LEFT", titleBar, "LEFT", TOGGLE_X, 0)
   local toggleFS = toggleBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  skinFont(S, toggleFS)
   toggleFS:SetPoint("LEFT")
   toggleBtn:SetScript("OnEnter", function() setText(toggleFS, pal.hot) end)
   toggleBtn:SetScript("OnLeave", function() D:RefreshHeader() end)
@@ -473,7 +496,7 @@ local function buildTitleBar(f, D, ctx, pal)
   f.debugToggleBtn = toggleBtn
   -- The Diagnostics link beside it (minor 16), recorded as clearButton and copyButton are.
   local linkReach
-  f.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal)
+  f.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal, S)
   D._toggleClickForTest = onToggleClick   -- test seam (a headless mock stubs GetScript)
   return title, offsets, copyBtn, linkReach
 end
@@ -488,7 +511,13 @@ local function recolor(f, D, pal)
       setText(b.label, pal.rest)
     end
   end
-  if f.diagnosticsButton then setText(f.diagnosticsButton.label, pal.diag) end
+  local link = f.diagnosticsButton
+  if link then
+    setText(link.label, pal.diag)
+    -- Minor 2: measured again in the face the switch left it (a skin's, or the template's under
+    -- "Ignore fonts"), so the link's button stays the width of its word.
+    link:SetWidth(textWidth(link.label, D:Text("DIAGNOSTICS")))
+  end
   setText(f.lineCount, pal.count)
   D:RefreshHeader()
   rebuildLog(f, D)
@@ -535,7 +564,7 @@ function lib.__buildConsole(D, ctx)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
 
-  local title, offsets, copyBtn, linkReach = buildTitleBar(f, D, ctx, pal)
+  local title, offsets, copyBtn, linkReach = buildTitleBar(f, D, ctx, pal, S)
   -- The other test seam. A headless mock's Show()/Hide() track visibility without firing the
   -- OnShow/OnHide scripts, so the only way to exercise the visibility callback below is to drive
   -- the handler directly. Hooking the frame rather than calling the host from Show()/Hide() is
@@ -567,6 +596,8 @@ function lib.__buildConsole(D, ctx)
       minWidth  = consoleMinWidth(offsets, copyBtn, title, f.titleText, linkReach),
       minHeight = consoleMinHeight(ctx.fontSize),
       onResize  = function() D:UpdateScrollBar(); D:UpdateStatus() end,
+      -- Minor 2: the grip wears the console's skin (Core minor 14; an older Core ignores the key).
+      owner     = S and d.addonName or nil,
     })
   end
   D:UpdateScrollBar()

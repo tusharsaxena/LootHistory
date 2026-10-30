@@ -48,6 +48,14 @@
 -- and a skinned box (`W.SearchBox` with the same owner) carries the skin to them. An unregistered
 -- name draws minor 3's rows.
 --
+-- -- THE SCOPE SWITCHES (minor 5) ---------------------------------------------------------------
+--
+-- An owned list draws its rows in the skin's body face (the shell's THE SCOPE SWITCHES; Oxanium
+-- under Ka0s Default, D-13), read on every show, so "Ignore fonts" gives them the template back. A
+-- host's `opts.font` is the host's and is never touched. `opts.panel = true` puts the list on its
+-- owner's settings page: while that owner ignores its settings panel the rows are minor 3's, colors
+-- and face, from the next show. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
@@ -56,7 +64,8 @@ if not lib then return end
 -- Minor 3: the list is clamped to the screen (ensureList), so a box near the bottom edge keeps its
 -- suggestions on screen (frame-layering-§4; XS-22).
 -- Minor 4: the skin owner (the header's THE SKIN OWNER).
-local AUTOCOMPLETE_MINOR = 4
+-- Minor 5: the rows' face and `opts.panel` (the header's THE SCOPE SWITCHES).
+local AUTOCOMPLETE_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -120,13 +129,30 @@ local function itemColor(c, plain)
   return plain[1], plain[2], plain[3]
 end
 
---- The rows' plain text and highlight colors: the owner's skin for a registered skin owner
---- (minor 4), else the published defaults. Read on every show.
-local function palette(h)
+--- The Skin major the rows paint through: the owner's for a registered skin owner, nil without one
+--- and while a panel-scoped list's owner ignores its settings panel (minor 5).
+local function rowSkin(h)
   local skinOf, owner = lib.__skinOf, h.__owner
   local Skin = type(skinOf) == "function" and skinOf(owner) or nil
+  local panelOff = lib.__panelOff
+  if Skin and type(panelOff) == "function" and panelOff(Skin, owner, h.__panel) then return nil end
+  return Skin
+end
+
+--- The rows' plain text and highlight colors: the owner's skin for a registered skin owner
+--- (minor 4), else the published defaults. Read on every show.
+local function palette(h, Skin)
+  local owner = h.__owner
   if not Skin then return AC.TEXT, AC.HIGHLIGHT end
   return Skin:Token(owner, "menu.text") or AC.TEXT, Skin:Token(owner, "menu.hover") or AC.HIGHLIGHT
+end
+
+--- A row's face (minor 5): the skin's body face for an owned list, the template back otherwise; a
+--- host's `opts.font` is never touched.
+local function fontRow(h, label, Skin)
+  local skinFont = lib.__skinFont
+  if h.__hostFont or type(skinFont) ~= "function" then return end
+  skinFont(label, h.__owner, Skin, h.__font)
 end
 
 local function boxText(box)
@@ -230,13 +256,15 @@ local function render(h, items)
   skin(h)
   local n = min(#items, h.__maxRows)
   local shown = {}
-  local text, hover = palette(h)
+  local Skin = rowSkin(h)
+  local text, hover = palette(h, Skin)
   for i = 1, n do
     local row = h.__rows[i]
     if not row then
       row = makeRow(h, i)
       h.__rows[i] = row
     end
+    fontRow(h, row.label, Skin)
     -- A bare string from a provider reads as a row with that text and nothing else.
     local item = items[i]
     if type(item) ~= "table" then item = { text = tostring(item) } end
@@ -412,6 +440,7 @@ function lib.Autocomplete(editBox, opts)
     __debounce = max(AC.DEBOUNCE, type(opts.debounce) == "number" and opts.debounce or 0),
     __minChars = positive(opts.minChars, AC.MIN_CHARS),
     __font = opts.font or AC.FONT, __strata = opts.strata or AC.STRATA, __owner = opts.owner,
+    __hostFont = opts.font ~= nil, __panel = opts.panel == true,
     __rows = {}, __items = {}, __seq = 0, __enabled = true, __open = false,
   }, Handle)
   local previous = owners[editBox]

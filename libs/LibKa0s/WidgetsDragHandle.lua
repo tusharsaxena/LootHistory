@@ -1,8 +1,9 @@
 -- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
 -- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, from minor 4
 -- an opt-in host hook that places the tooltip (`tooltipPlace`), from minor 5 an opt-in frame
--- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), and from minor 6 a
--- skin owner (`owner`: the shell's SKIN OWNERS).
+-- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), from minor 6 a
+-- skin owner (`owner`: the shell's SKIN OWNERS), and from minor 7 an owned strip's tooltip in its
+-- skin's tooltip colors, its label in its skin's body face, and `panel`.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -53,7 +54,17 @@ if not lib then return end
 -- Minor 6: `spec.owner`, a registered skin owner: the strip's fill, edge, label and mark tints come
 -- from that owner's skin (`handle.bg`, `handle.edge`, `text.accent`, `icon.tint`, `icon.hot`) and
 -- follow its switches. Without one, or for an unregistered name, the strip is minor 5's.
-local DRAG_MINOR = 6
+-- Minor 7 (LK-08 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, the owner's ruling
+-- R-7, DECISIONS D-14): an owned strip's tooltip bands take its skin's tooltip colors, read at hover:
+-- the title `gtip.title`, the body `gtip.value`, the footer `gtip.footer`. Ka0s Default's are the
+-- gold, white and 0.6 gray minor 6 drew, an entry's own color still wins, and an owner-less strip's
+-- tooltip is minor 6's.
+-- Still minor 7 (LK-06a of the same run, ruling R-5, decisions D-02 and D-13; the shell's THE SCOPE
+-- SWITCHES): an owned strip's label is drawn in its skin's body face (Oxanium under Ka0s Default)
+-- and MEASURED in that face, so "Ignore fonts" gives it the template back, live; a host's
+-- `spec.labelFont` is never touched. `spec.panel = true` puts the strip on its owner's settings page:
+-- while that owner ignores its settings panel the strip is minor 5's, live both ways.
+local DRAG_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -178,19 +189,25 @@ local HELP_TINT_OVER = { 1, 1, 1 }
 
 -- The strip's colors as one palette (minor 6): these for a strip with no skin owner, the owner's
 -- tokens for one with (dhPalette). Every paint reads the handle's palette, never a literal.
+-- The tooltip bands' colors are the palette's too (minor 7): `title`, `body` and `footer`.
 local DH_PAL = { bg = { 0, 0, 0, 0.75 }, edge = { 1, 0.82, 0, 0.6 }, label = { 1, 0.82, 0 },
-                 tint = HELP_TINT, over = HELP_TINT_OVER }
+                 tint = HELP_TINT, over = HELP_TINT_OVER,
+                 title = { 1, 0.82, 0 }, body = { 1, 1, 1 }, footer = { 0.6, 0.6, 0.6 } }
 
 --- The palette for `owner` and the Skin major, or the default palette and nil when `owner` is not a
---- registered skin owner (or the shell predates the check).
-local function dhPalette(owner)
+--- registered skin owner (or the shell predates the check). The default palette with the Skin major
+--- while a panel-scoped strip's owner ignores its settings panel (`panel`, minor 7).
+local function dhPalette(owner, panel)
   local skinOf = lib.__skinOf
   local Skin = type(skinOf) == "function" and skinOf(owner) or nil
   if not Skin then return DH_PAL, nil end
+  local panelOff = lib.__panelOff
+  if type(panelOff) == "function" and panelOff(Skin, owner, panel) then return DH_PAL, Skin end
   local function tok(name, fallback) return Skin:Token(owner, name) or fallback end
   return { bg = tok("handle.bg", DH_PAL.bg), edge = tok("handle.edge", DH_PAL.edge),
            label = tok("text.accent", DH_PAL.label), tint = tok("icon.tint", HELP_TINT),
-           over = tok("icon.hot", HELP_TINT_OVER) }, Skin
+           over = tok("icon.hot", HELP_TINT_OVER), title = tok("gtip.title", DH_PAL.title),
+           body = tok("gtip.value", DH_PAL.body), footer = tok("gtip.footer", DH_PAL.footer) }, Skin
 end
 
 -- ONE face, read by the code that DRAWS the label and by the code that MEASURES it. An earlier
@@ -231,11 +248,25 @@ local function dhNumber(spec, v, fallback)
   return tonumber(v) or fallback
 end
 
+-- Measurers wearing a skin face a label lent them (minor 7), so the next plain measure resets them.
+local lent = setmetatable({}, { __mode = "k" })
+
 --- The width `text` takes in the label's face, or 0 when nothing can be measured. The face is the
---- one the label is DRAWN in; see LABEL_FONT_DEFAULT.
-local function dhLabelWidth(spec, text)
+--- one the label is DRAWN in; see LABEL_FONT_DEFAULT. A label in its skin's face (minor 7) lends the
+--- measurer that font object first: the measurer is shared per template, so it is put back on the
+--- template for the next label that wears none.
+local function dhLabelWidth(spec, text, label)
   local fs = lib.__DragHandleMeasurer(spec.labelFont)
   if not fs then return 0 end
+  local fonted = lib.__fonted
+  local obj = label and fonted and fonted[label] and label.GetFontObject and label:GetFontObject()
+  if obj and fs.SetFontObject then
+    fs:SetFontObject(obj)
+    lent[fs] = true
+  elseif lent[fs] and fs.SetFontObject then
+    fs:SetFontObject(spec.labelFont or LABEL_FONT_DEFAULT)
+    lent[fs] = nil
+  end
   fs:SetText(text or "")
   return dhNumber(spec, fs:GetStringWidth(), 0)
 end
@@ -331,13 +362,15 @@ end
 --- The three-band shape both copies built out of different text, EVALUATED ONCE for this hover: a
 --- gold title, white wrapped body lines, then -- only when at least one survives -- gray footer
 --- lines. Evaluated apart from the drawing so a placement fallback (dhShowPlaced) redraws the same
---- lines rather than calling a host's line functions a second time.
-local function dhTooltipLines(t)
+--- lines rather than calling a host's line functions a second time. The band colors are `pal`'s, the
+--- handle's palette at this hover (minor 7), so an owned strip's tooltip follows its skin's switches.
+local function dhTooltipLines(t, pal)
   local title, tr, tg, tb = dhEntry(t.title)
+  local pt, pb, pf = pal.title, pal.body, pal.footer
   return {
-    title  = { title or "", tr or 1, tg or 0.82, tb or 0 },
-    body   = dhBand(t.body, 1, 1, 1) or {},
-    footer = dhBand(t.footer, 0.6, 0.6, 0.6),
+    title  = { title or "", tr or pt[1], tg or pt[2], tb or pt[3] },
+    body   = dhBand(t.body, pb[1], pb[2], pb[3]) or {},
+    footer = dhBand(t.footer, pf[1], pf[2], pf[3]),
   }
 end
 
@@ -370,17 +403,19 @@ end
 
 --- Show the descriptor's tooltip for `frame`, which is the frame hovered and therefore the frame
 --- a non-cursor owner owns by and the frame a placement hook is handed. Without a hook the calls
---- are minor 3's, in minor 3's order: own, evaluate and draw, Show.
-local function dhShowTooltip(frame, spec, t)
+--- are minor 3's, in minor 3's order: own, evaluate and draw, Show. `handle` is the strip, whose
+--- palette colors the bands (minor 7).
+local function dhShowTooltip(handle, frame, spec, t)
   local tip = GameTooltip
   if not (t and tip and tip.SetOwner and tip.SetText) then return end
+  local pal = handle.__pal or DH_PAL
   local place = dhPlacer(spec, t)
   if place then
-    dhShowPlaced(tip, frame, dhTooltipLines(t), place)
+    dhShowPlaced(tip, frame, dhTooltipLines(t, pal), place)
     return
   end
   dhOwnTooltip(tip, frame, spec, t)
-  dhDrawTooltip(tip, dhTooltipLines(t))
+  dhDrawTooltip(tip, dhTooltipLines(t, pal))
 end
 
 local function dhHideTooltip()
@@ -444,7 +479,7 @@ local function dhBuildHelp(handle, spec)
   -- the next hover.
   help:SetScript("OnEnter", function()
     dhTint(help.icon, spec.onRightClick and handle.__pal.over or handle.__pal.tint)
-    dhShowTooltip(help, spec, spec.helpTooltip or spec.tooltip)
+    dhShowTooltip(handle, help, spec, spec.helpTooltip or spec.tooltip)
   end)
   help:SetScript("OnLeave", function()
     dhTint(help.icon, handle.__pal.tint)
@@ -494,7 +529,7 @@ local function dhBuildClose(handle, spec)
   end
   btn:SetScript("OnEnter", function()
     dhTint(btn.icon, handle.__pal.over)
-    dhShowTooltip(btn, spec, spec.closeTooltip or spec.tooltip)
+    dhShowTooltip(handle, btn, spec, spec.closeTooltip or spec.tooltip)
   end)
   btn:SetScript("OnLeave", function()
     dhTint(btn.icon, handle.__pal.tint)
@@ -539,11 +574,20 @@ local function dhBuildChrome(handle, spec)
   handle.__edges = dhDrawEdge(handle, 1, e[1], e[2], e[3], e[4])
 end
 
+--- The label's face (minor 7): the skin's body face while the strip is skinned, the template back
+--- otherwise; a host's `spec.labelFont` is never touched.
+local function dhFontLabel(handle, owner, Skin)
+  local skinFont = lib.__skinFont
+  if not handle.label or handle.__hostFace or type(skinFont) ~= "function" then return end
+  skinFont(handle.label, owner, handle.__pal ~= DH_PAL and Skin or nil, LABEL_FONT_DEFAULT)
+end
+
 --- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch. A host's
 --- own `spec.edge` pixels are the host's and are not redrawn.
 local function dhRepaint(handle, owner)
-  local pal = dhPalette(owner)
+  local pal, Skin = dhPalette(owner, handle.__panel)
   handle.__pal = pal
+  dhFontLabel(handle, owner, Skin)
   if handle.bg then handle.bg:SetColorTexture(pal.bg[1], pal.bg[2], pal.bg[3], pal.bg[4]) end
   for _, tex in ipairs(handle.__edges or {}) do
     tex:SetColorTexture(pal.edge[1], pal.edge[2], pal.edge[3], pal.edge[4])
@@ -651,7 +695,7 @@ local function dhAttachMethods(handle, spec)
   --- is what keeps the label optically centered. Both hosts wrote this expression out; neither
   --- does now.
   function handle:Measure()
-    return dhLabelWidth(spec, self.__label) + dhReserve(spec) * 2
+    return dhLabelWidth(spec, self.__label, self.label) + dhReserve(spec) * 2
   end
 
   --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE without a close
@@ -741,8 +785,13 @@ end
 ---                                 a display that fades its content does not fade the strip a
 ---                                 player must find. The marks are its children and follow it.
 ---   owner       string|nil        minor 6. A registered skin owner (the addon folder name): the
----                                 strip's colors follow that owner's skin. Not a tooltip owner --
----                                 that is `tooltipOwner` and a descriptor's own `owner`.
+---                                 strip's colors follow that owner's skin, its tooltip's
+---                                 band colors too from minor 7 (`gtip.title`, `gtip.value`,
+---                                 `gtip.footer`). Not a tooltip owner -- that is `tooltipOwner` and
+---                                 a descriptor's own `owner`. From minor 7 the label is drawn and
+---                                 measured in that skin's body face unless `labelFont` names one.
+---   panel       boolean|nil       minor 7. true: the strip sits on the owner's settings page, so
+---                                 while the owner ignores its settings panel it is minor 5's.
 --- @return table|nil handle  nil with no parent and nil in a process with no CreateFrame
 function lib.DragHandle(parent, spec)
   spec = spec or {}
@@ -752,18 +801,20 @@ function lib.DragHandle(parent, spec)
   if not (handle and handle.SetHeight) then return nil end
   handle:SetHeight(lib.DRAG_HANDLE.HEIGHT)
   local Skin
-  handle.__pal, Skin = dhPalette(spec.owner)
+  handle.__panel, handle.__hostFace = spec.panel == true, spec.labelFont ~= nil
+  handle.__pal, Skin = dhPalette(spec.owner, handle.__panel)
   -- Before anything is built on it: the marks are born at the handle's level + 1.
   dhLevel(handle, spec, parent)
   dhParentAlpha(handle, spec)
   dhBuildChrome(handle, spec)
   dhBuildLabel(handle, spec)
+  dhFontLabel(handle, spec.owner, Skin)
 
   handle:EnableMouse(true)
   handle:RegisterForDrag("LeftButton")
 
   dhSetDragScripts(handle, spec)
-  handle:SetScript("OnEnter", function() dhShowTooltip(handle, spec, spec.tooltip) end)
+  handle:SetScript("OnEnter", function() dhShowTooltip(handle, handle, spec, spec.tooltip) end)
   handle:SetScript("OnLeave", dhHideTooltip)
   dhSetClick(handle, spec, true)
 
