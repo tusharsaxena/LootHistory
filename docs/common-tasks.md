@@ -100,7 +100,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:820`),
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:891`),
   a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
   look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
   row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
@@ -291,9 +291,9 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   font**: `SetFont` accepts a path to a file that is not there, fails to load it, and the text
   simply does not draw, so a degraded install gets `STANDARD_TEXT_FONT` and never a dead path.
 - **No per-surface LSM media pickers, by design.** There is no per-surface font/texture/border
-  setting, and this addon's own code uses LSM only for the registration above (no `Fetch`/`List`).
+  setting, and this addon's own code uses LSM only for the registration above and the `getLSM` it hands the Options descriptor for the Skin tab's previews (no `Fetch`/`List`).
   The look is user-configurable as a whole instead: the Skin tab picks a skin, and its Font and
-  texture dropdowns (the library's, which list LSM's keys) override the skin's face and bar texture
+  texture dropdowns (the library's, which list LSM's keys, each row drawn in its own face or bar) override the skin's face and bar texture
   for the whole addon; `LibKa0s-Skin-1.0` resolves the faces and art itself (core/SkinSetup.lua). That is the LibKa0s seam the
   old post-1.0.0 TODO in `modules/Browser.lua` pointed at; the History window's chrome reads it
   since LH-02.
@@ -320,7 +320,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   Master controls tab's Reset position / Reset all settings pair) inset
   to `BUTTON_PAIR_REL = 0.492`, not `0.5`, so their right border clears the ScrollFrame's clip. The
   constant is the library's (`lib.LAYOUT.BUTTON_PAIR_REL` in `libs/LibKa0s/Options.lua`), re-exported on the instance as
-  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:46`).
+  `O.BUTTON_PAIR_REL` and read by this addon's own `makePairButton` (`settings/Panel.lua:47`).
   Label-inset controls (checkbox / dropdown / slider) already reserve that gutter and stay at `0.5` —
   they are immune (options-ui-§10). `BUTTON_PAIR_REL` is the single seam for that width; don't
   hard-code it per button.
@@ -338,7 +338,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 - **Ratified exception (2026-07-20).** The "Minimum quality" setting is a *monotonic floor* — the
   collector records loot where `quality >= threshold` (`modules/Collector.lua`, `gateReason`), so a
   clean ladder would run Poor(0) → Legendary(5) and stop. `C.QUALITY_OPTIONS`
-  (`core/Constants.lua:171`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
+  (`core/Constants.lua:173`) nonetheless appends **Heirloom (id 7)** after Legendary at the user's
   explicit request. Because Heirloom's item-quality id (7) sorts *above* Legendary(5) and
   Artifact(6), selecting it floors capture at 7 — recording **only Heirlooms and WoW Tokens** and
   gating out Epics/Legendaries. That is the intended, user-chosen behavior, **not** a bug: do not

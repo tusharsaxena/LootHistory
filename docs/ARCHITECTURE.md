@@ -137,7 +137,7 @@ Settings panel on its landing page** by running the `config` verb (slash-command
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 **The slash surface is unchanged while the addon is disabled** (slash-commands-§2/§7): only the
-feature verbs `show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
+feature verbs `show` / `hide` / `toggle` / `skin` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
 line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-state.md).
 
 | Verb | Action |
@@ -145,6 +145,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | *(none)* | Open the Settings panel on its landing page (same as `config`) |
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
+| `skin` | Open the first-run skin picker on demand, whatever `pickerSeen` says (`NS.RunSkinVerb`, the library's `O.SkinVerb`). A feature verb: refused with the one disabled line while the addon is off |
 | `enable` / `disable` | Turn recording on / off. **Aliases**, never a second switch: each is `/lh set settings.enabled <bool>` with the path filled in, so it writes the Master controls **Enable Loot History** row through `Schema:Set` and holds no state of its own (slash-commands-§2). Both keep answering while the addon is disabled, which is what stops the pair being one-way |
 | `version` | Print the addon version (`[LH] v<version>`, read from TOC metadata) |
 | `get <path>` | Print a setting value |
@@ -361,17 +362,19 @@ facade with this addon as its **owner**.
   again on demand.
 - **The first-run skin picker.** `NS.MaybeShowSkinPicker` shows the library's picker
   (`O.SkinPicker`, LibKa0s OptionsSkinPicker 2: titled "Choose a skin", with the brand on its own
-  line above the dropdown, `frame.ownerLabel`) while the profile's `pickerSeen` is false: two
+  line above the dropdown, `frame.ownerLabel`, and the Skin tab's Font, Texture, Font outline and
+  Scope rows under it, LibKa0s v1.83.0) while the profile's `pickerSeen` is false: two
   seconds after login on an addon that stands up, and after every profile event. Never while the
   addon stands down; in combat it waits for `PLAYER_REGEN_ENABLED`. A pick only previews (the skin
-  is worn, not saved); **Apply** and the gear save it through `NS.WriteSkinChoice`, and the close
-  control and Escape put the old skin back. Apply, the close, the gear and Escape set the key, and
+  is worn, not saved), and so does a change on its rows; **Apply** and the gear save what moved
+  through `NS.WriteSkinChoice`, and the close control and Escape put back the old skin and whatever
+  the rows previewed. Apply, the close, the gear and Escape set the key, and
   so does another Ka0s addon's **Apply to all Ka0s addons** for this picker while it is queued
   (one picker is up at a time across Ka0s addons; a queued call answers `nil, "queued"`).
   `NS.HideSkinPicker` (the stand-down, and first on every profile event, so the put-back lands
   before the new profile's skin) takes it down without setting it. Its eye turns test mode on.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
-  event (`core/LootHistory.lua`), applying the stored Scope and overrides with the stored skin, and
+  event (`core/LootHistory.lua`), applying the stored Scope, overrides and Font outline with the stored skin, and
   from each Skin tab row with only its own half. It calls
   `Skin:SetChoice`, which resolves the skin, repaints every frame recorded for this owner (each
   primitive re-runs in repaint mode) and then fires `NS.Skin.OnLooksChanged`. Surfaces that cannot be
@@ -435,10 +438,10 @@ Outside the gate's reach, also on purpose:
   FontStrings built from `GameFont*` templates (table cells, Insights, the Timeline, Holdings, the AH
   table, the filter bar's hint) take the skin's face through `S.Font`, face only, their colors still
   the addon's. Sizes are relative to Ka0s Default's (LibKa0s SkinPaint minor 4), so each keeps its
-  template's size scaled by the skin's, and the layouts measured against it hold. Ka0s Default's face
-  is Oxanium (SemiBold for body text, Bold for titles; LibKa0s SkinDefs minor 14, the owner's choice,
-  2026-10-28), so on it the addon's strings no longer read in the `GameFont*` templates' Friz
-  Quadrata, which every other skin without a face of its own still draws; with **Ignore fonts** on,
+  template's size scaled by the skin's, and the layouts measured against it hold. Every skin names
+  a face of its own (Ka0s Default's is Prototype, LibKa0s SkinDefs minor 18; WoW Default's is the
+  client's Friz Quadrata), so outside WoW Default the addon's strings no longer read in the
+  `GameFont*` templates' Friz Quadrata; with **Ignore fonts** on,
   every string keeps its own face and size and the skin still colors it. Two strings stay on their own face: the row's
   direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
   read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which

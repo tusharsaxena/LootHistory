@@ -47,7 +47,7 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording. At first all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip below the filter bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
+There's nothing to set up. Install it, log in, and it's already recording. A small **Choose a skin** window comes up once on each new profile. Pick a look or close it, and after that all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip below the filter bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
 
 Reading back your loot happens in the History window, in this order:
 
@@ -61,6 +61,8 @@ Reading back your loot happens in the History window, in this order:
 Want to see how a session would record without playing one? `/lh sim start loot` opens the window and runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIMULATION while it runs. Once started it plays on its own, a second between steps; Pause holds it, and clicking a row plays it by hand. **Interface > Simulation step delay (seconds)** in the settings changes the pace. Nothing it records is saved, and `/lh sim stop` ends it. It only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
+
+How it looks is up to you too. The addon's windows wear a skin, and the **Skin** tab in the settings has nine to pick from. The Font and Texture dropdowns there draw each choice in its own face or bar so you can see it before you take it, and **Font outline** sets whether all text gets an outline, only the HUD text, or none. `/lh skin` brings back the **Choose a skin** window with those same options, and its eye button shows your pick on sample rows in the History window.
 
 Everything else is on the addon's page under Settings > AddOns, which `/lh` (or `/loothistory`) opens on its own, and `/lh help` lists every command.
 
@@ -148,6 +150,5 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
 Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
-info and drag-handle marks, the window close buttons, and the debug console's copy and clear
-buttons. Only the icons the addon draws are shipped. The icons are bundled inside the LibKa0s payload,
-with their license text beside them.
+info and drag-handle marks, the window close buttons, the skin picker's eye and gear, and the debug console's copy and clear
+buttons. Only the icons the addon draws are shipped, with their license text beside them.
