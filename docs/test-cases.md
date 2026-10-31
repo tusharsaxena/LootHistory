@@ -1524,8 +1524,9 @@ Total.
 - Skin seam: a profile's stored exceptions are applied with its skin
 - Skin seam: /lh set reaches an exception, and only its own half
 
-### test_skin_overrides.lua (9)
+### test_skin_overrides.lua (10)
 
+- Skin overrides: the descriptor hands the library LibSharedMedia, for O.LSMValues and the preload
 - Skin overrides: the font and texture keys default to the skin's own, as two Skin tab rows
 - Skin overrides: the stored pair reads false, false before the profile store exists
 - Skin overrides: the write seam stores media's halves, "" for the skin's own
@@ -2179,7 +2180,7 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
-| test_skin_overrides.lua | 9 |
+| test_skin_overrides.lua | 10 |
 | test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
 | test_skin_verb.lua | 4 |
@@ -2217,4 +2218,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1859** |
+| **Total** | **1860** |

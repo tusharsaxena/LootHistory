@@ -265,6 +265,10 @@ NS.Options = lib:New({
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end
   end,
 
+  -- For O.LSMValues and the font preload every panel show runs, which the Skin tab's Font and Texture
+  -- pickers rely on to draw each row in its own face the first time they open (options-ui-§23).
+  getLSM = function() return LibStub and LibStub("LibSharedMedia-3.0", true) end,
+
   -- library-stack-§4: one LibStub resolution, stashed for every page file to reuse.
   onAceGUI = function(AceGUI) NS.AceGUI = AceGUI end,
 

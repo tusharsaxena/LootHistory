@@ -2134,7 +2134,8 @@ edge at a corner. Result: pass (owner-marked 2026-10-30)
 the nine skins and **Scope**, a **Font and texture** heading over two dropdowns side by side,
 **Font** and **Texture**. Open each → the first entry reads *Skin's default (<the skin's face or bar
 texture>)*, then every LibSharedMedia font (or status bar) sorted by name, each row drawn in its own
-face (or with its bar) as the picker scrolls (LH-F01; LibKa0s v1.83.0, D-08); with no media addon
+face (or with its bar) as the picker scrolls, from the first opening after a client restart (LH-F01,
+LH-F02; LibKa0s v1.83.0, D-08); with no media addon
 installed the lists still hold the *Skin's default* entry and the faces LibKa0s registers. Both read
 *Skin's default* on a new profile. Fail: a font row in a face that is not its own, a texture row with
 no bar. (Re-opened by LH-F01, 2026-10-31: the picker and its first entry changed.) Result:
