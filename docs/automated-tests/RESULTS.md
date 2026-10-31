@@ -32,6 +32,7 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 | Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [`20261101-002120`](20261101-002120/) | `ad76bb7` | clean | 1.5.0 | 0/0 | 159 | 1841/1/1842 | pass | 42479 | 6166 | 6.7 | 2.3 | 15 | 0 | **green** |
 | [`20261031-214112`](20261031-214112/) | `d902af3` | clean | 1.5.0 | 0/0 | 159 | 1860/1/1861 | pass | 42868 | 6212 | 6.7 | 2.3 | 15 | 0 | **green** |
 | [`20261031-202125`](20261031-202125/) | `1952c06` | clean | 1.5.0 | 0/0 | 154 | 1860/1/1861 | pass | 42741 | 6203 | 6.7 | 2.3 | 15 | 0 | **green** |
 | [`20261009-191728`](20261009-191728/) | `fe1b6cd` | clean | 1.4.0 → 1.5.0 | 0/0 | 118 | 1523/1/1524 | pass | 32955 | 4627 | 6.9 | 2.4 | 15 | 0 | **green** |
@@ -54,11 +55,11 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 ## Test suite
 
-**1861 cases** — 1860 passed, 0 failed, 1 skipped. The generated inventory
-[`20261031-214112/test-cases.md`](20261031-214112/test-cases.md) is the authority on which cases existed at this run;
+**1842 cases** — 1841 passed, 0 failed, 1 skipped. The generated inventory
+[`20261101-002120/test-cases.md`](20261101-002120/test-cases.md) is the authority on which cases existed at this run;
 `docs/test-cases.md` is that same list at HEAD.
 
-Unchanged from the previous run at 1861 cases.
+Moved **1861 → 1842** since the previous run.
 
 **1 case(s) reported a `skip`.** A skip is counted in the total and never in `passed`, and at
 the release gate it is NOT EVALUATED rather than passed (`automated-tests-§3`).
@@ -75,21 +76,21 @@ to whoever thinks to open `.luacheckrc`.
 ## Perf
 
 **4 scenarios** from `tests/perf.lua`; the measurements are in
-[`20261031-214112/perf.json`](20261031-214112/perf.json).
+[`20261101-002120/perf.json`](20261101-002120/perf.json).
 
 | `scenario` | `iters` | `ms/iter` | `scans/iter` | `bytes/iter` |
 |---|---|---|---|---|
-| `lootDroppedBracketed` | 2000 | 0.00362 | 0.00 | 0.0 |
-| `lootDroppedBare` | 2000 | 0.00359 | 0.00 | 0.0 |
-| `combatBagUpdate` | 5000 | 0.00054 | 0.00 | 0.0 |
-| `reconcileCleanBags` | 200 | 0.21875 | 1.00 | 118120.0 |
+| `lootDroppedBracketed` | 2000 | 0.00700 | 0.00 | 0.0 |
+| `lootDroppedBare` | 2000 | 0.00729 | 0.00 | 0.0 |
+| `combatBagUpdate` | 5000 | 0.00110 | 0.00 | 0.0 |
+| `reconcileCleanBags` | 200 | 0.38744 | 1.00 | 118120.0 |
 
 `perf` never fails a run and never blocks a commit — it is recorded, read and compared, not
 thresholded (`performance-§9`). It does gate the **tag** (`automated-tests-§3`).
 
 ## Complexity watch list
 
-Current as of [`20261031-214112`](20261031-214112/) — **this run's measurement, not its diff.** Max CCN **15** across 6212
+Current as of [`20261101-002120`](20261101-002120/) — **this run's measurement, not its diff.** Max CCN **15** across 6166
 functions, **0** of them warned on; 10 file(s) in the 1000–1500 band and 0 over the 1500 cap
 (`layout-§1`).
 
@@ -117,8 +118,8 @@ None.
 | 1000–1500 (on notice) | `tests/test_browser.lua` | 1018 | **Peel next (2026-10-07).** New in the band and the largest authored file: 1459 lines, 41 under the cap, 1144 NLOC over 209 functions ([`complexity.txt`](20261007-215451/complexity.txt)). It already turned cases away: `LH-14` put its Character-option pins in `tests/test_widgets.lua` because adding them here would have crossed 1500. A test file has no runtime cost, but the next Browser change has no room, so it is peeled before it grows again. Seam: the timeline-ledger sections (P3 per-tab filters onward, from line 1020) into their own suite, the way `test_slash_degraded.lua` came out of `test_slash.lua`. Re-check at 1480 lines at the latest. **Peeled (`FX-LH-SIZE`, 2026-10-31).** The timeline-ledger sections moved verbatim to `tests/test_browser_filterbar.lua`, leaving 1018 lines. Re-check at 1300 lines; the next seam is the Master controls cases (from `-- ── Master controls`). |
 | 1000–1500 (on notice) | `tests/test_browsertable.lua` | 1395 | **Accepted (2026-10-07).** New in the band: 1392 lines, 1130 NLOC over 149 functions ([`complexity.txt`](20261007-215451/complexity.txt)), grown by `LH-14`'s characterization cases. Its cases are grouped by concern under section rules. Re-check at 1450 lines; the seam then is the Test mode section (from `-- ── Test mode`) into its own suite. |
 | 1000–1500 (on notice) | `tests/test_database.lua` | 1252 | **Accepted (2026-10-07).** New in the band: 1157 lines, 980 NLOC over 114 functions ([`complexity.txt`](20261007-215451/complexity.txt)), grown with the timeline ledger's migration and query cases and `LH-09`'s characterization pins. A test file has no runtime cost and its cases are grouped by concern. Re-check at 1300 lines, and peel the v13 migration cases into their own suite then. |
-| 1000–1500 (on notice) | `tests/test_libka0s.lua` | 1054 | **Accepted (2026-10-31).** New in the band: 1054 lines, 708 NLOC over 61 functions ([`complexity.txt`](20261031-202125/complexity.txt)). The file's header makes it one suite on purpose, so a reader asking whether this addon is a faithful LibKa0s consumer has one file to read, and its sections keep the cases grouped by concern. A test file has no runtime cost. Re-check at 1300 lines; the seam then is the degradation section (from `-- ── degradation`). |
-| 1000–1500 (on notice) | `tests/test_panel.lua` | 1083 | **Accepted (2026-10-31).** Back in the band: it held *Accepted* at [`20260910-234511`](20260910-234511/), then sat below 1000 at [`20261009-191728`](20261009-191728/). 1080 lines, 750 NLOC over 73 functions ([`complexity.txt`](20261031-202125/complexity.txt)), one section per panel concern. A test file has no runtime cost. Re-check at 1300 lines; the seam then is the AH price tab cases (from `-- ── the AH price tab`). |
+| 1000–1500 (on notice) | `tests/test_libka0s.lua` | 1103 | **Accepted (2026-10-31).** New in the band: 1054 lines, 708 NLOC over 61 functions ([`complexity.txt`](20261031-202125/complexity.txt)). The file's header makes it one suite on purpose, so a reader asking whether this addon is a faithful LibKa0s consumer has one file to read, and its sections keep the cases grouped by concern. A test file has no runtime cost. Re-check at 1300 lines; the seam then is the degradation section (from `-- ── degradation`). |
+| 1000–1500 (on notice) | `tests/test_panel.lua` | 1087 | **Accepted (2026-10-31).** Back in the band: it held *Accepted* at [`20260910-234511`](20260910-234511/), then sat below 1000 at [`20261009-191728`](20261009-191728/). 1080 lines, 750 NLOC over 73 functions ([`complexity.txt`](20261031-202125/complexity.txt)), one section per panel concern. A test file has no runtime cost. Re-check at 1300 lines; the seam then is the AH price tab cases (from `-- ── the AH price tab`). |
 
 `lizard` counts every `and`/`or` short-circuit as a decision, so in Lua a run of
 `t.k = rec.k or D.k` defaulting lines scores high with no visible branching at all: a large CCN
