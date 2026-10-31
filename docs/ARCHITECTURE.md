@@ -453,8 +453,7 @@ Outside the gate's reach, also on purpose:
   record count (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
 - **`GameTooltip`'s backdrop is never restyled.** Host tooltip lines take `gtip.*` tokens through
   `core/Compat.lua`'s Show* helpers; the frame is Blizzard's.
-- **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s, LSM30 pull-outs and
-  `ColorPickerFrame`.
+- **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s and `ColorPickerFrame`.
 - **Constants' semantic tables** need no entry: the tables LH-04 kept are values, not paint calls,
   and the meaning colors that moved became `sem.*` tokens.
 
