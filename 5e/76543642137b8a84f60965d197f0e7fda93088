@@ -1,0 +1,8 @@
+Independent review of LH-F01, LH-F02 (font pickers and skin faces, LibKa0s v1.83.0).
+One finding, low, docs/smoke-tests.md: HIST-44, SKIN-6 and SKIN-28 named the old faces. Verified and
+fixed in this commit. Beyond the finding, "larger" was also wrong (High Contrast is now 10.5 / 12.5),
+so it was dropped from all three. Results stand; the re-opened SKIN-7 checks the faces.
+Rejected: nothing. Not fixed, out of the finding: SKIN-1 and docs/ARCHITECTURE.md:439 still say
+Ka0s Default draws Oxanium (Prototype since SkinDefs minor 17), a staleness that predates this run.
+Gate at this commit: 1860 passed, 0 failed, 1 skipped; luacheck 0/0; largest Lua file 1459 lines.
+Docs-only commit: no Lua changed, so complexity was not re-measured.
