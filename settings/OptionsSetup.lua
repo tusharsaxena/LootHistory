@@ -151,6 +151,9 @@ if not lib then
     -- second value, "queued": there is no queue), HideSkinPicker is a no-op.
     SkinPicker = function() return nil end,
     HideSkinPicker = noop,
+    -- The reserved `/lh skin` verb's act (LibKa0s v1.82.0, OptionsSkinPicker minor 3, ruling D-16).
+    -- Without the library it answers nil, "absent", and NS.RunSkinVerb prints the library-absent line.
+    SkinVerb = function() return nil, "absent" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
@@ -261,6 +264,10 @@ NS.Options = lib:New({
   scheduleTimer = function(fn, delay)
     if C_Timer and C_Timer.After then C_Timer.After(delay, fn) end
   end,
+
+  -- For O.LSMValues and the font preload every panel show runs, which the Skin tab's Font and Texture
+  -- pickers rely on to draw each row in its own face the first time they open (options-ui-§23).
+  getLSM = function() return LibStub and LibStub("LibSharedMedia-3.0", true) end,
 
   -- library-stack-§4: one LibStub resolution, stashed for every page file to reuse.
   onAceGUI = function(AceGUI) NS.AceGUI = AceGUI end,

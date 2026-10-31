@@ -304,9 +304,12 @@ if not lib then
   -- Sl.CliProfile below, which only says the library is missing.
   -- `perf` is here for `diagnostics`' reason: its row dispatches to core/PerfSetup.lua's stub, which
   -- answers "perf capture unavailable." and captures nothing.
+  -- `skin` is here for the same reason: its row reaches settings/OptionsSetup.lua's SkinVerb stub,
+  -- which answers nil, "absent", so NS.RunSkinVerb prints the library-absent line and shows nothing.
   local UNAVAILABLE_WITHOUT_LIB = {
     version = true, get = true, set = true, list = true,
     reset = true, help = true, config = true, diagnostics = true, profile = true, perf = true,
+    skin = true,
   }
   -- Gold command, em dash, white description — the shape lib.FormatRow renders, kept in step with
   -- Sl.FormatKV above, which re-states lib.FormatKV's for the same reason: the library is not there

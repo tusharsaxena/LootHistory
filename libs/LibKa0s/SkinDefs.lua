@@ -14,8 +14,9 @@
 -- `lib.SCHEMA` lists every token a skin may set, in groups, each as `{ name, kind, nilable }`.
 -- Kinds: `color` ({ r, g, b, a }, 0-1), `colors` (an ordered list of colors), `number`, `string`
 -- (an LSM key, a texture path, an anchor word) and `bool`. A NILABLE token may resolve to nil, and
--- nil always means "leave the stock value alone": Ka0s Default leaves every font token nil, so a
--- FontString keeps its font object, its size and whatever a font-replacement addon did to it.
+-- nil always means "leave the stock value alone": a skin that sets a font token to nil leaves a
+-- FontString its font object, its size and whatever a font-replacement addon did to it. (Ka0s Default
+-- has set every font token since minor 8.)
 -- A skin derives from Ka0s Default (Skin:ResolveSkin): it names only the tokens it changes, and
 -- `false` is how it says "none" for a token Ka0s Default sets.
 --
@@ -113,7 +114,44 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- art color (the drawer head, the nav entry, the id list entry, the id suggestion row), `false` in
 -- Ka0s Default and WoW Default (the client's ADD highlight art as drawn) and every other skin's
 -- `text.accent` through FOLLOW. The eui source derives it from Ka0s Default.
-local DEFS_MINOR = 16
+--
+-- Minor 17 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's
+-- 2026-10-30 picks, DECISIONS D-02): Ka0s Default draws Prototype (Media minor 10) for body, titles
+-- and HUD text, where minor 14 drew Oxanium SemiBold and Bold; Prototype has one weight, so its titles
+-- differ by size alone. The eui source inherits the HUD face. WoW Forever's body text is Fira Sans
+-- Medium; its titles and HUD stay Fira Sans SemiBold, the heavier-HUD rule above. Then (LK-A1, the
+-- owner's ruling of 2026-10-30, "Ship it anyways", which overrides the EULA finding LK-01 withheld it
+-- on; Media minor 10 ships it): Obsidian draws Expressway for body, titles and HUD text, where it drew
+-- Inter and Inter SemiBold. Expressway ships one weight, the pack's Bold, so its titles differ by size
+-- and its HUD face is its body face; the heavier-HUD rule is met by the Bold itself. Sizes do not move
+-- here. Then (LK-03, the owner's ruling D-06, still minor 17): Ka0s Default's `font.outline` is
+-- OUTLINE, where it was "", so every skin and the eui source state OUTLINE for window text as they do
+-- for the HUD; an owner's Skin-tab "Font outline" takes it away (Skin minor 9), and the mono role is
+-- never outlined (SkinPaint minor 13). Then (LK-05, the owner's item 5 and ruling D-08, still minor
+-- 17): every skin's body and title sizes give its text Ka0s Default's width (Prototype at 12 / 14),
+-- measured on the shipped bytes with OUTLINE on by the bundle's plan-data/font_metrics_shipped.py:
+-- Obsidian 12.5 / 14.5, Azeroth 12 / 12.5, Glass 11.5 / 13, High Contrast 12 / 13 (it no longer
+-- reads larger), Ember 11.5 / 12.5, WoW Midnight 12.5 / 13.5 and WoW Forever 12 / 13.5; Ka0s Default
+-- and WoW Default (real Friz Quadrata unmeasured, D-05) keep 12 / 14. tests/test_skin_width_parity.lua
+-- pins the measured widths. Then (LK-06, ruling D-09, still minor 17): every skin names a HUD size
+-- of its own (HUD_SIZE below), from the same measurement, and `hud.fontSize` becomes a relative
+-- reference like `font.bodySize`: S.HudFontSize scales a HUD element's stored size by it over Ka0s
+-- Default's 12 (SkinPaintExtras minor 7).
+--
+-- Minor 18 (LK-F02 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, the owner's
+-- 2026-10-31 picks, DECISIONS D-06; every face ships in Media minor 11): WoW Midnight draws Segoe UI
+-- Semibold with Segoe UI Bold titles, Azeroth Open Sans Semibold with Open Sans Bold titles, Ember
+-- Emblem, High Contrast Doris PP and Glass Avant Garde, the last three in one weight, so their
+-- titles differ by size. WoW Default draws the shipped Ka0s Friz Quadrata TT, HUD included, where it
+-- drew the client's: the owner's client file is Prototype's bytes, so the two skins read alike
+-- (D-01). The HUD draws the owner's picked weight, the heavier-HUD rule surviving in WoW Forever
+-- alone. Obsidian's title is its primary button's blue, #2A86D1, and its headings stay #F2F2F4. Then every size is
+-- re-measured against Prototype at 12 / 14 / 12 (D-03) by that bundle's
+-- plan-data/font_metrics_shipped.py, on the shipped bytes with OUTLINE both ways: FACE_SIZES below
+-- holds each shipped face's sizes, each skin's sizes are its faces' rows, and a font override of a
+-- shipped face draws at that face's row (Skin minor 10, D-07). Real Friz is measured at last, so WoW
+-- Default no longer shares Ka0s Default's sizes.
+local DEFS_MINOR = 18
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -228,12 +266,13 @@ local SERIES = {
 }
 
 local KA0S = {
-  -- Fonts (minor 8, the owner's ruling: Ka0s Default sets a font like every skin; minor 14, the
-  -- owner's choice of face): Oxanium, SemiBold for the body and Bold for titles; the mono face
-  -- DebugLog's console names; no outline, the client's 1, -1 shadow.
-  ["font.body"] = "Ka0s Oxanium SemiBold", ["font.title"] = "Ka0s Oxanium Bold",
+  -- Fonts (minor 8, the owner's ruling: Ka0s Default sets a font like every skin; minor 17, the
+  -- owner's choice of face): Prototype, for the body and titles alike (one weight; titles are larger);
+  -- the mono face DebugLog's console names; OUTLINE (minor 17, D-06: the owner's "Font outline"
+  -- removes it, and the mono role never takes it), the client's 1, -1 shadow.
+  ["font.body"] = "Ka0s Prototype", ["font.title"] = "Ka0s Prototype",
   ["font.mono"] = "JetBrains Mono",
-  ["font.outline"] = "", ["font.shadow"] = true,
+  ["font.outline"] = "OUTLINE", ["font.shadow"] = true,
   -- Window: Core.SKIN, the CopyWindow backdrop, LootHistory's title bar.
   ["win.bg"] = { 0.06, 0.06, 0.08, 0.92 }, ["win.bgDense"] = { 0.06, 0.06, 0.08, 0.95 },
   ["win.border"] = { 0, 0, 0, 1 }, ["win.borderSize"] = 1, ["win.borderStyle"] = "flat",
@@ -333,7 +372,7 @@ local KA0S = {
   ["cover.dim"] = { 0, 0, 0, 0.6 }, ["cover.text"] = { 0.667, 0.667, 0.667, 1 },
   -- HUD: OptionsCompose's FontGroup / BorderGroup / BarGroup defaults.
   ["bar.texture"] = "Ka0s Default", ["bar.gloss"] = false, ["bar.borderStyle"] = "None",
-  ["bar.borderSize"] = 1, ["hud.font"] = "Ka0s Oxanium SemiBold", ["hud.fontSize"] = 12,
+  ["bar.borderSize"] = 1, ["hud.font"] = "Ka0s Prototype", ["hud.fontSize"] = 12,
   ["hud.outline"] = "OUTLINE",
   -- The icon border (minor 15): Drop Watcher's Window › Icons border, the one item-icon border a Ka0s
   -- addon draws today (its defaults/Profile.lua icons.borderStyle "Solid", icons.borderSize 2; the
@@ -551,10 +590,11 @@ local function putRow(out, row, v)
 end
 
 -- What every other skin inherited from Ka0s Default before minor 14 gave it Oxanium and the Ka0s
--- Default bar: the client's Friz Quadrata and its Blizzard bar. A skin that sets its own keeps that;
--- WoW Default is the one skin that sets no face and no bar, so these are its. The HUD face left KEEP
--- in minor 16: every skin names its own (HUD_FACE below).
-local FRIZ = "Friz Quadrata TT"
+-- Default bar: Friz Quadrata and the client's Blizzard bar. A skin that sets its own keeps that; WoW
+-- Default is the one skin that sets no face and no bar, so these are its. The face is the shipped
+-- Friz since minor 18, since a client's own file need not be Friz at all (D-01). The HUD face left
+-- KEEP in minor 16: every skin names its own (HUD_FACE below).
+local FRIZ = "Ka0s Friz Quadrata TT"
 local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["bar.texture"] = "Blizzard" }
 
 --- A skin's tokens: its mockup entry through MOCK_MAP, the accent and text washes, then its extras.
@@ -587,31 +627,87 @@ local ICON_EDGE = {
   ember = { "Solid", 2 }, wow = { "Blizzard Tooltip", 2 }, midnight = { "Solid", 2 }, forever = { "Solid", 1 },
 }
 
--- Each skin's HUD face (minor 16, R-4): its own family at the heavier shipped weight, since HUD text
--- is 12px under an OUTLINE and a Regular's thin strokes close up under it; WoW Default the client's
--- own face, named here rather than left to a fallback. A skin's `extra` may still override.
+-- Each skin's HUD face (minor 16, R-4): its own family, a weight heavy enough that its strokes do
+-- not close up under an OUTLINE; since minor 18 the weight the owner picked for the skin (D-06), a
+-- Semibold or a single-weight face, Fira Sans SemiBold over WoW Forever's Medium staying. WoW Default's
+-- is named here rather than left to a fallback. A skin's `extra` may still override. Ka0s Default's
+-- is its token above (Prototype, minor 17).
 local HUD_FACE = {
-  obsidian = "Ka0s Inter SemiBold", azeroth = "Ka0s Vollkorn Bold", glass = "Ka0s Nunito SemiBold",
-  contrast = "Ka0s Atkinson Bold", ember = "Ka0s Bitter Bold", wow = FRIZ,
-  midnight = "Ka0s Philosopher Bold", forever = "Ka0s Fira Sans SemiBold",
+  obsidian = "Ka0s Expressway", azeroth = "Ka0s Open Sans Semibold", glass = "Ka0s Avant Garde",
+  contrast = "Ka0s Doris PP", ember = "Ka0s Emblem", wow = FRIZ,
+  midnight = "Ka0s Segoe UI Semibold", forever = "Ka0s Fira Sans SemiBold",
+}
+
+-- Each skin's HUD size (minor 17, LK-06, D-09): the `hud.fontSize` that gives its HUD face Ka0s
+-- Default's width at 12, measured as the body and title sizes are (tests/test_skin_width_parity.lua).
+-- A reference, not a size: S.HudFontSize draws a stored 24 at 24 * HUD_SIZE / 12.
+local HUD_SIZE = {
+  obsidian = 13, azeroth = 11, glass = 11, contrast = 10.5, ember = 11, wow = 11, midnight = 11.5, forever = 11.5,
+}
+
+-- Every shipped face's sizes at Ka0s Default's width (minor 18, D-07): { body, title, HUD }, as
+-- `font.bodySize`, `font.titleSize` and `hud.fontSize` would state them, the reference being
+-- Prototype's row. Skin.lua's withOverrides lays a row over the sizes of an owner whose font override
+-- names the face, and a face with no row, which no client can measure, draws unscaled at Ka0s
+-- Default's sizes, since the skin's are tuned for the skin's own face.
+-- Measured by plan-data/font_metrics_shipped.py, its section 10, and held to lib.FONTS and to each
+-- skin's own sizes by tests/test_skin_width_parity.lua. JetBrains Mono is the small one, monospace
+-- being wide.
+lib.__FACE_SIZES = {
+  ["JetBrains Mono"]           = { 9, 11, 9.5 },
+  ["Ka0s Atkinson"]            = { 12, 14, 12 },
+  ["Ka0s Atkinson Bold"]       = { 11, 13, 11 },
+  ["Ka0s Avant Garde"]         = { 11, 13, 11 },
+  ["Ka0s Bitter"]              = { 11.5, 13, 11.5 },
+  ["Ka0s Bitter Bold"]         = { 11, 12.5, 11 },
+  ["Ka0s Doris PP"]            = { 10.5, 12.5, 10.5 },
+  ["Ka0s Emblem"]              = { 11, 12.5, 11 },
+  ["Ka0s Expressway"]          = { 12.5, 14.5, 13 },
+  ["Ka0s Fira Sans"]           = { 12, 13.5, 12 },
+  ["Ka0s Fira Sans Medium"]    = { 12, 13.5, 11.5 },
+  ["Ka0s Fira Sans SemiBold"]  = { 11.5, 13.5, 11.5 },
+  ["Ka0s Friz Quadrata TT"]    = { 11, 13, 11 },
+  ["Ka0s Inter"]               = { 11, 13, 11 },
+  ["Ka0s Inter SemiBold"]      = { 11, 12.5, 10.5 },
+  ["Ka0s Nunito"]              = { 11.5, 13.5, 11.5 },
+  ["Ka0s Nunito SemiBold"]     = { 11.5, 13, 11 },
+  ["Ka0s Open Sans"]           = { 11.5, 13, 11.5 },
+  ["Ka0s Open Sans Bold"]      = { 10.5, 12, 10.5 },
+  ["Ka0s Open Sans Condensed"] = { 13.5, 16, 13.5 },
+  ["Ka0s Open Sans Light"]     = { 12, 13.5, 11.5 },
+  ["Ka0s Open Sans Semibold"]  = { 11, 12.5, 11 },
+  ["Ka0s Oxanium Bold"]        = { 11, 13, 11 },
+  ["Ka0s Oxanium SemiBold"]    = { 11.5, 13, 11 },
+  ["Ka0s Philosopher"]         = { 12.5, 14, 12.5 },
+  ["Ka0s Philosopher Bold"]    = { 12, 13.5, 12 },
+  ["Ka0s Prototype"]           = { 12, 14, 12 },
+  ["Ka0s Segoe UI"]            = { 12, 14, 12 },
+  ["Ka0s Segoe UI Bold"]       = { 11, 13, 11 },
+  ["Ka0s Segoe UI Light"]      = { 12.5, 14.5, 12.5 },
+  ["Ka0s Segoe UI Semibold"]   = { 11.5, 13.5, 11.5 },
+  ["Ka0s Vollkorn"]            = { 12, 14, 12 },
+  ["Ka0s Vollkorn Bold"]       = { 11.5, 12.5, 11 },
 }
 
 local function register(key, label, desc, swatches, mock, extra)
   local tokens = translate(mock, extra)
   if tokens["hud.font"] == nil then tokens["hud.font"] = HUD_FACE[key] end
+  if tokens["hud.fontSize"] == nil then tokens["hud.fontSize"] = HUD_SIZE[key] end
   local icon = ICON_EDGE[key]
   if icon and tokens["icon.borderStyle"] == nil then tokens["icon.borderStyle"] = icon[1] end
   if icon and tokens["icon.borderSize"] == nil then tokens["icon.borderSize"] = icon[2] end
   lib:RegisterSkin({ key = key, label = label, desc = desc, swatches = swatches, tokens = tokens })
 end
 
--- ── Obsidian ── mockup `obsidian`. Inter, the mockup's own face (Barlow until minor 11).
+-- ── Obsidian ── mockup `obsidian`. Expressway, the owner's pick (minor 17, LK-A1; Inter, the
+-- mockup's own face, from minor 11, Barlow before).
 register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool blue accent.",
   { "#0a0a0b", "#202024", "#141416", "#4db8ff" }, {
-    font = "Ka0s Inter", tfont = "Ka0s Inter SemiBold", fs = 12, titleSize = 14,
+    font = "Ka0s Expressway", tfont = "Ka0s Expressway", fs = 12.5, titleSize = 14.5,
     barTex = "Ka0s Matte",
     win = hex("#0A0A0B"), winBorder = edge(1, "flat", hex("#202024")), winInner = false, radius = 0,
-    titleBg = hex("#050506"), titleColor = hex("#F2F2F4"), divider = hex("#1c1c20"),
+    titleBg = hex("#050506"), titleColor = hex("#2A86D1"), divider = hex("#1c1c20"),
+    headColor = hex("#F2F2F4"),
     text = hex("#E8E8EC"), muted = hex("#9B9BA4"), accent = hex("#4DB8FF"),
     closeColor = hex("#9B9BA4"),
     btnBg = hex("#141416"), btnBorder = edge(1, "flat", hex("#2a2a30")), btnText = hex("#E8E8EC"),
@@ -648,15 +744,15 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
 
 -- ── Azeroth ── mockup `azeroth`, reworked dark (SkinDefs minor 8, the owner's ruling of 2026-10-26:
 -- "the light background is not going to work"). Dark tooled leather under a leather edge and a gold
--- inner rule, parchment text, gold headings and accent, Vollkorn, a dark old-style book face, for body
--- and titles alike (minor 11; Cinzel titles over an Atkinson body until then); leather buttons, and
+-- inner rule, parchment text, gold headings and accent, Open Sans Semibold under Open Sans Bold titles
+-- (minor 18, D-06; Vollkorn from minor 11, Cinzel titles over an Atkinson body until then); leather buttons, and
 -- the red wax seal kept for the primary button and the selected tab. As a dark skin it inherits Ka0s
 -- Default's semantic, quality, tooltip and chart colors.
 local AZ_LEATHER, AZ_EDGE, AZ_GOLD = hex("#2B1D12"), hex("#6b4a22"), hex("#E2B659")
 local AZ_TEXT, AZ_WAX = hex("#E9DDBC"), grad(hex("#a3241a"), hex("#5e1009"))
-register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Vollkorn type.",
+register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Open Sans type.",
   { "#2b1d12", "#6b4a22", "#e2b659", "#8e1b10" }, {
-    font = "Ka0s Vollkorn", fs = 13, tfont = "Ka0s Vollkorn Bold", titleSize = 14,
+    font = "Ka0s Open Sans Semibold", fs = 11, tfont = "Ka0s Open Sans Bold", titleSize = 12,
     barTex = "Ka0s Parchment",
     win = AZ_LEATHER, winBorder = edge(1, "flat", AZ_EDGE), winInner = hex("#8a6a36"), radius = 0,
     titleBg = hex("#1a110a"), titleColor = hex("#F5C542"), divider = AZ_EDGE,
@@ -693,8 +789,8 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
     ["scroll.thumbOn"] = hex("#8a6a36"), ["tab.glow"] = rgba(255, 255, 255, 0.10),
   })
 
--- ── Glass ── mockup `glass`. Manrope in the mockup; Nunito, rounded as its corners are, stands for
--- it (Barlow until minor 11). No blur in WoW: the window is translucent on the shipped Ka0s Glass
+-- ── Glass ── mockup `glass`. Manrope in the mockup; Avant Garde, the owner's pick, stands for it
+-- (minor 18, D-06; Nunito from minor 11, Barlow before). No blur in WoW: the window is translucent on the shipped Ka0s Glass
 -- art (radius 8), the one rounded skin. Minor 7 (the
 -- owner's 2026-10-26 notes): denser glass (.88), and only the window and its popups keep the rounded
 -- art; buttons, inputs, tabs and drawers take a flat 1px frosted edge, and the tabs Obsidian's
@@ -702,7 +798,7 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
 local GLASS_EDGE = rgba(255, 255, 255, 0.18)
 register("glass", "Glass", "Translucent frosted panels with rounded corners and a lilac accent.",
   { "#121622", "#ffffff", "#b69cff", "#5aa9ff" }, {
-    font = "Ka0s Nunito", tfont = "Ka0s Nunito SemiBold", fs = 12.5, titleSize = 14,
+    font = "Ka0s Avant Garde", tfont = "Ka0s Avant Garde", fs = 11, titleSize = 13,
     barTex = "Ka0s Glass Bar",
     win = rgba(18, 22, 34, 0.88), winBorder = edge(8, "nine:Ka0s Glass", GLASS_EDGE),
     winInner = false, radius = 8,
@@ -747,14 +843,15 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
     ["icon.hot"] = hex("#FFFFFF"),
   })
 
--- ── High Contrast ── mockup `contrast`: black, white 2px edges, yellow focus, Atkinson
--- Hyperlegible a point and a half above Ka0s Default's body size. Minor 7 (the owner's 2026-10-26 notes:
+-- ── High Contrast ── mockup `contrast`: black, white 2px edges, yellow focus, Doris PP (minor 18,
+-- D-06; Atkinson Hyperlegible until then), as wide as Ka0s Default's text (minor 17, LK-05; a point
+-- and a half larger until then). Minor 7 (the owner's 2026-10-26 notes:
 -- "borders are too thick"): every control edge is 1px; the window keeps its 2px edge and the popups
 -- drop from 3px to 2px.
 local HC_WHITE, HC_YELLOW = hex("#FFFFFF"), hex("#FFE600")
-register("contrast", "High Contrast", "Black and white with yellow focus, crisp 1px edges, larger type.",
+register("contrast", "High Contrast", "Black and white with yellow focus, crisp 1px edges.",
   { "#000000", "#ffffff", "#1a1a1a", "#ffe600" }, {
-    font = "Ka0s Atkinson", tfont = "Ka0s Atkinson Bold", fs = 13.5, titleSize = 15,
+    font = "Ka0s Doris PP", tfont = "Ka0s Doris PP", fs = 10.5, titleSize = 12.5,
     barTex = "Ka0s Solid",
     win = hex("#000000"), winBorder = edge(2, "flat", HC_WHITE), winInner = false, radius = 0,
     titleBg = hex("#000000"), titleColor = HC_YELLOW, divider = HC_WHITE,
@@ -799,11 +896,11 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
     ["icon.dim"] = hex("#B0B0B0"), ["sem.unknown"] = hex("#B0B0B0"), ["gtip.subtle"] = hex("#E0E0E0"),
   })
 
--- ── Ember ── mockup `ember`: charred brown, orange accent, Bitter, a sturdy slab, for body and
--- titles alike (minor 11; Cinzel titles over the client body until then).
-register("ember", "Ember", "Charred browns lit by an orange accent, Bitter type.",
+-- ── Ember ── mockup `ember`: charred brown, orange accent, Emblem for body and titles alike (minor
+-- 18, D-06; Bitter from minor 11, Cinzel titles over the client body until then).
+register("ember", "Ember", "Charred browns lit by an orange accent, Emblem type.",
   { "#1a0e0a", "#6a2e17", "#c98a3a", "#ff7a33" }, {
-    font = "Ka0s Bitter", fs = 12, tfont = "Ka0s Bitter Bold", titleSize = 13.5,
+    font = "Ka0s Emblem", fs = 11, tfont = "Ka0s Emblem", titleSize = 12.5,
     barTex = "Ka0s Forge",
     win = rgba(26, 14, 10, 0.95), winBorder = edge(1, "flat", hex("#6a2e17")),
     winInner = rgba(201, 138, 58, 0.45), radius = 0,
@@ -853,12 +950,12 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Bitter type.
 -- states (the InActiveTab art is drawn shorter, so idle tabs stood lower than the selected one; the
 -- owner's note, round 3), the selected tab told by its white label; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
 -- An art token draws that art at its own colors; the color token beside it is the fallback when
--- the art does not load. The client's own Friz Quadrata and Blizzard bar, through KEEP: no font
--- token and no bar texture.
+-- the art does not load. Friz Quadrata (the shipped face since minor 18, D-01) and the client's
+-- Blizzard bar, through KEEP: no font token and no bar texture.
 local WOW_RED = grad(hex("#b3200f"), hex("#640c05"))
 register("wow", "WoW Default", "The vanilla client: dialog-box border, red buttons, gold text.",
   { "#1e1c19", "#a8a8a8", "#640c05", "#ffd100" }, {
-    fs = 12, titleSize = 14,
+    fs = 11, titleSize = 13,
     win = hex("#1e1c19"), winBorder = edge(32, "nine:Blizzard Dialog", hex("#FFFFFF")),
     winInner = false, radius = 0,
     titleBg = grad(hex("#4b4b4b"), hex("#252525")), titleColor = hex("#FFD100"),
@@ -908,14 +1005,15 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
   })
 
 -- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 2px
--- #b08a3e window edge and the gradient tokens; no Blizzard art. Philosopher for body and titles,
--- the titles centered (minor 11; Cinzel titles over the client body until then). Minor 7 (the
+-- #b08a3e window edge and the gradient tokens; no Blizzard art. Segoe UI Semibold under Segoe UI Bold
+-- titles, the titles centered (minor 18, D-06; Philosopher from minor 11, Cinzel titles over the
+-- client body until then). Minor 7 (the
 -- owner's 2026-10-26 notes): the buttons leave WoW Default's red for night violet under a gold edge,
 -- and the primary button is the brighter violet of the accent.
 local MN_GOLD, MN_BG = hex("#b08a3e"), grad(hex("#171a2e"), hex("#0f1020"))
-register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, centered Philosopher titles.",
+register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, centered Segoe UI titles.",
   { "#171a2e", "#b08a3e", "#2a2347", "#b48cff" }, {
-    font = "Ka0s Philosopher", fs = 12.5, tfont = "Ka0s Philosopher Bold", titleSize = 14,
+    font = "Ka0s Segoe UI Semibold", fs = 11.5, tfont = "Ka0s Segoe UI Bold", titleSize = 13,
     barTex = "Ka0s Satin",
     win = MN_BG, winBorder = edge(2, "flat", MN_GOLD), winInner = hex("#3d2f12"), radius = 0,
     titleBg = grad(hex("#2a2347"), hex("#17142b")), titleColor = hex("#F6D27A"),
@@ -961,12 +1059,13 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
 -- charcoal (the mockup's radial fill as a vertical gradient, no texture), black title bars with
 -- centered white titles, a tan accent, gold headings, thin 1px edges. SkinDefs minor 8 (the owner's
 -- notes): Atkinson Hyperlegible for the blurry Barlow, and the charcoal a step browner; minor 11
--- (round 5: a face of its own, High Contrast keeps Atkinson): Fira Sans, crisp at small sizes.
+-- (round 5: a face of its own, High Contrast keeps Atkinson): Fira Sans, crisp at small sizes; minor 17
+-- (the owner's 2026-10-30 pick): Medium for body text, SemiBold kept for titles and HUD.
 local FV_TAN, FV_EDGE = hex("#C9A07A"), hex("#3a3530")
 local FV_BG = grad(hex("#2e251c"), hex("#18120d"))
 register("forever", "WoW Forever", "Warm charcoal, black title bars with centered white titles, tan accent.",
   { "#231c15", "#3a3530", "#050505", "#c9a07a" }, {
-    font = "Ka0s Fira Sans", tfont = "Ka0s Fira Sans SemiBold", fs = 12, titleSize = 14,
+    font = "Ka0s Fira Sans Medium", tfont = "Ka0s Fira Sans SemiBold", fs = 12, titleSize = 13.5,
     barTex = "Ka0s Classic",
     win = FV_BG, winBorder = edge(1, "flat", FV_EDGE), winInner = false, radius = 0,
     titleBg = hex("#050505"), titleColor = hex("#FFFFFF"), titleAlign = "CENTER",

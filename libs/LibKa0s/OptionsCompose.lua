@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 13
+local COMPOSE_MINOR = 14
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -45,6 +45,14 @@ local COMPOSE_MINOR = 13
 -- docs/2026-10-29-SKINNING_ROLLOUT, gap DW-G14): the same companion, following the skin's icon
 -- border family (`icon.borderStyle`, `icon.borderSize`, SkinDefs minor 15) rather than the bar's,
 -- and governing the thickness slider as well as the style picker. `fromSkin = true` is unchanged.
+-- Minor 14 (LK-04 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling
+-- D-07): FontGroup takes `flagsFromSkin = true`, which leads the Font flags row with "From skin" (the
+-- Skin major's FROM_SKIN, "@skin") and makes it the row's default; the host draws with
+-- `S.FontFlags(stored)` (LibKa0s-Skin-1.0 SkinPaintExtras minor 7), which resolves it through the
+-- owner's Font outline and lets a picked flag win. A flags value is a CLI value, not a media path, so
+-- the sentinel is honest here. `fromSkin = true, flagsFromSkin = true` is the minimum font setting
+-- D-07 asks of every element: face (with "Use the skin's font"), size, color with its class-color
+-- companion, flags with From skin, and shadow. Without `flagsFromSkin` the block is minor 13's.
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -121,6 +129,17 @@ local FONT_FLAGS = {
   ["OUTLINE, MONOCHROME"] = "Monochrome outline",
 }
 local FONT_FLAGS_SORT = { "", "OUTLINE", "THICKOUTLINE", "MONOCHROME", "OUTLINE, MONOCHROME" }
+
+-- The same list led by "From skin" (minor 14, `flagsFromSkin`): the Skin major's FROM_SKIN, which
+-- `S.FontFlags` resolves through the owner's Font outline. Private, as copies, so no host's list and
+-- no instance member changes shape.
+local FLAGS_FROM_SKIN = "@skin"
+local FONT_FLAGS_SKIN = { [FLAGS_FROM_SKIN] = "From skin" }
+for k, v in pairs(FONT_FLAGS) do FONT_FLAGS_SKIN[k] = v end
+local FONT_FLAGS_SKIN_SORT = { FLAGS_FROM_SKIN }
+for _, k in ipairs(FONT_FLAGS_SORT) do FONT_FLAGS_SKIN_SORT[#FONT_FLAGS_SKIN_SORT + 1] = k end
+local FLAGS_SKIN_TIP = "Outline and monochrome rendering. From skin follows the Font outline setting on "
+  .. "this addon's Skin tab; any other choice is drawn as picked."
 
 -- General visibility is a DROPDOWN and not a boolean (options-ui-§15): a boolean can only ever
 -- answer two of the four, which is why every addon that shipped a "show only in combat" checkbox
@@ -633,9 +652,14 @@ function lib.__AttachCompose(O, d)
   ---
   --- An even row count plus `startsLine` on rows 1 and 3 is what makes that layout parity-proof
   --- rather than a property of how many rows happen to precede the block.
+  ---
+  --- `spec.flagsFromSkin = true` (compose minor 14) leads Font flags with "From skin" ("@skin") and
+  --- makes it the default; the host draws with `S.FontFlags(stored)`. With `fromSkin = true` too it
+  --- is the minimum font setting every element carries (D-07).
   function O.FontGroup(spec)
     spec = spec or EMPTY
     local rows = {}
+    local skinFlags = spec.flagsFromSkin == true
 
     local picker = emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
@@ -651,8 +675,11 @@ function lib.__AttachCompose(O, d)
     emit(spec, rows, "useClassColorFont",
       companionRow(spec, "Draw this text in the class color instead of the swatch beside it."))
     emit(spec, rows, "fontFlags", {
-      type = "string", label = "Font flags", tooltip = "Outline and monochrome rendering.",
-      values = FONT_FLAGS, sorting = FONT_FLAGS_SORT, default = "OUTLINE",
+      type = "string", label = "Font flags",
+      tooltip = skinFlags and FLAGS_SKIN_TIP or "Outline and monochrome rendering.",
+      values = skinFlags and FONT_FLAGS_SKIN or FONT_FLAGS,
+      sorting = skinFlags and FONT_FLAGS_SKIN_SORT or FONT_FLAGS_SORT,
+      default = skinFlags and FLAGS_FROM_SKIN or "OUTLINE",
     })
     emit(spec, rows, "fontShadow", {
       type = "bool", label = "Font shadow",

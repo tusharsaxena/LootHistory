@@ -131,7 +131,7 @@ do when it disagrees.
 
 ```bash
 lua tests/run.lua                                              # headless suite — all green
-luacheck .                                                     # 0 warnings / 0 errors
+~/.claude/dev-copilot/bin/ka0s-bounded luacheck .              # 0 warnings / 0 errors
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 bash tests/_kit/run-automated-tests.sh --suite complexity --no-bundle   # complexity (release gate)

@@ -455,7 +455,12 @@ end
 function Analytics:Reskin()
   Analytics._syncSkinColors()
   if not self.content then return end
-  for _, c in pairs(self.cards or {}) do c.caption:SetTextColor(NS.SkinColor("text.disabled")) end
+  -- A headline card's base face is read again here, after the repaint: Layout puts it back before it
+  -- shrinks to fit, so a face saved at build time would undo a live outline change or skin switch.
+  for _, c in pairs(self.cards or {}) do
+    c.caption:SetTextColor(NS.SkinColor("text.disabled"))
+    if c.bigStr then c.fontFile, c.baseSize, c.fontFlags = c.num:GetFont() end
+  end
   for _, h in pairs(self.headers) do h:SetTextColor(headingRGB()) end
   reskinDivider(self.lootDivider); reskinDivider(self.currencyDivider)
   for _, p in ipairs({ self.zonePanel, self.itemPanel, self.itemValuePanel }) do p.title:SetTextColor(headingRGB()) end

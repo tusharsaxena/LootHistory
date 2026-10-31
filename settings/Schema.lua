@@ -543,6 +543,15 @@ local ROWS = {
     page = "General", group = "Appearance", label = "Texture",
     tooltip = "The texture this addon's bars use, over the skin's own. Empty keeps the skin's.",
     onChange = function(v) NS.ApplySkinOverride(nil, v) end },
+  -- The Font outline (LibKa0s-Skin-1.0 minor 9, ruling D-06), drawn by the same tab as its "Font
+  -- outline" dropdown, so `skipRender` as well: where the skin outlines this addon's text. The
+  -- library's three modes, in its order; `/lh set` validates against them. Its onChange applies
+  -- only its own half.
+  { path = "settings.appearance.outline", default = PD.settings.appearance.outline, type = "string",
+    widget = "Dropdown", skipRender = true, values = NS.SKIN_OUTLINE_OPTIONS,
+    page = "General", group = "Appearance", label = "Font outline",
+    tooltip = "Where the skin outlines this addon's text: all of it, its HUD text only, or nowhere.",
+    onChange = function(v) NS.ApplySkinOutline(v) end },
   -- The first-run skin picker's memory (NS.MaybeShowSkinPicker, core/SkinSetup.lua): set when the
   -- picker closes, so it shows once per profile. Drawn by nothing; a reset puts it back to false.
   { path = "settings.appearance.pickerSeen", default = PD.settings.appearance.pickerSeen, type = "bool",
@@ -1141,6 +1150,11 @@ NS.COMMANDS = gateFeatureVerbs{
   { "hide",     "Close the window",      function() NS.Browser:Hide() end },
   { "toggle",   "Toggle the window",     function() NS.Browser:Toggle() end },
   { "config",   "Open settings",         function() if NS.Panel then NS.Panel:Open() end end },
+  -- The reserved `skin` verb (LibKa0s v1.82.0's O.SkinVerb, OptionsSkinPicker minor 3, ruling D-16):
+  -- the first-run skin picker on demand, whatever `pickerSeen` says (core/SkinSetup.lua
+  -- NS.RunSkinVerb). A feature verb, so the gate above refuses it while the addon is disabled. The
+  -- help text is the library's VERB_HELP, one wording for every Ka0s addon.
+  { "skin",     NS.L["Choose a skin: open the skin picker"], function() NS.RunSkinVerb() end },
   -- THE TWO RESERVED VERBS (slash-commands-§2). ALIASES, never a second switch: each is literally
   -- `/lh set settings.enabled <bool>` with the path filled in -- the same stored path the Master
   -- controls "Enable Loot History" checkbox writes, through the same single write seam

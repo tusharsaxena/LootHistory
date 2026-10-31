@@ -77,6 +77,24 @@ local function firstKey(dd)
   return keys[1]
 end
 
+-- ── the descriptor's media seam (options-ui-§23) ─────────────────────────
+
+test("Skin overrides: the descriptor hands the library LibSharedMedia, for O.LSMValues and the preload", function()
+  -- red under: a descriptor with no getLSM, whose LSMValues answers the one "no media" row and whose
+  -- panel show never preloads the faces a picker's rows draw in.
+  local libs = mocks.__libs
+  local saved = libs["LibSharedMedia-3.0"]
+  libs["LibSharedMedia-3.0"] = {
+    HashTable = function(_, kind) return { [kind .. " probe"] = "path" } end,
+  }
+  local ok, err = pcall(function()
+    local list = NS.Options.LSMValues("font")()
+    assertEqual(list["font probe"], "font probe", "the library saw no LibSharedMedia")
+  end)
+  libs["LibSharedMedia-3.0"] = saved
+  if not ok then error(err, 0) end
+end)
+
 -- ── the keys and the rows ────────────────────────────────────────────────────────────────────
 
 test("Skin overrides: the font and texture keys default to the skin's own, as two Skin tab rows", function()

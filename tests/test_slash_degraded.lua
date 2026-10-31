@@ -194,6 +194,20 @@ test("library-less install: both report forms answer with the library-absent lin
   assertEqual(degradedNS.DebugLog:BufferSize(), 0, "no report was written anywhere")
 end)
 
+test("library-less install: /lh skin answers with the library-absent line and nothing else", function()
+  -- red under: SkinVerb missing from the Options stub (a nil call), or NS.RunSkinVerb staying
+  -- silent on the stub's nil, "absent" (LibKa0s v1.82.0, ruling D-16).
+  local out = withDegradedStore(function() DSl:OnSlash("skin") end)
+  assertEqual(#out, 1, "/lh skin answers on one line: " .. table.concat(out, " | "))
+  assertEqual(out[1], NS.PREFIX .. " /lh skin is unavailable: the LibKa0s library did not load.")
+end)
+
+test("library-less install: the degraded help does not offer /lh skin", function()
+  -- red under: skin missing from UNAVAILABLE_WITHOUT_LIB. It dispatches, but only to say the
+  -- library is missing.
+  assertTrue(not listedVerbs().skin, "/lh skin cannot open a picker with no library")
+end)
+
 test("library-less install: the degraded help does not offer /lh diagnostics", function()
   -- red under: diagnostics missing from UNAVAILABLE_WITHOUT_LIB. It dispatches, but only to say
   -- the library is missing, and slash-commands-§1 wants this list to hold what still works.

@@ -584,11 +584,13 @@ end
 
 -- Estimated SavedVariables size of the stored history (the same estimate the settings panel
 -- shows, Database:StorageStats). Recomputed only when history changes or the window (re)opens —
--- never on a filter keystroke, since filtering can't change what's stored. \226\137\136 = "≈".
+-- never on a filter keystroke, since filtering can't change what's stored. "~" marks the estimate:
+-- U+2248 is missing from Expressway and Philosopher, which drew it as a box (the owner's image-19;
+-- ruling D-19 of the skin fonts and feedback run, tests/test_glyphs.lua).
 function B:UpdateDbSize()
   if not self._dbFooter then return end
   local bytes = (NS.Database and NS.Database.StorageStats and NS.Database:StorageStats().bytes) or 0
-  self._dbFooter:SetText(("Database \226\137\136 %s"):format(NS.Util.FormatBytes(bytes)))
+  self._dbFooter:SetText(("Database ~%s"):format(NS.Util.FormatBytes(bytes)))
 end
 
 -- Recompute the data-driven dropdowns (source/type/char/zone) from the current dataset.

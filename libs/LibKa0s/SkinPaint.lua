@@ -115,7 +115,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- SkinPaintExtras' P.panelIgnored), so a panel-scoped search box's focus line stays its own.
 -- And (LK-A1, still minor 12): P.fontSize reads a stock size of 0 or below as none, and P.unfont
 -- gives no such size back, so SetFont never gets an invalid font height.
-local PAINT_MINOR = 12
+-- Minor 13 (LK-03 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, D-06): P.font never
+-- outlines the mono role: every skin now states OUTLINE for `font.outline` (SkinDefs minor 17), which
+-- the body and title roles take as the owner's "Font outline" leaves it (Skin minor 9), and the mono
+-- face's small digits (the debug console, the perf tables) stay unoutlined. Still 13: P.color (LK-14).
+local PAINT_MINOR = 13
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -184,6 +188,18 @@ function P.isDefault() return false end
 function P.rgb(c)
   if c[4] == nil or c[4] == 1 then return c[1], c[2], c[3] end
   return c[1], c[2], c[3], c[4]
+end
+
+--- `obj[method](obj, c)` as P.rgb writes it, an opaque color's 1 added to a SetTextColor while `obj`'s
+--- text is not opaque: the client keeps a FontString's alpha on a three-number SetTextColor (minor 13,
+--- LK-14, image-55..57). Text only: the client's rule for a three-number SetVertexColor is unmeasured,
+--- so a vertex color is handed over as P.rgb writes it and a host's own vertex alpha is left alone.
+function P.color(obj, method, c)
+  if method ~= "SetTextColor" then return obj[method](obj, P.rgb(c)) end
+  local get = obj.GetTextColor
+  local pa = (c[4] == nil or c[4] == 1) and type(get) == "function" and select(4, get(obj)) or 1
+  if type(pa) == "number" and pa ~= 1 then return obj[method](obj, c[1], c[2], c[3], 1) end
+  return obj[method](obj, P.rgb(c))
 end
 --- r, g, b, a always: fills and backdrop colors.
 function P.rgba(c) return c[1], c[2], c[3], c[4] or 1 end
@@ -413,7 +429,7 @@ function P.tint(rec, obj, T, name, method)
       local getter = obj[(method:gsub("^Set", "Get"))]
       priors[obj] = type(getter) == "function" and { getter(obj) } or false
     end
-    obj[method](obj, rgb(c))
+    P.color(obj, method, c)
   elseif priors[obj] then
     obj[method](obj, unpack(priors[obj]))
     priors[obj] = nil
@@ -457,7 +473,7 @@ end
 local FONT_ROLE = {
   body  = { face = "font.body",  size = "font.bodySize" },
   title = { face = "font.title", size = "font.titleSize" },
-  mono  = { face = "font.mono",  size = "font.bodySize" },
+  mono  = { face = "font.mono",  size = "font.bodySize", outline = false },   -- never outlined (minor 13)
 }
 
 local function ownerFont(owner, role, path, size, flags, shadow)
@@ -543,6 +559,13 @@ local function darkColor(c)
     and (0.2126 * c[1] + 0.7152 * c[2] + 0.0722 * c[3]) < 0.3
 end
 
+--- The flags a role draws with: the owner's `font.outline`, or "" for a role never outlined (the
+--- mono role, minor 13). Its own function so P.font stays inside the CCN 15 budget.
+local function roleFlags(T, spec)
+  if spec.outline == false then return "" end
+  return T["font.outline"] or ""
+end
+
 --- Give `fs` (a FontString, or an EditBox) the skin's font for `role` ("body", "title", "mono"),
 --- through the owner's font object for that role. A nil face token puts the stock font back.
 function P.font(owner, rec, fs, role, color)
@@ -560,7 +583,7 @@ function P.font(owner, rec, fs, role, color)
                   shadowColor = not obj and priorOf(fs, "GetShadowColor") or nil }
   end
   local size = P.fontSize(owner, spec.size, fonts[fs].size)
-  local flags = T["font.outline"] or ""
+  local flags = roleFlags(T, spec)
   local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false and not darkColor(color))
   if obj then
     fs:SetFontObject(obj)

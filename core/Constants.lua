@@ -112,9 +112,11 @@ C.WARBAND_HOLDER = "§warband"
 -- .62,.62,.66), so a gain/loss reads the same in both addons.
 C.DirOrder = { "IN", "OUT", "MOVE" }
 C.DirLabel = { IN = "Gain", OUT = "Loss", MOVE = "Transfer" }
--- TEXT glyphs: the default font has none of them and draws a box, so any FontString showing one
--- MUST use C.FONT_MONO (the LibKa0s JetBrains Mono face). U+25B2, U+25BC, U+21C4 as UTF-8 escapes.
-C.DirGlyph = { IN = "\226\150\178", OUT = "\226\150\188", MOVE = "\226\135\132" }
+-- TEXT glyphs: most skin faces have none of them and draw a box, so any FontString showing one
+-- MUST use C.FONT_MONO (the LibKa0s JetBrains Mono face). U+25B2, U+25BC, U+2194 as UTF-8 escapes.
+-- MOVE was U+21C4 until the skin fonts and feedback run (ruling D-19): no shipped face draws it,
+-- JetBrains Mono included, so every Transfer row drew a box; U+2194 is in JetBrains Mono.
+C.DirGlyph = { IN = "\226\150\178", OUT = "\226\150\188", MOVE = "\226\134\148" } -- glyph: mono
 -- Gold rows (kind GOLD): the Type value they carry. Their quantity is drawn in the skin's sem.gold,
 -- a pale gold (1, .86, .55) on Ka0s Default.
 C.GOLD_TYPE = "Gold"

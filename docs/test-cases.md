@@ -1049,7 +1049,7 @@ Total.
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
 - /lh holdings <query> prints the matching name and its account-wide total
 
-### test_slash_degraded.lua (15)
+### test_slash_degraded.lua (17)
 
 - library-less install: the Slash under test is the degraded stub
 - library-less install: the stub's DISABLED_LINE_FORMAT is the library's, byte for byte
@@ -1062,6 +1062,8 @@ Total.
 - library-less install: resetall resets the whole profile and says so on one line
 - library-less install: resetall is the same act through the verb table
 - library-less install: both report forms answer with the library-absent line and nothing else
+- library-less install: /lh skin answers with the library-absent line and nothing else
+- library-less install: the degraded help does not offer /lh skin
 - library-less install: the degraded help does not offer /lh diagnostics
 - library-less install: /lh profile answers with the library-absent line and switches nothing
 - library-less install: the degraded help does not offer /lh profile
@@ -1522,8 +1524,9 @@ Total.
 - Skin seam: a profile's stored exceptions are applied with its skin
 - Skin seam: /lh set reaches an exception, and only its own half
 
-### test_skin_overrides.lua (9)
+### test_skin_overrides.lua (10)
 
+- Skin overrides: the descriptor hands the library LibSharedMedia, for O.LSMValues and the preload
 - Skin overrides: the font and texture keys default to the skin's own, as two Skin tab rows
 - Skin overrides: the stored pair reads false, false before the profile store exists
 - Skin overrides: the write seam stores media's halves, "" for the skin's own
@@ -1533,6 +1536,19 @@ Total.
 - Skin overrides: /lh set reaches an override, and only its own half
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
+
+### test_skin_outline.lua (10)
+
+- Skin outline: a fresh profile stores HUD text only, the library's default
+- Skin outline: a stored All text stays, and is applied
+- Skin outline: the row is a skip-render Skin tab row offering the library's three modes
+- Skin outline: the stored mode reads "hud" before the profile store exists
+- Skin outline: the write seam stores media.outline, and leaves it alone when it is nil
+- Skin outline: another addon's copy reaches the store through WriteChoice
+- Skin outline: /lh set moves the applied mode live
+- Skin outline: /lh set refuses a mode the library does not know
+- Skin outline: the stored mode is applied with the skin
+- Skin outline: a profile switch applies the incoming profile's mode, and back
 
 ### test_skin_picker.lua (25)
 
@@ -1562,6 +1578,13 @@ Total.
 - Skin picker: a close leaves the put-back to the library; the host moves no skin
 - Skin picker: a picker queued behind another addon's waits for combat to end
 
+### test_skin_verb.lua (4)
+
+- Skin verb: a skin row right after config, worded as the library words it
+- Skin verb: /lh skin shows the picker on a profile that has already seen it
+- Skin verb: in combat nothing shows and the gray line prints on every call
+- Skin verb: refused while the addon is disabled, with the one refusal line
+
 ### test_skin_chrome.lua (6)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
@@ -1582,11 +1605,12 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (18)
+### test_skin_insights.lua (19)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
 - skin insights: a switch repaints Insights live, the free list too, and syncs the palette
+- skin insights: the headline cards follow a skin switch and a live Font outline change
 - skin insights: the signed figures keep their bytes on Ka0s Default and follow a switch
 - skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch
 - skin timeline: Ka0s Default draws today's toggle, header and strip; the series are the skin's
@@ -1629,6 +1653,14 @@ Total.
 - no color literal outside core/SkinSetup.lua and the named allow-list
 - every allow-list entry carries its reason
 - the gate is falsifiable: a planted literal of each shape is reported
+
+### test_glyphs.lua (5)
+
+- glyphs: every display string uses only characters every shipped skin face draws
+- glyphs: the History window's footer reads "Database ~1.6 MB"
+- glyphs: the History tab's storage line reads "Database size: ~"
+- glyphs: the Transfer glyph is ↔, which the mono face draws
+- glyphs: the Quality column's tooltip reads "Poor to Legendary"
 
 ### test_profiles.lua (31)
 
@@ -1674,7 +1706,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (40)
+### test_libka0s.lua (42)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1716,8 +1748,10 @@ Total.
 - v1.79.0: the vendored minors and the kit revision match the branch
 - v1.80.0: the vendored minors and the kit revision match the release
 - v1.81.0: the vendored minors and the kit revision match the release
+- v1.82.0: the vendored minors and the kit revision match the release
+- v1.83.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (20)
+### test_surface_parity.lua (21)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1738,6 +1772,7 @@ Total.
 - parity: the degraded Skin facade answers every name the live facade carries
 - parity: the Skin seam publishes the same NS members on both paths
 - parity: each host-copy skin token is the live library's Ka0s Default value
+- parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
 
 ### test_disabled.lua (25)
@@ -2128,7 +2163,7 @@ Total.
 | test_launcher.lua | 22 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 63 |
-| test_slash_degraded.lua | 15 |
+| test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 73 |
 | test_schema_stub.lua | 9 |
@@ -2145,18 +2180,21 @@ Total.
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
-| test_skin_overrides.lua | 9 |
+| test_skin_overrides.lua | 10 |
+| test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
+| test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 18 |
+| test_skin_insights.lua | 19 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
 | test_skin_literals.lua | 3 |
+| test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 40 |
-| test_surface_parity.lua | 20 |
+| test_libka0s.lua | 42 |
+| test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 23 |
@@ -2180,4 +2218,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1834** |
+| **Total** | **1860** |

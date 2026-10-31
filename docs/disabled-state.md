@@ -34,7 +34,7 @@ addon is on.
 
 **A disabled addon refuses a feature verb** (slash-commands-§2's SHOULD, which survived the
 reversal and is the only refusal in the disabled state). While `settings.enabled` is `false`,
-`show` / `hide` / `toggle` / `test` / `purge` / `holdings` / `sim` answer one tagged line naming `/lh enable` and do
+`show` / `hide` / `toggle` / `skin` / `test` / `purge` / `holdings` / `sim` answer one tagged line naming `/lh enable` and do
 nothing else. The gate is **one gate**, wrapped round each feature handler as `NS.COMMANDS` is built
 (`settings/Schema.lua`), so every route into a verb passes it — the library's dispatcher, the
 positional walk the library-less install falls back to, and a direct call on the triple — and a verb
