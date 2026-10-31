@@ -331,6 +331,8 @@ if not Bus then
   -- not stubbed because nothing here calls it (tests/test_surface_parity.lua names it in `ignore`).
   Bus = { Catalog = function(_, messages) return messages end }
 end
+-- NS.BusLib has no shipped reader, on purpose: it is how tests/test_surface_parity.lua reaches the
+-- degraded stub above to hold it against LibKa0s-Bus-1.0. Removing it blinds that parity case.
 NS.BusLib = Bus
 NS.MSG = Bus.Catalog((...), MSG)
 
