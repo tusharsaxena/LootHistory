@@ -67,8 +67,8 @@ are the pattern names inside a comment; and the last three (`modules/Browser.lua
 | `ZONE_CHANGED_NEW_AREA` | `modules/Attribution.lua:427` (row) | One API call per zone change (`IsInInstance`, through `Compat.InPartyInstance`), then either clears the keystone context or, on re-entry to an active key, one `GetActiveKeystoneInfo` read and one small table. Zone changes are rare and never a combat loop. |
 | `CHALLENGE_MODE_RESET` | `modules/Attribution.lua:428` (row) | One field write, once per reset key. |
 | `UNIT_SPELLCAST_SUCCEEDED` | `modules/Attribution.lua:431` (row) | **Unit-filtered to `player`** through its own `RegisterUnitEvent` frame, precisely so the raid-wide firehose a bare registration would deliver never arrives. One spell-id lookup against the deconstruct table. |
-| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1224` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1118`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
-| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1301` | The other edge of the same handler, same cost. |
+| `PLAYER_REGEN_DISABLED` | `modules/Browser.lua:1357` | **On the combat edge, once a fight, never inside one.** `B:ApplyVisibility` (`:1224`): if the window is not shown it returns immediately; otherwise one `settings.visibility` read, no combat-state read at all (the handler passes the edge in), and at most one `Hide`. It only ever hides — a window the setting starts allowing again is still the player's to open. |
+| `PLAYER_REGEN_ENABLED` | `modules/Browser.lua:1363` | The other edge of the same handler, same cost. |
 
 **`C_Timer` calls: seven, every one of them one-shot. No `C_Timer.NewTicker` anywhere.** Grep the
 three patterns and most of what comes back is prose and guards; the call sites are the table below.

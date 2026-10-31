@@ -589,7 +589,7 @@ Ten such records are named below the table rather than carried in it.
   deviation ([`compat-layer.md`](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)).
 - Never a row: the AH price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
-  reasoning is at `settings/PanelAuction.lua:274-279` (`LH-47` in `docs/audits/2026-09-07/`).
+  reasoning is at `settings/PanelAuction.lua:319-324` (`LH-47` in `docs/audits/2026-09-07/`).
 
 ### Files over the 1500-line cap
 

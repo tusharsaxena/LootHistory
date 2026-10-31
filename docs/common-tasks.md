@@ -109,7 +109,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`tests/test_schema.lua` pins it, on both builds).
 - **Paths resolve against the active profile, `NS.db.profile`** — every setting but two is per
   profile, so `Schema:Get`/`:Set` read and write `NS.db.profile` (the descriptor's `resolveRoot`,
-  `settings/Schema.lua:823`, asked at call time so a profile switch retargets it). Only the loot
+  `settings/Schema.lua:853`, asked at call time so a profile switch retargets it). Only the loot
   history, its repair bookkeeping, the schema stamp, the retention (`retentionDays`, owner decision
   D6: the setting that governs the recorded data, reached through its row's own `get`/`set`) and
   LibDBIcon's `minimap` table live in `NS.db.global` ([profiles.md](profiles.md)). A new setting that
@@ -133,7 +133,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   never on the shared `NS.bus`/`NS.addon` as `self`. CallbackHandler keys callbacks by
   `(message, target)`, so two consumers that share a target silently clobber each other — only the
   last registrant of a given message ever fires. The panel's live-stats refresh is the reference
-  pattern: it grabs a private target and registers on it (`settings/Panel.lua:168`). Full contract
+  pattern: it grabs a private target and registers on it (`settings/Panel.lua:169`). Full contract
   in [message-bus.md](message-bus.md).
 
 ### Compat firewall
@@ -266,7 +266,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   | # | Class | Where |
   |---|---|---|
   | 4 | `Interface\Buttons\WHITE8X8`, which is **not a mark**: it is the flat fill `standalone-windows` § *The Ka0s window edge* names by path for the background, the 1px border and every divider. An icon catalog has no equivalent and is not meant to. The Insights cards and list panels and the Timeline's toggle stopped naming it in LH-04: they are the skin's `Card`, `Panel` and `Button` now. | `core/CoreSetup.lua:232`, `core/SkinSetup.lua:560` (the degraded facade's flat button, KPI card, list panel and row menu), `modules/BrowserFilterBar.lua:10`, `modules/BrowserTable.lua:101` |
-  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:340`, `:340`, `:932`, `:933`, `modules/HoldingsTab.lua:317`, `:318`, `:458`, `:459`, `settings/PanelAuction.lua:38`, `settings/PanelAuction.lua:37`, `settings/PanelAuction.lua:38` |
+  | 12 | The **fallback rung** of a site that already asks the catalog first — the `or` arm, or `IconMarkup`'s required `fallback`. These are the rule being followed, not skirted: `nil` is a real answer twice over and every caller must have somewhere to go. | `modules/BrowserTable.lua:127`, `:339`, `:340`, `:932`, `:933`, `modules/HoldingsTab.lua:317`, `:318`, `:458`, `:459`, `settings/PanelAuction.lua:38`, `:39`, `:40` |
   | 3 | Blizzard chrome the catalog carries no equivalent for, each with its reason beside it in the source. | `core/CoreSetup.lua:102`, `:103` (the corner grabber in the library-absent arm, a degraded install's copy of the art `Core.MakeResizable` draws, reasoned at `:78-81`), `modules/BrowserTable.lua:147` (the class-circle sheet, under the `classicon-` atlas) |
   | 2 | This addon's own shipped art, `Interface\AddOns\LootHistory\media\` — a self-reference, not a duplicate of anything the library carries. | `settings/Panel.lua:23` (the settings landing-page logo), `core/LauncherSetup.lua:51` (the launcher icon, minimap button and broker alike) |
 
@@ -308,7 +308,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:827`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:831`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas
