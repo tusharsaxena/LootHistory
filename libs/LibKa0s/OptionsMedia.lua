@@ -1,9 +1,11 @@
 -- LibKa0s-Options-1.0 -- the media pickers: AceGUI widget types Ka0sMedia_Font, Ka0sMedia_Statusbar,
 -- Ka0sMedia_Border, Ka0sMedia_Background and Ka0sMedia_Sound. Each is a settings dropdown that shows
 -- what it offers: the closed row draws the chosen entry in its own face or beside its swatch, and
--- every row of the pull-out does the same, with a play button on a sound row. It is the picker
--- AbsorbTracker gets from AceGUI-3.0-SharedMediaWidgets, for every addon that does not carry that
--- library (Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, D-08).
+-- every row of the pull-out does the same, with a play button on a sound row. It is the only media
+-- picker in the collection (the owner's ruling of 2026-11-01): a row that names an
+-- AceGUI-3.0-SharedMediaWidgets type draws it too, so that library is needed by no row and no skin
+-- has a stock pull-out to miss (Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES,
+-- D-08).
 --
 -- A sixteenth file of the Options major (minor 1), guarded with the same multi-file idiom as
 -- OptionsSwitch.lua. A new file because OptionsWidgets.lua is in the band CLAUDE.md's census watches.
@@ -23,8 +25,8 @@
 -- the newest vendored copy's constructors win, and re-registers nothing that is anyone else's.
 --
 -- THE SKIN. Skin:AliasAceType(type, "Dropdown") makes SkinAce.lua paint the closed row and its
--- pull-out as a Dropdown (D-09: this pull-out is the library's, so it wears the skin; an LSM30_*
--- pull-out stays stock). A pull-out is pooled by AceGUI for every Dropdown in the client, and this
+-- pull-out as a Dropdown (D-09: this pull-out is the library's, so it wears the skin). A pull-out is
+-- pooled by AceGUI for every Dropdown in the client, and this
 -- file leaves it as it found it: it only adds the OnOpen callback, which a release wipes.
 --
 -- THE CLOSED FACE SURVIVES THE PAINTER. SkinAce sets the row's face from the owner's body font, and
@@ -47,7 +49,9 @@ local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
 -- Minor 1: the five picker types and Ka0sMedia_Item, lib.__MediaWidgetType (LK-F03, D-08, D-09).
-local MEDIA_MINOR = 1
+-- Minor 2 (the owner's ruling of 2026-11-01): lib.__MediaWidgetType answers for an LSM30_* name
+-- whether or not that type is registered, and OptionsWidgets asks it first. No picker changed.
+local MEDIA_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__mediaMinor and lib.__mediaMinor >= MEDIA_MINOR
   and lib.__mediaShellMinor == lib.MINOR then return end
@@ -64,7 +68,7 @@ local TYPES = {
   background = "Ka0sMedia_Background", sound = "Ka0sMedia_Sound",
 }
 -- Every name a row may ask for -> its kind: the kind itself, our type, or the SharedMediaWidgets
--- type it stands in for.
+-- type it replaces.
 local KIND_OF = {
   LSM30_Font = "font", LSM30_Statusbar = "statusbar", LSM30_Border = "border",
   LSM30_Background = "background", LSM30_Sound = "sound",
@@ -453,8 +457,8 @@ function lib.__createLazyMedia(ace, wtype)
 end
 
 --- The picker type for `name` (a LibSharedMedia kind, a Ka0sMedia_* type or the LSM30_* type it
---- stands in for), registered and ready for AceGUI:Create, or nil when `name` is none of those or
---- AceGUI lacks the stock Dropdown it builds on.
+--- replaces), registered and ready for AceGUI:Create. An LSM30_* type being registered changes
+--- nothing. nil when `name` is none of those or AceGUI lacks the stock Dropdown it builds on.
 function lib.__MediaWidgetType(name)
   local kind = KIND_OF[name]
   if not (kind and register()) then return nil end

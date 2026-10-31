@@ -38,7 +38,7 @@ if not lib then return end
 -- suggestion row): `list.hoverArt` while the chrome is skinned, the client's art otherwise and on a
 -- give-back. `__chromeAway`'s comments say what it does: since SkinPaint minor 6 no skin is special,
 -- so it answers the facade wherever `__chromeSkin` does, Ka0s Default included.
-local SCROLL_MINOR = 9
+local SCROLL_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own. The scroll counter alone is not enough:
 -- two vendored copies can ship the same scroll minor over different Options.lua minors, and then
 -- the higher shell wins the LibStub race while the first-loaded copy's patch stays attached to it.
@@ -531,13 +531,14 @@ end
 
 -- ── the font preload (minor 17) ────────────────────────────────────────────────────────────
 --
--- AceGUI-3.0-SharedMediaWidgets' `LSM30_Font` builds its pull-out list on OPEN, running
--- `SetFont(face); SetText(name)` on one row per registered face. The client loads a font file on
+-- A font picker dresses its pull-out on OPEN, running `SetFont(face)` and showing the name on one
+-- row per registered face (found on AceGUI-3.0-SharedMediaWidgets' `LSM30_Font`; `Ka0sMedia_Font`
+-- is the same shape). The client loads a font file on
 -- its first reference, and text set with a face that is not loaded yet draws blank until something
 -- sets it again — so the first open of any font dropdown in a session showed a blank row for every
--- face nothing had used yet (third-party LSM faces, mostly), and the second open was fine. The
--- widget is upstream and vendored, so it is not the thing to change; what the library can do is
--- have every face loaded before a dropdown can be opened, which is after a panel has been shown.
+-- face nothing had used yet (third-party LSM faces, mostly), and the second open was fine. What the
+-- library does is have every face loaded before a dropdown can be opened, which is after a panel
+-- has been shown.
 --
 -- WHEN: a settings panel's show, never load or PLAYER_LOGIN. Loading every face costs memory, and
 -- some of Blizzard's CJK faces are large; a player who never opens settings must not pay for it.
@@ -546,7 +547,7 @@ end
 -- `O.SetRenderer`'s OnShow and `O.CreatePanel`'s hook — and each says why it is where it is.
 --
 -- WHY THIS MAJOR and not Media.lua: the trigger is the panel lifecycle, which this major owns and
--- Media.lua has none of; `getLSM` is already on this major's descriptor; and `LSM30_Font` is the
+-- Media.lua has none of; `getLSM` is already on this major's descriptor; and `Ka0sMedia_Font` is the
 -- dialogControl this major's own `O.FontGroup` writes. Media.lua's `RegisterLSM` puts faces IN;
 -- this is about the widget that lists them.
 --

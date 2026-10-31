@@ -51,7 +51,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- (LibKa0s#59), and lib.__widgetsKit carries applyLabelFont for it. No maker is added here.
 -- Minor 39: the flow engine moved out, unchanged, to OptionsFlow.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
-local WIDGETS_MINOR = 40
+-- Minor 41 (the owner's ruling of 2026-11-01): a media row is always the Ka0sMedia_* picker, whether
+-- or not an LSM30_* type is registered. A row may still name LSM30_*; it reads as the picker.
+local WIDGETS_MINOR = 41
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -662,20 +664,22 @@ function lib.__AttachWidgets(O, d)
     return s
   end
 
+  --- The AceGUI type `row` draws. A media row, named Ka0sMedia_* or LSM30_*, is the library's own
+  --- picker whatever else is registered (OptionsMedia.lua; the owner's ruling of 2026-11-01). Any
+  --- other type is the row's if it is registered, and the stock Dropdown if not: the option must
+  --- still render rather than raise on an unknown type, and the two share the interface used below.
+  local function dropdownType(row)
+    local asked = row.dialogControl
+    if not asked or asked == "Dropdown" then return "Dropdown" end
+    local mediaType = lib.__MediaWidgetType
+    local picker = mediaType and mediaType(asked)
+    if picker then return picker end
+    return O.AceGUI:GetWidgetVersion(asked) and asked or "Dropdown"
+  end
+
   local function makeDropdown(ctx, row, parent, relativeWidth)
     parent = parent or O.EnsureScroll(ctx)
-    -- A row may ask for an in-tree widget (LSM30_* for a media swatch or font preview). Fall back
-    -- to the stock Dropdown when it is not registered — AceGUI-3.0-SharedMediaWidgets is optional,
-    -- and the option must still render (no swatch, but usable) rather than erroring on an unknown
-    -- type. Both share enough interface that the rest of this function is unchanged either way.
-    -- Since minor 38 the library's own picker takes that place first (OptionsMedia.lua, D-08), so
-    -- the row keeps its preview; the stock Dropdown is what a client without the picker draws.
-    local widgetType = row.dialogControl or "Dropdown"
-    if widgetType ~= "Dropdown" and not O.AceGUI:GetWidgetVersion(widgetType) then
-      local mediaType = lib.__MediaWidgetType
-      widgetType = mediaType and mediaType(widgetType) or "Dropdown"
-    end
-    local dd = O.AceGUI:Create(widgetType)
+    local dd = O.AceGUI:Create(dropdownType(row))
     dd:SetLabel(row.label or row.path)
     applyWidth(dd, relativeWidth)
 

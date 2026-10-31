@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 15
+local COMPOSE_MINOR = 16
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -55,6 +55,8 @@ local COMPOSE_MINOR = 15
 -- companion, flags with From skin, and shadow. Without `flagsFromSkin` the block is minor 13's.
 -- Minor 15 (LibKa0s#59, ruling U-14): O.PositionBlock(spec), the X | Y offset pair under its
 -- subgroup's heading with a Reset position hook for RenderRows' `opts.afterSubgroup`.
+-- Minor 16 (the owner's ruling of 2026-11-01): the three media rows write dialogControl =
+-- "Ka0sMedia_*". The row draws what it drew; the name now says so.
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -340,8 +342,8 @@ end
 -- ── FOLLOWING THE SKIN (compose minor 12) ───────────────────────────────────────────────────
 --
 -- A HUD setting can follow the owner's skin instead of a stored pick (the owner's ruling R3). A
--- SENTINEL value in the picker cannot say so: an LSM30 picker shows its list's KEY as the label and
--- uses the list's value as the media path, and the same list is the CLI's allowed values, so a
+-- SENTINEL value in the picker cannot say so: a media picker previews each list key as a media key,
+-- and the same list is the CLI's allowed values, so a
 -- "From skin" entry would draw no preview and be a value the CLI accepts and nothing can render. A
 -- companion bool says it instead, beside the picker it governs: `<key>FromSkin`, emitted only when
 -- the spec opts in. While it is true the picker is disabled (`disabledIf`, the companion's own key,
@@ -708,7 +710,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
-      dialogControl = "LSM30_Font", default = "Friz Quadrata TT", startsLine = true,
+      dialogControl = "Ka0sMedia_Font", default = "Friz Quadrata TT", startsLine = true,
       values = O.LSMValues("font"),
     })
     emit(spec, rows, "fontSize", {
@@ -756,7 +758,7 @@ function lib.__AttachCompose(O, d)
     end
     local picker = emit(spec, rows, "borderStyle", {
       type = "string", label = "Border style", tooltip = "The border texture.",
-      dialogControl = "LSM30_Border", default = "None", startsLine = true,
+      dialogControl = "Ka0sMedia_Border", default = "None", startsLine = true,
       values = O.LSMValues("border"),
     })
     local size = emit(spec, rows, "borderSize", {
@@ -786,7 +788,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "barTexture", {
       type = "string", label = "Bar texture", tooltip = "The bar's fill texture.",
-      dialogControl = "LSM30_Statusbar", default = "Blizzard", startsLine = true,
+      dialogControl = "Ka0sMedia_Statusbar", default = "Blizzard", startsLine = true,
       values = O.LSMValues("statusbar"),
     })
     emit(spec, rows, "barAlpha", {
