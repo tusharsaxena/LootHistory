@@ -938,7 +938,7 @@ test("v1.80.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinPaintExtras >= 5) -- 6 since v1.81.0, pinned there
   assertTrue(skin.SkinPaintControls >= 9) -- 10 since v1.81.0, pinned there
   assertEqual(skin.SkinEUI, 2)
-  assertEqual(skin.SkinAce, 4)
+  assertTrue(skin.SkinAce >= 4) -- 5 since v1.83.0, pinned there
   assertTrue(modules("LibKa0s-Options-1.0").OptionsCompose >= 13) -- 14 since v1.82.0, pinned there
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.AliasAceType) == "function", "Skin:AliasAceType missing: re-vendor v1.81.0")

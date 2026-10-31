@@ -707,6 +707,15 @@ function lib:__StoredOutline(owner)
   return o and o.outline or nil
 end
 
+--- Put `owner`'s font outline back to never having been set: `OUTLINE_DEFAULT`, repainting as
+--- SetOutline does, and nothing stored. Internal: the skin picker's dismissal undoes a preview, and
+--- a default left stored would pin that owner when the default moves (`__StoredOutline`).
+function lib:__ClearOutline(owner)
+  self:SetOutline(owner, self.OUTLINE_DEFAULT)
+  local o = self.owners[owner]
+  if o then o.outline = nil end
+end
+
 --- Set `owner`'s font outline mode; a value not in `OUTLINE_MODES` (nil included) is `OUTLINE_DEFAULT`.
 --- Idempotent. Never writes the host's profile (WriteChoice's `media.outline` does). A change
 --- repaints every frame recorded for the owner and fires its OnLooksChanged listeners, unless a

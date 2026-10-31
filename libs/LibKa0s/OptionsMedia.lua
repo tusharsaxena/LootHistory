@@ -39,7 +39,9 @@
 -- again after acquiring whatever that call loaded: the panel's show preloads in the same tick as its
 -- render, so the closed row's face may be one frame old with the call answering nothing new. Rows are
 -- dressed on open, not in SetList: a page refresh rebuilds every list, and only an opened list needs
--- its faces.
+-- its faces. A caller that may not load every face yet makes its row with lib.__createLazyMedia, and
+-- that row's first load is its first open: the skin picker can come up for a player who never opens
+-- settings (OptionsSkinPicker.lua), and has loaded the faces its closed rows wear itself.
 
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
@@ -305,7 +307,7 @@ local function onAcquire(self)
     loadFaces(self)
     dressRows(self)
   end)
-  loadFaces(self, true)
+  if lib.__mediaLazy then redressNext(self) else loadFaces(self, true) end
   dressClosed(self)
 end
 
@@ -438,6 +440,16 @@ local function register()
     if Skin and type(Skin.AliasAceType) == "function" then Skin:AliasAceType(wtype, "Dropdown") end
   end
   return true
+end
+
+--- AceGUI handle `ace`'s Create of `wtype`, a font picker's acquire leaving the faces unloaded: its
+--- first open loads them, the rule the panel's show keeps for the panel. Internal.
+function lib.__createLazyMedia(ace, wtype)
+  lib.__mediaLazy = true
+  local ok, w = pcall(ace.Create, ace, wtype)
+  lib.__mediaLazy = false
+  if not ok then error(w, 0) end
+  return w
 end
 
 --- The picker type for `name` (a LibSharedMedia kind, a Ka0sMedia_* type or the LSM30_* type it
