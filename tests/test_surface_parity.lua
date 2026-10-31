@@ -411,6 +411,8 @@ test("parity: the degraded facade's FontFlags and HudFontSize answer what SetFon
   local S = degradedNS.Skin
   assertEqual(S.FontFlags(S.FROM_SKIN), "OUTLINE", "From skin reads as the default mode's outline")
   assertEqual(S.FontFlags(nil), "OUTLINE", "none reads as the default mode's outline")
+  assertEqual(S.FontFlags(S.FROM_SKIN, "window"), "", "the default mode leaves window text bare")
+  assertEqual(S.FontFlags("OUTLINE", "window"), "OUTLINE", "a picked flag wins in a window too")
   assertEqual(S.FontFlags(""), "", "a picked no-outline is kept")
   assertEqual(S.FontFlags("THICKOUTLINE"), "THICKOUTLINE", "a picked flag as is")
   assertEqual(S.HudFontSize(0), 12, "a zero size")

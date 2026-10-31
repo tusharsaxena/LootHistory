@@ -45,7 +45,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 35: a row's `skinValue()`, when it answers, is what its widget shows (compose minor 12).
 -- Minor 36: O.AttachTooltip's title through O.__tipColor (`gtip.value`; OptionsScroll minor 9).
 -- Minor 37: the switched sections moved out to OptionsSwitch.lua, which adds `shownWhen.any` (LK-10).
-local WIDGETS_MINOR = 37
+-- Minor 38: an unregistered LSM30_* row falls back to the matching Ka0sMedia_* picker, then to the
+-- stock Dropdown (LK-F03 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, D-08).
+local WIDGETS_MINOR = 38
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -777,9 +779,12 @@ function lib.__AttachWidgets(O, d)
     -- to the stock Dropdown when it is not registered — AceGUI-3.0-SharedMediaWidgets is optional,
     -- and the option must still render (no swatch, but usable) rather than erroring on an unknown
     -- type. Both share enough interface that the rest of this function is unchanged either way.
+    -- Since minor 38 the library's own picker takes that place first (OptionsMedia.lua, D-08), so
+    -- the row keeps its preview; the stock Dropdown is what a client without the picker draws.
     local widgetType = row.dialogControl or "Dropdown"
     if widgetType ~= "Dropdown" and not O.AceGUI:GetWidgetVersion(widgetType) then
-      widgetType = "Dropdown"
+      local mediaType = lib.__MediaWidgetType
+      widgetType = mediaType and mediaType(widgetType) or "Dropdown"
     end
     local dd = O.AceGUI:Create(widgetType)
     dd:SetLabel(row.label or row.path)

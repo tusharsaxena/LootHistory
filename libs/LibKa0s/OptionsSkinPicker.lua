@@ -112,7 +112,9 @@ if not lib then return end
 -- prints VERB_QUEUED; with no picker to show, VERB_UNAVAILABLE and a Cfg line naming the cause.
 -- The row and the disabled refusal are the host's (slash-commands-§3: the verb table lives in the
 -- addon).
-local PICKER_MINOR = 3
+-- Minor 4 (LK-F04 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, the owner's
+-- item 4): APPLY_ALL_TIP says "that skin's default font and texture", the Skin tab's wording.
+local PICKER_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -138,7 +140,7 @@ lib.SKIN_PICKER_STRINGS = {
   APPLY_ALL      = "Apply to all Ka0s addons",
   APPLY_ALL_TIP  = "Keep this skin, and give every other loaded Ka0s addon that uses skins the same " ..
                    "skin source and skin. Their scope stays as it is; an addon whose skin changes " ..
-                   "goes back to that skin's own font and texture.",
+                   "goes back to that skin's default font and texture.",
   PREVIEW_TIP    = "Preview: open test mode",
   SETTINGS_TIP   = "Keep this skin and open the Skin settings",
   PREVIEW_GLYPH  = "o",

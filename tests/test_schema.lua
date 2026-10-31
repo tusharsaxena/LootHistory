@@ -1241,7 +1241,7 @@ settings.alpha | number | 1 | 0 | 1 | 0.05
 settings.appearance.font | string | "" | nil | nil | nil
 settings.appearance.ignoreFonts | bool | false | nil | nil | nil
 settings.appearance.ignorePanel | bool | true | nil | nil | nil
-settings.appearance.outline | string | "all" | nil | nil | nil
+settings.appearance.outline | string | "hud" | nil | nil | nil
 settings.appearance.pickerSeen | bool | false | nil | nil | nil
 settings.appearance.skin | string | "ka0s" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil

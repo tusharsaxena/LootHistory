@@ -1536,11 +1536,12 @@ Total.
 - Skin overrides: a profile's stored pair is applied with its skin, "" clearing
 - Skin overrides: a profile switch applies the new profile's overrides
 
-### test_skin_outline.lua (9)
+### test_skin_outline.lua (10)
 
-- Skin outline: a fresh profile stores All text, the library's default
+- Skin outline: a fresh profile stores HUD text only, the library's default
+- Skin outline: a stored All text stays, and is applied
 - Skin outline: the row is a skip-render Skin tab row offering the library's three modes
-- Skin outline: the stored mode reads "all" before the profile store exists
+- Skin outline: the stored mode reads "hud" before the profile store exists
 - Skin outline: the write seam stores media.outline, and leaves it alone when it is nil
 - Skin outline: another addon's copy reaches the store through WriteChoice
 - Skin outline: /lh set moves the applied mode live
@@ -1603,11 +1604,12 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (18)
+### test_skin_insights.lua (19)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
 - skin insights: a switch repaints Insights live, the free list too, and syncs the palette
+- skin insights: the headline cards follow a skin switch and a live Font outline change
 - skin insights: the signed figures keep their bytes on Ka0s Default and follow a switch
 - skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch
 - skin timeline: Ka0s Default draws today's toggle, header and strip; the series are the skin's
@@ -1703,7 +1705,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (41)
+### test_libka0s.lua (42)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1746,8 +1748,9 @@ Total.
 - v1.80.0: the vendored minors and the kit revision match the release
 - v1.81.0: the vendored minors and the kit revision match the release
 - v1.82.0: the vendored minors and the kit revision match the release
+- v1.83.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (20)
+### test_surface_parity.lua (21)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1768,6 +1771,7 @@ Total.
 - parity: the degraded Skin facade answers every name the live facade carries
 - parity: the Skin seam publishes the same NS members on both paths
 - parity: each host-copy skin token is the live library's Ka0s Default value
+- parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
 
 ### test_disabled.lua (25)
@@ -2176,20 +2180,20 @@ Total.
 | test_panel_keybinds.lua | 8 |
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 9 |
-| test_skin_outline.lua | 9 |
+| test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
 | test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 6 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 18 |
+| test_skin_insights.lua | 19 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
 | test_skin_literals.lua | 3 |
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 41 |
-| test_surface_parity.lua | 20 |
+| test_libka0s.lua | 42 |
+| test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 23 |
@@ -2213,4 +2217,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1855** |
+| **Total** | **1859** |

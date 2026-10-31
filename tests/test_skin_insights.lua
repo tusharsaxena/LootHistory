@@ -271,11 +271,11 @@ test("skin insights: the headline cards follow a skin switch and a live Font out
   withInsights(function()
     -- This suite loads no LibSharedMedia, so a face is answered at the engine's one media lookup
     -- (tests/test_skin_table.lua's way).
-    local FACE = "Fonts\\Vollkorn-Regular.ttf"
+    local FACE = "Fonts\\OpenSans-Semibold.ttf"
     local P = Skin.__P
     local media = P.media
     P.media = function(kind, key)
-      if kind == "font" and key == "Ka0s Vollkorn" then return FACE end
+      if kind == "font" and key == "Ka0s Open Sans Semibold" then return FACE end
       return media(kind, key)
     end
     local ok, err = pcall(function()
@@ -288,8 +288,10 @@ test("skin insights: the headline cards follow a skin switch and a live Font out
       mocks.__fireTimers()
       A:Layout()
       each(function(key, face) assertEqual(face, FACE, "card " .. key .. " keeps the old skin's face") end)
+      Skin:SetOutline(OWNER, "all")
+      mocks.__fireTimers()
       local outlined = Skin:Token(OWNER, "font.outline")
-      assertTrue(type(outlined) == "string" and outlined ~= "", "Azeroth outlines its text, or Off proves nothing")
+      assertTrue(type(outlined) == "string" and outlined ~= "", "All text outlines Azeroth, or Off proves nothing")
       Skin:SetOutline(OWNER, "off")
       mocks.__fireTimers()
       A:Layout()
@@ -303,7 +305,7 @@ test("skin insights: the headline cards follow a skin switch and a live Font out
       each(function(key, _, _, flags) assertEqual(flags, outlined, "card " .. key .. " under All text") end)
     end)
     P.media = media
-    Skin:SetOutline(OWNER, "all")
+    Skin:SetOutline(OWNER, "hud")
     NS.ApplySkinChoice("ka0s", "ka0s")
     mocks.__fireTimers()
     if not ok then error(err, 0) end

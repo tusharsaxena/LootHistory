@@ -101,7 +101,7 @@ local SUITES = {
   "test_skin_overrides",
   -- The Skin tab's Font outline on the seam (LibKa0s v1.82.0, Skin minor 9): the key, the row, the
   -- write seam's media.outline, /lh set, the profile events. After test_skin_overrides; leaves the
-  -- outline on "all", stored and applied.
+  -- outline on "hud", the default, stored and applied.
   "test_skin_outline",
   -- The first-run skin picker on the seam (LibKa0s OptionsSkinPicker 1): its spec, when it shows
   -- (login, the profile events, never stood down, held through combat) and what marks it seen.

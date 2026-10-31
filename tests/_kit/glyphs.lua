@@ -10,15 +10,16 @@
 -- THE SAFE SET is printable ASCII (and every other byte under 0x80: tab, newline) plus the non-ASCII
 -- code points EVERY face in LibKa0s/media/fonts draws, read from their cmaps by
 -- tools/glyph_safe_set.py, which writes the generated block below (FACES and RANGES). That folder is
--- exactly the faces the skins name, JetBrains Mono (the mono role) included. Regenerate after any
--- face is added, removed or replaced:
+-- every face a skin names and every face the library offers as an override (a face a skin stops
+-- naming stays), JetBrains Mono (the mono role) included. Regenerate after any face is added,
+-- removed or replaced:
 --
 --   python3 tools/glyph_safe_set.py && cp -r testkit/. tests/_kit/      (in LibKa0s, needs fontTools)
 --
 -- LibKa0s's tests/test_glyph_guard.lua is red while FACES (each face's file name and byte size)
--- disagrees with the folder. Real Friz Quadrata (WoW Default's face, the client's own) ships in no
--- folder anyone can read and is not measured (D-05, IS-07); a font override (any LibSharedMedia face)
--- guarantees nothing beyond ASCII.
+-- disagrees with the folder. Real Friz Quadrata is in the folder and measured from LibKa0s v1.83.0;
+-- the client's own Fonts/FRIZQT__.TTF is not read. A font override to a face outside the folder (any
+-- other LibSharedMedia face) guarantees nothing beyond ASCII.
 --
 -- SURFACE, on the kit table and published by `Kit.expose`:
 --
@@ -83,17 +84,35 @@ local G = {}
 local FACES = {
   { file = "AtkinsonHyperlegible-Bold.ttf", bytes = 55256 },
   { file = "AtkinsonHyperlegible-Regular.ttf", bytes = 54348 },
+  { file = "AvantGarde-Regular.ttf", bytes = 94228 },
   { file = "Bitter-Bold.ttf", bytes = 202296 },
   { file = "Bitter-Regular.ttf", bytes = 202016 },
+  { file = "DorisPP-Bold.ttf", bytes = 33980 },
+  { file = "Emblem-Regular.ttf", bytes = 33204 },
   { file = "Expressway-Bold.ttf", bytes = 99820 },
   { file = "FiraSans-Medium.ttf", bytes = 457248 },
+  { file = "FiraSans-Regular.ttf", bytes = 456996 },
   { file = "FiraSans-SemiBold.ttf", bytes = 489028 },
+  { file = "FrizQuadrataTT-Regular.ttf", bytes = 37952 },
+  { file = "Inter-Regular.ttf", bytes = 341404 },
+  { file = "Inter-SemiBold.ttf", bytes = 342700 },
   { file = "JetBrainsMono-Regular.ttf", bytes = 273900 },
   { file = "Nunito-Regular.ttf", bytes = 132360 },
   { file = "Nunito-SemiBold.ttf", bytes = 132336 },
+  { file = "OpenSans-Bold.ttf", bytes = 224592 },
+  { file = "OpenSans-CondBold.ttf", bytes = 264372 },
+  { file = "OpenSans-Light.ttf", bytes = 222412 },
+  { file = "OpenSans-Regular.ttf", bytes = 217360 },
+  { file = "OpenSans-Semibold.ttf", bytes = 221328 },
+  { file = "Oxanium-Bold.ttf", bytes = 29004 },
+  { file = "Oxanium-SemiBold.ttf", bytes = 29068 },
   { file = "Philosopher-Bold.ttf", bytes = 110068 },
   { file = "Philosopher-Regular.ttf", bytes = 111676 },
   { file = "Prototype-Regular.ttf", bytes = 29592 },
+  { file = "SegoeUI-Bold.ttf", bytes = 951724 },
+  { file = "SegoeUI-Regular.ttf", bytes = 955804 },
+  { file = "SegoeUI-Semibold.ttf", bytes = 971080 },
+  { file = "SegoeUI-Semilight.ttf", bytes = 854140 },
   { file = "Vollkorn-Bold.ttf", bytes = 365096 },
   { file = "Vollkorn-Regular.ttf", bytes = 363616 },
 }
@@ -101,7 +120,7 @@ local RANGES = {
   { 0x00A0, 0x00A3 }, { 0x00A5, 0x00AB }, { 0x00AE, 0x00BB }, { 0x00BF, 0x00FF }, { 0x0152, 0x0153 },
   { 0x0160, 0x0161 }, { 0x0178, 0x0178 }, { 0x017D, 0x017E }, { 0x02C6, 0x02C7 }, { 0x02D8, 0x02D8 },
   { 0x02DA, 0x02DA }, { 0x02DC, 0x02DC }, { 0x2013, 0x2014 }, { 0x2018, 0x201A }, { 0x201C, 0x201E },
-  { 0x2020, 0x2022 }, { 0x2026, 0x2026 }, { 0x2039, 0x203A }, { 0x2044, 0x2044 }, { 0x2122, 0x2122 },
+  { 0x2020, 0x2022 }, { 0x2026, 0x2026 }, { 0x2039, 0x203A }, { 0x2122, 0x2122 },
 }
 -- END GENERATED
 

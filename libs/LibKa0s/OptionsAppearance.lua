@@ -15,13 +15,15 @@
 --   * the LOOK: the library's fixed note about what a skin changes, then one radio choice per
 --     registered skin (Skin:Skins(), registration order), each with its four swatches, its name and
 --     its one-line description;
---   * FONT AND TEXTURE (minor 3): two dropdowns side by side, the owner's font and bar texture
---     (LibSharedMedia-3.0's font and statusbar keys, sorted), each led by "Skin's own (<its key>)",
+--   * FONT AND TEXTURE (minor 3): two dropdowns side by side (minor 5: the preview pickers of
+--     OptionsMedia.lua, each row in its face or beside its bar, the stock Dropdown without them),
+--     the owner's font and bar texture
+--     (LibSharedMedia-3.0's font and statusbar keys, sorted), each led by "Skin's default (<its key>)",
 --     through Skin:SetOverride and `spec.set`'s fourth argument (LibKa0s-Skin-1.0 minor 6); under
 --     each (minor 4) its "Reset font" / "Reset texture" button, at the dropdown's width, disabled
 --     while that half is already the skin's own; under those (minor 4) the "Font outline" dropdown,
---     All text | HUD text only | Off, through Skin:SetOutline and `media.outline` in `spec.set`'s
---     fourth argument, disabled while "Ignore fonts" is on (which wins);
+--     All text | HUD text only (the default) | Off, through Skin:SetOutline and `media.outline` in
+--     `spec.set`'s fourth argument, disabled while "Ignore fonts" is on (which wins);
 --   * SCOPE (minor 2): two check boxes on the dropdowns' half-width grid, "Ignore settings panel"
 --     (this addon's settings pages stay the client's) and "Ignore fonts" (every string keeps its own
 --     face and size), through Skin:SetIgnore and `spec.set`'s third argument;
@@ -36,7 +38,8 @@
 -- LSM key or false) on a font or texture write, and both nil on a source or skin write (a skin
 -- write that reset the overrides is followed by a media write, minor 4), which
 -- MUST be the owner's write seam (options-ui-§1). Since minor 4 `media` carries `outline` too (one of
--- Skin's OUTLINE_MODES), and every media write carries all three. Skin:SetChoice first, so the repaint
+-- Skin's OUTLINE_MODES), and every media write carries all three, `outline` being the mode the owner
+-- stored and nil while it never moved off the default (minor 5). Skin:SetChoice first, so the repaint
 -- is the library's and an owner's onChange calling SetChoice again is a no-op (SetChoice is idempotent),
 -- then spec.set. The reload popup is raised once, by the tab, from SetChoice's pending-reload answer.
 --
@@ -71,7 +74,11 @@ if not lib then return end
 -- its half is the skin's own; the Font outline dropdown moves from the Scope into the Font and
 -- texture section, under them; the Scope's check boxes take the dropdowns' half width; the copy
 -- button gets its own heading, "Other Ka0s addons"; and the note leads the Look section.
-local APPEARANCE_MINOR = 4
+-- Minor 5: the font and texture rows are OptionsMedia.lua's pickers, the leading row previewing the
+-- skin's own entry (LK-F03 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES).
+-- Still minor 5 (LK-F04, the owner's item 4): that entry reads "Skin's default (%s)" and the reset
+-- tooltips say "the skin's default"; the SKIN_OWN key keeps its name, so spec.strings still works.
+local APPEARANCE_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -111,7 +118,7 @@ lib.APPEARANCE_STRINGS = {
                    "with it on, every string keeps the game's own font.",
   TEXTURE        = "Texture",
   TEXTURE_TIP    = "Replace the bar texture of every bar and chart this addon draws.",
-  SKIN_OWN       = "Skin's own (%s)",
+  SKIN_OWN       = "Skin's default (%s)",
   MEDIA_MISSING  = "%s (not loaded)",
   SCOPE_HEADING  = "Scope",
   IGNORE_PANEL   = "Ignore settings panel",
@@ -128,9 +135,9 @@ lib.APPEARANCE_STRINGS = {
   OUTLINE_HUD    = "HUD text only",
   OUTLINE_OFF    = "Off",
   RESET_FONT     = "Reset font",
-  RESET_FONT_TIP = "Use the skin's own font again (%s).",
+  RESET_FONT_TIP = "Use the skin's default font again (%s).",
   RESET_TEXTURE  = "Reset texture",
-  RESET_TEXTURE_TIP = "Use the skin's own bar texture again (%s).",
+  RESET_TEXTURE_TIP = "Use the skin's default bar texture again (%s).",
   COPY_HEADING   = "Other Ka0s addons",
   COPY_TIP       = "Give every other loaded Ka0s addon that uses skins this addon's skin source, " ..
                    "skin, scope, font, texture and font outline. You are asked first.",
@@ -269,12 +276,17 @@ function lib.__skinOthers(Skin, owner)
 end
 
 --- `name`'s applied media, `{ font, texture, outline }` (each override an LSM key or false for the
---- skin's own; `outline` nil on a Skin copy before minor 9), or nil on a Skin copy before minor 6.
+--- skin's own), or nil on a Skin copy before minor 6. `outline` is the mode `name` stored, nil while
+--- it never moved off the default, because this is what a media write sends: a font pick storing the
+--- default would pin that owner to it when the default moves (it did, in Skin minor 10). Nil too on
+--- a Skin copy before minor 9.
 local function appliedMedia(Skin, name)
   if type(Skin.GetOverride) ~= "function" then return nil end
   local font, texture = Skin:GetOverride(name)
-  return { font = font or false, texture = texture or false,
-           outline = type(Skin.GetOutline) == "function" and Skin:GetOutline(name) or nil }
+  local outline
+  if type(Skin.__StoredOutline) == "function" then outline = Skin:__StoredOutline(name)
+  elseif type(Skin.GetOutline) == "function" then outline = Skin:GetOutline(name) end
+  return { font = font or false, texture = texture or false, outline = outline }
 end
 
 --- Move `name` to (source, skin) and, when the look it draws changed (Skin:DrawsKey before and
@@ -301,7 +313,7 @@ end
 --- font and texture, then SetIgnore, SetOverride and, for `media.outline`, SetOutline: the live
 --- repaint), then the owner's own setter (Skin:WriteChoice, nil leaving that half of its profile
 --- alone). A `media` half left out (nil) keeps the target's own after the move, and the write
---- carries the target's applied font, texture and outline, so a setter that stores every half it is
+--- carries the target's applied font and texture and its stored outline, so a setter that stores every half it is
 --- given keeps what it has (minor 4); with no `media`, a reset the move made is written the same
 --- way, so the target's profile matches what it wears. Answers the reload flag SetChoice answered.
 --- Internal; the caller refuses combat.
@@ -431,8 +443,8 @@ function lib.__AttachAppearance(O, d)
   end
 
   --- This owner's overrides, `{ font, texture, outline }` (each override an LSM key or false for the
-  --- skin's own; `outline` the applied font outline mode, nil on a Skin copy before minor 9), or nil
-  --- on a Skin copy before minor 6.
+  --- skin's own; `outline` the mode this owner stored, nil while it never moved off the default), or
+  --- nil on a Skin copy before minor 6.
   local function readMedia(view)
     return appliedMedia(view.Skin, view.owner)
   end
@@ -447,6 +459,7 @@ function lib.__AttachAppearance(O, d)
     local source, skin = readChoice(view)
     local ignore = readIgnore(view)
     local media = readMedia(view)
+    if media and type(Skin.GetOutline) == "function" then media.outline = Skin:GetOutline(view.owner) end
     local reloads = {}
     for _, name in ipairs(names) do
       if lib.__copySkinTo(Skin, name, source, skin, ignore, media) then
@@ -534,8 +547,9 @@ function lib.__AttachAppearance(O, d)
     return view.Skin:ResolveSkin(skin)
   end
 
-  --- The list one media dropdown offers: "Skin's own (<the face worn without overrides>)" first,
+  --- The list one media dropdown offers: "Skin's default (<the face worn without overrides>)" first,
   --- then LSM's keys, then the stored override when LSM lacks it, so the field never shows blank.
+  --- The third answer is the leading row's preview: it shows the face it stands for.
   local function mediaList(view, which)
     local spec = MEDIA[which]
     local own = baseTokens(view)[spec.token]
@@ -552,15 +566,24 @@ function lib.__AttachAppearance(O, d)
       items[stored] = view.S.MEDIA_MISSING:format(stored)
       order[#order + 1] = stored
     end
-    return items, order
+    return items, order, { [FROM_SKIN] = own }
+  end
+
+  --- One media dropdown's list, and on a picker what its leading row previews. The stock Dropdown
+  --- a client without the picker draws (minor 5) has no SetPreviews.
+  local function fillMedia(view, dd, which)
+    local items, order, previews = mediaList(view, which)
+    if type(dd.SetPreviews) == "function" then dd:SetPreviews(previews) end
+    dd:SetList(items, order)
   end
 
   --- One media dropdown in `group`.
   local function mediaDropdown(view, group, which, label, tip)
-    local dd = O.AceGUI:Create("Dropdown")
+    local mediaType = lib.__MediaWidgetType
+    local dd = O.AceGUI:Create(mediaType and mediaType(MEDIA[which].kind) or "Dropdown")
     dd:SetLabel(label)
     dd:SetRelativeWidth(halfWidth(O))
-    dd:SetList(mediaList(view, which))
+    fillMedia(view, dd, which)
     dd:SetCallback("OnValueChanged", function(_, _, value)
       setMedia(view, which, value)
       view.sync()
@@ -572,7 +595,7 @@ function lib.__AttachAppearance(O, d)
   end
 
   --- One media half's reset button in `group` (minor 4, D-11): the skin's own again, through the
-  --- same seam as the dropdown's "Skin's own" entry. `sync` disables it while that half is the
+  --- same seam as the dropdown's "Skin's default" entry. `sync` disables it while that half is the
   --- skin's own, and words its tooltip with the skin's own key.
   local function resetButton(view, group, which)
     local btn = O.AceGUI:Create("Button")
@@ -721,7 +744,7 @@ function lib.__AttachAppearance(O, d)
       if view.ignore.fonts then view.ignore.fonts:SetValue(ignore.fonts) end
       local media = readMedia(view)
       for which, dd in pairs(view.media) do
-        dd:SetList(mediaList(view, which))   -- the skin's own entry names the skin worn now
+        fillMedia(view, dd, which)   -- the skin's own entry names the skin worn now
         dd:SetValue(media and media[which] or FROM_SKIN)
       end
       syncResets(view, media)

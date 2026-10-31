@@ -390,16 +390,16 @@ its drag list follow the Scope.) Result: pass (owner-marked 2026-10-30)
 
 **PANEL-25. The Font outline, the reset buttons and the copy heading (LH-01; LibKa0s v1.82.0, D-06,
 D-10, D-11).** `/lh config` → General → **Skin**. Under **Font** and **Texture** sit **Reset font** and
-**Reset texture**, side by side and each disabled while its half is the skin's own; under them a
-**Font outline** dropdown reading **All text**; **Copy to every Ka0s addon…** sits under its own
-**Other Ka0s addons** heading after the Scope. Open the History window beside the panel. Pick **HUD
-text only** → with no reload the History window's text (tabs, filters, headers, rows, footer) loses
-its outline; pick **Off** → still none; pick **All text** → every string is outlined again.
-`/lh get settings.appearance.outline` reads `all`; `/lh set settings.appearance.outline hud` moves the
-window and the dropdown live, and `/lh set settings.appearance.outline thick` is refused with nothing
+**Reset texture**, side by side and each disabled while its half is the skin's default; under them a
+**Font outline** dropdown reading **HUD text only** (the default since LibKa0s v1.83.0, D-10); **Copy to every Ka0s addon…** sits under its own
+**Other Ka0s addons** heading after the Scope. Open the History window beside the panel: its text is unoutlined. Pick **All
+text** → with no reload the History window's text (tabs, filters, headers, rows, footer) gains an
+outline; pick **HUD text only** → it loses it; pick **Off** → still none; pick **All text** → every
+string is outlined again. `/lh get settings.appearance.outline` reads `all`;
+`/lh set settings.appearance.outline hud` moves the window and the dropdown live, and `/lh set settings.appearance.outline thick` is refused with nothing
 written. Set it to **Off**, switch to another profile and back → each profile keeps its own; `/reload`
 → still **Off**. Turn **Ignore fonts** on → the outline dropdown grays out and the text is the game's
-own. Pick a font override, then another skin → the override goes back to that skin's own. Fail: text
+own. Pick a font override, then another skin → the override goes back to that skin's default. Fail: text
 that keeps or loses its outline only after `/reload`, a mode that does not survive a profile switch
 or reload, an override that survives a skin change, or a Lua error. Result:
 
@@ -2017,7 +2017,7 @@ follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result: pass (owner-mar
 **SKIN-2. The Skin tab (SK-02; LH-01).** Settings → General → **Skin** → it sits second to
 last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches under a
 **Look** heading, the
-**Font and texture** (**Font** and **Texture**, both *Skin's own* in a new profile), the Scope
+**Font and texture** (**Font** and **Texture**, both *Skin's default* in a new profile), the Scope
 (**Ignore settings panel**, on in a new profile, and **Ignore fonts**, off), **Copy to every Ka0s
 addon…** and the note that skins change every visual element. (Amended by LH-01, 2026-10-28,
 LibKa0s#63: the label **Skin** and the Font and texture rows; and by LibKa0s PK-02: the skins' heading
@@ -2048,14 +2048,16 @@ Atkinson text on the primitives' text, and the History row whose right-click men
 in yellow. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-7. Fonts (SK-07; LK fonts; R5-03; SO-06).** On an English client each skin draws its own family,
-body and titles alike, with no fallback squares: Ka0s Default Oxanium, Obsidian Inter, Azeroth
-Vollkorn, Glass Nunito, High Contrast Atkinson Hyperlegible, Ember Bitter, WoW Midnight Philosopher, WoW
-Forever Fira Sans; WoW Default the client's Friz Quadrata. Titles are the family's heavier weight,
-never a different face. `/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Vollkorn")` and
-`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Oxanium SemiBold")` each print `true`. Fail: a
-title in a face its body text does not share, two skins in the same face, or an empty square where a
-letter should be. (Amended by LH-01, 2026-10-28, SO-06: Ka0s Default draws Oxanium, no longer Friz
-Quadrata.) Result: pass (owner-marked 2026-10-30)
+body and titles alike, with no fallback squares: Ka0s Default Prototype, Obsidian Expressway, Azeroth
+Open Sans Semibold (titles Open Sans Bold), Glass Avant Garde, High Contrast Doris PP, Ember Emblem, WoW
+Midnight Segoe UI Semibold (titles Segoe UI Bold), WoW Forever Fira Sans, WoW Default Ka0s Friz Quadrata
+TT, so Ka0s Default and WoW Default no longer read alike (D-01). Each skin's titles are its body family;
+Glass, High Contrast, Ember and WoW Default have one weight, so their titles are the same face larger.
+`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Open Sans Semibold")` and
+`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Friz Quadrata TT")` each print `true`. Fail: a
+title in a family its body text does not share, two skins in the same face, or an empty square where a
+letter should be. (Rewritten by LH-F01, 2026-10-31, D-01 and D-06: LibKa0s v1.83.0's faces; re-opened.)
+Result:
 
 **SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
 (Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
@@ -2130,18 +2132,20 @@ edge at a corner. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-21. The Font and texture rows (LH-01; LibKa0s#63).** Settings → General → **Skin** → between
 the nine skins and **Scope**, a **Font and texture** heading over two dropdowns side by side,
-**Font** and **Texture**. Open each → the first entry reads *Skin's own (<the skin's face or bar
-texture>)*, then every LibSharedMedia font (or status bar) sorted by name; with no media addon
-installed the lists still hold the skin's own entry and the faces LibKa0s registers. Both read
-*Skin's own* on a new profile. Result: pass (owner-marked 2026-10-30)
+**Font** and **Texture**. Open each → the first entry reads *Skin's default (<the skin's face or bar
+texture>)*, then every LibSharedMedia font (or status bar) sorted by name, each row drawn in its own
+face (or with its bar) as the picker scrolls (LH-F01; LibKa0s v1.83.0, D-08); with no media addon
+installed the lists still hold the *Skin's default* entry and the faces LibKa0s registers. Both read
+*Skin's default* on a new profile. Fail: a font row in a face that is not its own, a texture row with
+no bar. (Re-opened by LH-F01, 2026-10-31: the picker and its first entry changed.) Result:
 
 **SKIN-22. A font override applies live (LH-01; LibKa0s#63).** With the History window open, pick a
 font from **Font** (any face that looks clearly different) → with no reload the window's title, tab
 labels, buttons, table cells, Insights and the Timeline text take that face, at the sizes they had;
 the debug console (`/lh debug`) keeps its monospace face. Switch to another skin → the override
-stays. Pick *Skin's own* → the skin's face comes back. `/lh get settings.appearance.font` shows the
+stays. Pick *Skin's default* → the skin's face comes back. `/lh get settings.appearance.font` shows the
 key while it is set and an empty value after. Fail: a surface that keeps the old face until
-`/reload`, a size that moved, or the console losing its monospace face. Result: pass (owner-marked 2026-10-30)
+`/reload`, a size that moved, or the console losing its monospace face. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result:
 
 **SKIN-23. A texture override applies live to the bars (LH-01; LibKa0s#63).** Open Insights with a
 range that draws its charts, and the Timeline with a day of gains and losses → the strip bars, the
@@ -2150,9 +2154,9 @@ bar texture in the colors they had (on Ka0s Default the texture is the **Ka0s De
 under that name in **Texture**; amended by LH-01, SO-06). Pick a
 clearly different status bar from **Texture** → with no reload every one of those bars takes it, each
 keeping its own color; the gray bar tracks, the rules and axes, the legend chips and the table's
-stripes stay flat. Pick *Skin's own* → the skin's texture comes back. Fail: a bar on the old texture
+stripes stay flat. Pick *Skin's default* → the skin's texture comes back. Fail: a bar on the old texture
 until `/reload`, a bar that turned white or lost its color, or a track, rule or chip that took the
-texture. Result: pass (owner-marked 2026-10-30)
+texture. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result:
 
 **SKIN-24. Ignore fonts wins (LH-01; LibKa0s#63).** With a font override set, turn **Ignore fonts**
 on → with no reload every string goes back to the game's own face; the override stays selected in
@@ -2171,8 +2175,8 @@ picks. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-26. The overrides are per profile and survive a reload (LH-01; LibKa0s#63).** Set a font and a
 texture, `/reload` → both still applied and shown. Switch to another profile on the Profiles page →
-that profile's own font and texture (the skin's own on a fresh one), with no reload; switch back →
-yours again. Reset the profile → both back to *Skin's own*. Result: pass (owner-marked 2026-10-30)
+that profile's own font and texture (the skin's default on a fresh one), with no reload; switch back →
+yours again. Reset the profile → both back to *Skin's default*. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-27. The skin picker on a fresh profile (LH-01; LibKa0s#64, PK-02).** On the Profiles page create
 a new profile → a small window titled **Choose a skin** opens with its center
@@ -2293,7 +2297,7 @@ addon's picker opens then, titled for that addon, with no Lua error and no taint
 second picker opening mid-combat, or never opening after combat ends. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-39. Every skin's bars wear its own texture (LH-02; LibKa0s SO-04).** Fully restart the client
-(new texture files), clear any **Texture** override (*Skin's own*), and open Insights with a range that
+(new texture files), clear any **Texture** override (*Skin's default*), and open Insights with a range that
 draws its charts. Pick each skin in turn on General → Skin, and after each pick look at the strip,
 ranked and stacked bars and the gains-vs-losses halves, then the Timeline's day columns → every bar
 shows the skin's own texture, as **Texture** names it: Ka0s Default: Ka0s Default; Obsidian: Ka0s
@@ -2312,15 +2316,16 @@ headers, the day headers, the rows and the footer. Then pick each skin in turn (
 Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW Forever) → the text is about as wide as
 Ka0s Default's in every skin: the same items cut off with "…" (Enchant Chest - Mark of the Worl…, Item
 Enhance…), no column header or filter label newly cut off or overlapping its neighbor, no row text
-spilling past its cell. Ka0s Default draws Prototype, Obsidian Expressway, WoW Forever Fira Sans
-Medium. Do the same on Insights, Timeline and Holdings in Obsidian and WoW Forever. Fail: a skin whose
+spilling past its cell. The faces are SKIN-7's, LibKa0s v1.83.0's (D-03: each re-measured against
+Prototype); re-check after LH-F01 even if this passed earlier. Do the same on Insights, Timeline and Holdings in Obsidian and WoW Forever. Fail: a skin whose
 text is clearly wider or narrower than Ka0s Default's, a label cut off in one skin and not in Ka0s
 Default, or a box where a character should be. Result:
 
 **SKIN-41. Text is outlined from the skin; the addon has no font setting of its own (LH-01; LibKa0s
 v1.82.0, D-07).** Loot History has no font setting (no size, color or flags row of its own), so every
-string takes its outline from the skin's **Font outline**. On **All text** every window string is
-outlined, including the KPI numbers on Insights, which still shrink to fit their cards; on **Off**
+string takes its outline from the skin's **Font outline**, which a new profile leaves on **HUD text
+only** since LibKa0s v1.83.0 (D-10), so its window text is unoutlined: this addon has no HUD. On
+**All text** every window string is outlined, including the KPI numbers on Insights, which still shrink to fit their cards; on **Off**
 none is, the numbers still fitting. The Direction column's arrows and the debug console stay in the
 monospace face, never outlined in any mode. Fail: a string that ignores the Font outline, an
 outlined mono glyph, or a KPI number overflowing its card. Result:
@@ -2484,3 +2489,8 @@ owner: SLASH-2, SLASH-10, PANEL-10, PANEL-25, HIST-8, LED-11, LED-P2-17, SKIN-40
 LH-02 changed the Transfer glyph from `⇄` to `↔`. The passed checks that only name it (LED-10,
 LED-P2-01, 02, 06, 08 and 09, TR-1 to TR-3) keep the `⇄` the owner ran them against, and their
 results stand unedited; LED-11, LED-P2-17 and SKIN-42 carry the new glyph.
+
+Added or re-opened by the font pickers and skin faces run (LibKa0s v1.83.0, 2026-10-31), awaiting the
+owner: SKIN-7, SKIN-21, SKIN-22 and SKIN-23, with PANEL-25, SKIN-40 and SKIN-41 amended while still
+open. The passed checks that only name the first row (SKIN-2, SKIN-26, SKIN-39) now read *Skin's
+default*, its new label, and their results stand.

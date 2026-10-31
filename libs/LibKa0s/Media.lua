@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 10
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -151,7 +151,8 @@ lib.ICONS = {
 -- Bitter (Ember), Philosopher (WoW Midnight), Fira Sans (WoW Forever: Medium for body text since
 -- minor 10, SemiBold for titles and HUD) and Atkinson Hyperlegible (High Contrast), each SIL OFL 1.1;
 -- Prototype (Ka0s Default) and Expressway (Obsidian) are not, each on a recorded owner ruling (below);
--- WoW Default draws the client's Friz Quadrata. Barlow and Cinzel, minor 6's, left at minor 8, never
+-- WoW Default draws the client's Friz Quadrata. The skins' faces move again with SkinDefs in this
+-- release, so that list dates from minor 10. Barlow and Cinzel, minor 6's, left at minor 8, never
 -- released. `tools/artwork/fonts.py` is their provenance record: the pinned upstream commits, and the
 -- static weights it cuts from the three variable fonts. A skin names a face by this key and resolves
 -- it through LSM, never by path.
@@ -159,8 +160,8 @@ lib.ICONS = {
 -- THE MASK IS PER FACE (minor 6; minor 5 had one for all). LibSharedMedia refuses a font whose mask
 -- lacks the client's locale bit, which is the point: a face that draws a player's text as boxes does
 -- not belong in their dropdown. The mask is read off each shipped file's cmap: JetBrains Mono and the
--- families with Cyrillic (Expressway among them) are western + ruRU; Atkinson and Prototype have none
--- and are western only.
+-- families with Cyrillic (Expressway among them) are western + ruRU; Atkinson, Prototype, Friz, Emblem
+-- and Doris PP have none and are western only.
 -- None has Hangul or Han, and on such a client the skin falls back to the client's own font.
 --
 -- PROTOTYPE IS KA0S DEFAULT'S FACE (minor 10; the owner's ruling of 2026-10-30), for body, titles
@@ -183,11 +184,20 @@ lib.ICONS = {
 -- SharedMedia pack registers, so a stored "Ka0s Expressway" keeps resolving, to the same bytes.
 -- Its cmap has the whole Russian alphabet, so western + ruRU.
 --
--- A FACE NO SKIN NAMES LEAVES THE PAYLOAD (minor 10, the owner's item 7): Oxanium SemiBold and Bold
--- (Ka0s Default's until SkinDefs minor 17), Fira Sans Regular (WoW Forever's body until then, now
--- Medium) and Inter Regular and SemiBold (Obsidian's until Expressway, LK-A1) left. No released
--- addon shipped them, and a profile still naming one falls back to its skin's face (Skin's override
--- layer drops a key LSM cannot resolve).
+-- THE THIRTEEN FACES OF MINOR 11 (LK-F01, the owner's rulings of 2026-10-31) come from add-ons in the
+-- owner's WoW install, unchanged: Friz Quadrata (a real copy, because the owner's client FRIZQT__.TTF
+-- is Prototype's bytes, so a client Friz key cannot tell the two apart), Segoe UI's four weights, Open
+-- Sans's five, Emblem, Doris PP and Avant Garde. "Segoe UI Light" is the Semilight file and "Open Sans
+-- Condensed" the CondBold file, the keys the owner sees from Sorted. Open Sans is Apache 2.0, its text
+-- beside it. The other eight have no license allowing this and ship on the owner's ruling alone;
+-- `FONTS.md` quotes each notice, and is the `license` such a face names. Friz, Emblem and Doris PP have
+-- no Cyrillic, so western; Segoe UI, Open Sans and Avant Garde have the Russian alphabet.
+--
+-- EVERY FACE STAYS (minor 11, the owner's item 3), a skin naming it or not: Nunito, Vollkorn, Bitter,
+-- Philosopher, Fira Sans and Atkinson stay pickable after their skins moved on. That reverses the
+-- rule minor 10 worked to, under which Oxanium SemiBold and Bold, Fira Sans Regular and Inter Regular
+-- and SemiBold left: v1.81.0 shipped those five, so they come back with the Oxanium and Inter texts,
+-- and a profile naming one keeps resolving.
 local WEST_RU = { "western", "ruRU" }
 lib.FONTS = {
   ["JetBrains Mono"]          = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
@@ -202,6 +212,12 @@ lib.FONTS = {
                                   langmask = WEST_RU },
   ["Ka0s Philosopher Bold"]   = { file = "Philosopher-Bold.ttf", license = "Philosopher-OFL.txt",
                                   langmask = WEST_RU },
+  ["Ka0s Oxanium SemiBold"]   = { file = "Oxanium-SemiBold.ttf", license = "Oxanium-OFL.txt",
+                                  langmask = { "western" } },
+  ["Ka0s Oxanium Bold"]       = { file = "Oxanium-Bold.ttf", license = "Oxanium-OFL.txt", langmask = { "western" } },
+  ["Ka0s Inter"]              = { file = "Inter-Regular.ttf", license = "Inter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Inter SemiBold"]     = { file = "Inter-SemiBold.ttf", license = "Inter-OFL.txt", langmask = WEST_RU },
+  ["Ka0s Fira Sans"]          = { file = "FiraSans-Regular.ttf", license = "FiraSans-OFL.txt", langmask = WEST_RU },
   ["Ka0s Fira Sans Medium"]   = { file = "FiraSans-Medium.ttf", license = "FiraSans-OFL.txt", langmask = WEST_RU },
   ["Ka0s Fira Sans SemiBold"] = { file = "FiraSans-SemiBold.ttf", license = "FiraSans-OFL.txt",
                                   langmask = WEST_RU },
@@ -212,6 +228,24 @@ lib.FONTS = {
   ["Ka0s Prototype"]          = { file = "Prototype-Regular.ttf", license = "Prototype.txt", langmask = { "western" } },
   ["Ka0s Expressway"]         = { file = "Expressway-Bold.ttf", license = "Expressway-EULA.pdf",
                                   langmask = WEST_RU },
+  ["Ka0s Friz Quadrata TT"]   = { file = "FrizQuadrataTT-Regular.ttf", license = "FONTS.md", langmask = { "western" } },
+  ["Ka0s Segoe UI"]           = { file = "SegoeUI-Regular.ttf", license = "FONTS.md", langmask = WEST_RU },
+  ["Ka0s Segoe UI Bold"]      = { file = "SegoeUI-Bold.ttf", license = "FONTS.md", langmask = WEST_RU },
+  ["Ka0s Segoe UI Light"]     = { file = "SegoeUI-Semilight.ttf", license = "FONTS.md", langmask = WEST_RU },
+  ["Ka0s Segoe UI Semibold"]  = { file = "SegoeUI-Semibold.ttf", license = "FONTS.md", langmask = WEST_RU },
+  ["Ka0s Open Sans"]          = { file = "OpenSans-Regular.ttf", license = "OpenSans-Apache-2.0.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Open Sans Bold"]     = { file = "OpenSans-Bold.ttf", license = "OpenSans-Apache-2.0.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Open Sans Condensed"] = { file = "OpenSans-CondBold.ttf", license = "OpenSans-Apache-2.0.txt",
+                                   langmask = WEST_RU },
+  ["Ka0s Open Sans Light"]    = { file = "OpenSans-Light.ttf", license = "OpenSans-Apache-2.0.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Open Sans Semibold"] = { file = "OpenSans-Semibold.ttf", license = "OpenSans-Apache-2.0.txt",
+                                  langmask = WEST_RU },
+  ["Ka0s Emblem"]             = { file = "Emblem-Regular.ttf", license = "FONTS.md", langmask = { "western" } },
+  ["Ka0s Doris PP"]           = { file = "DorisPP-Bold.ttf", license = "FONTS.md", langmask = { "western" } },
+  ["Ka0s Avant Garde"]        = { file = "AvantGarde-Regular.ttf", license = "FONTS.md", langmask = WEST_RU },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is

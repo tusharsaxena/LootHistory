@@ -3,13 +3,13 @@
 -- ruling D-06).
 --
 -- What this addon owes the outline, and nothing the library pins itself: one profile key,
--- settings.appearance.outline ("all", the default, "hud", "off"), a skip-render row on the Skin tab
+-- settings.appearance.outline ("all", "hud", the default, "off"), a skip-render row on the Skin tab
 -- whose values are the library's three modes in its order; the write seam storing media.outline
 -- (the tab's Font outline and another addon's copy) and leaving it alone when it is nil; `/lh set`
 -- moving it live and refusing a mode the library does not know; and the stored mode applied with
 -- the skin, at login and on every profile event.
 --
--- After test_skin_overrides; every case puts the outline back on "all", stored and applied.
+-- After test_skin_overrides; every case puts the outline back on "hud", stored and applied.
 
 local T = _G.LH_TEST
 local NS, mocks = T.NS, T.mocks
@@ -22,8 +22,8 @@ local PATH = "settings.appearance.outline"
 local function stored() return NS.db.profile.settings.appearance.outline end
 
 local function reset()
-  NS.db.profile.settings.appearance.outline = "all"
-  Skin:SetOutline(OWNER, "all")
+  NS.db.profile.settings.appearance.outline = "hud"
+  Skin:SetOutline(OWNER, "hud")
   mocks.__fireTimers()
 end
 
@@ -48,12 +48,22 @@ end
 
 -- ── the key and the row ──────────────────────────────────────────────────────────────────────
 
-test("Skin outline: a fresh profile stores All text, the library's default", function()
-  -- red under: a default other than the library's (every addon's text would start unoutlined).
-  assertEqual(NS.defaults.profile.settings.appearance.outline, "all")
+test("Skin outline: a fresh profile stores HUD text only, the library's default", function()
+  -- red under: a default other than the library's (ruling D-10 of the font pickers run; window
+  -- text would start outlined here and bare in every other addon).
+  assertEqual(NS.defaults.profile.settings.appearance.outline, "hud")
   assertEqual(NS.defaults.profile.settings.appearance.outline, Skin.OUTLINE_DEFAULT)
-  assertEqual(Skin:GetOutline(OWNER), "all")
+  assertEqual(Skin:GetOutline(OWNER), "hud")
 end)
+
+test("Skin outline: a stored All text stays, and is applied", clean(function()
+  -- red under: a migration moving a choice the player made (D-10: only the default moved).
+  NS.db.profile.settings.appearance.outline = "all"
+  NS.ApplySkinChoice()
+  assertEqual(stored(), "all")
+  assertEqual(Skin:GetOutline(OWNER), "all")
+  assertEqual(NS.Skin.Token("font.outline"), "OUTLINE", "window text keeps its outline")
+end))
 
 test("Skin outline: the row is a skip-render Skin tab row offering the library's three modes", function()
   local row = NS.Schema:FindRow(PATH)
@@ -67,13 +77,13 @@ test("Skin outline: the row is a skip-render Skin tab row offering the library's
   assertEqual(table.concat(got, ","), table.concat(Skin.OUTLINE_MODES, ","))
 end)
 
-test("Skin outline: the stored mode reads \"all\" before the profile store exists", function()
+test("Skin outline: the stored mode reads \"hud\" before the profile store exists", function()
   local db = NS.db
   NS.db = nil
   local ok, mode = pcall(NS.SkinOutline)
   NS.db = db
   assertTrue(ok, "NS.SkinOutline raised without a store: " .. tostring(mode))
-  assertEqual(mode, "all")
+  assertEqual(mode, "hud")
 end)
 
 -- ── the write seam ───────────────────────────────────────────────────────────────────────────
@@ -101,6 +111,10 @@ end))
 
 test("Skin outline: /lh set moves the applied mode live", clean(function()
   -- red under: a row with no onChange (the store moves, the text does not).
+  quietly(function() NS.Slash:CliSet(PATH .. " all") end)
+  assertEqual(stored(), "all")
+  assertEqual(Skin:GetOutline(OWNER), "all")
+  assertEqual(NS.Skin.Token("font.outline"), "OUTLINE", "All text outlines window text")
   quietly(function() NS.Slash:CliSet(PATH .. " hud") end)
   assertEqual(stored(), "hud")
   assertEqual(Skin:GetOutline(OWNER), "hud")
@@ -108,14 +122,12 @@ test("Skin outline: /lh set moves the applied mode live", clean(function()
   assertEqual(NS.Skin.Token("hud.outline"), "OUTLINE", "the HUD keeps it")
   quietly(function() NS.Slash:CliSet(PATH .. " off") end)
   assertEqual(NS.Skin.Token("hud.outline"), "", "Off takes both")
-  quietly(function() NS.Slash:CliSet(PATH .. " all") end)
-  assertEqual(NS.Skin.Token("font.outline"), "OUTLINE", "All text outlines window text")
 end))
 
 test("Skin outline: /lh set refuses a mode the library does not know", clean(function()
   quietly(function() NS.Slash:CliSet(PATH .. " thick") end)
-  assertEqual(stored(), "all")
-  assertEqual(Skin:GetOutline(OWNER), "all")
+  assertEqual(stored(), "hud")
+  assertEqual(Skin:GetOutline(OWNER), "hud")
 end))
 
 test("Skin outline: the stored mode is applied with the skin", clean(function()
@@ -129,11 +141,11 @@ end))
 test("Skin outline: a profile switch applies the incoming profile's mode, and back", clean(function()
   local db = NS.db
   local ok, err = pcall(function()
-    quietly(function() NS.Slash:CliSet(PATH .. " hud") end)
+    quietly(function() NS.Slash:CliSet(PATH .. " off") end)
     db:SetProfile("OutlineProbe")
-    assertEqual(Skin:GetOutline(OWNER), "all", "a new profile keeps the default")
+    assertEqual(Skin:GetOutline(OWNER), "hud", "a new profile keeps the default")
     db:SetProfile("Default")
-    assertEqual(Skin:GetOutline(OWNER), "hud", "Default's own is back")
+    assertEqual(Skin:GetOutline(OWNER), "off", "Default's own is back")
   end)
   if db:GetCurrentProfile() ~= "Default" then db:SetProfile("Default") end
   if db.DeleteProfile then pcall(db.DeleteProfile, db, "OutlineProbe", true) end
