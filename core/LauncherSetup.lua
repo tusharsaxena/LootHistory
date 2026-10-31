@@ -25,7 +25,7 @@ local addonName, NS = ...
 -- The LIBRARY's since Launcher minor 4 (LibKa0s v1.58.0; launcher-§2 as of standard v2.67.0), and
 -- the same on every Ka0s addon: LEFT-click opens the settings panel, RIGHT-click opens the options
 -- menu. What this file supplies is the accessor-and-toggle pair for each state the addon HAS, and
--- this addon has all four (ADDONS.md's row: Enabled · Locked · Test mode · Show window). Every
+-- this addon has all four (WowAddonStandards standards/ADDONS.md's row: Enabled · Locked · Test mode · Show window). Every
 -- toggle is the addon's OWN handler -- the very function its slash verb or its settings row runs --
 -- so the refusals, the combat rules and the chat lines are the addon's, and the menu holds no state.
 -- The old rung (a) left-click onto the browser is now the menu's *Show window* entry.

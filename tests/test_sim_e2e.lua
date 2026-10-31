@@ -3,7 +3,7 @@ local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 local H = dofile("tests/sim_support.lua").new(T)
 
--- modules/SimScenario.lua end to end (LootHistory#37; req-lh-sim.md §7 and §11.4): the DW-90
+-- modules/SimScenario.lua end to end (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md §7 and §11.4): the DW-90
 -- regression. Each scenario runs the REAL capture engine against the seeded world: the drivers fire
 -- the client's events and hook calls, and every source, reason and row below is the engine's own.
 --

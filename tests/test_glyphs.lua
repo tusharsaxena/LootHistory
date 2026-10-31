@@ -3,9 +3,9 @@
 --
 -- The owner's image-19: the History window's footer read "Database [] 1.6 MB" under Obsidian,
 -- because the string carried U+2248 (written as an escape, so a grep missed it) and Expressway has no
--- such glyph. The guard is the kit's (testkit/glyphs.lua, kit revision 45): it reads every tracked
+-- such glyph. The guard is the kit's (tests/_kit/glyphs.lua, kit revision 45): it reads every tracked
 -- .lua file outside libs/ and tests/, decodes the escapes, and fails on a character outside the safe
--- set (ASCII plus what all fifteen shipped faces draw). Strings drawn in the mono face carry a
+-- set (ASCII plus what every shipped face draws). Strings drawn in the mono face carry a
 -- `glyph: mono` marker (core/Constants.lua's C.DirGlyph). The other cases pin the four sites D-19
 -- changed, so the words stay what the owner reads.
 --

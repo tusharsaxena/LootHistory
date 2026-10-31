@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- core/SimSeam.lua: the simulator's answer seam, on LibKa0s-Sim-1.0 (library-stack-§7;
--- LootHistory#37, LibKa0s#54; req-lh-sim.md §2.2, §2.4).
+-- LootHistory#37, LibKa0s#54; Ka0sAddonsCommonTasks req-lh-sim.md §2.2, §2.4).
 --
 -- ── THE SEAM ─────────────────────────────────────────────────────────────────────────────────
 --

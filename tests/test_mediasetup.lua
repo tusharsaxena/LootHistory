@@ -110,7 +110,7 @@ end)
 
 test("MediaSetup: the icon declaration is exactly the drawn set, and each has its file", function()
   -- Since LibKa0s v1.75.0 the copy ships only the icons CLAUDE.md's `LibKa0s icons:` line
-  -- declares (tools/prune-icons.lua cuts the rest), so the old whole-catalog walk is gone: the kit's
+  -- declares (LibKa0s tools/prune-icons.lua cuts the rest), so the old whole-catalog walk is gone: the kit's
   -- vendor gate holds declared == shipped. What the gate cannot see is a name this addon draws and
   -- forgot to declare -- that mark resolves to a path and draws blank. So the declaration, read
   -- through the kit's own parser, must equal DRAWN as a set: a draw site added without its

@@ -3,7 +3,7 @@ local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 local H = dofile("tests/sim_support.lua").new(T)
 
--- The simulator's saved-data invariant (LootHistory#37; req-lh-sim.md §4 and §11.3, the host
+-- The simulator's saved-data invariant (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md §4 and §11.3, the host
 -- contract's H4): a whole session of every scenario, played to the end and stopped, leaves the
 -- saved stores -- NS.db.global.history, .holdings and .daily -- byte-identical to what they were
 -- before it started. Every capture-path write resolved to the session's own stores; the maintenance

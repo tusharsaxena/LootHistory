@@ -28,7 +28,7 @@ local LEGACY_EPIC_LINK =
 -- link. So the real Retail palette is installed for the duration of those cases.
 --
 -- The map inside LibKa0s-Item-1.0 is built lazily, on the first hex-rung lookup, and (Item minor 2)
--- committed only when NON-EMPTY (libs/LibKa0s/Item.lua:55-75): a build that found nothing is
+-- committed only when NON-EMPTY (buildQualityByHex, libs/LibKa0s/Item.lua): a build that found nothing is
 -- retried on the next call rather than pinned nil. A non-empty map is then cached for the life of
 -- the Lua state, which is why this suite runs early in tests/run.lua's SUITES and why a poisoned
 -- map would fail loudly here rather than silently somewhere else.

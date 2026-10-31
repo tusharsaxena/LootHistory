@@ -233,7 +233,7 @@ end
 --
 -- The owner's M6 ruling: LEFT-click opens the settings panel on every addon, in either state, and
 -- RIGHT-click opens the client's context menu with one checkbox per toggle the addon has. This
--- addon has all four -- Enabled, Locked, Test mode, Show window (ADDONS.md's row) -- and every entry
+-- addon has all four -- Enabled, Locked, Test mode, Show window (WowAddonStandards standards/ADDONS.md's row) -- and every entry
 -- toggles through the addon's OWN handler: the slash verb's function for Enabled, Test mode and
 -- Show window, and the *Lock frame* row's write for Locked (there is no lock verb here).
 --

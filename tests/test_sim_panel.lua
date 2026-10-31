@@ -3,7 +3,7 @@ local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 local H = dofile("tests/sim_support.lua").new(T)
 
--- modules/SimPanel.lua (LootHistory#37, LibKa0s#53 #54; req-lh-sim.md §6): the simulation step
+-- modules/SimPanel.lua (LootHistory#37, LibKa0s#53 #54; Ka0sAddonsCommonTasks req-lh-sim.md §6): the simulation step
 -- panel's LootHistory half, and the History window's simulation marker. The panel itself (its
 -- rows, states, controls, click-ahead, stale-click guard and placement order) is LibKa0s-Sim-1.0's
 -- and pinned by the library's own suites; these cases read it through NS.Sim:PanelRows and the

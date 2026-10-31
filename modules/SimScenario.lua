@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- modules/SimScenario.lua: the simulator's six scenarios and its ledger gate (LootHistory#37;
--- req-lh-sim.md §7, OWNER_SCOPE C.12).
+-- Ka0sAddonsCommonTasks req-lh-sim.md §7, OWNER_SCOPE C.12).
 --
 -- ── WHAT A SCENARIO IS ───────────────────────────────────────────────────────────────────────
 --

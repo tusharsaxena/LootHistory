@@ -2,7 +2,7 @@ local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
--- modules/SimDrivers.lua (LootHistory#37; req-lh-sim.md §2.3-§2.4): the event and hook drivers.
+-- modules/SimDrivers.lua (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md §2.3-§2.4): the event and hook drivers.
 -- Each changes the world first and then fires the client's events, with the client's payload
 -- shapes, through NS.Sim:Fire; a hook driver reaches the HOOK_ROWS fns through deliver and never
 -- calls the hooked client function. The chat lines are written from the parser's own globals, so

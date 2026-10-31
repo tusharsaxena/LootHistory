@@ -1,4 +1,4 @@
--- tests/test_lintconfig.lua — the "no blanket suppression" gate (lint.md, `M4-11`).
+-- tests/test_lintconfig.lua — the "no blanket suppression" gate (the standard's lint.md, `M4-11`).
 --
 -- WHAT IT PROVES. That `luacheck .` reaching 0/0 in this repo is a statement about the code and not
 -- about the configuration. Four things are checked, and all four are the same rule seen from a

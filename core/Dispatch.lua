@@ -1,6 +1,6 @@
 local _, NS = ...
 
--- ONE capture event table and ONE read-side hook table (LootHistory#37, req-lh-sim.md §3.2-3.3).
+-- ONE capture event table and ONE read-side hook table (LootHistory#37, Ka0sAddonsCommonTasks req-lh-sim.md §3.2-3.3).
 --
 -- Before this file the four capture modules each registered from a hand-written list on their own
 -- target (Attribution on the shared bus plus a per-unit spell frame, AttributionOut on `__outEv`,

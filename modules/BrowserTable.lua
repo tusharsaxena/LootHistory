@@ -37,7 +37,7 @@ local function headerRGB() return NS.SkinColor("list.header.text") end
 local LOCK_SIZE = 11
 -- The Direction cell's glyph (▲/▼/↔) is its own FontString, drawn in the mono face at the left of
 -- the cell, with the label ("Gain"/"Loss"/"Transfer") in the row font beside it -- BankLedger's
--- Direction column (LedgerTable.lua), same 12px glyph and 2px gap. The default font has none of the
+-- Direction column (BankLedger modules/LedgerTable.lua), same 12px glyph and 2px gap. The default font has none of the
 -- three glyphs and draws boxes, so only the glyph takes C.FONT_MONO; the label stays in the row font
 -- so it reads like every other cell. Both take one color (paintDirectionCell).
 local ARROW_SIZE, ARROW_GAP = 12, 2

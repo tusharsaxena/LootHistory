@@ -2,7 +2,7 @@ local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
--- core/Dispatch.lua (LootHistory#37, req-lh-sim.md §3.2-3.3): ONE capture event table and ONE
+-- core/Dispatch.lua (LootHistory#37, Ka0sAddonsCommonTasks req-lh-sim.md §3.2-3.3): ONE capture event table and ONE
 -- read-side hook table. Every capture registration the four capture modules make comes out of
 -- NS.EVENT_ROWS, and every read-side hook out of NS.HOOK_ROWS, so a simulated delivery
 -- (NS.DeliverAll) reaches exactly the handlers the client would call.

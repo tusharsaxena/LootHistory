@@ -769,7 +769,7 @@ local function hostSchemaStub()
       react(plan)
       return true
     end
-    -- Schema minor 2's all-or-nothing batch, log-silent (version-2-docs.md, "The batch: SetMany").
+    -- Schema minor 2's all-or-nothing batch, log-silent (LibKa0s docs/api/Schema/version-2-docs.md, "The batch: SetMany").
     -- Phase 1 prepares every entry and refuses with `false, err, nil, index` before any store;
     -- then every store, then every onChange, so a reaction reading a sibling row sees the whole
     -- batch. `opts.act` brackets both, so the sweep veto sees the bracket.
@@ -1058,8 +1058,8 @@ end
 -- it, which is a real dependency cycle between two majors at load time. Crossing between them as
 -- plain data is what keeps them independent.
 --
--- The handler takes the rest of the line verbatim (never a `self`), so the seven verbs that are
--- genuinely this addon's — show/hide/toggle/config/debug/test/purge — never leave the host and
+-- The handler takes the rest of the line verbatim (never a `self`), so the verbs that are
+-- genuinely this addon's — show/hide/toggle/config/debug/test/purge among them — never leave the host and
 -- adopting the library cannot break them.
 --
 -- ── THE DISABLED ADDON REFUSES A FEATURE VERB (slash-commands-§2, restored at v2.57.0) ─────────
