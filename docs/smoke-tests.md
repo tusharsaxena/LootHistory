@@ -17,7 +17,7 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 10 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version`, `/lh skin` |
-| PANEL-1 to 26 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline |
+| PANEL-1 to 27 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 to 2 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
@@ -409,6 +409,15 @@ with its Addon, Price module, On and Status columns. Tick a row's **On**, drag a
 another place, hover its ⓘ → the tooltip names the source. Open another tab and come back → the rows are
 the same; change the skin on the **Skin** tab and come back → the rows take the new colors. Fail: an
 empty tab, a row that does not move, a tab switch that loses the order, or a Lua error. Result:
+
+**PANEL-27. The Skin tab's media rows are the Ka0s pickers (M3-MEDIA; LibKa0s#73).** This addon's media
+rows are **Font** and **Texture**; it has no border row, so a border picker is checked in an addon that
+draws one. `/lh config` → General → **Skin**, on a skin other than Ka0s Default with **Ignore settings
+panel** off. Open **Font** → the list wears the skin, starts with *Skin's default (<key>)* and draws each
+face in itself. Pick one → the addon's text takes it at once, with no reload. Open **Texture** → the same,
+each row showing its bar; pick one, then press **Reset font** and **Reset texture** → both return to the
+skin's own. Fail: a stock list on a skinned panel, a row in the wrong face or with no bar, an empty
+list, or a Lua error. Result:
 
 ## Profiles
 
@@ -2534,3 +2543,5 @@ splits a player can reach. The other splits move test cases only.
 
 Added by the LibKa0s v1.84.0 adoption (2026-11-01), awaiting the owner: INS-24 and DEGRADED-14. INS-22
 keeps its result: it recorded the rotated strip labels, and INS-24 records the level ones.
+
+Added by the v1.84.0 re-cut (2026-11-01), awaiting the owner: PANEL-27.
