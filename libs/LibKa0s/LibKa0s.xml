@@ -9,10 +9,14 @@
 	<Script file="Item.lua"/>
 	<Script file="Glow.lua"/>
 	<Script file="Toast.lua"/>
+	<Script file="Charts.lua"/>
+	<Script file="ChartsRender.lua"/>
 	<Script file="Media.lua"/>
 	<Script file="MediaIcons.lua"/>
 	<Script file="Skin.lua"/>
+	<Script file="SkinOwnerTokens.lua"/>
 	<Script file="SkinDefs.lua"/>
+	<Script file="SkinDefsOthers.lua"/>
 	<Script file="SkinPaint.lua"/>
 	<Script file="SkinPaintExtras.lua"/>
 	<Script file="SkinPaintControls.lua"/>
@@ -34,9 +38,12 @@
 	<Script file="Options.lua"/>
 	<Script file="OptionsRegistry.lua"/>
 	<Script file="OptionsWidgets.lua"/>
+	<Script file="OptionsFlow.lua"/>
 	<Script file="OptionsIds.lua"/>
+	<Script file="OptionsIdSuggest.lua"/>
 	<Script file="OptionsIdList.lua"/>
 	<Script file="OptionsTabs.lua"/>
+	<Script file="OptionsTabbed.lua"/>
 	<Script file="OptionsCombat.lua"/>
 	<Script file="OptionsCompose.lua"/>
 	<Script file="OptionsScroll.lua"/>
@@ -45,6 +52,7 @@
 	<Script file="OptionsKeybinds.lua"/>
 	<Script file="OptionsAppearance.lua"/>
 	<Script file="OptionsSkinPicker.lua"/>
+	<Script file="OptionsSkinPickerRows.lua"/>
 	<Script file="OptionsSwitch.lua"/>
 	<Script file="OptionsMedia.lua"/>
 	<Script file="Perf.lua"/>
@@ -54,4 +62,5 @@
 	<Script file="Sim.lua"/>
 	<Script file="SimTimeline.lua"/>
 	<Script file="SimPanel.lua"/>
+	<Script file="SimPanelRender.lua"/>
 </Ui>

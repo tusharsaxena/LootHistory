@@ -18,7 +18,8 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 20
+-- Minor 21 (LibKa0s#59): /list and resetall skip a schema `note` row.
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 21
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -583,21 +584,24 @@ function lib:New(d)
 
   function Sl:BuildListLines()
     local all = type(d.allRows) == "function" and d.allRows() or {}
-    if #all == 0 then return { self:Text("LIST_EMPTY") } end
 
     local out = { self:Text("LIST_HEADER") }
     -- Grouped in the order the rows were declared, not alphabetically: a schema's own order is the
     -- order its panel shows, and a list that disagreed with the panel would be its own puzzle.
     local order, grouped = {}, {}
     for _, row in ipairs(all) do
-      local key = groupKey(row)
-      if not grouped[key] then
-        grouped[key] = {}
-        order[#order + 1] = key
+      -- Minor 21: a `note` row is panel text, with no path to list (LibKa0s#59).
+      if row.type ~= "note" then
+        local key = groupKey(row)
+        if not grouped[key] then
+          grouped[key] = {}
+          order[#order + 1] = key
+        end
+        local g = grouped[key]
+        g[#g + 1] = row
       end
-      local g = grouped[key]
-      g[#g + 1] = row
     end
+    if #order == 0 then return { self:Text("LIST_EMPTY") } end
     for _, key in ipairs(order) do
       out[#out + 1] = self:Text("LIST_GROUP"):format(key)
       for _, row in ipairs(grouped[key]) do
@@ -697,7 +701,7 @@ function lib:New(d)
     local count = 0
     local info = { profileReset = false }
     local function write(row)
-      if type(d.applyDefault) == "function" then
+      if type(d.applyDefault) == "function" and row.type ~= "note" then
         d.applyDefault(row)
         count = count + 1
       end

@@ -118,6 +118,9 @@ if not lib then
     -- SelectTab, new at LibKa0s v1.36.0: reached only from a tab click on an already-rendered
     -- page. This addon does not adopt tab-scoped refresh, so the same inert no-op applies.
     SelectTab = noop,
+    -- PositionBlock, new at LibKa0s v1.84.0 (OptionsCompose minor 15): a composer no row here calls.
+    -- It answers `rows, hook` on the live table, so the stub answers an empty row list and no hook.
+    PositionBlock = function() return {}, nil end,
     -- NavRail, new at LibKa0s v1.61.0 (OptionsNav minor 1): drawn only by a page render, and no
     -- page here draws a rail, so the same inert no-op applies.
     NavRail = noop,

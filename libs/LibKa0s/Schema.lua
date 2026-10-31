@@ -41,7 +41,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Schema-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Schema-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -206,13 +206,21 @@ end
 --- Report each malformed field of one table row, in the order Validate prints them: a row nothing
 --- can reach (no path, and not an Options bound row carrying both `get` and `set`), then `type`,
 --- `page` and `group`.
+---
+--- A `note` row (minor 3, LibKa0s#59) is text in the schema: it takes `text`, no `path` and no value,
+--- and it is valid under any host `types`, which name value types.
 local function reportFieldErrors(row, hasPath, types, pages, report)
+  local isNote = row.type == "note"
+  if isNote then
+    if hasPath then report("a `note` row takes no `path`") end
+    if type(row.text) ~= "string" or row.text == "" then report("a `note` row needs `text`") end
+  end
   -- A path-less row carrying both halves of a binding is an Options bound row, which is
   -- legitimately path-less; anything else without a path is a row nothing can reach.
-  if not hasPath and not (type(row.get) == "function" and type(row.set) == "function") then
+  if not (hasPath or isNote or (type(row.get) == "function" and type(row.set) == "function")) then
     report("missing or empty `path`")
   end
-  if not types[row.type] then report("invalid `type` = " .. tostring(row.type)) end
+  if not (types[row.type] or isNote) then report("invalid `type` = " .. tostring(row.type)) end
   if pages and not pages[row.page] then report("invalid `page` = " .. tostring(row.page)) end
   if type(row.group) ~= "string" or row.group == "" then
     report("missing or empty `group`")

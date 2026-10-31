@@ -37,6 +37,9 @@ local LIB_FILES = {
   -- New in v1.79.0 (unreleased): LibKa0s-Toast-1.0, the toast notifier. This addon raises no toast
   -- and wires nothing from it; the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/Toast.lua",
+  -- New in v1.84.0: LibKa0s-Charts-1.0 (Charts 1, ChartsRender 1), the Insights chart renderers.
+  "libs/LibKa0s/Charts.lua",
+  "libs/LibKa0s/ChartsRender.lua",
   "libs/LibKa0s/Media.lua",
   -- New in v1.74.0: the generated icon catalog, a second file of LibKa0s-Media-1.0 (key 5.1).
   "libs/LibKa0s/MediaIcons.lua",
@@ -45,7 +48,12 @@ local LIB_FILES = {
   -- SkinPaintControls 6), the EllesmereUI provider (SkinEUI 1) and the AceGUI rows (SkinAce 3).
   -- Loading them builds no frame, timer or event until a host calls Skin:RegisterOwner.
   "libs/LibKa0s/Skin.lua",
+  -- New in v1.84.0, the peels (LK-M2-PEEL), each a pure move in XML order: the owner tokens, the eight
+  -- other skins, the flow engine, the id suggestions, the tabbed page, the skin picker's rows and the
+  -- sim step panel's renderer.
+  "libs/LibKa0s/SkinOwnerTokens.lua",
   "libs/LibKa0s/SkinDefs.lua",
+  "libs/LibKa0s/SkinDefsOthers.lua",
   "libs/LibKa0s/SkinPaint.lua",
   "libs/LibKa0s/SkinPaintExtras.lua",
   "libs/LibKa0s/SkinPaintControls.lua",
@@ -89,13 +97,16 @@ local LIB_FILES = {
   -- (OptionsCombat). Listed in XML order because the client loads them and the suite must too.
   "libs/LibKa0s/OptionsRegistry.lua",
   "libs/LibKa0s/OptionsWidgets.lua",
+  "libs/LibKa0s/OptionsFlow.lua",
   "libs/LibKa0s/OptionsIds.lua",
+  "libs/LibKa0s/OptionsIdSuggest.lua",
   "libs/LibKa0s/OptionsIdList.lua",
   -- New in v1.39.0: the tab-strip and page-chrome PEEL out of Options.lua. It adds, removes and
   -- renames no member -- O.TabStrip, O.PageBanner, O.PageHeader, O.SubTabStrip and the eight
   -- O.__ geometry seams all still attach to the same instance under the same names -- so no
   -- caller here changed. It is listed because the client loads it and the suite must too.
   "libs/LibKa0s/OptionsTabs.lua",
+  "libs/LibKa0s/OptionsTabbed.lua",
   "libs/LibKa0s/OptionsCombat.lua",
   -- New in v1.24.0: the schema COMPOSERS, which settings/Schema.lua calls at file load for its
   -- Master controls block. A file listed in LibKa0s.xml and missing from tests/run.lua's explicit
@@ -116,6 +127,7 @@ local LIB_FILES = {
   -- New in v1.79.0 (unreleased): the first-run skin picker (OptionsSkinPicker 1), a fourteenth file
   -- of LibKa0s-Options-1.0. The stub in settings/OptionsSetup.lua carries its two members for parity.
   "libs/LibKa0s/OptionsSkinPicker.lua",
+  "libs/LibKa0s/OptionsSkinPickerRows.lua",
   -- New in v1.82.0: the switched sections (OptionsSwitch 1, `shownWhen`) peeled out of
   -- OptionsWidgets.lua, a fifteenth file of LibKa0s-Options-1.0. It adds no instance member, and
   -- no page here switches a section.
@@ -135,6 +147,7 @@ local LIB_FILES = {
   "libs/LibKa0s/Sim.lua",
   "libs/LibKa0s/SimTimeline.lua",
   "libs/LibKa0s/SimPanel.lua",
+  "libs/LibKa0s/SimPanelRender.lua",
 }
 
 -- ── the shared cause clause ──────────────────────────────────────────────────────────────────
@@ -672,7 +685,7 @@ test("v1.71.0: the vendored minors and the kit revision match the release", func
   assertTrue(W.MODULES.WidgetsLineChart >= 3) -- 4 since v1.78.0, pinned there
   assertTrue(W.MODULES.WidgetsAutocomplete >= 2) -- 3 since v1.77.0, pinned there
   local S = T.mocks.LibStub("LibKa0s-Slash-1.0", true)
-  assertEqual(S.MODULES.Slash, 20)
+  assertTrue(S.MODULES.Slash >= 20) -- 21 since v1.84.0, pinned there
   assertEqual(S.MODULES.SlashParse, 2)
   assertEqual(T.mocks.LibStub("LibKa0s-Env-1.0", true).MODULES.Env, 2)
   assertTrue(T.mocks.LibStub("LibKa0s-Options-1.0", true).MODULES.OptionsIdList >= 4) -- 5 since v1.75.0, pinned there
@@ -905,10 +918,10 @@ test("v1.79.0: the vendored minors and the kit revision match the branch", funct
   assertTrue(skin.SkinDefs >= 14) -- 15 since v1.80.0, 16 since v1.81.0, pinned there
   assertTrue(skin.SkinPaintExtras >= 4) -- 5 since v1.80.0, 6 since v1.81.0, pinned there
   assertTrue(modules("LibKa0s-Media-1.0").Media >= 9) -- 10 since v1.82.0, pinned there
-  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 5)
+  assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics >= 5) -- 6 since v1.84.0, pinned there
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 1)
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.Options, 34)
+  assertTrue(options.Options >= 34) -- 35 since v1.84.0, pinned there
   assertEqual(options.OptionsRegistry, 4)
   assertTrue(options.OptionsAppearance >= 3) -- 4 since v1.82.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 1) -- 2 since v1.81.0, pinned there
@@ -976,9 +989,9 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
   assertEqual(widgets.WidgetsCopyWindow, 2)
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.OptionsWidgets >= 36) -- 37 since v1.82.0, pinned there
-  assertEqual(options.OptionsIds, 5)
+  assertTrue(options.OptionsIds >= 5) -- 6 since v1.84.0, pinned there
   assertEqual(options.OptionsIdList, 7)
-  assertEqual(options.OptionsTabs, 11)
+  assertTrue(options.OptionsTabs >= 11) -- 13 since v1.84.0, pinned there
   assertEqual(options.OptionsScroll, 9)
   assertEqual(options.OptionsNav, 4)
   assertEqual(options.OptionsDrawer, 3)
@@ -987,7 +1000,7 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
   assertEqual(modules("LibKa0s-Core-1.0").Core, 14)
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogWindow, 2)
   assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 11)
-  assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 8)
+  assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 8) -- 9 since v1.84.0, pinned there
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.DrawsKey) == "function", "Skin:DrawsKey missing: re-vendor v1.81.0")
   assertTrue(T.KIT_VERSION >= 44) -- 45 since v1.82.0, pinned there
@@ -1014,11 +1027,11 @@ test("v1.82.0: the vendored minors and the kit revision match the release", func
   assertEqual(skin.SkinPaint, 13)
   assertEqual(skin.SkinPaintExtras, 7)
   assertEqual(skin.SkinPaintControls, 11)
-  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle, 8)
+  assertTrue(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle >= 8) -- 10 since v1.84.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.OptionsWidgets >= 37) -- 38 since v1.83.0, pinned there
   assertEqual(options.OptionsSwitch, 1)
-  assertEqual(options.OptionsCompose, 14)
+  assertTrue(options.OptionsCompose >= 14) -- 15 since v1.84.0, pinned there
   assertTrue(options.OptionsAppearance >= 4) -- 5 since v1.83.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 3) -- 4 since v1.83.0, pinned there
   assertTrue(type(NS.Options.SkinVerb) == "function", "O.SkinVerb missing: OptionsSkinPicker did not attach")
@@ -1042,13 +1055,49 @@ test("v1.83.0: the vendored minors and the kit revision match the release", func
   end
   assertEqual(modules("LibKa0s-Media-1.0").Media, 11)
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 10)
-  assertEqual(skin.SkinDefs, 18)
+  assertTrue(skin.Skin >= 10) -- 11 since v1.84.0, pinned there
+  assertTrue(skin.SkinDefs >= 18) -- 19 since v1.84.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.OptionsWidgets, 38)
+  assertTrue(options.OptionsWidgets >= 38) -- 40 since v1.84.0, pinned there
   assertEqual(options.OptionsAppearance, 5)
-  assertEqual(options.OptionsSkinPicker, 4)
+  assertTrue(options.OptionsSkinPicker >= 4) -- 5 since v1.84.0, pinned there
   assertEqual(options.OptionsMedia, 1)
   assertEqual(T.mocks.LibStub("LibKa0s-Skin-1.0", true).OUTLINE_DEFAULT, "hud")
-  assertEqual(T.KIT_VERSION, 46)
+  assertTrue(T.KIT_VERSION >= 46) -- 47 since v1.84.0, pinned there
+end)
+-- v1.84.0 (Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION/M2_LIBRARY_RELEASE.md): the
+-- peels, the flow seams and note row (LibKa0s#59), the drag strip's fit (#68), the new major
+-- LibKa0s-Charts-1.0 (#66, Charts 1, ChartsRender 1), and kit revision 47.
+test("v1.84.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.84.0")
+    return lib.MODULES
+  end
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 11)
+  assertEqual(skin.SkinOwnerTokens, 1)
+  assertEqual(skin.SkinDefs, 19)
+  assertEqual(skin.SkinDefsOthers, 1)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.Options, 35)
+  assertEqual(options.OptionsWidgets, 40)
+  assertEqual(options.OptionsFlow, 2)
+  assertEqual(options.OptionsIds, 6)
+  assertEqual(options.OptionsIdSuggest, 1)
+  assertEqual(options.OptionsTabs, 13)
+  assertEqual(options.OptionsTabbed, 2)
+  assertEqual(options.OptionsCompose, 15)
+  assertEqual(options.OptionsSkinPicker, 5)
+  assertEqual(options.OptionsSkinPickerRows, 1)
+  assertEqual(modules("LibKa0s-Schema-1.0").Schema, 3)
+  assertEqual(modules("LibKa0s-Slash-1.0").Slash, 21)
+  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle, 10)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 6)
+  assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 9)
+  assertEqual(modules("LibKa0s-Sim-1.0").SimPanelRender, 1)
+  local charts = modules("LibKa0s-Charts-1.0")
+  assertEqual(charts.Charts, 1)
+  assertEqual(charts.ChartsRender, 1)
+  assertEqual(T.KIT_VERSION, 47)
 end)

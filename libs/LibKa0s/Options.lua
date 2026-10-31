@@ -41,9 +41,11 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- painted for a registered owner and given back stock on release. One attach line, no member.
 -- Minor 33: lib:New attaches OptionsAppearance.lua, the Appearance tab (skinning-§3). One attach
 -- line, no member: the tab's members are that file's.
+-- Minor 35 (LibKa0s#59): a reset walk skips a `note` row, and O.ClearScroll keeps the banner's own
+-- refresher (OptionsTabs minor 13).
 -- Minor 34: lib:New attaches OptionsSkinPicker.lua, the first-run skin picker (LibKa0s#64). One
 -- attach line, no member: O.SkinPicker and O.HideSkinPicker are that file's.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 34
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 35
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -920,6 +922,8 @@ function lib:New(d)
     -- table is observed by RefreshAllPanels immediately and nothing else can still be holding the
     -- old one.
     ctx.refreshers = {}
+    -- Minor 35: the band's own refresher (OptionsTabs minor 13) stays, because chrome outlives this.
+    if ctx.__bannerRefresh then ctx.refreshers[1] = ctx.__bannerRefresh end
   end
 
   -- ── reset / refresh ──────────────────────────────────────────────────────────────────────
@@ -951,6 +955,7 @@ function lib:New(d)
     local count = 0
     local info = { profileReset = false }
     local function write(row)
+      if row.type == "note" then return end  -- minor 35: text, with no value and no path to reset
       d.applyDefault(row)
       count = count + 1
     end

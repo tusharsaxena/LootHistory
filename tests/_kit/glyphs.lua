@@ -4,7 +4,7 @@
 -- WHY. The owner's image-19 (Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, item 5b,
 -- ruling D-19): LootHistory's footer read "Database [] 1.6 MB" under Obsidian, because its string
 -- carried U+2248 (written as the escape "\226\137\136", which a plain grep never finds) and
--- Expressway has no such glyph. Ten skins draw text in a dozen faces, and a character one of them
+-- Expressway has no such glyph. Nine skins draw text in a dozen faces, and a character one of them
 -- lacks is a box in that skin only, so nobody notices until a player picks it.
 --
 -- THE SAFE SET is printable ASCII (and every other byte under 0x80: tab, newline) plus the non-ASCII
