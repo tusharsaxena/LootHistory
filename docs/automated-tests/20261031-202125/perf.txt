@@ -1,0 +1,5 @@
+PASS  harness: NS.Perf is the live instance, not the stub
+PASS  zero-overhead: dropped loot line, capture off  (0.0 B/iter bracketed vs 0.0 bare)
+PASS  combat BAG_UPDATE: no allocation  (0.0 B/iter)
+PASS  combat BAG_UPDATE: no scan  (0 scans)
+PASS  reconcile: one container scan per dirty group  (1 scans)
