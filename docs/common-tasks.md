@@ -308,7 +308,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   `settings/OptionsSetup.lua`; `settings/Panel.lua` registers the page and owns its bodies.
   **AceConfigDialog is never used for content** — there is no
   AceConfig/AceConfigDialog dependency in the addon at all. `P:Open` delegates to
-  `O.OpenOptionsPanel` (`settings/Panel.lua:831`), whose combat refusal lives in the library
+  `O.OpenOptionsPanel` (`settings/Panel.lua:821`), whose combat refusal lives in the library
   (`O.OpenOptionsPanel` in `libs/LibKa0s/OptionsRegistry.lua`). A page reached some other way in combat is covered and locked on its `OnShow`, never closed
   (`coverOnShow` in `libs/LibKa0s/Options.lua`), so a page reached straight from the Blizzard AddOns sidebar draws nothing and accepts no write until `PLAYER_REGEN_ENABLED`.
   The open itself refuses rather than deferring-and-replaying, matching the Ka0s options-ui-§2 canvas

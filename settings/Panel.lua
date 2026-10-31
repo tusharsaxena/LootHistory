@@ -575,11 +575,6 @@ end
 --                     file's: `O.MasterControls` returned it beside the rows, and it is passed
 --                     through under the group name the composer used, because the group name IS
 --                     the hook key (settings/Schema.lua).
---   Capture         — the muted-source picker. The `settings.excludedSources` row it represents is
---                     walked by the generic path and produces no widget (type = "table"; see
---                     makeMultiCheck above), so this lands exactly where that path would have put
---                     it: after that row, on a fresh line, which ends the first of the tab's two
---                     slices (CAPTURE_CUT below), under Loot and above Ledger.
 --   AH price        — the pooled price-source table, under the "Price sources" subsection heading
 --                     the `settings.auction.capture` row declares.
 --   History         — the storage readout and "Purge history…".
@@ -588,16 +583,26 @@ end
 -- renderer, and while that does re-run this file, a block appended after the rows would land at the
 -- BOTTOM of every tab rather than inside the one it belongs to.
 local AFTER_GROUP = {
-  ["Capture"] = function(ctx)
-    local row = NS.Schema:FindRow("settings.excludedSources")
-    local scroll = O.EnsureScroll(ctx)
-    if row and scroll then makeMultiCheck(ctx, row, scroll) end
-  end,
   -- settings/PanelAuction.lua loads after this file, so the tab resolves it when it renders.
   ["AH price"]   = function(ctx) return P._buildAuctionTable(ctx) end,
   ["History"] = renderHistory,
 }
 AFTER_GROUP[NS.Schema.MASTER_GROUP] = NS.Schema.MasterAfterGroup
+
+-- The afterSubgroup seam (OptionsFlow minor 2, LibKa0s#59). Capture's muted-source picker closes its
+-- Loot subsection (item 020, LOO-L04), above Ledger. The `settings.excludedSources` row it represents
+-- is walked by the generic path and produces no widget (type = "table"; see makeMultiCheck above),
+-- so this lands exactly where that path would have put it: after that row, on a fresh line.
+local RENDER_OPTS = {
+  noHeadings = true,
+  afterSubgroup = {
+    ["Loot"] = function(ctx)
+      local row = NS.Schema:FindRow("settings.excludedSources")
+      local scroll = O.EnsureScroll(ctx)
+      if row and scroll then makeMultiCheck(ctx, row, scroll) end
+    end,
+  },
+}
 
 -- ── The General page's strip ────────────────────────────────────────────────────
 --
@@ -670,27 +675,12 @@ local function rowsOfGroup(group)
   return out
 end
 
--- Where a tab's rows are cut into two O.RenderRows slices, keyed by group: the path of the LAST row
--- of the first slice. Capture's source picker belongs to its Loot subsection, above Ledger (item
--- 020, LOO-L04), and afterGroup is the only seam that survives a tab click -- but it fires after a
--- RenderRows call's last row. So the first slice ends on `settings.excludedSources`, its afterGroup
--- hook draws the picker there, and the second slice (the Ledger rows) follows it. ctx.lastSubgroup
--- carries across the two calls, so Ledger's heading still opens on its first row.
-local CAPTURE_CUT = { ["Capture"] = "settings.excludedSources" }
-
---- Render one schema tab's rows: one RenderRows call, or two around a CAPTURE_CUT.
+--- Render one schema tab's rows.
 local function renderGroupRows(ctx, group)
-  local head, tail = {}, {}
-  local into, cut = head, CAPTURE_CUT[group]
-  for _, row in ipairs(rowsOfGroup(group)) do
-    into[#into + 1] = row
-    if row.path == cut then into = tail end
-  end
   -- `noHeadings`, exactly as RenderTabbedSchema renders an active tab: under a strip the tab IS the
   -- group's heading. A row's `subgroup` is NOT suppressed by it, which is what gives the Capture,
   -- AH price and Interface tabs their subsection headings.
-  O.RenderRows(ctx, head, AFTER_GROUP, nil, { noHeadings = true })
-  if #tail > 0 then O.RenderRows(ctx, tail, nil, nil, { noHeadings = true }) end
+  O.RenderRows(ctx, rowsOfGroup(group), AFTER_GROUP, nil, RENDER_OPTS)
 end
 
 -- ── Renderers ───────────────────────────────────────────────────────────────────

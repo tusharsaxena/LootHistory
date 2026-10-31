@@ -27,12 +27,12 @@ free number in its theme.
 | HIST-1 to 44 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
-| INS-1 to 23 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
+| INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
-| DEGRADED-1 to 13 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
+| DEGRADED-1 to 14 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
 | LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
@@ -1121,6 +1121,15 @@ whole block, divider included, disappears and LOOT still renders. Result: pass (
 under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
 (bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
 before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result: pass (owner-marked 2026-10-10)
+
+**INS-24. The Insights charts on LibKa0s-Charts-1.0 (LibKa0s#66).** Open Insights with real history
+→ no Lua error; every section is where INS-22 had it. The three day strips and the hour strip now
+draw level labels in a short band under the axis, thinned so none collide, and the sections under
+each strip sit higher; with only a few days in range the columns are wide and sit side by side at
+the left. A label over 16 characters ends in `...` and its hover shows it whole with the value.
+Hover a bar (gold line), a stacked segment and a list row (white line), a legend chip (body gray) and
+a strip column (above the column). Switch skin with the tab open → every chart repaints with no
+reload. Result:
 
 **INS-23. Insights follows the skin (LH-04; SK-LH-INSIGHTS, SK-01, SK-03).** On **Ka0s Default**,
 `/lh show` → **Insights** with a range that has items, currency and a loss (or `/lh test`) → it
@@ -2384,7 +2393,7 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
-to DEGRADED-13; rename it back and `/reload` when done.
+to DEGRADED-14; rename it back and `/reload` when done.
 
 **DEGRADED-1. No Lua error.** Load and play → not one Lua error. Result: pass (owner-marked 2026-10-10)
 
@@ -2442,6 +2451,9 @@ resize. No Lua error. Result: pass (owner-marked 2026-10-10)
 the window's header, nothing shifted down, and the bright-red **TEST MODE** word beside the window
 title. `/lh test` again → the word goes. (No simulation can run without the library, so the cyan
 `SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result: pass (owner, 2026-10-23)
+
+**DEGRADED-14. Insights without the library.** `/lh show`, Insights tab → one line saying the library
+is missing and the Insights charts are unavailable, no cards and no Lua error. Result:
 
 ## Non-English client
 
@@ -2519,3 +2531,6 @@ SKIN-21 to SKIN-23 and SKIN-40 to SKIN-42, each recorded on its `Result:` line a
 
 Added by the findings remediation (2026-10-31), awaiting the owner: PANEL-26 and TM-2, the two file
 splits a player can reach. The other splits move test cases only.
+
+Added by the LibKa0s v1.84.0 adoption (2026-11-01), awaiting the owner: INS-24 and DEGRADED-14. INS-22
+keeps its result: it recorded the rotated strip labels, and INS-24 records the level ones.

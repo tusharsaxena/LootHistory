@@ -10,7 +10,7 @@
 -- colors they had, a skin switch repaints them live with no reload (the pooled widgets on
 -- the free list too, the palette and the meaning colors synced, the markup rebuilt, the parked AH
 -- host repainted), and Ka0s Default puts them back. tests/analytics_golden.txt and
--- tests/panel_auction_golden.txt pin the Ka0s Default render itself and stay unchanged.
+-- tests/panel_auction_golden.txt pin the Ka0s Default render itself.
 --
 -- THE PAINT RECORDER. As tests/test_skin_table.lua: the shared mock's CreateTexture answers the
 -- frame itself, so each surface is built FRESH under the kit's opt-in recorder
@@ -99,8 +99,6 @@ local function withFresh(mod, keys, build, fn)
       rawset(f, "CreateFontString", function(self, name, layer, template)
         local s = createFS(self, name, layer, template)
         if template then s:SetFont("Fonts\\FRIZQT__.TTF", 12, "") end
-        -- The strip's axis labels are turned upright; the recorder models no rotation.
-        rawset(s, "SetRotation", function(fs, r) rawset(fs, "__rotation", r) end)
         return s
       end)
     end
@@ -146,7 +144,7 @@ local function today(name) return rgba(TODAY[name]) end
 local A = NS.Analytics
 local A_KEYS = { "pane", "scroll", "content", "cards", "headers", "lootDivider", "currencyDivider",
                  "dayStrip", "valueStrip", "hourStrip", "zonePanel", "itemPanel", "itemValuePanel",
-                 "currencyStrip", "emptyText", "pool", "ledgerUI", "stats" }
+                 "currencyStrip", "emptyText", "pool", "ledgerUI", "stats", "charts" }
 
 -- A small history with items, a loss (the GAINS & LOSSES half) and two days, laid out at 780 wide.
 local FX = dofile("tests/fixture_insights.lua")

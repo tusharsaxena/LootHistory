@@ -91,7 +91,7 @@ core\WidgetsSetup.lua
 # core\Constants.lua must be above.
 core\DebugLogSetup.lua
 # The LibKa0s-Pool seam. CONVENTIONAL: nothing resolves at load; every NS.Pool.New call is inside
-# a function (modules/Analytics.lua:227).
+# a function (modules/AnalyticsLedger.lua:157).
 core\PoolSetup.lua
 core\LootHistory.lua
 core\Database.lua
@@ -149,8 +149,8 @@ modules\AnalyticsFormat.lua
 # LOAD-BEARING POSITION: binds Analytics.K, Analytics._fmt and the Analytics._* helpers as file-scope
 # locals at load; modules\AnalyticsFormat.lua, which publishes them, must be above.
 modules\Analytics.lua
-# LOAD-BEARING POSITION: publishes NS.Analytics idempotently but binds Analytics.K at file load and
-# writes Analytics._charts into it; modules\AnalyticsFormat.lua, which sets K, must be above.
+# The LibKa0s-Charts seam. Publishes NS.Analytics idempotently; modules\Analytics.lua reaches what it
+# publishes at call time, so nothing here is load-bearing against the file above.
 modules\AnalyticsCharts.lua
 modules\AnalyticsLedger.lua
 # LOAD-BEARING POSITION: calls NS.Browser:RegisterTab at file load; modules\Browser.lua must be above.

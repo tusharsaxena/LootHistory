@@ -162,7 +162,7 @@ When any row in range is a loss or a transfer (`AnalyticsLedger.HasLedger`), Ins
 
 ### Breakdown sections
 
-`LayoutCharts` (`Analytics.lua:642`) binds and positions each section top-down off `self.stats` through one file-local helper per section (`layoutCharacters` … `layoutRankedLists`, then `layoutCurrency`), returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `AnalyticsCharts.lua:214`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
+`LayoutCharts` (`Analytics.lua:632`) binds and positions each section top-down off `self.stats` through one file-local helper per section (`layoutCharacters` … `layoutRankedLists`, then `layoutCurrency`), returning the running y-cursor (empty sections are skipped entirely). The sections sit under two full-width dividers (`sectionDivider`, `AnalyticsCharts.lua:214`) — a centered gold title flanked by rule lines — that split the pane into **LOOT** and **CURRENCY**:
 
 **LOOT** — every item-centric chart, plus the Top zones/items panels (moved under this divider so the whole item side of Insights is one block). The source/character/value charts here are **items-only** — currency is excluded so per-character totals tally with the item-attribute charts (currency lives entirely in the CURRENCY section). The headline **records** KPI still counts everything.
 
@@ -202,20 +202,20 @@ Every categorical bar chart (single-bar and companion) draws a **color-swatch le
 
 > `currencyBySource` (source → total qty across all currencies) is still computed and feeds the **Export** "Currency by Source" section, but no longer has an in-dashboard chart.
 
-These pooled renderers back the sections:
+These pooled renderers back the sections. All but one are `LibKa0s-Charts-1.0`'s (LibKa0s#66), reached through `self.charts`, the context `Analytics._newCharts` builds in `modules/AnalyticsCharts.lua`:
 
-- **`renderBarSection`** (`AnalyticsCharts.lua:263`) — a header + one horizontal bar per row (fixed label + track/fill + value). It normalizes so the largest bar fills the track and the rest scale relative to it.
-- **`renderStackedBarSection`** (`AnalyticsCharts.lua:299`) — like `renderBarSection`, but each row is one stacked bar whose segments are pre-computed fractions of a shared max. Backs **Currency by Type × Source**, **Currency by Character × Type**, and all five **… by Character** loot companions. Honors an optional `row.labelColor` (class-colors the character-row labels). Each segment is a mouse-enabled frame carrying a `tip` (`"<category>: <value>"`) shown on hover.
-- **`renderLegend`** (`AnalyticsCharts.lua:321`) — a wrapped row of color-swatch + label chips, drawn below **every** categorical bar chart (single-bar and stacked). Chips start at the bars' left edge (`pad + LABELW + 6`), not the text-label column. Long chip labels are truncated to `LEGEND_MAXCHARS` with an ellipsis; hovering a chip shows the full label. `renderBarSection` takes an optional `legendPool` to draw one from its own rows.
-- **`renderCharCompanion`** (`AnalyticsCharts.lua:343`) — wraps `_buildCharStackRows` + `renderStackedBarSection` + `renderLegend` for the five loot companions (color + label + value formatter per chart).
+- **`renderBarSection`** — a header + one horizontal bar per row (fixed label + track/fill + value). The largest bar fills the track and the rest scale relative to it.
+- **`renderStackedBarSection`** — like `renderBarSection`, but each row is one stacked bar whose segments are pre-computed fractions of a shared max. Backs **Currency by Type × Source**, **Currency by Character × Type**, and all five loot companions, each segment carrying its own hover.
+- **`renderLegend`** — a wrapped row of color-swatch + label chips, drawn below **every** categorical bar chart (single-bar and stacked). Chips start at the bars' left edge, not the text-label column.
+- **`renderCharCompanion`** (`AnalyticsCharts.lua`, this addon's own) — wraps `_buildCharStackRows` + `renderStackedBarSection` + `renderLegend` for the five loot companions (color + label + value formatter per chart).
+- **`renderStrip`** — a per-bucket vertical strip with an axis line and level x-axis labels in a short band under it, thinned so two labels never collide. A column is at most 36 wide in a 48 slot, so a few buckets sit side by side at the left rather than across the pane. Each column's hover shows the bucket's info line.
+- **`renderListPanel`** — a ranked list panel capped at 10 rows; item rows are quality-colored with a gold star before epic+ items (`starMarkup`, `AnalyticsFormat.lua`, resolved against a fallback atlas list).
 
-Labels on bar/stacked-bar rows are capped to `LABEL_MAXCHARS` glyphs with an ellipsis (`Analytics._truncate`) and carry a hover tooltip with the full name; the label column was widened (`LABELW`) to reduce truncation. **Every Insights hover tooltip states the value as well as the name** — `"<full label>:  <value>"`, built by `Analytics._tipText` — because the on-chart value text is clipped to a fixed column and the label itself is ellipsised, so the tooltip is the only place the exact figure is readable. It applies to bar rows, stacked-bar rows (the row's total), ranked-list rows (count or money), the legend chips of a bar section, and the already-valued strip bars and stacked segments; the one exception is a legend chip built from a category order (the "… by Character" companions), which has no single value — `_tipText` then falls back to the label alone. All of them are pinned just above-and-right of the cursor (`showCursorTooltip`), not the row's far-right edge. Categories with **no predefined palette** (item types, currencies, weekdays — everything except class / bound / quality / source) are colored from a shared standard palette (`Analytics.paletteColor`, built into a per-chart `{key → color}` map by `paletteMap`): the sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) plus a lighter and a darker band (21 colors), assigned by a category's **rank in its chart's sort order** so consecutive bars/segments are always drawn from adjacent, dissimilar hues. Money strings in Insights use ~25%-smaller coin glyphs (`FormatMoney(copper, COIN_H)`).
-- **`renderStrip`** (`AnalyticsCharts.lua:356`) — a per-bucket vertical strip with an axis line and rotated x-axis labels (thinned out when bars get narrow); each bar's hover shows the bucket's info line. The per-day strips share a `firstTs..lastTs` day-key list (gaps included) from `dayKeyList`, capped to the most recent `MAX_DAY_BARS = 60`.
-- **`renderListPanel`** (`AnalyticsCharts.lua:405`) — a ranked list panel capped at 10 rows; item rows are quality-colored with a gold star before epic+ items (`starMarkup`, `AnalyticsFormat.lua`, resolved against a fallback atlas list). The two item lists share the same entry tables from `stats.byItem` — two orderings, count-desc and value-desc.
+Labels on bar and stacked-bar rows are capped by `Charts.truncate` at 16 glyphs, the `...` among them, and the hover carries the full name with the value (`Charts.tipText`). The hover lines stay `core/Compat.lua`'s, in the `gtip.*` token each widget always used (the host table's `tip`). The cards stay this addon's: they wear the skin's Card, where the library's stat card takes the Panel. The back-to-back ledger bars stay `modules/AnalyticsLedger.lua`'s too.
 
-Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:231`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:157`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows (both dividers hide with it).
+Every renderer draws from a per-section pool in `self.pool` (`Analytics.lua:251`); `LayoutCharts` releases all pools up front, then re-acquires only the widgets it needs, so no chart holds a widget per data point. `Analytics:Layout` (`Analytics.lua:157`) sets the scroll child height from the final y-cursor. If the range has no records, `HideAllCharts` runs and an empty-state label shows (both dividers hide with it).
 
-Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:280`) and live-refreshes only while the Insights tab is visible.
+Analytics subscribes to `RecordAdded` / `HistoryChanged` on its own `NS.NewBusTarget()` (`Analytics.lua:278`) and live-refreshes only while the Insights tab is visible.
 
 ### Insights wears the skin (LH-04)
 
@@ -225,7 +225,7 @@ Every color Insights draws is a token read at call time through `NS.Skin` (`core
 
 Every bar, stacked bar, swatch, strip segment and list row comes out of one of the 35 pools in
 `self.pool`, and `LayoutCharts` releases every one of them at the top of each layout pass
-(`NS.Pool.ReleaseAll`, `Analytics.lua:645`). That only costs nothing if released widgets come back.
+(`NS.Pool.ReleaseAll`, `Analytics.lua:634`). That only costs nothing if released widgets come back.
 Until 2026-08-24 `releaseAll` hid each active object and dropped it, so `pool.free` was empty on
 every acquire and the factory ran each time: a fresh frame per chart element on every re-render,
 and frames are never destroyed in WoW, so a session's filter changes and tab switches piled up

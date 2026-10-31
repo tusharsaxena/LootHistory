@@ -163,11 +163,15 @@ end)
 test("Panel: Capture draws Loot, then the source picker, then Ledger", function()
   -- Item 020 (LOO-L04): the picker belongs to the Loot subsection (Record currency obeys it), so it
   -- sits between the two headings rather than at the bottom of the tab. The page renders Capture
-  -- as two O.RenderRows slices with the picker's afterGroup hook closing the first.
-  -- red under: one RenderRows over the whole group (the picker lands after Record gold), or a
-  -- subgroup missing from a row (its heading moves or vanishes).
+  -- in one O.RenderRows call, with Loot's afterSubgroup hook drawing the picker (LibKa0s#59).
+  -- red under: the hook keyed on the wrong subgroup (the picker lands after Record gold or not at
+  -- all), a second RenderRows call, or a subgroup missing from a row (its heading moves or vanishes).
   local ctx = NS.Panel.general
+  local O, renderRows, calls = NS.Options, NS.Options.RenderRows, 0
+  O.RenderRows = function(...) calls = calls + 1; return renderRows(...) end
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
+  O.RenderRows = renderRows
+  assertEqual(calls, 1, "Capture is one RenderRows call, not two slices")
   local function at(pred, what)
     for i, w in ipairs(created) do if pred(w) then return i end end
     assertTrue(false, what .. " was not drawn")

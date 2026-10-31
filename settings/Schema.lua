@@ -286,8 +286,8 @@ local ROWS = {
   -- two item-level gates) on the first line, Record currency opens the second, and the wide source
   -- picker lands under it -- Record currency obeys that picker, so they sit together. Under Ledger,
   -- Track holdings and losses pairs with Record gold, the parent left of its dependant. The picker is
-  -- host-drawn from `afterGroup`, which fires after a slice's last row, so settings/Panel.lua renders
-  -- this tab as two O.RenderRows slices cut after `settings.excludedSources` (CAPTURE_CUT there).
+  -- host-drawn, so settings/Panel.lua renders this tab in one O.RenderRows call, with Loot's
+  -- afterSubgroup hook drawing the picker (RENDER_OPTS there).
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
     page = "General", group = "Capture", subgroup = "Loot", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
@@ -314,8 +314,8 @@ local ROWS = {
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
   -- (invert=true) as "Record data from" so a checked box means "record this source". It is the
-  -- LAST row of the Loot slice on purpose: it is full-width and host-drawn from `afterGroup`, which
-  -- fires after the slice's last row is flushed (settings/Panel.lua, CAPTURE_CUT).
+  -- LAST row of Loot on purpose: it is full-width and host-drawn from the afterSubgroup hook, which
+  -- fires after the subgroup's last row is flushed (settings/Panel.lua, RENDER_OPTS).
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
     page = "General", group = "Capture", subgroup = "Loot", label = "Record data from", values = C.SOURCE_OPTIONS,

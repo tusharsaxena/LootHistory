@@ -8,4 +8,4 @@ LibKa0s v1.83.0 -> v1.84.0, base taken from the provenance line (`01_DELTA.md`).
 - **Consumer pins:** the typed load list and minors in `tests/test_libka0s.lua`, and `O.PositionBlock` on the Options stub. Nine files join the load list.
 - **Adopted:** `opts.afterSubgroup` and `LibKa0s-Charts-1.0`, in the `XX-ADOPT` commit.
 - **Declined:** `opts.beforeGroup`, the `note` row, `O.PositionBlock` and `PageBanner{ acts }`. Recorded here and not filed, by the run's brief.
-- **Gate at the copy:** `lua tests/run.lua` 1861 passed, 0 failed, 1 skipped; `ka0s-bounded luacheck .` 0/0 in 159 files. The `XX-ADOPT` commit's gate is on that commit.
+- **Gate at the copy:** `lua tests/run.lua` 1861 passed, 0 failed, 1 skipped; `ka0s-bounded luacheck .` 0/0 in 159 files. At the `XX-ADOPT` commit: 1841 passed, 0 failed, 1 skipped; 0/0 in 159 files. The count falls by 20: 22 cases moved to the library with their code, and 2 joined.

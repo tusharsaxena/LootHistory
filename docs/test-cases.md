@@ -1176,33 +1176,14 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (71)
+### test_analytics.lua (49)
 
-- Analytics._fitFontSize: fits within width returns base size
-- Analytics._fitFontSize: overflow scales down proportionally
-- Analytics._fitFontSize: clamps to the minimum floor
-- Analytics._fitFontSize: zero/negative width returns base
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
 - Analytics.paletteColor: cycles past the palette length
-- Analytics._tipText: joins the full label and its value
-- Analytics._tipText: label alone when there is no value
-- Analytics._tipText: value alone when there is no label
 - Analytics pool: a released object is reused rather than rebuilt
 - Analytics pool: releaseAll returns every active object to the free list
 - Analytics pool: acquire shows what it hands back
-- Analytics._truncate: short text passes through
-- Analytics._truncate: long text is cut with an ellipsis
-- Analytics._truncate: exactly maxChars passes through
-- Analytics._charStackSegments: keeps all when within cap
-- Analytics._charStackSegments: collapses overflow into __OTHER__
-- Analytics._charStackSegments: kept segments follow the global category order
-- Analytics._charStackSegments: __OTHER__ always draws last
-- Analytics._charStackSegments: a category outside the order sinks to the end
-- Analytics._charStackSegments: the total counts every magnitude, kept or lumped
-- Analytics._charStackSegments: zero and negative magnitudes are dropped
-- Analytics._charStackSegments: an empty character yields no segments
-- Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance
 - Analytics._buildCharStackRows: rows run by total descending
 - Analytics._buildCharStackRows: labels are shortened and class-colored
 - Analytics._buildCharStackRows: the busiest character's bar is full width
@@ -1236,9 +1217,6 @@ Total.
 - Analytics._sortedByCount: equal counts break the tie by key ascending
 - Analytics._sortedByCount: an empty map yields no rows
 - Analytics._sortedByCount: numeric keys sort without a type error
-- Analytics._truncate: reports whether it cut
-- Analytics._truncate: a nil label becomes an empty string
-- Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 - Analytics: the TOC loads Format, then Analytics, then Charts
 - AnalyticsCharts: publishes NS.Analytics idempotently, like every other Analytics* file
@@ -1250,7 +1228,7 @@ Total.
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
 
-### test_analytics_layout.lua (9)
+### test_analytics_layout.lua (11)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1261,6 +1239,8 @@ Total.
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
+- Insights layout: each widget's hover goes through Compat in its own token
+- Insights layout: without LibKa0s-Charts-1.0 the tab says so and draws nothing
 
 ### test_holdingstab.lua (33)
 
@@ -2180,8 +2160,8 @@ Total.
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 71 |
-| test_analytics_layout.lua | 9 |
+| test_analytics.lua | 49 |
+| test_analytics_layout.lua | 11 |
 | test_holdingstab.lua | 33 |
 | test_timeline.lua | 34 |
 | test_timelinetab.lua | 35 |
@@ -2231,4 +2211,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1861** |
+| **Total** | **1841** |

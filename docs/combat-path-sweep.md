@@ -110,7 +110,7 @@ window is open" described exactly the case that mattered and read as though it d
 The 2026-08-03 review recorded F-004 as fixed — "the record-added repaint is coalesced" — and it
 was not true of the tree. It is now: `NS.Coalesce` (`core/Util.lua`) collapses a burst into one run
 per `RECORD_ADDED_COALESCE` window, wired at `modules/Browser.lua:1351`,
-`modules/Analytics.lua:285` and — for the History tab's storage readout, which walks the whole
+`modules/Analytics.lua:283` and — for the History tab's storage readout, which walks the whole
 history to estimate bytes — `settings/Panel.lua:184`. `HistoryChanged` stays immediate, because a
 delete or a prune is one deliberate action. Issue #27.
 

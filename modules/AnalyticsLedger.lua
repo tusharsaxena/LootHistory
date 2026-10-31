@@ -142,17 +142,17 @@ local function placeBar(bar, content, pad, y, w, row)
   bar.right:SetShown(rw > 0)
 end
 
--- Build the ledger chrome once, from Analytics:BuildCharts (modules/AnalyticsCharts.lua, which
--- publishes the section factories, loads before this file).
+-- Build the ledger chrome once, from Analytics:BuildCharts. Its divider and headings are the
+-- context's, so a skin switch repaints them; the back-to-back bars are this file's.
 function AL.Build(inst, content)
-  local charts = Analytics._charts
+  local ctx = inst.charts
   inst.ledgerUI = {
-    divider = charts.sectionDivider(content, "GAINS & LOSSES"),
+    divider = Analytics._chartDivider(ctx, content, "GAINS & LOSSES"),
     caveat = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"),
     headers = {
-      reason = charts.sectionHeader(content, "Gains Vs Losses By Reason"),
-      char   = charts.sectionHeader(content, "Gains Vs Losses By Character"),
-      kind   = charts.sectionHeader(content, "Gains Vs Losses By Kind"),
+      reason = ctx:sectionHeader(content, "Gains Vs Losses By Reason"),
+      char   = ctx:sectionHeader(content, "Gains Vs Losses By Character"),
+      kind   = ctx:sectionHeader(content, "Gains Vs Losses By Kind"),
     },
     pools = { reason = NS.Pool.New(), char = NS.Pool.New(), kind = NS.Pool.New() },
   }
@@ -162,16 +162,16 @@ function AL.Build(inst, content)
   AL.Hide(inst)
 end
 
--- A skin switch (Analytics:Reskin, which hands in its two walkers): the divider, the caveat, the
--- three headings, and every pooled bar's track and axis (active and free). The next layout
--- recolors the rest.
-function AL.Reskin(inst, reskinPool, reskinDivider)
+-- A skin switch (Analytics:Reskin): the caveat and every pooled bar's track and axis, active and
+-- free. The next layout recolors the rest.
+function AL.Reskin(inst)
   local ui = inst.ledgerUI
   if not ui then return end
-  reskinDivider(ui.divider)
   ui.caveat:SetTextColor(NS.SkinColor("text.accent"))
-  for _, h in pairs(ui.headers) do h:SetTextColor(NS.SkinColor("text.heading")) end
-  for _, p in pairs(ui.pools) do reskinPool(p) end
+  for _, p in pairs(ui.pools) do
+    for _, w in ipairs(p.active) do paintBar(w) end
+    for _, w in ipairs(p.free) do paintBar(w) end
+  end
 end
 
 function AL.Hide(inst)
