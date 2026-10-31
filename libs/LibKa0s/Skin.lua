@@ -862,7 +862,8 @@ end
 --- that does not resolve is left out, so the skin's own face or texture stands rather than the
 --- client's stock font or the flat bar (a media pack removed, or one that registers later). A font
 --- override brings its face's sizes where SkinDefs has them, else Ka0s Default's, and with no font
---- override a skin whose own face this locale refuses takes Ka0s Default's too (minor 10).
+--- override a skin whose own face this locale refuses takes Ka0s Default's too (minor 10). A nil
+--- owner has no cache slot, so it gets the copy uncached.
 local function withOverrides(owner, base)
   local font, texture = ownerMedia(owner)
   local refused = not font and (faceRefused(base["font.body"]) or faceRefused(base["hud.font"]))
@@ -870,6 +871,7 @@ local function withOverrides(owner, base)
   local c = lib.__overTok[owner]
   if c and c.base == base and c.font == font and c.texture == texture then return c.t end
   local t = layOverrides(base, font, texture, refused)
+  if owner == nil then return t end
   lib.__overTok[owner] = { base = base, font = font, texture = texture, t = t }
   return t
 end

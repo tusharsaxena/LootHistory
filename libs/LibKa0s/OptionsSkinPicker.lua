@@ -77,6 +77,16 @@
 -- close control's CloseButton, Dropdown, Button, MenuFrame, ListRow), so a skin switch repaints it
 -- live through Skin:Repaint; the dropdown's label follows the owner's OnLooksChanged. The rows'
 -- names keep their own skins' faces: no font primitive reaches them.
+--
+-- A ROW'S NAME NEVER STAYS BLANK (LK-A2). Text set in a face the client has not loaded draws blank
+-- until it is set again (OptionsScroll.lua's font preload), and a face it refuses draws nothing. So
+-- every skin's body face, and only those, goes through lib.__PreloadFonts on every show, since this
+-- window can come up for a player who never opens settings and must not load every LSM face; a
+-- refused SetFont puts the row back in its template's face; and every open, and a skin switch
+-- under an open list, dresses each row at once and again next frame, font and text through "", the
+-- trick OptionsMedia.lua's font pickers use. The next frame's pass also takes a name that measures
+-- nothing to the template's face, for a face the client accepted and cannot draw. Every open starts
+-- from the skin's face again, so one that has loaded since is worn.
 
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
@@ -114,6 +124,8 @@ if not lib then return end
 -- addon).
 -- Minor 4 (LK-F04 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, the owner's
 -- item 4): APPLY_ALL_TIP says "that skin's default font and texture", the Skin tab's wording.
+-- Still minor 4 (LK-A2 of the same run, the owner's blank Azeroth row): see A ROW'S NAME NEVER STAYS
+-- BLANK above.
 local PICKER_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
@@ -162,6 +174,8 @@ local SWATCH = 10
 local ARROW = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 -- Where the window's center sits, as a share of UIParent's height from its bottom edge.
 local HEIGHT_SHARE = 0.75
+-- The rows' template, which draws a name whenever its skin's face does not.
+local ROW_FONT = "GameFontHighlight"
 
 local function skinMajor()
   return LibStub and LibStub("LibKa0s-Skin-1.0", true) or nil
@@ -322,6 +336,25 @@ local function skinFace(Skin, key)
   return path, T["font.bodySize"] or 12
 end
 
+--- Have every skin's body face loaded, through OptionsScroll.lua's preload (looked up at call time;
+--- a copy without that file has none). It is handed those faces alone, as an LSM's font table, so
+--- it loads no other; the paths it has tried are the library's, so each loads once.
+local function loadFaces(Skin)
+  local preload = lib.__PreloadFonts
+  if type(preload) ~= "function" then return end
+  local faces = {}
+  for _, def in ipairs(Skin:Skins()) do faces[def.key] = skinFace(Skin, def.key) end
+  pcall(preload, { HashTable = function() return faces end })
+end
+
+--- SetFont under pcall, answering whether `fs` took the face. A client may raise on a file it cannot
+--- open, or answer false or nil; a nil counts only when the face reads back.
+local function setFace(fs, path, size)
+  local ok, set = pcall(fs.SetFont, fs, path, size, "")
+  if not ok or set == false then return false end
+  return set and true or fs:GetFont() == path
+end
+
 --- Show `text` in the game tooltip while the pointer is over `btn`. Set before the skin's paint,
 --- which hooks after the host's scripts.
 local function attachTip(btn, text)
@@ -387,8 +420,9 @@ function lib.__AttachSkinPicker(O, d)
     return source, skin
   end
 
-  local function label(def)
-    return P.S["SKIN_" .. def.key] or def.label
+  local function label(def, p)
+    p = p or P
+    return p.S["SKIN_" .. def.key] or def.label
   end
 
   --- The dropdown button, the rows' states and their names' color: from the pending pick, else the
@@ -429,10 +463,47 @@ function lib.__AttachSkinPicker(O, d)
     p.frame:SetWidth(math.max(WIDTH, math.ceil(tonumber(w) or 0) + 2 * PAD))
   end
 
+  --- `row`'s name set again, through "" since a client may skip setting the same string.
+  local function setName(p, row)
+    local def = p.Skin:GetSkin(row.key)
+    row.text:SetText("")
+    row.text:SetText(def and label(def, p) or row.key)
+  end
+
+  --- `row`'s name in its skin's face, else the template's, and its text set again.
+  local function dressRow(p, row)
+    local path, size = skinFace(p.Skin, row.key)
+    if not (path and setFace(row.text, path, size)) then row.text:SetFontObject(ROW_FONT) end
+    setName(p, row)
+  end
+
+  --- Next frame's pass over an open list: a face that finished loading paints, and a name that
+  --- still measures nothing goes to the template's face until the next open tries again.
+  local function redressOpen(p)
+    if not p.open then return end
+    for _, row in ipairs(p.rows) do
+      dressRow(p, row)
+      if row.text:GetStringWidth() == 0 then
+        row.text:SetFontObject(ROW_FONT)
+        setName(p, row)
+      end
+    end
+  end
+
+  --- Every row of `p` dressed now and again next frame: rows are built once, so this is what a face
+  --- that arrived since they were built draws through.
+  local function dressRows(p)
+    for _, row in ipairs(p.rows) do dressRow(p, row) end
+    if C_Timer and C_Timer.After then
+      C_Timer.After(0, function() redressOpen(p) end)
+    end
+  end
+
   local function setOpen(open, p)
     p = p or P
     p.open = open and true or false
     layout(p)
+    if p.open then dressRows(p) end
   end
 
   local function reloadPopup(labels)
@@ -655,10 +726,8 @@ function lib.__AttachSkinPicker(O, d)
     paintSwatches(row.swatches, def)
     local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     fs:SetPoint("LEFT", row, "LEFT", 6 + 3 * (SWATCH + 2) + 6, 0)
-    local path, size = skinFace(P.Skin, def.key)
-    if path then fs:SetFont(path, size, "") end
-    fs:SetText(label(def))
     row.text = fs
+    dressRow(P, row)
     row:SetScript("OnClick", function() pick(def.key) end)
     row:SetScript("OnEnter", function(self) P.Sk.ListRow(self, "hover") end)
     row:SetScript("OnLeave", function(self) P.Sk.ListRow(self, self.state or "normal") end)
@@ -777,7 +846,11 @@ function lib.__AttachSkinPicker(O, d)
     buildButtons(f)
     buildList(f)
     P.Sk.OnLooksChanged(function()
-      if P == mine then refresh(); fit(mine) end
+      if P == mine then
+        refresh()
+        fit(mine)
+        if mine.open then dressRows(mine) end
+      end
     end)
     if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, name) end
     return f
@@ -805,6 +878,7 @@ function lib.__AttachSkinPicker(O, d)
     P = pickers[owner] or { owner = owner, rows = {}, open = false }
     pickers[owner] = P
     P.spec, P.Skin, P.Sk, P.S = spec, Skin, Skin:For(owner), mergeStrings(spec.strings)
+    loadFaces(Skin)
     local f = P.frame or build()
     syncRows()
     applySpec(f)
