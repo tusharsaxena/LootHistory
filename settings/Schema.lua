@@ -342,7 +342,7 @@ local ROWS = {
   -- ── General ▸ AH price ──
   -- Was its own canvas sub-page until R6 deprecated it into General (options-ui-§13: a Ka0s page
   -- is a strip, and three sub-pages of two tabs each is three strips a player has to find). It is
-  -- a TAB now, and the tab body is still the pooled price table settings/Panel.lua draws.
+  -- a TAB now, and the tab body is still the pooled price table settings/PanelAuction.lua draws.
   --
   -- The tab mixes a plain toggle with an eleven-row reorder table. The toggle is the tab's LEADING
   -- MASTER SWITCH and sits unheaded above the one subsection (options-ui-§7, U-05(b); item 020,
@@ -353,7 +353,7 @@ local ROWS = {
     page = "General", group = "AH price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   -- skipRender: the tab renders this as the unified price table's per-row Enabled checkboxes
-  -- (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
+  -- (settings/PanelAuction.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
   -- just "record". The row stays schema-backed so its default resolves and the slash CLI can still
   -- read/write it. widget/options are retained so the CLI can present it as a checklist.
   --
@@ -1173,7 +1173,7 @@ NS.COMMANDS = gateFeatureVerbs{
   -- unconditionally, the chat command is never unregistered, and the flag's only reader is
   -- NS.AddonIsOff (core/LifecycleSetup.lua): it feeds the stand-down latch, the launcher's disabled
   -- gate and the feature-verb refusal, never dispatch itself. So `/lh`, `/lh enable`, `/lh help`,
-  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
+  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash_verbs.lua pins it.
   { "enable",   "Enable the addon",      function() NS.Slash:CliSet("settings.enabled true") end },
   { "disable",  "Disable the addon",     function() NS.Slash:CliSet("settings.enabled false") end },
   { "version",  "Print addon version",   function() NS.Slash:CliVersion() end },

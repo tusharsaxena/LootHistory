@@ -1,6 +1,6 @@
 -- tests/test_panel_auction.lua — the AH price table's repaint, every row (characterization).
 --
--- Pinned before settings/Panel.lua's refreshAuctionTable, CCN 36 once lizard could see it, was
+-- Pinned before settings/PanelAuction.lua's refreshAuctionTable, CCN 36 once lizard could see it, was
 -- split into a partition, a per-row paint and the reorder registration (GI-LH-02). tests/test_panel.lua
 -- pins the table's structure (one slot per source, the pooled host, the reorder controller, a drag);
 -- this suite pins what each row SAYS and how it is colored, across three provider states, against

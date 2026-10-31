@@ -4,7 +4,7 @@
 -- NS.MakeTestStrip, core/WidgetsSetup.lua) and every pane moves down by NS.TestStripReserve(). The
 -- red TEST MODE badge beside the title marks test mode only on a degraded install, where there is no
 -- strip (the preview-mode header-word rule, v2.87.0). Both strings route through NS.L. Its own suite
--- rather than more cases in tests/test_browser.lua, which sits just under layout-§1's cap.
+-- rather than more cases in tests/test_browser.lua, which then sat just under layout-§1's cap.
 local T = _G.LH_TEST
 local NS = T.NS
 local test, assertEqual, assertTrue, assertFalse =

@@ -553,7 +553,7 @@ end)
 --
 -- The filter bar's Search box is the library's W.SearchBox, leased through NS.MakeSearchBox, so it
 -- wears the collection's gold focus line. These cases build a SCRATCH bar and put the window's
--- singleton bar state back afterwards, as tests/test_browser.lua's withMeasuredBar does, and restore
+-- singleton bar state back afterwards, as tests/test_browser_filterbar.lua's withMeasuredBar does, and restore
 -- the filter text the typing changed.
 
 local BAR_KEYS = { "_dd", "_search", "_onSearchText", "_autocomplete", "_exportBtn", "_ddWidths", "_bar",

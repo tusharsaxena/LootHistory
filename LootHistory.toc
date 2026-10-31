@@ -141,6 +141,9 @@ modules\BrowserTable.lua
 # LOAD-BEARING POSITION: binds modules\BrowserTable.lua's BrowserTable._columnByKey and
 # BrowserTable._groupColumn as file-scope locals at load; modules\BrowserTable.lua must be above.
 modules\BrowserTableGroup.lua
+# LOAD-BEARING POSITION: reads NS.BrowserTable at file load, and modules\TestData.lua below reads its
+# BrowserTable.TestSample; modules\BrowserTable.lua must be above and modules\TestData.lua below.
+modules\BrowserTableTestData.lua
 modules\Export.lua
 modules\AnalyticsFormat.lua
 # LOAD-BEARING POSITION: binds Analytics.K, Analytics._fmt and the Analytics._* helpers as file-scope
@@ -194,6 +197,9 @@ settings\Slash.lua
 # LOAD-BEARING POSITION: reads NS.Schema.MASTER_GROUP and NS.Schema.MasterAfterGroup at file load;
 # settings\Schema.lua must be above.
 settings\Panel.lua
+# LOAD-BEARING POSITION: binds settings\Panel.lua's P._acquire and P._runRebuilders as file-scope locals
+# at load; settings\Panel.lua must be above.
+settings\PanelAuction.lua
 # CONVENTIONAL: the Profiles page's builder is registered from P:Register (settings\Panel.lua) at
 # addon:OnInitialize, after General's, so nothing here resolves at load.
 settings\Profiles.lua

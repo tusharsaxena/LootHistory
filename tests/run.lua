@@ -77,7 +77,7 @@ local SUITES = {
   "test_ledgerformat",
   "test_compat", "test_compat_routing", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
-  "test_browser", "test_teststrip", "test_browsertable", "test_export", "test_debuglog",
+  "test_browser", "test_browser_filterbar", "test_teststrip", "test_browsertable", "test_export", "test_debuglog",
   -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
   -- Builds its own layer-recording instance, so its slot is free.
   "test_layers",
@@ -87,8 +87,8 @@ local SUITES = {
   -- The Show window key binding (launcher-§6): the root Bindings.xml and the button it clicks.
   -- After test_launcher, beside the rest of the launcher's surface; it builds no window.
   "test_keybinding",
-  "test_slash", "test_slash_degraded", "test_resetprompt",
-  "test_schema", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
+  "test_slash", "test_slash_verbs", "test_slash_degraded", "test_resetprompt",
+  "test_schema", "test_schema_seam", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
   -- The General page's Keybindings tab (options-ui-§20). After the panel suites, which build the page.
   "test_panel_keybinds",
   -- The skin seam (core/SkinSetup.lua, skinning-§3): the owner, the appearance rows, the Appearance

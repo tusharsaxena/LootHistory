@@ -679,7 +679,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (96)
+### test_browser.lua (74)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -755,6 +755,9 @@ Total.
 - Browser: the default view floors items at the minimum-quality setting
 - Browser: the Quality 'all' option names the floor
 - Browser: group options offer Direction and Holder
+
+### test_browser_filterbar.lua (22)
+
 - Browser: date options offer 90 days and 1 year after 30 days
 - Browser: _filterHonored - no set honors everything, a set honors only its keys
 - Browser: a tab grays the controls it does not honor, and History restores them
@@ -983,7 +986,7 @@ Total.
 - keybinding: one press toggles once (open then close) through the toggle verb
 - keybinding: the button exists on a degraded install (no Launcher library)
 
-### test_slash.lua (63)
+### test_slash.lua (50)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -1035,6 +1038,9 @@ Total.
 - the set-valued row renders through the format hook, never as <secret>
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
+
+### test_slash_verbs.lua (13)
+
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
 - the config verb opens the settings panel on its landing page
@@ -1079,7 +1085,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (73)
+### test_schema.lua (48)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1129,6 +1135,9 @@ Total.
 - Schema: every slider declares a step it can actually be dragged to
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
+
+### test_schema_seam.lua (25)
+
 - seam: Set answers true, or false and a reason, in the host's own words
 - seam: one write logs its [Set] line, then runs onChange, once each
 - seam: on the degraded build a write lands, is copied, reacts, and an unknown path is refused
@@ -2154,7 +2163,8 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 96 |
+| test_browser.lua | 74 |
+| test_browser_filterbar.lua | 22 |
 | test_teststrip.lua | 7 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
@@ -2162,10 +2172,12 @@ Total.
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
 | test_keybinding.lua | 7 |
-| test_slash.lua | 63 |
+| test_slash.lua | 50 |
+| test_slash_verbs.lua | 13 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 73 |
+| test_schema.lua | 48 |
+| test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 71 |
 | test_analytics_layout.lua | 9 |

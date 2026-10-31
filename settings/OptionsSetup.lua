@@ -31,7 +31,7 @@ local addonName, NS = ...
 --    host is a RAW frame this addon owns for the session, parked on the panel while another tab is
 --    on screen and re-parented to a fresh placeholder each time its own tab is drawn. It is never an
 --    AceGUI child, so ClearScroll cannot reclaim it, and nothing is allocated twice. See
---    settings/Panel.lua's buildAuctionTable.
+--    settings/PanelAuction.lua's buildAuctionTable.
 --
 -- 3. Core's window skin. See core/CoreSetup.lua and closed issue #19 (LIBKA0S-02).
 --

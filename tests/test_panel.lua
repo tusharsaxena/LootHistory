@@ -717,7 +717,7 @@ end)
 test("Panel: the price table's column headers are sentence case (item 020)", function()
   -- LOO-L11 (XC-06): "Price module", like every other label on the panel. The headers are raw
   -- FontStrings on the pooled host, which the headless mock does not read back, so the source is.
-  local src = Loader.readFile("settings/Panel.lua")
+  local src = Loader.readFile("settings/PanelAuction.lua")
   assertTrue(src:find('header(ACOL.module, "Price module")', 1, true) ~= nil, "Price module header")
   assertTrue(src:find('"Price Module"', 1, true) == nil, "a Title Case header is left")
 end)
@@ -1063,7 +1063,7 @@ test("Panel: the AH status colors are saturated, not muted", function()
   -- tokens, mapped by the file-local STATUS_TOKEN: a source scan finds the mapping, the facade
   -- answers the Ka0s Default values.
   -- red under: any of the three dropping back below a peak channel of 0.9, or the mapping moving.
-  local f = assert(io.open("settings/Panel.lua", "r"))
+  local f = assert(io.open("settings/PanelAuction.lua", "r"))
   local src = f:read("*a"); f:close()
   assertTrue(src:find("local STATUS_TOKEN = {", 1, true) ~= nil, "STATUS_TOKEN is no longer a table literal")
   local seen = 0
