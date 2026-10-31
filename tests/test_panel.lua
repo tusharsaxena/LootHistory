@@ -820,11 +820,14 @@ test("Panel: the host draws no row chrome of its own — the library owns the bo
     -- with two of each. This addon never drew one, and this is what stops one appearing.
     -- red under: adding a SetBackdrop / row-background texture to the price rows, or passing
     -- `rowBox = false` and drawing it host-side.
-    local src = Loader.readFile("settings/Panel.lua")
-    assertTrue(src:find("SetBackdrop", 1, true) == nil, "no host-drawn row background")
-    assertTrue(src:find("rowBox", 1, true) == nil, "the library's box is never suppressed")
-    assertTrue(src:find("ARR_UP", 1, true) == nil and src:find("ensureArrows", 1, true) == nil,
-      "the reorder arrows must be gone, not merely hidden (anti-pattern #75)")
+    -- The price rows live in settings/PanelAuction.lua; settings/Panel.lua stays swept as their host.
+    for _, path in ipairs({ "settings/PanelAuction.lua", "settings/Panel.lua" }) do
+      local src = Loader.readFile(path)
+      assertTrue(src:find("SetBackdrop", 1, true) == nil, path .. ": no host-drawn row background")
+      assertTrue(src:find("rowBox", 1, true) == nil, path .. ": the library's box is never suppressed")
+      assertTrue(src:find("ARR_UP", 1, true) == nil and src:find("ensureArrows", 1, true) == nil,
+        path .. ": the reorder arrows must be gone, not merely hidden (anti-pattern #75)")
+    end
   end)
 
 test("Panel: a drag is one splice to index, and it repaints", function()
