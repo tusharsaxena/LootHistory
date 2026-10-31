@@ -20,8 +20,8 @@
 -- Dropdown-Item-Toggle. The two base types are read from AceGUI's registry at call time; a registry
 -- without them (the kit's AceGUI fake) registers nothing, and the callers draw a plain Dropdown.
 --
--- OUR TYPE NAMES ONLY. AceGUI's registry is process-global (Options.lua's note above
--- lib.__PatchLSM30Border), so this file registers the six names above, versioned on MEDIA_MINOR so
+-- OUR TYPE NAMES ONLY. AceGUI's registry is process-global (Options.lua's note on the
+-- AceGUI widget registry), so this file registers the six names above, versioned on MEDIA_MINOR so
 -- the newest vendored copy's constructors win, and re-registers nothing that is anyone else's.
 --
 -- THE SKIN. Skin:AliasAceType(type, "Dropdown") makes SkinAce.lua paint the closed row and its
@@ -51,7 +51,8 @@ if not lib then return end
 -- Minor 1: the five picker types and Ka0sMedia_Item, lib.__MediaWidgetType (LK-F03, D-08, D-09).
 -- Minor 2 (the owner's ruling of 2026-11-01): lib.__MediaWidgetType answers for an LSM30_* name
 -- whether or not that type is registered, and OptionsWidgets asks it first. No picker changed.
-local MEDIA_MINOR = 2
+-- Minor 3 (the owner's ruling of 2026-11-01): a comment only, its pointer into Options.lua.
+local MEDIA_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__mediaMinor and lib.__mediaMinor >= MEDIA_MINOR
   and lib.__mediaShellMinor == lib.MINOR then return end

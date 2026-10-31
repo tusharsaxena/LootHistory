@@ -44,11 +44,12 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 35 (LibKa0s#59): a reset walk skips a `note` row, and O.ClearScroll keeps the banner's own
 -- refresher (OptionsTabs minor 13).
 -- Minor 36 (the owner's ruling of 2026-11-01): lib.__PatchLSM30Border retired to a no-op, since
--- Ka0sMedia_* is the only media picker and no row draws LSM30_Border. The member stays for the hosts
--- that call it unguarded at file load.
+-- Ka0sMedia_* is the only media picker and no row draws LSM30_Border.
+-- Minor 37 (the owner's ruling of 2026-11-01): that member deleted, no stub. An addon still on an
+-- older copy whose call to it is unguarded raises at load under this copy, until it re-vendors.
 -- Minor 34: lib:New attaches OptionsSkinPicker.lua, the first-run skin picker (LibKa0s#64). One
 -- attach line, no member: O.SkinPicker and O.HideSkinPicker are that file's.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 36
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 37
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -289,15 +290,6 @@ lib.STRINGS = {
 -- re-registers no such type today: its media pickers are types of its own (OptionsMedia.lua).
 -- Registering a NEW name an addon defines for itself is untouched by that rule and stays
 -- library-stack-§5's business.
-
---- Retired at minor 36, a no-op that answers false. It wrapped AceGUI-3.0-SharedMediaWidgets'
---- `LSM30_Border` so its bar lined up on a canvas page. A row asking for that type now draws
---- `Ka0sMedia_Border` (OptionsMedia.lua), whose swatch sits inside a stock Dropdown's bar, so there
---- is nothing to align and nothing to wrap. It stays because hosts call it unguarded at file load,
---- and LibStub hands a host vendoring an older copy this one.
----
---- @return boolean false: this call registered nothing.
-function lib.__PatchLSM30Border() return false end
 
 -- ── the combat lock (minor 22) ─────────────────────────────────────────────────────────────
 --
