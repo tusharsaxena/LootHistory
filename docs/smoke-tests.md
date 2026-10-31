@@ -988,7 +988,7 @@ column header and a row → the tooltip lines read as before. Pick **Azeroth** o
 group rows, cell text and scroll bar take Azeroth's colors; scroll the table so rows leave and come
 back, change **Group** and right-click a row → every row and the menu are in Azeroth (no row keeps the
 old stripe or hover), **Delete** in Azeroth's red. Walk the other skins the same way (High Contrast:
-black, white and yellow, larger Atkinson text, the hovered row highlighted; there is no selected-row
+black, white and yellow, Doris PP text, the hovered row highlighted; there is no selected-row
 state, so no outline): every word and padlock stays readable, nothing moves. Pick **Ka0s Default**
 again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
 until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
@@ -2043,8 +2043,8 @@ primitives draw (title bars, buttons, edit boxes, dropdowns, the settings contro
 table, Insights, Timeline and Holdings text too (2026-10-26: those take the skin's face, at their own
 sizes). No column truncates any differently than on Ka0s Default. Result: pass (owner-marked 2026-10-30)
 
-**SKIN-6. High Contrast (SK-06; LH-03).** Pick **High Contrast** → black, white and yellow, larger
-Atkinson text on the primitives' text, and the History row whose right-click menu is open is outlined
+**SKIN-6. High Contrast (SK-06; LH-03).** Pick **High Contrast** → black, white and yellow,
+Doris PP on the primitives' text, and the History row whose right-click menu is open is outlined
 in yellow. Result: pass (owner-marked 2026-10-30)
 
 **SKIN-7. Fonts (SK-07; LK fonts; R5-03; SO-06).** On an English client each skin draws its own family,
@@ -2197,7 +2197,7 @@ own line.) Result: pass (owner-marked 2026-10-30)
 
 **SKIN-28. The picker's dropdown previews (LH-01; LibKa0s#64, PK-02).** Click the picker's dropdown →
 the window grows to list every skin, each row three color swatches and the skin's name in that skin's
-own face and size (Azeroth in Vollkorn, High Contrast larger, and so on). Pick **Obsidian** → with no
+own face and size (Azeroth in Open Sans Semibold, High Contrast in Doris PP, and so on). Pick **Obsidian** → with no
 reload this addon repaints in Obsidian, the picker included; the list closes, the dropdown shows
 Obsidian and the picker stays open. Nothing is saved yet: `/lh get settings.appearance.skin` still
 prints the skin the window opened with. Pick **Azeroth** → it repaints again. Fail: a row in the wrong
@@ -2494,4 +2494,7 @@ results stand unedited; LED-11, LED-P2-17 and SKIN-42 carry the new glyph.
 Added or re-opened by the font pickers and skin faces run (LibKa0s v1.83.0, 2026-10-31), awaiting the
 owner: SKIN-7, SKIN-21, SKIN-22 and SKIN-23, with PANEL-25, SKIN-40 and SKIN-41 amended while still
 open. The passed checks that only name the first row (SKIN-2, SKIN-26, SKIN-39) now read *Skin's
-default*, its new label, and their results stand.
+default*, its new label, and their results stand. HIST-44, SKIN-6 and SKIN-28 now name High Contrast's
+Doris PP and Azeroth's Open Sans Semibold (D-06) and no longer call High Contrast larger, since its
+sizes are now Doris PP's measured 10.5 / 12.5; their results stand, and the re-opened SKIN-7 checks the
+faces themselves.
