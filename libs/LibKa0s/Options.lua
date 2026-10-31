@@ -41,9 +41,15 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- painted for a registered owner and given back stock on release. One attach line, no member.
 -- Minor 33: lib:New attaches OptionsAppearance.lua, the Appearance tab (skinning-§3). One attach
 -- line, no member: the tab's members are that file's.
+-- Minor 35 (LibKa0s#59): a reset walk skips a `note` row, and O.ClearScroll keeps the banner's own
+-- refresher (OptionsTabs minor 13).
+-- Minor 36 (the owner's ruling of 2026-11-01): lib.__PatchLSM30Border retired to a no-op, since
+-- Ka0sMedia_* is the only media picker and no row draws LSM30_Border.
+-- Minor 37 (the owner's ruling of 2026-11-01): that member deleted, no stub. An addon still on an
+-- older copy whose call to it is unguarded raises at load under this copy, until it re-vendors.
 -- Minor 34: lib:New attaches OptionsSkinPicker.lua, the first-run skin picker (LibKa0s#64). One
 -- attach line, no member: O.SkinPicker and O.HideSkinPicker are that file's.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 34
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 37
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -280,76 +286,10 @@ lib.STRINGS = {
 -- addons that never heard of this collection.
 --
 -- That is why library-stack-§9 puts a re-registration of a type the addon did not itself define
--- HERE, in the library, published as a member of the major that declares the widget --
--- `OptionsCompose.lua` is what writes `dialogControl = "LSM30_Border"`, and `lib:New`'s descriptor
--- already takes `getLSM()`. Registering a NEW name an addon defines for itself is untouched by
--- that rule and stays library-stack-§5's business.
-
---- Fix AceGUI-3.0-SharedMediaWidgets' `LSM30_Border` so it lines up on a canvas settings page.
----
---- Upstream's `LSM30_Border` (AGSMW:GetBaseFrameWithWindow) pins a 42x42 `displayButton` preview
---- tile to the widget's TOPLEFT and re-anchors the dropdown bar's left cap to that tile's
---- BOTTOMRIGHT. Inside a canvas-layout panel the result is a control that starts 42px to the right
---- of every slider and checkbox stacked with it, and reads as misaligned. This wraps whatever
---- constructor the registry currently holds, registers the wrapper one version above it to win the
---- race, and per instance hides the tile and puts the label and the left cap back on the frame's
---- own edge. `LSM30_Font` and `LSM30_Statusbar` take `AGSMW:GetBaseFrame`, which has no
---- `displayButton`, so this is Border-specific. The popup's per-row hover preview is untouched.
----
---- IDEMPOTENT, and that is the load-bearing half. Every consumer vendors its own copy of this
---- library, LibStub hands all of them the same `lib`, and every one of them calls this -- so five
---- Ka0s addons in one client must produce ONE registration. Without the sentinel each wrapper
---- would close over what the previous one registered, leaving a five-deep stack of constructors
---- whose outermost belongs to whichever addon the client happened to load last. That is the shape
---- this member replaces, and the reason no addon's own suite could ever see it: each one loads a
---- single copy, registers once and passes.
----
---- SAFE TO CALL EARLY, AND WORTH CALLING AGAIN. The sentinel records that a registration HAPPENED,
---- not that this was called. AGSMW is a separate addon, so a caller that runs before it has loaded
---- finds nothing to wrap and leaves the surface armed; call it from wherever the host builds its
---- options surface, and again after login if the host's own load order makes that uncertain.
----
---- @return boolean true if this call performed the registration, false if there was nothing to do.
-function lib.__PatchLSM30Border()
-  if lib.__lsmBorderPatched then return false end
-
-  local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
-  if not AceGUI then return false end
-
-  -- The constructor to wrap, not a name to reimplement: whatever is in the slot at this moment is
-  -- what the session has agreed `LSM30_Border` means, which may already be a skin addon's.
-  local registry = AceGUI.WidgetRegistry
-  local current  = registry and registry["LSM30_Border"]
-  if type(current) ~= "function" then return false end
-
-  local currentVersion = AceGUI:GetWidgetVersion("LSM30_Border") or 1
-
-  AceGUI:RegisterWidgetType("LSM30_Border", function()
-    local widget = current()
-    local f = widget and widget.frame
-    if f and f.displayButton then
-      f.displayButton:Hide()
-      if f.label then
-        f.label:ClearAllPoints()
-        f.label:SetPoint("TOPLEFT",  f, "TOPLEFT",  0, 0)
-        f.label:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
-      end
-      -- DLeft is the left cap of the CharacterCreate-LabelFrame dropdown bar. Upstream moved it to
-      -- displayButton.BOTTOMRIGHT; these are GetBaseFrame's own numbers, restored, so the bar
-      -- starts at the frame's left edge again.
-      if f.DLeft then
-        f.DLeft:ClearAllPoints()
-        f.DLeft:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -17, -21)
-      end
-    end
-    return widget
-  end, currentVersion + 1)
-
-  -- Set only now, and only on this path. Setting it on the way out of either early return above
-  -- would disarm the surface for the whole session on a call that registered nothing.
-  lib.__lsmBorderPatched = true
-  return true
-end
+-- HERE, in the library, published as a member of the major that declares the widget. The library
+-- re-registers no such type today: its media pickers are types of its own (OptionsMedia.lua).
+-- Registering a NEW name an addon defines for itself is untouched by that rule and stays
+-- library-stack-§5's business.
 
 -- ── the combat lock (minor 22) ─────────────────────────────────────────────────────────────
 --
@@ -738,7 +678,7 @@ function lib:New(d)
 
     -- The show hook for a page with NO renderer. A ctx that never goes through SetRenderer is still
     -- a supported shape — the refresh tiers below keep a migration seam for it — and RenderRows /
-    -- RenderField are public, so such a page CAN hold an `LSM30_Font` row the library never sees
+    -- RenderField are public, so such a page CAN hold a font picker row the library never sees
     -- drawn. This is the one call every page passes through, so the hook goes here. It covers the
     -- main page without a `buildMain` too. In combat it covers the page (minor 22) and skips the
     -- font preload, as SetRenderer's own OnShow does; otherwise it runs the preload (minor 17).
@@ -920,6 +860,8 @@ function lib:New(d)
     -- table is observed by RefreshAllPanels immediately and nothing else can still be holding the
     -- old one.
     ctx.refreshers = {}
+    -- Minor 35: the band's own refresher (OptionsTabs minor 13) stays, because chrome outlives this.
+    if ctx.__bannerRefresh then ctx.refreshers[1] = ctx.__bannerRefresh end
   end
 
   -- ── reset / refresh ──────────────────────────────────────────────────────────────────────
@@ -951,6 +893,7 @@ function lib:New(d)
     local count = 0
     local info = { profileReset = false }
     local function write(row)
+      if row.type == "note" then return end  -- minor 35: text, with no value and no path to reset
       d.applyDefault(row)
       count = count + 1
     end

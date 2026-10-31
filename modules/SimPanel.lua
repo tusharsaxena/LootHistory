@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- modules/SimPanel.lua: the simulation step panel's LootHistory half (LootHistory#37, LibKa0s#53
--- #54; req-lh-sim.md §6). The panel itself (its rows, states, colors, run controls, scenario
+-- #54; Ka0sAddonsCommonTasks req-lh-sim.md §6). The panel itself (its rows, states, colors, run controls, scenario
 -- picker, click-ahead, placement and stand-down refusal) is LibKa0s-Sim-1.0's
 -- (libs/LibKa0s/SimPanel.lua); this file says what LootHistory's steps are called and what their
 -- tooltips say, and keeps the History window's simulation marker in step with the session.

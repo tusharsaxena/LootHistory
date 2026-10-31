@@ -46,8 +46,9 @@
 -- `lib.__ace`); no widget is ever handed to an EllesmereUI primitive (under `eui` the colors
 -- come from the provider's derived tokens and the painting is this file's, LK-05's ruling); a
 -- widget another skinning addon already skinned (ElvUI's `backdrop` / `template`, AddOnSkins'
--- `isSkinned`) is left to it; LSM30_* widgets and their pull-out lists, TabGroup and Blizzard's
--- ColorPickerFrame stay stock (the spec's non-goals). TreeGroup is painted since minor 4: both
+-- `isSkinned`) is left to it; TabGroup and Blizzard's ColorPickerFrame stay stock (the spec's
+-- non-goals). A media row is OptionsMedia.lua's Ka0sMedia_* picker, painted as a Dropdown by alias
+-- whichever of Ka0sMedia_* or LSM30_* the row named; this file has no painter for LSM30_* itself. TreeGroup is painted since minor 4: both
 -- panes, the row buttons, the selection and the tree's scroll bar, in the `nav.*` family whose Ka0s
 -- Default values are the TreeGroup's own; its plus/minus toggles, row icons and dragger stay stock. Every field is guarded: a widget type or a
 -- field a later AceGUI drops is skipped, never raised on.
@@ -68,7 +69,7 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Skin:__PaintAceWindow, for a widget a window holds. Ignore settings panel keeps the settings pages
 -- the client's, and its tooltip promises the windows still wear the skin, so a window's widget is
 -- painted under it; the mark lasts until the widget's release.
-local ACE_MINOR = 5
+local ACE_MINOR = 6
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
 lib.__aceMinor      = ACE_MINOR

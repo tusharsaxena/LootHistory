@@ -57,10 +57,22 @@ in a raid) through the bracketed `OnChatMsgLoot` with capture off, and through t
 (`NS.Collector._lootLine`). It checks that the bracketed path allocates no more bytes per call
 than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero bytes and zero scans.
 
+| Scenario | Bytes/iter ceiling | Scans/iter | Measured 2026-10-31 |
+|---|---|---|---|
+| `lootDroppedBracketed` (1) | 0 | 0 | 0.0 |
+| `lootDroppedBare` (1) | 0 | 0 | 0.0 |
+| `combatBagUpdate` (2) | 0 | 0 | 0.0 |
+| `reconcileCleanBags` (3) | 124000 | 1 | 118120.0 |
+
+The ceilings are pinned numbers in `tests/perf.lua`, with the reason beside them. Scenario 3 is the
+one that does real work: an unchanged pass over 216 occupied slots, behind the debounce and never
+in combat.
+
 The runner is **outside the green gate**: `lua tests/run.lua` does not run it. It asserts only
 deterministic quantities (bytes with the GC stopped, call counts), never time. Run it with
-`lua tests/perf.lua`; the vendored automated-test runner records it as the `perf` suite
-([testing.md](testing.md)).
+`lua tests/perf.lua [--out <path>] [--label <text>]`; the vendored automated-test runner records it
+as the `perf` suite ([testing.md](testing.md)), reading the scenario table it prints and keeping the
+`--out` record as the run's `perf.json`.
 
 ## Suspend
 

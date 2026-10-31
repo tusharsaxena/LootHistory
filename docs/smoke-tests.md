@@ -2,7 +2,7 @@
 
 These are the in-client checks the headless suite cannot make: real `CHAT_MSG_LOOT` capture, the
 History window, the settings panel, the minimap button, combat locks and what the client draws. The
-pure logic is covered by `lua tests/run.lua` and `luacheck .` (see [testing.md](testing.md)). Run the
+pure logic is covered by `lua tests/run.lua` and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (see [testing.md](testing.md)). Run the
 suite on the live Retail client (Midnight 12.1.5, Interface 120105) before tagging a release, after a
 `## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
 change done (see *Which themes to run* below). **Fully exit and restart the WoW client after
@@ -17,22 +17,22 @@ free number in its theme.
 |---|---|---|
 | INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
 | SLASH-1 to 10 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version`, `/lh skin` |
-| PANEL-1 to 25 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline |
+| PANEL-1 to 27 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
-| TM-1 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
+| TM-1 to 2 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
 | HIST-1 to 44 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
-| INS-1 to 23 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
+| INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
 | FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
-| DEGRADED-1 to 13 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
+| DEGRADED-1 to 14 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
 | LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
@@ -156,7 +156,7 @@ sim, purge, help (twenty-two).
 Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
 raw key such as `HELP_HEADER` shows; the window does not open. (Re-opened by LH-01 of the skin fonts
 and feedback run, 2026-10-30: `skin` joins after `config`, and the list now names `perf` and `sim`,
-which it had left out.) Result:
+which it had left out.) Result: Owner reported pass, 2026-10-31
 
 **SLASH-3. `/lh list`.** `/lh resetall` (the profile back to its defaults), then `/lh list` → an
 `Available settings` header, then rows grouped under `[Master controls]`, `[Capture]`, `[AH price]`,
@@ -205,7 +205,7 @@ Obsidian and `/reload` keeps it. `/lh skin` again, then close it with its close 
 In combat (a target dummy) `/lh skin` twice → two gray lines saying the picker cannot open during
 combat, and no window. `/lh disable`, then `/lh skin` → one line naming `/lh enable` and no window;
 `/lh enable` afterwards. Fail: no window on a seen profile, a window in combat or while disabled, or a
-Lua error. Result:
+Lua error. Result: Owner reported pass, 2026-10-31
 
 ## Settings panel
 
@@ -273,7 +273,7 @@ looks as it did before the slider existed; `/lh get settings.rowHeight` echoes t
 over D days", "Database size: ~…") with **Purge history…** beside it and nothing else. Loot
 something → the count rises on its own; click to Capture and back, loot again → it still rises.
 (Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30: the estimate reads `~`, never
-a box.) Result:
+a box.) Result: Owner reported pass, 2026-10-31
 
 **PANEL-11. Reset position.** Move the History window, then **Reset position** → the window returns
 to the screen center, no dialog appears and no setting changes. Result: pass (owner-marked 2026-10-10)
@@ -401,7 +401,23 @@ written. Set it to **Off**, switch to another profile and back → each profile 
 → still **Off**. Turn **Ignore fonts** on → the outline dropdown grays out and the text is the game's
 own. Pick a font override, then another skin → the override goes back to that skin's default. Fail: text
 that keeps or loses its outline only after `/reload`, a mode that does not survive a profile switch
-or reload, an override that survives a skin change, or a Lua error. Result:
+or reload, an override that survives a skin change, or a Lua error. Result: Owner reported pass, 2026-10-31
+
+**PANEL-26. The AH price tab after its move (FX-LH-SIZE).** `settings/PanelAuction.lua` now holds the
+table, moved unchanged. `/lh config` → General → **AH price** → the table draws one row per known source
+with its Addon, Price module, On and Status columns. Tick a row's **On**, drag a row by its handle to
+another place, hover its ⓘ → the tooltip names the source. Open another tab and come back → the rows are
+the same; change the skin on the **Skin** tab and come back → the rows take the new colors. Fail: an
+empty tab, a row that does not move, a tab switch that loses the order, or a Lua error. Result:
+
+**PANEL-27. The Skin tab's media rows are the Ka0s pickers (M3-MEDIA; LibKa0s#73).** This addon's media
+rows are **Font** and **Texture**; it has no border row, so a border picker is checked in an addon that
+draws one. `/lh config` → General → **Skin**, on a skin other than Ka0s Default with **Ignore settings
+panel** off. Open **Font** → the list wears the skin, starts with *Skin's default (<key>)* and draws each
+face in itself. Pick one → the addon's text takes it at once, with no reload. Open **Texture** → the same,
+each row showing its bar; pick one, then press **Reset font** and **Reset texture** → both return to the
+skin's own. Fail: a stock list on a skinned panel, a row in the wrong face or with no bar, an empty
+list, or a Lua error. Result:
 
 ## Profiles
 
@@ -555,6 +571,12 @@ on your own holdings and Timeline (your own pick, not the sample's), and nothing
 left in either. While test mode is on, hover a **History** row → a tooltip with the item name in its
 quality color, its `Type · SubType`, and a gray `Test-mode sample` line; `/lh test` off → hovering your
 own rows shows the real item tooltip as before. Result: pass (owner-marked 2026-10-10)
+
+**TM-2. The History sample after its move (FX-LH-SIZE).** `modules/BrowserTableTestData.lua` now holds
+the sample, moved unchanged. `/lh test` → History fills with the sample rows and Insights draws its
+charts; open **Holdings** and **Timeline** → the same sample items appear there; `/lh test` again → your
+own history is back. Fail: an empty window in test mode, a Lua error on `/lh test`, or a Holdings or
+Timeline tab that fails to fill. Result:
 
 ## Combat
 
@@ -770,7 +792,7 @@ Y" updates live. Result: pass (owner-marked 2026-10-10)
 **HIST-8. Database size footer.** Read the bottom-right footer → "Database ~<size>" (for example
 "Database ~1.6 MB"), matching the panel's estimate; it does not change with filters, and does change
 after a new loot or a delete. (Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30:
-`~` replaced the `≈` Obsidian drew as a box, image-19.) Result:
+`~` replaced the `≈` Obsidian drew as a box, image-19.) Result: Owner reported pass, 2026-10-31
 
 **HIST-9. Zone filter keys on the name.** With loot from a multi-floor dungeon (Halls of Atonement,
 Dire Maul, The Deadmines), open **Zone** → each zone once; picking it shows every row from any floor;
@@ -1108,6 +1130,15 @@ whole block, divider included, disappears and LOOT still renders. Result: pass (
 under `/lh test` → no Lua error; every LOOT and CURRENCY section, every legend, the hover tooltips
 (bars, stacked segments, strip bars, list rows, legend chips) and the three strips draw as they did
 before the split; resize the window → it re-lays out; change a filter → it refreshes live. Result: pass (owner-marked 2026-10-10)
+
+**INS-24. The Insights charts on LibKa0s-Charts-1.0 (LibKa0s#66).** Open Insights with real history
+→ no Lua error; every section is where INS-22 had it. The three day strips and the hour strip now
+draw level labels in a short band under the axis, thinned so none collide, and the sections under
+each strip sit higher; with only a few days in range the columns are wide and sit side by side at
+the left. A label over 16 characters ends in `...` and its hover shows it whole with the value.
+Hover a bar (gold line), a stacked segment and a list row (white line), a legend chip (body gray) and
+a strip column (above the column). Switch skin with the tab open → every chart repaints with no
+reload. Result:
 
 **INS-23. Insights follows the skin (LH-04; SK-LH-INSIGHTS, SK-01, SK-03).** On **Ka0s Default**,
 `/lh show` → **Insights** with a range that has items, currency and a loss (or `/lh test`) → it
@@ -1603,7 +1634,7 @@ gains, losses and transfers all show. Check each of these:
   match it. Click the Direction header to sort: gains, losses, transfers (and the reverse).
 
 (Re-opened by LH-02 of the skin fonts and feedback run, 2026-10-30: the Transfer glyph is now ↔,
-which the mono face draws; it was ⇄, a box.) Result:
+which the mono face draws; it was ⇄, a box.) Result: Owner reported pass, 2026-10-31
 
 **LED-13. Holdings follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
 show` → **Holdings** with gold on two characters and the Warband (or `/lh test`) → it looks exactly
@@ -1719,7 +1750,7 @@ if they do not.] Result: pass (owner-marked 2026-10-08; not every scenario was e
 red, gray); Qty reads `+3` / `-3`; gold rows show in pale gold; the Direction filter defaults to Gains +
 Losses; ticking **Show transfers by default** then **Clear** includes transfers; Group by Direction and
 by Holder both work. [JetBrains Mono carries U+2194; the Transfer glyph was U+21C4 until LH-02 of the
-skin fonts and feedback run, 2026-10-30, which no shipped face draws.] (Re-opened by that item.) Result:
+skin fonts and feedback run, 2026-10-30, which no shipped face draws.] (Re-opened by that item.) Result: Owner reported pass, 2026-10-31
 
 **LED-P2-18. Insights.** With losses in range: Gained, Lost, Net and Transfers cards, and the "Gains
 vs losses by reason / character / kind" charts above LOOT. Under the default Direction filter the
@@ -2057,7 +2088,7 @@ Glass, High Contrast, Ember and WoW Default have one weight, so their titles are
 `/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Friz Quadrata TT")` each print `true`. Fail: a
 title in a family its body text does not share, two skins in the same face, or an empty square where a
 letter should be. (Rewritten by LH-F01, 2026-10-31, D-01 and D-06: LibKa0s v1.83.0's faces; re-opened.)
-Result:
+Result: Owner reported pass, 2026-10-31
 
 **SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
 (Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
@@ -2138,7 +2169,7 @@ face (or with its bar) as the picker scrolls, from the first opening after a cli
 LH-F02; LibKa0s v1.83.0, D-08); with no media addon
 installed the lists still hold the *Skin's default* entry and the faces LibKa0s registers. Both read
 *Skin's default* on a new profile. Fail: a font row in a face that is not its own, a texture row with
-no bar. (Re-opened by LH-F01, 2026-10-31: the picker and its first entry changed.) Result:
+no bar. (Re-opened by LH-F01, 2026-10-31: the picker and its first entry changed.) Result: Owner reported pass, 2026-10-31
 
 **SKIN-22. A font override applies live (LH-01; LibKa0s#63).** With the History window open, pick a
 font from **Font** (any face that looks clearly different) → with no reload the window's title, tab
@@ -2146,7 +2177,7 @@ labels, buttons, table cells, Insights and the Timeline text take that face, at 
 the debug console (`/lh debug`) keeps its monospace face. Switch to another skin → the override
 stays. Pick *Skin's default* → the skin's face comes back. `/lh get settings.appearance.font` shows the
 key while it is set and an empty value after. Fail: a surface that keeps the old face until
-`/reload`, a size that moved, or the console losing its monospace face. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result:
+`/reload`, a size that moved, or the console losing its monospace face. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result: Owner reported pass, 2026-10-31
 
 **SKIN-23. A texture override applies live to the bars (LH-01; LibKa0s#63).** Open Insights with a
 range that draws its charts, and the Timeline with a day of gains and losses → the strip bars, the
@@ -2157,7 +2188,7 @@ clearly different status bar from **Texture** → with no reload every one of th
 keeping its own color; the gray bar tracks, the rules and axes, the legend chips and the table's
 stripes stay flat. Pick *Skin's default* → the skin's texture comes back. Fail: a bar on the old texture
 until `/reload`, a bar that turned white or lost its color, or a track, rule or chip that took the
-texture. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result:
+texture. (Re-opened by LH-F01, 2026-10-31: the picker changed.) Result: Owner reported pass, 2026-10-31
 
 **SKIN-24. Ignore fonts wins (LH-01; LibKa0s#63).** With a font override set, turn **Ignore fonts**
 on → with no reload every string goes back to the game's own face; the override stays selected in
@@ -2320,7 +2351,7 @@ Enhance…), no column header or filter label newly cut off or overlapping its n
 spilling past its cell. The faces are SKIN-7's, LibKa0s v1.83.0's (D-03: each re-measured against
 Prototype); re-check after LH-F01 even if this passed earlier. Do the same on Insights, Timeline and Holdings in Obsidian and WoW Forever. Fail: a skin whose
 text is clearly wider or narrower than Ka0s Default's, a label cut off in one skin and not in Ka0s
-Default, or a box where a character should be. Result:
+Default, or a box where a character should be. Result: Owner reported pass, 2026-10-31
 
 **SKIN-41. Text is outlined from the skin; the addon has no font setting of its own (LH-01; LibKa0s
 v1.82.0, D-07).** Loot History has no font setting (no size, color or flags row of its own), so every
@@ -2329,7 +2360,7 @@ only** since LibKa0s v1.83.0 (D-10), so its window text is unoutlined: this addo
 **All text** every window string is outlined, including the KPI numbers on Insights, which still shrink to fit their cards; on **Off**
 none is, the numbers still fitting. The Direction column's arrows and the debug console stay in the
 monospace face, never outlined in any mode. Fail: a string that ignores the Font outline, an
-outlined mono glyph, or a KPI number overflowing its card. Result:
+outlined mono glyph, or a KPI number overflowing its card. Result: Owner reported pass, 2026-10-31
 
 **SKIN-42. No box where a character should be, in any skin (LH-02; ruling D-19, image-19).** Have at
 least one Transfer row in History (a bank deposit). Pick each skin in turn, **Obsidian** and **WoW
@@ -2337,7 +2368,7 @@ Default** above all, and read: the History window's footer → "Database ~1.6 MB
 empty box; General → **History** tab → "Database size: ~… (estimated)"; the Direction column → every
 Transfer row reads `↔ Transfer`, a two-headed arrow in gray, never a box; hover the **Quality** column
 header → "Item quality (Poor to Legendary)."; and ▲ Gain / ▼ Loss still draw. Fail: a box, a missing
-character, or the old `≈`, `⇄` or `→`. Result:
+character, or the old `≈`, `⇄` or `→`. Result: Owner reported pass, 2026-10-31
 
 ## Vendored icons
 
@@ -2371,7 +2402,7 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1
-to DEGRADED-13; rename it back and `/reload` when done.
+to DEGRADED-14; rename it back and `/reload` when done.
 
 **DEGRADED-1. No Lua error.** Load and play → not one Lua error. Result: pass (owner-marked 2026-10-10)
 
@@ -2429,6 +2460,9 @@ resize. No Lua error. Result: pass (owner-marked 2026-10-10)
 the window's header, nothing shifted down, and the bright-red **TEST MODE** word beside the window
 title. `/lh test` again → the word goes. (No simulation can run without the library, so the cyan
 `SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result: pass (owner, 2026-10-23)
+
+**DEGRADED-14. Insights without the library.** `/lh show`, Insights tab → one line saying the library
+is missing and the Insights charts are unavailable, no cards and no Lua error. Result:
 
 ## Non-English client
 
@@ -2498,3 +2532,16 @@ default*, its new label, and their results stand. HIST-44, SKIN-6 and SKIN-28 no
 Doris PP and Azeroth's Open Sans Semibold (D-06) and no longer call High Contrast larger, since its
 sizes are now Doris PP's measured 10.5 / 12.5; their results stand, and the re-opened SKIN-7 checks the
 faces themselves.
+
+On 2026-10-31 the owner reported that every check of the skin fonts and feedback and the font pickers
+and skin faces runs passed: SLASH-2, SLASH-10, PANEL-10, PANEL-25, HIST-8, LED-11, LED-P2-17, SKIN-7,
+SKIN-21 to SKIN-23 and SKIN-40 to SKIN-42, each recorded on its `Result:` line as
+`Owner reported pass, 2026-10-31`.
+
+Added by the findings remediation (2026-10-31), awaiting the owner: PANEL-26 and TM-2, the two file
+splits a player can reach. The other splits move test cases only.
+
+Added by the LibKa0s v1.84.0 adoption (2026-11-01), awaiting the owner: INS-24 and DEGRADED-14. INS-22
+keeps its result: it recorded the rotated strip labels, and INS-24 records the level ones.
+
+Added by the v1.84.0 re-cut (2026-11-01), awaiting the owner: PANEL-27.

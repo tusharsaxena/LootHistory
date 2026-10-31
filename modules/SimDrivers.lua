@@ -1,6 +1,6 @@
 local _, NS = ...
 
--- modules/SimDrivers.lua: the simulator's event and hook drivers (LootHistory#37; req-lh-sim.md
+-- modules/SimDrivers.lua: the simulator's event and hook drivers (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md
 -- §2.3-§2.4).
 --
 -- ── ONE RULE PER DRIVER ──────────────────────────────────────────────────────────────────────

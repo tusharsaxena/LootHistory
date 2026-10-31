@@ -3,22 +3,7 @@ local NS = T.NS
 local test, assertEqual, assertTrue, assertFalse =
   T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
-local ELL = "\226\128\166" -- "…"
 local A = NS.Analytics
-
--- ── _fitFontSize (headline shrink-to-fit) ───────────────────────────────────────────
-test("Analytics._fitFontSize: fits within width returns base size", function()
-  assertEqual(NS.Analytics._fitFontSize(50, 100, 24, 11), 24)
-end)
-test("Analytics._fitFontSize: overflow scales down proportionally", function()
-  assertEqual(NS.Analytics._fitFontSize(200, 100, 24, 11), 12) -- 24 * 100/200
-end)
-test("Analytics._fitFontSize: clamps to the minimum floor", function()
-  assertEqual(NS.Analytics._fitFontSize(1000, 100, 24, 11), 11)
-end)
-test("Analytics._fitFontSize: zero/negative width returns base", function()
-  assertEqual(NS.Analytics._fitFontSize(0, 100, 24, 11), 24)
-end)
 
 -- ── paletteColor (standard categorical palette) ─────────────────────────────────────
 test("Analytics.paletteColor: rank 1 is the first palette entry", function()
@@ -32,20 +17,6 @@ end)
 test("Analytics.paletteColor: cycles past the palette length", function()
   local a, b = NS.Analytics.paletteColor(1), NS.Analytics.paletteColor(22)
   assertEqual(a[1], b[1]); assertEqual(a[2], b[2]); assertEqual(a[3], b[3]) -- 21-color palette wraps
-end)
-
--- ── _tipText (hover text = full label + the value it encodes) ───────────────────────
-test("Analytics._tipText: joins the full label and its value", function()
-  assertEqual(NS.Analytics._tipText("Artisan Enchanter's Moxie", "412"),
-    "Artisan Enchanter's Moxie:  412")
-end)
-test("Analytics._tipText: label alone when there is no value", function()
-  assertEqual(NS.Analytics._tipText("Valorstones", nil), "Valorstones")
-  assertEqual(NS.Analytics._tipText("Valorstones", ""), "Valorstones")
-end)
-test("Analytics._tipText: value alone when there is no label", function()
-  assertEqual(NS.Analytics._tipText("", "17"), "17")
-  assertEqual(NS.Analytics._tipText(nil, "17"), "17")
 end)
 
 -- ── the widget pools (recycling) ────────────────────────────────────────────────────
@@ -99,91 +70,6 @@ test("Analytics pool: acquire shows what it hands back", function()
   NS.Pool.ReleaseAll(pool)
   local again = NS.Pool.Acquire(pool, factory)
   assertTrue(again.__shown, "and a recycled one is shown again")
-end)
-
--- ── _truncate ───────────────────────────────────────────────────────────────────────
-test("Analytics._truncate: short text passes through", function()
-  local s, t = NS.Analytics._truncate("Valorstones", 16)
-  assertEqual(s, "Valorstones"); assertFalse(t)
-end)
-test("Analytics._truncate: long text is cut with an ellipsis", function()
-  local s, t = NS.Analytics._truncate("Artisan Enchanter's Moxie", 16)
-  assertEqual(s, "Artisan Enchant" .. ELL); assertTrue(t)
-  assertEqual(#("Artisan Enchant"), 15) -- 15 glyphs + ellipsis == 16 visual chars
-end)
-test("Analytics._truncate: exactly maxChars passes through", function()
-  local s, t = NS.Analytics._truncate("1234567890123456", 16)
-  assertFalse(t); assertEqual(s, "1234567890123456")
-end)
-
--- ── _charStackSegments (top-N + Other collapse) ─────────────────────────────────────
-test("Analytics._charStackSegments: keeps all when within cap", function()
-  local segs, total = NS.Analytics._charStackSegments({ KILL = 3, QUEST = 1 }, { "KILL", "QUEST" }, 9)
-  assertEqual(total, 4)
-  assertEqual(#segs, 2)
-  assertEqual(segs[1].key, "KILL"); assertEqual(segs[2].key, "QUEST") -- catOrder order
-end)
-test("Analytics._charStackSegments: collapses overflow into __OTHER__", function()
-  local mags, order = {}, {}
-  for i = 1, 12 do local k = "C" .. i; mags[k] = 13 - i; order[#order + 1] = k end -- C1 biggest
-  local segs, total = NS.Analytics._charStackSegments(mags, order, 9)
-  assertEqual(total, 78) -- 12+11+...+1
-  assertEqual(#segs, 9)  -- 8 kept + 1 OTHER
-  assertEqual(segs[#segs].key, "__OTHER__")
-  assertEqual(segs[#segs].mag, 4 + 3 + 2 + 1) -- the 4 smallest (C9..C12)
-end)
-
--- ── _charStackSegments: ordering and edge cases ────────────────────────────────
-
-test("Analytics._charStackSegments: kept segments follow the global category order", function()
-  -- Input arrives biggest-first, but the drawn order must be the chart's shared category order so
-  -- one category occupies the same band on every character's row.
-  local segs = A._charStackSegments({ c = 10, a = 5, b = 1 }, { "a", "b", "c" }, 5)
-  assertEqual(segs[1].key, "a")
-  assertEqual(segs[2].key, "b")
-  assertEqual(segs[3].key, "c")
-end)
-
-test("Analytics._charStackSegments: __OTHER__ always draws last", function()
-  local segs = A._charStackSegments({ a = 1, b = 2, c = 3, d = 4 }, { "d", "c", "b", "a" }, 3)
-  assertEqual(#segs, 3)
-  assertEqual(segs[#segs].key, "__OTHER__")
-  assertEqual(segs[#segs].mag, 1 + 2, "the two smallest magnitudes are lumped together")
-end)
-
-test("Analytics._charStackSegments: a category outside the order sinks to the end", function()
-  local segs = A._charStackSegments({ known = 1, stray = 9 }, { "known" }, 5)
-  assertEqual(segs[1].key, "known")
-  assertEqual(segs[2].key, "stray")
-end)
-
-test("Analytics._charStackSegments: the total counts every magnitude, kept or lumped", function()
-  local segs, total = A._charStackSegments({ a = 1, b = 2, c = 3, d = 4 }, { "a", "b", "c", "d" }, 2)
-  assertEqual(total, 10, "the total is of the raw input, not of the kept segments")
-  local sum = 0
-  for _, s in ipairs(segs) do sum = sum + s.mag end
-  assertEqual(sum, total, "collapsing into __OTHER__ must not lose magnitude")
-end)
-
-test("Analytics._charStackSegments: zero and negative magnitudes are dropped", function()
-  local segs, total = A._charStackSegments({ a = 5, b = 0, c = -3 }, { "a", "b", "c" }, 5)
-  assertEqual(#segs, 1)
-  assertEqual(segs[1].key, "a")
-  assertEqual(total, 5)
-end)
-
-test("Analytics._charStackSegments: an empty character yields no segments", function()
-  local segs, total = A._charStackSegments({}, { "a" }, 5)
-  assertEqual(#segs, 0)
-  assertEqual(total, 0)
-end)
-
-test("Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance", function()
-  -- table.sort is unstable, so an explicit tiebreak is what keeps the chart from flickering.
-  local segs = A._charStackSegments({ b = 5, a = 5, c = 5 }, {}, 2)
-  assertEqual(#segs, 2)
-  assertEqual(segs[1].key, "a", "'a' wins the tie and is the one kept")
-  assertEqual(segs[2].key, "__OTHER__")
 end)
 
 -- ── _buildCharStackRows ────────────────────────────────────────────────────────
@@ -250,16 +136,17 @@ test("Analytics._buildCharStackRows: an empty matrix yields no rows", function()
 end)
 
 test("Analytics._buildCharStackRows: segments are computed once per character", function()
-  -- LH-R-09. The width pass and the render pass each used to call _charStackSegments, so every
+  -- LH-R-09. The width pass and the render pass each used to segment, so every
   -- character on the Insights repaint path paid for two table.sorts it already had the answer to.
   -- Counted rather than timed: a call count is the only thing about this that is deterministic.
-  local real, calls = A._charStackSegments, {}
-  A._charStackSegments = function(mags, catOrder, maxSegs)
+  local Charts = A._chartsLib
+  local real, calls = Charts.StackSegments, {}
+  Charts.StackSegments = function(mags, catOrder, maxSegs)
     calls[#calls + 1] = true
     return real(mags, catOrder, maxSegs)
   end
   local ok, err = pcall(A._buildCharStackRows, MATRIX, BYCHAR, ORDER, color, fmt)
-  A._charStackSegments = real
+  Charts.StackSegments = real
   assertTrue(ok, "the builder raised: " .. tostring(err))
   assertEqual(#calls, 2, "MATRIX has two characters; that is two calls, not four")
 end)
@@ -409,25 +296,6 @@ test("Analytics._sortedByCount: numeric keys sort without a type error", functio
   assertEqual(rows[1].key, 2)
 end)
 
--- ── _truncate edges ────────────────────────────────────────────────────────────
-
-test("Analytics._truncate: reports whether it cut", function()
-  local _, cut = A._truncate("Short", 20)
-  assertFalse(cut)
-  local _, cut2 = A._truncate("A very long chart label indeed", 10)
-  assertTrue(cut2)
-end)
-
-test("Analytics._truncate: a nil label becomes an empty string", function()
-  assertEqual((A._truncate(nil, 5)), "")
-end)
-
-test("Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis", function()
-  local text = A._truncate("Explosive Sheep", 10)
-  assertEqual(text, "Explosive" .. "\226\128\166")
-  assertEqual(#text, 9 + 3, "9 kept characters + the 3-byte ellipsis")
-end)
-
 -- Every file of the Insights module, read off the TOC rather than listed here, so a file split out
 -- of modules/Analytics.lua (LootHistory#32) is scanned the day it lands.
 local function analyticsFiles()
@@ -455,7 +323,7 @@ end)
 
 test("Analytics: the TOC loads Format, then Analytics, then Charts", function()
   -- modules/Analytics.lua binds AnalyticsFormat's helpers at file load, and resolves
-  -- AnalyticsCharts' Analytics._charts only inside BuildCharts, so this order is load-bearing both
+  -- AnalyticsCharts' Analytics._newCharts only inside BuildCharts, so this order is load-bearing both
   -- ways: Format above Analytics or the binds read nil, Charts below it or nothing changes.
   local pos = {}
   for i, path in ipairs(T.addonFiles) do pos[path] = i end
@@ -471,8 +339,7 @@ test("AnalyticsCharts: publishes NS.Analytics idempotently, like every other Ana
   local Loader = dofile("tests/_kit/loader.lua")
   Loader.addonName = "LootHistory"
   local mocks = dofile("tests/wow_mock.lua")()
-  -- The file still binds Analytics.K at load, so its position below modules/AnalyticsFormat.lua stays
-  -- LOAD-BEARING (the TOC says so); what this pins is that the table exists before that first read.
+  -- What this pins is that the table exists before the file's first write to it.
   local ns = {}
   local _, err = pcall(Loader.load, "modules/AnalyticsCharts.lua", ns, mocks)
   assertTrue(type(ns.Analytics) == "table", "the file publishes NS.Analytics itself: " .. tostring(err))
@@ -489,10 +356,9 @@ test("Analytics: the module's function surface is exactly the published one", fu
   -- refactor that drops, renames or adds one is a surface change, not a move.
   local want = { "Attach", "BuildCharts", "Disable", "Enable", "HideAllCharts", "Layout",
     "LayoutCharts", "Refresh", "ResetRenderTrace", "Reskin", "SummaryLine", "UpdateCards",
-    "_buildCharStackRows", "_charStackSegments", "_classColor", "_dayKeyList", "_fitFontSize",
-    "_money", "_paletteMap", "_qualityColor", "_shortChar", "_shortDay", "_sortedByCount",
-    "_syncSkinColors", "_tipText", "_truncate", "paletteColor", "renderBarSection", "renderCharCompanion",
-    "renderLegend", "renderListPanel", "renderStackedBarSection", "renderStrip" }
+    "_buildCharStackRows", "_chartDivider", "_classColor", "_dayKeyList", "_money", "_newCharts",
+    "_paletteMap", "_qualityColor", "_shortChar", "_shortDay", "_sortedByCount",
+    "_syncSkinColors", "paletteColor", "renderCharCompanion" }
   local got = {}
   for k, v in pairs(A) do if type(v) == "function" then got[#got + 1] = k end end
   table.sort(got)

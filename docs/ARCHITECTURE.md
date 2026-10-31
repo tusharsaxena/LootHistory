@@ -453,8 +453,7 @@ Outside the gate's reach, also on purpose:
   record count (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
 - **`GameTooltip`'s backdrop is never restyled.** Host tooltip lines take `gtip.*` tokens through
   `core/Compat.lua`'s Show* helpers; the frame is Blizzard's.
-- **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s, LSM30 pull-outs and
-  `ColorPickerFrame`.
+- **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s and `ColorPickerFrame`.
 - **Constants' semantic tables** need no entry: the tables LH-04 kept are values, not paint calls,
   and the meaning colors that moved became `sem.*` tokens.
 
@@ -552,9 +551,10 @@ Ten such records are named below the table rather than carried in it.
 | Rule | What differs | Why | Decided | Re-check trigger |
 |---|---|---|---|---|
 | `architecture-§5` | The **`settings.auction.priority`** ordered cascade, neither a schema row nor registry membership, is written to the active profile (`NS.db.profile.settings.auction.priority`) directly rather than through `NS.Schema:Set`. It is seeded empty on first read by `NS.AuctionPrice:GetPriority` (`modules/AuctionPrice.lua:143`) and written by `ReconcilePriority` / `MovePriorityWithin` (`:151-207`); the global reset brings it back with the rest of the profile. | The cascade is an order over a **fixed** member set, the `NS.Constants.AUCTION_KEYS` tags, which the player only reorders. `architecture-§5` makes that a **value**, not a registry, and a value with no row is what its **MUST NOT** leaves a register row for. No schema row type expresses a drag-reordered list, so there is no row for `Set` to validate against. Reasoned in [`schema.md`](schema.md) *Standards note*. The id filter sets and the named non-setting state left this row on 2026-09-12; see below. | 2026-07-17 | `settings.auction.priority` gains a schema row, an ordered-list row type or a whole-value row, and every write to it goes whole through `Schema:Set`. That retires this row. |
-| `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterGroup`, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
+| `options-ui-§1` | The inverted set pickers (`settings.excludedSources`, `settings.auction.capture`) are drawn by **this addon**, from `afterSubgroup` and `afterGroup` respectively, rather than by one of the library's widget makers. | The library's makers are checkbox / slider / dropdown / editbox / color picker; a wrapping `InlineGroup` of checkboxes whose stored value is the logical **inverse** of the tick is none of them, and `RenderGrid` takes no `parent` and would open a second overlapping scroll frame. The rows stay in the schema, so the CLI and every reset still see them. Closed issue [**LIBKA0S-14**](https://github.com/tusharsaxena/LootHistory/issues/20). | 2026-08-01 | `LibKa0s-Options-1.0` gains a multi-check / set maker with a `parent`, or a second host needs the same shape (one host, one shape is why it was not raised upstream). |
 | `localization-§1` | This addon ships **English only**: the `NS.L` seam is exported and `locales/enUS.lua` ships, but only a handful of strings route through `NS.L` (the Profiles page name, the `profile` and `diagnostics` help descriptions, the library-absent line, and the History window's test-mode marks: the strip under the filter bar, the strip's tooltip lines and the TEST MODE badge a degraded install shows in its place, and the Show window key binding's row label and its performance-capture refusal) — every other label, tooltip and message is a hardcoded English literal. | `localization-§3` names English-only as one of the routing SHOULD's **two terminal compliant states**, and names this row as what makes it terminal: without it the SHOULD is formally open and every audit re-files it, which is what has been happening. Both `localization` MUSTs are met unconditionally — the seam is exported with the key-returning fallback (`locales/enUS.lua:5`) and `enUS.lua` ships carrying no dead keys. The argument was written at `locales/enUS.lua:7-11` and calls itself "an accepted scope decision, not an oversight"; a comment is exactly what `documentation-§3` says does not ratify a decision, which is why `LH-48` in `docs/audits/2026-09-07/` filed it. This row is the ratification the comment was standing in for. | 2026-09-08 | **The first non-English locale file added to `locales/`.** That change routes the strings and retires this row. |
 | `localization-§4` | **Deconstruct attribution falls back to matching a localized spell name.** `Attribution:DeconstructSource` resolves a player cast by spell id first (`DECONSTRUCT_ID`, `modules/Attribution.lua:33-44`); on a miss it compares the cast's **client-locale name** against tokens derived from seed spell ids (`NAME_SEEDS`, `:54-60`; `seedToken` resolves each through `NS.Compat.GetSpellName` at `:65`; the substring match is `:95`), where §4 says a game entity is identified by id, never by a localized display string. The reasoning is at `:21-32`, which points at this row. | Modern retail splits Milling and Prospecting into generic, per-expansion and **per-herb / per-ore "Mass Mill" / "Mass Prospect"** spells, and that id set is **not enumerable**: it is too large and grows every patch, so an id-only table silently stops attributing each new variant. The compared names are **derived from ids on the same client** at match time, so no English literal is ever compared and the match is locale-correct by construction: "Milling" on enUS is "Mahlen" on deDE on both sides of the compare. Closed issue [#2](https://github.com/tusharsaxena/LootHistory/issues/2); audit finding `LH-74` in `docs/audits/2026-09-23/`. | 2026-09-24 | **Blizzard exposes a stable deconstruct token or category** on the cast (a spell category, a profession-action flag, anything id-shaped), **or the Mass Mill / Mass Prospect id set becomes enumerable** (a stable list or an API that returns it). Either one moves the fallback onto ids and retires the row. |
+| `layout-§1` | `modules/Browser.lua` stays in the 1000-1500 band at 1386 lines, with no peel of its recorded seam. | The band is the compliant state, so this row records a decision rather than a breach. The recorded seam (the per-tab view layer, `CaptureView` / `ApplyView` / `resolveInto`) and the Master controls chrome both read and write the file-local `frame`, `lastTab` and `switching`, so neither moves without turning that state into shared fields: a logic change, not a pure move (`FX-LH-SIZE`, Ka0sAddonsCommonTasks `docs/2026-10-31-FINDINGS_REMEDIATION/`). | 2026-10-31 | **The file reaches 1400 lines.** Then move the window state onto `B`, in its own reviewed change, and peel the view layer. |
 
 - Narrowed on 2026-09-12 ([#30](https://github.com/tusharsaxena/LootHistory/issues/30)): `settings.window` and `savedView` left the `architecture-§5`
   row as named non-setting state (standard v2.44.0), and LibDBIcon's `minimapPos`, never in it, is named beside them in [schema.md](schema.md#named-non-setting-state-owners-and-writers); the `B:SetupMinimap` seed over the minimap row's stored `minimap.hide` key was deleted.
@@ -588,7 +588,7 @@ Ten such records are named below the table rather than carried in it.
   deviation ([`compat-layer.md`](compat-layer.md#third-party-pricing-addons-stay-out-of-compat)).
 - Never a row: the AH price table's pooled host, `ctx._priHost`, declined in closed issue [#21](https://github.com/tusharsaxena/LootHistory/issues/21).
   `options-ui` never names `SetRenderer`, so that declined a library adoption rather than a rule; the
-  reasoning is at `settings/Panel.lua:786-791` (`LH-47` in `docs/audits/2026-09-07/`).
+  reasoning is at `settings/PanelAuction.lua:319-324` (`LH-47` in `docs/audits/2026-09-07/`).
 
 ### Files over the 1500-line cap
 
@@ -596,13 +596,13 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `tests/test_browser.lua` at 1459 lines,
-then `modules/BrowserTable.lua` at 1407, `tests/test_browsertable.lua` at 1392 and `modules/Browser.lua`
-at 1384 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-29).
-On 2026-10-23 `modules/BrowserTable.lua` had shed its display-list layer to
-`modules/BrowserTableGroup.lua` and `modules/Browser.lua` its dropdown-option kit to
-`modules/BrowserWidgets.lua`, and `LH-14` had added characterization cases to
-`tests/test_browsertable.lua` and split the last five functions above CCN 15; the
+Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1395 lines,
+then `modules/Browser.lua` at 1386, `core/Database.lua` at 1275 and `settings/Schema.lua` and
+`tests/test_database.lua` at 1252 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-10-31).
+On 2026-10-31 `modules/BrowserTable.lua` shed its sample dataset to `modules/BrowserTableTestData.lua`,
+`settings/Panel.lua` its AH price table to `settings/PanelAuction.lua`, and `tests/test_browser.lua`,
+`tests/test_schema.lua` and `tests/test_slash.lua` their later sections to `tests/test_browser_filterbar.lua`,
+`tests/test_schema_seam.lua` and `tests/test_slash_verbs.lua`; the
 1000-1500 band is observed and dispositioned in the release watch list (`automated-tests-§4`), not here.
 
 ---

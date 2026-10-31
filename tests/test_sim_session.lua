@@ -2,7 +2,7 @@ local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
--- modules/Sim.lua (LootHistory#37, LibKa0s#54; req-lh-sim.md §5): the simulator's session host on
+-- modules/Sim.lua (LootHistory#37, LibKa0s#54; Ka0sAddonsCommonTasks req-lh-sim.md §5): the simulator's session host on
 -- LibKa0s-Sim-1.0. The refusals, in their order; what a start sets up and a stop takes down; the
 -- automatic stops; the real-event split (interference stops the simulation and then lands live,
 -- everything else is absorbed); test mode and the simulation excluding each other; and every

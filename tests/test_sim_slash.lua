@@ -3,7 +3,7 @@ local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 local H = dofile("tests/sim_support.lua").new(T)
 
--- `/lh sim` (LootHistory#37, LibKa0s-Sim-1.0's H7; req-lh-sim.md §8): one NS.COMMANDS row, a
+-- `/lh sim` (LootHistory#37, LibKa0s-Sim-1.0's H7; Ka0sAddonsCommonTasks req-lh-sim.md §8): one NS.COMMANDS row, a
 -- FEATURE verb the disabled gate refuses, whose grammar is the library's (start, run, step, pause,
 -- resume, restart, stop, status, panel; no help verb) plus LootHistory's host verb `loot [n]`. With
 -- no library the session stub answers the collection's one line.

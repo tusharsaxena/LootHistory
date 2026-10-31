@@ -11,7 +11,7 @@ local Analytics = NS.Analytics
 -- Everything pure comes from modules/AnalyticsFormat.lua, which loads first: bound once, here, to
 -- file-scope locals (docs/common-tasks.md, hot-path upvalues), never looked up per row.
 local K, F = Analytics.K, Analytics._fmt
-local SECTION_GAP, MIN_HEADLINE_SIZE, NEUTRAL = K.SECTION_GAP, K.MIN_HEADLINE_SIZE, K.NEUTRAL
+local NEUTRAL = K.NEUTRAL
 local SOURCE_COLOR, BOUND_LABEL, BOUND_COLOR = F.SOURCE_COLOR, F.BOUND_LABEL, F.BOUND_COLOR
 local BOUND_ORDER, WEEKDAY, starMarkup = F.BOUND_ORDER, F.WEEKDAY, F.starMarkup
 local money, shortChar, paletteMap = Analytics._money, Analytics._shortChar, Analytics._paletteMap
@@ -43,6 +43,15 @@ local CARD_DEFS = {
 function Analytics:Attach(pane)
   if self.pane then return end
   self.pane = pane
+
+  -- No charts without the library: self.content stays nil, so Refresh, Layout and Reskin do nothing.
+  if not Analytics._chartsLib then
+    local line = pane:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
+    NS.Skin.Font(line)
+    line:SetPoint("TOP", pane, "TOP", 0, -40)
+    line:SetText(NS.LIBKA0S_MISSING .. ", so the Insights charts are unavailable.")
+    return
+  end
 
   -- No range selector here (issue #13): the Insights view is scoped by the browser's shared filter
   -- bar (its Date dropdown + every column filter), so the charts fill the whole pane below.
@@ -159,6 +168,7 @@ function Analytics:Layout()
   local w = self.scroll:GetWidth()
   if not w or w <= 0 then w = 780 end
   self.content:SetWidth(w)
+  local Charts = Analytics._chartsLib
 
   local PAD, GAP, COLS = 8, 8, 4
   local colW = math.floor((w - PAD * 2 - GAP * (COLS - 1)) / COLS)
@@ -174,7 +184,7 @@ function Analytics:Layout()
     if c.bigStr and c.baseSize then
       c.num:SetFont(c.fontFile, c.baseSize, c.fontFlags) -- reset to base, then shrink if it overflows
       local maxW = colW * span + GAP * (span - 1) - 12   -- card inner width (small padding)
-      local size = Analytics._fitFontSize(c.num:GetStringWidth(), maxW, c.baseSize, MIN_HEADLINE_SIZE)
+      local size = Charts.fitFontSize(c.num:GetStringWidth(), maxW, c.baseSize, Charts.K.MIN_HEADLINE_SIZE)
       if size < c.baseSize then c.num:SetFont(c.fontFile, size, c.fontFlags) end
     end
     col = col + span
@@ -185,73 +195,61 @@ function Analytics:Layout()
   self.content:SetHeight(math.max(1, -y + PAD))
 end
 
+-- Every pool LayoutCharts draws from, released at the top of each pass.
+local CHART_POOLS = { "source", "vsource", "quality", "itype", "bound", "char",
+                      "day", "vday", "hour", "weekday", "zone", "item", "itemval",
+                      "curcollected", "curcollectedleg", "cursrc", "curlegend", "curchar", "curcharlegend", "curday",
+                      "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
+                      "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
+                      "chtype", "chtypeleg", "chbound", "chboundleg" }
+
 -- ── Charts ─────────────────────────────────────────────────────────────────────────
 
 -- Build the persistent chart chrome (section headers, strips, list panels, pools) once.
 function Analytics:BuildCharts(content)
-  -- The section chrome lives in modules/AnalyticsCharts.lua, which loads AFTER this file, so it is
-  -- resolved here, at call time and once per build (MultiMeters' Aggregator._identity precedent).
-  local C = Analytics._charts
-  local sectionHeader, sectionDivider, listPanel = C.sectionHeader, C.sectionDivider, C.listPanel
+  -- The context and its chrome are LibKa0s-Charts-1.0's; modules/AnalyticsCharts.lua, which loads
+  -- AFTER this file, holds the host table and is resolved here, at call time.
+  local ctx = Analytics._newCharts(self, content)
+  self.charts = ctx
+  local function sectionHeader(title) return ctx:sectionHeader(content, title) end
   self.headers = {
-    char    = sectionHeader(content, "Loot By Character"),
-    source  = sectionHeader(content, "Loot By Source"),
-    charBySource = sectionHeader(content, "Loot By Character \195\151 Source"),
-    vsource = sectionHeader(content, "Value By Source"),
-    charValueSource = sectionHeader(content, "Value By Character \195\151 Source"),
-    quality = sectionHeader(content, "Loot By Quality"),
-    charQuality = sectionHeader(content, "Loot By Character \195\151 Quality"),
-    itype   = sectionHeader(content, "Loot By Item Type"),
-    charType = sectionHeader(content, "Loot By Character \195\151 Item Type"),
-    bound   = sectionHeader(content, "Loot By Bound Type"),
-    charBound = sectionHeader(content, "Loot By Character \195\151 Bound Type"),
-    time    = sectionHeader(content, "Loot Over Time (Per Day)"),
-    vtime   = sectionHeader(content, "Value Over Time (Per Day)"),
-    hour    = sectionHeader(content, "Loot By Hour Of Day"),
-    weekday = sectionHeader(content, "Loot By Weekday"),
-    currencyCollected = sectionHeader(content, "Currency Collected"),
-    currencySrc   = sectionHeader(content, "Currency By Type \195\151 Source"),
-    currencyChar  = sectionHeader(content, "Currency By Character \195\151 Type"),
-    currencyTime  = sectionHeader(content, "Currency Over Time (Per Day)"),
+    char    = sectionHeader("Loot By Character"),
+    source  = sectionHeader("Loot By Source"),
+    charBySource = sectionHeader("Loot By Character \195\151 Source"),
+    vsource = sectionHeader("Value By Source"),
+    charValueSource = sectionHeader("Value By Character \195\151 Source"),
+    quality = sectionHeader("Loot By Quality"),
+    charQuality = sectionHeader("Loot By Character \195\151 Quality"),
+    itype   = sectionHeader("Loot By Item Type"),
+    charType = sectionHeader("Loot By Character \195\151 Item Type"),
+    bound   = sectionHeader("Loot By Bound Type"),
+    charBound = sectionHeader("Loot By Character \195\151 Bound Type"),
+    time    = sectionHeader("Loot Over Time (Per Day)"),
+    vtime   = sectionHeader("Value Over Time (Per Day)"),
+    hour    = sectionHeader("Loot By Hour Of Day"),
+    weekday = sectionHeader("Loot By Weekday"),
+    currencyCollected = sectionHeader("Currency Collected"),
+    currencySrc   = sectionHeader("Currency By Type \195\151 Source"),
+    currencyChar  = sectionHeader("Currency By Character \195\151 Type"),
+    currencyTime  = sectionHeader("Currency Over Time (Per Day)"),
   }
-  self.lootDivider = sectionDivider(content, "LOOT")
-  self.currencyDivider = sectionDivider(content, "CURRENCY")
-  self.dayStrip   = CreateFrame("Frame", nil, content)
-  self.valueStrip = CreateFrame("Frame", nil, content)
-  self.hourStrip  = CreateFrame("Frame", nil, content)
-  self.zonePanel  = listPanel(content, "Top Zones")
-  self.itemPanel  = listPanel(content, "Top Items By Count")
-  self.itemValuePanel = listPanel(content, "Top Items By Value")
-  self.currencyStrip = CreateFrame("Frame", nil, content)
+  self.lootDivider = Analytics._chartDivider(ctx, content, "LOOT")
+  self.currencyDivider = Analytics._chartDivider(ctx, content, "CURRENCY")
+  self.dayStrip   = ctx:strip(content)
+  self.valueStrip = ctx:strip(content)
+  self.hourStrip  = ctx:strip(content)
+  self.zonePanel  = ctx:listPanel(content, "Top Zones")
+  self.itemPanel  = ctx:listPanel(content, "Top Items By Count")
+  self.itemValuePanel = ctx:listPanel(content, "Top Items By Value")
+  self.currencyStrip = ctx:strip(content)
   self.emptyText = content:CreateFontString(nil, "OVERLAY", "GameFontDisableLarge")
   NS.Skin.Font(self.emptyText)
   self.emptyText:SetText("No loot in this range.")
   self.emptyText:SetTextColor(NS.SkinColor("text.disabled"))
   self.emptyText:Hide()
-  self.pool = {
-    source = NS.Pool.New(), vsource = NS.Pool.New(),
-    quality = NS.Pool.New(),
-    itype  = NS.Pool.New(), bound   = NS.Pool.New(),
-    char   = NS.Pool.New(), day     = NS.Pool.New(),
-    vday   = NS.Pool.New(), hour    = NS.Pool.New(),
-    weekday = NS.Pool.New(),
-    zone    = NS.Pool.New(),
-    item   = NS.Pool.New(), itemval = NS.Pool.New(),
-    curcollected = NS.Pool.New(), curcollectedleg = NS.Pool.New(),
-    cursrc = NS.Pool.New(), curlegend = NS.Pool.New(),
-    curchar = NS.Pool.New(), curcharlegend = NS.Pool.New(),
-    curday = NS.Pool.New(),
-    -- Legends for the single-bar categorical charts.
-    sourceleg = NS.Pool.New(), vsourceleg = NS.Pool.New(),
-    qualityleg = NS.Pool.New(), itypeleg = NS.Pool.New(),
-    boundleg = NS.Pool.New(),
-    -- Per-character × category companion stacked bars + their color legends (one pool each).
-    chsource = NS.Pool.New(), chsourceleg = NS.Pool.New(),
-    chvsource = NS.Pool.New(), chvsourceleg = NS.Pool.New(),
-    chquality = NS.Pool.New(), chqualityleg = NS.Pool.New(),
-    chtype = NS.Pool.New(), chtypeleg = NS.Pool.New(),
-    chbound = NS.Pool.New(), chboundleg = NS.Pool.New(),
-  }
+  -- One pool per section, the context's, so a skin switch reaches both lists and ReleaseAll parks them.
+  self.pool = {}
+  for _, name in ipairs(CHART_POOLS) do self.pool[name] = ctx:Pool(name) end
   -- The GAINS & LOSSES half (modules/AnalyticsLedger.lua): its own chrome, in self.ledgerUI.
   Analytics._ledger.Build(self, content)
 
@@ -307,14 +305,6 @@ end
 -- public surface does not grow; the bodies are the old function's, moved (GI-LH-02), and
 -- tests/test_analytics_layout.lua's golden snapshots pin that they draw the same thing.
 
--- Every pool LayoutCharts draws from, released at the top of each pass.
-local CHART_POOLS = { "source", "vsource", "quality", "itype", "bound", "char",
-                      "day", "vday", "hour", "weekday", "zone", "item", "itemval",
-                      "curcollected", "curcollectedleg", "cursrc", "curlegend", "curchar", "curcharlegend", "curday",
-                      "sourceleg", "vsourceleg", "qualityleg", "itypeleg", "boundleg",
-                      "chsource", "chsourceleg", "chvsource", "chvsourceleg", "chquality", "chqualityleg",
-                      "chtype", "chtypeleg", "chbound", "chboundleg" }
-
 local function srcColor(k) return SOURCE_COLOR[k] or NEUTRAL end
 local function srcLabel(k) return NS.Constants.SourceLabel[k] or k end
 local function countText(t) return tostring(t) end
@@ -345,7 +335,7 @@ local function layoutCharacters(self, stats, y, w, pad)
     rows[#rows + 1] = { label = shortChar(ce.char), color = classColor(ce.classFile),
       frac = ce.count / chMax, value = tostring(ce.count) }
   end
-  return self:renderBarSection(self.pool.char, self.headers.char, rows, y, w, pad)
+  return self.charts:renderBarSection(self.pool.char, self.headers.char, rows, y, w, pad)
 end
 
 -- Loot by source — length = share of all records — and its Character × Source companion, whose
@@ -359,7 +349,7 @@ local function layoutSources(self, stats, y, w, pad)
       frac = e.count / total, value = string.format("%d  %d%%", e.count, math.floor(e.count / total * 100 + 0.5)),
     }
   end
-  y = self:renderBarSection(P.source, H.source, rows, y, w, pad, P.sourceleg)
+  y = self.charts:renderBarSection(P.source, H.source, rows, y, w, pad, P.sourceleg)
 
   local srcOrder = {}
   for _, e in ipairs(sortedByCount(stats.bySource)) do srcOrder[#srcOrder + 1] = e.key end
@@ -385,7 +375,7 @@ local function layoutValueSources(self, stats, y, w, pad)
         color = SOURCE_COLOR[e.src] or NEUTRAL, frac = e.v / vMax, value = money(e.v) }
     end
   end
-  y = self:renderBarSection(P.vsource, H.vsource, rows, y, w, pad, P.vsourceleg)
+  y = self.charts:renderBarSection(P.vsource, H.vsource, rows, y, w, pad, P.vsourceleg)
 
   return self:renderCharCompanion("chvsource", "chvsourceleg", H.charValueSource, stats.charValueBySource,
     vsrcOrder, srcColor, srcLabel, moneyText, y, w, pad)
@@ -404,7 +394,7 @@ local function layoutQualities(self, stats, y, w, pad)
     rows[#rows + 1] = { label = NS.Item.QualityLabel(e.q), labelColor = col, color = col,
       frac = e.c / qMax, value = tostring(e.c) }
   end
-  y = self:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
+  y = self.charts:renderBarSection(P.quality, H.quality, rows, y, w, pad, P.qualityleg)
 
   local qOrder = {}
   for q = 0, 8 do if stats.byQuality[q] then qOrder[#qOrder + 1] = q end end
@@ -425,7 +415,7 @@ local function layoutItemTypes(self, stats, y, w, pad)
     rows[#rows + 1] = { label = e.key, color = typeColor[e.key] or NEUTRAL,
       frac = e.count / total, value = tostring(e.count) }
   end
-  y = self:renderBarSection(P.itype, H.itype, rows, y, w, pad, P.itypeleg)
+  y = self.charts:renderBarSection(P.itype, H.itype, rows, y, w, pad, P.itypeleg)
 
   return self:renderCharCompanion("chtype", "chtypeleg", H.charType, stats.charByType,
     tyKeys, function(k) return typeColor[k] or NEUTRAL end, function(k) return k end,
@@ -448,7 +438,7 @@ local function layoutBoundTypes(self, stats, y, w, pad)
     rows[#rows + 1] = { label = BOUND_LABEL[e.bk] or e.bk, color = BOUND_COLOR[e.bk] or NEUTRAL,
       frac = e.c / total, value = tostring(e.c) }
   end
-  y = self:renderBarSection(P.bound, H.bound, rows, y, w, pad, P.boundleg)
+  y = self.charts:renderBarSection(P.bound, H.bound, rows, y, w, pad, P.boundleg)
 
   return self:renderCharCompanion("chbound", "chboundleg", H.charBound, stats.charByBound,
     boundOrder, function(k) return BOUND_COLOR[k] or NEUTRAL end,
@@ -468,15 +458,15 @@ local function layoutTimeStrips(self, stats, y, w, pad)
     dayB[#dayB + 1] = { info = k .. ":  " .. c, count = c, label = lbl }
     valB[#valB + 1] = { info = k .. ":  " .. money(v), count = v, label = lbl }
   end
-  y = self:renderStrip(P.day, H.time, self.dayStrip, dayB, y, w, pad)
-  y = self:renderStrip(P.vday, H.vtime, self.valueStrip, valB, y, w, pad)
+  y = self.charts:renderStrip(P.day, H.time, self.dayStrip, dayB, y, w, pad)
+  y = self.charts:renderStrip(P.vday, H.vtime, self.valueStrip, valB, y, w, pad)
 
   local hourB = {}
   for h = 0, 23 do
     local c = stats.byHour[h] or 0
     hourB[#hourB + 1] = { info = string.format("%02d:00  %d", h, c), count = c, label = string.format("%02d", h) }
   end
-  return self:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
+  return self.charts:renderStrip(P.hour, H.hour, self.hourStrip, hourB, y, w, pad)
 end
 
 -- Loot by weekday — Sun..Sat, each day a unique palette color (Sun=rank 1 … Sat=rank 7).
@@ -489,7 +479,7 @@ local function layoutWeekdays(self, stats, y, w, pad)
     if c then rows[#rows + 1] = { label = WEEKDAY[d], color = Analytics.paletteColor(d + 1),
       frac = c / wMax, value = tostring(c) } end
   end
-  return self:renderBarSection(self.pool.weekday, self.headers.weekday, rows, y, w, pad)
+  return self.charts:renderBarSection(self.pool.weekday, self.headers.weekday, rows, y, w, pad)
 end
 
 -- One ranked-list row per top item, star-marked at epic and above; `right` formats the value
@@ -533,16 +523,16 @@ local function layoutRankedLists(self, stats, y, w, pad)
 
   local zoneY = y
   if #valRows > 0 then
-    local hVal = self:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, colW, leftX, MONEY_W)
-    zoneY = y - hVal - SECTION_GAP
+    local hVal = self.charts:renderListPanel(P.itemval, self.itemValuePanel, valRows, y, colW, leftX, MONEY_W)
+    zoneY = y - hVal - Analytics._chartsLib.K.SECTION_GAP
   else
     self.itemValuePanel:Hide()
   end
-  local hItem = self:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, rightX)
-  local hZone = self:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
+  local hItem = self.charts:renderListPanel(P.item, self.itemPanel, itemRows, y, colW, rightX)
+  local hZone = self.charts:renderListPanel(P.zone, self.zonePanel, zoneRows, zoneY, colW, leftX)
 
   local leftH = (y - zoneY) + hZone -- top of column (y) down to the bottom of the zone panel
-  return y - math.max(leftH, hItem) - SECTION_GAP
+  return y - math.max(leftH, hItem) - Analytics._chartsLib.K.SECTION_GAP
 end
 
 -- The source legend under Currency by Type × Source, ordered by each source's currency total.
@@ -552,7 +542,7 @@ local function layoutCurrencySourceLegend(self, stats, y, w, pad)
     legendRows[#legendRows + 1] = { label = NS.Constants.SourceLabel[le.key] or le.key,
       color = SOURCE_COLOR[le.key] or NEUTRAL }
   end
-  return self:renderLegend(self.pool.curlegend, legendRows, y, w, pad)
+  return self.charts:renderLegend(self.pool.curlegend, legendRows, y, w, pad)
 end
 
 -- Currency by Type × Source: one stacked bar per currency, segments colored by source, then the
@@ -574,7 +564,7 @@ local function layoutCurrencySources(self, stats, y, w, pad)
     end
     stackRows[#stackRows + 1] = { label = e.key, value = tostring(e.count), segments = curSegs }
   end
-  y = self:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
+  y = self.charts:renderStackedBarSection(P.cursrc, H.currencySrc, stackRows, y, w, pad)
   return layoutCurrencySourceLegend(self, stats, y, w, pad)
 end
 
@@ -597,7 +587,7 @@ local function layoutCurrency(self, stats, y, w, pad)
     collectedRows[#collectedRows + 1] = { label = e.key, color = curColor[e.key] or NEUTRAL,
       frac = e.count / curMaxCollected, value = tostring(e.count) }
   end
-  y = self:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
+  y = self.charts:renderBarSection(P.curcollected, H.currencyCollected, collectedRows, y, w, pad, P.curcollectedleg)
 
   y = layoutCurrencySources(self, stats, y, w, pad)
 
@@ -607,14 +597,14 @@ local function layoutCurrency(self, stats, y, w, pad)
   local ccRows = Analytics._buildCharStackRows(stats.currencyCharMatrix, stats.byChar, curKeys,
     function(cname) return curColor[cname] or NEUTRAL end, countText,
     function(cname) return cname end)
-  y = self:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
+  y = self.charts:renderStackedBarSection(P.curchar, H.currencyChar, ccRows, y, w, pad)
 
   -- Legend: one swatch per currency, matching the segment colors.
   local curCharLegend = {}
   for _, cname in ipairs(curKeys) do
     curCharLegend[#curCharLegend + 1] = { label = cname, color = curColor[cname] or NEUTRAL }
   end
-  y = self:renderLegend(P.curcharlegend, curCharLegend, y, w, pad)
+  y = self.charts:renderLegend(P.curcharlegend, curCharLegend, y, w, pad)
 
   -- Currency over time (per-day strip of total currency quantity).
   local ckeys = dayKeyList(stats.totals.firstTs, stats.totals.lastTs)
@@ -623,7 +613,7 @@ local function layoutCurrency(self, stats, y, w, pad)
     local c = stats.currencyByDay[k] or 0
     curDayB[#curDayB + 1] = { info = k .. ":  " .. c, count = c, label = shortDay(k) }
   end
-  return self:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
+  return self.charts:renderStrip(P.curday, H.currencyTime, self.currencyStrip, curDayB, y, w, pad)
 end
 
 local function hideCurrency(self)
@@ -640,10 +630,8 @@ local LOOT_SECTIONS = { layoutCharacters, layoutSources, layoutValueSources, lay
 
 -- Bind + position every chart off self.stats for the given width; return the final y cursor.
 function Analytics:LayoutCharts(y, w, pad)
-  local stats, P = self.stats, self.pool
-  for _, name in ipairs(CHART_POOLS) do
-    NS.Pool.ReleaseAll(P[name])
-  end
+  local stats = self.stats
+  self.charts:ReleaseAll()
 
   -- Empty only when the range holds neither a gain nor a loss/transfer: a losses-only range still
   -- draws the GAINS & LOSSES section, with no LOOT sections under it.

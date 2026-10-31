@@ -100,7 +100,7 @@ you have not got special license" and "You have no right to embed this font into
 commercial purposes without special license", and its name table calls it "a property of ParaType,
 Inc." Shipped on the owner's ruling of 2026-10-31.
 
-**Friz Quadrata.** The name table records no license. The copyright stays ITC's. Shipped on the owner's ruling of 2026-10-31.
+**Friz Quadrata.** The name table records no license. The copyright stays ITC's. Shipped on the owner's ruling of 2026-10-31. Its md5 is `87cd491cd119e8c7aa48b562d7482ed8`, so it is real Friz and not the owner's replaced client file, which is Prototype's bytes, `0483b4eeaaefc7b81986e43702c7900d`.
 
 **Emblem.** The name table says "Redistribution strictly prohibited." Shipped on the owner's ruling of
 2026-10-31.

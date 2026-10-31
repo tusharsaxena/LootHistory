@@ -47,7 +47,13 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Minor 37: the switched sections moved out to OptionsSwitch.lua, which adds `shownWhen.any` (LK-10).
 -- Minor 38: an unregistered LSM30_* row falls back to the matching Ka0sMedia_* picker, then to the
 -- stock Dropdown (LK-F03 of Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES, D-08).
-local WIDGETS_MINOR = 38
+-- Minor 40: O.RenderField dispatches the schema `note` row to OptionsFlow.lua's O.__renderNote
+-- (LibKa0s#59), and lib.__widgetsKit carries applyLabelFont for it. No maker is added here.
+-- Minor 39: the flow engine moved out, unchanged, to OptionsFlow.lua (LK-M2-PEEL of
+-- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
+-- Minor 41 (the owner's ruling of 2026-11-01): a media row is always the Ka0sMedia_* picker, whether
+-- or not an LSM30_* type is registered. A row may still name LSM30_*; it reads as the picker.
+local WIDGETS_MINOR = 41
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -75,10 +81,6 @@ local DRAG_THROTTLE  = COLOR_THROTTLE
 local function tooltipBody(row)
   return row.tooltip or row.desc
 end
-
--- The two-column split. Not BUTTON_PAIR_REL: a schema widget's label sits above its control, so it
--- has no border to be clipped and takes the honest half.
-local HALF = 0.5
 
 local function applyWidth(widget, relativeWidth)
   if relativeWidth then
@@ -175,13 +177,6 @@ local function startRow(O)
   return r
 end
 
---- RenderGrid's spacer height (minor 34): absent, the row gap every page has; false or 0, none.
-local function gridGap(opts)
-  local gap = type(opts) == "table" and opts.gap
-  if gap == nil or type(opts) ~= "table" then return L.ROW_VSPACER end
-  return gap ~= false and gap ~= 0 and gap or nil
-end
-
 --- Render one row (or one bespoke item) through `fn`, absorbing a raise and reporting it against
 --- the row's path. Vararg because the two callers pass different argument shapes: a schema row goes
 --- through O.RenderField(ctx, row, parent, relW), a bespoke item through its own
@@ -201,113 +196,9 @@ local function renderRowGuarded(printer, path, fn, ...)
   return ok
 end
 
---- Emit a section heading when `row` opens a group the page has not drawn yet, and advance the
---- tracker. The previous group's tail row is flushed FIRST, or the heading lands above a widget
---- that belongs above IT.
----
---- `noHeadings` skips the O.Section call for a page whose sections are drawn as tabs instead
---- (options-ui-§13) -- but the flush and the tracker advance happen either way, or a later
---- group would be treated as a continuation of this one and the boundary flush between them
---- would never happen.
-local function startGroup(O, ctx, row, flushRow, noHeadings)
-  if not (row.group and row.group ~= ctx.lastGroup) then return end
-  flushRow()
-  if not noHeadings then O.Section(ctx, row.group) end
-  ctx.lastGroup = row.group
-  -- A subgroup belongs to ONE group. Leaving the tracker set across a group boundary would swallow
-  -- the first subsection heading of the next group whenever the two happened to share a name --
-  -- "Border" under Bars and "Border" under Tooltip is the shape the collection is about to be full
-  -- of (options-ui-§16).
-  ctx.lastSubgroup = nil
-end
-
---- Emit a SUBSECTION heading when `row` opens a subgroup its group has not drawn yet, and advance
---- the tracker. The pending line is flushed FIRST, exactly as it is for a group heading, or the
---- heading lands packed beside a widget that belongs above it.
----
---- The sibling of startGroup, and deliberately NOT suppressed by `noHeadings`. That flag exists
---- because on a tabbed page the TAB is the group's heading -- but a tab that mixes control types
---- (a bar block, a background block and a border block, all under one label) has to say where one
---- stops and the next starts, and there is no tab left to name them with (options-ui-§7). So
---- `group` is what the strip partitions on and `subgroup` is what breaks a tab up inside itself;
---- a page uses either, both, or neither, and the tab list stays derivable from `group` alone.
----
---- ONE HEADING WIDGET IN THE COLLECTION: O.Section, the same AceGUI Heading every other header
---- uses. A hand-rolled colored label standing in for it is anti-patterns #71.
-local function startSubgroup(O, ctx, row, flushRow)
-  if not (row.subgroup and row.subgroup ~= ctx.lastSubgroup) then return end
-  flushRow()
-  O.Section(ctx, row.subgroup)
-  ctx.lastSubgroup = row.subgroup
-end
-
---- Does `row` have to start a fresh line?
----
---- Three fields, one question, hoisted out of the loop so the loop reads as the decision rather
---- than as the disjunction. They differ only in what happens AFTER the line opens -- see the field
---- list on O.RenderRows.
-local function opensLine(row)
-  return row.solo or row.wide or row.startsLine
-end
-
---- Draw one row across BOTH columns, alone on its line. `nil` relative width is what applyWidth
---- turns into SetFullWidth, so no maker knows this case exists.
-local function drawWide(O, ctx, row, pendingRow, printer)
-  if not pendingRow then pendingRow = startRow(O) end
-  renderRowGuarded(printer, row.path, O.RenderField, ctx, row, pendingRow, nil)
-  return pendingRow
-end
-
---- Claim a host hook for `key`, or nil if there is none or it has already run this render.
----
---- The lookup and the marking are ONE step on purpose. RenderRows honors two hook tables — pairWith
---- and afterGroup — and both are "fire at most once per render, and only if it actually fired";
---- splitting the two halves is how a caller ends up marking a hook it never ran, or running one it
---- already marked. `fired` is the LIBRARY's call-local ledger, never the host's table: see the note
---- in O.RenderRows for why consuming the host's entries silently breaks a second render.
-local function takeOnce(hooks, fired, key)
-  if not (hooks and key) then return nil end
-  local hook = hooks[key]
-  if not hook or fired[key] then return nil end
-  fired[key] = true
-  return hook
-end
-
---- Draw one schema row into the pending Flow line, then attach its pairWith partner if it has one.
---- Returns the line and its widget count, because both advance and the caller decides on them.
----
---- The partner attaches only while the row is the LONE widget on its line: attaching to a line that
---- already holds two would make it three-wide and break the 50/50 split for the rest of the page.
---- A row whose render RAISED never counted, so it cannot pull a partner onto the line either.
-local function drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, printer)
-  if not pendingRow then pendingRow = startRow(O) end
-  if renderRowGuarded(printer, row.path, O.RenderField, ctx, row, pendingRow, HALF) then
-    pendingCount = pendingCount + 1
-  end
-  if pendingCount == 1 then
-    -- A bound row (OptionsCompose's `spec.bind`) has no path, so it is keyed by its record field.
-    local pair = takeOnce(pairWith, firedPair, row.path or row.field)
-    if pair then
-      pair(ctx, pendingRow)
-      pendingCount = pendingCount + 1
-    end
-  end
-  return pendingRow, pendingCount
-end
-
---- Close out a group on its LAST row — the next row opens a different group, or there is no next
---- row — by running the host's afterGroup hook for it. The counterpart to startGroup, and the loop
---- reads as the pair: open the group, draw the row, close the group.
----
---- The pending line is flushed FIRST. afterGroup draws buttons, and they belong on a fresh line
---- rather than packed into the empty half of the group's tail row.
-local function endGroup(ctx, afterGroup, firedAfter, row, nextRow, flushRow)
-  if not (row.group and (not nextRow or nextRow.group ~= row.group)) then return end
-  local after = takeOnce(afterGroup, firedAfter, row.group)
-  if not after then return end
-  flushRow()
-  after(ctx)
-end
+-- OptionsFlow.lua reads these two at its load.
+lib.__widgetsKit = { startRow = startRow, renderRowGuarded = renderRowGuarded,
+                     applyLabelFont = applyLabelFont }
 
 -- ── the landing page ─────────────────────────────────────────────────────────────────────────
 --
@@ -773,20 +664,22 @@ function lib.__AttachWidgets(O, d)
     return s
   end
 
+  --- The AceGUI type `row` draws. A media row, named Ka0sMedia_* or LSM30_*, is the library's own
+  --- picker whatever else is registered (OptionsMedia.lua; the owner's ruling of 2026-11-01). Any
+  --- other type is the row's if it is registered, and the stock Dropdown if not: the option must
+  --- still render rather than raise on an unknown type, and the two share the interface used below.
+  local function dropdownType(row)
+    local asked = row.dialogControl
+    if not asked or asked == "Dropdown" then return "Dropdown" end
+    local mediaType = lib.__MediaWidgetType
+    local picker = mediaType and mediaType(asked)
+    if picker then return picker end
+    return O.AceGUI:GetWidgetVersion(asked) and asked or "Dropdown"
+  end
+
   local function makeDropdown(ctx, row, parent, relativeWidth)
     parent = parent or O.EnsureScroll(ctx)
-    -- A row may ask for an in-tree widget (LSM30_* for a media swatch or font preview). Fall back
-    -- to the stock Dropdown when it is not registered — AceGUI-3.0-SharedMediaWidgets is optional,
-    -- and the option must still render (no swatch, but usable) rather than erroring on an unknown
-    -- type. Both share enough interface that the rest of this function is unchanged either way.
-    -- Since minor 38 the library's own picker takes that place first (OptionsMedia.lua, D-08), so
-    -- the row keeps its preview; the stock Dropdown is what a client without the picker draws.
-    local widgetType = row.dialogControl or "Dropdown"
-    if widgetType ~= "Dropdown" and not O.AceGUI:GetWidgetVersion(widgetType) then
-      local mediaType = lib.__MediaWidgetType
-      widgetType = mediaType and mediaType(widgetType) or "Dropdown"
-    end
-    local dd = O.AceGUI:Create(widgetType)
+    local dd = O.AceGUI:Create(dropdownType(row))
     dd:SetLabel(row.label or row.path)
     applyWidth(dd, relativeWidth)
 
@@ -952,6 +845,10 @@ function lib.__AttachWidgets(O, d)
       return makeDropdown(ctx, row, parent, relativeWidth)
     end
     if row.type == "color"  then return makeColorPicker(ctx, row, parent, relativeWidth) end
+    -- Minor 40: text, not a setting, and OptionsFlow.lua's (its minor 2), so a guard for a partial copy.
+    if row.type == "note" and O.__renderNote then
+      return O.__renderNote(ctx, row, parent, relativeWidth)
+    end
   end
 
   --- A non-schema checkbox wired to caller-supplied get/set instead of a settings path. For
@@ -979,120 +876,6 @@ function lib.__AttachWidgets(O, d)
     parent:AddChild(cb)
     ctx.refreshers[#ctx.refreshers + 1] = refresh
     return cb
-  end
-
-  -- ── the two-column flow engine ───────────────────────────────────────────────────────────
-  --
-  -- Widgets are paired into 50/50 Flow rows, each row wrapped in a full-width SimpleGroup so
-  -- AceGUI's layout pass gives both children exactly half the panel width and breaks them onto the
-  -- same line. Section headings span the full width, and every row is followed by a small vertical
-  -- spacer.
-  --
-  --   solo        render this row alone in the left half of its own line. For visual pivots.
-  --   wide        render this row alone at FULL width, spanning both columns. NOT what `solo`
-  --               does -- solo renders alone in the LEFT HALF -- and named to match RenderGrid's
-  --               field of the same meaning rather than redefining solo, which would silently
-  --               widen every solo row in nine shipped addons.
-  --   startsLine  flush the pending line BEFORE this row, so a declared pair -- a color swatch and
-  --               its "use class color" companion (options-ui-§17), the first row of a composed
-  --               group -- is guaranteed to land as [left][right] and can never be split across
-  --               two lines by an odd number of widgets above it. Without it the parity of every
-  --               pair is a property of how many rows happen to precede it, which is a thing every
-  --               author was counting by hand.
-  --   subgroup    a heading drawn INSIDE a group (options-ui-§7). `group` is what a tabbed page
-  --               partitions its strip on; `subgroup` is what breaks one tab into named blocks
-  --               when it mixes control types. Drawn even under `noHeadings`, which suppresses the
-  --               GROUP heading only.
-  --   skipRender  keep the row in the schema (so resets and the CLI still see it) but let the host
-  --               draw it bespoke — a header checkbox, say.
-  --   afterGroup  { [groupName] = fn(ctx) } fired once PER RENDER, after that group's last row is
-  --               flushed, so inline action buttons always start on a fresh line. The table is
-  --               read-only to the library: hoist it to a constant and re-render freely.
-  --   pairWith    { [path] = maker(ctx, rowGroup) } attaches a non-schema widget as the RIGHT half
-  --               of a named path's row. Once per render (and, like afterGroup, never mutated),
-  --               and only when that path is currently the lone
-  --               widget on its row — attaching to a row that already has two would make it
-  --               three-wide and break the 50/50 split for the rest of the page.
-  --   opts        { noHeadings = true } suppresses the automatic Section heading, for a page
-  --               whose sections are drawn as tabs instead (options-ui-§13). Omitted by every
-  --               untabbed caller, which is why it is a fifth argument rather than a field on
-  --               the ctx: a page's tabbedness is a property of THIS render, and a ctx flag
-  --               would leak it into the next one.
-  --               { disabled = true } (minor 16) draws every widget of the call disabled -- the
-  --               rows, and the buttons an afterGroup or pairWith hook draws -- for a page whose
-  --               subject does not apply (a Bars page over an icons container). It rides on
-  --               `ctx.__renderDisabled` for the call's duration only, for the reason just given.
-  --   disabledIf  (a row field) a settings path, or from minor 16 a predicate function(row) ->
-  --               bool, whose truth draws the row disabled. Honored by every maker (only the
-  --               color picker read it before minor 16) and re-evaluated on every refresh.
-
-  --- Render an EXPLICIT list of rows. Taking a list rather than a page key is what lets a host
-  --- render a filtered subset (a mirrored unit's partition) through the same engine.
-  --- Lay out arbitrary widgets two per row, in the order given.
-  ---
-  --- The sibling of RenderRows, and deliberately not the same function. RenderRows is
-  --- SCHEMA-driven: it walks declared rows, emits a Section when `group` changes, and pairs them
-  --- automatically. This one is CALLER-driven — the caller decides what goes in each cell and in
-  --- what order, and a cell may be a schema row or a bespoke widget.
-  ---
-  --- That distinction is what a host needs for a list whose LENGTH is not known from the schema:
-  --- one checkbox per macro, per unit, per spell. Every such list was previously a hand-rolled
-  --- copy of this loop in the host, which is exactly the duplication this library exists to end.
-  ---
-  --- Each item is either a schema row, or `{ make = function(ctx, parent, relativeWidth) end }`
-  --- for a bespoke widget. `wide = true` breaks the item onto its own full-width row.
-  --- Minor 34: `parent` replaces the page scroll as the container; `opts.gap` is the spacer after
-  --- each row (absent `L.ROW_VSPACER`; `false` or `0` none, for a fixed-stride ReorderList); and an
-  --- item that raised, or whose `make` answered exactly `false`, takes no cell, a wide one no row
-  --- and no gap (its row is released). A `make` answering nil still counts as drawn.
-  --- IT DOES NOT LAY OUT, deliberately: hosts render several grids and lay out once. Call
-  --- `container:DoLayout()` after the last render, as RenderRows does for you.
-  function O.RenderGrid(ctx, items, parent, opts)
-    local scroll = parent or O.EnsureScroll(ctx)
-    if not scroll then return end
-    local gap = gridGap(opts)
-    local pendingRow, pendingCount = nil, 0
-
-    local function addRow(r)
-      scroll:AddChild(r)
-      if gap then O.AddSpacer(scroll, gap) end
-    end
-
-    local function flushRow()
-      if pendingRow then
-        addRow(pendingRow)
-        pendingRow, pendingCount = nil, 0
-      end
-    end
-
-    -- Guarded per item, for the same reason RenderRows guards per row: a bespoke `make` reaches
-    -- into live addon state, and a raise inside AceGUI's layout pass would cost every item after
-    -- it. True when the item drew.
-    local function renderInto(item, into, relativeWidth)
-      if type(item.make) ~= "function" then
-        return renderRowGuarded(print, item.path, O.RenderField, ctx, item, into, relativeWidth)
-      end
-      local answer
-      local ok = renderRowGuarded(print, item.path, function()
-        answer = item.make(ctx, into, relativeWidth)
-      end)
-      return ok and answer ~= false
-    end
-
-    for _, item in ipairs(items) do
-      if item.wide then
-        flushRow()
-        local r = startRow(O)
-        if renderInto(item, r, nil) then addRow(r) else r:Release() end
-      else
-        if not pendingRow then pendingRow = startRow(O) end
-        if renderInto(item, pendingRow, HALF) then
-          pendingCount = pendingCount + 1
-        end
-        if pendingCount >= 2 then flushRow() end
-      end
-    end
-    flushRow()
   end
 
   -- ── the choice grid (minor 16) ───────────────────────────────────────────────────────────
@@ -1283,93 +1066,12 @@ function lib.__AttachWidgets(O, d)
   })
   if ids and lib.__AttachIdList then lib.__AttachIdList(O, d, ids) end
 
-  -- ── switched sections: `shownWhen` (minor 22) ─────────────────────────────────────────────
+  -- ── the two-column flow engine: OptionsFlow.lua ──────────────────────────────────────────────
   --
-  -- A row carrying `shownWhen` is dropped from the render while its selector says so, and the page
-  -- re-renders once when the selector changes. Peeled out to OptionsSwitch.lua at minor 37 (LK-10
-  -- of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, with the OR form `any`), which
-  -- is handed this instance's two reads. A copy without that file draws every row: no row is lost.
-  local switch = lib.__AttachSwitch and lib.__AttachSwitch(O, { read = read, readKey = readKey })
-  local switchedRows = switch and switch.switchedRows or function(rows) return rows, nil end
-  local selectorKey = switch and switch.selectorKey
-  local watchSelector = switch and switch.watchSelector
-
-  --- The flow engine's loop, under the disable flag RenderRows holds for it.
-  local function flowRows(ctx, scroll, allRows, afterGroup, pairWith, opts)
-    local pendingRow, pendingCount = nil, 0
-    local rows, selectors = switchedRows(allRows)
-
-    -- The one-shot bookkeeping below is the LIBRARY's, and it lives in these two call-local sets
-    -- rather than in the caller's tables. Consuming the caller's entries would make a second render
-    -- of the same page \226\128\148 a unit switch, a ClearScroll + re-render \226\128\148 silently drop every inline
-    -- button and every paired widget, for any host that hoisted its table to a file-level constant.
-    local firedAfter, firedPair = {}, {}
-
-    local function flushRow()
-      if pendingRow then
-        scroll:AddChild(pendingRow)
-        O.AddSpacer(scroll, L.ROW_VSPACER)
-        pendingRow, pendingCount = nil, 0
-      end
-    end
-
-    for i, row in ipairs(rows) do
-      startGroup(O, ctx, row, flushRow, opts and opts.noHeadings)
-      startSubgroup(O, ctx, row, flushRow)
-
-      if not row.skipRender then
-        if opensLine(row) and pendingCount > 0 then flushRow() end
-
-        if row.wide then
-          pendingRow = drawWide(O, ctx, row, pendingRow, print)
-          flushRow()
-        else
-          pendingRow, pendingCount =
-            drawRow(O, ctx, row, pendingRow, pendingCount, pairWith, firedPair, print)
-          if row.solo or pendingCount >= 2 then flushRow() end
-        end
-        if selectors and selectors[selectorKey(row)] then watchSelector(ctx, row) end
-      end
-
-      endGroup(ctx, afterGroup, firedAfter, row, rows[i + 1], flushRow)
-    end
-    flushRow()
-    if scroll.DoLayout then scroll:DoLayout() end
-  end
-
-  function O.RenderRows(ctx, rows, afterGroup, pairWith, opts)
-    local scroll = O.EnsureScroll(ctx)
-    if not scroll then return end
-    -- `opts.disabled` (minor 16) holds `ctx.__renderDisabled` for exactly this call: every maker
-    -- snapshots it at build, and InlineButtonPair / SessionCheckbox read it, so a widget an
-    -- afterGroup or pairWith hook draws is disabled with the page. A nested call with no opts of
-    -- its own INHERITS the outer flag, since its widgets are part of the same disabled page, and
-    -- the outer value is restored on the way out -- a raise included, or the flag would be
-    -- stranded on the ctx and dim the next render. The raise still propagates, as it always has.
-    local outer = ctx.__renderDisabled
-    ctx.__renderDisabled = ((opts and opts.disabled) or outer) and true or nil
-    local ok, err = pcall(flowRows, ctx, scroll, rows, afterGroup, pairWith, opts)
-    ctx.__renderDisabled = outer
-    if not ok then error(err, 0) end
-  end
-
-  --- The per-page wrapper. `ctx.unit` is passed through as the host's filter argument, which is
-  --- how a per-unit page renders only the selected unit's rows.
-  function O.RenderSchema(ctx, pageKey, afterGroup, pairWith)
-    O.RenderRows(ctx, d.rowsForPage(pageKey, ctx.unit) or {}, afterGroup, pairWith)
-  end
-
-  --- The UNTABBED fallback for a page meant to render tabbed. OptionsTabs.lua's attach replaces it
-  --- with the real one (OptionsTabs minor 4 took it there, with its fifth `opts` argument); it
-  --- stays only for a partial copy without that file, where every row renders with its headings
-  --- and `opts` is ignored. Returns the group names, as the real one does.
-  function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
-    local rows, groups, seen = d.rowsForPage(pageKey, ctx.unit) or {}, {}, {}
-    for _, row in ipairs(rows) do
-      if row.group and not seen[row.group] then seen[row.group] = true; groups[#groups + 1] = row.group end
-    end
-    if not O.AceGUI then return {} end
-    O.RenderRows(ctx, rows, afterGroup, pairWith)
-    return groups
+  -- RenderGrid, RenderRows, RenderSchema, the untabbed RenderTabbedSchema and the switched sections'
+  -- wiring moved out at minor 39 and attach from here, handed the sink and the two reads. A copy
+  -- without that file has no renderer members.
+  if lib.__AttachFlow then
+    lib.__AttachFlow(O, d, { print = print, read = read, readKey = readKey })
   end
 end

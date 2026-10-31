@@ -4,7 +4,8 @@
 -- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), from minor 6 a
 -- skin owner (`owner`: the shell's SKIN OWNERS), from minor 7 an owned strip's tooltip in its
 -- skin's tooltip colors, its label in its skin's body face, and `panel`, and from minor 8 a fitted
--- strip that re-fits its title after every repaint of its skin (`FIT_SLACK`, `spec.onRefit`).
+-- strip that re-fits its title after every repaint of its skin (`FIT_SLACK`, `spec.onRefit`), and
+-- from minor 10 measures at the strip's own scale and fits again when it shows.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -32,7 +33,7 @@
 -- Every string, where the strip sits, when it shows, whether a drag is allowed, what a right-click
 -- means, and where the moved frame's position is saved. After the constructor returns, this file
 -- never calls SetPoint, SetShown, Show, Hide or SetWidth of its own accord (one exception from
--- minor 8, THE RE-FIT below) — both hosts defer
+-- minor 8, widened at minor 10, THE RE-FIT below) — both hosts defer
 -- layout work around a protected frame to PLAYER_REGEN_ENABLED, and a widget that re-measured
 -- itself on a timer or on an event would poke that frame from inside the library, where neither
 -- host's combat contract can see it. `ApplyWidth` is a method the host calls, not a pass the
@@ -55,6 +56,12 @@
 -- the measure reads through `spec.number`; it rests on no consumer anchoring a protected frame to
 -- the strip (ConsumableMaster's bar sits beside its strip, not on it). A host that ever does MUST
 -- pass `spec.onRefit` and defer the work to PLAYER_REGEN_ENABLED itself.
+-- THE SHOW (minor 10, LK-M2-68, LibKa0s#68). A fit made at build is only as good as that moment: an
+-- addon face the client has not loaded measures wrong (OptionsMedia.lua's FACES LOAD BEFORE THEY
+-- DRAW), and the host may scale its frame later. KickCD's cast bar fits once, at build. So a strip
+-- the default re-fit covers repeats the host's last fit each time it shows, out of combat only,
+-- since a shown strip can follow a protected parent's state driver. `spec.onRefit` hosts size on
+-- their own show path and are not called here.
 --
 -- THE ONE EXCEPTION IS BIRTH, and it is deliberate rather than an oversight: the constructor ends
 -- on handle:Hide(). A strip is born with no width and no anchor point, because placing and sizing
@@ -91,7 +98,12 @@ if not lib then return end
 -- screen (a hidden one may never load the face it is asked to measure) and wears the label's own
 -- font: its font object, or its path, size and flags where it has none. A fitted strip re-fits
 -- after each skin repaint, and `spec.onRefit` replaces that re-fit (THE RE-FIT above).
-local DRAG_MINOR = 8
+-- Minor 9: ApplyLevel and the repaint name their two marks, with no throwaway table per call
+-- (LK-M2-PEEL of Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION).
+-- Minor 10 (LK-M2-68 of the same run, LibKa0s#68): the measurer's host takes the strip's effective
+-- scale for each measure (dhMatchScale), the measured text is written fresh, and a fitted strip
+-- fits again on show (THE SHOW above). A strip at UIParent's scale measures what it did.
+local DRAG_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -335,13 +347,29 @@ local function dhRawWidth(fs)
   return fs:GetStringWidth()
 end
 
+--- Put the measuring host at the strip's effective scale (minor 10). The label is drawn at that
+--- scale and every host scales its strip's parent, while the host sits on UIParent, so a client
+--- that snaps glyph advances to device pixels answered a width for another scale: modeled over the
+--- shipped faces that overran FIT_SLACK. An unreadable scale (a secret one reads 0 through the
+--- host's guard) measures at UIParent's.
+local function dhMatchScale(spec, handle, host)
+  if not (host and host.SetScale and handle and handle.GetEffectiveScale) then return end
+  if not (UIParent and UIParent.GetEffectiveScale) then return end
+  local want = dhNumber(spec, handle:GetEffectiveScale(), 0)
+  local base = dhNumber(spec, UIParent:GetEffectiveScale(), 0)
+  host:SetScale((want > 0 and base > 0) and want / base or 1)
+end
+
 --- The width `text` takes in the label's face, ceiled, or 0 when nothing can be measured. The face
 --- is the one the label is DRAWN in; see LABEL_FONT_DEFAULT. A label in its skin's face (minor 7)
 --- lends the measurer its font first: the measurer is shared per template, so it is put back on
---- the template for the next label that wears none.
-local function dhLabelWidth(spec, text, label)
-  local fs = lib.__DragHandleMeasurer(spec.labelFont)
+--- the template for the next label that wears none. The text is cleared first (minor 10): text set
+--- before its face loaded stays as it was until it is set again, and the last measure may be the
+--- same string.
+local function dhLabelWidth(spec, text, label, handle)
+  local fs, host = lib.__DragHandleMeasurer(spec.labelFont)
   if not fs then return 0 end
+  dhMatchScale(spec, handle, host)
   local fonted = lib.__fonted
   if label and fonted and fonted[label] and dhLendFont(fs, label) then
     lent[fs] = true
@@ -349,6 +377,7 @@ local function dhLabelWidth(spec, text, label)
     fs:SetFontObject(spec.labelFont or LABEL_FONT_DEFAULT)
     lent[fs] = nil
   end
+  fs:SetText("")
   fs:SetText(text or "")
   return math.ceil(dhNumber(spec, dhRawWidth(fs), 0))
 end
@@ -688,9 +717,8 @@ local function dhRepaint(handle, owner)
     tex:SetColorTexture(pal.edge[1], pal.edge[2], pal.edge[3], pal.edge[4])
   end
   if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
-  for _, mark in ipairs({ handle.help, handle.close }) do
-    if mark then dhTint(mark.icon, pal.tint) end
-  end
+  if handle.help then dhTint(handle.help.icon, pal.tint) end
+  if handle.close then dhTint(handle.close.icon, pal.tint) end
   dhRefit(handle)
 end
 
@@ -748,6 +776,11 @@ local function dhSetDragScripts(handle, spec)
   end)
 end
 
+--- One mark, where the client built it, at `level`.
+local function dhLevelMark(mark, level)
+  if mark and mark.SetFrameLevel then mark:SetFrameLevel(level) end
+end
+
 --- THE LEVEL (minor 5). With a numeric `spec.level`, the handle's frame level becomes the parent's
 --- level plus that offset, read through the host's numeric guard: a secret or non-number answer
 --- reads 0 and is never computed on. Answers the level written, or nil when there was nothing to
@@ -791,6 +824,16 @@ local function dhShadowSizing(handle)
   end
 end
 
+--- THE SHOW (minor 10, at the top of the file): repeat the host's last fit when the strip shows.
+local function dhFitOnShow(handle)
+  if not handle.HookScript then return end
+  handle:HookScript("OnShow", function(self)
+    if not self.__fitted or self.__onRefit then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+    self:ApplyWidth(self.__fitFloor)
+  end)
+end
+
 --- The methods a host calls. Attached per instance, because every field of the spec is.
 local function dhAttachMethods(handle, spec)
   dhShadowSizing(handle)
@@ -807,7 +850,7 @@ local function dhAttachMethods(handle, spec)
   --- is what keeps the label optically centered. Both hosts wrote this expression out; neither
   --- does now.
   function handle:Measure()
-    return dhLabelWidth(spec, self.__label, self.label) + lib.DRAG_HANDLE.FIT_SLACK + dhReserve(spec) * 2
+    return dhLabelWidth(spec, self.__label, self.label, self) + lib.DRAG_HANDLE.FIT_SLACK + dhReserve(spec) * 2
   end
 
   --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE without a close
@@ -836,9 +879,8 @@ local function dhAttachMethods(handle, spec)
   function handle:ApplyLevel()
     local lvl = dhLevel(self, spec, self.GetParent and self:GetParent())
     if not lvl then return false end
-    for _, mark in ipairs({ self.help, self.close }) do
-      if mark and mark.SetFrameLevel then mark:SetFrameLevel(lvl + 1) end
-    end
+    dhLevelMark(self.help, lvl + 1)
+    dhLevelMark(self.close, lvl + 1)
     return true
   end
 end
@@ -942,6 +984,7 @@ function lib.DragHandle(parent, spec)
   handle.help = dhBuildHelp(handle, spec)
   handle.close = dhBuildClose(handle, spec)
   dhAttachMethods(handle, spec)
+  dhFitOnShow(handle)
   handle:SetLabel(spec.label)
   if Skin then lib.__onSkin(Skin, spec.owner, handle, dhRepaint) end
   -- See "WHAT THE HOST STILL OWNS" at the top: the one visibility call this file makes, at birth,

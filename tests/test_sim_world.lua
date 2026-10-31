@@ -2,7 +2,7 @@ local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
--- modules/SimWorld.lua (LootHistory#37; req-lh-sim.md §2.1-§2.2): the simulator's seeded world and
+-- modules/SimWorld.lua (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md §2.1-§2.2): the simulator's seeded world and
 -- the seam's providers over it. A world is built from a fixture and a seed and reads no real bag;
 -- the providers answer from it while a session runs and leave the client's answer alone otherwise;
 -- each key has one provider, and a second registration raises (OWNER_SCOPE C.8).

@@ -679,7 +679,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (96)
+### test_browser.lua (74)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -755,6 +755,9 @@ Total.
 - Browser: the default view floors items at the minimum-quality setting
 - Browser: the Quality 'all' option names the floor
 - Browser: group options offer Direction and Holder
+
+### test_browser_filterbar.lua (22)
+
 - Browser: date options offer 90 days and 1 year after 30 days
 - Browser: _filterHonored - no set honors everything, a set honors only its keys
 - Browser: a tab grays the controls it does not honor, and History restores them
@@ -983,7 +986,7 @@ Total.
 - keybinding: one press toggles once (open then close) through the toggle verb
 - keybinding: the button exists on a degraded install (no Launcher library)
 
-### test_slash.lua (63)
+### test_slash.lua (50)
 
 - FormatSchemaValue renders booleans as true/false
 - FormatSchemaValue applies a row's fmt to numbers (scale → 1.00x)
@@ -1035,6 +1038,9 @@ Total.
 - the set-valued row renders through the format hook, never as <secret>
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
+
+### test_slash_verbs.lua (13)
+
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
 - the config verb opens the settings panel on its landing page
@@ -1079,7 +1085,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (73)
+### test_schema.lua (48)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1129,6 +1135,9 @@ Total.
 - Schema: every slider declares a step it can actually be dragged to
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
+
+### test_schema_seam.lua (25)
+
 - seam: Set answers true, or false and a reason, in the host's own words
 - seam: one write logs its [Set] line, then runs onChange, once each
 - seam: on the degraded build a write lands, is copied, reacts, and an unknown path is refused
@@ -1167,33 +1176,14 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (71)
+### test_analytics.lua (49)
 
-- Analytics._fitFontSize: fits within width returns base size
-- Analytics._fitFontSize: overflow scales down proportionally
-- Analytics._fitFontSize: clamps to the minimum floor
-- Analytics._fitFontSize: zero/negative width returns base
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
 - Analytics.paletteColor: cycles past the palette length
-- Analytics._tipText: joins the full label and its value
-- Analytics._tipText: label alone when there is no value
-- Analytics._tipText: value alone when there is no label
 - Analytics pool: a released object is reused rather than rebuilt
 - Analytics pool: releaseAll returns every active object to the free list
 - Analytics pool: acquire shows what it hands back
-- Analytics._truncate: short text passes through
-- Analytics._truncate: long text is cut with an ellipsis
-- Analytics._truncate: exactly maxChars passes through
-- Analytics._charStackSegments: keeps all when within cap
-- Analytics._charStackSegments: collapses overflow into __OTHER__
-- Analytics._charStackSegments: kept segments follow the global category order
-- Analytics._charStackSegments: __OTHER__ always draws last
-- Analytics._charStackSegments: a category outside the order sinks to the end
-- Analytics._charStackSegments: the total counts every magnitude, kept or lumped
-- Analytics._charStackSegments: zero and negative magnitudes are dropped
-- Analytics._charStackSegments: an empty character yields no segments
-- Analytics._charStackSegments: equal magnitudes break the tie by key, not by chance
 - Analytics._buildCharStackRows: rows run by total descending
 - Analytics._buildCharStackRows: labels are shortened and class-colored
 - Analytics._buildCharStackRows: the busiest character's bar is full width
@@ -1227,9 +1217,6 @@ Total.
 - Analytics._sortedByCount: equal counts break the tie by key ascending
 - Analytics._sortedByCount: an empty map yields no rows
 - Analytics._sortedByCount: numeric keys sort without a type error
-- Analytics._truncate: reports whether it cut
-- Analytics._truncate: a nil label becomes an empty string
-- Analytics._truncate: the cut keeps maxChars-1 glyphs plus the ellipsis
 - Analytics: every pool goes through the LibKa0s seam
 - Analytics: the TOC loads Format, then Analytics, then Charts
 - AnalyticsCharts: publishes NS.Analytics idempotently, like every other Analytics* file
@@ -1241,7 +1228,7 @@ Total.
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
 
-### test_analytics_layout.lua (9)
+### test_analytics_layout.lua (11)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1252,6 +1239,8 @@ Total.
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
+- Insights layout: each widget's hover goes through Compat in its own token
+- Insights layout: without LibKa0s-Charts-1.0 the tab says so and draws nothing
 
 ### test_holdingstab.lua (33)
 
@@ -1706,7 +1695,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (42)
+### test_libka0s.lua (43)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1750,6 +1739,7 @@ Total.
 - v1.81.0: the vendored minors and the kit revision match the release
 - v1.82.0: the vendored minors and the kit revision match the release
 - v1.83.0: the vendored minors and the kit revision match the release
+- v1.84.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2154,7 +2144,8 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 96 |
+| test_browser.lua | 74 |
+| test_browser_filterbar.lua | 22 |
 | test_teststrip.lua | 7 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
@@ -2162,13 +2153,15 @@ Total.
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
 | test_keybinding.lua | 7 |
-| test_slash.lua | 63 |
+| test_slash.lua | 50 |
+| test_slash_verbs.lua | 13 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
-| test_schema.lua | 73 |
+| test_schema.lua | 48 |
+| test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 71 |
-| test_analytics_layout.lua | 9 |
+| test_analytics.lua | 49 |
+| test_analytics_layout.lua | 11 |
 | test_holdingstab.lua | 33 |
 | test_timeline.lua | 34 |
 | test_timelinetab.lua | 35 |
@@ -2193,7 +2186,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 42 |
+| test_libka0s.lua | 43 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2218,4 +2211,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1860** |
+| **Total** | **1841** |

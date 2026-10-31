@@ -2,8 +2,10 @@ local T = _G.LH_TEST
 local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
--- Characterization of the Insights render path: Analytics:LayoutCharts and the renderers and
--- widget factories behind it, driven headless over fixture histories and snapshotted.
+-- Characterization of the Insights render path: Analytics:LayoutCharts and the LibKa0s-Charts-1.0
+-- renderers and widget factories behind it, driven headless over fixture histories and snapshotted.
+-- LibKa0s#66 moved the renderers there and rewrote the golden file once: level strip labels in a
+-- shorter band, wider strip columns, labels cut with "..." inside the cap.
 --
 -- Written before modules/Analytics.lua was split three ways and LayoutCharts brought under CCN 15
 -- (GI-LH-01 / GI-LH-02, LootHistory#32). Nothing else in the suite drew a chart: Analytics:Attach
@@ -121,7 +123,7 @@ end
 local function describe(o, names)
   local parts = { (o.__shown and "shown" or "hidden"), point(o, names),
     "w=" .. num(o:GetWidth()), "h=" .. num(o:GetHeight()), "ct=" .. color(o.__ct) }
-  for _, k in ipairs({ "_fullLabel", "_fullName", "_full", "_info", "info" }) do
+  for _, k in ipairs({ "_tip" }) do
     if o[k] ~= nil then parts[#parts + 1] = k .. "=" .. ("%q"):format(tostring(o[k])) end
   end
   local s = table.concat(parts, " ")
@@ -131,7 +133,7 @@ local function describe(o, names)
     for i, seg in ipairs(o.segs) do
       if seg.__shown then
         s = s .. ("\n    seg%d %s w=%s h=%s ct=%s info=%q"):format(i, point(seg, names),
-          num(seg:GetWidth()), num(seg:GetHeight()), color(seg.__ct), tostring(seg._info))
+          num(seg:GetWidth()), num(seg:GetHeight()), color(seg.__ct), tostring(seg._tip))
       end
     end
   end
@@ -310,4 +312,49 @@ test("Insights layout: nothing it draws stays visible once its pane is hidden (L
   end)
   A.Enable, g.resetPrompt, mocks.CreateFrame = savedEnable, savedRP, savedCF
   if not ok then error(err, 0) end
+end)
+
+-- The hover lines stay core/Compat.lua's, in the token each widget always used. red under: the
+-- library's default tooltip, or one token for every widget.
+test("Insights layout: each widget's hover goes through Compat in its own token", function()
+  local inst = newInstance()
+  layout(inst, rich)
+  local C, seen = NS.Compat, {}
+  local cursor, line = C.ShowCursorTooltip, C.ShowLineTooltip
+  C.ShowCursorTooltip = function(_, text, token) seen[#seen + 1] = { "cursor", text, token } end
+  C.ShowLineTooltip = function(_, text, token, anchor) seen[#seen + 1] = { anchor, text, token } end
+  local bar = inst.pool.source.active[1]
+  local seg = inst.pool.chsource.active[1].segs[1]
+  local row = inst.pool.zone.active[1]
+  local chip = inst.pool.sourceleg.active[1]
+  local col = inst.pool.day.active[1]
+  local ok, err = pcall(function()
+    for _, w in ipairs({ bar, seg, row, chip, col }) do w:GetScript("OnEnter")(w) end
+  end)
+  C.ShowCursorTooltip, C.ShowLineTooltip = cursor, line
+  if not ok then error(err, 0) end
+  assertEqual(seen[1][3], "gtip.title", "a bar's label")
+  assertEqual(seen[2][3], "gtip.value", "a segment")
+  assertEqual(seen[3][3], "gtip.value", "a list row")
+  assertEqual(seen[4][3], "gtip.body", "a legend chip")
+  assertEqual(seen[5][1], "ANCHOR_TOP", "a strip column sits above the column")
+  assertEqual(seen[5][3], "gtip.value", "a strip column")
+  assertTrue(seen[1][2]:find(":  ", 1, true) ~= nil, "the hover states the value")
+end)
+
+-- A library-absent install: Attach says so and every later call does nothing. red under: Attach
+-- reaching Charts:New, or a content frame left for Refresh to walk.
+test("Insights layout: without LibKa0s-Charts-1.0 the tab says so and draws nothing", function()
+  local inst = setmetatable({}, { __index = A })
+  local lib = A._chartsLib
+  local pane = mocks.CreateFrame("Frame")
+  A._chartsLib = nil
+  local ok, err = pcall(function()
+    inst:Attach(pane)
+    inst:Refresh(); inst:Layout(); inst:Reskin()
+  end)
+  A._chartsLib = lib
+  if not ok then error(err, 0) end
+  assertTrue(rawget(inst, "content") == nil, "no content frame")
+  assertTrue(rawget(inst, "cards") == nil, "no cards")
 end)

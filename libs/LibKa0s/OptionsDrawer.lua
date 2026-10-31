@@ -12,7 +12,7 @@
 -- this file draws every page exactly as it did before the drawer existed.
 --
 -- BUILT FROM AceGUI's OWN SimpleGroup, NOT A REGISTERED WIDGET TYPE. AceGUI's widget registry is
--- process-global (Options.lua's note above `lib.__PatchLSM30Border`), and a type registered under a
+-- process-global (Options.lua's note on the AceGUI widget registry), and a type registered under a
 -- new name would be this library's for the whole session, versioned against every other vendored
 -- copy. Three SimpleGroups (the drawer, its header, its box) are what any page already draws, and
 -- the decoration rides on their frames, taken off again on release.
@@ -36,7 +36,8 @@ if not lib then return end
 -- skin's body face, its chevron `icon.arrow` and its hover art `list.hoverArt` (S.Drawer's
 -- `chevron` and `hover`); every dress puts the faces, the chevron and the hover art back on the
 -- client's first, so a pooled head drawn for no owner never keeps another owner's.
-local DRAWER_MINOR = 3
+-- Minor 4 (the owner's ruling of 2026-11-01): a comment only, its pointer into Options.lua.
+local DRAWER_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__drawerMinor and lib.__drawerMinor >= DRAWER_MINOR
   and lib.__drawerShellMinor == lib.MINOR then return end

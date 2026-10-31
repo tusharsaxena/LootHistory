@@ -1,5 +1,5 @@
 -- tests/sim_support.lua: shared helpers for the simulator's end-to-end suites
--- (tests/test_sim_e2e.lua, tests/test_sim_store.lua; LootHistory#37, req-lh-sim.md §11).
+-- (tests/test_sim_e2e.lua, tests/test_sim_store.lua; LootHistory#37, Ka0sAddonsCommonTasks req-lh-sim.md §11).
 --
 -- Loaded with dofile by those suites (it registers no case of its own). It owns three things:
 --

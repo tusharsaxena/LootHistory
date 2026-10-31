@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 14
+local COMPOSE_MINOR = 16
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -53,6 +53,10 @@ local COMPOSE_MINOR = 14
 -- the sentinel is honest here. `fromSkin = true, flagsFromSkin = true` is the minimum font setting
 -- D-07 asks of every element: face (with "Use the skin's font"), size, color with its class-color
 -- companion, flags with From skin, and shadow. Without `flagsFromSkin` the block is minor 13's.
+-- Minor 15 (LibKa0s#59, ruling U-14): O.PositionBlock(spec), the X | Y offset pair under its
+-- subgroup's heading with a Reset position hook for RenderRows' `opts.afterSubgroup`.
+-- Minor 16 (the owner's ruling of 2026-11-01): the three media rows write dialogControl =
+-- "Ka0sMedia_*". The row draws what it drew; the name now says so.
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -151,6 +155,11 @@ local VISIBILITY_VALUES = {
   never        = "Never",
 }
 local VISIBILITY_SORT = { "always", "inCombat", "outOfCombat", "never" }
+
+-- The Position block's heading and its range when the host names none. A range this wide is a screen
+-- edge to edge at any resolution a frame is dragged in; a nudge passes `min` and `max`.
+local POSITION_SUBGROUP = "Position"
+local POSITION_RANGE    = 2000
 
 --- A flat copy, so nothing a caller handed in is written to.
 local function shallow(t)
@@ -333,8 +342,8 @@ end
 -- ── FOLLOWING THE SKIN (compose minor 12) ───────────────────────────────────────────────────
 --
 -- A HUD setting can follow the owner's skin instead of a stored pick (the owner's ruling R3). A
--- SENTINEL value in the picker cannot say so: an LSM30 picker shows its list's KEY as the label and
--- uses the list's value as the media path, and the same list is the CLI's allowed values, so a
+-- SENTINEL value in the picker cannot say so: a media picker previews each list key as a media key,
+-- and the same list is the CLI's allowed values, so a
 -- "From skin" entry would draw no preview and be a value the CLI accepts and nothing can render. A
 -- companion bool says it instead, beside the picker it governs: `<key>FromSkin`, emitted only when
 -- the spec opts in. While it is true the picker is disabled (`disabledIf`, the companion's own key,
@@ -644,6 +653,44 @@ function lib.__AttachCompose(O, d)
     return appendExtra(spec, rows)
   end
 
+  --- The Position block (compose minor 15, ruling U-14 of LibKa0s#59):
+  ---
+  ---   -- Position --
+  ---   [X offset]        [Y offset]
+  ---   [Reset position]
+  ---
+  --- The heading is the rows' own `subgroup`, so the host draws none, which is what options-ui-§7
+  --- asks. `spec` takes the common fields (prefix, page, group, subgroup, order, keys, labels,
+  --- tooltips, defaults, omit, bind, extra) on the leaves `x` and `y`, with `subgroup` defaulting to
+  --- "Position", plus:
+  ---   min, max, step  numbers   both sliders' range. Default -2000, 2000 and 1.
+  ---   onReset         function  the button's click handler. Omitted, there is no button and no hook.
+  ---   resetText       string    the button's words. Default "Reset position".
+  ---   resetTooltip    string    its tooltip.
+  ---
+  --- @return table rows             the schema rows
+  --- @return function|nil afterSubgroup  the hook drawing the button: key it by the rows' subgroup in
+  ---                                RenderRows' or RenderTabbedSchema's `opts.afterSubgroup`
+  function O.PositionBlock(spec)
+    spec = spec or EMPTY
+    if spec.onReset ~= nil and type(spec.onReset) ~= "function" then
+      error("LibKa0s-Options: PositionBlock onReset must be a function", 2)
+    end
+    -- `__index` rather than a copy, as MasterControls: the default is not written to the caller's.
+    local ps = setmetatable({ subgroup = spec.subgroup or POSITION_SUBGROUP }, { __index = spec })
+    local low, high, step = spec.min or -POSITION_RANGE, spec.max or POSITION_RANGE, spec.step or 1
+    local rows = {}
+    emit(ps, rows, "x", { type = "number", label = "X offset", default = 0, min = low, max = high,
+      step = step, startsLine = true, tooltip = "Horizontal offset from the anchor, in pixels." })
+    emit(ps, rows, "y", { type = "number", label = "Y offset", default = 0, min = low, max = high,
+      step = step, tooltip = "Vertical offset from the anchor, in pixels." })
+    appendExtra(ps, rows)
+    if not spec.onReset then return rows, nil end
+    local reset = { text = spec.resetText or "Reset position", onClick = spec.onReset,
+      tooltip = spec.resetTooltip or "Put this back at its default position." }
+    return rows, function(ctx) return O.InlineButtonPair(ctx, reset, nil) end
+  end
+
   --- The canonical FONT block (options-ui-§16): six rows, which land as three lines.
   ---
   ---   [Font]        [Font size]
@@ -663,7 +710,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
-      dialogControl = "LSM30_Font", default = "Friz Quadrata TT", startsLine = true,
+      dialogControl = "Ka0sMedia_Font", default = "Friz Quadrata TT", startsLine = true,
       values = O.LSMValues("font"),
     })
     emit(spec, rows, "fontSize", {
@@ -711,7 +758,7 @@ function lib.__AttachCompose(O, d)
     end
     local picker = emit(spec, rows, "borderStyle", {
       type = "string", label = "Border style", tooltip = "The border texture.",
-      dialogControl = "LSM30_Border", default = "None", startsLine = true,
+      dialogControl = "Ka0sMedia_Border", default = "None", startsLine = true,
       values = O.LSMValues("border"),
     })
     local size = emit(spec, rows, "borderSize", {
@@ -741,7 +788,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "barTexture", {
       type = "string", label = "Bar texture", tooltip = "The bar's fill texture.",
-      dialogControl = "LSM30_Statusbar", default = "Blizzard", startsLine = true,
+      dialogControl = "Ka0sMedia_Statusbar", default = "Blizzard", startsLine = true,
       values = O.LSMValues("statusbar"),
     })
     emit(spec, rows, "barAlpha", {

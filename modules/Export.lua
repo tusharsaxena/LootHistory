@@ -27,7 +27,7 @@ end
 -- Build a Wowhead item URL from a record's itemLink, carrying bonus IDs (the modifiers Wowhead
 -- needs to reconstruct the exact item — ilvl, tertiaries, sockets). The itemString walk (field 13
 -- is the declared bonus count, 14..13+n the ids) is LibKa0s's Item.BonusIDsFromLink — see the
--- library's docs/api/Item/version-3-docs.md; NS.Item is the library or core/ItemSetup.lua's stub.
+-- LibKa0s docs/api/Item/version-3-docs.md; NS.Item is the library or core/ItemSetup.lua's stub.
 -- Falls back to a bare item=<id>, or "".
 function E:WowheadLink(record)
   record = record or {}

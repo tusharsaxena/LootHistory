@@ -286,8 +286,8 @@ local ROWS = {
   -- two item-level gates) on the first line, Record currency opens the second, and the wide source
   -- picker lands under it -- Record currency obeys that picker, so they sit together. Under Ledger,
   -- Track holdings and losses pairs with Record gold, the parent left of its dependant. The picker is
-  -- host-drawn from `afterGroup`, which fires after a slice's last row, so settings/Panel.lua renders
-  -- this tab as two O.RenderRows slices cut after `settings.excludedSources` (CAPTURE_CUT there).
+  -- host-drawn, so settings/Panel.lua renders this tab in one O.RenderRows call, with Loot's
+  -- afterSubgroup hook drawing the picker (RENDER_OPTS there).
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
     page = "General", group = "Capture", subgroup = "Loot", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
@@ -314,8 +314,8 @@ local ROWS = {
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted
   -- (invert=true) as "Record data from" so a checked box means "record this source". It is the
-  -- LAST row of the Loot slice on purpose: it is full-width and host-drawn from `afterGroup`, which
-  -- fires after the slice's last row is flushed (settings/Panel.lua, CAPTURE_CUT).
+  -- LAST row of Loot on purpose: it is full-width and host-drawn from the afterSubgroup hook, which
+  -- fires after the subgroup's last row is flushed (settings/Panel.lua, RENDER_OPTS).
   { path = "settings.excludedSources", default = {}, type = "table", widget = "MultiCheck",
     wide = true, invert = true,
     page = "General", group = "Capture", subgroup = "Loot", label = "Record data from", values = C.SOURCE_OPTIONS,
@@ -342,7 +342,7 @@ local ROWS = {
   -- ── General ▸ AH price ──
   -- Was its own canvas sub-page until R6 deprecated it into General (options-ui-§13: a Ka0s page
   -- is a strip, and three sub-pages of two tabs each is three strips a player has to find). It is
-  -- a TAB now, and the tab body is still the pooled price table settings/Panel.lua draws.
+  -- a TAB now, and the tab body is still the pooled price table settings/PanelAuction.lua draws.
   --
   -- The tab mixes a plain toggle with an eleven-row reorder table. The toggle is the tab's LEADING
   -- MASTER SWITCH and sits unheaded above the one subsection (options-ui-§7, U-05(b); item 020,
@@ -353,7 +353,7 @@ local ROWS = {
     page = "General", group = "AH price", label = "Enable AH pricing",
     tooltip = "Gather auction-house prices at loot time from installed pricing addons." },
   -- skipRender: the tab renders this as the unified price table's per-row Enabled checkboxes
-  -- (settings/Panel.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
+  -- (settings/PanelAuction.lua buildAuctionTable) — `capture` is now the single collect+rank flag, not
   -- just "record". The row stays schema-backed so its default resolves and the slash CLI can still
   -- read/write it. widget/options are retained so the CLI can present it as a checklist.
   --
@@ -769,7 +769,7 @@ local function hostSchemaStub()
       react(plan)
       return true
     end
-    -- Schema minor 2's all-or-nothing batch, log-silent (version-2-docs.md, "The batch: SetMany").
+    -- Schema minor 2's all-or-nothing batch, log-silent (LibKa0s docs/api/Schema/version-2-docs.md, "The batch: SetMany").
     -- Phase 1 prepares every entry and refuses with `false, err, nil, index` before any store;
     -- then every store, then every onChange, so a reaction reading a sibling row sees the whole
     -- batch. `opts.act` brackets both, so the sweep veto sees the bracket.
@@ -1058,8 +1058,8 @@ end
 -- it, which is a real dependency cycle between two majors at load time. Crossing between them as
 -- plain data is what keeps them independent.
 --
--- The handler takes the rest of the line verbatim (never a `self`), so the seven verbs that are
--- genuinely this addon's — show/hide/toggle/config/debug/test/purge — never leave the host and
+-- The handler takes the rest of the line verbatim (never a `self`), so the verbs that are
+-- genuinely this addon's — show/hide/toggle/config/debug/test/purge among them — never leave the host and
 -- adopting the library cannot break them.
 --
 -- ── THE DISABLED ADDON REFUSES A FEATURE VERB (slash-commands-§2, restored at v2.57.0) ─────────
@@ -1173,7 +1173,7 @@ NS.COMMANDS = gateFeatureVerbs{
   -- unconditionally, the chat command is never unregistered, and the flag's only reader is
   -- NS.AddonIsOff (core/LifecycleSetup.lua): it feeds the stand-down latch, the launcher's disabled
   -- gate and the feature-verb refusal, never dispatch itself. So `/lh`, `/lh enable`, `/lh help`,
-  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash.lua pins it.
+  -- `/lh config` and `/lh version` all answer with the addon off. tests/test_slash_verbs.lua pins it.
   { "enable",   "Enable the addon",      function() NS.Slash:CliSet("settings.enabled true") end },
   { "disable",  "Disable the addon",     function() NS.Slash:CliSet("settings.enabled false") end },
   { "version",  "Print addon version",   function() NS.Slash:CliVersion() end },

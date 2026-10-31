@@ -24,7 +24,8 @@ broken in the other twelve.
 | `secrets.lua` | The secret-value simulator: `Kit.secret`, `Kit.isSecret`, `Kit.reveal`, `Kit.SECRET_ERROR` and the opt-in `Kit.installSecretValue`, which sets the global `issecretvalue` and returns its restore. Nothing installs the global by default. `framework.lua` loads it from its own folder; nothing else does (kit revision 38) |
 | `latch.lua` | The `slash-commands-§7` step-10 helper: `Kit.assertLatchHoldOrder(opts)` drives the two-hold latch in both orders (perf then disabled, disabled then perf) through injected seams (`lifecycle`, `perfHold`, `setEnabled`, `regSet`, optional `key` and `label`), asserts the addon stays stood down until the last hold is released and that it comes back with the registration set it went down with, compared by key, and restores state on failure. Published by `Kit.expose`. `framework.lua` loads it from its own folder; nothing else does (kit revision 39) |
 | `loader.lua` | Headless source loading into the mocked environment |
-| `mock_base.lua` | The universal half of the WoW-API mock, and the Ace fakes |
+| `mock_base.lua` | The universal half of the WoW-API mock, and AceGUI's fake |
+| `mock_ace.lua` | The Ace fakes, CallbackHandler through AceAddon; `mock_base.lua` loads it from its own folder (kit revision 47) |
 | `mock_record.lua` | The recording surveys; `mock_base.lua` loads it from its own folder |
 | `mock_events.lua` | `EventRegistry`, `C_EventUtils.IsEventValid`, and the raw frame registration's `__badEvents` raise; `mock_base.lua` loads it from its own folder (kit revision 26) |
 | `mock_resize.lua` | A frame's resize surface: `SetResizable` / `IsResizable`, `SetResizeBounds` / `GetResizeBounds`, `StartSizing`, `StopMovingOrSizing` and `SetUserPlaced` / `IsUserPlaced`, recorded, with `StartSizing` and `StartMoving` marking the frame user-placed as the client does; `mock_base.lua` loads it from its own folder (kit revision 33) |
@@ -48,7 +49,7 @@ broken in the other twelve.
 | `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
 | `README.md` | This file |
 
-They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `bindings_xml.lua`, `glyphs.lua`, `mock_record.lua`,
+They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `bindings_xml.lua`, `glyphs.lua`, `mock_ace.lua`, `mock_record.lua`,
 `mock_events.lua`, `mock_resize.lua`, `mock_lines.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua` or
 `lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
 runner's complexity suite is a skip.

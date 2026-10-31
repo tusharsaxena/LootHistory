@@ -241,7 +241,7 @@ B._options = {
 -- that is the box the two copies drew: the WHITE8X8 backdrop at edgeSize 1 with 1px insets, the
 -- .1/.1/.12/.9 fill, the .24/.24/.27/.9 edge, a white label that turns gold under the pointer and
 -- the mark at .85. The library pins that paint against the old makeBarButton
--- (tests/test_skin_paint_controls.lua, upstream).
+-- (LibKa0s tests/test_skin_paint_controls.lua).
 --
 -- `opts.icon` is a catalog name and OPTIONAL. The LABEL NEVER MOVES: it stays CENTER-anchored and
 -- the mark sits at LEFT +10, so a nil from the seam leaves the button exactly as it was rather than

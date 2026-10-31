@@ -163,11 +163,15 @@ end)
 test("Panel: Capture draws Loot, then the source picker, then Ledger", function()
   -- Item 020 (LOO-L04): the picker belongs to the Loot subsection (Record currency obeys it), so it
   -- sits between the two headings rather than at the bottom of the tab. The page renders Capture
-  -- as two O.RenderRows slices with the picker's afterGroup hook closing the first.
-  -- red under: one RenderRows over the whole group (the picker lands after Record gold), or a
-  -- subgroup missing from a row (its heading moves or vanishes).
+  -- in one O.RenderRows call, with Loot's afterSubgroup hook drawing the picker (LibKa0s#59).
+  -- red under: the hook keyed on the wrong subgroup (the picker lands after Record gold or not at
+  -- all), a second RenderRows call, or a subgroup missing from a row (its heading moves or vanishes).
   local ctx = NS.Panel.general
+  local O, renderRows, calls = NS.Options, NS.Options.RenderRows, 0
+  O.RenderRows = function(...) calls = calls + 1; return renderRows(...) end
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
+  O.RenderRows = renderRows
+  assertEqual(calls, 1, "Capture is one RenderRows call, not two slices")
   local function at(pred, what)
     for i, w in ipairs(created) do if pred(w) then return i end end
     assertTrue(false, what .. " was not drawn")
@@ -717,7 +721,7 @@ end)
 test("Panel: the price table's column headers are sentence case (item 020)", function()
   -- LOO-L11 (XC-06): "Price module", like every other label on the panel. The headers are raw
   -- FontStrings on the pooled host, which the headless mock does not read back, so the source is.
-  local src = Loader.readFile("settings/Panel.lua")
+  local src = Loader.readFile("settings/PanelAuction.lua")
   assertTrue(src:find('header(ACOL.module, "Price module")', 1, true) ~= nil, "Price module header")
   assertTrue(src:find('"Price Module"', 1, true) == nil, "a Title Case header is left")
 end)
@@ -820,11 +824,14 @@ test("Panel: the host draws no row chrome of its own — the library owns the bo
     -- with two of each. This addon never drew one, and this is what stops one appearing.
     -- red under: adding a SetBackdrop / row-background texture to the price rows, or passing
     -- `rowBox = false` and drawing it host-side.
-    local src = Loader.readFile("settings/Panel.lua")
-    assertTrue(src:find("SetBackdrop", 1, true) == nil, "no host-drawn row background")
-    assertTrue(src:find("rowBox", 1, true) == nil, "the library's box is never suppressed")
-    assertTrue(src:find("ARR_UP", 1, true) == nil and src:find("ensureArrows", 1, true) == nil,
-      "the reorder arrows must be gone, not merely hidden (anti-pattern #75)")
+    -- The price rows live in settings/PanelAuction.lua; settings/Panel.lua stays swept as their host.
+    for _, path in ipairs({ "settings/PanelAuction.lua", "settings/Panel.lua" }) do
+      local src = Loader.readFile(path)
+      assertTrue(src:find("SetBackdrop", 1, true) == nil, path .. ": no host-drawn row background")
+      assertTrue(src:find("rowBox", 1, true) == nil, path .. ": the library's box is never suppressed")
+      assertTrue(src:find("ARR_UP", 1, true) == nil and src:find("ensureArrows", 1, true) == nil,
+        path .. ": the reorder arrows must be gone, not merely hidden (anti-pattern #75)")
+    end
   end)
 
 test("Panel: a drag is one splice to index, and it repaints", function()
@@ -1063,7 +1070,7 @@ test("Panel: the AH status colors are saturated, not muted", function()
   -- tokens, mapped by the file-local STATUS_TOKEN: a source scan finds the mapping, the facade
   -- answers the Ka0s Default values.
   -- red under: any of the three dropping back below a peak channel of 0.9, or the mapping moving.
-  local f = assert(io.open("settings/Panel.lua", "r"))
+  local f = assert(io.open("settings/PanelAuction.lua", "r"))
   local src = f:read("*a"); f:close()
   assertTrue(src:find("local STATUS_TOKEN = {", 1, true) ~= nil, "STATUS_TOKEN is no longer a table literal")
   local seen = 0

@@ -580,7 +580,7 @@ test("Compat: GetSpellName is LibKa0s-Compat-1.0's member on the live path", fun
 end)
 
 test("Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name", function()
-  -- J3 in the Compat design (compat.md section 10). The host's own copy stopped at the first rung
+  -- J3 in the Compat design (Ka0sAddonsCommonTasks docs/2026-09-22-SUITE_STANDARDS_AND_LIBKA0S_SWEEP/3b-specs/compat.md section 10). The host's own copy stopped at the first rung
   -- present, so a nil there was final. The library asks the next rung, which on a live client reads
   -- the same spell data and can only turn a nil into a name.
   for _, miss in ipairs({ false, "" }) do

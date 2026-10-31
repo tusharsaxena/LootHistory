@@ -5,23 +5,10 @@ local Analytics = NS.Analytics
 -- The Insights tab's pure half: layout constants, color tables and palettes, and the formatting
 -- and segmenting helpers. No frame is built here and nothing reads the client but the star-atlas
 -- probe and the class/quality color tables, each at call time. Loaded BEFORE modules/Analytics.lua,
--- which binds what it needs to file-scope locals at load (docs/common-tasks.md, hot-path upvalues),
--- and before modules/AnalyticsCharts.lua, which does the same. Peeled out of modules/Analytics.lua
--- (LootHistory#32) verbatim; the _-prefixed names below were already the suite's seam.
+-- which binds what it needs to file-scope locals at load (docs/common-tasks.md, hot-path upvalues).
+-- Peeled out of modules/Analytics.lua (LootHistory#32) verbatim; the _-prefixed names below were
+-- already the suite's seam.
 
-local BAR_H, BAR_GAP = 16, 3
-local SECTION_GAP = 16
-local DAYSTRIP_H = 46
-local STRIP_LABEL_H = 44   -- reserved space under a strip for the rotated x-axis labels
-local STRIP_AXIS_GAP = 2   -- gap between the bar bases and the separator line
-local STRIP_LABEL_GAP = 7  -- gap between the separator line and the label text
-local LABEL_X_ADJUST = -2  -- nudge to visually center the rotated label under the bar (tunable)
-local LIST_ROW_H = 16
-local LABELW, VALW = 108, 92   -- fixed label/value columns in a horizontal bar; track fills the rest
-local LABEL_MAXCHARS = 16      -- cap a bar/row label to this many glyphs (+ ellipsis) so it fits LABELW
-local LEGEND_MAXCHARS = 13     -- cap a legend chip label to this many glyphs (+ ellipsis) to fit the chip
-local MAX_STACK_SEGS = 9       -- segment ceiling per stacked bar (matches makeStackedBar's texture pool)
-local MIN_HEADLINE_SIZE = 11   -- floor for the shrink-to-fit KPI headline font
 local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges stay readable
 
 -- THE SKIN'S COLORS (LH-04). The "Other" segment and fallback (NEUTRAL, the skin's chart.other), the
@@ -30,7 +17,7 @@ local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges sta
 -- which runs at file load and first thing on every skin switch (Analytics:Reskin). In place because
 -- modules/Analytics.lua binds NEUTRAL and BOUND_COLOR to file-scope locals at load, and the rows a
 -- render builds carry these very tables: a sync and the refresh after it repaint every chart. Ka0s
--- Default's values are the literals they replace, so tests/analytics_golden.txt does not move.
+-- Default's values are the literals they replace.
 -- SOURCE_COLOR stays literal: a source's hue is its identity across every skin, and no token names it.
 local NEUTRAL = {}
 
@@ -120,13 +107,6 @@ end
 -- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
 local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
 
--- Shrink a headline number's font only when its rendered string would overflow the card, so long
--- money strings stay on one line while normal values keep the full headline size. Pure + testable.
-function Analytics._fitFontSize(stringWidth, maxWidth, baseSize, minSize)
-  if not stringWidth or stringWidth <= 0 or stringWidth <= maxWidth then return baseSize end
-  return math.max(minSize, baseSize * maxWidth / stringWidth)
-end
-
 -- Standard categorical palette for charts NOT tied to a predefined color (class / bound / quality /
 -- source all keep their own maps). Sequence is inverse-VIBGYOR (R→O→Y→G→B→I→V) so neighboring
 -- entries are rainbow-distinct — never two lookalikes side by side — then the same rainbow in a
@@ -166,54 +146,21 @@ Analytics._shortChar   = shortChar
 Analytics._classColor  = classColor
 Analytics._qualityColor = qualityColor
 
--- Cap a bar/row label to a fixed glyph count with a trailing ellipsis. English-only labels, so a
--- byte-based sub is safe (see CLAUDE.md: English only). Pure + testable.
-function Analytics._truncate(text, maxChars)
-  text = text or ""
-  if #text <= maxChars then return text, false end
-  return text:sub(1, maxChars - 1) .. "\226\128\166", true
-end
-
--- Reduce a character's per-category magnitudes to at most maxSegs stacked segments: keep the top
--- (maxSegs-1) by magnitude, lump any remainder into a single "__OTHER__" segment, then order the
--- kept segments by their global rank in catOrder ("__OTHER__" always last). Pure + testable.
-function Analytics._charStackSegments(catMags, catOrder, maxSegs)
-  local list, total = {}, 0
-  for k, v in pairs(catMags) do
-    if v and v > 0 then list[#list + 1] = { key = k, mag = v }; total = total + v end
-  end
-  table.sort(list, function(a, b)
-    if a.mag ~= b.mag then return a.mag > b.mag end
-    return tostring(a.key) < tostring(b.key)
-  end)
-  local kept, otherMag = {}, 0
-  if #list > maxSegs then
-    for i = 1, maxSegs - 1 do kept[#kept + 1] = list[i] end
-    for i = maxSegs, #list do otherMag = otherMag + list[i].mag end
-  else
-    for i = 1, #list do kept[#kept + 1] = list[i] end
-  end
-  local rank = {}
-  for i, k in ipairs(catOrder) do rank[k] = i end
-  table.sort(kept, function(a, b) return (rank[a.key] or math.huge) < (rank[b.key] or math.huge) end)
-  if otherMag > 0 then kept[#kept + 1] = { key = "__OTHER__", mag = otherMag } end
-  return kept, total
-end
-
 -- Build renderStackedBarSection rows from a char→{cat→mag} matrix. Per-char total drives row width
--- (frac = mag / rowMax); segment colors come from colorFn(catKey) with "__OTHER__" → NEUTRAL; the
+-- (frac = mag / rowMax); segment colors come from colorFn(catKey) with Charts.OTHER → NEUTRAL; the
 -- row label is the short character name, class-colored. Each segment carries a "<category>: <value>"
 -- hover tip via labelFn(catKey). Rows sorted by total desc then name asc.
 function Analytics._buildCharStackRows(matrix, byCharMap, catOrder, colorFn, valueFmt, labelFn)
   labelFn = labelFn or tostring
-  -- ONE _charStackSegments call per character (LH-R-09). Two passes are still needed — a segment's
+  -- ONE Charts.StackSegments call per character (LH-R-09). Two passes are still needed — a segment's
   -- `frac` is measured against rowMax, and rowMax is not knowable until every character's total is
   -- in — but the first pass used to discard the segment list it had just built and the second pass
   -- rebuilt it, paying two table.sorts per character for a result it already had. The segments are
   -- kept instead. Same output, half the work, on the Insights repaint path.
+  local Charts = Analytics._chartsLib
   local rowMax, totals, segsByChar = 1, {}, {}
   for ch, mags in pairs(matrix) do
-    local segs, total = Analytics._charStackSegments(mags, catOrder, MAX_STACK_SEGS)
+    local segs, total = Charts.StackSegments(mags, catOrder)
     segsByChar[ch], totals[ch] = segs, total
     if total > rowMax then rowMax = total end
   end
@@ -221,7 +168,7 @@ function Analytics._buildCharStackRows(matrix, byCharMap, catOrder, colorFn, val
   for ch in pairs(matrix) do
     local segments = {}
     for _, s in ipairs(segsByChar[ch]) do
-      local isOther = s.key == "__OTHER__"
+      local isOther = s.key == Charts.OTHER
       local color = isOther and NEUTRAL or (colorFn(s.key) or NEUTRAL)
       local name = isOther and "Other" or labelFn(s.key)
       segments[#segments + 1] = { frac = s.mag / rowMax, color = color,
@@ -247,16 +194,6 @@ local function money(copper)
   copper = copper or 0
   if copper <= 0 then return "0" end
   return NS.Util.FormatMoney(copper, COIN_H)
-end
-
--- Hover text for a chart element: the FULL (untruncated) label plus the value it encodes, so a
--- tooltip always states the number as well as the name — on-chart value text is clipped to its
--- column and the label itself is truncated. Label-only when the element carries no value.
-function Analytics._tipText(label, value)
-  label = label or ""
-  if value == nil or value == "" then return label end
-  if label == "" then return tostring(value) end
-  return label .. ":  " .. value
 end
 
 -- Build the firstTs..lastTs day-key list (gaps included), capped to MAX_DAY_BARS most recent.
@@ -299,16 +236,9 @@ Analytics._money        = money
 
 -- ── seams for the two files that load after this one ───────────────────────────────────────────
 --
--- The layout constants and the color tables, published once so modules/Analytics.lua and
--- modules/AnalyticsCharts.lua read the same numbers. Both bind these to file-scope locals at load.
-Analytics.K = {
-  BAR_H = BAR_H, BAR_GAP = BAR_GAP, SECTION_GAP = SECTION_GAP,
-  DAYSTRIP_H = DAYSTRIP_H, STRIP_LABEL_H = STRIP_LABEL_H, STRIP_AXIS_GAP = STRIP_AXIS_GAP,
-  STRIP_LABEL_GAP = STRIP_LABEL_GAP, LABEL_X_ADJUST = LABEL_X_ADJUST, LIST_ROW_H = LIST_ROW_H,
-  LABELW = LABELW, VALW = VALW, LABEL_MAXCHARS = LABEL_MAXCHARS, LEGEND_MAXCHARS = LEGEND_MAXCHARS,
-  MAX_STACK_SEGS = MAX_STACK_SEGS, MIN_HEADLINE_SIZE = MIN_HEADLINE_SIZE, MAX_DAY_BARS = MAX_DAY_BARS,
-  NEUTRAL = NEUTRAL, COIN_H = COIN_H,
-}
+-- The constants and the color tables, published once so modules/Analytics.lua reads the same
+-- numbers. It binds these to file-scope locals at load.
+Analytics.K = { NEUTRAL = NEUTRAL, COIN_H = COIN_H }
 Analytics._fmt = {
   SOURCE_COLOR = SOURCE_COLOR, BOUND_LABEL = BOUND_LABEL, BOUND_COLOR = BOUND_COLOR,
   BOUND_ORDER = BOUND_ORDER, WEEKDAY = WEEKDAY, starMarkup = starMarkup,

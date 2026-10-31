@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- modules/Sim.lua: the simulator's session host, on LibKa0s-Sim-1.0 (LootHistory#37, LibKa0s#54;
--- req-lh-sim.md §4-§5). Binds NS.SimSeam (core/SimSeam.lua) to one session with Sim:New and
+-- Ka0sAddonsCommonTasks req-lh-sim.md §4-§5). Binds NS.SimSeam (core/SimSeam.lua) to one session with Sim:New and
 -- publishes it as NS.Sim. Everything that is LootHistory's own lives on NS.SimHost, never on the
 -- library's instance (OWNER_SCOPE C.4).
 --

@@ -1,7 +1,7 @@
 local _, NS = ...
 
 -- modules/SimWorld.lua: the simulator's invented world and the seam's providers over it
--- (LootHistory#37; req-lh-sim.md §2.1-§2.2).
+-- (LootHistory#37; Ka0sAddonsCommonTasks req-lh-sim.md §2.1-§2.2).
 --
 -- ── THE WORLD ────────────────────────────────────────────────────────────────────────────────
 --
