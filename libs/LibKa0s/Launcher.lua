@@ -442,7 +442,12 @@ function lib:New(d)
       end
     end
     if skinEntry() and type(root.CreateButton) == "function" then
-      root:CreateButton(text("MENU_SKIN"), chooseSkin)
+      local label = text("MENU_SKIN")
+      if not enabled then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
+      local button = root:CreateButton(label, chooseSkin)
+      if not enabled and type(button) == "table" and type(button.SetEnabled) == "function" then
+        button:SetEnabled(false)
+      end
     end
   end
 

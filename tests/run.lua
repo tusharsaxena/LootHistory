@@ -84,6 +84,7 @@ local SUITES = {
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
   "test_launcher",
+  "test_launcher_skin_entry",
   -- The Show window key binding (launcher-§6): the root Bindings.xml and the button it clicks.
   -- After test_launcher, beside the rest of the launcher's surface; it builds no window.
   "test_keybinding",

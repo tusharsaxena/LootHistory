@@ -162,6 +162,7 @@ NS.Launcher = Launcher:New({
   -- `/lh disable` verb itself -- each is `/lh set settings.enabled <bool>` through the single write
   -- seam, so the Master-controls checkbox, the verbs and the menu are three surfaces onto one value
   -- and the confirmation line is the verb's own.
+  openSkinPicker = function() if NS.RunSkinVerb then NS.RunSkinVerb() end end,
   isEnabled  = function() return not (NS.AddonIsOff and NS.AddonIsOff()) end,
   setEnabled = function(on) runVerb(on and "enable" or "disable") end,
 
