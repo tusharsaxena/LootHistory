@@ -1574,13 +1574,16 @@ Total.
 - Skin verb: in combat nothing shows and the gray line prints on every call
 - Skin verb: refused while the addon is disabled, with the one refusal line
 
-### test_skin_chrome.lua (6)
+### test_skin_chrome.lua (9)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
 - skin chrome: every surface is painted for this addon's owner, so a switch reaches it
 - skin chrome: a flat button is white at rest and gold under the pointer, its tip in gtip.body
 - skin chrome: a skin switch repaints every chrome surface live, and Ka0s Default puts it back
+- skin chrome: the History grip follows the skin, and the export title bar is title.height
+- skin chrome: the test strip's info mark takes icon.tint and follows a switch
 - skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
+- skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup
 - skin chrome: the degraded facade draws the flat button and the divider today's way
 
 ### test_skin_table.lua (8)
@@ -1695,7 +1698,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (43)
+### test_libka0s.lua (44)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1740,6 +1743,7 @@ Total.
 - v1.82.0: the vendored minors and the kit revision match the release
 - v1.83.0: the vendored minors and the kit revision match the release
 - v1.84.0: the vendored minors and the kit revision match the release
+- v1.85.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2177,7 +2181,7 @@ Total.
 | test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
 | test_skin_verb.lua | 4 |
-| test_skin_chrome.lua | 6 |
+| test_skin_chrome.lua | 9 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 19 |
 | test_skin_settings.lua | 8 |
@@ -2186,7 +2190,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 43 |
+| test_libka0s.lua | 44 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2211,4 +2215,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1841** |
+| **Total** | **1845** |
