@@ -9,7 +9,7 @@
 -- `glyph: mono` marker (core/Constants.lua's C.DirGlyph). The other cases pin the four sites D-19
 -- changed, so the words stay what the owner reads.
 --
--- After test_skin_literals; reads the checkout and the built General page, writes nothing.
+-- After test_skin_tools; reads the checkout and the built General page, writes nothing.
 
 local T = _G.LH_TEST
 local NS, mocks = T.NS, T.mocks

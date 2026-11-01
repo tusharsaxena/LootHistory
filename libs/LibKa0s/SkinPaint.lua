@@ -125,7 +125,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- saying it took them (SkinPaintControls minor 13's P.stepArrows).
 -- Minor 16 (FS-FIX of the same bundle): P.unpaint's saved-state loops moved to restoreSaved, unchanged and
 -- in the same order, because minors 14 and 15 took it to CCN 16.
-local PAINT_MINOR = 16
+-- Minor 17 (FS-FIX of the same bundle): a box's `noBg` holds on a frame with no backdrop, where
+-- regionBox re-read `spec.fill` and drew it anyway: S.TitleBar's fill over a Shell's band, in WhatGroup,
+-- Premade Groups Filter Extension and Drop Watcher. It hides a fill an earlier paint made. No function
+-- is added, so the census's window-block peel stays unfired.
+local PAINT_MINOR = 17
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -746,9 +750,10 @@ local function boxTokens(T, spec, opts)
 end
 
 -- A box on a frame with no backdrop: the fill as a region of the target (at P.SUB.fill, under
--- everything it draws, for an extra), the border on the holder.
-local function regionBox(rec, frame, T, spec, border, style, size)
-  local t = spec.fill and (spec.extra and P.subTex(rec, "fill", frame, P.SUB.fill)
+-- everything it draws, for an extra), the border on the holder. `noBg` draws no fill (minor 17).
+local function regionBox(rec, frame, T, spec, border, style, size, noBg)
+  if noBg then P.hide(rec, "fill") end
+  local t = spec.fill and not noBg and (spec.extra and P.subTex(rec, "fill", frame, P.SUB.fill)
     or P.tex(rec, "fill", frame, "BACKGROUND", 0))
   if t then
     t:SetAllPoints(frame)
@@ -770,7 +775,7 @@ function P.box(rec, frame, T, spec, opts)
     P.hide(rec, "fill"); P.hide(rec, "grad")
     return P.hideEdges(rec, frame)
   end
-  if not P.hasBackdrop(frame) then return regionBox(rec, frame, T, spec, border, style, size) end
+  if not P.hasBackdrop(frame) then return regionBox(rec, frame, T, spec, border, style, size, opts.noBg) end
   if spec.extra and hasGradient(T, spec.fill) then fill = CLEAR end
   P.backdrop(rec, frame, fill, flat and border or nil, flat and size or 1, spec.insets)
   boxGradient(rec, frame, T, spec)

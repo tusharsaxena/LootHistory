@@ -180,7 +180,10 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- dark shadow of its own. They name no class or meaning color: those stay the host's. Under the eui
 -- source `hud.label` and `bar.fill` follow EllesmereUI's accent (SkinEUI minor 3); the rest are Ka0s
 -- Default's.
-local DEFS_MINOR = 24
+-- Minor 25 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): no token moves here. Ka0s
+-- Default's `bar.bg`, `bar.border`, `icon.border`, `glow.color` and `cover.dim` stay, and now every
+-- other skin states its own (SkinDefsOthers minor 7); its `bar.borderStyle` None defers (Skin minor 15).
+local DEFS_MINOR = 25
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR

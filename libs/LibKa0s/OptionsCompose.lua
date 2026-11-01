@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 17
+local COMPOSE_MINOR = 18
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -62,6 +62,9 @@ local COMPOSE_MINOR = 17
 -- so a row a host writes from now on starts on the skin. `spec.defaults` still wins, leaf by leaf. Also
 -- BorderGroup's `fromSkin = "bar"`: minor 13's icon arrangement on the bar family, the companion
 -- governing the thickness too. `fromSkin = true` keeps the thickness the player's.
+-- Minor 18 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): a skin's None leaves the bar
+-- border's rows the player's and live, Skin:Resolve deferring with them; a real style in a skin
+-- disables them, Show border included, which reads true meanwhile.
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -351,7 +354,7 @@ end
 -- and the same list is the CLI's allowed values, so a
 -- "From skin" entry would draw no preview and be a value the CLI accepts and nothing can render. A
 -- companion bool says it instead, beside the picker it governs: `<key>FromSkin`, emitted only when
--- the spec opts in. While it is true the picker is disabled (`disabledIf`, the companion's own key,
+-- the spec opts in. While it is true the picker is disabled (bar border: see minor 18) (`disabledIf`, the companion's own key,
 -- so a record-backed row reads its record) and shows the skin's value (`skinValue`, the row field the
 -- flow engine reads before the stored one, OptionsWidgets minor 35); the host draws with
 -- `S.Resolve(token, stored, fromSkin)`, which answers the skin's value while the companion is set.
@@ -371,10 +374,14 @@ local FROM_SKIN = {
   font = { token = "hud.font", label = "Use the skin's font",
     tooltip = "Draw this text in the skin's font. The font picker is not read while this is on." },
   borderStyle = { token = "bar.borderStyle", label = "Use the skin's border",
-    tooltip = "Draw this border in the skin's border style. The border picker is not read while this is on." },
+    tooltip = "Draw this border in the skin's border style. A skin with no border style of its own "
+      .. "leaves it to the border picker and Show border." },
   barTexture = { token = "bar.texture", label = "Use the skin's texture",
     tooltip = "Draw this bar in the skin's texture. The texture picker is not read while this is on." },
 }
+
+-- The two tokens a skin's None hands back to the player (Skin:Resolve, Skin minor 15).
+local BAR_EDGE = { ["bar.borderStyle"] = true, ["bar.borderSize"] = true }
 
 -- The other families a picker can follow, by `spec.fromSkin` value (minor 13, `bar` minor 17); `true`,
 -- and any value not named here, is FROM_SKIN's. `sizeToken` makes the companion govern the group's
@@ -382,8 +389,8 @@ local FROM_SKIN = {
 local FROM_SKIN_FAMILY = {
   bar = {
     borderStyle = { token = "bar.borderStyle", sizeToken = "bar.borderSize", label = "Use the skin's border",
-      tooltip = "Draw this border in the skin's border style and thickness. The border style and "
-        .. "thickness pickers are not read while this is on." },
+      tooltip = "Draw this border in the skin's border style and thickness. A skin with no border style "
+        .. "of its own leaves them to the pickers and Show border." },
   },
   icon = {
     borderStyle = { token = "icon.borderStyle", sizeToken = "icon.borderSize", label = "Use the skin's border",
@@ -565,26 +572,47 @@ function lib.__AttachCompose(O, d)
     return type(S.Resolve) == "function" and S.Resolve(token, nil, true) or nil
   end
 
-  --- Put row `r` under `companion`: disabled while it is set, showing the skin's `token` meanwhile.
+  --- The companion's stored value, as row `row` reads it.
+  local function companionOn(row, companion)
+    if row.path == nil and type(row.get) == "function" then return row.get(companion) == true end
+    return type(desc.get) == "function" and desc.get(companion) == true
+  end
+
+  --- True while `token` is the bar border's and the skin's None leaves it to the player (minor 18).
+  local function deferred(token)
+    return BAR_EDGE[token] == true and skinValue("bar.borderStyle") == "None"
+  end
+
+  --- Put row `r` under `companion`: disabled while it is set, showing the skin's `token` meanwhile,
+  --- but for a bar border under a skin's None, where the row stays the player's (minor 18).
   local function governed(r, companion, token)
     r.disabledIf = companion
+    if BAR_EDGE[token] then
+      r.disabledIf = function(row) return companionOn(row, companion) and not deferred(token) end
+    end
     r.skinValue = function(row)
-      local on
-      if row.path == nil and type(row.get) == "function" then
-        on = row.get(companion)
-      elseif type(desc.get) == "function" then
-        on = desc.get(companion)
-      end
-      if on ~= true then return nil end
+      if not companionOn(row, companion) or deferred(token) then return nil end
       return skinValue(token)
     end
+  end
+
+  --- Show border under `companion` (minor 18): a real style in a skin wins, so the toggle reads true
+  --- and is disabled meanwhile; under None, or with no skin to read, it is the player's.
+  local function governedShow(r, companion)
+    local function realStyle(row)
+      local style = skinValue("bar.borderStyle")
+      return companionOn(row, companion) and style ~= nil and style ~= "None"
+    end
+    r.disabledIf = realStyle
+    r.skinValue = function(row) return realStyle(row) or nil end
   end
 
   --- The `<key>FromSkin` companion of `picker` (the row emit returned for canonical `leaf`), when
   --- `spec.fromSkin` asks for it and the caller did not omit either row. Appended after the
   --- canonical rows, on a line of its own, so the block's pairs stay as they are. `size` is the
-  --- group's thickness row, governed too when the family names a size token (minor 13).
-  local function fromSkinRow(spec, rows, picker, leaf, size)
+  --- group's thickness row, governed too when the family names a size token (minor 13), and `show`
+  --- its Show border row, when the picker is the bar's (minor 18).
+  local function fromSkinRow(spec, rows, picker, leaf, size, show)
     local family = FROM_SKIN_FAMILY[spec.fromSkin]
     local f = family and family[leaf] or FROM_SKIN[leaf]
     if not (spec.fromSkin and picker and f) then return end
@@ -596,6 +624,7 @@ function lib.__AttachCompose(O, d)
     if not row then return end
     governed(picker, companion, f.token)
     if size and f.sizeToken then governed(size, companion, f.sizeToken) end
+    if show and BAR_EDGE[f.token] then governedShow(show, companion) end
   end
   -- Published on the INSTANCE, not on the lib table, for the reason Options.lua's layout block
   -- gives: a lib-level table is shared by every instance, so handing it out lets one host's
@@ -765,13 +794,16 @@ function lib.__AttachCompose(O, d)
   --- appended AFTER the mandated four, never interleaved.
   ---
   --- `spec.fromSkin`: `true` follows the bar's style and leaves the thickness the player's; `"bar"`
-  --- (compose minor 17) and `"icon"` (minor 13) govern the thickness as well.
+  --- (compose minor 17) and `"icon"` (minor 13) govern the thickness as well. On the bar's family a
+  --- skin's None leaves the picker, the thickness and Show border live, the player's, and a real
+  --- style disables all three (minor 18).
   function O.BorderGroup(spec)
     spec = spec or EMPTY
     local rows = {}
 
+    local show
     if spec.show then
-      emit(spec, rows, "borderShow", {
+      show = emit(spec, rows, "borderShow", {
         type = "bool", label = "Show border", tooltip = "Draw a border around this element.",
         default = true, startsLine = true,
       })
@@ -789,7 +821,7 @@ function lib.__AttachCompose(O, d)
       swatchRow(spec, "Border color", "The color the border is drawn in.", spec.hasAlpha))
     emit(spec, rows, "useClassColorBorder",
       companionRow(spec, "Draw this border in the class color instead of the swatch beside it."))
-    fromSkinRow(spec, rows, picker, "borderStyle", size)
+    fromSkinRow(spec, rows, picker, "borderStyle", size, show)
     return appendExtra(spec, rows)
   end
 

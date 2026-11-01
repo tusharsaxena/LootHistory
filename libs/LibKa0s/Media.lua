@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 11
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -304,8 +304,9 @@ lib.TEXTURES = {
 -- `SetTextureSliceMargins`, so its corners stay 8x8 at any frame size and meet the border's.
 --
 -- ONLY SHIPPED ART. The in-client keys the skins use (`Blizzard Dialog`, `Blizzard Tooltip`,
--- `Blizzard Dialog Background`, `Solid`, ...) are LibSharedMedia's own defaults already, so nothing
--- here re-registers them.
+-- `Blizzard Dialog Background`, ...) are LibSharedMedia's own defaults already, so nothing here
+-- re-registers them. `Solid` is a default of LSM's `background` and `statusbar` only, and it has no
+-- file here, so its `border` is no row of this catalog: RegisterLSM offers it by hand (minor 12).
 lib.BORDERS = {
   ["Ka0s Glass"] = { file = "glass-border.tga", edgeSize = 8 },
 }
@@ -503,6 +504,9 @@ local function registerOne(LSM, kind, name, path, langmask)
   return LSM:IsValid(kind, name) and 1 or 0
 end
 
+-- The client's white, which a backdrop's `edgeFile` draws as a flat line: the LSM `Solid` border.
+local FLAT_EDGE = "Interface\\Buttons\\WHITE8X8"
+
 --- The locale mask for one face, the sum of `LSM.LOCALE_BIT_<group>` over its `langmask` list
 --- (see RegisterLSM), or nil when LSM publishes no bit for one of them, so an LSM too old to carry
 --- the constants gets the plain call.
@@ -583,11 +587,18 @@ end
 --- ends when the collection's rollout re-vendors v1.78.0 into every consumer, since every folder
 --- then carries the files.
 ---
+--- THE FLAT EDGE (minor 12). LSM has no `Solid` border, and a skin's `bar.borderStyle` names one, so
+--- it is offered here: a host that fetches the skin's answer itself gets the flat edge, rather than
+--- LSM's default None or its own fallback, whichever addons happen to be enabled. It is the client's
+--- own white, the path each addon that registers the key offers, so which of them gets there first
+--- changes nothing.
+---
 --- @param addonName string  the consumer's own addon folder name
 --- @param vendorPath string optional
 --- @return number fonts, number statusbars, number borders, number backgrounds  how many of each LSM
 ---         holds after the call; all 0 when LSM is absent, which is not an error. The third and
----         fourth arrived at minor 6; a caller reading two still reads the first two.
+---         fourth arrived at minor 6; a caller reading two still reads the first two. The third
+---         counts `Solid` from minor 12.
 function lib.RegisterLSM(addonName, vendorPath)
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if not LSM then return 0, 0, 0, 0 end
@@ -606,7 +617,7 @@ function lib.RegisterLSM(addonName, vendorPath)
 
   -- BORDER and BACKGROUND, the same bargain again: a frame-art dropdown offers them by name.
   local borders = registerCatalog(LSM, mt.BORDER or "border", lib.BORDERS, lib.Border,
-    addonName, vendorPath)
+    addonName, vendorPath) + registerOne(LSM, mt.BORDER or "border", "Solid", FLAT_EDGE)
   local backgrounds = registerCatalog(LSM, mt.BACKGROUND or "background", lib.BACKGROUNDS,
     lib.Background, addonName, vendorPath)
 

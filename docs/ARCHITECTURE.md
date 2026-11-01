@@ -407,23 +407,21 @@ facade with this addon as its **owner**.
   page never mixes stock and skinned. No dropdown, search box, strip, chart or autocomplete of this
   addon sits on the settings panel, so none passes `panel = true`. *Ignore fonts* reaches every string
   the library paints; this addon has no HUD.
-- **The color gate.** `tests/test_skin_literals.lua` fails on a numeric literal in a color position
-  (r, g or b) of `SetTextColor`, `SetColorTexture`, `SetVertexColor`, `SetBackdropColor`,
-  `SetBackdropBorderColor`, `AddLine` and `AddDoubleLine`, and on any `|cff` escape in code, in every
-  tracked file under `core/`, `modules/` and `settings/`, outside `core/SkinSetup.lua` and the
-  allow-list below. An allow-list entry that matches nothing also fails.
+- **The typed-value gate.** The kit's `test_skin_values` (revision 50, `Kit.skinValues` in
+  `tests/run.lua`) fails on a typed color or a client texture path in every tracked file under
+  `core/`, `modules/` and `settings/`, outside the kit's shared categories and a host's allow rows. It
+  reads the kit's color calls and this addon's three paint helpers, `NS.SkinBar`, `setCell` and
+  `NS.IconMarkup`. A row that matches nothing fails.
+- **The switch test.** The kit's `test_skin_switch` (`Kit.skinSwitch`) flips each surface
+  `tests/skin_surfaces.lua` declares to a probe skin and fails one that draws the same. A surface is
+  one painted object, because the kit counts a change anywhere under what `build` answers.
 
 ### Intentional exceptions
 
-The gate's allow-list, each with its reason:
-
-| File | What | Why it is not chrome |
-|---|---|---|
-| `core/Constants.lua` | `qualityHex(q)` in the Minimum quality option labels | An item quality's client color, passed through |
-| `core/Namespace.lua` | `NS.PREFIX`, the cyan `[LH]` | Chat output; the chat frame is not a skinned surface |
-| `settings/Slash.lua` | `\|cffffd100` in the ledger reset prompt | A Blizzard `StaticPopup`, which stays stock |
-| `settings/Slash.lua` | `\|cFFFFFF00` in the get/set echo and the disabled-line fallback | Chat output; the fallback is the library's string, pinned byte for byte |
-| `modules/SimWorld.lua` | The fixture item and currency links | Hyperlinks colored as the client colors them |
+**No allow row.** The five rows the addon's own color gate carried went when the kit's check replaced it,
+because a kit category takes each of them: the item quality's client color (`qualityHex`), chat output
+(`NS.PREFIX` and the get/set echo), StaticPopup text in the ledger reset prompt and the simulator's
+fixture hyperlinks.
 
 Outside the gate's reach, also on purpose:
 

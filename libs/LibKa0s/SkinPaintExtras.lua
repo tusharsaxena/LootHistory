@@ -3,7 +3,8 @@
 -- EllesmereUI's vocabulary (FadeRegions, FadeNineSlice, from SkinPaint.lua since its minor 11), the
 -- text and font primitives (Text, Font, White), the bar texture (BarTexture) and the getters
 -- (GetAccentColor, GetPanelColor, GetFont, GlowColor, HudTextColor, HudLabelColor, BarFillColor,
--- HudShadow, ChartStyle, BarStyle), and the HUD's two shared looks (BarGloss, HudFont).
+-- HudShadow, ChartStyle, BarStyle, BarBorder), hover art (HoverArt), and the HUD's two shared looks
+-- (BarGloss, HudFont).
 --
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: it is part of the same
 -- major, paired on the shell's minor (`__extrasMinor` / `__extrasShellMinor`), and it paints with
@@ -26,25 +27,12 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 4: BarTexture, the owner's bar texture (`bar.texture`, its texture override when it sets
 -- one, Skin minor 6) on a Texture or a StatusBar, tinted and recorded (LibKa0s#63). A repaint and a
 -- nil color keep the bar's live color (a host's own recolor included), never a first-paint snapshot.
--- Minor 5 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): Card's `opts.tokens`
--- slot remap (`bg`, `border`, `title`, `text`; SkinPaint minor 11's P.remap), and the two faders,
--- moved here unchanged from SkinPaint.lua, which they would have taken into layout-§1's band.
--- Then (LK-05 of the same run, still minor 5): TitleBar's and FadeNineSlice's `opts.stockDefault`
--- (SkinPaint minor 11's P.keepStock, retired at SkinPaint minor 12), and Panel and Inset, moved here
--- unchanged from SkinPaint.lua for the same reason. And (LK-01's review, still minor 5): S.Text takes an owner or library token
--- NAME as well as a role, so an owner token is drawn through a tracked, replayed primitive.
--- Minor 6 (LK-01 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-1):
--- BarStyle's `font`, `fontKey` and `outline` are nil while the owner ignores fonts, read through
--- `Skin:Token` like every host read, so the host's own setting stands.
--- Then (LK-05 of the same run, ruling R-5, decision D-02, still minor 6): P.panelIgnored, the
--- settings-panel scope every primitive and widget can share, and S.Text's `opts.panel`. It lives here
--- rather than in SkinPaint.lua, so that file stays out of layout-§1's 1000-line band.
--- Then (LK-02 of the same run, ruling R-2, still minor 6): the stock look is retired. TitleBar,
--- FadeNineSlice, Panel and Inset ignore a stale `opts.stockDefault` and paint under Ka0s Default as
--- under every skin (SkinPaint minor 12, which gives a TitleBar's alignment back in P.unpaint).
--- Then (LK-06a of the same run, ruling R-5, decision D-02, still minor 6): S.Strip takes
--- `opts.panel` as S.Text does, for `W.TestStrip`'s `opts.panel`; P.panelIgnored records its answer
--- as `rec.panelOff` for P.hook.
+-- Minor 5 (LK-02, LK-05 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): Card's `opts.tokens`
+-- slot remap; the two faders, Panel and Inset, moved here unchanged from SkinPaint.lua; S.Text takes a
+-- token NAME as well as a role.
+-- Minor 6 (LK-01, LK-02, LK-05, LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS):
+-- BarStyle's font fields are nil while the owner ignores fonts; P.panelIgnored and S.Text's and
+-- S.Strip's `opts.panel`; the stock look is retired, so a stale `opts.stockDefault` is ignored.
 -- Minor 7 (LK-04 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling
 -- D-07): S.FontFlags(value, where), the flags an element draws with from its stored Font flags: a
 -- picked flag wins, and "From skin" (FROM_SKIN; nil too) resolves through the owner's Font outline
@@ -70,7 +58,12 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 15 (FS-FIX of the same bundle, the review of minor 14): S.BarGloss's `fromSkin`, the host's
 -- texture companion, kept on a replay; S.HudFont's skin face read through Skin:Token, so Ignore fonts
 -- reaches it as it reaches the shadow. Additive. Ka0s Default's look does not move.
-local EXTRAS_MINOR = 15
+-- Minor 16 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): S.BarBorder, a bar border's
+-- style, Show border and size in one read, a skin's None deferring; S.HudShadow and S.HudFont take a
+-- shadow token; S.HudFont shares one font object per look; S.HoverArt, the public seam for hover art;
+-- S.Mark and S.HoverArt give themselves back when a pooled AceGUI widget is released. Additive, but
+-- for the font objects. Ka0s Default's look does not move.
+local EXTRAS_MINOR = 16
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -259,23 +252,72 @@ prim.Cover = function(owner, target, opts)
   end
 end
 
+--- The AceGUI widget that owns region `tex`, or nil: `opts.widget`, else the widget of the frame it is
+--- a region of (every AceGUI constructor sets `frame.obj`).
+local function pooledWidget(tex, opts)
+  if type(opts.widget) == "table" then return opts.widget end
+  local parent = type(tex.GetParent) == "function" and tex:GetParent()
+  local w = type(parent) == "table" and rawget(parent, "obj")
+  if type(w) == "table" and type(rawget(w, "type")) == "string" and rawget(w, "frame") ~= nil then return w end
+  return nil
+end
+
+--- A pool hands an AceGUI widget to the next caller, in any addon, with this paint's record and tint
+--- still on it, so release gives them back (QuickComms' ab3be75 did this by hand). Armed once per
+--- acquire: a replay finds it armed. A copy with no SkinAce.lua has no OnRelease, and arms nothing.
+local function giveBackOnRelease(rec, tex, opts)
+  local w = pooledWidget(tex, opts)
+  if not w or rec.regions.released == w or type(lib.OnRelease) ~= "function" then return end
+  rec.regions.released = w
+  lib:OnRelease(w, function()
+    rec.regions.released = nil
+    P.unpaint(rec, tex)
+    lib:Untrack(tex)
+    if type(opts.stock) == "function" then opts.stock(tex) end
+  end)
+end
+
 --- S.Mark(tex, opts): a small mark on texture `tex` in the skin's tint. `opts.token` names the color
 --- (default `icon.tint`; `sem.good` and `sem.bad` for a mark that means something), `opts.art` is the
 --- Ka0s icon drawn in place of the client art `tex` wore, a path the host resolved and declared.
 --- `opts.panel = true`: the mark is on the owner's settings panel, so while the owner ignores its
 --- panel the tint is given back and `opts.stock(tex)` puts the client art back, a texture's art
---- being nothing P.unpaint can read. Live both ways, replayed on a skin switch. Draws no Media icon
---- of its own.
+--- being nothing P.unpaint can read. Live both ways, replayed on a skin switch. On a region of a
+--- pooled AceGUI widget (minor 16) the record and the tint are given back at its release, and
+--- `opts.stock` runs: nothing for a host to do. `opts.widget` names the widget where `tex` is not a
+--- region of its frame. Draws no Media icon of its own.
 prim.Mark = function(owner, tex, opts)
   if not P.isTexture(tex) then return end
   opts = type(opts) == "table" and opts or {}
   local rec = P.track(owner, tex, "Mark", opts)
+  giveBackOnRelease(rec, tex, opts)
   if P.panelIgnored(owner, rec, tex, opts) then
     if type(opts.stock) == "function" then opts.stock(tex) end
     return
   end
   if opts.art then tex:SetTexture(opts.art) end
   P.tint(rec, tex, P.T(owner), opts.token or "icon.tint", "SetVertexColor")
+end
+
+--- S.HoverArt(tex, opts) (minor 16): hover art `tex`, an ADD highlight the client draws in its own
+--- color, desaturated and tinted `list.hoverArt`; left as the client draws it where that token is
+--- `false` (Ka0s Default, WoW Default). A recorded primitive, so a skin change needs no call, and
+--- the public seam for the Options instance's private `O.__hoverArt`. `opts.panel` is S.Mark's: the
+--- art is the client's while the owner ignores its panel. `opts.back`: give it back and forget it, for
+--- a pool of the host's own; a region of an AceGUI widget does that at release, as S.Mark's does.
+--- Draws no Media icon.
+prim.HoverArt = function(owner, tex, opts)
+  if not P.isTexture(tex) then return end
+  opts = type(opts) == "table" and opts or {}
+  if opts.back then
+    local rec = lib.painted[tex]
+    if rec then P.unpaint(rec, tex) end
+    return lib:Untrack(tex)
+  end
+  local rec = P.track(owner, tex, "HoverArt", opts)
+  giveBackOnRelease(rec, tex, opts)
+  if P.panelIgnored(owner, rec, tex, opts) then return end
+  P.glyph(rec, tex, P.T(owner), "list.hoverArt")
 end
 
 --- S.MarkText(path, size, token): the same mark as inline `|T...|t` markup, for a line of text: icon
@@ -567,13 +609,17 @@ prim.HudTextColor = function(owner) return colorOf(owner, "hud.text") end
 prim.HudLabelColor = function(owner) return colorOf(owner, "hud.label") end
 --- S.BarFillColor() (minor 12, D3): r, g, b, a of `bar.fill`. Class and state fills stay the host's.
 prim.BarFillColor = function(owner) return colorOf(owner, "bar.fill") end
---- S.HudShadow() (minor 12, D6): the skin's HUD text shadow as x, y, r, g, b, a; `false` when the skin
---- draws none (`hud.shadow` false); nil while the owner ignores fonts, when the host's own setting
+--- S.HudShadow(token) (minor 12, D6): the skin's HUD text shadow as x, y, r, g, b, a; `false` when the
+--- skin draws none (`hud.shadow` false); nil while the owner ignores fonts, when the host's own setting
 --- stands. A 12.0.7 client draws only a font object's shadow, so set these on one (SkinPaint's header).
-prim.HudShadow = function(owner)
+--- `token` (minor 16), optional, names the color token to read instead, a library or owner token: an
+--- owner token following `hud.shadow` gives a host its shipped shadow under Ka0s Default. A name the
+--- owner cannot read is logged once and reads `hud.shadow`; one that is no color is no shadow.
+prim.HudShadow = function(owner, token)
   if lib:__FontsIgnored(owner) then return nil end
   local T = P.T(owner)
-  local c = T["hud.shadow"]
+  local named = token ~= nil and lib:__RemapName(owner, token, "HudShadow")
+  local c = T[named and token or "hud.shadow"]
   if type(c) ~= "table" then return false end
   return T["hud.shadowX"], T["hud.shadowY"], c[1], c[2], c[3], c[4] or 1
 end
@@ -637,6 +683,21 @@ prim.BarStyle = function(owner)
   }
 end
 
+--- S.BarBorder(style, show, size, fromSkin) (minor 16): what a bar border draws, as style, show, size,
+--- from the host's stored three and its companion. With the companion off (or a stored value that is
+--- no FROM_SKIN), the stored three. Following a skin that states a real `bar.borderStyle`, the skin's
+--- style and `bar.borderSize`, and show true: a real style wins over Show border. Following a skin's
+--- None, the player's stored three, because None is no border of the skin's own. A stored FROM_SKIN
+--- names no style, so under None it answers "None" with the stored show. Never recorded.
+prim.BarBorder = function(owner, style, show, size, fromSkin)
+  local follows = fromSkin == true or style == lib.FROM_SKIN
+  if not follows then return style, show, size end
+  local skin = lib:Token(owner, "bar.borderStyle")
+  if skin ~= nil and skin ~= "None" then return skin, true, lib:Token(owner, "bar.borderSize") end
+  if style == lib.FROM_SKIN then style = skin end
+  return style, show, size
+end
+
 -- ── the HUD's shared looks (minor 14) ────────────────────────────────────────────────────────
 
 -- The one gloss look, as P.fill's tokens: no skin token says otherwise, `bar.gloss` is a bool.
@@ -667,19 +728,27 @@ prim.BarGloss = function(owner, statusBar, fromSkin)
   P.fill(rec, gloss, GLOSS, "gloss")
 end
 
+-- `__hudLooks`: a look's key -> { obj, ready }, its one font object for the session, across owners.
+-- `__hudFonts`: a string -> the object it wears, which only says so. Kept across minors: a client
+-- never frees a font object, so a newer copy must not start over.
 lib.__hudFonts = lib.__hudFonts or setmetatable({}, { __mode = "k" })
+lib.__hudLooks = lib.__hudLooks or {}
 lib.__hudFontSeq = lib.__hudFontSeq or 0
 
---- The font object `fs` wears: one per string, named, kept for the session. Nil where the client has
---- no CreateFont. A client never frees a font object, so a repeat call never makes another.
-local function hudFontObject(owner, fs)
+--- The look's entry, made on first need. Nil where the client has no CreateFont. A replaced CreateFont
+--- starts a fresh table, since the entries are another maker's: in the client that is an addon
+--- wrapping it, once, and in a suite it is what lets a fake see what S.HudFont writes.
+local function hudLook(key)
   if type(CreateFont) ~= "function" then return nil end
-  local obj = lib.__hudFonts[fs]
-  if obj then return obj end
+  if lib.__hudLookMaker ~= CreateFont then
+    lib.__hudLookMaker, lib.__hudLooks = CreateFont, {}
+  end
+  local look = lib.__hudLooks[key]
+  if look then return look end
   lib.__hudFontSeq = lib.__hudFontSeq + 1
-  obj = CreateFont("LibKa0sHud_" .. tostring(owner) .. "_" .. lib.__hudFontSeq)
-  lib.__hudFonts[fs] = obj
-  return obj
+  look = { obj = CreateFont("LibKa0sHud_" .. lib.__hudFontSeq) }
+  lib.__hudLooks[key] = look
+  return look
 end
 
 --- A stored shadow as x, y, r, g, b, a, or false: `true` is the client's 1, -1 in black, a table is
@@ -690,23 +759,25 @@ local function storedShadow(s)
   return s[1], s[2] or 0, s[3] or 0, s[4] or 0, s[5] or 0, s[6] or 1
 end
 
---- The shadow a HUD string draws. With the host's companion on (nil counts), S.HudShadow's answer:
---- false none, numbers those; nil, the owner ignoring fonts, and a companion off leave the stored one.
+--- The shadow a HUD string draws. With the host's companion on (nil counts), S.HudShadow's answer for
+--- `opts.shadowToken`: false none, numbers those; nil, the owner ignoring fonts, and a companion off
+--- leave the stored one.
 local function hudShadow(owner, opts)
   if opts.shadowFromSkin ~= false then
-    local x, y, r, g, b, a = prim.HudShadow(owner)
+    local x, y, r, g, b, a = prim.HudShadow(owner, opts.shadowToken)
     if x == false then return false end
     if x ~= nil then return x, y, r, g, b, a end
   end
   return storedShadow(opts.shadow)
 end
 
---- Face, size and flags on `target`. The client answers false for a file it has not loaded, which
---- on a fresh font object leaves no font at all, so the client's own face goes on instead.
+--- Face, size and flags on `target`, answering whether the face took. The client answers false for a
+--- file it has not loaded, which on a fresh font object leaves no font at all, so the client's own
+--- face goes on instead.
 local function setHudFace(target, face, size, flags)
-  if target:SetFont(face, size, flags) == false and type(STANDARD_TEXT_FONT) == "string" then
-    target:SetFont(STANDARD_TEXT_FONT, size, flags)
-  end
+  if target:SetFont(face, size, flags) ~= false then return true end
+  if type(STANDARD_TEXT_FONT) == "string" then target:SetFont(STANDARD_TEXT_FONT, size, flags) end
+  return false
 end
 
 --- BOTH shadow arms write: an off arm that skipped the calls would keep what the last pass set.
@@ -716,13 +787,39 @@ local function setHudShadow(target, x, y, r, g, b, a)
   target:SetShadowOffset(x, y)
 end
 
+--- Everything a font object carries, as a key: two strings with one key draw alike.
+local function hudLookKey(face, size, flags, x, y, r, g, b, a)
+  return ("%s|%s|%s|%s|%s|%s|%s|%s|%s"):format(face, tostring(size), flags, tostring(x), tostring(y),
+    tostring(r), tostring(g), tostring(b), tostring(a))
+end
+
+--- Face, size, flags and shadow on `fs`'s font object, or on `fs` where the client has none. Answers
+--- the object, or nil.
+local function wearHudLook(fs, face, size, flags, ...)
+  local look = hudLook(hudLookKey(face, size, flags, ...))
+  if not look then
+    setHudFace(fs, face, size, flags)
+    setHudShadow(fs, ...)
+    return nil
+  end
+  if not look.ready then
+    look.ready = setHudFace(look.obj, face, size, flags)
+    setHudShadow(look.obj, ...)
+  end
+  lib.__hudFonts[fs] = look.obj
+  fs:SetFontObject(look.obj)
+  return look.obj
+end
+
 --- S.HudFont(fs, opts) (minor 14): the one way to give a HUD string its face, size, flags and shadow.
---- It all goes on one named font object per string, the only place a 12.0.7 client draws a shadow,
---- or on the string where the client has no CreateFont. `opts`, all optional: `face` (a path; the
+--- It all goes on a named font object, the only place a 12.0.7 client draws a shadow, or on the string
+--- where the client has no CreateFont. One object per LOOK (minor 16), shared by every string and
+--- owner that draws it and never rewritten, because a client never frees one: a face the client
+--- refused is tried again on the next call. `opts`, all optional: `face` (a path; the
 --- skin's `hud.font`, unread while the owner ignores fonts (minor 15), else the client's), `size` (as it draws: pass `S.HudFontSize`'s
 --- answer; 12 when not above 0), `flags` (through S.FontFlags, so "@skin" is safe), `shadow` (the
 --- host's stored one: true, false or `{ x, y, r, g, b, a }`), `shadowFromSkin` (the host's companion;
---- false draws `shadow` under every skin). S.HudShadow's three answers apply while the companion is
+--- false draws `shadow` under every skin), `shadowToken` (minor 16, S.HudShadow's `token`). S.HudShadow's three answers apply while the companion is
 --- on: false no shadow, nil the stored `shadow`, numbers those. A keyed table is no shadow, with no
 --- error. Answers the font object, or nil.
 --- Not recorded: the face and size are the host's resolved values, which a replay would draw stale,
@@ -736,12 +833,7 @@ prim.HudFont = function(owner, fs, opts)
   end
   if type(face) ~= "string" then return nil end
   local size, flags = prim.HudFontSize(owner, opts.size, false), prim.FontFlags(owner, opts.flags)
-  local obj = hudFontObject(owner, fs)
-  local target = obj or fs
-  setHudFace(target, face, size, flags)
-  setHudShadow(target, hudShadow(owner, opts))
-  if obj then fs:SetFontObject(obj) end
-  return obj
+  return wearHudLook(fs, face, size, flags, hudShadow(owner, opts))
 end
 
 -- ── AceConfigDialog's confirmation box, for a Ka0s profile page (cause A4) ─────────────────────

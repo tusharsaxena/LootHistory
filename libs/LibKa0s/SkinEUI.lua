@@ -60,7 +60,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Minor 3 (FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the tokens every other skin
 -- derives from a driven token follow it here too: `hud.label`, `bar.fill`, `text.command`,
 -- `gtip.emphasis` and `menu.suggestBg`.
-local EUI_MINOR = 3
+-- Minor 4 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): `glow.color` follows the
+-- accent, and `bar.bg`, `cover.dim`, `bar.border` and `icon.border` follow the panel color.
+local EUI_MINOR = 4
 if lib.__euiMinor and lib.__euiMinor >= EUI_MINOR
   and lib.__euiShellMinor == lib.MINOR then return end
 lib.__euiMinor      = EUI_MINOR
@@ -106,10 +108,14 @@ local ALLOWED = {
 -- Default's (EllesmereUI's look is dark and flat).
 local ACCENT_TOKENS = { "text.accent", "tab.onLine", "nav.selBar", "check.mark", "slider.fill",
                         "input.focus", "list.selOutline", "hud.label", "bar.fill", "text.command",
-                        "gtip.emphasis" }
+                        "gtip.emphasis", "glow.color" }
 local PANEL_TOKENS = { "win.bg", "panel.bg", "menu.bg", "popup.bg", "drawer.bg", "card.bg", "menu.suggestBg" }
 local FLAT_TOKENS = { "win.bgTop", "win.bgBottom", "win.bgTexture", "title.bgTop", "title.bgBottom" }
 local FONT_TOKENS = { "font.body", "font.title" }
+-- The panel color at a token's own alpha (Ka0s Default's), and the edges at half its brightness, so
+-- a theme's dark flat look keeps a dark edge (minor 4).
+local PANEL_WASH = { ["bar.bg"] = 0.5, ["cover.dim"] = 0.6 }
+local PANEL_EDGES = { "bar.border", "icon.border" }
 
 local function report(err)
   local h = type(geterrorhandler) == "function" and geterrorhandler()
@@ -314,6 +320,8 @@ local function derive(base, S)
   if type(pr) == "number" then
     setAll(t, PANEL_TOKENS, { pr, pg, pb, type(pa) == "number" and pa or 1 })
     setAll(t, FLAT_TOKENS, nil)
+    for name, alpha in pairs(PANEL_WASH) do t[name] = { pr, pg, pb, alpha } end
+    setAll(t, PANEL_EDGES, { pr / 2, pg / 2, pb / 2, 1 })
   end
   local path = getter(S, "GetFont")
   if type(path) == "string" and path ~= "" then setAll(t, FONT_TOKENS, path) end

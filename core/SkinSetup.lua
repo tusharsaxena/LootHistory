@@ -514,7 +514,7 @@ if not Skin then
     "BarTexture", "FontFlags", "HudFontSize", "Mark",
     -- LibKa0s v1.85.0: this addon has no HUD and reads none of these, but the facade answers every
     -- VOCAB name. Nil is each getter's degraded answer, and with no skin there is no gloss.
-    "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss",
+    "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HoverArt",
   }) do S[name] = noop end
 
   S.Token = function(name)
@@ -553,6 +553,10 @@ if not Skin then
     local on = opts.shadow and true or false
     fs:SetShadowColor(0, 0, 0, on and 1 or 0)
     fs:SetShadowOffset(on and 1 or 0, on and -1 or 0)
+  end
+  -- No skin to defer to, so the stored style, show and size stand (SkinPaintExtras minor 16).
+  S.BarBorder = function(style, show, size)
+    return style, show, size
   end
   -- The History window's tab (modules/Browser.lua): its label and a 2px underline, the look it had
   -- before the skin engine; no backing, as there is no skin to draw one.

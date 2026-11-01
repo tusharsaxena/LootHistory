@@ -150,7 +150,7 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- control's strings in the skin's face (so Ignore fonts reaches them) and adds `panel = true` for a
   -- control on its owner's settings page. No member is added or removed; this addon's dropdowns sit
   -- on its windows, never its settings panel, so none passes `panel`.
-  assertEqual(lib.MODULES.Widgets, 20, "this adoption is written against Widgets minor 20")
+  assertEqual(lib.MODULES.Widgets, 21, "this adoption is written against Widgets minor 21")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

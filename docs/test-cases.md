@@ -1597,7 +1597,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (19)
+### test_skin_insights.lua (20)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1607,6 +1607,7 @@ Total.
 - skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch
 - skin timeline: Ka0s Default draws today's toggle, header and strip; the series are the skin's
 - skin timeline: a switch repaints the toggle, header and strip and rebuilds the series
+- skin timeline: the toggle's tick follows the state, and its box leaves the mouse to the button
 - skin holdings: Ka0s Default draws today's header, arrows, rows and cells
 - skin holdings: a switch rebuilds the arrows and repaints every pooled row live
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
@@ -1639,12 +1640,6 @@ Total.
 - the reorder list seam names the owner
 - the AH drag list follows Ignore settings panel: stock while it is on, skinned when off
 - every remaining factory seam passes the owner
-
-### test_skin_literals.lua (3)
-
-- no color literal outside core/SkinSetup.lua and the named allow-list
-- every allow-list entry carries its reason
-- the gate is falsifiable: a planted literal of each shape is reported
 
 ### test_glyphs.lua (5)
 
@@ -2068,6 +2063,126 @@ Total.
 - layoutcap self-test: a census that states nothing is told apart from one that states none
 - layoutcap self-test: the exempt set takes folders as well as paths
 
+### test_skin_values.lua (3)
+
+- skin values: every host row carries its file, substring, why and cause id
+- skin values: no typed value outside the kit's categories and the host's rows
+- skin values: the check is falsifiable, a planted value of each shape is reported
+
+### test_skin_switch.lua (105)
+
+- skin switch: the check is falsifiable, a surface that redraws a literal is reported
+- skin switch: the window's edge changes
+- skin switch: the window's edge changes with the Scope ignored
+- skin switch: the window's title changes
+- skin switch: the window's title changes with the Scope ignored
+- skin switch: the window's divider changes
+- skin switch: the window's divider changes with the Scope ignored
+- skin switch: the close control changes
+- skin switch: the close control changes with the Scope ignored
+- skin switch: the selected tab's label changes
+- skin switch: the selected tab's label changes with the Scope ignored
+- skin switch: an unselected tab's label changes
+- skin switch: an unselected tab's label changes with the Scope ignored
+- skin switch: the record footer changes
+- skin switch: the record footer changes with the Scope ignored
+- skin switch: the DB-size footer changes
+- skin switch: the DB-size footer changes with the Scope ignored
+- skin switch: the filter bar's Export button changes
+- skin switch: the filter bar's Export button changes with the Scope ignored
+- skin switch: the filter bar's Save button changes
+- skin switch: the filter bar's Save button changes with the Scope ignored
+- skin switch: the filter bar's Reset button changes
+- skin switch: the filter bar's Reset button changes with the Scope ignored
+- skin switch: the filter bar's Clear button changes
+- skin switch: the filter bar's Clear button changes with the Scope ignored
+- skin switch: the export modal's edge changes
+- skin switch: the export modal's edge changes with the Scope ignored
+- skin switch: the export modal's title changes
+- skin switch: the export modal's title changes with the Scope ignored
+- skin switch: the export modal's CSV button changes
+- skin switch: the export modal's CSV button changes with the Scope ignored
+- skin switch: the test strip changes
+- skin switch: the test strip changes with the Scope ignored
+- skin switch: a table header label changes
+- skin switch: a table header label changes with the Scope ignored
+- skin switch: the sorted header's arrow changes
+- skin switch: the sorted header's arrow changes with the Scope ignored
+- skin switch: the Bound header's lock changes
+- skin switch: the Bound header's lock changes with the Scope ignored
+- skin switch: a row's stripe changes
+- skin switch: a row's stripe changes with the Scope ignored
+- skin switch: a row's hover changes
+- skin switch: a row's hover changes with the Scope ignored
+- skin switch: a group header row changes
+- skin switch: a group header row changes with the Scope ignored
+- skin switch: a default cell changes
+- skin switch: a default cell changes with the Scope ignored
+- skin switch: the padlock changes
+- skin switch: the padlock changes with the Scope ignored
+- skin switch: an item's quality text changes
+- skin switch: an item's quality text changes with the Scope ignored
+- skin switch: the row menu changes
+- skin switch: the row menu changes with the Scope ignored
+- skin switch: a KPI card changes
+- skin switch: a KPI card changes with the Scope ignored
+- skin switch: a KPI headline changes
+- skin switch: a KPI headline changes with the Scope ignored
+- skin switch: a KPI caption changes
+- skin switch: a KPI caption changes with the Scope ignored
+- skin switch: a section heading changes
+- skin switch: a section heading changes with the Scope ignored
+- skin switch: a section divider's rule changes
+- skin switch: a section divider's rule changes with the Scope ignored
+- skin switch: a section divider's title changes
+- skin switch: a section divider's title changes with the Scope ignored
+- skin switch: a list panel changes
+- skin switch: a list panel changes with the Scope ignored
+- skin switch: the ledger's caveat changes
+- skin switch: the ledger's caveat changes with the Scope ignored
+- skin switch: a bar's track changes
+- skin switch: a bar's track changes with the Scope ignored
+- skin switch: a strip bar's fill changes
+- skin switch: a strip bar's fill changes with the Scope ignored
+- skin switch: a strip bar's label changes
+- skin switch: a strip bar's label changes with the Scope ignored
+- skin switch: a legend chip changes
+- skin switch: a legend chip changes with the Scope ignored
+- skin switch: the ledger's center axis changes
+- skin switch: the ledger's center axis changes with the Scope ignored
+- skin switch: the Timeline's toggle changes
+- skin switch: the Timeline's toggle changes with the Scope ignored
+- skin switch: the Timeline's title changes
+- skin switch: the Timeline's title changes with the Scope ignored
+- skin switch: the Timeline's hint changes
+- skin switch: the Timeline's hint changes with the Scope ignored
+- skin switch: the Timeline's strip axis changes
+- skin switch: the Timeline's strip axis changes with the Scope ignored
+- skin switch: the Holdings header band changes
+- skin switch: the Holdings header band changes with the Scope ignored
+- skin switch: a Holdings header label changes
+- skin switch: a Holdings header label changes with the Scope ignored
+- skin switch: a Holdings row's stripe changes
+- skin switch: a Holdings row's stripe changes with the Scope ignored
+- skin switch: a Holdings row's hover changes
+- skin switch: a Holdings row's hover changes with the Scope ignored
+- skin switch: a Holdings row's cell changes
+- skin switch: a Holdings row's cell changes with the Scope ignored
+- skin switch: the AH table's header changes
+- skin switch: the AH table's addon name changes
+- skin switch: the AH table's status changes
+- skin switch: the AH table's tick changes
+- skin switch: the debug console changes
+- skin switch: the debug console changes with the Scope ignored
+- skin switch: the export copy window changes
+- skin switch: the export copy window changes with the Scope ignored
+
+### test_skin_surfaces.lua (3)
+
+- skin surfaces: the last fixture comes down and the paint recorder with it
+- skin surfaces: the degraded facade's BarBorder answers the three it is handed
+- skin surfaces: every window and tab this addon draws is declared
+
 ### test_diagnostics_contract.lua (9)
 
 - diagnostics contract: both forms run the report
@@ -2183,10 +2298,9 @@ Total.
 | test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 9 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 19 |
+| test_skin_insights.lua | 20 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
-| test_skin_literals.lua | 3 |
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
@@ -2211,8 +2325,11 @@ Total.
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
+| test_skin_values.lua | 3 |
+| test_skin_switch.lua | 105 |
+| test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1845** |
+| **Total** | **1954** |

@@ -222,6 +222,8 @@ return function(Kit, fail)
     test_layout_cap = "layout-§1",
     test_diagnostics_contract = "debug-logging-§14",
     test_lizard_sighted = "automated-tests-§3",
+    test_skin_values = "skinning-§1",
+    test_skin_switch = "skinning-§1",
   }
 
   --- Where a repository keeps its `## Documented deviations` register (`documentation-§3`): an addon

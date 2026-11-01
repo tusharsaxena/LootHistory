@@ -25,7 +25,10 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- Minor 5: `menu.suggestBg`, `menu.suggestBorder` and `list.ghostIcon` (SkinDefs minor 23).
 -- Minor 6: `hud.text`, `hud.label`, `bar.fill` through FOLLOW, and `hud.shadow` through HUD_SHADOW
 -- (SkinDefs minor 24).
-local OTHERS_MINOR = 6
+-- Minor 7 (FS-FIX, the owner's rulings of 2026-11-01): every skin's own `bar.bg`, `bar.border`,
+-- `icon.border`, `glow.color` and `cover.dim` through HUD_LOOK, and a real `bar.borderStyle` where its
+-- palette calls for one through BAR_EDGE. Ka0s Default's values stand. No `sem.*` moves.
+local OTHERS_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
   and lib.__othersShellMinor == lib.MINOR then return end
@@ -248,6 +251,47 @@ local HUD_SHADOW = {
   ember = hex("#140a07"), wow = hex("#000000"), midnight = hex("#08091a"), forever = hex("#0a0908"),
 }
 
+-- Palette colors several tables below share (hoisted at minor 7 for HUD_LOOK).
+local AZ_EDGE, AZ_GOLD = hex("#6b4a22"), hex("#E2B659")
+local GLASS_EDGE = rgba(255, 255, 255, 0.18)
+local HC_WHITE, HC_YELLOW = hex("#FFFFFF"), hex("#FFE600")
+local MN_GOLD = hex("#b08a3e")
+local FV_TAN, FV_EDGE = hex("#C9A07A"), hex("#3a3530")
+
+-- Each skin's bar, icon, glow and cover values (minor 7, the owner's ruling of 2026-11-01), all from
+-- its own palette: `bg` a translucent dark of the window behind a bar's fill, `edge` and `icon` its
+-- control edges, `glow` its accent (WoW Default's is its primary's gold edge, its accent being Ka0s
+-- Default's gold), `dim` its darkest color at the alpha that still shows the page. A skin's `extra` may
+-- still override. Ka0s Default's are its tokens, and no meaning color is here.
+local HUD_LOOK = {
+  obsidian = { bg = hex("#141416", 0.8), edge = hex("#2a2a30"), icon = hex("#34343b"), glow = hex("#4DB8FF"),
+               dim = hex("#050506", 0.7) },
+  azeroth = { bg = hex("#1a110a", 0.8), edge = AZ_EDGE, icon = hex("#8a6a36"), glow = AZ_GOLD,
+              dim = hex("#1a110a", 0.7) },
+  glass = { bg = rgba(255, 255, 255, 0.08), edge = rgba(255, 255, 255, 0.22), icon = GLASS_EDGE,
+            glow = hex("#B69CFF"), dim = rgba(18, 22, 34, 0.6) },
+  contrast = { bg = hex("#1a1a1a", 0.85), edge = HC_WHITE, icon = hex("#E0E0E0"), glow = HC_YELLOW,
+               dim = hex("#000000", 0.8) },
+  ember = { bg = hex("#140a07", 0.8), edge = hex("#8a3c1c"), icon = hex("#6a2e17"), glow = hex("#FF7A33"),
+            dim = hex("#140a07", 0.7) },
+  wow = { bg = hex("#1e1c19", 0.7), edge = hex("#6e6e6e"), icon = hex("#9a9a9a"), glow = hex("#E0B040"),
+          dim = hex("#1e1c19", 0.7) },
+  midnight = { bg = hex("#08091a", 0.8), edge = MN_GOLD, icon = hex("#5a4a26"), glow = hex("#B48CFF"),
+               dim = hex("#08091a", 0.7) },
+  forever = { bg = hex("#0a0908", 0.8), edge = hex("#48433d"), icon = FV_EDGE, glow = FV_TAN,
+              dim = hex("#0a0908", 0.65) },
+}
+local HUD_LOOK_TOKENS = { bg = "bar.bg", edge = "bar.border", icon = "icon.border", glow = "glow.color",
+                          dim = "cover.dim" }
+
+-- The skins whose palette calls for a real bar border (minor 7): a style and a size, which win over
+-- the player's. Azeroth's leather edge, High Contrast's white, WoW Default's tooltip art and Midnight's
+-- gold. Every other skin keeps Ka0s Default's None, which defers to the player's Show border and
+-- stored style (Skin:Resolve). A style is a LibSharedMedia border key, as `icon.borderStyle`'s is.
+local BAR_EDGE = {
+  azeroth = { "Solid", 1 }, contrast = { "Solid", 1 }, wow = { "Blizzard Tooltip", 2 }, midnight = { "Solid", 1 },
+}
+
 -- Every shipped face's sizes at Ka0s Default's width (minor 18, D-07): { body, title, HUD }, as
 -- `font.bodySize`, `font.titleSize` and `hud.fontSize` would state them, the reference being
 -- Prototype's row. Skin.lua's withOverrides lays a row over the sizes of an owner whose font override
@@ -298,6 +342,13 @@ local function register(key, label, desc, swatches, mock, extra)
   if tokens["hud.font"] == nil then tokens["hud.font"] = HUD_FACE[key] end
   if tokens["hud.fontSize"] == nil then tokens["hud.fontSize"] = HUD_SIZE[key] end
   if tokens["hud.shadow"] == nil then tokens["hud.shadow"] = HUD_SHADOW[key] end
+  for field, name in pairs(HUD_LOOK_TOKENS) do
+    if tokens[name] == nil then tokens[name] = HUD_LOOK[key][field] end
+  end
+  local barEdge = BAR_EDGE[key]
+  if barEdge and tokens["bar.borderStyle"] == nil then
+    tokens["bar.borderStyle"], tokens["bar.borderSize"] = barEdge[1], barEdge[2]
+  end
   local icon = ICON_EDGE[key]
   if icon and tokens["icon.borderStyle"] == nil then tokens["icon.borderStyle"] = icon[1] end
   if icon and tokens["icon.borderSize"] == nil then tokens["icon.borderSize"] = icon[2] end
@@ -353,7 +404,7 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
 -- (minor 18, D-06; Vollkorn from minor 11, Cinzel titles over an Atkinson body until then); leather buttons, and
 -- the red wax seal kept for the primary button and the selected tab. As a dark skin it inherits Ka0s
 -- Default's semantic, quality, tooltip and chart colors.
-local AZ_LEATHER, AZ_EDGE, AZ_GOLD = hex("#2B1D12"), hex("#6b4a22"), hex("#E2B659")
+local AZ_LEATHER = hex("#2B1D12")
 local AZ_TEXT, AZ_WAX = hex("#E9DDBC"), grad(hex("#a3241a"), hex("#5e1009"))
 register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Open Sans type.",
   { "#2b1d12", "#6b4a22", "#e2b659", "#8e1b10" }, {
@@ -400,7 +451,6 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
 -- owner's 2026-10-26 notes): denser glass (.88), and only the window and its popups keep the rounded
 -- art; buttons, inputs, tabs and drawers take a flat 1px frosted edge, and the tabs Obsidian's
 -- boxless underline in lilac.
-local GLASS_EDGE = rgba(255, 255, 255, 0.18)
 register("glass", "Glass", "Translucent frosted panels with rounded corners and a lilac accent.",
   { "#121622", "#ffffff", "#b69cff", "#5aa9ff" }, {
     font = "Ka0s Avant Garde", tfont = "Ka0s Avant Garde", fs = 11, titleSize = 13,
@@ -453,7 +503,6 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
 -- and a half larger until then). Minor 7 (the owner's 2026-10-26 notes:
 -- "borders are too thick"): every control edge is 1px; the window keeps its 2px edge and the popups
 -- drop from 3px to 2px.
-local HC_WHITE, HC_YELLOW = hex("#FFFFFF"), hex("#FFE600")
 register("contrast", "High Contrast", "Black and white with yellow focus, crisp 1px edges.",
   { "#000000", "#ffffff", "#1a1a1a", "#ffe600" }, {
     font = "Ka0s Doris PP", tfont = "Ka0s Doris PP", fs = 10.5, titleSize = 12.5,
@@ -617,7 +666,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
 -- client body until then). Minor 7 (the
 -- owner's 2026-10-26 notes): the buttons leave WoW Default's red for night violet under a gold edge,
 -- and the primary button is the brighter violet of the accent.
-local MN_GOLD, MN_BG = hex("#b08a3e"), grad(hex("#171a2e"), hex("#0f1020"))
+local MN_BG = grad(hex("#171a2e"), hex("#0f1020"))
 register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, centered Segoe UI titles.",
   { "#171a2e", "#b08a3e", "#2a2347", "#b48cff" }, {
     font = "Ka0s Segoe UI Semibold", fs = 11.5, tfont = "Ka0s Segoe UI Bold", titleSize = 13,
@@ -668,7 +717,6 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
 -- notes): Atkinson Hyperlegible for the blurry Barlow, and the charcoal a step browner; minor 11
 -- (round 5: a face of its own, High Contrast keeps Atkinson): Fira Sans, crisp at small sizes; minor 17
 -- (the owner's 2026-10-30 pick): Medium for body text, SemiBold kept for titles and HUD.
-local FV_TAN, FV_EDGE = hex("#C9A07A"), hex("#3a3530")
 local FV_BG = grad(hex("#2e251c"), hex("#18120d"))
 register("forever", "WoW Forever", "Warm charcoal, black title bars with centered white titles, tan accent.",
   { "#231c15", "#3a3530", "#050505", "#c9a07a" }, {

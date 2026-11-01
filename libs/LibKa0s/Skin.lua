@@ -125,7 +125,10 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- `hud.shadowX` and `hud.shadowY` as it reaches `hud.outline`. The HUD's colors are not fonts.
 -- Minor 14 (FS-FIX of the same bundle, the AbsorbTracker pilot's gaps): VOCAB gains BarGloss and
 -- HudFont, SkinPaintExtras minor 14's, and FollowOnce, the record gate every host's step wrote.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 14
+-- Minor 15 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): a skin's None `bar.borderStyle`
+-- defers in Resolve; VOCAB gains BarBorder and HoverArt, SkinPaintExtras minor 16's; a path's numeric
+-- segment reaches a list entry, which ResetToSkin and FollowOnce skipped with no word.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -152,7 +155,7 @@ lib.VOCAB = {
   "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
   "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
   "BarTexture", "FontFlags", "HudFontSize", "Mark", "MarkText",
-  "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HudFont",
+  "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HudFont", "BarBorder", "HoverArt",
 }
 
 local WEAK_KEYS = { __mode = "k" }
@@ -863,30 +866,45 @@ function lib.IsFromSkin(value)
   return value == lib.FROM_SKIN
 end
 
+-- The two tokens a skin's None hands back to the player (minor 15).
+local BAR_EDGE = { ["bar.borderStyle"] = true, ["bar.borderSize"] = true }
+
 --- `value`, or the owner's token `kind` when `value` is the FROM_SKIN sentinel or `fromSkin` (a
 --- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`,
 --- `hud.outline` and the shadow's three answer the stored `value` whatever the companion says, and nil for a stored
---- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands.
+--- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands. A skin's
+--- None `bar.borderStyle` is no border of its own, so `bar.borderStyle` and `bar.borderSize` answer a
+--- stored `value` under it, and a real style wins (minor 15). `S.BarBorder` adds Show border.
 function lib:Resolve(owner, kind, value, fromSkin)
   if hudFontIgnored(self, owner, kind) then
     if value == self.FROM_SKIN then return nil end
     return value
   end
-  if value == self.FROM_SKIN or fromSkin == true then return self:Token(owner, kind) end
-  return value
+  if value ~= self.FROM_SKIN and fromSkin ~= true then return value end
+  local defers = value ~= nil and value ~= self.FROM_SKIN and BAR_EDGE[kind]
+    and self:Token(owner, "bar.borderStyle") == "None"
+  if defers then return value end
+  return self:Token(owner, kind)
 end
 
---- Walk a dotted path ("font.face") to the table holding its last segment.
+--- The key `seg` names in `t`: itself, else the number it spells where that is a list entry (minor 15).
+local function segKey(t, seg)
+  local n = t[seg] == nil and tonumber(seg) or nil
+  if n ~= nil and t[n] ~= nil then return n end
+  return seg
+end
+
+--- Walk a dotted path ("font.face", "windows.1.font") to the table holding its last segment.
 local function walk(t, path)
   local segs = {}
   for seg in path:gmatch("[^%.]+") do segs[#segs + 1] = seg end
   if #segs == 0 then return nil end
   local parent = t
   for i = 1, #segs - 1 do
-    parent = parent[segs[i]]
+    parent = parent[segKey(parent, segs[i])]
     if type(parent) ~= "table" then return nil end
   end
-  return parent, segs[#segs]
+  return parent, segKey(parent, segs[#segs])
 end
 
 --- Put every listed key of `profile` back on the skin (the owner's ruling R3). A key whose name
@@ -895,7 +913,8 @@ end
 --- beside it (OptionsCompose's `fromSkin` pickers, minor 3), keeps its value and gets the companion
 --- set to true; with `opts.companions` every listed key does, stored or not (minor 8); any other
 --- bool key is set to true; any other key takes the FROM_SKIN sentinel. Keys may be dotted paths
---- into nested tables; a path whose table does not exist is skipped. Answers how many keys it set.
+--- into nested tables, a segment naming a list entry by its number too (minor 15); a path whose
+--- table does not exist is skipped. Answers how many keys it set.
 --- Called as `Skin.ResetToSkin(p, keys[, opts])`.
 function lib.ResetToSkin(profile, keys, opts, extra)
   if profile == lib then profile, keys, opts = keys, opts, extra end
@@ -906,7 +925,7 @@ function lib.ResetToSkin(profile, keys, opts, extra)
     local parent, leaf = walk(profile, tostring(path))
     if type(parent) == "table" then
       local v = parent[leaf]
-      if leaf:match("FromSkin$") then
+      if tostring(leaf):match("FromSkin$") then
         parent[leaf] = true
       elseif companions or type(v) == "table" or parent[leaf .. "FromSkin"] ~= nil then
         parent[leaf .. "FromSkin"] = true

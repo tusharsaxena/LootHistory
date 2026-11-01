@@ -72,7 +72,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- `chevron-down` in `icon.arrow`, Ka0s Default included: P.stepArrows, which SkinAce minor 8 calls too.
 -- Minor 14 (cause L8 of the same bundle): a stock close button's "x" wears the skin's body face, so
 -- Ignore fonts reaches it.
-local CONTROLS_MINOR = 14
+-- Minor 15 (FS-FIX of the same bundle): S.IconBorder takes a Texture, its edge on a plain child of the
+-- Texture's parent, shown and hidden with it, so a secure parent is never written to.
+local CONTROLS_MINOR = 15
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -797,21 +799,59 @@ local function iconEdgeStyle(style)
   return "nine:" .. tostring(style)
 end
 
---- S.IconBorder(frame, opts): an `icon.border` edge on the frame's holder. Without `opts.fromSkin` it
---- is flat, `opts.size` pixels (1 by default), as it always was. With `opts.fromSkin = true` (minor 9,
---- LK-04) it is the skin's icon border: `icon.borderStyle` ("Solid" flat, "None" none, another
---- LibSharedMedia border key a nine-slice) at `icon.borderSize` pixels, and `opts.size` is not read.
---- Ka0s Default's is Solid 2px black. Draws no Media icon.
-prim.IconBorder = function(owner, frame, opts)
-  if not P.isFrame(frame) then return end
-  local rec = P.track(owner, frame, "IconBorder", opts)
-  local T = P.T(owner)
+-- A Texture's shown state reaches its holder: a border must not stand around a hidden icon.
+local ICON_SHOWN = { "Show", "Hide", "SetShown" }
+
+local function followShown(rec, tex, h)
+  h:SetShown(tex:IsShown())
+  local hooks = P.saved(rec, "hooks")
+  if hooks.iconShown or type(hooksecurefunc) ~= "function" then return end
+  hooks.iconShown = true
+  for _, method in ipairs(ICON_SHOWN) do
+    hooksecurefunc(tex, method, function(self) h:SetShown(self:IsShown()) end)
+  end
+end
+
+--- The holder for an edge on Texture `tex`, made once as the record's own: a plain child of the
+--- Texture's parent, on the Texture's bounds, one level over that parent. It takes no mouse, and
+--- nothing is called on the parent but its level's read, so a secure button stays untouched in
+--- combat. Nil with no parent frame.
+local function textureHolder(rec, tex)
+  local h = rec.regions.holder
+  if h then return h end
+  local parent = tex:GetParent()
+  if type(CreateFrame) ~= "function" or not P.isFrame(parent) then return nil end
+  h = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  h:SetAllPoints(tex)
+  local level = parent:GetFrameLevel()
+  if type(level) == "number" then h:SetFrameLevel(math.max(0, level + 1)) end
+  lib.__ours[h] = true
+  rec.regions.holder = h
+  return h
+end
+
+local function drawIconEdge(rec, frame, T, opts)
   if type(opts) == "table" and opts.fromSkin == true then
     local style = iconEdgeStyle(T["icon.borderStyle"])
     return P.edges(rec, frame, style and T["icon.border"] or nil, style, T["icon.borderSize"] or 1)
   end
-  local size = type(opts) == "table" and opts.size or 1
-  P.edges(rec, frame, T["icon.border"], "flat", size)
+  P.edges(rec, frame, T["icon.border"], "flat", type(opts) == "table" and opts.size or 1)
+end
+
+--- S.IconBorder(frame, opts): an `icon.border` edge on the frame's holder. Without `opts.fromSkin` it
+--- is flat, `opts.size` pixels (1 by default), as it always was. With `opts.fromSkin = true` (minor 9,
+--- LK-04) it is the skin's icon border: `icon.borderStyle` ("Solid" flat, "None" none, another
+--- LibSharedMedia border key a nine-slice) at `icon.borderSize` pixels, and `opts.size` is not read.
+--- Ka0s Default's is Solid 2px black. `frame` may be a Texture (minor 15): the edge hangs on a plain
+--- child of its parent (textureHolder), shown and hidden with the Texture. Draws no Media icon.
+prim.IconBorder = function(owner, frame, opts)
+  local isTex = P.isTexture(frame)
+  if not (isTex or P.isFrame(frame)) then return end
+  local rec = P.track(owner, frame, "IconBorder", opts)
+  local h = isTex and textureHolder(rec, frame)
+  if isTex and not h then return end
+  drawIconEdge(rec, frame, P.T(owner), opts)
+  if isTex then followShown(rec, frame, h) end
 end
 
 --- S.SortHeaderBar(bar, opts): a list's header row. `list.header.bg` behind it (nil in Ka0s
