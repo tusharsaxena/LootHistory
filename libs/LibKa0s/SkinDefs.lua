@@ -183,7 +183,12 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Minor 25 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): no token moves here. Ka0s
 -- Default's `bar.bg`, `bar.border`, `icon.border`, `glow.color` and `cover.dim` stay, and now every
 -- other skin states its own (SkinDefsOthers minor 7); its `bar.borderStyle` None defers (Skin minor 15).
-local DEFS_MINOR = 25
+--- Minor 26 (SF-L2 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): `list.header.arrow`, a
+--- table's sort arrow, so it can differ from the header it sits in. Ka0s Default's is its gold, as
+--- `icon.arrow` is; the arrows elsewhere stay `icon.arrow`.
+--- Then (SF-L4, still minor 26): Ka0s Default's `title.bg` is black at 0.9, where it sat one step
+--- under its window, so its header stands off its content as the owner asked of every skin.
+local DEFS_MINOR = 26
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -236,7 +241,7 @@ local GROUPS = {
     .. "drawer.summary:color drawer.summarySet:color menu.bg:color menu.border:color "
     .. "menu.borderAlt:color menu.borderSize:number? menu.borderStyle:string? menu.hover:color "
     .. "menu.text:color menu.textSel:color menu.suggestBg:color menu.suggestBorder:color" },
-  { "Lists and cards", "list.header.bg:color? list.header.text:color list.stripe:color "
+  { "Lists and cards", "list.header.bg:color? list.header.text:color list.header.arrow:color list.stripe:color "
     .. "list.hover:color list.sel:color? list.selOutline:color? card.bg:color card.border:color "
     .. "panel.bg:color panel.border:color section.rule:color icon.tint:color icon.hot:color "
     .. "handle.bg:color handle.edge:color handle.rest:color list.dropLine:color list.ghostBg:color list.ghostIcon:color "
@@ -391,7 +396,7 @@ local KA0S = {
   -- floor WidgetsAutocomplete keeps.
   ["menu.suggestBg"] = { CTL_FILL[1], CTL_FILL[2], CTL_FILL[3], 0.95 }, ["menu.suggestBorder"] = CTL_LINE,
   -- Lists and cards: BrowserTable / HoldingsTab rows, Analytics KPI cards and list panels.
-  ["list.header.text"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.03 },
+  ["list.header.text"] = GOLD, ["list.header.arrow"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.03 },
   ["list.hover"] = { 1, 0.82, 0, 0.10 },
   -- The settings chrome's hover art (minor 16, LK-06c): `false`, the client's ADD highlight art
   -- as it draws it (the drawer head, the nav entry, the id list entry, the suggestion row).
@@ -468,7 +473,7 @@ local KA0S = {
   -- palette, the client's quality colors written out, or `false`, the explicit "none" (a decoration
   -- Ka0s Default does not draw, which is a setting, not a fallback).
   ["win.bgTop"] = false, ["win.bgBottom"] = false, ["win.bgTexture"] = false,
-  ["title.bg"] = { 0.04, 0.04, 0.05, 0.9 }, ["title.bgTop"] = false, ["title.bgBottom"] = false,
+  ["title.bg"] = { 0, 0, 0, 0.9 }, ["title.bgTop"] = false, ["title.bgBottom"] = false,
   ["title.align"] = "CENTER", ["foot.bg"] = { 0.04, 0.04, 0.05, 0.9 },
   ["btn.bgTop"] = false, ["btn.bgBottom"] = false, ["btnPrimary.bgTop"] = false, ["btnPrimary.bgBottom"] = false,
   ["input.text"] = BODY, ["input.placeholder"] = DIM,

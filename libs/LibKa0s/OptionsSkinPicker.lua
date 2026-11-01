@@ -147,7 +147,9 @@ if not lib then return end
 -- hover, so a preview reaches it. A window, so Ignore settings panel leaves it skinned.
 -- Minor 7 (cause L6 of the same bundle): the reset buttons and the dropdown's arrow are the Ka0s
 -- `reset` and `chevron-down` icons, with the client art only where Media is absent.
-local PICKER_MINOR = 7
+-- Minor 8 (SF-L1 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a tooltip wraps, so Apply
+-- to all's long sentence draws on several rows where it drew one line wider than the window.
+local PICKER_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -426,8 +428,8 @@ local function setFace(fs, path, size)
 end
 
 --- Show `text` in the game tooltip while the pointer is over `btn`, in `P`'s owner's `gtip.title`
---- (the client's color for a skin without it). Set before the skin's paint, which hooks after the
---- host's scripts.
+--- (the client's color for a skin without it), wrapped, so a long sentence takes several rows. Set
+--- before the skin's paint, which hooks after the host's scripts.
 local function attachTip(btn, text, P)
   btn.__tip = text
   btn:SetScript("OnEnter", function(self)
@@ -435,9 +437,9 @@ local function attachTip(btn, text, P)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     local c = P.Sk and P.Sk.Token("gtip.title")
     if type(c) == "table" and c[1] and c[2] and c[3] then
-      GameTooltip:SetText(self.__tip or "", c[1], c[2], c[3])
+      GameTooltip:SetText(self.__tip or "", c[1], c[2], c[3], 1, true)
     else
-      GameTooltip:SetText(self.__tip or "")
+      GameTooltip:SetText(self.__tip or "", nil, nil, nil, nil, true)
     end
     GameTooltip:Show()
   end)

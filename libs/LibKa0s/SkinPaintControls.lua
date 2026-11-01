@@ -74,7 +74,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Ignore fonts reaches it.
 -- Minor 15 (FS-FIX of the same bundle): S.IconBorder takes a Texture, its edge on a plain child of the
 -- Texture's parent, shown and hidden with it, so a secure parent is never written to.
-local CONTROLS_MINOR = 15
+-- Minor 16 (SF-L2 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a sort header's arrows
+-- take `list.header.arrow`, a color of their own, where they took `icon.arrow`.
+local CONTROLS_MINOR = 16
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -856,7 +858,7 @@ end
 
 --- S.SortHeaderBar(bar, opts): a list's header row. `list.header.bg` behind it (nil in Ka0s
 --- Default), each of `opts.texts` in `list.header.text`, each of `opts.arrows` (textures) in
---- `icon.tint`. Draws no Media icon.
+--- `list.header.arrow`. Draws no Media icon.
 prim.SortHeaderBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "SortHeaderBar", opts)
@@ -867,7 +869,7 @@ prim.SortHeaderBar = function(owner, bar, opts)
     if P.isFS(fs) then P.label(owner, rec, fs, T, "list.header.text") end
   end
   for _, t in ipairs(type(opts.arrows) == "table" and opts.arrows or {}) do
-    if P.isTexture(t) then P.glyph(rec, t, T, "icon.arrow") end
+    if P.isTexture(t) then P.glyph(rec, t, T, "list.header.arrow") end
   end
 end
 
