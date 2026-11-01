@@ -1,0 +1,21 @@
+PASS  harness: NS.Perf is the live instance, not the stub
+PASS  zero-overhead: dropped loot line, capture off  (0.0 B/iter bracketed vs 0.0 bare)
+PASS  lootDroppedBracketed: bytes under the ceiling  (0.0 B/iter, ceiling 0)
+PASS  lootDroppedBracketed: scans pinned  (0.00 scans/iter, pinned at 0)
+PASS  lootDroppedBare: bytes under the ceiling  (0.0 B/iter, ceiling 0)
+PASS  lootDroppedBare: scans pinned  (0.00 scans/iter, pinned at 0)
+PASS  combatBagUpdate: bytes under the ceiling  (0.0 B/iter, ceiling 0)
+PASS  combatBagUpdate: scans pinned  (0.00 scans/iter, pinned at 0)
+PASS  reconcileCleanBags: bytes under the ceiling  (118120.0 B/iter, ceiling 124000)
+PASS  reconcileCleanBags: scans pinned  (1.00 scans/iter, pinned at 1)
+
+Ka0s Loot History — offline perf  (v1.5.0, label 'full skinning FS-LH')
+
+scenario                    iters     ms/iter scans/iter  bytes/iter
+lootDroppedBracketed         2000     0.00494       0.00         0.0
+lootDroppedBare              2000     0.00587       0.00         0.0
+combatBagUpdate              5000     0.00087       0.00         0.0
+reconcileCleanBags            200     0.34098       1.00    118120.0
+
+timings are for orientation only — compare scenarios within a run, never across machines
+wrote docs/automated-tests/20261101-143701/perf.json
