@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 16
+local COMPOSE_MINOR = 17
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -57,6 +57,11 @@ local COMPOSE_MINOR = 16
 -- subgroup's heading with a Reset position hook for RenderRows' `opts.afterSubgroup`.
 -- Minor 16 (the owner's ruling of 2026-11-01): the three media rows write dialogControl =
 -- "Ka0sMedia_*". The row draws what it drew; the name now says so.
+-- Minor 17 (FS-D1 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING, cause D1): a `<key>FromSkin`
+-- companion defaults true, and Font and Bar texture default to Ka0s Default's own picks (SKIN_PICK),
+-- so a row a host writes from now on starts on the skin. `spec.defaults` still wins, leaf by leaf. Also
+-- BorderGroup's `fromSkin = "bar"`: minor 13's icon arrangement on the bar family, the companion
+-- governing the thickness too. `fromSkin = true` keeps the thickness the player's.
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -350,8 +355,15 @@ end
 -- so a record-backed row reads its record) and shows the skin's value (`skinValue`, the row field the
 -- flow engine reads before the stored one, OptionsWidgets minor 35); the host draws with
 -- `S.Resolve(token, stored, fromSkin)`, which answers the skin's value while the companion is set.
--- `Skin.ResetToSkin` sets the companions to true. Without `fromSkin` a composer emits exactly what
--- minor 11 emitted.
+-- `Skin.ResetToSkin` sets the companions to true. Without `fromSkin` a composer emits what minor 11
+-- emitted, but for the picker defaults below (minor 17).
+
+-- What a picker starts on: Ka0s Default's `hud.font`, `bar.borderStyle` and `bar.texture`, written out
+-- because a composer reads no state (tests/test_options_compose_skin.lua holds them to SkinDefs.lua).
+-- Font size 12, thickness 1 and OUTLINE are that skin's values already, so those rows keep their
+-- literals. Without a companion a row keeps this pick through a skin change; following one is the
+-- host's `fromSkin`, and only a host drawing through `S.FontFlags` may also ask for `flagsFromSkin`.
+local SKIN_PICK = { font = "Ka0s Prototype", borderStyle = "None", barTexture = "Ka0s Default" }
 
 -- The three media pickers that can follow the skin, by canonical leaf: the token the skin answers
 -- with and the companion's words.
@@ -364,10 +376,15 @@ local FROM_SKIN = {
     tooltip = "Draw this bar in the skin's texture. The texture picker is not read while this is on." },
 }
 
--- The other families a picker can follow, by `spec.fromSkin` value (minor 13); `true`, and any value
--- not named here, is FROM_SKIN's. `sizeToken` makes the companion govern the group's thickness row
--- too (`disabledIf` it, showing that token while it is set).
+-- The other families a picker can follow, by `spec.fromSkin` value (minor 13, `bar` minor 17); `true`,
+-- and any value not named here, is FROM_SKIN's. `sizeToken` makes the companion govern the group's
+-- thickness row too (`disabledIf` it, showing that token while it is set).
 local FROM_SKIN_FAMILY = {
+  bar = {
+    borderStyle = { token = "bar.borderStyle", sizeToken = "bar.borderSize", label = "Use the skin's border",
+      tooltip = "Draw this border in the skin's border style and thickness. The border style and "
+        .. "thickness pickers are not read while this is on." },
+  },
   icon = {
     borderStyle = { token = "icon.borderStyle", sizeToken = "icon.borderSize", label = "Use the skin's border",
       tooltip = "Draw this border in the skin's icon border style and thickness. The border style and "
@@ -573,7 +590,7 @@ function lib.__AttachCompose(O, d)
     if not (spec.fromSkin and picker and f) then return end
     local companion = (picker.path or picker.field) .. "FromSkin"
     local row = emit(spec, rows, leaf .. "FromSkin", {
-      path = companion, type = "bool", label = f.label, tooltip = f.tooltip, default = false,
+      path = companion, type = "bool", label = f.label, tooltip = f.tooltip, default = true,
       startsLine = true,
     })
     if not row then return end
@@ -710,7 +727,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
-      dialogControl = "Ka0sMedia_Font", default = "Friz Quadrata TT", startsLine = true,
+      dialogControl = "Ka0sMedia_Font", default = SKIN_PICK.font, startsLine = true,
       values = O.LSMValues("font"),
     })
     emit(spec, rows, "fontSize", {
@@ -746,6 +763,9 @@ function lib.__AttachCompose(O, d)
   --- `spec.show = true` prepends the toggle, which then leads the block and is the only thing that
   --- may. Anything else the addon legitimately has — a border offset — goes in `spec.extra` and is
   --- appended AFTER the mandated four, never interleaved.
+  ---
+  --- `spec.fromSkin`: `true` follows the bar's style and leaves the thickness the player's; `"bar"`
+  --- (compose minor 17) and `"icon"` (minor 13) govern the thickness as well.
   function O.BorderGroup(spec)
     spec = spec or EMPTY
     local rows = {}
@@ -758,7 +778,7 @@ function lib.__AttachCompose(O, d)
     end
     local picker = emit(spec, rows, "borderStyle", {
       type = "string", label = "Border style", tooltip = "The border texture.",
-      dialogControl = "Ka0sMedia_Border", default = "None", startsLine = true,
+      dialogControl = "Ka0sMedia_Border", default = SKIN_PICK.borderStyle, startsLine = true,
       values = O.LSMValues("border"),
     })
     local size = emit(spec, rows, "borderSize", {
@@ -788,7 +808,7 @@ function lib.__AttachCompose(O, d)
 
     local picker = emit(spec, rows, "barTexture", {
       type = "string", label = "Bar texture", tooltip = "The bar's fill texture.",
-      dialogControl = "Ka0sMedia_Statusbar", default = "Blizzard", startsLine = true,
+      dialogControl = "Ka0sMedia_Statusbar", default = SKIN_PICK.barTexture, startsLine = true,
       values = O.LSMValues("statusbar"),
     })
     emit(spec, rows, "barAlpha", {

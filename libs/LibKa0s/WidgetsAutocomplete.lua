@@ -44,15 +44,15 @@
 --
 -- `opts.owner`, a registered skin owner (the shell's SKIN OWNERS), colors the rows from that
 -- owner's skin: plain text `menu.text`, the highlight `menu.hover`, read on every show, so a skin
--- switch reaches the list the next time it opens. The list's fill and edge already follow the box,
--- and a skinned box (`W.SearchBox` with the same owner) carries the skin to them. An unregistered
--- name draws minor 3's rows.
+-- switch reaches the list the next time it opens. From minor 6 the list's fill and edge are that
+-- skin's too, `menu.suggestBg` and `menu.suggestBorder`, read on every show; without a skin they
+-- follow the box. An unregistered name draws minor 3's rows.
 --
 -- -- THE SCOPE SWITCHES (minor 5) ---------------------------------------------------------------
 --
 -- An owned list draws its rows in the skin's body face (the shell's THE SCOPE SWITCHES; Oxanium
 -- under Ka0s Default, D-13), read on every show, so "Ignore fonts" gives them the template back. A
--- host's `opts.font` is the host's and is never touched. `opts.panel = true` puts the list on its
+-- host's `opts.font` is that template (minor 6). `opts.panel = true` puts the list on its
 -- owner's settings page: while that owner ignores its settings panel the rows are minor 3's, colors
 -- and face, from the next show. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
 --
@@ -65,7 +65,9 @@ if not lib then return end
 -- suggestions on screen (frame-layering-§4; XS-22).
 -- Minor 4: the skin owner (the header's THE SKIN OWNER).
 -- Minor 5: the rows' face and `opts.panel` (the header's THE SCOPE SWITCHES).
-local AUTOCOMPLETE_MINOR = 5
+-- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a skinned list's fill and
+-- edge come from the skin, and a host's `opts.font` is the rows' template, with the skin's face over it.
+local AUTOCOMPLETE_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -147,11 +149,11 @@ local function palette(h, Skin)
   return Skin:Token(owner, "menu.text") or AC.TEXT, Skin:Token(owner, "menu.hover") or AC.HIGHLIGHT
 end
 
---- A row's face (minor 5): the skin's body face for an owned list, the template back otherwise; a
---- host's `opts.font` is never touched.
+--- A row's face (minor 5): the skin's body face for an owned list, the template back otherwise. A
+--- host's `opts.font` is the template (minor 6).
 local function fontRow(h, label, Skin)
   local skinFont = lib.__skinFont
-  if h.__hostFont or type(skinFont) ~= "function" then return end
+  if type(skinFont) ~= "function" then return end
   skinFont(label, h.__owner, Skin, h.__font)
 end
 
@@ -219,13 +221,22 @@ local function ensureList(h)
   return list
 end
 
---- The box's own colors, read on every show: a host that restyles its box restyles its list.
+--- One chrome color: the skin's `token` for a skinned list (minor 6), else the box's own.
+local function chrome(h, Skin, token, getter, fallback)
+  local c = Skin and Skin:Token(h.__owner, token)
+  if type(c) == "table" then return c[1], c[2], c[3], c[4] or 1 end
+  return boxColor(h.__box, getter, fallback)
+end
+
+--- The list's chrome, read on every show: a skinned list's tokens, else the box's own colors, so a
+--- host that restyles its box restyles its list.
 local function skin(h)
-  local list, box = h.__list, h.__box
+  local list = h.__list
   if not list.SetBackdropColor then return end
-  local r, g, b, a = boxColor(box, "GetBackdropColor", AC.BG)
+  local Skin = rowSkin(h)
+  local r, g, b, a = chrome(h, Skin, "menu.suggestBg", "GetBackdropColor", AC.BG)
   list:SetBackdropColor(r, g, b, max(a, AC.MIN_BG_ALPHA))
-  list:SetBackdropBorderColor(boxColor(box, "GetBackdropBorderColor", AC.BORDER))
+  list:SetBackdropBorderColor(chrome(h, Skin, "menu.suggestBorder", "GetBackdropBorderColor", AC.BORDER))
 end
 
 -- EVERY field is written on every paint: the rows are pooled across lists, so a field left alone
@@ -440,7 +451,7 @@ function lib.Autocomplete(editBox, opts)
     __debounce = max(AC.DEBOUNCE, type(opts.debounce) == "number" and opts.debounce or 0),
     __minChars = positive(opts.minChars, AC.MIN_CHARS),
     __font = opts.font or AC.FONT, __strata = opts.strata or AC.STRATA, __owner = opts.owner,
-    __hostFont = opts.font ~= nil, __panel = opts.panel == true,
+    __panel = opts.panel == true,
     __rows = {}, __items = {}, __seq = 0, __enabled = true, __open = false,
   }, Handle)
   local previous = owners[editBox]

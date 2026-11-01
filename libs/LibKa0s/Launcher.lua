@@ -45,12 +45,16 @@
 -- Depends on LibStub and LibKa0s-Core-1.0, and on no addon framework. No Core member is called —
 -- the gate is there so that a host holding a partial payload gets every module absent rather than
 -- a working half, and "is LibKa0s here?" stays one question.
+--
+-- Minor 6: the status tooltip follows the host's skin (cause L1 of Ka0sAddonsCommonTasks
+-- docs/2026-11-01-FULL_SKINNING). LibKa0s-Skin-1.0 is optional and resolved on every show, like the
+-- broker libraries; a host that is no owner of it draws what minor 5 drew, call for call.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -61,10 +65,14 @@ lib.MAJOR, lib.MINOR = MAJOR, MINOR
 lib.MODULES = lib.MODULES or {}
 lib.MODULES.Launcher = MINOR
 
+local floor = math.floor
+
 -- The two libraries the launcher sits on, by their LibStub majors. Named here rather than inline
 -- so the one place a reader has to look to answer "what does this need?" is the top of the file.
 local LDB_MAJOR  = "LibDataBroker-1.1"
 local ICON_MAJOR = "LibDBIcon-1.0"
+-- Optional too, and the tooltip's only reason to ask (minor 6).
+local SKIN_MAJOR = "LibKa0s-Skin-1.0"
 
 -- Every user-visible string this module can emit. A literal table, as every other major's is: the
 -- library carries no locale, and a host that wants its own words passes `d.L` keyed to these.
@@ -82,7 +90,7 @@ lib.STRINGS = {
   CLICK_FAILED = "%s: the launcher's %s-click raised: %s",
 
   -- The status tooltip (minor 3, launcher-§1). Every word of it is here so a host's `d.L` can
-  -- reach it; the only color is the green/red the code wraps a status value in, never a string.
+  -- reach it; a color is the code's (GREEN, RED and the skin's tokens), never a string's.
   TOOLTIP_TITLE_VERSION = "%s  v%s",
   TOOLTIP_ENABLED       = "Enabled: %s",
   TOOLTIP_LOCKED        = "Locked: %s",
@@ -112,8 +120,19 @@ lib.STRINGS = {
   MENU_FAILED           = "%s: the launcher menu's %s entry raised: %s",
 }
 
--- The status values' two colors, and the only color the tooltip draws (launcher-§1).
+-- The status values' two colors (launcher-§1), which are `gtip.on` and `gtip.off` under Ka0s Default.
 local GREEN, RED, RESET = "|cFF00FF00", "|cFFFF0000", "|r"
+
+--- The tooltip's palette for a host with no skin (minor 6): the words' two colors and no line color,
+--- so the client's stands.
+local PLAIN = { on = GREEN, off = RED }
+
+--- A color token as the escape a status word opens with; `fallback` for a token this Skin lacks.
+local function escapeOf(c, fallback)
+  if type(c) ~= "table" or not (c[1] and c[2] and c[3]) then return fallback end
+  local function byte(v) return floor(v * 255 + 0.5) end
+  return ("|cFF%02X%02X%02X"):format(byte(c[1]), byte(c[2]), byte(c[3]))
+end
 
 --- The options menu's entries (minor 4, launcher-§2), in the one order the standard allows. Each
 --- is drawn only where the descriptor passes BOTH its accessor (`get`) and its toggle (`set`).
@@ -125,6 +144,12 @@ local ENTRIES = {
   { key = "MENU_TEST_MODE",   get = "isTestMode",    set = "toggleTestMode", gated = true  },
   { key = "MENU_SHOW_WINDOW", get = "isWindowShown", set = "toggleWindow",   gated = true  },
 }
+
+--- One tooltip line, in `c` (a color token) or, with none, the client's color.
+local function addLine(tt, line, c)
+  if c then return tt:AddLine(line, c[1], c[2], c[3]) end
+  tt:AddLine(line)
+end
 
 --- The host's own printer, or the chat frame. Same shape every other major uses.
 local function makeEmit(d)
@@ -202,6 +227,9 @@ end
 ---                            off, so through `debug` these lines never land (debug-logging-§8).
 ---                            Absent, they go to `debug`, as before minor 5. Events (shown,
 ---                            hidden, a refusal, a raise) always go to `debug`.
+---   owner          string    optional, since minor 6. The LibKa0s-Skin-1.0 owner the tooltip
+---                            reads. Defaults to `name`, which is what every addon registers its
+---                            skin under, so a host passes this only where the two differ.
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
 ---
 --- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
@@ -280,9 +308,23 @@ function lib:New(d)
     return ask(d.isEnabled, what) and true or false
   end
 
-  --- A status value, green when true and red when false.
-  local function status(flag, yes, no)
-    return (flag and GREEN or RED) .. text(flag and yes or no) .. RESET
+  --- The tooltip's colors, read on this show so a skin switch reaches the next hover. The Scope
+  --- does not apply: this is no settings page, so "Ignore settings panel" leaves it skinned. A
+  --- name that is no skin owner reads PLAIN, not Ka0s Default, as every factory taking an owner does.
+  local function readPalette()
+    local Skin = LibStub and LibStub(SKIN_MAJOR, true)
+    local owner = d.owner or name
+    if not Skin or not Skin:IsOwner(owner) then return PLAIN end
+    return {
+      title = Skin:Token(owner, "gtip.title"), line = Skin:Token(owner, "gtip.line"),
+      on = escapeOf(Skin:Token(owner, "gtip.on"), GREEN),
+      off = escapeOf(Skin:Token(owner, "gtip.off"), RED),
+    }
+  end
+
+  --- A status value in the palette's on color when true and its off color when false.
+  local function status(pal, flag, yes, no)
+    return (flag and pal.on or pal.off) .. text(flag and yes or no) .. RESET
   end
 
   --- `<label>  v<version>`, or the label alone where no version answers.
@@ -298,24 +340,29 @@ function lib:New(d)
   --- lines, then the two click hints. Every state is read on this show, so the tooltip cannot
   --- disagree with the panel, and it draws while the addon is disabled, which is when a player
   --- most needs to ask. Since minor 4 the hints are fixed: the left button opens the settings
-  --- panel and the right one the options menu, in either state (launcher-§2).
+  --- panel and the right one the options menu, in either state (launcher-§2). Since minor 6 the
+  --- lines and the words take the host's skin; the frame stays the client's (skinning-§7), and the
+  --- host's own lines are the host's to color.
   local function drawTooltip(tt)
     if type(tt) ~= "table" or type(tt.AddLine) ~= "function" then return end
     local enabled = enabledNow("tooltip: isEnabled")
-    tt:AddLine(titleLine())
-    tt:AddLine(text("TOOLTIP_ENABLED"):format(status(enabled, "TOOLTIP_YES", "TOOLTIP_NO")))
+    local pal = ask(readPalette, "tooltip: skin") or PLAIN
+    addLine(tt, titleLine(), pal.title)
+    addLine(tt, text("TOOLTIP_ENABLED"):format(status(pal, enabled, "TOOLTIP_YES", "TOOLTIP_NO")), pal.line)
     if type(d.isLocked) == "function" then
-      tt:AddLine(text("TOOLTIP_LOCKED"):format(status(ask(d.isLocked, "tooltip: isLocked"), "TOOLTIP_YES", "TOOLTIP_NO")))
+      local locked = ask(d.isLocked, "tooltip: isLocked")
+      addLine(tt, text("TOOLTIP_LOCKED"):format(status(pal, locked, "TOOLTIP_YES", "TOOLTIP_NO")), pal.line)
     end
     if type(d.isTestMode) == "function" then
-      tt:AddLine(text("TOOLTIP_TEST_MODE"):format(status(ask(d.isTestMode, "tooltip: isTestMode"), "TOOLTIP_ON", "TOOLTIP_OFF")))
+      local testMode = ask(d.isTestMode, "tooltip: isTestMode")
+      addLine(tt, text("TOOLTIP_TEST_MODE"):format(status(pal, testMode, "TOOLTIP_ON", "TOOLTIP_OFF")), pal.line)
     end
     if type(d.onTooltipShow) == "function" then
       local ok, err = pcall(d.onTooltipShow, tt)
       if not ok then log("tooltip: onTooltipShow raised: " .. tostring(err)) end
     end
-    tt:AddLine(text("TOOLTIP_LEFT"):format(text("TOOLTIP_OPEN_SETTINGS")))
-    tt:AddLine(text("TOOLTIP_RIGHT"):format(text("TOOLTIP_OPTIONS_MENU")))
+    addLine(tt, text("TOOLTIP_LEFT"):format(text("TOOLTIP_OPEN_SETTINGS")), pal.line)
+    addLine(tt, text("TOOLTIP_RIGHT"):format(text("TOOLTIP_OPTIONS_MENU")), pal.line)
   end
 
   --- The menu's response to a click: close. The next open reads every state afresh, which is

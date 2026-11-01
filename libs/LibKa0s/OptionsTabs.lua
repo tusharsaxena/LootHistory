@@ -60,7 +60,9 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
 -- Minor 13 (LibKa0s#59, ruling U-08d): O.PageBanner's `acts`, up to three buttons or checkboxes on
 -- the band's one row, placed against the chrome's width and re-placed when it changes.
-local TABS_MINOR = 13
+-- Minor 14 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a tab's tooltip body through O.__tipColor (`gtip.line`).
+--- Minor 15 (cause L3 of the same bundle): a tab's paint names its two glows, for `tab.glow`.
+local TABS_MINOR = 15
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -506,7 +508,8 @@ function lib.__AttachTabs(O, d)
   local function skinTab(b, active)
     local art = b.__ka0sTabArt or {}
     skin("Tab", b, { selected = active, text = b.__ka0sTabLabel or nil, fill = art.fill,
-      stock = { art.left, art.mid, art.right } })
+      stock = { art.left, art.mid, art.right },
+      glow = { hover = art.hl, sel = art.sel, bottom = TAB_GLOW_BOTTOM, top = TAB_GLOW_TOP } })
   end
 
   --- Pack tab widths into rows that fit `available`. Pure arithmetic and no widgets, so the
@@ -727,7 +730,8 @@ function lib.__AttachTabs(O, d)
       if b.__ka0sTabTipLabel and b.__ka0sTabTipLabel ~= "" then
         GameTooltip:SetText(b.__ka0sTabTipLabel, b.__ka0sTabO.__tipColor("gtip.value", 1, 1, 1))
       end
-      GameTooltip:AddLine(b.__ka0sTabTip, nil, nil, nil, true)
+      local r, g, bl = b.__ka0sTabO.__tipColor("gtip.line")
+      GameTooltip:AddLine(b.__ka0sTabTip, r, g, bl, true)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function()

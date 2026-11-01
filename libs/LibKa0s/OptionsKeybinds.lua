@@ -66,7 +66,8 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- through the widgets' own SetColor, which AceGUI resets when it hands a Label out again (LK-07).
 -- Minor 6: the key button's tooltip title through O.__tipColor (`gtip.value`; OptionsScroll minor 9)
 -- (LK-06d of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS).
-local KEYBINDS_MINOR = 6
+-- Minor 7 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the key button's tooltip lines through O.__tipColor (`gtip.line`).
+local KEYBINDS_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__keybindsMinor and lib.__keybindsMinor >= KEYBINDS_MINOR
   and lib.__keybindsShellMinor == lib.MINOR then return end
@@ -731,13 +732,14 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
       if not GameTooltip then return end
       GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
       GameTooltip:SetText(S.KEY, O.__tipColor("gtip.value", 1, 1, 1))
-      GameTooltip:AddLine(S.SLOT_TIP, nil, nil, nil, true)
+      local lr, lg, lb = O.__tipColor("gtip.line")
+      GameTooltip:AddLine(S.SLOT_TIP, lr, lg, lb, true)
       local keys = boundKeys(row.command)
       if #keys > 1 then
         local names = {}
         for i, k in ipairs(keys) do names[i] = slotText(k) end
-        GameTooltip:AddLine(S.KEYS_ALL:format(table.concat(names, ", ")), nil, nil, nil, true)
-        GameTooltip:AddLine(S.KEYS_OTHER, nil, nil, nil, true)
+        GameTooltip:AddLine(S.KEYS_ALL:format(table.concat(names, ", ")), lr, lg, lb, true)
+        GameTooltip:AddLine(S.KEYS_OTHER, lr, lg, lb, true)
       end
       GameTooltip:Show()
     end)

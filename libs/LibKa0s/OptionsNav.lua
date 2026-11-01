@@ -32,7 +32,8 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Still minor 4 (LK-06c of the same run, ruling R-5): an owned entry's hover art takes
 -- `list.hoverArt` (S.NavItem's `hover`); every dress puts the art back on the client's first, so a
 -- pooled entry drawn for no owner never keeps another owner's tint.
-local NAV_MINOR = 4
+-- Minor 5 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an entry's tooltip body through O.__tipColor (`gtip.line`).
+local NAV_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__navMinor and lib.__navMinor >= NAV_MINOR
   and lib.__navShellMinor == lib.MINOR then return end
@@ -157,7 +158,8 @@ local function attachEntryTooltip(b)
     if not (GameTooltip and b.__ka0sNavTip) then return end
     GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
     GameTooltip:SetText(b.__ka0sNavText or "", b.__ka0sNavO.__tipColor("gtip.value", 1, 1, 1))
-    GameTooltip:AddLine(b.__ka0sNavTip, nil, nil, nil, true)
+    local r, g, bl = b.__ka0sNavO.__tipColor("gtip.line")
+    GameTooltip:AddLine(b.__ka0sNavTip, r, g, bl, true)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function()

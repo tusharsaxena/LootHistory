@@ -37,7 +37,8 @@ if not lib then return end
 -- `chevron` and `hover`); every dress puts the faces, the chevron and the hover art back on the
 -- client's first, so a pooled head drawn for no owner never keeps another owner's.
 -- Minor 4 (the owner's ruling of 2026-11-01): a comment only, its pointer into Options.lua.
-local DRAWER_MINOR = 4
+-- Minor 5 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the head's tooltip body through O.__tipColor (`gtip.line`).
+local DRAWER_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__drawerMinor and lib.__drawerMinor >= DRAWER_MINOR
   and lib.__drawerShellMinor == lib.MINOR then return end
@@ -307,7 +308,8 @@ function lib.__AttachDrawer(O)
       if not (GameTooltip and spec.tooltip) then return end
       GameTooltip:SetOwner(head, "ANCHOR_RIGHT")
       GameTooltip:SetText(spec.label or "", O.__tipColor("gtip.value", 1, 1, 1))
-      GameTooltip:AddLine(spec.tooltip, nil, nil, nil, true)
+      local r, g, b = O.__tipColor("gtip.line")
+      GameTooltip:AddLine(spec.tooltip, r, g, b, true)
       GameTooltip:Show()
     end)
   end

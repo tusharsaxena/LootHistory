@@ -510,7 +510,10 @@ if not Skin then
     "GetAccentColor", "GetPanelColor", "GetFont",
     "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
     "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
-    "BarTexture", "FontFlags", "HudFontSize",
+    "BarTexture", "FontFlags", "HudFontSize", "Mark",
+    -- LibKa0s v1.85.0: this addon has no HUD and reads none of these, but the facade answers every
+    -- VOCAB name. Nil is each getter's degraded answer, and with no skin there is no gloss.
+    "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss",
   }) do S[name] = noop end
 
   S.Token = function(name)
@@ -521,6 +524,34 @@ if not Skin then
   S.Resolve = function(kind, value, fromSkin)
     if fromSkin or value == S.FROM_SKIN then return S.Token(kind) end
     return value
+  end
+  -- LibKa0s v1.85.0 (SkinPaintExtras minor 9): a string a caller concatenates, so never nil. The
+  -- same markup in the art's own color, there being no tint to read.
+  S.MarkText = function(path, size)
+    size = size or 14
+    return ("|T%s:%d:%d|t"):format(path, size, size)
+  end
+  -- A picked flag as stored, "OUTLINE" for the sentinel, and a size above 0 or 12. Nothing here draws
+  -- HUD text; these two are what HudFont below owes (Options doc, Moving to, section 7).
+  S.FontFlags = function(stored)
+    if stored == S.FROM_SKIN then return "OUTLINE" end
+    return stored or ""
+  end
+  S.HudFontSize = function(size)
+    local n = tonumber(size)
+    return (n and n > 0) and n or 12
+  end
+  -- The one member that must draw (SkinPaintExtras minor 14). A stored shadow does not draw with
+  -- the library absent, and both arms are written, so turning the row off clears it.
+  S.HudFont = function(fs, opts)
+    opts = type(opts) == "table" and opts or {}
+    local face = opts.face
+    if type(face) ~= "string" or face == "" then face = STANDARD_TEXT_FONT end
+    if type(face) ~= "string" then return nil end
+    fs:SetFont(face, S.HudFontSize(opts.size), S.FontFlags(opts.flags))
+    local on = opts.shadow and true or false
+    fs:SetShadowColor(0, 0, 0, on and 1 or 0)
+    fs:SetShadowOffset(on and 1 or 0, on and -1 or 0)
   end
   S.OnLooksChanged = function(fn) return fn end   -- the skin never changes without the library
   S.IsEnabled = function() return false end

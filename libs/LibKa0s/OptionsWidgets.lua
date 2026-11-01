@@ -53,7 +53,13 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
 -- Minor 41 (the owner's ruling of 2026-11-01): a media row is always the Ka0sMedia_* picker, whether
 -- or not an LSM30_* type is registered. A row may still name LSM30_*; it reads as the picker.
-local WIDGETS_MINOR = 41
+-- Minor 42 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): O.AttachTooltip's body line through
+-- O.__tipColor (`gtip.line`, nil where the chrome is not skinned, which is the client's color).
+-- Minor 43 (cause L4 of the same bundle): O.LabelFont, and a font set here tells the skin, so a
+-- section heading, a text row and a note keep the skin's face with the Scope cleared.
+-- Minor 44 (cause L5 of the same bundle): a landing page's command rows take `text.command` and
+-- `text.strong` while the chrome is skinned; anywhere else they stay as LibKa0s-Slash-1.0 typed them.
+local WIDGETS_MINOR = 44
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -160,11 +166,16 @@ end
 --- once it has been laid out, a widget mock may have neither, and a font object a client does not
 --- ship resolves to nil. None of them may cost the page. The NAME is taken rather than the object
 --- because a host declares its landing spec at file scope, where the font globals may not exist yet.
+---
+--- The set runs after the widget's paint and past its SetFontObject hook, so the skin is told: the
+--- font becomes the stock one, and the skin's face goes back over it at that font's size.
 local function applyLabelFont(widget, fontName)
   if not fontName then return end
   local fs = widget.label
   if fs and fs.SetFontObject and _G[fontName] then
     fs:SetFontObject(_G[fontName])
+    local Skin = LibStub and LibStub("LibKa0s-Skin-1.0", true)
+    if Skin and Skin.__AceFontChanged then Skin:__AceFontChanged(widget) end
   end
 end
 
@@ -276,6 +287,29 @@ local function landingNotes(O, ctx, scroll, spec)
   O.AddSpacer(scroll, L.LANDING_GAP_DESC)
 end
 
+-- The bytes lib.FormatRow of LibKa0s-Slash-1.0 types, which chat keeps (slash-commands-§4). A host's
+-- rows reach the page through its own LandingRows seam, so the page is where a skin can reach them.
+local LANDING_ROW = "^|cFFFFFF00(.-)|r \226\128\148 |cFFFFFFFF(.*)|r$"
+
+--- `r, g, b` (0..1) as a color escape.
+local function colorEscape(r, g, b)
+  local function byte(x) return math.floor(math.max(0, math.min(1, x)) * 255 + 0.5) end
+  return ("|cff%02x%02x%02x"):format(byte(r), byte(g), byte(b))
+end
+
+--- A landing page's `line`, recolored from the page owner's skin when it is a command row and the
+--- chrome is skinned, so the Scope cleared reaches it. Any other line, or an unskinned page, is
+--- returned as it came. O.__tipColor answers nil for a token the skin copy does not have.
+local function landingRow(O, line)
+  local command, description = tostring(line):match(LANDING_ROW)
+  if not command then return line end
+  local cr, cg, cb = O.__tipColor("text.command")
+  local dr, dg, db = O.__tipColor("text.strong")
+  if not (cr and dr) then return line end
+  return ("%s%s|r \226\128\148 %s%s|r"):format(colorEscape(cr, cg, cb), command,
+    colorEscape(dr, dg, db), description)
+end
+
 --- One heading plus its rows, per section.
 ---
 --- `rows` is a FUNCTION, not an array, so a re-render picks up a command registered since the spec
@@ -291,7 +325,7 @@ local function landingSections(O, ctx, spec)
     O.Section(ctx, section.heading)
     ctx.lastGroup = section.heading
     for _, line in ipairs(section.rows and section.rows() or {}) do
-      O.TextRow(ctx, line)
+      O.TextRow(ctx, landingRow(O, line))
     end
   end
 end
@@ -418,7 +452,8 @@ function lib.__AttachWidgets(O, d)
       GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
       if label and label ~= "" then GameTooltip:SetText(label, O.__tipColor("gtip.value", 1, 1, 1)) end
       if tooltip and tooltip ~= "" then
-        GameTooltip:AddLine(tooltip, nil, nil, nil, true)
+        local r, g, b = O.__tipColor("gtip.line")
+        GameTooltip:AddLine(tooltip, r, g, b, true)
       end
       GameTooltip:Show()
     end
@@ -459,14 +494,18 @@ function lib.__AttachWidgets(O, d)
     h:SetText(label)
     h:SetFullWidth(true)
     h:SetHeight(L.SECTION_HEADING_H)
-    if h.label and h.label.SetFontObject and _G.GameFontNormalLarge then
-      h.label:SetFontObject(_G.GameFontNormalLarge)
-    end
+    applyLabelFont(h, "GameFontNormalLarge")
     scroll:AddChild(h)
 
     O.AddSpacer(scroll, L.SECTION_BOTTOM_SPACER)
     return h
   end
+
+  --- Give an AceGUI text widget's `label` the _G font object `fontName`, the size a heading or row
+  --- is laid out at, without taking the skin's face off it. A host that builds its own Heading calls
+  --- this rather than setting the FontString, which a skin cannot see. A missing label or font name
+  --- does nothing.
+  function O.LabelFont(widget, fontName) applyLabelFont(widget, fontName) end
 
   --- A full-width line of text: one AceGUI Label added to the page's scroll, left-justified.
   ---

@@ -22,7 +22,9 @@ local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W or not lib.__panelKit then return end
 
 -- Minor 1: the renderer section, moved here unchanged from SimPanel.lua (its minor 9).
-local RENDER_MINOR = 1
+local RENDER_MINOR = 2
+-- Minor 2 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title band is 30 high, the
+-- skin's `title.height` and what S.Shell paints, not 24, with the title and the close mark on its middle.
 
 -- Read at call time and guarded: an older Core without RaiseStaticPopups raises nothing.
 local function raisePopups()
@@ -63,7 +65,9 @@ local DOT_X, DOT = 8, 8        -- column 1: status dot
 local LABEL_X   = 26           -- column 2: step name
 local CMD_PAD   = 10           -- column 3: slash command, right-aligned
 local LABEL_GAP = 8            -- the label stops this far short of the command column
-local TITLE_H = 24
+-- `title.height`, which every skin carries at one value (tests/test_title_shape.lua pins the two
+-- equal; a panel draws one with no Skin major too).
+local TITLE_H = 30
 
 local LOCKED_DOT_ALPHA = 0.35
 local CHECK = 12                                   -- the done mark, centered over the dot
@@ -161,14 +165,14 @@ local function buildChrome(frame, d, panel, showClose)
   frame:SetScript("OnDragStart", function() frame:StartMoving() end)
   frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
   frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  frame.title:SetPoint("TOP", frame, "TOP", 0, -6)
+  frame.title:SetPoint("CENTER", frame, "TOP", 0, -(1 + TITLE_H / 2))
   frame.title:SetText(readTitle(d))
   if not showClose then return end
   -- The third argument is the addon FOLDER the close icon's path is built from; without it
   -- MakeCloseButton falls back to the multiplication sign (Perf panel minor 3's bug).
   local close = core.MakeCloseButton(frame, panel.Hide, d.addonName)
   if close then
-    close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(TITLE_H - 18) / 2)
+    close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(1 + (TITLE_H - 18) / 2))
     frame.closeButton = close
   end
 end

@@ -65,7 +65,14 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- label and a close button's glyph take their color through SkinPaint minor 13's P.color, so an
 -- opaque color is drawn opaque over a label an owner's faded disabled color reached first (DpsRace's
 -- Arm Race read disabled while enabled, image-55..57).
-local CONTROLS_MINOR = 11
+-- Minor 12 (cause L3 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): Tab reads `tab.border`,
+-- `tab.borderSize` and `tab.borderStyle`, around `opts.fill` when it names one; a tab wearing the
+-- skin's art draws no edge, since the art is its edge. `opts.glow` takes `tab.glow`.
+-- Minor 13 (cause L7 of the same bundle): S.ScrollBar's step buttons are the Ka0s `chevron-up` and
+-- `chevron-down` in `icon.arrow`, Ka0s Default included: P.stepArrows, which SkinAce minor 8 calls too.
+-- Minor 14 (cause L8 of the same bundle): a stock close button's "x" wears the skin's body face, so
+-- Ignore fonts reaches it.
+local CONTROLS_MINOR = 14
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -415,18 +422,118 @@ local function paintKnob(rec, sb, T, opts)
   t:SetShown(type(thumb.IsShown) ~= "function" or thumb:IsShown())
 end
 
+-- ── the step buttons ─────────────────────────────────────────────────────────────────────────
+--
+-- A bar's two buttons belong to no primitive's record. A settings page's bar is painted by S.ScrollBar
+-- and, as an AceGUI widget, by SkinAce, each on a record of its own, and two records fading one
+-- texture would have the second save the first's 0 as the art's own alpha. So a button's record is
+-- its own, keyed on the button (weak), and either path paints or gives it back, any number of times.
+
+local STEP_ICON = 12   -- the art is square, in a template button 18 by 16
+local STEPS = { { key = "ScrollUpButton", icon = "chevron-up" },
+                { key = "ScrollDownButton", icon = "chevron-down" } }
+
+lib.__steps = lib.__steps or setmetatable({}, { __mode = "k" })
+
+--- The step button `key` of bar `sb`: the template's key, else its name (a Classic-era template).
+local function stepButton(sb, key)
+  if not P.isFrame(sb) then return nil end
+  local b = rawget(sb, key)
+  if P.isFrame(b) then return b end
+  local name = type(sb.GetName) == "function" and sb:GetName()
+  b = type(name) == "string" and _G[name .. key] or nil
+  if P.isFrame(b) then return b end
+  return nil
+end
+
+--- The mark in the color of the button's state, read from the record so a switch reaches the hooks.
+local function stepTint(b, rec)
+  if not rec.on then return end
+  local T = P.T(rec.owner)
+  local c = T[rec.hover and "icon.hot" or "icon.arrow"]
+  if type(b.IsEnabled) == "function" and not b:IsEnabled() then c = T["scroll.thumbOff"] or c end
+  if c then rec.regions.art:SetVertexColor(rgba(c)) end
+end
+
+local function stepHooks(b, rec)
+  if rec.hooked or type(b.HookScript) ~= "function" then return end
+  rec.hooked = true
+  local function hover(on) return function() rec.hover = on; stepTint(b, rec) end end
+  local function state() stepTint(b, rec) end
+  b:HookScript("OnEnter", hover(true))
+  b:HookScript("OnLeave", hover(false))
+  b:HookScript("OnEnable", state)    -- the client disables a button at its end of the range
+  b:HookScript("OnDisable", state)
+end
+
+local function giveStepBack(b)
+  local rec = lib.__steps[b]
+  if not (rec and rec.on) then return end
+  rec.on, rec.hover = false, false
+  P.unpaint(rec, b)
+end
+
+--- The path of icon `name` in `owner`'s copy, or nil without Media or an addon name.
+local function stepArt(owner, name)
+  local Media = LibStub and LibStub("LibKa0s-Media-1.0", true)
+  if not (Media and type(Media.Icon) == "function") then return nil end
+  return Media.Icon(owner, name)
+end
+
+local function paintStep(owner, b, name)
+  local art = stepArt(owner, name)
+  if not art then return giveStepBack(b) end
+  local rec = lib.__steps[b] or { regions = {} }
+  local t = P.tex(rec, "art", b, "OVERLAY", 7)
+  if not t then return end
+  lib.__steps[b] = rec
+  rec.owner, rec.on = owner, true
+  P.fadeAll(rec, P.stockRegions(b))
+  t:ClearAllPoints()
+  t:SetPoint("CENTER", b, "CENTER", 0, 0)
+  t:SetSize(STEP_ICON, STEP_ICON)
+  t:SetTexture(art)
+  t:Show()
+  stepTint(b, rec)
+  stepHooks(b, rec)
+end
+
+--- Paint bar `sb`'s step buttons for `owner`, recording on `rec` that P.unpaint gives them back. The
+--- icons come from the host's copy, so they are among docs/releasing.md's library-drawn icons.
+function P.stepArrows(rec, owner, sb)
+  for _, s in ipairs(STEPS) do
+    local b = stepButton(sb, s.key)
+    if b then
+      paintStep(owner, b, s.icon)
+      rec.regions.stepped = true
+    end
+  end
+end
+
+--- Give bar `sb`'s step buttons back: the stock art's alpha, the mark hidden. P.unpaint calls it.
+function P.unstep(rec, sb)
+  rec.regions.stepped = nil
+  for _, s in ipairs(STEPS) do
+    local b = stepButton(sb, s.key)
+    if b then giveStepBack(b) end
+  end
+end
+
 --- S.ScrollBar(sb, opts): a scroll bar, a corridor and one knob in every skin. `opts.track` /
 --- `opts.thumb`, textures the caller drew, are filled with `scroll.track` / `scroll.thumb`
 --- (DebugLog's console bar). Otherwise the bar's own thumb art is faded and a flat knob laid in its
 --- place, in `scroll.thumb`, or `scroll.thumbOn` / `scroll.thumbOff` for `opts.state` "on" / "off"
 --- (OptionsScroll's always-shown bar); and a `scroll.track` corridor is laid under it, the bar's
---- full size. Draws no Media icon.
+--- full size. A template bar's step buttons wear the host's `chevron-up` and `chevron-down` in
+--- `icon.arrow` (P.stepArrows), `icon.hot` under the pointer and `scroll.thumbOff` disabled; with no
+--- host art they stay the client's.
 prim.ScrollBar = function(owner, sb, opts)
   if type(sb) ~= "table" then return end
   local rec = P.track(owner, sb, "ScrollBar", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
+  P.stepArrows(rec, owner, sb)
   paintKnob(rec, sb, T, opts)
   if opts.track or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
@@ -495,10 +602,43 @@ local function tabLine(rec, tab, T, selected)
   t:Show()
 end
 
+--- The tab's edge, on its own holder so the selected underline stays on the tab's. A tab drawn in
+--- the skin's art has no other edge than the art's; a named fill is the tab's face, which a settings
+--- strip's button is taller than.
+local function tabEdge(rec, tab, T, opts, selected)
+  local c = T["tab.border"]
+  if not c or P.media("background", T[selected and "tab.onTexture" or "tab.texture"]) then
+    return P.hideEdges(rec, tab)
+  end
+  local h = P.edgeHolder(rec, tab)
+  P.edges(rec, tab, c, T["tab.borderStyle"], T["tab.borderSize"], h)
+  if h and P.isTexture(opts.fill) and not rec.regions.nine then
+    h:ClearAllPoints()
+    h:SetAllPoints(opts.fill)
+  end
+end
+
+--- The two glow textures the caller drew (`opts.glow`: `hover`, `sel`, and its stock gradient's
+--- `bottom` and `top`) in `tab.glow`, fading to the same top. Only one is lit at a time, by the
+--- caller's own color, so this moves neither. P.unpaint puts the stock gradient back.
+local function tabGlow(rec, T, glow)
+  if type(glow) ~= "table" then return end
+  local c, prior = T["tab.glow"], P.saved(rec, "glow")
+  local bottom = c and P.asColor(c) or glow.bottom
+  for _, tex in ipairs({ glow.hover or false, glow.sel or false }) do
+    if tex and tex.SetGradient then
+      tex:SetGradient("VERTICAL", bottom, glow.top)
+      prior[tex] = glow
+    end
+  end
+end
+
 --- S.Tab(tab, opts): a tab. The stock art faded (with `opts.stock`, regions the caller drew from
 --- the client's art, such as the settings strip's atlases); the backing (`opts.fill`, else a region)
 --- `tab.onTexture` / `tab.texture` art, else `tab.onBg` / `tab.bg` and its gradient; a `tab.onLine`
---- underline on the holder while selected; the label (`opts.text`, else the tab's own) in
+--- underline on the holder while selected; a `tab.border` edge at `tab.borderSize` and
+--- `tab.borderStyle`, around `opts.fill` when it names one, and none on a tab in the skin's art;
+--- `opts.glow`'s textures in `tab.glow`; the label (`opts.text`, else the tab's own) in
 --- `tab.onText` / `tab.text` and the body font. `opts.selected` is the first state;
 --- `S.SetTabSelection` moves it. Draws no Media icon.
 prim.Tab = function(owner, tab, opts)
@@ -514,6 +654,8 @@ prim.Tab = function(owner, tab, opts)
   P.fadeAll(rec, P.stockRegions(tab, opts))
   tabFill(rec, tab, T, opts, selected)
   tabLine(rec, tab, T, selected)
+  tabEdge(rec, tab, T, opts, selected)
+  tabGlow(rec, T, opts.glow)
   local fs = P.isFS(opts.text) and opts.text or labelOf(tab)
   if fs then
     P.label(owner, rec, fs, T, selected and "tab.onText" or "tab.text")
@@ -558,6 +700,7 @@ local function closeGlyph(rec, btn)
   if not fs then return end
   fs:SetPoint("CENTER")
   fs:SetText("x")
+  P.font(rec.owner, rec, fs, "body", P.T(rec.owner)["close.rest"])
   fs:Show()
 end
 
@@ -576,7 +719,7 @@ end
 --- `btn.glyph`, a font string) in `close.rest`, `close.hot` under the pointer, under every skin,
 --- Ka0s Default included. The art's own tint is recorded on the first paint (P.tint) and given back
 --- when the button is unpainted (minor 10). A stock close button (the client's template) has its
---- art faded and an "x" glyph drawn, under every skin. `opts.own` (a button the library built,
+--- art faded and an "x" glyph drawn in the skin's body face (minor 14), under every skin. `opts.own` (a button the library built,
 --- Core.MakeCloseButton's) SetScripts the hover pair as Core does, keeping the host's pair to fall
 --- back to once the button is no longer painted; otherwise it is HookScript'd. Draws no Media icon
 --- (Core's `close` icon is the caller's).

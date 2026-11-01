@@ -30,7 +30,9 @@ if not lib then return end
 -- highlight art takes `list.hoverArt` (O.__hoverArt) and is given back to the client's on release;
 -- the id gray in its labels and notes is OptionsIds minor 5's `idGray`, the owner's
 -- `text.disabled`. The help mark's comments say what minor 6's tints do since SkinPaint minor 6.
-local IDLIST_MINOR = 7
+-- Minor 8 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): while the chrome is
+-- skinned the X is the Ka0s `close` icon in `icon.tint`, on `__removeIcon`; `__removeAtlas` is stock's.
+local IDLIST_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -84,6 +86,8 @@ function lib.__AttachIdList(O, d, ids)
   -- columns -- the arithmetic is under ID_COLUMNS_MAX.
   local ID_REMOVE_REL    = 0.08
   local ID_REMOVE_ATLAS  = "transmog-icon-remove"
+  local ID_REMOVE_ICON   = "close"              -- the art while the chrome is skinned (minor 8)
+  local ID_REMOVE_REST   = { 1, 1, 1 }          -- skinTint's key; no literal draws
   local ID_REMOVE_SIZE   = 16
   local ID_REMOVE_HIT    = 26
   -- The gutter between one entry and the next inside a shared row (minor 24), as a fraction of the
@@ -567,7 +571,8 @@ function lib.__AttachIdList(O, d, ids)
   -- than giving the constants tokens of their own: Ka0s Default looking like every other skin is
   -- what ruling R-2 asks (DECISIONS D-07).
   local HELP_TOKEN = { [ID_HELP_TINT] = "text.accent", [ID_HELP_BLOCKED] = "sem.bad",
-                       [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot" }
+                       [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot",
+                       [ID_REMOVE_REST] = "icon.tint" }
 
   --- `tint`, or its token in the page owner's skin while the chrome is skinned.
   local function skinTint(tint)
@@ -712,8 +717,17 @@ function lib.__AttachIdList(O, d, ids)
     local x = O.AceGUI:Create("Icon")
     x:SetImageSize(ID_REMOVE_SIZE, ID_REMOVE_SIZE)
     local tex = x.image
-    if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
-    x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
+    local art = O.__chromeMark and O.__chromeMark(ID_REMOVE_ICON)
+    if art then
+      if type(tex) == "table" and tex.SetTexture then tex:SetTexture(art) end
+      local c = skinTint(ID_REMOVE_REST)
+      if type(tex) == "table" and tex.SetVertexColor then tex:SetVertexColor(c[1], c[2], c[3]) end
+      x.__removeIcon, x.__removeAtlas = art, nil   -- as __removeAtlas: for a host's suite
+    else
+      if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
+      x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
+      x.__removeIcon = nil
+    end
     -- A FLOOR, NOT A FRACTION, AND WIDER THAN THE ART IT CARRIES. ID_REMOVE_REL is what the NAME
     -- beside the X gives up for it -- the label's width already subtracts it -- and the X's own
     -- frame is absolute. A relative width is multiplied by the row at layout time, so

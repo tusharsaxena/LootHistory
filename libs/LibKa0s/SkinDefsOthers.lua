@@ -18,7 +18,14 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- no schema from this copy
 
 -- Minor 1: the eight other skins, moved here unchanged from SkinDefs.lua (its minor 19).
-local OTHERS_MINOR = 1
+-- Minor 2: `gtip.line`, `gtip.on` and `gtip.off` for the launcher's tooltip (SkinDefs minor 20).
+-- Minor 3: `title.rule`, the settings page header's rule, from each skin's divider (SkinDefs minor 21).
+-- Minor 4: `text.command`, `text.strong` and `gtip.emphasis` for a settings page's typed colors
+-- (SkinDefs minor 22).
+-- Minor 5: `menu.suggestBg`, `menu.suggestBorder` and `list.ghostIcon` (SkinDefs minor 23).
+-- Minor 6: `hud.text`, `hud.label`, `bar.fill` through FOLLOW, and `hud.shadow` through HUD_SHADOW
+-- (SkinDefs minor 24).
+local OTHERS_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
   and lib.__othersShellMinor == lib.MINOR then return end
@@ -80,7 +87,7 @@ local MOCK_MAP = {
   { "radius", "win.radius" },
   { "titleBg", "title.bg" }, { "titleColor", "title.text", "text.heading", "text.headingAlt" },
   { "headColor", "text.heading", "text.headingAlt" }, { "titleAlign", "title.align" },
-  { "divider", "divider", "tab.rule" }, { "footBg", "foot.bg" },
+  { "divider", "divider", "tab.rule", "title.rule" }, { "footBg", "foot.bg" },
   { "text", "text.body", "menu.text", "drawer.text" },
   { "muted", "text.muted", "icon.tint", "drawer.summary", "handle.rest" },
   { "accent", "text.accent", "text.link", "btn.hover", "input.focus", "menu.textSel",
@@ -135,8 +142,11 @@ local FOLLOW = {
   { "log.ts", "sem.info" }, { "log.tag", "text.headingAlt" },
   { "sem.stepReady", "text.body" }, { "sem.stepBusy", "text.accent" },
   { "sem.stepLocked", "text.disabled" }, { "sem.stepCancel", "sem.off" }, { "sem.stepCancelHot", "sem.bad" },
-  { "icon.arrow", "text.accent" }, { "gtip.footer", "gtip.muted" },
+  { "icon.arrow", "text.accent" }, { "gtip.footer", "gtip.muted" }, { "gtip.line", "gtip.body" },
   { "icon.grip", "icon.tint" }, { "list.hoverArt", "text.accent" },
+  { "text.command", "text.accent" }, { "text.strong", "text.body" }, { "gtip.emphasis", "text.accent" },
+  { "menu.suggestBg", "menu.bg" }, { "menu.suggestBorder", "menu.border" }, { "list.ghostIcon", "icon.tint" },
+  { "hud.text", "text.body" }, { "hud.label", "text.accent" }, { "bar.fill", "slider.fill" },
 }
 
 local function blend(a, b)
@@ -176,7 +186,10 @@ end
 -- Friz since minor 18, since a client's own file need not be Friz at all (D-01). The HUD face left
 -- KEEP in minor 16: every skin names its own (HUD_FACE below).
 local FRIZ = "Ka0s Friz Quadrata TT"
-local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["bar.texture"] = "Blizzard" }
+local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["bar.texture"] = "Blizzard",
+  -- Minor 2, cause L1: Ka0s Default's gold lines and pure green and red are its own, so a skin with
+  -- no `gtip.body` of its own to FOLLOW, and every skin's status words, take the value it inherits.
+  ["gtip.line"] = KA0S["gtip.body"], ["gtip.on"] = KA0S["sem.on"], ["gtip.off"] = KA0S["sem.off"] }
 
 --- A skin's tokens: its mockup entry through MOCK_MAP, the accent and text washes, then its extras.
 local function translate(mock, extra)
@@ -224,6 +237,15 @@ local HUD_FACE = {
 -- A reference, not a size: S.HudFontSize draws a stored 24 at 24 * HUD_SIZE / 12.
 local HUD_SIZE = {
   obsidian = 13, azeroth = 11, glass = 11, contrast = 10.5, ember = 11, wow = 11, midnight = 11.5, forever = 11.5,
+}
+
+-- Each skin's HUD text shadow (minor 6, cause D6): the darkest color of its own palette, so the shadow
+-- sits in the skin; Glass's is translucent, like its panels. The mockups draw none. A skin's `extra`
+-- may still override. `hud.shadowX` and `hud.shadowY` inherit Ka0s Default's 1, -1, High Contrast's
+-- heavier 2, -2 being the one `extra`. Ka0s Default's is its token, `false`.
+local HUD_SHADOW = {
+  obsidian = hex("#000000"), azeroth = hex("#1a110a"), glass = rgba(0, 0, 0, 0.6), contrast = hex("#000000"),
+  ember = hex("#140a07"), wow = hex("#000000"), midnight = hex("#08091a"), forever = hex("#0a0908"),
 }
 
 -- Every shipped face's sizes at Ka0s Default's width (minor 18, D-07): { body, title, HUD }, as
@@ -275,6 +297,7 @@ local function register(key, label, desc, swatches, mock, extra)
   local tokens = translate(mock, extra)
   if tokens["hud.font"] == nil then tokens["hud.font"] = HUD_FACE[key] end
   if tokens["hud.fontSize"] == nil then tokens["hud.fontSize"] = HUD_SIZE[key] end
+  if tokens["hud.shadow"] == nil then tokens["hud.shadow"] = HUD_SHADOW[key] end
   local icon = ICON_EDGE[key]
   if icon and tokens["icon.borderStyle"] == nil then tokens["icon.borderStyle"] = icon[1] end
   if icon and tokens["icon.borderSize"] == nil then tokens["icon.borderSize"] = icon[2] end
@@ -476,6 +499,8 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
     -- LootHistory's other grays in the palette's own (white stays white).
     ["text.value"] = hex("#E0E0E0"), ["text.bodyAlt"] = HC_WHITE, ["text.subtle"] = HC_WHITE,
     ["icon.dim"] = hex("#B0B0B0"), ["sem.unknown"] = hex("#B0B0B0"), ["gtip.subtle"] = hex("#E0E0E0"),
+    -- A heavier HUD shadow (minor 6, cause D6): white text over its yellow bar fill needs the edge.
+    ["hud.shadowX"] = 2, ["hud.shadowY"] = -2,
   })
 
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Emblem for body and titles alike (minor

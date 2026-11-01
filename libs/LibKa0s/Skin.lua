@@ -118,7 +118,14 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named). No
 -- behavior moves: RegisterOwner and `__Tokens` reach it through `lib.__takeTokens` and
 -- `lib.__withOwnTokens`, and `lib.__tokenHelpers` hands it the three locals it shares with this file.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 11
+-- Minor 12 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): VOCAB gains Mark and
+-- MarkText, SkinPaintExtras minor 9's.
+-- Minor 13 (FS-T1 of the same bundle, causes D2, D3 and D6): VOCAB gains HudTextColor, HudLabelColor,
+-- BarFillColor and HudShadow, SkinPaintExtras minor 12's, and Ignore fonts reaches `hud.shadow`,
+-- `hud.shadowX` and `hud.shadowY` as it reaches `hud.outline`. The HUD's colors are not fonts.
+-- Minor 14 (FS-FIX of the same bundle, the AbsorbTracker pilot's gaps): VOCAB gains BarGloss and
+-- HudFont, SkinPaintExtras minor 14's, and FollowOnce, the record gate every host's step wrote.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -144,7 +151,8 @@ lib.VOCAB = {
   "GetAccentColor", "GetPanelColor", "GetFont",
   "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
   "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
-  "BarTexture", "FontFlags", "HudFontSize",
+  "BarTexture", "FontFlags", "HudFontSize", "Mark", "MarkText",
+  "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HudFont",
 }
 
 local WEAK_KEYS = { __mode = "k" }
@@ -563,10 +571,11 @@ function lib:__FontsIgnored(owner)
   return o ~= nil and o.ignoreFonts == true
 end
 
--- The HUD's two font tokens: while the owner ignores fonts, the stored value wins for them in
--- `Resolve` and `Token` (minor 8, R-1). `hud.fontSize` is out of scope; `__Tokens` is unchanged,
+-- The HUD's font tokens: while the owner ignores fonts, the stored value wins for them in
+-- `Resolve` and `Token` (minor 8, R-1; the shadow's three since minor 13). `hud.fontSize` is out of scope; `__Tokens` is unchanged,
 -- since P.font already hands every painted string back through `__FontsIgnored`.
-local HUD_FONT = { ["hud.font"] = true, ["hud.outline"] = true }
+local HUD_FONT = { ["hud.font"] = true, ["hud.outline"] = true, ["hud.shadow"] = true,
+                   ["hud.shadowX"] = true, ["hud.shadowY"] = true }
 
 local function hudFontIgnored(self, owner, name)
   return HUD_FONT[name] == true and self:__FontsIgnored(owner)
@@ -835,7 +844,8 @@ end
 
 --- The owner's resolved token `name` (from `__Tokens`): a color is `{ r, g, b, a }`, shared, never
 --- written to. An unregistered owner reads Ka0s Default. nil for a token the skin leaves alone,
---- which `hud.font` and `hud.outline` are while the owner ignores fonts (minor 8, R-1).
+--- which `hud.font`, `hud.outline` and the HUD shadow's three are while the owner ignores fonts
+--- (minor 8, R-1; the shadow since minor 13).
 function lib:Token(owner, name)
   if hudFontIgnored(self, owner, name) then return nil end
   return self:__Tokens(owner)[name]
@@ -854,8 +864,8 @@ function lib.IsFromSkin(value)
 end
 
 --- `value`, or the owner's token `kind` when `value` is the FROM_SKIN sentinel or `fromSkin` (a
---- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`
---- and `hud.outline` answer the stored `value` whatever the companion says, and nil for a stored
+--- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`,
+--- `hud.outline` and the shadow's three answer the stored `value` whatever the companion says, and nil for a stored
 --- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands.
 function lib:Resolve(owner, kind, value, fromSkin)
   if hudFontIgnored(self, owner, kind) then
@@ -909,6 +919,22 @@ function lib.ResetToSkin(profile, keys, opts, extra)
     end
   end
   return n
+end
+
+--- The one step onto the skin, per profile (minor 14). The stamp is per account and following the
+--- skin leaves no shape to read, so the profile carries its own record, `skin.fullSkinReset`. Already
+--- true: nothing moves, so a companion turned off since stays off, and it answers false. Otherwise
+--- `ResetToSkin(profile, keys, opts)`, the record written (the `skin` table is the one table this may
+--- create), and true. A bad profile or no `keys` answers false and writes no record. Called as
+--- `Skin.FollowOnce(p, keys[, opts])`.
+function lib.FollowOnce(profile, keys, opts, extra)
+  if profile == lib then profile, keys, opts = keys, opts, extra end
+  if type(profile) ~= "table" or type(keys) ~= "table" then return false end
+  if type(profile.skin) == "table" and profile.skin.fullSkinReset == true then return false end
+  lib.ResetToSkin(profile, keys, opts)
+  if type(profile.skin) ~= "table" then profile.skin = {} end
+  profile.skin.fullSkinReset = true
+  return true
 end
 
 -- ── the frame registry and the repaint ───────────────────────────────────────────────────────

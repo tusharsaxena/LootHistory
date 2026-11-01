@@ -158,7 +158,29 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- owner's replaced client file are md5 0483b4eeaaefc7b81986e43702c7900d.
 -- Minor 19: the eight other skins moved out, unchanged, to SkinDefsOthers.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
-local DEFS_MINOR = 19
+-- Minor 20 (FS-L1 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING, cause L1): `gtip.line`,
+-- `gtip.on` and `gtip.off`, the launcher's tooltip lines and status words. Ka0s Default's are the
+-- colors that tooltip drew, the client's gold and a pure green and red; every other skin's are its
+-- `gtip.body`, `sem.on` and `sem.off`. The eui source derives them from Ka0s Default.
+--- Minor 21 (FS-L3 of the same bundle, cause L3): `title.rule`, the settings page header's rule. Ka0s
+--- Default's `title.rule`, `tab.border`, `nav.borderStyle` and `popup.borderStyle` are `false`, so
+--- its settings chrome keeps its art with the Scope cleared now that a paint reads the three edges.
+-- Minor 22 (FS-L5 of the same bundle, cause L5): `text.command`, `text.strong` and `gtip.emphasis`, the
+-- yellow and white a settings page typed. Ka0s Default's are those literals; every other skin's are
+-- its `text.accent` and `text.body`. The eui source derives `text.strong` from Ka0s Default, and from
+-- SkinEUI minor 3 the other two follow EllesmereUI's accent.
+-- Minor 23 (cause L8 of the same bundle): `menu.suggestBg`, `menu.suggestBorder` and `list.ghostIcon`,
+-- a suggestion list's chrome and the carried copy's mark. Ka0s Default's are what those drew; every
+-- other skin's are its `menu.bg`, `menu.border` and `icon.tint`. Under the eui source `menu.suggestBg`
+-- follows EllesmereUI's panel color (SkinEUI minor 3); the other two are Ka0s Default's.
+-- Minor 24 (FS-T1 of the same bundle, causes D2, D3 and D6): `hud.text`, `hud.label`, `bar.fill`,
+-- `hud.shadow`, `hud.shadowX` and `hud.shadowY`, the HUD's text, its labels, its bar fill and its text
+-- shadow. Ka0s Default's are what most of the HUD stores today: white text, gold labels, AuraMaster's
+-- blue fill and no shadow. Every other skin's are its `text.body`, `text.accent` and `slider.fill`, and a
+-- dark shadow of its own. They name no class or meaning color: those stay the host's. Under the eui
+-- source `hud.label` and `bar.fill` follow EllesmereUI's accent (SkinEUI minor 3); the rest are Ka0s
+-- Default's.
+local DEFS_MINOR = 24
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -176,13 +198,15 @@ local GROUPS = {
   { "Window", "win.bg:color win.bgTop:color? win.bgBottom:color? win.bgTexture:string? "
     .. "win.bgDense:color win.border:color win.borderSize:number win.borderStyle:string "
     .. "win.inner:color? win.inset:number win.radius:number title.bg:color? title.bgTop:color? "
-    .. "title.bgBottom:color? title.text:color title.align:string? title.height:number "
+    .. "title.bgBottom:color? title.text:color title.rule:color? title.align:string? title.height:number "
     .. "divider:color foot.bg:color? close.rest:color close.hot:color" },
   { "Text", "text.body:color text.muted:color text.heading:color text.headingAlt:color "
     .. "text.accent:color text.disabled:color text.link:color text.linkHot:color "
     .. "gtip.title:color gtip.body:color gtip.muted:color text.faint:color log.ts:color "
     .. "log.tag:color log.text:color log.count:color text.value:color text.bodyAlt:color "
-    .. "text.subtle:color text.highlight:color gtip.value:color gtip.subtle:color gtip.footer:color" },
+    .. "text.subtle:color text.highlight:color gtip.value:color gtip.subtle:color gtip.footer:color "
+    .. "gtip.line:color gtip.on:color gtip.off:color text.command:color text.strong:color "
+    .. "gtip.emphasis:color" },
   { "Buttons", "btn.bg:color btn.bgTop:color? btn.bgBottom:color? btn.border:color "
     .. "btn.borderSize:number? btn.borderStyle:string? btn.text:color btn.hover:color "
     .. "btn.icon:color btn.radius:number btnPrimary.bg:color btnPrimary.bgTop:color? "
@@ -208,11 +232,11 @@ local GROUPS = {
     .. "drawer.boxBg:color drawer.boxBorder:color drawer.text:color drawer.textSet:color "
     .. "drawer.summary:color drawer.summarySet:color menu.bg:color menu.border:color "
     .. "menu.borderAlt:color menu.borderSize:number? menu.borderStyle:string? menu.hover:color "
-    .. "menu.text:color menu.textSel:color" },
+    .. "menu.text:color menu.textSel:color menu.suggestBg:color menu.suggestBorder:color" },
   { "Lists and cards", "list.header.bg:color? list.header.text:color list.stripe:color "
     .. "list.hover:color list.sel:color? list.selOutline:color? card.bg:color card.border:color "
     .. "panel.bg:color panel.border:color section.rule:color icon.tint:color icon.hot:color "
-    .. "handle.bg:color handle.edge:color handle.rest:color list.dropLine:color list.ghostBg:color "
+    .. "handle.bg:color handle.edge:color handle.rest:color list.dropLine:color list.ghostBg:color list.ghostIcon:color "
     .. "list.box:color list.boxDim:color list.boxEdge:color list.boxEdgeDim:color icon.dim:color "
     .. "icon.arrow:color icon.grip:color? list.hoverArt:color?" },
   { "Overlays", "popup.bg:color popup.border:color? popup.borderSize:number? "
@@ -221,7 +245,8 @@ local GROUPS = {
   { "HUD", "bar.texture:string bar.gloss:bool bar.bg:color? bar.border:color? "
     .. "bar.borderStyle:string bar.borderSize:number icon.border:color? glow.color:color? "
     .. "hud.font:string hud.fontSize:number hud.outline:string icon.borderStyle:string "
-    .. "icon.borderSize:number" },
+    .. "icon.borderSize:number hud.text:color hud.label:color bar.fill:color hud.shadow:color? "
+    .. "hud.shadowX:number hud.shadowY:number" },
   { "Charts", "chart.axis:color chart.axisAlt:color chart.grid:color chart.crosshair:color "
     .. "chart.marker:color chart.line:color chart.bar:color chart.track:color chart.total:color "
     .. "chart.other:color chart.otherLine:color chart.series:colors" },
@@ -307,6 +332,12 @@ local KA0S = {
   ["gtip.value"] = WHITE, ["gtip.subtle"] = { 0.7, 0.7, 0.7, 1 },
   -- The drag handle's tooltip footer (minor 16, LK-08): the 0.6 gray WidgetsDragHandle drew.
   ["gtip.footer"] = { 0.6, 0.6, 0.6, 1 },
+  -- The launcher's status tooltip (minor 20, cause L1): its lines in the client's default gold, and
+  -- the pure green and red of its Yes and No.
+  ["gtip.line"] = GOLD, ["gtip.on"] = { 0, 1, 0, 1 }, ["gtip.off"] = { 1, 0, 0, 1 },
+  -- A settings page's typed colors (minor 22, cause L5): the yellow and white of a slash command row,
+  -- and the yellow a tooltip body picks a word out with.
+  ["text.command"] = { 1, 1, 0, 1 }, ["text.strong"] = WHITE, ["gtip.emphasis"] = { 1, 1, 0, 1 },
   -- Buttons: LootHistory's flat buttons (BrowserFilterBar, Export, Timeline). No primary today.
   ["btn.bg"] = CTL_FILL, ["btn.border"] = CTL_LINE, ["btn.borderSize"] = 1,
   ["btn.borderStyle"] = "flat", ["btn.text"] = WHITE, ["btn.hover"] = GOLD,
@@ -353,6 +384,9 @@ local KA0S = {
   ["menu.borderAlt"] = { 0.62, 0.5, 0.18, 1 }, ["menu.borderSize"] = 1,
   ["menu.borderStyle"] = "flat", ["menu.hover"] = { 1, 0.82, 0, 0.15 },
   ["menu.text"] = BODY, ["menu.textSel"] = GOLD,
+  -- A suggestion list's fill and edge (minor 23, cause L8): the skinned box it hung from, at the alpha
+  -- floor WidgetsAutocomplete keeps.
+  ["menu.suggestBg"] = { CTL_FILL[1], CTL_FILL[2], CTL_FILL[3], 0.95 }, ["menu.suggestBorder"] = CTL_LINE,
   -- Lists and cards: BrowserTable / HoldingsTab rows, Analytics KPI cards and list panels.
   ["list.header.text"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.03 },
   ["list.hover"] = { 1, 0.82, 0, 0.10 },
@@ -369,6 +403,7 @@ local KA0S = {
   -- carried copy and lib.ROW_BOX's fills and edges.
   ["handle.edge"] = { 1, 0.82, 0, 0.6 }, ["handle.rest"] = { 0.7, 0.7, 0.7, 1 },
   ["list.dropLine"] = { 1, 0.82, 0, 0.9 }, ["list.ghostBg"] = { 0.12, 0.12, 0.12, 0.95 },
+  ["list.ghostIcon"] = WHITE,   -- the carried copy's mark (minor 23, cause L8)
   ["list.box"] = { 1, 1, 1, 0.06 }, ["list.boxDim"] = { 1, 1, 1, 0.03 },
   ["list.boxEdge"] = { 1, 1, 1, 0.12 }, ["list.boxEdgeDim"] = { 1, 1, 1, 0.06 },
   -- The AH table's info icon on an inactive row (LootHistory Panel; a live one is icon.hot).
@@ -381,6 +416,11 @@ local KA0S = {
   ["bar.texture"] = "Ka0s Default", ["bar.gloss"] = false, ["bar.borderStyle"] = "None",
   ["bar.borderSize"] = 1, ["hud.font"] = "Ka0s Prototype", ["hud.fontSize"] = 12,
   ["hud.outline"] = "OUTLINE",
+  -- The HUD's colors and shadow (minor 24, causes D2, D3 and D6): the stored defaults most of the HUD
+  -- draws, AuraMaster's among them, white text, gold labels and its blue fill. `hud.shadow` false is no
+  -- shadow, which is what the HUD stores; the offset is the client's, for a skin or host that draws one.
+  ["hud.text"] = WHITE, ["hud.label"] = GOLD, ["bar.fill"] = { 0.20, 0.55, 0.95, 1 },
+  ["hud.shadow"] = false, ["hud.shadowX"] = 1, ["hud.shadowY"] = -1,
   -- The icon border (minor 15): Drop Watcher's Window › Icons border, the one item-icon border a Ka0s
   -- addon draws today (its defaults/Profile.lua icons.borderStyle "Solid", icons.borderSize 2; the
   -- color is `icon.border`'s black, below).
@@ -433,11 +473,17 @@ local KA0S = {
   -- The slider: the thin bar every skin draws (SkinPaintControls minor 3), in Ka0s Default's colors.
   ["slider.track"] = CTL_LINE, ["slider.trackBorder"] = false, ["slider.fill"] = GOLD,
   ["slider.thumb"] = { 0.9, 0.9, 0.9, 1 },
-  ["tab.border"] = CTL_LINE, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
+  -- The settings chrome's art (minor 21, cause L3 of Ka0sAddonsCommonTasks
+  -- docs/2026-11-01-FULL_SKINNING), `false` as `list.hoverArt`'s is: the client's art as the frame
+  -- wears it, recolored, so Ka0s Default keeps its look with the Scope cleared. `title.rule` false is
+  -- the page header's divider atlas tinted `title.text`, a `*.borderStyle` false the rail's or the
+  -- suggestion popup's tooltip art, and `tab.border` false no edge on a tab. A skin states all four.
+  ["title.rule"] = false,
+  ["tab.border"] = false, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
   ["tab.onBg"] = { 0.18, 0.18, 0.18, 0.9 }, ["tab.texture"] = false, ["tab.onTexture"] = false,
-  ["nav.borderSize"] = 1, ["nav.borderStyle"] = "flat", ["nav.selBar"] = false,
+  ["nav.borderSize"] = 1, ["nav.borderStyle"] = false, ["nav.selBar"] = false,
   ["list.header.bg"] = { 1, 1, 1, 0.04 }, ["list.sel"] = { 1, 0.82, 0, 0.18 }, ["list.selOutline"] = false,
-  ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = "flat",
+  ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = false,
   ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
   ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },
   ["glow.color"] = GOLD,

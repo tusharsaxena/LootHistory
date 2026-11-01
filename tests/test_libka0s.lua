@@ -706,7 +706,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   end
   assertTrue(modules("LibKa0s-Core-1.0").Core >= 11) -- 12 since v1.77.0, pinned there
   assertEqual(modules("LibKa0s-Item-1.0").Item, 3)
-  assertEqual(modules("LibKa0s-Glow-1.0").Glow, 1)
+  assertTrue(modules("LibKa0s-Glow-1.0").Glow >= 1) -- 2 since v1.85.0, pinned there
   local media = modules("LibKa0s-Media-1.0")
   assertTrue(media.Media >= 5) -- 8 since v1.78.0 (re-cut), pinned there
   assertEqual(media.MediaIcons, 1)
@@ -919,7 +919,7 @@ test("v1.79.0: the vendored minors and the kit revision match the branch", funct
   assertTrue(skin.SkinPaintExtras >= 4) -- 5 since v1.80.0, 6 since v1.81.0, pinned there
   assertTrue(modules("LibKa0s-Media-1.0").Media >= 9) -- 10 since v1.82.0, pinned there
   assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics >= 5) -- 6 since v1.84.0, pinned there
-  assertEqual(modules("LibKa0s-Toast-1.0").Toast, 1)
+  assertTrue(modules("LibKa0s-Toast-1.0").Toast >= 1) -- 2 since v1.85.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.Options >= 34) -- 37 since v1.84.0, pinned there
   assertEqual(options.OptionsRegistry, 4)
@@ -950,7 +950,7 @@ test("v1.80.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinPaint >= 11) -- 12 since v1.81.0, pinned there
   assertTrue(skin.SkinPaintExtras >= 5) -- 6 since v1.81.0, pinned there
   assertTrue(skin.SkinPaintControls >= 9) -- 10 since v1.81.0, pinned there
-  assertEqual(skin.SkinEUI, 2)
+  assertTrue(skin.SkinEUI >= 2) -- 3 since v1.85.0, pinned there
   assertTrue(skin.SkinAce >= 4) -- 6 since v1.84.0, pinned there
   assertTrue(modules("LibKa0s-Options-1.0").OptionsCompose >= 13) -- 14 since v1.82.0, pinned there
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
@@ -981,25 +981,25 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinPaintExtras >= 6) -- 7 since v1.82.0, pinned there
   assertTrue(skin.SkinPaintControls >= 10) -- 11 since v1.82.0, pinned there
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 17)
-  assertEqual(widgets.WidgetsReorder, 3)
+  assertTrue(widgets.Widgets >= 17) -- 20 since v1.85.0, pinned there
+  assertTrue(widgets.WidgetsReorder >= 3) -- 5 since v1.85.0, pinned there
   assertTrue(widgets.WidgetsDragHandle >= 7) -- 8 since v1.82.0, pinned there
-  assertEqual(widgets.WidgetsLineChart, 5)
-  assertEqual(widgets.WidgetsAutocomplete, 5)
-  assertEqual(widgets.WidgetsCopyWindow, 2)
+  assertTrue(widgets.WidgetsLineChart >= 5) -- 6 since v1.85.0, pinned there
+  assertTrue(widgets.WidgetsAutocomplete >= 5) -- 6 since v1.85.0, pinned there
+  assertTrue(widgets.WidgetsCopyWindow >= 2) -- 4 since v1.85.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.OptionsWidgets >= 36) -- 37 since v1.82.0, pinned there
   assertTrue(options.OptionsIds >= 5) -- 6 since v1.84.0, pinned there
-  assertEqual(options.OptionsIdList, 7)
+  assertTrue(options.OptionsIdList >= 7) -- 8 since v1.85.0, pinned there
   assertTrue(options.OptionsTabs >= 11) -- 13 since v1.84.0, pinned there
   assertTrue(options.OptionsScroll >= 9) -- 10 since v1.84.0, pinned there
-  assertEqual(options.OptionsNav, 4)
+  assertTrue(options.OptionsNav >= 4) -- 5 since v1.85.0, pinned there
   assertTrue(options.OptionsDrawer >= 3) -- 4 since v1.84.0, pinned there
-  assertEqual(options.OptionsKeybinds, 6)
+  assertTrue(options.OptionsKeybinds >= 6) -- 7 since v1.85.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 2) -- 3 since v1.82.0, pinned there
   assertEqual(modules("LibKa0s-Core-1.0").Core, 14)
-  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogWindow, 2)
-  assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 11)
+  assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogWindow >= 2) -- 3 since v1.85.0, pinned there
+  assertTrue(modules("LibKa0s-Perf-1.0").PerfPanel >= 11) -- 12 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 8) -- 9 since v1.84.0, pinned there
   local Skin = T.mocks.LibStub("LibKa0s-Skin-1.0", true)
   assertTrue(type(Skin.DrawsKey) == "function", "Skin:DrawsKey missing: re-vendor v1.81.0")
@@ -1024,9 +1024,9 @@ test("v1.82.0: the vendored minors and the kit revision match the release", func
   local skin = modules("LibKa0s-Skin-1.0")
   assertTrue(skin.Skin >= 9) -- 10 since v1.83.0, pinned there
   assertTrue(skin.SkinDefs >= 17) -- 18 since v1.83.0, pinned there
-  assertEqual(skin.SkinPaint, 13)
-  assertEqual(skin.SkinPaintExtras, 7)
-  assertEqual(skin.SkinPaintControls, 11)
+  assertTrue(skin.SkinPaint >= 13) -- 16 since v1.85.0, pinned there
+  assertTrue(skin.SkinPaintExtras >= 7) -- 15 since v1.85.0, pinned there
+  assertTrue(skin.SkinPaintControls >= 11) -- 14 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle >= 8) -- 10 since v1.84.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.OptionsWidgets >= 37) -- 38 since v1.83.0, pinned there
@@ -1059,7 +1059,7 @@ test("v1.83.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinDefs >= 18) -- 19 since v1.84.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.OptionsWidgets >= 38) -- 41 since v1.84.0, pinned there
-  assertEqual(options.OptionsAppearance, 5)
+  assertTrue(options.OptionsAppearance >= 5) -- 6 since v1.85.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 4) -- 5 since v1.84.0, pinned there
   assertTrue(options.OptionsMedia >= 1) -- 3 since v1.84.0, pinned there
   assertEqual(T.mocks.LibStub("LibKa0s-Skin-1.0", true).OUTLINE_DEFAULT, "hud")
@@ -1077,33 +1077,86 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
     return lib.MODULES
   end
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 11)
+  assertTrue(skin.Skin >= 11) -- 14 since v1.85.0, pinned there
   assertEqual(skin.SkinOwnerTokens, 1)
-  assertEqual(skin.SkinDefs, 19)
-  assertEqual(skin.SkinDefsOthers, 1)
-  assertEqual(skin.SkinAce, 6)
+  assertTrue(skin.SkinDefs >= 19) -- 24 since v1.85.0, pinned there
+  assertTrue(skin.SkinDefsOthers >= 1) -- 6 since v1.85.0, pinned there
+  assertTrue(skin.SkinAce >= 6) -- 9 since v1.85.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertEqual(options.Options, 37)
-  assertEqual(options.OptionsWidgets, 41)
+  assertTrue(options.OptionsWidgets >= 41) -- 44 since v1.85.0, pinned there
   assertEqual(options.OptionsFlow, 2)
-  assertEqual(options.OptionsIds, 6)
+  assertTrue(options.OptionsIds >= 6) -- 7 since v1.85.0, pinned there
   assertEqual(options.OptionsIdSuggest, 1)
-  assertEqual(options.OptionsTabs, 13)
+  assertTrue(options.OptionsTabs >= 13) -- 15 since v1.85.0, pinned there
   assertEqual(options.OptionsTabbed, 2)
-  assertEqual(options.OptionsCompose, 16)
-  assertEqual(options.OptionsScroll, 10)
-  assertEqual(options.OptionsMedia, 3)
-  assertEqual(options.OptionsDrawer, 4)
-  assertEqual(options.OptionsSkinPicker, 5)
+  assertTrue(options.OptionsCompose >= 16) -- 17 since v1.85.0, pinned there
+  assertTrue(options.OptionsScroll >= 10) -- 13 since v1.85.0, pinned there
+  assertTrue(options.OptionsMedia >= 3) -- 4 since v1.85.0, pinned there
+  assertTrue(options.OptionsDrawer >= 4) -- 5 since v1.85.0, pinned there
+  assertTrue(options.OptionsSkinPicker >= 5) -- 7 since v1.85.0, pinned there
   assertEqual(options.OptionsSkinPickerRows, 1)
   assertEqual(modules("LibKa0s-Schema-1.0").Schema, 3)
   assertEqual(modules("LibKa0s-Slash-1.0").Slash, 21)
-  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle, 10)
+  assertTrue(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle >= 10) -- 12 since v1.85.0, pinned there
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 6)
-  assertEqual(modules("LibKa0s-Sim-1.0").SimPanel, 9)
-  assertEqual(modules("LibKa0s-Sim-1.0").SimPanelRender, 1)
+  assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 9) -- 10 since v1.85.0, pinned there
+  assertTrue(modules("LibKa0s-Sim-1.0").SimPanelRender >= 1) -- 2 since v1.85.0, pinned there
   local charts = modules("LibKa0s-Charts-1.0")
   assertEqual(charts.Charts, 1)
   assertEqual(charts.ChartsRender, 1)
-  assertEqual(T.KIT_VERSION, 47)
+  assertTrue(T.KIT_VERSION >= 47) -- 49 since v1.85.0, pinned there
+end)
+-- v1.85.0 (Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING/): the full skinning library release.
+-- The tag is local until the owner's go-ahead. This addon takes its look from the copy (the tooltip
+-- lines, the scroll step buttons, the 30 high title bands) and its host half in FS-LH-FIX.
+test("v1.85.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.85.0")
+    return lib.MODULES
+  end
+  local glow = modules("LibKa0s-Glow-1.0")
+  assertEqual(glow.Glow, 2)
+  local toast = modules("LibKa0s-Toast-1.0")
+  assertEqual(toast.Toast, 2)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 14)
+  assertEqual(skin.SkinDefs, 24)
+  assertEqual(skin.SkinDefsOthers, 6)
+  assertEqual(skin.SkinPaint, 16)
+  assertEqual(skin.SkinPaintExtras, 15)
+  assertEqual(skin.SkinPaintControls, 14)
+  assertEqual(skin.SkinEUI, 3)
+  assertEqual(skin.SkinAce, 9)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 20)
+  assertEqual(widgets.WidgetsReorder, 5)
+  assertEqual(widgets.WidgetsDragHandle, 12)
+  assertEqual(widgets.WidgetsLineChart, 6)
+  assertEqual(widgets.WidgetsAutocomplete, 6)
+  assertEqual(widgets.WidgetsCopyWindow, 4)
+  local debugLog = modules("LibKa0s-DebugLog-1.0")
+  assertEqual(debugLog.DebugLogWindow, 3)
+  local launcher = modules("LibKa0s-Launcher-1.0")
+  assertEqual(launcher.Launcher, 6)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.OptionsWidgets, 44)
+  assertEqual(options.OptionsIds, 7)
+  assertEqual(options.OptionsIdList, 8)
+  assertEqual(options.OptionsTabs, 15)
+  assertEqual(options.OptionsCompose, 17)
+  assertEqual(options.OptionsScroll, 13)
+  assertEqual(options.OptionsNav, 5)
+  assertEqual(options.OptionsDrawer, 5)
+  assertEqual(options.OptionsKeybinds, 7)
+  assertEqual(options.OptionsAppearance, 6)
+  assertEqual(options.OptionsSkinPicker, 7)
+  assertEqual(options.OptionsMedia, 4)
+  local perf = modules("LibKa0s-Perf-1.0")
+  assertEqual(perf.PerfPanel, 12)
+  local sim = modules("LibKa0s-Sim-1.0")
+  assertEqual(sim.SimPanel, 10)
+  assertEqual(sim.SimPanelRender, 2)
+  assertEqual(T.KIT_VERSION, 49)
 end)

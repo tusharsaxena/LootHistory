@@ -69,7 +69,13 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Skin:__PaintAceWindow, for a widget a window holds. Ignore settings panel keeps the settings pages
 -- the client's, and its tooltip promises the windows still wear the skin, so a window's widget is
 -- painted under it; the mark lasts until the widget's release.
-local ACE_MINOR = 6
+-- Minor 7 (cause L4 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a Heading wears the
+-- title role, and Skin:__AceFontChanged takes a font set on a widget's FontString as its stock font.
+-- Minor 8 (cause L7 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a scroll bar's step
+-- buttons take SkinPaintControls minor 13's P.stepArrows, a MultiLineEditBox's bar with them.
+-- Minor 9 (cause A4 of the same bundle): PaintAceTree hands each widget to SkinPaintExtras minor 13's
+-- __AceConfirmArm, so a Ka0s profile page's delete confirmation can wear the skin.
+local ACE_MINOR = 9
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
 lib.__aceMinor      = ACE_MINOR
@@ -459,6 +465,8 @@ PAINT.MultiLineEditBox = function(owner, w, st, T)
   text(owner, part(st, "frame", frame), region(w, "label", "FontString"), T, "text.body", dis)
   local bg = frameOf(w, "scrollBG")
   if bg then flat(part(st, "scrollBG", bg), bg, T, "input.bg", "input.border") end
+  local bar = frameOf(w, "scrollBar")
+  if bar then P.stepArrows(part(st, "scrollBar", bar), owner, bar) end
   local eb = frameOf(w, "editBox")
   if eb then
     local r = part(st, "editBox", eb)
@@ -473,7 +481,7 @@ PAINT.Heading = function(owner, w, st, T)
   local frame = frameOf(w, "frame")
   if not frame then return end
   local rec = part(st, "frame", frame)
-  text(owner, rec, region(w, "label", "FontString"), T, "text.heading", false)
+  P.label(owner, rec, region(w, "label", "FontString"), T, "text.heading", "title")
   for _, key in ipairs({ "left", "right" }) do
     local t = region(w, key, "Texture")
     local line = t and T["section.rule"] and P.tex(rec, "aceRule" .. key, frame, "BACKGROUND", 1)
@@ -518,10 +526,12 @@ PAINT.InlineGroup = function(owner, w, st, T)
 end
 
 --- A scroll bar's track in `scroll.track`: its stock BACKGROUND art faded, the skin's track drawn
---- over the bar. Nothing when the skin sets no track.
-local function scrollTrack(st, sb, T)
-  if not (sb and T["scroll.track"]) then return end
+--- over the bar, nothing when the skin sets no track; and its step buttons the skin's arrows.
+local function scrollTrack(owner, st, sb, T)
+  if not sb then return end
   local rec = part(st, "scrollbar", sb)
+  P.stepArrows(rec, owner, sb)
+  if not T["scroll.track"] then return end
   if type(sb.GetRegions) == "function" then
     for _, r in ipairs({ sb:GetRegions() }) do
       local layer = P.isTexture(r) and not lib.__ours[r] and r:GetDrawLayer()
@@ -535,8 +545,8 @@ local function scrollTrack(st, sb, T)
   t:Show()
 end
 
-PAINT.ScrollFrame = function(_, w, st, T)
-  scrollTrack(st, frameOf(w, "scrollbar"), T)
+PAINT.ScrollFrame = function(owner, w, st, T)
+  scrollTrack(owner, st, frameOf(w, "scrollbar"), T)
 end
 
 -- ── the tree ─────────────────────────────────────────────────────────────────────────────────
@@ -621,7 +631,7 @@ end
 PAINT.TreeGroup = function(owner, w, st, T)
   pane(st, "treeframe", frameOf(w, "treeframe"), T)
   pane(st, "border", frameOf(w, "border"), T)
-  scrollTrack(st, frameOf(w, "scrollbar"), T)
+  scrollTrack(owner, st, frameOf(w, "scrollbar"), T)
   local buttons = rawget(w, "buttons")
   for i, btn in ipairs(type(buttons) == "table" and buttons or {}) do
     if P.isFrame(btn) then
@@ -785,6 +795,16 @@ local function hookLabelFont(w, st)
   end)
 end
 
+--- A host or the Options major set a font directly on `widget`'s `label` FontString, which no hook
+--- sees and which ran after the paint: that font is now the stock one a release puts back and the
+--- size the skin scales, so the paint runs again over it. A widget nobody owns keeps the font. Internal.
+function lib:__AceFontChanged(widget)
+  local st = lib.__ace[widget]
+  if not (st and st.owner) then return end
+  forgetFont(widget)
+  repaint(widget, st)
+end
+
 local function installHooks(w, st)
   local t = paintType(rawget(w, "type"))
   if t == "Label" or t == "InteractiveLabel" then hookLabelFont(w, st) end
@@ -861,9 +881,14 @@ function lib:AliasAceType(hostType, baseType)
 end
 
 --- PaintAce over `container` and every widget under it (its `children`, depth first). Answers how
---- many widgets it painted.
+--- many widgets it painted. A delete row of AceDBOptions under it is marked for `owner` (minor 9),
+--- with or without the panel ignored, since the confirmation reads the switch when it opens.
 function lib:PaintAceTree(owner, container)
   if type(container) ~= "table" then return 0 end
+  if type(lib.__AceConfirmArm) == "function" and self:IsOwner(owner) then
+    local ok, err = pcall(lib.__AceConfirmArm, owner, container)
+    if not ok then logOnce(err) end
+  end
   local n = self:PaintAce(owner, container) and 1 or 0
   local kids = rawget(container, "children")
   for _, child in ipairs(type(kids) == "table" and kids or {}) do n = n + self:PaintAceTree(owner, child) end

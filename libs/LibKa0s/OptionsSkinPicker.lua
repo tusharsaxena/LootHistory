@@ -143,7 +143,11 @@ if not lib then return end
 -- way to the OnUpdate in THE ROWS when re-vendoring turned seven addons' stand-down suites red.
 -- Minor 5: the rows' section moved out, unchanged, to OptionsSkinPickerRows.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
-local PICKER_MINOR = 5
+-- Minor 6 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the tooltip's line takes the owner's `gtip.title`, read at
+-- hover, so a preview reaches it. A window, so Ignore settings panel leaves it skinned.
+-- Minor 7 (cause L6 of the same bundle): the reset buttons and the dropdown's arrow are the Ka0s
+-- `reset` and `chevron-down` icons, with the client art only where Media is absent.
+local PICKER_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -198,9 +202,8 @@ local ARROW = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 local HEIGHT_SHARE = 0.75
 -- The rows' template, which draws a name whenever its skin's face does not.
 local ROW_FONT = "GameFontHighlight"
--- The reset icons' art: the client's own refresh arrow, grayed to sit with the Media icons. Not the
--- Media icon "reset": a consumer's vendored icons are pruned to its `LibKa0s icons:` line, eleven of
--- them lack that file, and a texture that fails to load draws nothing and raises nothing.
+-- Where Media is absent, the client's own arrows, grayed to sit with the rest. The Media icons `reset`
+-- and `chevron-down` are library-drawn (docs/releasing.md), so every host's line declares them.
 local RESET_ART = "Interface\\Buttons\\UI-RefreshButton"
 local WAKE_EVERY = 0.25   -- seconds between reads of the lock while rows are drawn locked
 
@@ -422,14 +425,20 @@ local function setFace(fs, path, size)
   return set and true or fs:GetFont() == path
 end
 
---- Show `text` in the game tooltip while the pointer is over `btn`. Set before the skin's paint,
---- which hooks after the host's scripts.
-local function attachTip(btn, text)
+--- Show `text` in the game tooltip while the pointer is over `btn`, in `P`'s owner's `gtip.title`
+--- (the client's color for a skin without it). Set before the skin's paint, which hooks after the
+--- host's scripts.
+local function attachTip(btn, text, P)
   btn.__tip = text
   btn:SetScript("OnEnter", function(self)
     if not (GameTooltip and GameTooltip.SetOwner) then return end
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(self.__tip or "")
+    local c = P.Sk and P.Sk.Token("gtip.title")
+    if type(c) == "table" and c[1] and c[2] and c[3] then
+      GameTooltip:SetText(self.__tip or "", c[1], c[2], c[3])
+    else
+      GameTooltip:SetText(self.__tip or "")
+    end
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function()
@@ -872,18 +881,19 @@ function lib.__AttachSkinPicker(O, d)
 
   local resetMedia   -- the rows' section, below
 
-  --- One icon button: the Media icon `icon` for the owner, else the text glyph; or, with `art`, that
-  --- client file grayed.
+  --- One icon button: the Media icon `icon` for the owner; else `art`, a client file, grayed; else
+  --- the text glyph.
   local function iconButton(f, icon, glyph, tip, onClick, art)
     local btn = CreateFrame("Button", nil, f)
     btn:SetSize(ICON, ICON)
-    local path = art or iconPath(P.owner, icon)
+    local media = iconPath(P.owner, icon)
+    local path = media or art
     if path then
       local t = btn:CreateTexture(nil, "ARTWORK")
       t:SetPoint("CENTER")
       t:SetSize(ICON - 8, ICON - 8)
       t:SetTexture(path)
-      if art and type(t.SetDesaturated) == "function" then t:SetDesaturated(true) end
+      if not media and type(t.SetDesaturated) == "function" then t:SetDesaturated(true) end
       btn.icon = t
     else
       local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -891,7 +901,7 @@ function lib.__AttachSkinPicker(O, d)
       fs:SetText(glyph)
       btn.text = fs
     end
-    attachTip(btn, tip)
+    attachTip(btn, tip, P)
     btn:SetScript("OnClick", function(...)
       dropFocus(P)
       onClick(...)
@@ -908,7 +918,7 @@ function lib.__AttachSkinPicker(O, d)
     fs:SetPoint("CENTER")
     fs:SetText(text)
     btn.text = fs
-    attachTip(btn, tip)
+    attachTip(btn, tip, P)
     btn:SetScript("OnClick", function(...)
       dropFocus(P)
       onClick(...)
@@ -968,10 +978,11 @@ function lib.__AttachSkinPicker(O, d)
     local arrow = dd:CreateTexture(nil, "ARTWORK")
     arrow:SetSize(12, 12)
     arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
-    arrow:SetTexture(ARROW)
-    arrow:SetRotation(-math.pi / 2)
+    local chevron = iconPath(P.owner, "chevron-down")
+    arrow:SetTexture(chevron or ARROW)
+    if not chevron then arrow:SetRotation(-math.pi / 2) end
     dd.arrow = arrow
-    attachTip(dd, P.S.CHOOSE_TIP)
+    attachTip(dd, P.S.CHOOSE_TIP, P)
     dd:SetScript("OnClick", function() setOpen(not P.open) end)
     f.dd = dd
     P.Sk.Dropdown(dd)
@@ -999,7 +1010,7 @@ function lib.__AttachSkinPicker(O, d)
     f.reset = {}
     for _, row in ipairs(MEDIA_ROWS) do
       local which = row.which
-      local btn = iconButton(f, nil, nil, "", function() resetMedia(which) end, RESET_ART)
+      local btn = iconButton(f, "reset", nil, "", function() resetMedia(which) end, RESET_ART)
       btn:Hide()
       f.reset[which] = btn
     end

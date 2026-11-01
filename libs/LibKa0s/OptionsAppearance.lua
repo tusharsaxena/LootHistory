@@ -86,7 +86,9 @@ if not lib then return end
 -- review: every write here runs through lib.__pickerSettle first and lib.__pickerRebase after, so a
 -- write made while the owner's skin picker is up stores nothing that picker only previewed. Each write
 -- reads the applied state, the picker previews by moving it, and the tab's copy reads it too.
-local APPEARANCE_MINOR = 5
+-- Minor 6 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the EllesmereUI gate's
+-- marks are the Ka0s `confirm` and `close` icons in `sem.good` and `sem.bad` while the chrome is skinned.
+local APPEARANCE_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -219,14 +221,22 @@ local function skinLabel(S, def)
   return table.concat(parts) .. "  " .. (S["SKIN_" .. def.key] or def.label)
 end
 
+--- The gate's mark: client art, or the Ka0s icon in its meaning color while the chrome is skinned.
+local function gateMark(O, ok)
+  local Sk = O.__chromeAway and O.__chromeAway()
+  local art = Sk and Sk.MarkText and O.__chromeMark(ok and "confirm" or "close")
+  if not art then return ok and MARK_OK or MARK_FAIL end
+  return Sk.MarkText(art, 14, ok and "sem.good" or "sem.bad")
+end
+
 --- One EllesmereUI condition's line: the mark, the label, and for a failing one its fix.
-local function conditionText(S, c, label)
+local function conditionText(O, S, c, label)
   local text = S["COND_" .. tostring(c.key)]
   text = text and text:format(label) or c.label
-  if c.ok then return MARK_OK .. " " .. text end
+  if c.ok then return gateMark(O, true) .. " " .. text end
   local hint = S["COND_" .. tostring(c.key) .. "_HINT"]
   hint = hint and hint:format(label) or c.hint
-  return MARK_FAIL .. " " .. text .. ". " .. tostring(hint)
+  return gateMark(O, false) .. " " .. text .. ". " .. tostring(hint)
 end
 
 --- LibSharedMedia-3.0's keys of `kind`, sorted, or an empty list without it. Asked at call time.
@@ -747,7 +757,7 @@ function lib.__AttachAppearance(O, d)
     end
     textLine(view, status.ok and S.EUI_READY or S.EUI_NOT_READY, true)
     for _, c in ipairs(status.conditions or {}) do
-      view.conditions[#view.conditions + 1] = textLine(view, conditionText(S, c, view.label), not c.ok)
+      view.conditions[#view.conditions + 1] = textLine(view, conditionText(O, S, c, view.label), not c.ok)
     end
   end
 

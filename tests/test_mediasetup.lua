@@ -46,6 +46,9 @@ local DRAWN = {
   -- and the first-run skin picker's eye and gear (LibKa0s OptionsSkinPicker 1, LibKa0s#64), which
   -- reads each through the owner's Media.Icon
   "eye", "settings",
+  -- owed by the library's own marks at v1.85.0 (docs/releasing.md, Step 8): the scroll step buttons'
+  -- chevron-up, and the skin's move, reset and volume-high beside skinned controls
+  "chevron-up", "move", "reset", "volume-high",
 }
 
 -- ---------------------------------------------------------------------------

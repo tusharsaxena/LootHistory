@@ -57,7 +57,10 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 
 -- Minor 2 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): a call whose options
 -- carry a non-empty `tokens` remap takes the library's technique rather than EllesmereUI's.
-local EUI_MINOR = 2
+-- Minor 3 (FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the tokens every other skin
+-- derives from a driven token follow it here too: `hud.label`, `bar.fill`, `text.command`,
+-- `gtip.emphasis` and `menu.suggestBg`.
+local EUI_MINOR = 3
 if lib.__euiMinor and lib.__euiMinor >= EUI_MINOR
   and lib.__euiShellMinor == lib.MINOR then return end
 lib.__euiMinor      = EUI_MINOR
@@ -102,8 +105,9 @@ local ALLOWED = {
 -- The tokens EllesmereUI's getters drive while it paints an owner; every other token is Ka0s
 -- Default's (EllesmereUI's look is dark and flat).
 local ACCENT_TOKENS = { "text.accent", "tab.onLine", "nav.selBar", "check.mark", "slider.fill",
-                        "input.focus", "list.selOutline" }
-local PANEL_TOKENS = { "win.bg", "panel.bg", "menu.bg", "popup.bg", "drawer.bg", "card.bg" }
+                        "input.focus", "list.selOutline", "hud.label", "bar.fill", "text.command",
+                        "gtip.emphasis" }
+local PANEL_TOKENS = { "win.bg", "panel.bg", "menu.bg", "popup.bg", "drawer.bg", "card.bg", "menu.suggestBg" }
 local FLAT_TOKENS = { "win.bgTop", "win.bgBottom", "win.bgTexture", "title.bgTop", "title.bgBottom" }
 local FONT_TOKENS = { "font.body", "font.title" }
 

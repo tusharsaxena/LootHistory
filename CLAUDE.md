@@ -55,8 +55,8 @@ runner, testing-§15) before every commit; in-game checks are in
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.84.0 (MIT).
-LibKa0s icons: ban, chat, chevron-down, chevron-right, circle-check, clear, close, confirm, copy, eye, graph, info, lock, segment, settings, sort-down, sort-up, spreadsheet.
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.85.0 (MIT).
+LibKa0s icons: ban, chat, chevron-down, chevron-right, chevron-up, circle-check, clear, close, confirm, copy, eye, graph, info, lock, move, reset, segment, settings, sort-down, sort-up, spreadsheet, volume-high.
 
 That is the Ka0s-owned shared library behind the chat printer, the debug console, the
 slash-command interface, the settings panel and the filter-bar dropdowns, vendored whole-folder

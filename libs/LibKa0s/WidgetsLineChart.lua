@@ -36,7 +36,7 @@
 --
 -- An owned chart draws its tick labels in the skin's body face (the shell's THE SCOPE SWITCHES;
 -- Oxanium under Ka0s Default, D-13), so "Ignore fonts" gives them the template back, live. A host's
--- `opts.font` is the host's and is never touched. `opts.panel = true` puts the chart on its owner's
+-- `opts.font` is that template (minor 6). `opts.panel = true` puts the chart on its owner's
 -- settings page: while that owner ignores its settings panel the chart reads `lib.LINE_CHART` and the
 -- template face, live both ways. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
 --
@@ -48,7 +48,9 @@ if not lib then return end
 
 -- Minor 4: the skin owner (the header's THE SKIN OWNER).
 -- Minor 5: the tick labels' face and `opts.panel` (the header's THE SCOPE SWITCHES).
-local CHART_MINOR = 5
+-- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a host's `opts.font` is the
+-- labels' template, with an owned chart's skin face over it.
+local CHART_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -59,6 +61,8 @@ lib.__chartShellMinor = lib.MINOR
 
 lib.MODULES = lib.MODULES or {}
 lib.MODULES.WidgetsLineChart = CHART_MINOR
+
+local LABEL_FONT = "GameFontDisableSmall"
 
 local floor, ceil, max, min, abs, sqrt = math.floor, math.ceil, math.max, math.min, math.abs, math.sqrt
 local log10 = math.log10
@@ -339,16 +343,16 @@ local function acquireLabel(c)
   local fs = c.__labelPool[c.__labelUsed]
   if not fs then
     -- Created WITH a template: a FontString with no face raises on its first SetText in the client.
-    fs = c:CreateFontString(nil, "OVERLAY", c.__opts.font or "GameFontDisableSmall")
+    fs = c:CreateFontString(nil, "OVERLAY", c.__opts.font or LABEL_FONT)
     c.__labelPool[c.__labelUsed] = fs
   end
   local label = c.__pal and c.__pal.LABEL
   if label then fs:SetTextColor(label[1], label[2], label[3]) end
   -- Minor 5: an owned chart's label in the skin's body face, or the template back; a host's face
-  -- stays the host's.
+  -- is the template (minor 6).
   local skinFont = lib.__skinFont
-  if not c.__opts.font and type(skinFont) == "function" then
-    skinFont(fs, c.__opts.owner, c.__pal and c.__skin or nil, "GameFontDisableSmall")
+  if type(skinFont) == "function" then
+    skinFont(fs, c.__opts.owner, c.__pal and c.__skin or nil, c.__opts.font or LABEL_FONT)
   end
   fs:ClearAllPoints()
   fs:Show()
@@ -566,8 +570,8 @@ local function chartRepaint(c, owner)
   local pal, Skin = chartPalette(owner, c.__opts.panel == true)
   if Skin then c.__pal = pal end
   local skinFont = lib.__skinFont
-  if not pal and not c.__opts.font and type(skinFont) == "function" then
-    for _, fs in ipairs(c.__labelPool) do skinFont(fs, owner, nil, "GameFontDisableSmall") end
+  if not pal and type(skinFont) == "function" then
+    for _, fs in ipairs(c.__labelPool) do skinFont(fs, owner, nil, c.__opts.font or LABEL_FONT) end
   end
   local x = colors(c).CROSSHAIR
   c.__cross:SetColorTexture(x[1], x[2], x[3], x[4])

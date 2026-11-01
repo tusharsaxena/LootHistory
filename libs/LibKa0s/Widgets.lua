@@ -82,8 +82,9 @@
 -- template's gold under Ka0s Default), and, in the secondary files, the autocomplete's rows, the
 -- chart's tick labels and the drag handle's label. Under Ka0s Default that face is Oxanium where the
 -- template drew Friz Quadrata (decision D-13). The paint is recorded, so the owner's "Ignore fonts"
--- gives each string its template back, live. A face a host named (`opts.font`, `spec.labelFont`,
--- `opts.glyphFont`) is the host's and is never touched.
+-- gives each string its template back, live. A face a host named (`opts.font`, `spec.labelFont`) is
+-- that template from minor 19: the skin's face goes over it, and an owner-less control keeps it.
+-- `opts.glyphFont` is the menu's glyph column, whose owned face is `font.mono` (minor 19).
 --
 -- `opts.panel = true` on any owned constructor (Dropdown, SearchBox, TestStrip, Autocomplete,
 -- LineChart, DragHandle) says the control sits on its owner's SETTINGS PAGE: while that owner ignores
@@ -103,7 +104,15 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 16: the skin owner (the header's SKIN OWNERS).
 -- Minor 17: the scope switches (the header's THE SCOPE SWITCHES): every string an owned control draws
 -- in its skin's body face, and `opts.panel`.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 17
+-- Minor 18 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): lib.__ownedMark. An owned
+-- control a host gave no art draws the Ka0s icon, not the client rung, and the strip's icon wears
+-- `icon.tint`.
+-- Minor 19 (cause L8 of the same bundle): an owned menu's glyph column reads the skin's `font.mono`; a
+-- host's `glyphFont` is what turns the column on, and what an owner-less menu and Ignore fonts draw.
+-- A face a host names on an owned control (`opts.font`, `spec.labelFont`) is now its template.
+-- Minor 20 (FS-FIX of the same bundle): an owned dropdown's tick and arrow follow a skin switch and
+-- the Scope, live, where they were baked in the constructor.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 20
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -154,6 +163,18 @@ local function panelOff(Skin, owner, panel)
     and Skin:GetIgnore(owner) == true
 end
 lib.__panelOff = panelOff
+
+--- The path of Media icon `name` in `owner`'s copy for an owned control a host gave no art (minor
+--- 18), or nil: no owner, no Media, or a panel-scoped control on an ignored panel, each of which
+--- draws its client rung. `name` is one of docs/releasing.md's library-drawn icons, so the host
+--- declares it. Read at call time.
+local function ownedMark(owner, name, panel)
+  local Skin = skinOf(owner)
+  if not Skin or panelOff(Skin, owner, panel) then return nil end
+  local media = LibStub("LibKa0s-Media-1.0", true)
+  return media and type(media.Icon) == "function" and media.Icon(owner, name) or nil
+end
+lib.__ownedMark = ownedMark
 
 -- Strings __skinFont put a skin face on, so an owner-less paint knows which to give back.
 lib.__fonted = lib.__fonted or setmetatable({}, { __mode = "k" })
@@ -295,10 +316,20 @@ local function rowSelected(dd, opt)
   return (opt.value == dd._value)
 end
 
+--- The glyph column's face (minor 19): the opener's `font.mono`, else the host's. Nil when the host
+--- named none: that is what asks for a column at all, in every skin.
+local function menuGlyphFace(menu, dd)
+  local host, Skin, owner = dd.__glyphFont, menu.__fontSkin, menu.__fontOwner
+  if not (host and Skin) then return host end
+  local _, noFonts = Skin:GetIgnore(owner)
+  if noFonts then return host end
+  return Skin:For(owner).GetFont("mono") or host
+end
+
 -- Repaint one row from its option. EVERY field is written on every pass, including the blank ones:
 -- the rows are pooled across dropdowns, so a field left alone leaks the previous menu's glyph or
 -- color onto this one.
-local function paintMenuRow(b, dd, opt, selected, pal)
+local function paintMenuRow(b, dd, opt, selected, pal, glyphFace)
   local check = (dd.multi and selected) and dd.__check or ""
   b.fs:SetText(check .. opt.label)
   -- A glyphed row indents its text to clear the glyph; every other row starts at the margin.
@@ -315,11 +346,11 @@ local function paintMenuRow(b, dd, opt, selected, pal)
   -- family of comments is about. The column is DROPPED, not crashed into — the SetText a line
   -- below runs on every row whether or not this branch did, which is why makeMenuRow builds the
   -- glyph from a font template.
-  if dd.__glyphFont and opt.glyph then
-    b.glyph:SetFont(dd.__glyphFont, 11, "")
+  if glyphFace and opt.glyph then
+    b.glyph:SetFont(glyphFace, 11, "")
   end
   b.glyph:SetText(opt.glyph or "")
-  b.glyph:SetShown(opt.glyph ~= nil and dd.__glyphFont ~= nil)
+  b.glyph:SetShown(opt.glyph ~= nil and glyphFace ~= nil)
   -- The selected row goes gold to mark the selection; otherwise the value keeps its own color
   -- (store / direction / class), so the menu reads like the column it filters. The glyph always
   -- keeps the direction's color — it IS the value, not a selection state.
@@ -439,6 +470,7 @@ local function EnsureMenu()
     for _, b in ipairs(self.buttons) do b:Hide() end
     local opts = dd._options or {}
     local w = menuWidth(self, dd, opts)
+    local glyphFace = menuGlyphFace(self, dd)
     for i, opt in ipairs(opts) do
       local b = self.buttons[i]
       if not b then
@@ -450,7 +482,7 @@ local function EnsureMenu()
       b:SetWidth(w)
       b:ClearAllPoints()
       b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
-      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL)
+      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL, glyphFace)
       b:SetScript("OnClick", rowOnClick(self, dd, opt))
       b:Show()
     end
@@ -496,6 +528,27 @@ local function summarizeSelection(labels, allLabel)
   return (allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected"
 end
 
+--- The tick markup a multi-select row leads with (see MakeDropdown): the host's art, an owned
+--- dropdown's Ka0s `confirm` in `icon.hot` (minor 18), else the client rung.
+local function dropdownCheck(opts)
+  local art = not opts.check and ownedMark(opts.owner, "confirm", opts.panel)
+  if art then return skinOf(opts.owner):For(opts.owner).MarkText(art, 0, "icon.hot") .. " " end
+  return "|T" .. (opts.check or CHECK_FALLBACK) .. ":0|t "
+end
+
+--- The arrow's art: the host's, an owned dropdown's Ka0s `chevron-down` (minor 18), else the client
+--- rung.
+local function dropdownArrow(opts)
+  return opts.chevron or ownedMark(opts.owner, "chevron-down", opts.panel) or CHEVRON_FALLBACK
+end
+
+--- An owned dropdown's marks again after its skin changed (minor 20): the tick holds its tint as
+--- text, and the Scope swaps both marks for the client's. The menu reads `__check` on every open.
+local function redressDropdown(dd)
+  dd.__check = dropdownCheck(dd.__markOpts)
+  dd.arrow:SetTexture(dropdownArrow(dd.__markOpts))
+end
+
 -- A dropdown button: shows the current label plus a ▼ texture; clicking opens the shared menu.
 local function MakeDropdown(parent, width, opts)
   opts = opts or {}
@@ -507,8 +560,9 @@ local function MakeDropdown(parent, width, opts)
   dd:SetBackdropBorderColor(unpack(SKIN.line))
 
   -- The tick a multi-select dropdown puts in front of every chosen row. INLINE |T…|t markup,
-  -- resolved ONCE per dropdown so a degraded install appends the Blizzard string it always did
-  -- rather than concatenating a nil into an escape.
+  -- resolved per dropdown so a degraded install appends the Blizzard string it always did rather
+  -- than concatenating a nil into an escape. An owned one is resolved again on a skin change
+  -- (redressDropdown, minor 20).
   --
   -- PER-DROPDOWN, not a file-local, and that is the difference from the version this was lifted
   -- out of: one popup menu is shared by every dropdown in the process, and that process now spans
@@ -519,7 +573,7 @@ local function MakeDropdown(parent, width, opts)
   -- Blizzard's beveled tick on the rows below it would be the one place where two eras of art meet
   -- inside a single widget. The trailing space is the gap to the label; the path stays as the host
   -- resolved it, EXTENSIONLESS or not.
-  dd.__check = "|T" .. (opts.check or CHECK_FALLBACK) .. ":0|t "
+  dd.__check = dropdownCheck(opts)
   -- The mono face the optional row glyph is drawn in, read by paintMenuRow on every pass. Absent
   -- means the host wants no glyph column at all.
   dd.__glyphFont = opts.glyphFont
@@ -538,7 +592,7 @@ local function MakeDropdown(parent, width, opts)
   local arrow = dd:CreateTexture(nil, "OVERLAY")
   arrow:SetSize(12, 12)
   arrow:SetPoint("RIGHT", -4, 0)
-  arrow:SetTexture(opts.chevron or CHEVRON_FALLBACK)
+  arrow:SetTexture(dropdownArrow(opts))
   arrow:SetVertexColor(0.7, 0.7, 0.72)
   dd.arrow = arrow   -- kept for the out-of-game art suite; nothing at runtime reads it back
 
@@ -605,7 +659,11 @@ local function MakeDropdown(parent, width, opts)
   dd.__owner = opts.owner
   dd.__panel = opts.panel == true
   local Skin = skinOf(opts.owner)
-  if Skin then Skin:For(opts.owner).Dropdown(dd, dd.__panel and PANEL or nil) end
+  if Skin then
+    Skin:For(opts.owner).Dropdown(dd, dd.__panel and PANEL or nil)
+    dd.__markOpts = opts
+    lib.__onSkin(Skin, opts.owner, dd, redressDropdown)
+  end
   return dd
 end
 
@@ -767,6 +825,12 @@ local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
 --- table moves nothing: the constructor reads the file-local.
 lib.TEST_STRIP = { HEIGHT = STRIP_H }
 
+--- A tinted strip mark: an owned strip's icon in `icon.tint`, given back while a panel-scoped one is
+--- ignored (minor 18).
+local function stripMark(s, Skin, owner, panel)
+  if s.__icon then Skin:For(owner).Mark(s.__icon, { panel = panel and true or nil }) end
+end
+
 -- The strip's icon (host-passed art, optional) and its line, laid out left to right; split out of
 -- TestStrip so the constructor stays under CCN 15 (the v1.81.0 release run measured it at 16).
 local function stripLine(s, opts)
@@ -838,6 +902,7 @@ function lib.TestStrip(parent, opts)
   -- is put back to its own wash while ignored (the primitive cannot read a texture's color back).
   if Skin then
     Skin:For(opts.owner).Text(text, "accent", panel and PANEL or nil)
+    stripMark(s, Skin, opts.owner, panel)
     if panel then
       lib.__onSkin(Skin, opts.owner, fill, function(f, owner)
         if panelOff(skinOf(owner), owner, true) then f:SetColorTexture(unpack(STRIP_FILL[kind])) end

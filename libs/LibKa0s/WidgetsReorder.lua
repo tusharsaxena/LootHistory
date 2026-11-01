@@ -16,7 +16,7 @@
 -- `opts.owner`, a registered skin owner (the shell's SKIN OWNERS), takes what a drag looks like from
 -- that owner's skin: the row boxes (`list.box`, `list.boxDim`, `list.boxEdge`, `list.boxEdgeDim`),
 -- the handle at rest and under the pointer (`handle.rest`, `text.accent`), the insertion line
--- (`list.dropLine`) and the carried copy (`list.ghostBg`, its text `text.accent`). A host's own
+-- (`list.dropLine`) and the carried copy (`list.ghostBg`, its text `text.accent`, its mark `list.ghostIcon`). A host's own
 -- `handleColor`, `handleHoverColor`, `lineColor` and per-row ghost colors still win. A controller
 -- lives for one render, so the next render after a skin switch draws the new skin. The ghost is
 -- one frame for every list in the process: it is repainted on every drag, to the dragging list's
@@ -30,8 +30,8 @@
 -- (`Skin:GetIgnore(owner)`'s panel half) every color is minor 1's, the ghost included. `opts.panel =
 -- false` opts out, for a list on a window, which wears the skin whatever that switch says. The
 -- switch is live the way a skin switch is: the settings page re-renders on it, and the next
--- controller reads the new answer. The ghost's text has no skin face, so Ignore fonts has nothing
--- to give back here. LK-05 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
+-- controller reads the new answer. The ghost's text wears the skin's body face from minor 5, so
+-- Ignore fonts reaches it on the next drag. LK-05 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
 --
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. A payload without this
 -- file loads whole and simply has no `lib.ReorderList` and no `lib.ROW_BOX`.
@@ -42,7 +42,11 @@ if not lib then return end
 -- Minor 2: the skin owner (the header's THE SKIN OWNER).
 -- Minor 3: the settings-panel scope (the header's THE SETTINGS-PANEL SCOPE), with `opts.panel`, and
 -- the handle's tooltip line in the palette's `gtip.value` (white while unskinned; LK-06d).
-local REORDER_MINOR = 3
+-- Minor 4 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a skinned list with no
+-- `handleIcon` draws the Ka0s `move` icon, not the client's sort arrow.
+-- Minor 5 (cause L8 of the same bundle): the carried copy's text in the skin's body face and its mark
+-- in `list.ghostIcon`, unless the row names a color.
+local REORDER_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a list that
 -- attached to an older shell would publish `lib.ReorderList` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -56,10 +60,12 @@ lib.MODULES.WidgetsReorder = REORDER_MINOR
 
 -- The rung below the handle's injected art: what a host with no LibKa0s-Media draws.
 local HANDLE_FALLBACK = "Interface\\Buttons\\UI-SortArrow"
+local GHOST_FONT = "GameFontNormal"
 
 -- The ghost's fill and text, and the handle's two tints, for a list with no skin owner.
 local GHOST_BG   = { 0.12, 0.12, 0.12, 0.95 }
 local GHOST_TEXT = { 1, 0.82, 0 }
+local GHOST_ICON = { 1, 1, 1 }
 local HANDLE_REST, HANDLE_HOVER = { 0.7, 0.7, 0.7 }, { 1, 0.82, 0 }
 local LINE_COLOR = { 1, 0.82, 0, 0.9 }
 -- The handle's tooltip line (minor 3): the white it always drew; a skinned list's is `gtip.value`.
@@ -83,6 +89,7 @@ local function skinPalette(owner, panel)
     rest = tok("handle.rest", HANDLE_REST), hover = tok("text.accent", HANDLE_HOVER),
     line = tok("list.dropLine", LINE_COLOR), ghostBg = tok("list.ghostBg", GHOST_BG),
     ghostText = tok("text.accent", GHOST_TEXT), tip = tok("gtip.value", TIP_TEXT),
+    ghostIcon = tok("list.ghostIcon", GHOST_ICON), Skin = Skin, owner = owner,
   }
 end
 
@@ -174,7 +181,7 @@ local function ensureGhost()
   ghost.icon:SetSize(18, 18)
   ghost.icon:SetPoint("LEFT", ghost, "LEFT", 8, 0)
 
-  ghost.text = ghost:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  ghost.text = ghost:CreateFontString(nil, "OVERLAY", GHOST_FONT)
   ghost.text:SetPoint("LEFT", ghost.icon, "RIGHT", 6, 0)
   ghost.text:SetPoint("RIGHT", ghost, "RIGHT", -8, 0)
   ghost.text:SetJustifyH("RIGHT")
@@ -463,6 +470,10 @@ local function skinGhost(g, pal)
   local bg = pal and pal.ghostBg or GHOST_BG
   g.bg:SetColorTexture(bg[1], bg[2], bg[3], bg[4])
   g.__skinned = pal ~= nil or nil
+  local skinFont = lib.__skinFont   -- minor 5; a shell's own `__skinFont` gives the template back
+  if type(skinFont) == "function" then
+    skinFont(g.text, pal and pal.owner, pal and pal.Skin or nil, GHOST_FONT)
+  end
 end
 
 --- Dress the carried copy as the row it came from and put it under the cursor.
@@ -480,8 +491,8 @@ local function raiseGhost(row, list)
 
   skinGhost(g, list.skin)
 
-  g.icon:SetTexture(row.ghostIcon or list.handleIcon or HANDLE_FALLBACK)
-  local ic = row.ghostIconColor or { 1, 1, 1 }
+  g.icon:SetTexture(row.ghostIcon or list.handleIcon or list.handleMark or HANDLE_FALLBACK)
+  local ic = row.ghostIconColor or (list.skin and list.skin.ghostIcon) or GHOST_ICON
   g.icon:SetVertexColor(ic[1], ic[2], ic[3])
 
   g.text:SetText(row.ghostText or "")
@@ -517,6 +528,12 @@ local function beginDrag(row)
   list.say("grab %d at y=%.1f", row.index, row.startY)
 end
 
+--- A skinned list's Ka0s handle (minor 4); nil for the rest, which draw their client rung.
+local function handleMark(opts, pal)
+  if pal then return lib.__ownedMark(opts.owner, "move") end
+  return nil
+end
+
 -- The list's colors, resolved once per render: an explicit option, else the owner's palette, else
 -- the constants. The line, the handle's two tints and the ghost's text are minor 2's; the tooltip's is
 -- minor 3's. Split out of ReorderList so the constructor stays under CCN 15 (the v1.81.0 release run
@@ -524,6 +541,7 @@ end
 local function listColors(list, opts, pal)
   list.color       = opts.lineColor or (pal and pal.line) or LINE_COLOR
   list.handleRest  = opts.handleColor or (pal and pal.rest) or HANDLE_REST
+  list.handleMark  = handleMark(opts, pal)
   list.handleHover = opts.handleHoverColor or (pal and pal.hover) or HANDLE_HOVER
   list.ghostText   = (pal and pal.ghostText) or GHOST_TEXT
   list.tipText     = (pal and pal.tip) or TIP_TEXT
@@ -744,7 +762,7 @@ function lib.ReorderList(opts)
 
     local size = opts.iconSize or 16
     handle.art:SetSize(size, size)
-    handle.art:SetTexture(opts.handleIcon or HANDLE_FALLBACK)
+    handle.art:SetTexture(opts.handleIcon or list.handleMark or HANDLE_FALLBACK)
     handle.art:SetVertexColor(handle.__restColor[1], handle.__restColor[2], handle.__restColor[3])
     handle:Show()
 

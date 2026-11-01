@@ -352,6 +352,25 @@ function VendorSync.requiredIcons(decl, cat, paths)
     return want, unknown
 end
 
+--- The icons LibKa0s itself draws on a host's behalf (kit revision 48, docs/releasing.md's
+--- *Library-drawn icons*): every listed host declares them. A pruned icon raises nothing and draws
+--- blank, so this list is the one thing that makes the omission loud.
+VendorSync.LIBRARY_MARKS = { "chevron-down", "chevron-up", "close", "confirm", "info", "move", "reset", "volume-high" }
+
+--- The library-drawn names a list declaration leaves out, sorted. `none` ships no icons and `all`
+--- ships every one, so neither has any to miss. A name the catalog does not carry cannot be
+--- declared, so it is not asked for. Used by the gate; pure.
+function VendorSync.missingMarks(decl, cat)
+    local missing = {}
+    if decl.mode ~= "list" then return missing end
+    local declared = {}
+    for _, name in ipairs(decl.names or {}) do declared[name] = true end
+    for _, name in ipairs(VendorSync.LIBRARY_MARKS) do
+        if cat.names[name] and not declared[name] then missing[#missing + 1] = name end
+    end
+    return missing
+end
+
 --- Split `names` (paths relative to the payload) into those under `dir/` -- returned RELATIVE to
 --- it -- and the rest, both in their input order.
 local function splitUnder(names, dir)
@@ -558,7 +577,13 @@ function VendorSync.register(T, opts)
         local myIcons, myRest = splitUnder(mine, iconsDir)
         T.assertEqual(table.concat(myRest, ", "), table.concat(tagRest, ", "),
             ("%s holds the same files as %s at %s outside %s/"):format(localDir, label, tag, iconsDir))
-        local want, unknown = VendorSync.requiredIcons(decl, VendorSync.iconCatalog(tagIcons), tagIcons)
+        local cat = VendorSync.iconCatalog(tagIcons)
+        local want, unknown = VendorSync.requiredIcons(decl, cat, tagIcons)
+        local marks = VendorSync.missingMarks(decl, cat)
+        T.assertTrue(#marks == 0,
+            ("%s leaves out %d icon(s) LibKa0s draws for its host, which would draw blank: %s. Add "
+                .. "them to the `LibKa0s icons:` line (docs/releasing.md, Library-drawn icons)")
+                :format(FILE, #marks, cappedList(marks)))
         T.assertTrue(#unknown == 0,
             ("%s declares %d icon name(s) %s at %s does not carry in lib.ICONS: %s")
                 :format(FILE, #unknown, label, tag, cappedList(unknown)))

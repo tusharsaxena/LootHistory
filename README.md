@@ -150,5 +150,5 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
 Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
-info and drag-handle marks, the window close buttons, the skin picker's eye and gear, and the debug console's copy and clear
-buttons. Only the icons the addon draws are shipped, with their license text beside them.
+info and drag-handle marks, the window close buttons, the skin picker's eye and gear, the debug console's copy and clear
+buttons, and the small marks LibKa0s draws beside skinned controls. Only the icons the addon draws are shipped, with their license text beside them.

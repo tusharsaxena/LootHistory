@@ -47,7 +47,10 @@ if not lib then return end
 -- Core is guaranteed present here: DebugLog.lua refuses to register without it.
 local core = LibStub("LibKa0s-Core-1.0", true)
 
-local WINDOW_MINOR = 2
+local WINDOW_MINOR = 3
+-- Minor 3 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
+-- skin's `title.height` and the band S.Shell paints, not 26. The console's title stays centered: the
+-- bar's two ends hold its controls.
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -68,7 +71,9 @@ end
 
 -- ── window furniture ───────────────────────────────────────────────────────────────────────
 
-local TITLE_H  = 26      -- drag bar height
+-- Drag bar height: `title.height`, which every skin carries at one value (SkinDefs.lua's geometry
+-- note). tests/test_title_shape.lua pins the two equal; a window draws one with no Skin major too.
+local TITLE_H  = 30
 local STATUS_H = 16      -- bottom status bar height
 local BAR_W    = 8       -- scrollbar gutter width
 -- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
