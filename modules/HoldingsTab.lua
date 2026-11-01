@@ -313,7 +313,7 @@ local function rgb(c) return c[1], c[2], c[3] end
 -- baked, so the pair is REBUILT on a skin change (HT:Reskin) before the header is laid out again.
 local ARROW_ASC, ARROW_DESC
 local function buildArrows()
-  local r, g, b = headerRGB()
+  local r, g, b = NS.SkinColor("list.header.arrow")
   ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
   ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
 end

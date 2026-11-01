@@ -2440,6 +2440,9 @@ spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
 list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
+**SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color.
+
+
 ## Degraded install
 
 Rename `Interface/AddOns/LootHistory/libs/LibKa0s` to `libs/LibKa0s.off` and `/reload` for DEGRADED-1

@@ -148,7 +148,7 @@ local function assertTable(want, label)
       assertEqual(rgba(rawget(btn.tex, "__vertex")), want("list.header.text"), label .. ": the Bound lock")
     end
   end
-  local r, g, b = Skin:Color(OWNER, "list.header.text")
+  local r, g, b = Skin:Color(OWNER, "list.header.arrow")
   local arrow = NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
   local dateLabel = rawget(hdr.buttons.date.fs, "__text")
   assertTrue(dateLabel:find(arrow, 1, true) ~= nil, label .. ": the sort arrow is not in the header color: " .. dateLabel)
@@ -163,7 +163,8 @@ local function assertTable(want, label)
   end
   local bound = rows()
   local head = rawget(bound[1].header, "__text")
-  local chevron = NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, r, g, b)
+  local hr, hg, hb = Skin:Color(OWNER, "list.header.text")
+  local chevron = NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, hr, hg, hb)
   assertTrue(head:find(chevron, 1, true) == 1, label .. ": the chevron is not in the header color: " .. head)
   local count = escape({ Skin:Color(OWNER, "text.disabled") }) .. "(3)|r"
   assertTrue(head:find(count, 1, true) ~= nil, label .. ": the count is not in text.disabled: " .. head)

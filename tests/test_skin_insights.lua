@@ -521,7 +521,7 @@ local function assertHoldings(want, label)
   for key, b in pairs(HT.header.cells) do
     assertEqual(textColor(b.fs), want("list.header.text"), label .. ": header " .. key)
   end
-  local r, g, b = Skin:Color(OWNER, "list.header.text")
+  local r, g, b = Skin:Color(OWNER, "list.header.arrow")
   local arrow = NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
   assertTrue(rawget(HT.header.cells.name.fs, "__text"):find(arrow, 1, true) ~= nil, label .. ": the sort arrow")
   local all = {}
