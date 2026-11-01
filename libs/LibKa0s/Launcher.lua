@@ -117,6 +117,7 @@ lib.STRINGS = {
   MENU_SHOW_WINDOW      = "Show window",
   MENU_NEEDS_ENABLE     = "enable the addon first",
   MENU_GRAYED           = "%s (%s)",
+  MENU_SKIN             = "Open skin selector",
   MENU_FAILED           = "%s: the launcher menu's %s entry raised: %s",
 }
 
@@ -230,6 +231,9 @@ end
 ---   owner          string    optional, since minor 6. The LibKa0s-Skin-1.0 owner the tooltip
 ---                            reads. Defaults to `name`, which is what every addon registers its
 ---                            skin under, so a host passes this only where the two differ.
+---   openSkinPicker function  optional, since minor 6 (SF-F2). Opens the addon's skin picker (the
+---                            act of its `/<slash> skin` verb). With it, and while `owner` is a
+---                            registered skin owner, the menu ends with "Open skin selector".
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
 ---
 --- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
@@ -404,6 +408,20 @@ function lib:New(d)
     return out
   end
 
+  --- Whether the menu offers the skin selector (minor 6): the host passed `openSkinPicker` and its
+  --- owner is a registered skin owner, asked on every open.
+  local function skinEntry()
+    if type(d.openSkinPicker) ~= "function" then return false end
+    local Skin = LibStub and LibStub(SKIN_MAJOR, true)
+    return Skin ~= nil and type(Skin.IsOwner) == "function" and Skin:IsOwner(d.owner or name) and true or false
+  end
+
+  local function chooseSkin()
+    local ok, err = pcall(d.openSkinPicker)
+    if not ok then emit(text("MENU_FAILED"):format(name, text("MENU_SKIN"), tostring(err))) end
+    return closeMenu()
+  end
+
   --- THE OPTIONS MENU (minor 4, launcher-§2), as a Blizzard menu generator: the title, then one
   --- checkbox per supplied entry. Every state is read HERE, when the menu opens, never cached;
   --- while the addon is disabled the entries past Enabled are grayed with the note in the label.
@@ -423,6 +441,9 @@ function lib:New(d)
         box:SetEnabled(false)
       end
     end
+    if skinEntry() and type(root.CreateButton) == "function" then
+      root:CreateButton(text("MENU_SKIN"), chooseSkin)
+    end
   end
 
   --- The RIGHT click: the client's own context menu (`MenuUtil.CreateContextMenu`, 11.0+),
@@ -435,7 +456,7 @@ function lib:New(d)
       return d.openSettings("RightButton")
     end
     local entries = suppliedEntries()
-    if #entries == 0 then
+    if #entries == 0 and not skinEntry() then
       log("menu: the descriptor supplies no toggle; right-click opens settings")
       return d.openSettings("RightButton")
     end

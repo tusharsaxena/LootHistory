@@ -50,6 +50,7 @@ if not lib then return end
 -- Minor 5: the tick labels' face and `opts.panel` (the header's THE SCOPE SWITCHES).
 -- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a host's `opts.font` is the
 -- labels' template, with an owned chart's skin face over it.
+-- Minor 6, same release (SF-L8, #70): `series[i].fill`, an area fill under a line.
 local CHART_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
@@ -73,7 +74,7 @@ local DAY = 86400
 --- the host too.
 lib.LINE_CHART = {
   PAD_LEFT = 52, PAD_RIGHT = 8, PAD_TOP = 8, PAD_BOTTOM = 18,
-  PX_PER_POINT = 2, DASH = 4, GAP = 3, Y_TICKS = 5, X_TICKS = 6, LABEL_GAP = 4,
+  PX_PER_POINT = 2, FILL_ALPHA = 0.25, FILL_STEP = 2, DASH = 4, GAP = 3, Y_TICKS = 5, X_TICKS = 6, LABEL_GAP = 4,
   AXIS = { 0.45, 0.45, 0.5, 0.8 }, GRID = { 1, 1, 1, 0.07 }, CROSSHAIR = { 1, 1, 1, 0.35 },
   MARKER = { 0.8, 0.8, 0.8, 0.6 }, LINE = { 0.4, 0.6, 0.95, 1 },
 }
@@ -461,9 +462,41 @@ local function seriesColor(c, sr)
   return colors(c).LINE
 end
 
+-- ── the area fill (minor 6, #70) ──
+--
+-- `series[i].fill`: true fills under the line in the series color at `LC.FILL_ALPHA`; a number is
+-- that alpha; an RGBA table is the fill's own color. Drawn as one vertical Line per FILL_STEP pixels
+-- from the baseline (zero, held inside the plot) to the line, under the line itself.
+local function fillColor(sr, color)
+  local f = sr.fill
+  if type(f) == "table" then return f end
+  local a = type(f) == "number" and f or LC.FILL_ALPHA
+  return { color[1], color[2], color[3], a }
+end
+
+local function lineYAt(px, py, i, x)
+  local x0, x1 = px[i], px[i + 1]
+  if x1 == x0 then return py[i + 1] end
+  return py[i] + (py[i + 1] - py[i]) * (x - x0) / (x1 - x0)
+end
+
+local function drawFill(c, s, sr, pts, color)
+  if not sr.fill or #pts < 2 then return end
+  local fc, px, py = fillColor(sr, color), {}, {}
+  for i, p in ipairs(pts) do px[i], py[i] = xToPixel(s, p.x), yToPixel(s, p.y) end
+  local base = max(s.bottom, min(s.bottom + s.h, yToPixel(s, 0)))
+  local i, step = 1, LC.FILL_STEP
+  for x = max(s.left, px[1]) + step / 2, min(s.left + s.w, px[#px]), step do
+    while i < #px - 1 and px[i + 1] < x do i = i + 1 end
+    local y = max(s.bottom, min(s.bottom + s.h, lineYAt(px, py, i, x)))
+    if abs(y - base) >= 0.5 then seg(c, x, base, x, y, fc, step) end
+  end
+end
+
 local function drawSeries(c, s, sr)
   local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w, c.__opts.pxPerPoint))
   local color, th = seriesColor(c, sr), sr.thickness or 1.5
+  drawFill(c, s, sr, pts, color)
   if #pts == 1 then
     local x, y = xToPixel(s, pts[1].x), yToPixel(s, pts[1].y)
     -- The tick only for a point on the plot, for the reason drawSegment clips.

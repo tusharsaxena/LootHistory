@@ -997,7 +997,7 @@ test("v1.81.0: the vendored minors and the kit revision match the release", func
   assertTrue(options.OptionsDrawer >= 3) -- 4 since v1.84.0, pinned there
   assertTrue(options.OptionsKeybinds >= 6) -- 7 since v1.85.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 2) -- 3 since v1.82.0, pinned there
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 14)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 14) -- 15 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogWindow >= 2) -- 3 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-Perf-1.0").PerfPanel >= 11) -- 12 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 8) -- 9 since v1.84.0, pinned there
@@ -1116,6 +1116,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.85.0")
     return lib.MODULES
   end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 15)
   local glow = modules("LibKa0s-Glow-1.0")
   assertEqual(glow.Glow, 2)
   local toast = modules("LibKa0s-Toast-1.0")

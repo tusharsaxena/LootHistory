@@ -953,7 +953,7 @@ end
 --- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
 ---
 --- @param parent table     the frame to parent it to
---- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel }; text is the host's
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel, sim, onEnd, L }; text is the host's
 ---                         localized line ('' when absent), no icon puts the text at LEFT+6, any
 ---                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
 ---                         and `owner` (minor 16) is a registered skin owner whose skin the wash
@@ -963,6 +963,43 @@ end
 ---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
 ---                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
 ---                repaints nothing
+-- ── the strip's right-click menu (minor 21, SF-F1) ──
+--
+-- A right-click opens `lib.ContextMenu` with what the strip can end. `opts.sim` is a Sim instance
+-- (`LibKa0s-Sim-1.0`): the library ends it (`:Stop()`), steps it and restarts it, with nothing more
+-- from the host. `opts.onEnd` is the host's own end for a mode the library cannot see, a test mode,
+-- and it wins over the instance's Stop. A strip given neither takes no mouse, as before.
+-- `opts.L` overrides END_TEST, END_SIM, STEP and RESTART.
+local STRIP_L = { END_TEST = "End test", END_SIM = "End sim", STEP = "Step", RESTART = "Restart" }
+
+local function stripRows(s, opts, L)
+  local sim = opts.sim
+  local live = type(sim) == "table" and type(sim.IsActive) == "function" and sim:IsActive()
+  local rows = {}
+  local function add(key, fn) rows[#rows + 1] = { label = L[key] or STRIP_L[key], value = key, onClick = fn } end
+  if type(opts.onEnd) == "function" then
+    add(s.kind == "sim" and "END_SIM" or "END_TEST", opts.onEnd)
+  elseif live and type(sim.Stop) == "function" then
+    add("END_SIM", function() sim:Stop("stop") end)
+  end
+  if live and type(sim.Steps) == "function" and type(sim.Step) == "function" and #sim:Steps() > 0 then
+    add("STEP", function() sim:Step() end)
+  end
+  if live and type(sim.Restart) == "function" then add("RESTART", function() sim:Restart() end) end
+  return rows
+end
+
+local function stripMenu(s, opts)
+  if type(opts.onEnd) ~= "function" and type(opts.sim) ~= "table" then return end
+  local L = type(opts.L) == "table" and opts.L or {}
+  s:EnableMouse(true)
+  s:SetScript("OnMouseUp", function(self, button)
+    if button ~= "RightButton" then return end
+    local rows = stripRows(self, opts, L)
+    if #rows > 0 then lib.ContextMenu(self, rows, { owner = opts.owner, panel = opts.panel == true, cursor = true }) end
+  end)
+end
+
 function lib.TestStrip(parent, opts)
   opts = type(opts) == "table" and opts or {}
   local kind = opts.kind == "sim" and "sim" or "test"
@@ -994,6 +1031,7 @@ function lib.TestStrip(parent, opts)
     end
   end
 
+  stripMenu(s, opts)
   s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
   return s
 end

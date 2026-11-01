@@ -22,7 +22,7 @@
 -- Minor 14: MakeResizable's `opts.owner`, a registered skin owner whose `icon.grip` tints the grip's
 -- art, live (LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5);
 -- any other call is minor 13's.
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 14
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -723,18 +723,45 @@ local function skinGrip(grip, owner)
   if type(S.OnLooksChanged) == "function" then S.OnLooksChanged(function() paintGrip(grip, S) end) end
 end
 
+-- ── anchors kept through a drag (minor 15, #72) ──
+--
+-- StartSizing re-anchors a frame to the screen. A window anchored to UIParent wants that; a frame
+-- anchored to another frame (a cell, a parent) must not lose it, so those anchors are read before the
+-- drag and put back after it, with the size the drag made.
+local function savedAnchors(frame)
+  if type(frame.GetNumPoints) ~= "function" or type(frame.GetPoint) ~= "function" then return nil end
+  local n = frame:GetNumPoints()
+  if type(n) ~= "number" then return nil end
+  local out, onFrame = {}, false
+  for i = 1, n do
+    local point, rel, relPoint, x, y = frame:GetPoint(i)
+    if type(rel) == "table" and rel ~= UIParent then onFrame = true end
+    out[i] = { point, rel, relPoint, x, y }
+  end
+  return onFrame and out or nil
+end
+
+local function restoreAnchors(frame, anchors)
+  if not anchors or type(frame.SetPoint) ~= "function" or type(frame.ClearAllPoints) ~= "function" then return end
+  local w, h = readSize(frame)
+  frame:ClearAllPoints()
+  for _, a in ipairs(anchors) do frame:SetPoint(a[1], a[2], a[3], a[4], a[5]) end
+  if w and h and type(frame.SetSize) == "function" then frame:SetSize(w, h) end
+end
+
 -- The two mouse handlers. Sizing that never started (a right-click, a mouse-down `canResize`
 -- refused, or a mouse-up that arrives without a mouse-down) is not stopped, so a stray mouse-up
 -- cannot rewrite the user-placed flag, and runs neither `relayout` nor `onStop`. `canResize` is
 -- asked at every mouse-down and never at mouse-up: a drag already under way finishes even if the
 -- answer flips while it lasts.
 local function wireGrip(grip, frame, relayout, canResize, onStop)
-  local sizing, wasPlaced = false, false
+  local sizing, wasPlaced, anchors = false, false, nil
   grip:SetScript("OnMouseDown", function(_, button)
     if button ~= nil and button ~= "LeftButton" then return end
     if canResize and not canResize(frame) then return end
     wasPlaced = isUserPlaced(frame)
     sizing = true
+    anchors = savedAnchors(frame)
     frame:StartSizing("BOTTOMRIGHT")
   end)
   grip:SetScript("OnMouseUp", function()
@@ -742,6 +769,7 @@ local function wireGrip(grip, frame, relayout, canResize, onStop)
     sizing = false
     frame:StopMovingOrSizing()
     if type(frame.SetUserPlaced) == "function" then frame:SetUserPlaced(wasPlaced) end
+    restoreAnchors(frame, anchors)
     relayout(readSize(frame))
     if onStop then onStop(readSize(frame)) end
   end)

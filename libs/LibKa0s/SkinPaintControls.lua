@@ -346,6 +346,50 @@ end
 
 -- ── dropdowns, scroll bars, sliders ──────────────────────────────────────────────────────────
 
+local STEP_ICON = 12   -- the art is square, in a template button 18 by 16
+
+--- The path of icon `name` in `owner`'s copy, or nil without Media or an addon name.
+local function stepArt(owner, name)
+  local Media = LibStub and LibStub("LibKa0s-Media-1.0", true)
+  if not (Media and type(Media.Icon) == "function") then return nil end
+  return Media.Icon(owner, name)
+end
+
+-- ── WowStyle1DropdownTemplate (minor 17, #71) ──
+--
+-- The template's `Background` is its own art and its `Arrow` is the whole gold button, so the arrow
+-- is faded and the owner's `chevron-down` laid over it instead of tinting the button. Blizzard's
+-- OnButtonStateChanged resets the label to white on hover and press, so the label is painted again
+-- on those scripts.
+local function wowStyle(dd)
+  local bg = P.field(dd, "Background", "Texture")
+  if bg then return { Background = bg } end
+  return nil
+end
+
+local function wowArrow(owner, rec, dd, arrow, T)
+  P.fade(rec, arrow)
+  local art = stepArt(owner, "chevron-down")
+  local t = art and P.tex(rec, "wowArrow", dd, "OVERLAY", 7)
+  if not t then return end
+  t:ClearAllPoints()
+  t:SetPoint("RIGHT", dd, "RIGHT", -6, 0)
+  t:SetSize(STEP_ICON, STEP_ICON)
+  t:SetTexture(art)
+  t:Show()
+  P.glyph(rec, t, T, "icon.arrow")
+end
+
+local function wowLabel(rec, dd)
+  local function repaint(self, r)
+    local label = P.field(self, "text", "FontString") or P.field(self, "Text", "FontString")
+    if label then P.tint(r, label, P.T(r.owner), "input.text") end
+  end
+  for _, script in ipairs({ "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp" }) do
+    P.hook(rec, dd, script, repaint)
+  end
+end
+
 --- S.Dropdown(dd, opts): a dropdown button. The flat-control box from `input.*` (Widgets'
 --- dropdown: its backdrop, fill and edge, call for call), the template's pieces faded, the arrow
 --- (`dd.arrow` / `dd.Arrow`) in `icon.tint`, the label (`dd.text` / `dd.Text`) in `input.text` and
@@ -360,12 +404,19 @@ prim.Dropdown = function(owner, dd, opts)
   local T = P.T(owner)
   P.fadeAll(rec, P.stockRegions(dd, opts))
   P.box(rec, dd, T, INPUT, opts)
+  local wow = wowStyle(dd)
+  if wow then P.fade(rec, wow.Background) end
   local arrow = P.field(dd, "arrow", "Texture") or P.field(dd, "Arrow", "Texture")
-  if arrow then P.glyph(rec, arrow, T, "icon.arrow") end
+  if arrow and wow and not rawget(dd, "arrow") then
+    wowArrow(owner, rec, dd, arrow, T)
+  elseif arrow then
+    P.glyph(rec, arrow, T, "icon.arrow")
+  end
   local fs = P.field(dd, "text", "FontString") or P.field(dd, "Text", "FontString")
   if fs then
     P.tint(rec, fs, T, "input.text")
     P.font(owner, rec, fs, "body")
+    if wow then wowLabel(rec, dd) end
   end
 end
 
@@ -433,7 +484,6 @@ end
 -- texture would have the second save the first's 0 as the art's own alpha. So a button's record is
 -- its own, keyed on the button (weak), and either path paints or gives it back, any number of times.
 
-local STEP_ICON = 12   -- the art is square, in a template button 18 by 16
 local STEPS = { { key = "ScrollUpButton", icon = "chevron-up" },
                 { key = "ScrollDownButton", icon = "chevron-down" } }
 
@@ -475,13 +525,6 @@ local function giveStepBack(b)
   if not (rec and rec.on) then return end
   rec.on, rec.hover = false, false
   P.unpaint(rec, b)
-end
-
---- The path of icon `name` in `owner`'s copy, or nil without Media or an addon name.
-local function stepArt(owner, name)
-  local Media = LibStub and LibStub("LibKa0s-Media-1.0", true)
-  if not (Media and type(Media.Icon) == "function") then return nil end
-  return Media.Icon(owner, name)
 end
 
 local function paintStep(owner, b, name)
