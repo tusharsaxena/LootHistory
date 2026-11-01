@@ -32,6 +32,7 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 | Run | Commit | Tree | Version | Lint w/e | Files | Tests | Perf | NLOC | Funcs | Avg NLOC | Avg CCN | Max CCN | CCN warn | Verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| [`20261101-202413`](20261101-202413/) | `ed7a0d5` | clean | 1.5.0 | 0/0 | 160 | 1954/1/1955 | pass | 42924 | 6290 | 6.6 | 2.3 | 15 | 0 | **green** |
 | [`20261101-143701`](20261101-143701/) | `29746ad` | clean | 1.5.0 | 0/0 | 159 | 1845/1/1846 | pass | 42624 | 6183 | 6.7 | 2.3 | 15 | 0 | **green** |
 | [`20261101-025810`](20261101-025810/) | `a3a2df2` | clean | 1.5.0 | 0/0 | 159 | 1841/1/1842 | pass | 42482 | 6166 | 6.7 | 2.3 | 15 | 0 | **green** |
 | [`20261101-002120`](20261101-002120/) | `ad76bb7` | clean | 1.5.0 | 0/0 | 159 | 1841/1/1842 | pass | 42479 | 6166 | 6.7 | 2.3 | 15 | 0 | **green** |
@@ -57,18 +58,18 @@ archaeology, for the same reason a skip is never a pass (`automated-tests-§4`).
 
 ## Test suite
 
-**1846 cases** — 1845 passed, 0 failed, 1 skipped. The generated inventory
-[`20261101-143701/test-cases.md`](20261101-143701/test-cases.md) is the authority on which cases existed at this run;
+**1955 cases** — 1954 passed, 0 failed, 1 skipped. The generated inventory
+[`20261101-202413/test-cases.md`](20261101-202413/test-cases.md) is the authority on which cases existed at this run;
 `docs/test-cases.md` is that same list at HEAD.
 
-Moved **1842 → 1846** since the previous run.
+Moved **1846 → 1955** since the previous run.
 
 **1 case(s) reported a `skip`.** A skip is counted in the total and never in `passed`, and at
 the release gate it is NOT EVALUATED rather than passed (`automated-tests-§3`).
 
 ## Lint
 
-**0 warnings / 0 errors over 159 files** (`luacheck .`).
+**0 warnings / 0 errors over 160 files** (`luacheck .`).
 
 Read that figure with its scope attached: `.luacheckrc` excludes 5 path(s) from it — `libs/`, `docs/audits/`, `docs/reviews/`, `_dev/`, `tests/_kit/` —
 so nothing under them is in the count above. A `0/0` that never moves is partly a statement about
@@ -78,21 +79,21 @@ to whoever thinks to open `.luacheckrc`.
 ## Perf
 
 **4 scenarios** from `tests/perf.lua`; the measurements are in
-[`20261101-143701/perf.json`](20261101-143701/perf.json).
+[`20261101-202413/perf.json`](20261101-202413/perf.json).
 
 | `scenario` | `iters` | `ms/iter` | `scans/iter` | `bytes/iter` |
 |---|---|---|---|---|
-| `lootDroppedBracketed` | 2000 | 0.00494 | 0.00 | 0.0 |
-| `lootDroppedBare` | 2000 | 0.00587 | 0.00 | 0.0 |
-| `combatBagUpdate` | 5000 | 0.00087 | 0.00 | 0.0 |
-| `reconcileCleanBags` | 200 | 0.34098 | 1.00 | 118120.0 |
+| `lootDroppedBracketed` | 2000 | 0.00358 | 0.00 | 0.0 |
+| `lootDroppedBare` | 2000 | 0.00357 | 0.00 | 0.0 |
+| `combatBagUpdate` | 5000 | 0.00062 | 0.00 | 0.0 |
+| `reconcileCleanBags` | 200 | 0.21119 | 1.00 | 118120.0 |
 
 `perf` never fails a run and never blocks a commit — it is recorded, read and compared, not
 thresholded (`performance-§9`). It does gate the **tag** (`automated-tests-§3`).
 
 ## Complexity watch list
 
-Current as of [`20261101-143701`](20261101-143701/) — **this run's measurement, not its diff.** Max CCN **15** across 6183
+Current as of [`20261101-202413`](20261101-202413/) — **this run's measurement, not its diff.** Max CCN **15** across 6290
 functions, **0** of them warned on; 10 file(s) in the 1000–1500 band and 0 over the 1500 cap
 (`layout-§1`).
 
