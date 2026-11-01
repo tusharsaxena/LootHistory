@@ -313,8 +313,11 @@ end
 --- @return table|nil    the library's strip, with `strip.text` and `strip.kind`
 function NS.MakeTestStrip(parent, text, kind)
   if not (W and W.TestStrip) then return nil end
+  -- sim / onEnd (LibKa0s Widgets minor 21, SF-F1): the strip's right-click menu ends the mode.
+  local isSim = kind == "sim"
   return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind,
-    owner = addonName })
+    owner = addonName, sim = isSim and NS.Sim or nil,
+    onEnd = (not isSim) and function() NS.BrowserTable:SetTestMode(false) end or nil })
 end
 
 -- The gap this addon leaves above and below the strip: 2 px under the filter bar, 2 px over the
