@@ -130,10 +130,14 @@ local function assertChrome(win, exp, want, label)
   assertTrue(line ~= nil, label .. ": the divider drew no line on its holder")
   assertEqual(rgba(rawget(line, "__color")), want("divider"), label .. ": the divider")
   for name, tab in pairs(win.tabs) do
-    local active = tab.underline:IsShown()
-    -- The text roles (they read on the window in every skin); Ka0s Default's are tab.onText / tab.text.
-    assertEqual(textColor(tab.label), want(active and "text.accent" or "text.muted"), label .. ": tab " .. name)
-    assertEqual(rgba(rawget(tab.underline, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
+    assertTrue(recorded(tab, "Tab"), label .. ": tab " .. name .. " is the skin's Tab")
+    local regions = Skin.painted[tab].regions
+    local active = regions.selected == true
+    assertEqual(textColor(tab.label), want(active and "tab.onText" or "tab.text"), label .. ": tab " .. name)
+    assertTrue(regions.fill ~= nil, label .. ": tab " .. name .. " has no backing")
+    if active then
+      assertEqual(rgba(rawget(regions.line, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
+    end
   end
   assertEqual(textColor(B._footer), want("text.disabled"), label .. ": the footer")
   assertEqual(textColor(B._dbFooter), want("text.disabled"), label .. ": the DB-size footer")
@@ -252,12 +256,44 @@ test("skin chrome: a skin switch repaints every chrome surface live, and Ka0s De
     for _, tab in pairs(win.tabs) do tab.label:SetTextColor(0, 0, 0) end
     B:SelectTab("History")
     for name, tab in pairs(win.tabs) do
-      assertEqual(textColor(tab.label), tokenOf(name == "History" and "text.accent" or "text.muted"),
+      assertEqual(textColor(tab.label), tokenOf(name == "History" and "tab.onText" or "tab.text"),
         "SelectTab paints tab " .. name .. " in the skin")
     end
 
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertChrome(win, exp, today, "back on Ka0s Default")
+  end)
+end)
+
+-- Cause L8 and L9 of the full skinning run: the History grip names its owner, so a skin that tints
+-- the grip reaches it, and the export modal's bar is `title.height` with its title placed by the skin.
+test("skin chrome: the History grip follows the skin, and the export title bar is title.height", function()
+  withFreshWindows(function(win, exp)
+    assertEqual(exp.titleBar:GetHeight(), Skin:Token(OWNER, "title.height"), "the export bar's height")
+    assertTrue(recorded(exp.titleBar, "TitleBar"), "the export bar is the skin's TitleBar")
+    local grip, spy = win.resizeGrip, {}
+    rawset(grip, "GetNormalTexture", function() return spy end)
+    function spy.SetVertexColor(_, r, g, b) spy.c = rgba({ r, g, b }) end
+    function spy.GetObjectType() return "Texture" end
+    function spy.SetDesaturated() end
+    Skin:SetChoice(OWNER, "ka0s", "obsidian")
+    local want = rgba({ Skin:Color(OWNER, "icon.grip") })
+    assertTrue(want ~= "nil,nil,nil,1", "the skin tints no grip")
+    assertEqual(spy.c ~= nil and spy.c:sub(1, 17), want:sub(1, 17), "the grip takes the skin's tint")
+  end)
+end)
+
+-- Cause L6: the strip names its owner, so the library tints its mark, and a switch reaches it.
+test("skin chrome: the test strip's info mark takes icon.tint and follows a switch", function()
+  withFreshWindows(function(win)
+    local strip = NS.MakeTestStrip(win, "strip")
+    local mark = strip.__icon
+    assertTrue(mark ~= nil and recorded(mark, "Mark"), "the strip's mark is the skin's Mark")
+    assertEqual(rgba(rawget(mark, "__vertex")), tokenOf("icon.tint"), "Ka0s Default's tint")
+    local before = rawget(mark, "__vertex")
+    Skin:SetChoice(OWNER, "ka0s", "obsidian")
+    assertTrue(rgba(rawget(mark, "__vertex")) ~= rgba(before), "the switch moved no tint")
+    assertEqual(rgba(rawget(mark, "__vertex")), tokenOf("icon.tint"), "the switch skin's tint")
   end)
 end)
 
@@ -267,6 +303,21 @@ test("skin chrome: NS.SkinColor keeps a call site's arity (three components when
   assertEqual(select("#", NS.SkinColor("tab.onText")), 3, "an opaque token answers r, g, b")
   assertEqual(select("#", NS.SkinColor("btn.bg")), 4, "a translucent token answers r, g, b, a")
   assertEqual(NS.SkinColor("no.such.token"), nil)
+end)
+
+test("skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup", function()
+  local dns, _, dm = dofile("tests/degraded_env.lua")()
+  local S = dns.Skin
+  local tab = dm.CreateFrame("Button", nil, dm.UIParent)
+  tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  S.Tab(tab, { text = tab.label, selected = false })
+  assertEqual(rgba(tab.label.__color), today("tab.text"))
+  S.SetTabSelection(tab, true)
+  assertEqual(rgba(tab.label.__color), today("tab.onText"))
+  local box = dm.CreateFrame("CheckButton", nil, dm.UIParent)
+  local ok = pcall(S.Checkbox, box)
+  assertTrue(ok, "the degraded Checkbox raised")
+  assertEqual(S.MarkText("a\\b", 14), "|Ta\\b:14:14|t")
 end)
 
 test("skin chrome: the degraded facade draws the flat button and the divider today's way", function()

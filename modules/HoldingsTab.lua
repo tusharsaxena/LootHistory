@@ -512,6 +512,8 @@ function HT:Attach(pane)
   header.cells = {}
   for _, col in ipairs(HT.COLUMNS) do header.cells[col.key] = makeHeaderCell(header, col) end
   self.header = header
+  -- The same band the History table's header wears (modules/BrowserTable.lua), list.header.bg.
+  NS.Skin.SortHeaderBar(header)
 
   -- Same scroll skin and anchors as the Insights pane (modules/Analytics.lua), below the header.
   local scroll = CreateFrame("ScrollFrame", nil, pane, "UIPanelScrollFrameTemplate")

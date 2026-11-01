@@ -120,6 +120,7 @@ local TODAY = {
   ["card.bg"] = { 0.1, 0.1, 0.12, 0.85 }, ["card.border"] = { 0.24, 0.24, 0.27, 0.9 },
   ["panel.bg"] = { 0.08, 0.08, 0.10, 0.6 }, ["panel.border"] = { 0.24, 0.24, 0.27, 0.7 },
   ["text.heading"] = { 1, 0.82, 0 }, ["text.disabled"] = { 0.5, 0.5, 0.5 },
+  ["list.header.bg"] = { 1, 1, 1, 0.04 },
   ["section.rule"] = { 1, 0.82, 0, 0.35 }, ["chart.track"] = { 1, 1, 1, 0.06 },
   ["chart.bar"] = { 0.40, 0.60, 0.95, 0.9 }, ["text.muted"] = { 0.7, 0.7, 0.72 },
   ["text.value"] = { 0.8, 0.8, 0.82 }, ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 },
@@ -425,8 +426,10 @@ local function assertTimeline(want, label)
   assertTrue(recorded(b, "Button"), label .. ": the toggle is the skin's Button")
   assertEqual(rgba(rawget(b, "__backdropColor")), want("btn.bg"), label .. ": the toggle's fill")
   assertEqual(rgba(rawget(b, "__backdropBorderColor")), want("btn.border"), label .. ": the toggle's edge")
-  assertEqual(texColor(b.box), want("check.bg"), label .. ": the toggle's box")
-  assertEqual(texColor(b.tick), want("check.mark"), label .. ": the toggle's tick")
+  assertTrue(recorded(b.box, "Checkbox"), label .. ": the toggle's box is the skin's Checkbox")
+  local regions = Skin.painted[b.box].regions
+  assertEqual(rgba(rawget(regions.box, "__vertex")), want("check.bg"), label .. ": the toggle's box")
+  assertEqual(rgba(rawget(regions.mark, "__vertex")), want("check.mark"), label .. ": the toggle's tick")
   assertEqual(textColor(TL.title), want("text.heading"), label .. ": the title")
   assertEqual(textColor(TL.hint), want("text.disabled"), label .. ": the hint")
   assertEqual(texColor(TL.stripAxis), want("chart.axis"), label .. ": the strip's axis")
@@ -486,6 +489,10 @@ local function holderRow(holder)
 end
 
 local function assertHoldings(want, label)
+  assertTrue(recorded(HT.header, "SortHeaderBar"), label .. ": the header is the skin's SortHeaderBar")
+  -- The recorder gives every frame a backdrop, so the band lands there; the client's bare frame takes
+  -- the same fill as a region.
+  assertEqual(rgba(rawget(HT.header, "__backdropColor")), want("list.header.bg"), label .. ": the header band")
   for key, b in pairs(HT.header.cells) do
     assertEqual(textColor(b.fs), want("list.header.text"), label .. ": header " .. key)
   end
@@ -521,7 +528,8 @@ test("skin holdings: a switch rebuilds the arrows and repaints every pooled row 
   withHoldings(function()
     park()
     NS.ApplySkinChoice("ka0s", SW.key(Skin))
-    assertMoves({ "list.header.text", "list.stripe", "list.hover", "text.disabled", "text.highlight" }, today)
+    assertMoves({ "list.header.bg", "list.header.text", "list.stripe", "list.hover", "text.disabled",
+                  "text.highlight" }, today)
     assertHoldings(tokenOf, "the switch skin")
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertHoldings(today, "back on Ka0s Default")

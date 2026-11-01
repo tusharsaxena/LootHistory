@@ -117,6 +117,7 @@ NS.SKIN_FALLBACK = {
   -- The History window's chrome (LH-02): the tab labels and underline, the flat buttons, the plain
   -- search box, the footer and the strip tooltips' lines.
   ["tab.onText"]    = { 1, 0.82, 0, 1 },
+  ["menu.text"]     = { 0.9, 0.9, 0.9, 1 },
   ["tab.text"]      = { 0.7, 0.7, 0.72, 1 },
   ["tab.onLine"]    = { 1, 0.82, 0, 1 },
   ["btn.bg"]        = { 0.1, 0.1, 0.12, 0.9 },
@@ -552,6 +553,34 @@ if not Skin then
     local on = opts.shadow and true or false
     fs:SetShadowColor(0, 0, 0, on and 1 or 0)
     fs:SetShadowOffset(on and 1 or 0, on and -1 or 0)
+  end
+  -- The History window's tab (modules/Browser.lua): its label and a 2px underline, the look it had
+  -- before the skin engine; no backing, as there is no skin to draw one.
+  local tabs = setmetatable({}, { __mode = "k" })
+  S.SetTabSelection = function(tab, selected)
+    local t = tabs[tab]
+    if not t then return end
+    t.fs:SetTextColor(color(selected and "tab.onText" or "tab.text"))
+    t.line:SetShown(selected == true)
+  end
+  S.Tab = function(tab, opts)
+    if not (type(tab) == "table" and tab.CreateTexture and type(opts) == "table") then return end
+    local line = tab:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(color("tab.onLine")); line:SetHeight(2)
+    line:SetPoint("BOTTOMLEFT", 8, 0); line:SetPoint("BOTTOMRIGHT", -8, 0)
+    tabs[tab] = { fs = opts.text, line = line }
+    S.SetTabSelection(tab, opts.selected)
+  end
+  -- The Timeline's toggle box (modules/Timeline.lua): check.bg, and a 6px check.mark tick shown
+  -- while the button is checked.
+  S.Checkbox = function(cb)
+    if not (type(cb) == "table" and cb.CreateTexture) then return end
+    local box = cb:CreateTexture(nil, "ARTWORK")
+    box:SetAllPoints(cb); box:SetColorTexture(color("check.bg"))
+    local tick = cb:CreateTexture(nil, "OVERLAY")
+    tick:SetSize(6, 6); tick:SetPoint("CENTER", cb, "CENTER", 0, 0)
+    tick:SetColorTexture(color("check.mark")); tick:Hide()
+    hooksecurefunc(cb, "SetChecked", function(self) tick:SetShown(self:GetChecked() and true or false) end)
   end
   S.OnLooksChanged = function(fn) return fn end   -- the skin never changes without the library
   S.IsEnabled = function() return false end

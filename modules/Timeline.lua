@@ -161,29 +161,21 @@ local function makeLegendEntry(parent)
   return f
 end
 
--- The toggle's box and tick: the skin's check.bg and check.mark (four components, as they were
--- always set), on its own two textures (Reskin, below, repaints them).
-local function paintToggleBox(b)
-  b.box:SetColorTexture(NS.Skin.Color("check.bg"))
-  b.tick:SetColorTexture(NS.Skin.Color("check.mark"))
-end
-
 -- The house's flat bar button with a box that fills gold when on: the skin's Button (the third copy
 -- of BrowserFilterBar's flat button, merged onto the primitive like the other two: the WHITE8X8
--- box, a white label, gold under the pointer), and a box and tick of its own in check.* (LH-04). The
--- skin's Checkbox does not draw it: its box fills the control it paints and its mark sits three
--- pixels inside, where this 10px box carries a 6px tick inside a wide button; the two textures keep
--- their calls and take their colors from the tokens (the History rows' precedent, LH-03). A plain
--- Button rather than a CheckButton: the state is derived (TL:TotalOnlyShown), so the button only
--- ever paints it. The scripts are set BEFORE the primitive, which HookScripts its hover pair.
+-- box, a white label, gold under the pointer), and a small CheckButton inside it for the box and
+-- tick, which is the skin's Checkbox: its box fills the control it paints and its mark sits three
+-- pixels in, so a 12px child gives a 6px tick, and it brings check.border and check.markTexture
+-- (cause A1 of the full skinning run). The child takes no mouse: the state is derived
+-- (TL:TotalOnlyShown), so the button only ever paints it. The scripts are set BEFORE the primitive,
+-- which HookScripts its hover pair.
 local function makeToggle(parent, text, onClick, tip)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetSize(84, 18)
-  b.box = b:CreateTexture(nil, "ARTWORK")
-  b.box:SetSize(10, 10); b.box:SetPoint("LEFT", 6, 0)
-  b.tick = b:CreateTexture(nil, "OVERLAY")
-  b.tick:SetSize(6, 6); b.tick:SetPoint("CENTER", b.box, "CENTER", 0, 0)
-  paintToggleBox(b)
+  b.box = CreateFrame("CheckButton", nil, b)
+  b.box:SetSize(12, 12); b.box:SetPoint("LEFT", 6, 0)
+  b.box:EnableMouse(false)
+  NS.Skin.Checkbox(b.box)
   b.fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   NS.Skin.Font(b.fs)
   b.fs:SetPoint("LEFT", b.box, "RIGHT", 5, 0)
@@ -191,7 +183,7 @@ local function makeToggle(parent, text, onClick, tip)
   b.text = b.fs   -- the label field the skin's Button reads
   function b:SetChecked(on)
     self.checked = on and true or false
-    self.tick:SetShown(self.checked)
+    self.box:SetChecked(self.checked)
   end
   b:SetChecked(false)
   b:SetScript("OnClick", onClick)
@@ -597,15 +589,13 @@ end
 
 -- ── the skin (LH-04) ──
 
---- A skin switch: what this tab colored at build time (the toggle's box and tick, the header's
---- title and hint, the empty and missing lines, the strip's axis), then a rebuild while the pane is
+--- A skin switch: what this tab colored at build time (the header's title and hint, the empty and missing lines, the strip's axis), then a rebuild while the pane is
 --- up, which takes the new series, marker and flow colors from the model (modules/TimelineModel.lua).
---- The toggle's backdrop and label are the skin's Button, repainted by the library; the chart's
+--- The toggle's backdrop, label, box and tick are the skin's, repainted by the library; the chart's
 --- axes, grid and crosshair are the library's, re-rendered by the chart itself (its skin owner,
 --- core/WidgetsSetup.lua). A hidden pane rebuilds when its tab is next selected.
 function TL:Reskin()
   if not self.pane then return end
-  paintToggleBox(self.totalOnlyBtn)
   self.title:SetTextColor(NS.SkinColor("text.heading"))
   self.hint:SetTextColor(NS.SkinColor("text.disabled"))
   if self.emptyMsg then self.emptyMsg:SetTextColor(NS.SkinColor("text.disabled")) end

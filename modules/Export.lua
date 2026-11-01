@@ -466,7 +466,7 @@ local function EnsureFrame()
   end
 
   local tbar = CreateFrame("Frame", nil, frame)
-  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
+  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(30)
   tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
   -- Lock frame (options-ui-§15) is addon-wide, so it covers this modal too — asked of NS.Browser,
   -- which owns this addon's window chrome and is where the master rows are read.
@@ -482,7 +482,9 @@ local function EnsureFrame()
   -- and the title in the title color and font. `titleFS` is not the `title` field the window edge
   -- tints, so before the skin engine this title was never tinted at all; GameFontNormal is that
   -- same gold, so Ka0s Default draws what it always drew, and every other skin reaches it.
-  NS.Skin.TitleBar(tbar, { text = t })
+  -- `place`: the bar takes title.height and its title the skin's title.align, as every window's does.
+  NS.Skin.TitleBar(tbar, { text = t, place = true })
+  frame.titleBar = tbar
   if NS.Browser and NS.Browser.MakeCloseButton then
     NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
       :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
