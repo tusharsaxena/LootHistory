@@ -94,6 +94,7 @@ local function withFresh(mod, keys, build, fn)
   local painted = mocks.CreateFrame
   rawset(mocks, "CreateFrame", function(...)
     local f = painted(...)
+    if (...) == "CheckButton" then SW.checkButton(f) end
     local createFS = rawget(f, "CreateFontString")
     if createFS then
       rawset(f, "CreateFontString", function(self, name, layer, template)
@@ -406,6 +407,8 @@ local function withTimeline(fn)
   NS.Holdings:ApplyMoney("Mock-Realm", 50000, now - 86400)
   NS.Holdings:ApplyMoney("Mock-Realm", 70000, now)
   NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 10000, now)
+  local hook = mocks.hooksecurefunc
+  rawset(mocks, "hooksecurefunc", SW.hooksecurefunc)
   local ok, err = pcall(unfiltered, "Timeline", function()
     withFresh(TL, TL_KEYS, function(pane)
       TL.thing = "g"
@@ -413,6 +416,7 @@ local function withTimeline(fn)
       TL:Layout(640, 320)
     end, fn)
   end)
+  rawset(mocks, "hooksecurefunc", hook)
   g.holdings, g.daily = holdings, daily
   if not ok then error(err, 0) end
 end
@@ -454,6 +458,27 @@ test("skin timeline: a switch repaints the toggle, header and strip and rebuilds
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertTimeline(today, "back on Ka0s Default")
   end)
+end)
+
+test("skin timeline: the toggle's tick follows the state, and its box leaves the mouse to the button", function()
+  local profile = NS.db.profile
+  local views = profile.savedViews
+  profile.savedViews = nil
+  local ok, err = pcall(withTimeline, function()
+    local b = TL.totalOnlyBtn
+    local mark = Skin.painted[b.box].regions.mark
+    assertEqual(b.box:IsMouseEnabled(), false, "the 12px box would swallow the button's click and hover")
+    assertEqual(b.box:GetChecked(), false)
+    assertEqual(mark:IsShown(), false, "the tick shows while off")
+    TL:SetTotalOnly(true)
+    assertEqual(b.box:GetChecked(), true, "the box is told the state")
+    assertEqual(mark:IsShown(), true, "the tick shows while on")
+    TL:SetTotalOnly(false)
+    assertEqual(b.box:GetChecked(), false)
+    assertEqual(mark:IsShown(), false, "the tick hides again")
+  end)
+  profile.savedViews = views
+  if not ok then error(err, 0) end
 end)
 
 -- ── Holdings ────────────────────────────────────────────────────────────────────────────────────

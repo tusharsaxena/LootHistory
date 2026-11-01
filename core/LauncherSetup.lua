@@ -203,8 +203,8 @@ NS.Launcher = Launcher:New({
   -- -- which is what this hook did through Launcher minor 2, refusal line included.
   --
   -- Its gray is the skin's `gtip.subtle` (LH-05), Ka0s Default the .7 it always drew, read on every
-  -- show. The tooltip frame itself, its backdrop and the library's lines stay stock: the broker
-  -- tooltip and the minimap button are shared across addons (docs/ARCHITECTURE.md, Skins).
+  -- show. Only the tooltip frame and its backdrop stay the client's; the library's lines follow the
+  -- skin too, through its own gtip.* reads (docs/ARCHITECTURE.md, Skins).
   onTooltipShow = function(tt)
     local n = (NS.Database and NS.Database.Count) and NS.Database:Count() or 0
     tt:AddLine(n == 1 and "1 record" or (n .. " records"), NS.SkinColor("gtip.subtle"))

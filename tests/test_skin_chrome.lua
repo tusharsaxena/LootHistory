@@ -25,6 +25,7 @@ local B, E = NS.Browser, NS.Export
 local Skin = mocks.LibStub("LibKa0s-Skin-1.0")
 local OptionsLib = mocks.LibStub("LibKa0s-Options-1.0")
 local installPaint = dofile("tests/_kit/mock_paint.lua")
+local SW = dofile("tests/skin_support.lua")
 local OWNER = "LootHistory"
 
 -- ── the skin back on Ka0s Default ───────────────────────────────────────────────────────────────
@@ -314,9 +315,23 @@ test("skin chrome: the degraded facade draws a tab and a checkbox, and MarkText 
   assertEqual(rgba(tab.label.__color), today("tab.text"))
   S.SetTabSelection(tab, true)
   assertEqual(rgba(tab.label.__color), today("tab.onText"))
-  local box = dm.CreateFrame("CheckButton", nil, dm.UIParent)
-  local ok = pcall(S.Checkbox, box)
-  assertTrue(ok, "the degraded Checkbox raised")
+  -- The base mock's CreateTexture answers the frame itself, so the box hands out its own textures.
+  local box = SW.checkButton(dm.CreateFrame("CheckButton", nil, dm.UIParent))
+  local textures = {}
+  rawset(box, "CreateTexture", function()
+    textures[#textures + 1] = dm.CreateFrame("Frame")
+    return textures[#textures]
+  end)
+  rawset(dm, "hooksecurefunc", SW.hooksecurefunc)
+  S.Checkbox(box)
+  assertEqual(#textures, 2, "the box and the tick")
+  local tick = textures[2]
+  assertEqual(tick:IsShown(), false, "the tick starts hidden")
+  box:SetChecked(true)
+  assertEqual(tick:IsShown(), true, "the tick shows while checked")
+  box:SetChecked(false)
+  assertEqual(tick:IsShown(), false, "the tick hides again")
+  assertEqual(rgba({ dns.SkinColor("menu.text") }), rgba({ 0.9, 0.9, 0.9, 1 }), "the row menu's label has its token")
   assertEqual(S.MarkText("a\\b", 14), "|Ta\\b:14:14|t")
 end)
 

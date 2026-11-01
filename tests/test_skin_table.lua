@@ -292,6 +292,7 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
                             "menu.bg", "menu.hover", "menu.text" }) do
       assertTrue(tokenOf(name) ~= today(name), "the switch skin's " .. name .. " is today's value")
     end
+    assertTrue(tokenOf("menu.text") ~= tokenOf("text.body"), "the switch skin's menu.text is text.body")
     assertTrue(tokenOf("sem.boundBoP") ~= rgba({ 0.30, 0.82, 0.42, 1 }), "the switch skin's BoP is today's")
     assertTrue(#BT.rowPool.free >= 1, "the switch's rebind took the free row")
     for _, row in ipairs(BT.rowPool.free) do

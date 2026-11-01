@@ -63,7 +63,8 @@ slash-command interface, the settings panel and the filter-bar dropdowns, vendor
 into `libs/LibKa0s/` with its test kit under `tests/_kit/`, apart from `media/icons/`, which holds
 only the icons the declaration line above names. That line is what the tag's `tools/prune-icons.lua`
 and the vendor gate read. A mark the library draws for this addon (`close`, `copy`, `clear`,
-`info`, and the skin picker's `eye` and `settings`) or one this addon passes in that is missing from the line resolves to a path, draws blank,
+`info`, the scroll bar's `chevron-up` and `chevron-down`, the skin picker's `eye`, `settings` and `reset`,
+the reorder list's `move`, the sound row's `volume-high`) or one this addon passes in that is missing from the line resolves to a path, draws blank,
 and leaves every suite green.
 
 The provenance line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag

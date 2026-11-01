@@ -444,13 +444,13 @@ Outside the gate's reach, also on purpose:
   `GameFont*` templates' Friz Quadrata; with **Ignore fonts** on,
   every string keeps its own face and size and the skin still colors it. Two strings stay on their own face: the row's
   direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
-  read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
-  are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished
-  on its parchment); on Ka0s Default the two are the same gray and gold.
-- **The minimap button and the broker tooltip** stay stock: LibDBIcon gives every addon's button one
-  look, and the LDB tooltip's backdrop and the library's lines (including Launcher's semantic
-  green/red status escapes, `libs/LibKa0s/Launcher.lua`) are the library's. The host's one line, the
-  record count (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
+  are the skin's `S.Tab`, so their labels read `tab.text` / `tab.onText` on the backing it draws
+  ([browser.md](browser.md#tabs)).
+- **The minimap button and the broker tooltip's frame** stay stock: LibDBIcon gives every addon's button
+  one look, and the LDB tooltip's frame and backdrop are the client's. The lines follow the skin: the
+  library paints its title, status and hint lines from `gtip.title`, `gtip.line`, `gtip.on` and
+  `gtip.off` (`libs/LibKa0s/Launcher.lua`), and the host's one line, the record count
+  (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
 - **`GameTooltip`'s backdrop is never restyled.** Host tooltip lines take `gtip.*` tokens through
   `core/Compat.lua`'s Show* helpers; the frame is Blizzard's.
 - **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s and `ColorPickerFrame`.
