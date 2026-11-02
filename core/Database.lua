@@ -242,6 +242,34 @@ end
 -- step is profile-scoped (savedvariables-§1), so a profile created, copied
 -- or switched to later has nothing to be carried through; the profile events' adopt path
 -- (core/LootHistory.lua) is where one would run if a step ever needs it.
+-- The shipped faces LibKa0s retired, each to its successor (R3-FRIZ; LibKa0s R3-L7).
+local RETIRED_FONTS = { ["Ka0s Friz Quadrata TT"] = "Ka0s Ubuntu" }
+
+--- Moves every string naming a retired face, at any depth of `t`, to its successor. Answers how many moved.
+function NS.RetireFonts(t)
+  local n = 0
+  for k, v in pairs(t) do
+    if type(v) == "table" then
+      n = n + NS.RetireFonts(v)
+    elseif RETIRED_FONTS[v] then
+      t[k], n = RETIRED_FONTS[v], n + 1
+    end
+  end
+  return n
+end
+
+--- v15's walk: every stored profile, never the account-wide history.
+local function retireFontsInProfiles()
+  local sv = NS.db and NS.db.sv
+  local profiles = type(sv) == "table" and sv.profiles
+  if type(profiles) ~= "table" then return 0 end
+  local n = 0
+  for _, prof in pairs(profiles) do
+    if type(prof) == "table" then n = n + NS.RetireFonts(prof) end
+  end
+  return n
+end
+
 local MIGRATIONS = {
   -- v1 -> v2: point-in-time filtering (removed soft-add/soft-delete). Strip the retired
   -- per-record `viaWhitelist` flag; rows are never hidden/resurrected after capture. Non-
@@ -383,6 +411,11 @@ local MIGRATIONS = {
   -- v13 -> v14: per-tab filter views (timeline-ledger Phase 11). Each stored profile's single
   -- `savedView` becomes one copy per tab under `savedViews`, and the old key goes. Idempotent.
   { to = 14, apply = function() return splitSavedViewPerTab() end },
+
+  -- v14 -> v15 (R3-FRIZ): LibKa0s v1.85.0 deleted Ka0s Friz Quadrata TT (R3-L7) and WoW Default draws
+  -- Ka0s Ubuntu in its place (R3-L6). A stored skin Font override naming the deleted face moves to its
+  -- successor in every stored profile; Blizzard's own "Friz Quadrata TT" stays. Idempotent.
+  { to = 15, apply = function() return retireFontsInProfiles() end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated

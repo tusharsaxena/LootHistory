@@ -604,7 +604,7 @@ Total.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 14
+- Database: a fresh store at schemaVersion 0 walks every step to 15
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -975,6 +975,11 @@ Total.
 - launcher: Locked and Test mode are read on every show, never cached
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
+
+### test_launcher_skin_entry.lua (2)
+
+- launcher descriptor passes openSkinPicker, which runs the skin verb
+- mode strips pass sim or onEnd, so the right-click menu has something to end (SF-F1)
 
 ### test_keybinding.lua (7)
 
@@ -1385,7 +1390,7 @@ Total.
 - TestData: the seeded sample stores are byte-identical to the pinned build
 - TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
 
-### test_views.lua (16)
+### test_views.lua (17)
 
 - Views: Save on each tab writes only that tab's slot
 - Views: Clear on one tab applies its saved view, touching no other tab and no slot
@@ -1403,6 +1408,7 @@ Total.
 - Migrate v13->v14: a profile's saved view becomes four identical per-tab views, the old key goes
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
+- Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in every profile, Blizzard's Friz kept
 
 ### test_panel.lua (48)
 
@@ -2271,6 +2277,7 @@ Total.
 | test_debuglog.lua | 20 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
+| test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 50 |
 | test_slash_verbs.lua | 13 |
@@ -2286,7 +2293,7 @@ Total.
 | test_timelinetab.lua | 35 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
-| test_views.lua | 16 |
+| test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
@@ -2332,4 +2339,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1954** |
+| **Total** | **1957** |

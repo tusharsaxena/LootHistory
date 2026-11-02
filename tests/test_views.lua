@@ -352,7 +352,7 @@ test("Migrate v13->v14: a profile's saved view becomes four identical per-tab vi
     },
   }
   local n = migrate({ global = sv.global, sv = sv })
-  assertEqual(sv.global.schemaVersion, 14)
+  assertEqual(sv.global.schemaVersion, 15)
   assertEqual(n, 2, "the two profiles with a saved view")
   local d = sv.profiles.Default
   assertEqual(d.savedView, nil, "the single view is retired")
@@ -385,4 +385,24 @@ test("Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot
   migrate({ global = sv.global, sv = sv })
   assertEqual(sv.profiles.Default.savedView, nil)
   assertEqual(sv.profiles.Default.savedViews, nil)
+end)
+
+-- R3-FRIZ: LibKa0s v1.85.0 deleted Ka0s Friz Quadrata TT (R3-L7); v15 moves a stored pick of it to Ka0s
+-- Ubuntu in every stored profile. red under: no v15 step, one that reaches only the active profile, or
+-- one that rewrites Blizzard's own "Friz Quadrata TT".
+test("Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in every profile, Blizzard's Friz kept", function()
+  local sv = {
+    global = { schemaVersion = 14, history = {} },
+    profiles = {
+      Default = { skin = { font = "Ka0s Friz Quadrata TT" } },
+      Alt     = { skin = { font = "Ka0s Friz Quadrata TT" } },
+      Plain   = { skin = { font = "Friz Quadrata TT" } },
+    },
+  }
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.global.schemaVersion, 15)
+  assertEqual(sv.profiles.Default.skin.font, "Ka0s Ubuntu", "the Default profile's override")
+  assertEqual(sv.profiles.Alt.skin.font, "Ka0s Ubuntu", "another profile's override")
+  assertEqual(sv.profiles.Plain.skin.font, "Friz Quadrata TT", "Blizzard's own Friz stays")
+  assertEqual(NS.RetireFonts(sv.profiles.Alt), 0, "a second pass moves nothing")
 end)

@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 46 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be |
+| SKIN-1 to 48 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -2089,14 +2089,15 @@ in yellow. Result: pass (owner-marked 2026-10-30)
 **SKIN-7. Fonts (SK-07; LK fonts; R5-03; SO-06).** On an English client each skin draws its own family,
 body and titles alike, with no fallback squares: Ka0s Default Prototype, Obsidian Expressway, Azeroth
 Open Sans Semibold (titles Open Sans Bold), Glass Avant Garde, High Contrast Doris PP, Ember Emblem, WoW
-Midnight Segoe UI Semibold (titles Segoe UI Bold), WoW Forever Fira Sans, WoW Default Ka0s Friz Quadrata
-TT, so Ka0s Default and WoW Default no longer read alike (D-01). Each skin's titles are its body family;
+Midnight Segoe UI Semibold (titles Segoe UI Bold), WoW Forever Fira Sans, WoW Default Ka0s Ubuntu
+(LibKa0s R3-L6; Ka0s Friz Quadrata TT before), so Ka0s Default and WoW Default no longer read alike (D-01). Each skin's titles are its body family;
 Glass, High Contrast, Ember and WoW Default have one weight, so their titles are the same face larger.
 `/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Open Sans Semibold")` and
-`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Friz Quadrata TT")` each print `true`. Fail: a
+`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Ubuntu")` each print `true`. Fail: a
 title in a family its body text does not share, two skins in the same face, or an empty square where a
 letter should be. (Rewritten by LH-F01, 2026-10-31, D-01 and D-06: LibKa0s v1.83.0's faces; re-opened.)
-Result: Owner reported pass, 2026-10-31
+(Re-opened by R3-FRIZ, 2026-11-02: WoW Default draws Ka0s Ubuntu; fully restart the client first.)
+Result: not run
 
 **SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
 (Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
@@ -2442,6 +2443,8 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
 **SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color.
 
+**SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
+
 
 ## Degraded install
 
@@ -2597,3 +2600,5 @@ Added by the v1.84.0 re-cut (2026-11-01), awaiting the owner: PANEL-27.
 Added or re-opened by the full skinning run (LibKa0s v1.85.0, 2026-11-01), awaiting the owner: SKIN-1,
 HIST-43, HIST-44, INS-23, LED-13 and TL-18, whose Ka0s Default look moved, and SKIN-43 to SKIN-46 and
 DEGRADED-15, new. INS-23 moves only by the scroll bars' step buttons.
+
+Owed from the owner's third smoke round (Ka0sAddonsCommonTasks `docs/2026-11-02-SMOKE_ROUND3/`, R3-FRIZ): SKIN-48, and SKIN-7, whose WoW Default face is now Ka0s Ubuntu, so its pass mark came off.
