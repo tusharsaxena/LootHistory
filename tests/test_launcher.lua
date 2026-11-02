@@ -326,9 +326,9 @@ test("launcher: right-click opens the options menu — the brand title, then the
     -- red under: a missing pair (an entry the addon has but does not offer), an entry this addon does
     -- not have, a different order, or a checkmark read from a cached value.
     -- The tick is live (Launcher minor 7): read it while the state is in place, not after.
-    local function ticks(m, shown)
+    local function ticks(m, isShown)
       local realGet = NS.Browser.GetWindow
-      NS.Browser.GetWindow = function() return { IsShown = function() return shown end } end
+      NS.Browser.GetWindow = function() return { IsShown = function() return isShown end } end
       local out = { Locked = m:Checked("Locked"), ["Test mode"] = m:Checked("Test mode"),
         ["Show window"] = m:Checked("Show window") }
       NS.Browser.GetWindow = realGet
@@ -350,7 +350,8 @@ test("launcher: right-click opens the options menu — the brand title, then the
     assertEqual(now["Test mode"], false, "Test mode reads BrowserTable.testMode")
     assertEqual(now["Show window"], true, "Show window reads the History window's IsShown")
 
-    menu, now = withState({ locked = false, test = true, enabled = true }, function()
+    local _
+    _, now = withState({ locked = false, test = true, enabled = true }, function()
       local m = openMenu(false)
       return m, ticks(m, false)
     end)
