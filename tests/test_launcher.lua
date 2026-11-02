@@ -217,11 +217,11 @@ local function withState(state, fn)
   s.locked = state.locked
   BT.testMode = state.test
   NS.Schema:Set("settings.enabled", state.enabled)
-  local ok, res = pcall(fn)
+  local ok, res, extra = pcall(fn)
   s.locked, BT.testMode = was.locked, was.test
   NS.Schema:Set("settings.enabled", was.enabled)
   if not ok then error(res, 0) end
-  return res
+  return res, extra
 end
 
 local function recordLine()
@@ -325,27 +325,38 @@ test("launcher: right-click opens the options menu — the brand title, then the
     -- when the menu opened; the title is the plain-text label (launcher-§1).
     -- red under: a missing pair (an entry the addon has but does not offer), an entry this addon does
     -- not have, a different order, or a checkmark read from a cached value.
-    local menu = withState({ locked = true, test = false, enabled = true }, function()
-      return openMenu(true)
+    -- The tick is live (Launcher minor 7): read it while the state is in place, not after.
+    local function ticks(m, shown)
+      local realGet = NS.Browser.GetWindow
+      NS.Browser.GetWindow = function() return { IsShown = function() return shown end } end
+      local out = { Locked = m:Checked("Locked"), ["Test mode"] = m:Checked("Test mode"),
+        ["Show window"] = m:Checked("Show window") }
+      NS.Browser.GetWindow = realGet
+      return out
+    end
+    local menu, now = withState({ locked = true, test = false, enabled = true }, function()
+      local m = openMenu(true)
+      return m, ticks(m, true)
     end)
     assertEqual(#menu.titles, 1)
     assertEqual(menu.titles[1], NS.BRAND, "the menu's title is the plain-text label")
     local texts = menu:Texts()
-    local want = { "Enabled", "Locked", "Test mode", "Show window" }
-    assertEqual(#texts, #want, "the menu lists exactly four entries: " .. table.concat(texts, " / "))
+    local want = { "Enabled", "Locked", "Test mode", "Sim mode", "Show window" }
+    assertEqual(#texts, #want, "the menu lists exactly five entries: " .. table.concat(texts, " / "))
     for i, w in ipairs(want) do assertEqual(texts[i], w, "menu entry " .. i) end
     for _, e in ipairs(menu.entries) do assertTrue(e.enabled, e.text .. " must be live while enabled") end
     assertEqual(menu:Checked("Enabled"), true)
-    assertEqual(menu:Checked("Locked"), true, "Locked reads settings.locked when the menu opens")
-    assertEqual(menu:Checked("Test mode"), false, "Test mode reads BrowserTable.testMode")
-    assertEqual(menu:Checked("Show window"), true, "Show window reads the History window's IsShown")
+    assertEqual(now.Locked, true, "Locked reads settings.locked when the menu opens")
+    assertEqual(now["Test mode"], false, "Test mode reads BrowserTable.testMode")
+    assertEqual(now["Show window"], true, "Show window reads the History window's IsShown")
 
-    menu = withState({ locked = false, test = true, enabled = true }, function()
-      return openMenu(false)
+    menu, now = withState({ locked = false, test = true, enabled = true }, function()
+      local m = openMenu(false)
+      return m, ticks(m, false)
     end)
-    assertEqual(menu:Checked("Locked"), false, "the next open reads the lock afresh")
-    assertEqual(menu:Checked("Test mode"), true, "the next open reads the test mode afresh")
-    assertEqual(menu:Checked("Show window"), false, "the next open reads the window afresh")
+    assertEqual(now.Locked, false, "the next open reads the lock afresh")
+    assertEqual(now["Test mode"], true, "the next open reads the test mode afresh")
+    assertEqual(now["Show window"], false, "the next open reads the window afresh")
   end)
 
 test("launcher: each menu entry toggles through the addon's own handler, once", function()
@@ -400,11 +411,12 @@ test("launcher: while disabled, Enabled stays live and the other three are graye
         local menu = openMenu(false)
         local texts = menu:Texts()
         local want = { "Enabled", "Locked (enable the addon first)",
-          "Test mode (enable the addon first)", "Show window (enable the addon first)" }
+          "Test mode (enable the addon first)", "Sim mode (enable the addon first)",
+          "Show window (enable the addon first)" }
         for i, w in ipairs(want) do assertEqual(texts[i], w, "disabled menu entry " .. i) end
         assertTrue(menu:Find("Enabled").enabled, "Enabled stays clickable while off")
         local lockedBefore = NS.db.profile.settings.locked
-        for _, prefix in ipairs({ "Locked", "Test mode", "Show window" }) do
+        for _, prefix in ipairs({ "Locked", "Test mode", "Sim mode", "Show window" }) do
           assertEqual(menu:Find(prefix).enabled, false, prefix .. " must be grayed while off")
           assertTrue(menu:Click(prefix) == nil, "a grayed entry cannot be clicked")
           menu:ForceClick(prefix)

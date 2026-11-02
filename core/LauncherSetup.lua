@@ -197,6 +197,13 @@ NS.Launcher = Launcher:New({
   -- is a function because the library asks on every show and never caches.
   --
   -- The version is the TOC's (`NS.Version`, core/EnvSetup.lua), the one `/lh version` prints.
+  isSimMode = function() local s = NS.Sim; return type(s) == "table" and type(s.IsActive) == "function" and s:IsActive() == true end,
+  toggleSim = function()
+      local s = NS.Sim
+      if type(s) ~= "table" or type(s.RunVerb) ~= "function" then return end
+      -- The typed verb's own acts: stop a running sim, otherwise the bare verb (status and the sim panel).
+      s:RunVerb(s:IsActive() and "stop" or "")
+  end,
   version = function() return NS.Version and NS.Version() end,
 
   -- The addon's OWN line and nothing else: the record count. The title, the status and both click

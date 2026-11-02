@@ -149,7 +149,10 @@ if not lib then return end
 -- `reset` and `chevron-down` icons, with the client art only where Media is absent.
 -- Minor 8 (SF-L1 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a tooltip wraps, so Apply
 -- to all's long sentence draws on several rows where it drew one line wider than the window.
-local PICKER_MINOR = 8
+-- Minor 9 (SG-L3 of the same bundle): O.SkinNotice, the one-time announcement that skins exist.
+-- Once per account, keyed by lib.SKIN_NOTICE_VERSION: the first addon to ask in a session claims it
+-- and shows the picker, every other addon records the version in its own store and stays quiet.
+local PICKER_MINOR = 9
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -166,6 +169,9 @@ lib.MODULES.OptionsSkinPicker = PICKER_MINOR
 -- lib.APPEARANCE_STRINGS'. TITLE is shown as it is; the addon's label is never a word here (it is
 -- the owner's, on its own line). The two glyphs stand in for the icons on a payload without
 -- LibKa0s-Media-1.0. ASCII throughout.
+--- The notice's version: raise it on a release that wants every account to see the picker once more.
+lib.SKIN_NOTICE_VERSION = 1
+
 lib.SKIN_PICKER_STRINGS = {
   TITLE          = "Choose a skin",
   CHOOSE_TIP     = "Pick a skin to try it on this addon. Apply keeps it; closing this window puts " ..
@@ -1219,6 +1225,32 @@ function lib.__AttachSkinPicker(O, d)
     end
     if cur and cur.inst ~= O then return cur.frame end
     return show(owner, spec, Skin)
+  end
+
+  --- The one-time skin notice (minor 9, SG-L3). `store` is { get = fn answering the version this
+  --- addon recorded, or nil; set = fn(version) recording it, in the host's account-wide store }.
+  --- Recorded version at or past lib.SKIN_NOTICE_VERSION: nothing, "seen". Otherwise, when another
+  --- addon already claimed the notice this session: this addon records it, nothing, "claimed". Else
+  --- this addon claims it, records it and shows O.SkinPicker(spec) (the frame, or nil, "queued").
+  --- In combat nothing is claimed or recorded (nil, "combat"): the host asks again after it. The
+  --- claim lives on the library table, so every vendored copy of an addon shares it.
+  function O.SkinNotice(spec, store)
+    local v = lib.SKIN_NOTICE_VERSION
+    if type(store) ~= "table" or type(store.get) ~= "function" or type(store.set) ~= "function" then
+      return nil, "unavailable"
+    end
+    local seen = store.get()
+    if type(seen) == "number" and seen >= v then return nil, "seen" end
+    if lib.__noticeClaimed and lib.__noticeClaimed >= v then
+      store.set(v)
+      return nil, "claimed"
+    end
+    if inLockdown() then return nil, "combat" end
+    local f, why = O.SkinPicker(spec)
+    if not f and why ~= "queued" then return nil, "unavailable" end
+    lib.__noticeClaimed = v
+    store.set(v)
+    return f, why
   end
 
   --- Take this instance's pickers down: its queued owners leave the queue (never seen: no onClose),

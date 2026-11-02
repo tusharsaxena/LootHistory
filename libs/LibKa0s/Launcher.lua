@@ -49,12 +49,17 @@
 -- Minor 6: the status tooltip follows the host's skin (cause L1 of Ka0sAddonsCommonTasks
 -- docs/2026-11-01-FULL_SKINNING). LibKa0s-Skin-1.0 is optional and resolved on every show, like the
 -- broker libraries; a host that is no owner of it draws what minor 5 drew, call for call.
+--
+-- Minor 7 (SG-L1): the menu gains Sim mode (a toggle, for a host with a simulation) and Open
+-- settings (on every host, never grayed), and every row follows one rule: a toggle is a checkbox
+-- whose tick is asked live, an action is a plain button, and a gated row grays the same way
+-- whichever kind it is, the note in its label.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 6
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 7
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -118,6 +123,8 @@ lib.STRINGS = {
   MENU_NEEDS_ENABLE     = "enable the addon first",
   MENU_GRAYED           = "%s (%s)",
   MENU_SKIN             = "Open skin selector",
+  MENU_SIM_MODE         = "Sim mode",
+  MENU_SETTINGS         = "Open settings",
   MENU_FAILED           = "%s: the launcher menu's %s entry raised: %s",
 }
 
@@ -143,6 +150,7 @@ local ENTRIES = {
   { key = "MENU_ENABLED",     get = "isEnabled",     set = "setEnabled",     gated = false },
   { key = "MENU_LOCKED",      get = "isLocked",      set = "toggleLock",     gated = true  },
   { key = "MENU_TEST_MODE",   get = "isTestMode",    set = "toggleTestMode", gated = true  },
+  { key = "MENU_SIM_MODE",    get = "isSimMode",     set = "toggleSim",      gated = true  },
   { key = "MENU_SHOW_WINDOW", get = "isWindowShown", set = "toggleWindow",   gated = true  },
 }
 
@@ -205,6 +213,10 @@ end
 ---                            whether it is on. Draws `Test mode: On|Off` in the tooltip, and with
 ---                            `toggleTestMode` the menu's Test mode entry (minor 4).
 ---   toggleTestMode function  optional, since minor 4. The addon's own test-mode toggle.
+---   isSimMode      function  optional, since minor 7. Where the addon has a simulation: answers
+---                            whether it is running. With `toggleSim`, the menu's Sim mode entry.
+---   toggleSim      function  optional, since minor 7. The addon's own sim toggle (the act of its
+---                            `/<slash> sim` verb).
 ---   isWindowShown  function  optional, since minor 4. Where the addon has a primary window:
 ---                            answers whether it is shown. With `toggleWindow`, the menu's Show
 ---                            window entry.
@@ -422,33 +434,45 @@ function lib:New(d)
     return closeMenu()
   end
 
+  --- One action row (a plain button): Open settings, Open skin selector. `gated` rows gray while
+  --- the addon is disabled, with the note in the label, exactly as a gated checkbox does.
+  local function actionRow(root, key, gated, enabled, onClick)
+    if type(root.CreateButton) ~= "function" then return end
+    local label, grayed = text(key), gated and not enabled
+    if grayed then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
+    local button = root:CreateButton(label, onClick)
+    if grayed and type(button) == "table" and type(button.SetEnabled) == "function" then
+      button:SetEnabled(false)
+    end
+  end
+
+  local function chooseSettings()
+    local ok, err = pcall(d.openSettings, "RightButton")
+    if not ok then emit(text("MENU_FAILED"):format(name, text("MENU_SETTINGS"), tostring(err))) end
+    return closeMenu()
+  end
+
   --- THE OPTIONS MENU (minor 4, launcher-§2), as a Blizzard menu generator: the title, then one
-  --- checkbox per supplied entry. Every state is read HERE, when the menu opens, never cached;
-  --- while the addon is disabled the entries past Enabled are grayed with the note in the label.
+  --- checkbox per supplied toggle (its tick asked live, so it is never older than the draw), then
+  --- the actions: Open settings on every host, Open skin selector for a skin owner. Gated rows
+  --- gray while the addon is disabled, with the note in the label; Open settings never does.
   local function buildMenu(_, root, entries)
     if type(root) ~= "table" then return end
     if type(root.CreateTitle) == "function" then root:CreateTitle(d.label or name) end
     local enabled = enabledNow("menu: isEnabled")
     for _, entry in ipairs(entries) do
-      local checked = ask(d[entry.get], "menu: " .. entry.get) and true or false
       local grayed = entry.gated and not enabled
       local label = text(entry.key)
       if grayed then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
       local box = root:CreateCheckbox(label,
-        function() return checked end,
+        function() return ask(d[entry.get], "menu: " .. entry.get) and true or false end,
         function() return choose(entry) end)
       if grayed and type(box) == "table" and type(box.SetEnabled) == "function" then
         box:SetEnabled(false)
       end
     end
-    if skinEntry() and type(root.CreateButton) == "function" then
-      local label = text("MENU_SKIN")
-      if not enabled then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
-      local button = root:CreateButton(label, chooseSkin)
-      if not enabled and type(button) == "table" and type(button.SetEnabled) == "function" then
-        button:SetEnabled(false)
-      end
-    end
+    actionRow(root, "MENU_SETTINGS", false, enabled, chooseSettings)
+    if skinEntry() then actionRow(root, "MENU_SKIN", true, enabled, chooseSkin) end
   end
 
   --- The RIGHT click: the client's own context menu (`MenuUtil.CreateContextMenu`, 11.0+),
@@ -461,10 +485,6 @@ function lib:New(d)
       return d.openSettings("RightButton")
     end
     local entries = suppliedEntries()
-    if #entries == 0 and not skinEntry() then
-      log("menu: the descriptor supplies no toggle; right-click opens settings")
-      return d.openSettings("RightButton")
-    end
     MU.CreateContextMenu(owner or UIParent, function(o, root) buildMenu(o, root, entries) end)
   end
 

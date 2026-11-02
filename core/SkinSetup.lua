@@ -481,6 +481,47 @@ function NS.MaybeShowSkinPicker()
   return O.SkinPicker(NS.SkinPickerSpec())
 end
 
+-- ── the one-time skin notice (LibKa0s OptionsSkinPicker minor 9, SG-L3) ────────────────────────
+-- A release that wants every account to learn skins exist raises lib.SKIN_NOTICE_VERSION. The first
+-- addon to ask in a session claims the notice and shows the picker; every other addon records the
+-- version and stays quiet. The record is `db.global.skinNotice`, a number: account-wide, so a profile
+-- switch never shows it twice. In combat nothing is claimed; it asks again every NOTICE_RETRY seconds until combat ends.
+local NOTICE_RETRY = 5   -- seconds between asks while the player is in combat
+local noticeWaiting = false
+
+local function noticeGlobal()
+    local d = NS.db or (NS.addon and NS.addon.db)
+    return d and d.global or nil
+end
+
+local noticeStore = {
+    get = function() local g = noticeGlobal(); return g and g.skinNotice or nil end,
+    set = function(v) local g = noticeGlobal(); if g then g.skinNotice = v end end,
+}
+
+function NS.MaybeShowSkinNotice()
+    local O = NS.Options
+    if not (O and type(O.SkinNotice) == "function" and noticeGlobal()) then return nil, "unavailable" end
+    if NS.IsStoodDown and NS.IsStoodDown() then return nil, "standdown" end
+    local spec = NS.SkinPickerSpec()
+    local frame, why = O.SkinNotice(spec, noticeStore)
+    if why == "combat" and not noticeWaiting and type(_G.C_Timer) == "table" and _G.C_Timer.After then
+        noticeWaiting = true
+        _G.C_Timer.After(NOTICE_RETRY, function()
+            NS.MaybeShowSkinNotice()
+            noticeWaiting = false
+        end)
+    end
+    return frame, why
+end
+
+local pickerFirstRun = NS.MaybeShowSkinPicker
+function NS.MaybeShowSkinPicker()
+    local frame, why = NS.MaybeShowSkinNotice()
+    if frame or why == "queued" then return frame, why end
+    return pickerFirstRun()
+end
+
 -- AceGUI keeps ONE callback per event name (options-ui-§19). Without the library's chain there is
 -- no skin restore to share the release with, so the host's work takes the callback, as it did
 -- before the skin engine.

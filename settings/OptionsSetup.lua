@@ -159,6 +159,7 @@ if not lib then
     -- The reserved `/lh skin` verb's act (LibKa0s v1.82.0, OptionsSkinPicker minor 3, ruling D-16).
     -- Without the library it answers nil, "absent", and NS.RunSkinVerb prints the library-absent line.
     SkinVerb = function() return nil, "absent" end,
+    SkinNotice = function() return nil, "unavailable" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.
