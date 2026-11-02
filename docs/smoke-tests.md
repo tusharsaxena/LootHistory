@@ -997,7 +997,7 @@ Holdings repaint in later items (LH-03, LH-04), so their look is not part of thi
 FS-LH-FIX, 2026-11-01: the tabs' backing is new on Ka0s Default, cause A1, and Export's title bar is
 30 high, cause L9.) Fail: a
 surface that keeps the old skin until `/reload`, a missing divider line under the title bar, a
-changed look on Ka0s Default, or a Lua error. Result: not run
+changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **HIST-44. The History table follows the skin (LH-03; SK-LH-TABLE, SK-06).** On **Ka0s Default**,
 `/lh show` with some history (or `/lh test`) → the table looks exactly as before the skinning run:
@@ -1015,7 +1015,7 @@ old stripe or hover), **Delete** in Azeroth's red. Walk the other skins the same
 black, white and yellow, Doris PP text, the hovered row highlighted; there is no selected-row
 state, so no outline): every word and padlock stays readable, nothing moves. Pick **Ka0s Default**
 again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
-until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: not run
+until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1155,7 +1155,7 @@ and the tooltips take Azeroth's look, and every number and label stays readable;
 dropdown so sections come and go (bars return from the pool) → nothing keeps the old skin. Walk the
 other skins the same way. Pick **Ka0s Default** again → the first look comes back exactly, palette
 included. Fail: a card, bar or strip that keeps the old skin until `/reload`, a changed look on
-Ka0s Default, or a Lua error. Result: not run
+Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Filter lists
 
@@ -1648,7 +1648,7 @@ and with **Group** set, gold group rows with a gold chevron and a gray count. Pi
 the tab open → with no reload every one of those takes Azeroth's look; expand and collapse a thing
 so rows come back from the pool → none keeps the old stripe or hover. Pick **Ka0s Default** again →
 the first look comes back exactly. Fail: a row or arrow that keeps the old skin until `/reload`, a
-changed look on Ka0s Default, or a Lua error. Result: not run
+changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **LED-12. History gold amounts and the Gold tooltip (P5).** With **Record gold** ticked, open History
 on rows that include gold gains and losses (a large one if you have it, six or seven digits of gold).
@@ -1932,7 +1932,7 @@ its gray axis, the dimmed entry of a hidden line, and the hover, strip and legen
 with no reload the button, title, hint, axes, grid, crosshair, Total and Warband lines, strip and
 tooltips take Azeroth's look; the class colors stay the class colors. Pick **Ka0s Default** again →
 the first look comes back exactly. Fail: a line, button or strip that keeps the old skin until
-`/reload`, a changed look on Ka0s Default, or a Lua error. Result: not run
+`/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Simulator
 
@@ -2051,7 +2051,7 @@ Ka0s chevrons in gold, the window tabs a dark backing, the Holdings header a fai
 marks gray, Export, the debug console and the copy window 30 high title bars, and the sim panel a 30 high
 title band; SKIN-43 to SKIN-46 check them. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
 SO-06 gave Ka0s Default the Oxanium face and its own Ka0s Default bar; by LH-02 of the skin library
-follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result: not run
+follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result: Passed (owner, 2026-11-02)
 
 **SKIN-2. The Skin tab (SK-02; LH-01).** Settings → General → **Skin** → it sits second to
 last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches under a
@@ -2385,13 +2385,13 @@ the Holdings header wears the same faint band as the History header. Pick **Azer
 with no reload each tab's backing, label and edge take the skin's colors and both header bands repaint;
 click another tab → the selection moves and the colors stay. **Obsidian** and **Glass** draw no idle tab
 backing by design, so their tabs read as labels with an underline. Fail: an unreadable tab label in any
-skin, a Holdings header with no band, or a tab that keeps the old skin until `/reload`. Result: not run
+skin, a Holdings header with no band, or a tab that keeps the old skin until `/reload`. Result: Passed (owner, 2026-11-02)
 
 **SKIN-44. The Total only box (FS-LH-FIX; cause A1).** Timeline tab, with a thing charted. On each of
 Ka0s Default, Azeroth and Ember the **Total only** box shows a thin edge and fills with the skin's check
 color; tick and untick it by clicking anywhere on the button → the tick shows and hides, and hovering
 the box still shows the button's tooltip and gold hover. Fail: a box that swallows the click or the
-hover, a tick that stays, a box with no edge, or a label overlapping the box. Result: not run
+hover, a tick that stays, a box with no edge, or a label overlapping the box. Result: Passed (owner, 2026-11-02)
 
 **SKIN-45. The row menu's marks, the grip and the Export title (FS-LH-FIX; causes L6, L8, L9).**
 Right-click a History row under Ka0s Default → the marks are gray, not white; pick Azeroth and right-click
@@ -2400,7 +2400,7 @@ again → they take Azeroth's icon tint. Labels stay readable in every skin (no 
 at the bottom right is tinted; under Ka0s Default it stays the client's art. Open **Export** → its title
 bar is as tall as the History window's, the title centered and the close mark clear of it. Timeline
 tick labels read in the skin's face. Fail: a white mark on Azeroth, a stock grip on Azeroth, a clipped
-title, or a Data Set dropdown crowding the bar. Result: not run
+title, or a Data Set dropdown crowding the bar. Result: Passed (owner, 2026-11-02)
 
 **SKIN-46. What arrived with LibKa0s v1.85.0 (FS-LH-RV).** Under Azeroth: the scroll bars' up and down
 buttons on History, Insights, Holdings and the copy window are Ka0s chevrons in the skin's arrow color,
@@ -2410,7 +2410,7 @@ title band with its title and close mark on the middle and a tooltip title in th
 debug console and copy window have 30 high title bars. Settings with **Ignore settings panel** cleared
 → a tooltip's lines take the skin; deleting a profile on the Profiles page raises a confirmation in the skin, and
 with it ticked stays the client's. Fail: client arrow art on a skinned bar, a blank icon anywhere (a pruned
-mark), or a tooltip title that keeps the client's gold under Azeroth. Result: not run
+mark), or a tooltip title that keeps the client's gold under Azeroth. Result: Passed (owner, 2026-11-02)
 
 ## Vendored icons
 
@@ -2441,7 +2441,7 @@ spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
 list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
-**SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color.
+**SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color. Result: Passed (owner, 2026-11-02)
 
 **SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
 
@@ -2513,7 +2513,7 @@ is missing and the Insights charts are unavailable, no cards and no Lua error. R
 
 **DEGRADED-15. The tabs and toggle without the library (FS-LH-FIX).** `/lh show` → the tabs have no
 backing, the active one gold with its gold underline and the others gray; Timeline's **Total only** shows
-a dark box and a small gold tick that follows a click. No Lua error. Result: not run
+a dark box and a small gold tick that follows a click. No Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Non-English client
 
@@ -2602,3 +2602,5 @@ HIST-43, HIST-44, INS-23, LED-13 and TL-18, whose Ka0s Default look moved, and S
 DEGRADED-15, new. INS-23 moves only by the scroll bars' step buttons.
 
 Owed from the owner's third smoke round (Ka0sAddonsCommonTasks `docs/2026-11-02-SMOKE_ROUND3/`, R3-FRIZ): SKIN-48, and SKIN-7, whose WoW Default face is now Ka0s Ubuntu, so its pass mark came off.
+
+On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.
