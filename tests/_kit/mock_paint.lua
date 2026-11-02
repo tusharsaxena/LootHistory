@@ -212,7 +212,10 @@ function FONTSTRING:GetFont()
   if type(obj) == "table" and obj.GetFont then return obj:GetFont() end
   return nil
 end
-function FONTSTRING:SetFontObject(obj) self.__fontObject, self.__font = obj, nil end
+-- SetFontObject keeps a face the string was given with SetFont (revision 50, the owner's third smoke
+-- round): the client lets that string-level font beat any font object, so GetFont still answers it.
+-- Measured off DpsRace's clocks, which drew their SetFont face under every skin S.HudFont handed them.
+function FONTSTRING:SetFontObject(obj) self.__fontObject = obj end
 function FONTSTRING:GetFontObject() return self.__fontObject end
 function FONTSTRING:SetShadowOffset(x, y) self.__shadowOffset = { x, y } end
 function FONTSTRING:GetShadowOffset() return unpackOr(self.__shadowOffset, { 0, 0 }) end

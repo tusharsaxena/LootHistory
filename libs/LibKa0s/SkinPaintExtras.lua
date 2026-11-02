@@ -20,49 +20,15 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
--- Minor 2 (the owner's notes, round 2): Footer, Card and Cover give the strings they color the
--- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
--- Minor 3: a wash is a region of its frame at the bottom of BACKGROUND (SkinPaint minor 7's P.SUB),
--- not of the fill holder, which could tie the frame's parent for frame level.
--- Minor 4: BarTexture, the owner's bar texture (`bar.texture`, its texture override when it sets
--- one, Skin minor 6) on a Texture or a StatusBar, tinted and recorded (LibKa0s#63). A repaint and a
--- nil color keep the bar's live color (a host's own recolor included), never a first-paint snapshot.
--- Minor 5 (LK-02, LK-05 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): Card's `opts.tokens`
--- slot remap; the two faders, Panel and Inset, moved here unchanged from SkinPaint.lua; S.Text takes a
--- token NAME as well as a role.
--- Minor 6 (LK-01, LK-02, LK-05, LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS):
--- BarStyle's font fields are nil while the owner ignores fonts; P.panelIgnored and S.Text's and
--- S.Strip's `opts.panel`; the stock look is retired, so a stale `opts.stockDefault` is ignored.
--- Minor 7 (LK-04 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling
--- D-07): S.FontFlags(value, where), the flags an element draws with from its stored Font flags: a
--- picked flag wins, and "From skin" (FROM_SKIN; nil too) resolves through the owner's Font outline
--- (Skin minor 9). OptionsCompose minor 14's `flagsFromSkin` offers the value. Then (LK-06 of the same
--- bundle, ruling D-09, still minor 7): S.HudFontSize(size, fromSkin), the size a HUD element stored at
--- `size` draws at: scaled by the skin's `hud.fontSize` over Ka0s Default's while it uses the skin's
--- face, the stored size while it draws its own (fromSkin false) or the owner ignores fonts.
--- Minor 8 (cause L3 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a stated
--- `popup.borderStyle` or `nav.borderStyle` boxes the suggestion popup or the rail in the skin's own
--- edge and size, where both only recolored; `false`, Ka0s Default's, is the art the frame wears.
--- Minor 9 (cause L6 of the same bundle): S.Mark and S.MarkText, a small mark in the skin's tint and,
--- once the host names one, a Ka0s icon in place of client art.
--- Minor 10 (cause L8 of the same bundle): S.GetFont("mono") answers `font.mono`, or nil; a proportional
--- fallback would draw a glyph column as boxes.
--- Minor 11 (cause L9 of the same bundle): S.TitleBar's `opts.place`, the bar's height from
--- `title.height` and its text placed by `title.align`. Additive: with no `opts.place` a bar is as it was.
--- Minor 12 (FS-T1 of the same bundle, causes D2, D3 and D6): S.HudTextColor, S.HudLabelColor,
--- S.BarFillColor and S.HudShadow, and BarStyle's `text`, `label` and `fill`. Additive.
--- Minor 13 (cause A4 of the same bundle): S.Panel's `opts.popup`, the box in `popup.*`, and the
--- delete confirmation of a Ka0s profile page (the section at the end of this file). Additive.
--- Minor 14 (FS-FIX of the same bundle, the AbsorbTracker pilot's gaps): S.BarGloss and S.HudFont, so
--- five hosts draw one gloss and none writes its own font object. Additive.
--- Minor 15 (FS-FIX of the same bundle, the review of minor 14): S.BarGloss's `fromSkin`, the host's
--- texture companion, kept on a replay; S.HudFont's skin face read through Skin:Token, so Ignore fonts
--- reaches it as it reaches the shadow. Additive. Ka0s Default's look does not move.
--- Minor 16 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): S.BarBorder, a bar border's
--- style, Show border and size in one read, a skin's None deferring; S.HudShadow and S.HudFont take a
--- shadow token; S.HudFont shares one font object per look; S.HoverArt, the public seam for hover art;
--- S.Mark and S.HoverArt give themselves back when a pooled AceGUI widget is released. Additive, but
--- for the font objects. Ka0s Default's look does not move.
+-- Minors 2 to 16, each in the Skin document's *What changed*: P.label on Footer, Card and Cover;
+-- BarTexture; the faders, Panel and Inset moved here; P.panelIgnored; S.FontFlags and S.HudFontSize
+-- (to minor 7); boxed popup and rail edges (8); S.Mark and S.MarkText (9); S.GetFont("mono") (10);
+-- S.TitleBar's `opts.place` (11); the HUD color getters and S.HudShadow (12); S.Panel's `opts.popup`
+-- and the profile delete confirmation (13); S.BarGloss and S.HudFont (14), their companion and
+-- Ignore fonts (15); S.BarBorder, shadow tokens, one font object per look, S.HoverArt (16).
+-- Then, still minor 16 and not yet shipped (Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3):
+-- P.holdFace, so a face shows on a string given its own SetFont first (R3-DR-1L); P.px and
+-- FadeNineSlice's 1 px edge in every skin (R3-L2).
 local EXTRAS_MINOR = 16
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
@@ -121,6 +87,7 @@ local function justify(rec, fs, align)
     priors[fs] = nil
   end
 end
+P.justify = justify   -- SkinAce's AceGUI Dropdown label (R3-L1); P.unpaint gives the prior back
 
 -- Where a placed title stands: the token's edge, in from it by what the host reserved for controls.
 local TITLE_INSET = 8
@@ -463,18 +430,84 @@ prim.FadeRegions = function(owner, frame, ...)
   end
 end
 
+--- `n` physical pixels (1 by default) in the UI units of `frame`, a frame: the client's PixelUtil
+--- factor over its effective scale, so a 1 px edge is one pixel at any UI scale (R3-L2, R3-L3). `n`
+--- itself where the client has no PixelUtil or the frame no scale.
+function P.px(frame, n)
+  n = type(n) == "number" and n or 1
+  local pu = PixelUtil
+  local scale = P.isFrame(frame) and type(frame.GetEffectiveScale) == "function" and frame:GetEffectiveScale()
+  if type(pu) ~= "table" or type(pu.GetPixelToUIUnitFactor) ~= "function" or type(scale) ~= "number"
+    or scale <= 0 then return n end
+  return n * pu.GetPixelToUIUnitFactor() / scale
+end
+
+-- FadeNineSlice's edge, four regions of its own on the holder (R3-L2): the faded art leaves the frame
+-- no edge, and a dark frame vanished on a dark skin (images 85 to 87).
+local RING = { Top = { "TOPLEFT", "TOPRIGHT", "SetHeight" }, Bottom = { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight" },
+               Left = { "TOPLEFT", "BOTTOMLEFT", "SetWidth" }, Right = { "TOPRIGHT", "BOTTOMRIGHT", "SetWidth" } }
+
+--- An edge's color: the token `first` (the ring's `panel.border`, as S.Panel edges a box, image 93;
+--- S.IconBorder's `icon.border`, R3-L3), else `divider`, else the body text at 0.4, so a skin that
+--- sets none still draws a visible edge.
+function P.edgeColor(T, first)
+  local c = T[first or "panel.border"] or T["divider"]
+  if c then return c end
+  local b = T["text.body"]
+  return type(b) == "table" and { b[1], b[2], b[3], 0.4 } or nil
+end
+local ringColor = P.edgeColor
+
+--- A frame another primitive already edged (a Shell's or a Panel's edge, a backdrop a primitive
+--- dressed) keeps that edge, and the ring hides, as it does under `opts.noBorder`.
+local function sliceRing(rec, frame, T, opts)
+  local edged = rec.regions.edgeTop or rec.regions.nine or rec.regions.backdrop
+  local c = not (opts.noBorder or edged) and ringColor(T) or nil
+  local h = c and P.holder(rec, frame)
+  for side, a in pairs(RING) do
+    local t = h and P.tex(rec, "ring" .. side, h, "BORDER")
+    if t then
+      t:ClearAllPoints()
+      t:SetPoint(a[1], h, a[1])
+      t:SetPoint(a[2], h, a[2])
+      t[a[3]](t, P.px(h, 1))
+      t:SetColorTexture(rgba(c))
+      t:Show()
+    else
+      P.hide(rec, "ring" .. side)
+    end
+  end
+end
+
 --- S.FadeNineSlice(frame, opts): fade the nine pieces of `frame.NineSlice`, under every skin, Ka0s
---- Default included.
+--- Default included, and draw a 1 px edge in its place on the holder, one physical pixel, in
+--- `panel.border` (`divider`, else the body text at 0.4, where a skin sets none), in every skin
+--- (R3-L2). A frame another primitive edged keeps that edge alone, and `opts.noBorder` draws none.
 prim.FadeNineSlice = function(owner, frame, opts)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "FadeNineSlice", opts)
   rec.regions.stock = true
   local ns = rawget(frame, "NineSlice")
-  if not P.isFrame(ns) then return end
-  for _, k in ipairs(P.NINE_KEYS or {}) do P.fade(rec, P.field(ns, k, "Texture")) end
+  if P.isFrame(ns) then
+    for _, k in ipairs(P.NINE_KEYS or {}) do P.fade(rec, P.field(ns, k, "Texture")) end
+  end
+  sliceRing(rec, frame, P.T(owner), type(opts) == "table" and opts or {})
 end
 
 -- ── text and fonts ───────────────────────────────────────────────────────────────────────────
+
+--- Make `fs` draw `face`, `size` and `flags` after it was handed a font object that carries them. The
+--- client lets a font a string was given with its own SetFont beat any font object, so a string
+--- that ever had one keeps that face through SetFontObject (DpsRace's clocks under every skin, R3-DR-1
+--- of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3). Only a string whose GetFont disagrees is
+--- written, so one that never had a face of its own stays on the object alone; the shadow stays the
+--- object's, the only one a 12.0.7 client draws. SkinPaint's P.font and P.unfont call it too.
+function P.holdFace(fs, face, size, flags)
+  if type(face) ~= "string" or type(size) ~= "number" or size <= 0 or type(fs.GetFont) ~= "function" then return end
+  local f, s, fl = fs:GetFont()
+  if f == face and (fl or "") == (flags or "") and type(s) == "number" and math.abs(s - size) < 0.05 then return end
+  fs:SetFont(face, size, flags or "")
+end
 
 local TEXT_ROLE = {
   body = "text.body", muted = "text.muted", heading = "text.heading", headingAlt = "text.headingAlt",
@@ -808,6 +841,7 @@ local function wearHudLook(fs, face, size, flags, ...)
   end
   lib.__hudFonts[fs] = look.obj
   fs:SetFontObject(look.obj)
+  P.holdFace(fs, look.obj:GetFont())
   return look.obj
 end
 

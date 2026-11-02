@@ -75,6 +75,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- buttons take SkinPaintControls minor 13's P.stepArrows, a MultiLineEditBox's bar with them.
 -- Minor 9 (cause A4 of the same bundle): PaintAceTree hands each widget to SkinPaintExtras minor 13's
 -- __AceConfirmArm, so a Ka0s profile page's delete confirmation can wear the skin.
+-- Still minor 9, not yet shipped (R3-L1 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, images
+-- 83 and 84): a Dropdown, and every media picker aliased to it, wears the skinned WowStyle1
+-- dropdown: its label left-aligned, AceGUI's gold button faded under one Ka0s chevron in `icon.arrow`
+-- (SkinPaintControls' P.ddChevron), and a pull-out item's check in `check.mark`.
 local ACE_MINOR = 9
 if lib.__aceMinor and lib.__aceMinor >= ACE_MINOR
   and lib.__aceShellMinor == lib.MINOR then return end
@@ -674,6 +678,8 @@ local function paintPullout(owner, po)
       if fs then P.tint(r, fs, T, rawget(item, "disabled") and "text.disabled" or "menu.text") end
       local hl = region(item, "highlight", "Texture")
       if hl then P.tint(r, hl, T, "menu.hover", "SetVertexColor") end
+      local ck = region(item, "check", "Texture")
+      if ck then P.glyph(r, ck, T, "check.mark") end
     end
   end
 end
@@ -707,8 +713,20 @@ local function hookPullout(po)
   if type(po.Clear) == "function" then hooksecurefunc(po, "Clear", onClose) end
 end
 
+--- The gold button (`w.button`, the template's `<name>Button`) gives way to one Ka0s chevron at the
+--- bar's right, as S.Dropdown's WowStyle1 arrow does (minor 9, R3-L1); `text.disabled` while the row
+--- is. With no chevron art (no Media) the button stays, so the row keeps an arrow.
+local function ddArrow(owner, w, st, rec, frame, bar, T, dis)
+  local mark = P.ddChevron and P.ddChevron(owner, rec, "chevron", frame, bar, T,
+    dis and "text.disabled" or "icon.arrow")
+  local btn = frameOf(w, "button")
+  if mark and btn then P.fadeAll(part(st, "button", btn), P.stockRegions(btn)) end
+end
+
 -- The dropdown's visible bar is the 25px at the bottom of the widget, where AceGUI lays its own
--- click cover (`button_cover`); the template frame overhangs it by its art's padding.
+-- click cover (`button_cover`); the template frame overhangs it by its art's padding. The label is
+-- left-aligned, as the WowStyle1 dropdown's (R3-L1); its anchors are left alone, so a media picker's
+-- preview stays where OptionsMedia laid it.
 PAINT.Dropdown = function(owner, w, st, T)
   local frame = frameOf(w, "frame")
   if not frame then return end
@@ -717,7 +735,10 @@ PAINT.Dropdown = function(owner, w, st, T)
   if dd then P.fadeAll(part(st, "dropdown", dd), pieces(dd)) end
   local bar = frameOf(w, "button_cover") or frame
   box(rec, frame, bar, T, { fill = "input.bg", edge = "input.border", size = "input.borderSize" })
-  text(owner, rec, region(w, "text", "FontString"), T, inputTok(T), dis)
+  ddArrow(owner, w, st, rec, frame, bar, T, dis)
+  local shown = region(w, "text", "FontString")
+  if shown and P.justify then P.justify(rec, shown, "LEFT") end
+  text(owner, rec, shown, T, inputTok(T), dis)
   text(owner, rec, region(w, "label", "FontString"), T, "text.body", dis)
   local po = rawget(w, "pullout")
   if type(po) == "table" then hookPullout(po) end

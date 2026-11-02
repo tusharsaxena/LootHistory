@@ -127,7 +127,8 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- HudFont, SkinPaintExtras minor 14's, and FollowOnce, the record gate every host's step wrote.
 -- Minor 15 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): a skin's None `bar.borderStyle`
 -- defers in Resolve; VOCAB gains BarBorder and HoverArt, SkinPaintExtras minor 16's; a path's numeric
--- segment reaches a list entry, which ResetToSkin and FollowOnce skipped with no word.
+-- segment reaches a list entry, which ResetToSkin and FollowOnce skipped with no word. Then (R3-L7): a
+-- font override naming a retired shipped face (`RETIRED_FONTS`, SkinDefsOthers) lands as its successor.
 local MAJOR, MINOR = "LibKa0s-Skin-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
@@ -308,6 +309,12 @@ local function mediaKey(v)
   return nil
 end
 
+--- A font override's stored form: mediaKey's, with a retired shipped face moved to its successor.
+local function fontKey(v)
+  v = mediaKey(v)
+  return v and lib.RETIRED_FONTS and lib.RETIRED_FONTS[v] or v
+end
+
 local function fnOr(v, old)
   if type(v) == "function" then return v end
   return old
@@ -401,7 +408,7 @@ function lib:WriteChoice(owner, source, skin, ignore, media)
   if type(ignore) == "table" then ignore = { panel = ignore.panel == true, fonts = ignore.fonts == true }
   else ignore = nil end
   if type(media) == "table" then
-    media = { font = mediaKey(media.font) or false, texture = mediaKey(media.texture) or false,
+    media = { font = fontKey(media.font) or false, texture = mediaKey(media.texture) or false,
               outline = OUTLINE_OK[media.outline] and media.outline or nil }
   else media = nil end
   local ok, err = pcall(o.set, cleanSource(source), cleanSkin(skin), ignore, media)
@@ -646,10 +653,10 @@ function lib:GetOverride(owner)
   return o.font, o.texture
 end
 
---- One half of SetOverride: nil keeps `old`, false or "" clears it, a string key sets it.
-local function nextOverride(v, old)
+--- One half of SetOverride: nil keeps `old`, false or "" clears it, a string key sets it (`key`'s form).
+local function nextOverride(v, old, key)
   if v == nil then return old end
-  return mediaKey(v)
+  return (key or mediaKey)(v)
 end
 
 --- Set `owner`'s font and texture overrides (the Appearance tab's "Font and texture"); nil keeps
@@ -665,7 +672,7 @@ function lib:SetOverride(owner, font, texture)
   requireOwner(owner, "SetOverride")
   local o = self.owners[owner]
   if not o then return false end
-  font, texture = nextOverride(font, o.font), nextOverride(texture, o.texture)
+  font, texture = nextOverride(font, o.font, fontKey), nextOverride(texture, o.texture)
   if font == o.font and texture == o.texture then return false end
   o.font, o.texture = font, texture
   if not o.pendingReload then

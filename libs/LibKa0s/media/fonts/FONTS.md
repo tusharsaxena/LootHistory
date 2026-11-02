@@ -7,7 +7,10 @@ a face copied unchanged is pinned byte for byte, and an instanced face (Nunito, 
 Oxanium, Inter) through its upstream variable font and the axis values it is cut at, not its own
 bytes. JetBrains Mono came with the library and that tool does not cover it.
 
-Every face here stays in the payload whether or not a skin names it (owner, 2026-10-31).
+Every face here stays in the payload whether or not a skin names it (owner, 2026-10-31), with one
+exception: Friz Quadrata left on the owner's ruling of 2026-11-02 (R3-L7), once WoW Default drew Ubuntu
+in its place. A stored pick of it moves to Ka0s Ubuntu. The client's own Friz Quadrata, LibSharedMedia's
+"Friz Quadrata TT", is not this folder's and is untouched.
 
 The license files that exist sit beside the faces. A face with no license file names this record as
 its `license`, because nothing that could be shipped grants it.
@@ -56,6 +59,26 @@ Sans is a trademark of Google and may be registered in certain jurisdictions."
 | `OpenSans-Light.ttf` | Ka0s Open Sans Light | Digitized data copyright (c) 2010-2011, Google Corporation. |
 | `OpenSans-Semibold.ttf` | Ka0s Open Sans Semibold | Digitized data copyright (c) 2011, Google Corporation. |
 
+## Ubuntu Font Licence 1.0
+
+The Ubuntu Font Licence (UFL) 1.0 allows the face to be used, studied, modified and redistributed,
+bundled and embedded, provided each copy carries the copyright notice and the licence.
+`Ubuntu-UFL.txt` is upstream's `UFL.txt` verbatim but for its line endings. Source: google/fonts,
+`ufl/ubuntu/`, at commit `bed55e0de5cfa8f5fb94f9a1f49409b5ec504469`, the last to touch that folder.
+
+| File | Key | Family source | Copyright (name table) | License file |
+|---|---|---|---|---|
+| `Ubuntu-Regular.ttf` | Ka0s Ubuntu | <https://github.com/google/fonts/tree/main/ufl/ubuntu>, the static Regular, version 0.83, unchanged | Copyright 2011 Canonical Ltd. Licensed under the Ubuntu Font Licence 1.0 | `Ubuntu-UFL.txt` |
+
+WoW Default's face for body, titles and HUD text, on the owner's ruling of 2026-11-02 (Ka0sAddonsCommonTasks
+`docs/2026-11-02-SMOKE_ROUND3/`, R3-L6): Friz Quadrata could not shrink to fit Loot History's Date column
+and stay readable. It is the static file, not a variable font, and is the same 0.83 Regular as the
+copy EllesmereUI ships (`media/fonts/Ubuntu.ttf`, the face the owner first tried as a font override):
+the same advances and vertical metrics, where that copy drops the legacy `kern`, `DSIG` and `LTSH`
+tables. That copy is not the source. "Ubuntu and Canonical are registered trademarks of Canonical
+Ltd." The licence grants no trademark rights; the face ships unchanged under its own name, and
+"Ka0s Ubuntu" is only the LibSharedMedia key.
+
 ## Under the author's terms
 
 | File | Key | Source | Copyright (name table) | License file |
@@ -73,7 +96,6 @@ alone, and that ruling is the only ground it ships on. Each is byte for byte the
 | File | Key | Source | Copyright (name table) | License file |
 |---|---|---|---|---|
 | `Expressway-Bold.ttf` | Ka0s Expressway | The owner's SharedMedia pack, Expressway Rg Bold 2.100 | (c) 2005 Typodermic. Do not distribute. | `Expressway-EULA.pdf` |
-| `FrizQuadrataTT-Regular.ttf` | Ka0s Friz Quadrata TT | DialogueUI add-on, `Fonts/frizqt__.ttf` | (c) Copyright 1997 International Typeface Corporation. All rights reserved. | none |
 | `SegoeUI-Regular.ttf` | Ka0s Segoe UI | Sorted add-on, `Textures/segoeui.ttf` | (c) 2018 Microsoft Corporation. All Rights Reserved. | none |
 | `SegoeUI-Bold.ttf` | Ka0s Segoe UI Bold | Sorted add-on, `Textures/segoeuib.ttf` | as above | none |
 | `SegoeUI-Semilight.ttf` | Ka0s Segoe UI Light | Sorted add-on, `Textures/segoeuisl.ttf` | as above | none |
@@ -100,8 +122,6 @@ you have not got special license" and "You have no right to embed this font into
 commercial purposes without special license", and its name table calls it "a property of ParaType,
 Inc." Shipped on the owner's ruling of 2026-10-31.
 
-**Friz Quadrata.** The name table records no license. The copyright stays ITC's. Shipped on the owner's ruling of 2026-10-31. Its md5 is `87cd491cd119e8c7aa48b562d7482ed8`, so it is real Friz and not the owner's replaced client file, which is Prototype's bytes, `0483b4eeaaefc7b81986e43702c7900d`.
-
 **Emblem.** The name table says "Redistribution strictly prohibited." Shipped on the owner's ruling of
 2026-10-31.
 
@@ -110,5 +130,5 @@ Corp. Shipped on the owner's ruling of 2026-10-31.
 
 ## Family notes
 
-Prototype, Atkinson Hyperlegible, Friz Quadrata, Emblem and Doris PP have no Cyrillic, so `Media.lua`
-registers them for western clients only. Every other family has the Russian alphabet.
+Prototype, Atkinson Hyperlegible, Emblem and Doris PP have no Cyrillic, so `Media.lua`
+registers them for western clients only. Every other family has the Russian alphabet, Ubuntu among them.

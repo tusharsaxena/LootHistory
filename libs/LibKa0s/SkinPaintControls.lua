@@ -75,7 +75,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 15 (FS-FIX of the same bundle): S.IconBorder takes a Texture, its edge on a plain child of the
 -- Texture's parent, shown and hidden with it, so a secure parent is never written to.
 -- Minor 16 (SF-L2 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a sort header's arrows
--- take `list.header.arrow`, a color of their own, where they took `icon.arrow`.
+-- take `list.header.arrow`, a color of their own, where they took `icon.arrow`. Still minor 16, not
+-- yet shipped (R3-L3 of docs/2026-11-02-SMOKE_ROUND3): S.IconBorder draws a flat 1 px outline in
+-- every skin, one physical pixel, and zooms the icon 0.07 (`opts.zoom`). Still minor 16 (R3-L1):
+-- the WowStyle1 chevron is P.ddChevron, which SkinAce's AceGUI Dropdown draws too.
 local CONTROLS_MINOR = 16
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
@@ -367,17 +370,26 @@ local function wowStyle(dd)
   return nil
 end
 
-local function wowArrow(owner, rec, dd, arrow, T)
-  P.fade(rec, arrow)
+--- A dropdown's one chevron: the owner's `chevron-down` as region `key` of `rec` on `host`, 6px in
+--- from the right of `bar`, in `tok`. Nil, and nothing made, without Media or an addon name. S.Dropdown's
+--- WowStyle1 arrow, and since R3-L1 (Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3) SkinAce's
+--- AceGUI Dropdown, so the two dropdowns wear one mark.
+function P.ddChevron(owner, rec, key, host, bar, T, tok)
   local art = stepArt(owner, "chevron-down")
-  local t = art and P.tex(rec, "wowArrow", dd, "OVERLAY", 7)
-  if not t then return end
+  local t = art and P.tex(rec, key, host, "OVERLAY", 7)
+  if not t then return nil end
   t:ClearAllPoints()
-  t:SetPoint("RIGHT", dd, "RIGHT", -6, 0)
+  t:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
   t:SetSize(STEP_ICON, STEP_ICON)
   t:SetTexture(art)
   t:Show()
-  P.glyph(rec, t, T, "icon.arrow")
+  P.glyph(rec, t, T, tok)
+  return t
+end
+
+local function wowArrow(owner, rec, dd, arrow, T)
+  P.fade(rec, arrow)
+  P.ddChevron(owner, rec, "wowArrow", dd, dd, T, "icon.arrow")
 end
 
 local function wowLabel(rec, dd)
@@ -836,14 +848,6 @@ prim.SquareIcon = function(owner, frame, opts)
   P.edges(rec, frame, P.T(owner)["icon.border"], "flat", 1)
 end
 
--- The edge style an `icon.borderStyle` names (minor 9, LK-04): "Solid" is the flat WHITE8X8 edge,
--- "None" draws none (nil), any other LibSharedMedia border key a nine-slice of that art.
-local function iconEdgeStyle(style)
-  if style == "None" then return nil end
-  if style == nil or style == "Solid" then return "flat" end
-  return "nine:" .. tostring(style)
-end
-
 -- A Texture's shown state reaches its holder: a border must not stand around a hidden icon.
 local ICON_SHOWN = { "Show", "Hide", "SetShown" }
 
@@ -875,27 +879,50 @@ local function textureHolder(rec, tex)
   return h
 end
 
+-- The outline (R3-L3 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, images 91 and 92): flat,
+-- in `icon.border` (else `divider`, else the body text at 0.4: P.edgeColor), in physical pixels
+-- (P.px). With `opts.fromSkin` it is 1 px in every skin: `icon.borderStyle` and `icon.borderSize`
+-- are no longer read, since a 2px size (Ka0s Default, Azeroth, Ember, WoW Midnight) or WoW Default's
+-- Blizzard Tooltip nine-slice drew a heavier frame than the owner's 1 px.
 local function drawIconEdge(rec, frame, T, opts)
-  if type(opts) == "table" and opts.fromSkin == true then
-    local style = iconEdgeStyle(T["icon.borderStyle"])
-    return P.edges(rec, frame, style and T["icon.border"] or nil, style, T["icon.borderSize"] or 1)
-  end
-  P.edges(rec, frame, T["icon.border"], "flat", type(opts) == "table" and opts.size or 1)
+  local size = opts.fromSkin ~= true and type(opts.size) == "number" and opts.size or 1
+  local c = P.edgeColor(T, "icon.border")
+  P.edges(rec, frame, c, "flat", c and P.px(P.holder(rec, frame), size) or size)
 end
 
---- S.IconBorder(frame, opts): an `icon.border` edge on the frame's holder. Without `opts.fromSkin` it
---- is flat, `opts.size` pixels (1 by default), as it always was. With `opts.fromSkin = true` (minor 9,
---- LK-04) it is the skin's icon border: `icon.borderStyle` ("Solid" flat, "None" none, another
---- LibSharedMedia border key a nine-slice) at `icon.borderSize` pixels, and `opts.size` is not read.
---- Ka0s Default's is Solid 2px black. `frame` may be a Texture (minor 15): the edge hangs on a plain
---- child of its parent (textureHolder), shown and hidden with the Texture. Draws no Media icon.
+-- The zoom (R3-L3, images 88 to 90: the art's own edge showed inside the outline). The icon is the
+-- Texture handed in, else `opts.icon`, else `frame.icon` / `frame.Icon`; a frame with none is left,
+-- never a region guessed at. Its coords are saved once and given back by P.unpaint.
+local ICON_ZOOM = 0.07
+
+local function zoomIcon(rec, frame, opts)
+  if opts.zoom == false then return end
+  local icon = P.isTexture(frame) and frame or (P.isTexture(opts.icon) and opts.icon)
+    or P.field(frame, "icon", "Texture") or P.field(frame, "Icon", "Texture")
+  if not icon then return end
+  local z = type(opts.zoom) == "number" and opts.zoom or ICON_ZOOM
+  local coords = P.saved(rec, "coords")
+  if coords[icon] == nil then coords[icon] = { icon:GetTexCoord() } end
+  icon:SetTexCoord(z, 1 - z, z, 1 - z)
+end
+
+--- S.IconBorder(frame, opts): a flat `icon.border` edge on the frame's holder, in physical pixels,
+--- and the icon zoomed. Without `opts.fromSkin` the edge is `opts.size` pixels (1 by default). With
+--- `opts.fromSkin = true` (minor 9, LK-04) it is the skin's outline, 1 px in every skin since R3-L3,
+--- and `opts.size` is not read. A skin with no `icon.border` draws its `divider`, else its body text
+--- at 0.4. The icon (the Texture itself, `opts.icon`, else `frame.icon` / `frame.Icon`) is zoomed to
+--- texcoords 0.07..0.93; `opts.zoom` sets another inset, `false` leaves the coords alone. `frame` may
+--- be a Texture (minor 15): the edge hangs on a plain child of its parent (textureHolder), shown and
+--- hidden with the Texture. Draws no Media icon.
 prim.IconBorder = function(owner, frame, opts)
   local isTex = P.isTexture(frame)
   if not (isTex or P.isFrame(frame)) then return end
   local rec = P.track(owner, frame, "IconBorder", opts)
   local h = isTex and textureHolder(rec, frame)
   if isTex and not h then return end
+  opts = type(opts) == "table" and opts or {}
   drawIconEdge(rec, frame, P.T(owner), opts)
+  zoomIcon(rec, frame, opts)
   if isTex then followShown(rec, frame, h) end
 end
 

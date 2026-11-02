@@ -33,6 +33,18 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- `list.stripe` shows, at least 5% off its window in a channel. SF-L4: every title band stands 5%
 -- off the window and every rule 10% off both: Obsidian's, Glass's, High Contrast's and WoW Forever's move.
 -- SF-L5: High Contrast's window, popup, menu and icon edges are 1px.
+-- Then (R3-L5, still minor 8): every dark skin's `list.stripe` stands at least 8% off its window, where
+-- 6% white left Obsidian's rows hardly visible (image 95): Obsidian, Glass, Ember, WoW Default and WoW
+-- Midnight 9% white, WoW Forever 10%, Azeroth its parchment at 11%. High Contrast's #222222 stands.
+-- `list.hover` (TEXT_WASH) rises from the body text at .10 to .15, so a hovered row still stands off
+-- a striped one, as it did; High Contrast keeps its own yellow.
+-- Then (R3-L6, still minor 8): WoW Default draws Ka0s Ubuntu (Media minor 12) for body, titles and HUD
+-- at its parity row, 12 / 13.5 / 11.5, where it drew Ka0s Friz Quadrata TT at 11 / 13 / 11: Friz ran
+-- Loot History's Date 0.3% wide and could not shrink and stay readable (images 98, 99). Then (R3-L7):
+-- Ka0s Friz Quadrata TT leaves the payload (Media minor 12), and its `__FACE_SIZES` row with it.
+-- Then (R3-L4 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, still minor 8, not yet shipped):
+-- Obsidian's body, and Expressway's body row in `__FACE_SIZES`, is 12, one step under the parity
+-- size 12.5, so Loot History's Date column draws "02-Nov-2026" whole, as Ka0s Default does.
 local OTHERS_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
@@ -140,7 +152,7 @@ local ACCENT_WASH = {
 
 -- The body text at a fixed alpha: the reorder list's row boxes, which Ka0s Default draws in white.
 local TEXT_WASH = {
-  { "list.hover", 0.10 }, { "list.box", 0.06 }, { "list.boxDim", 0.03 }, { "list.boxEdge", 0.12 }, { "list.boxEdgeDim", 0.06 },
+  { "list.hover", 0.15 }, { "list.box", 0.06 }, { "list.boxDim", 0.03 }, { "list.boxEdge", 0.12 }, { "list.boxEdgeDim", 0.06 },
 }
 
 -- Tokens that follow another token the skin set (minor 4): a skin that sets the source and not the
@@ -192,11 +204,12 @@ end
 
 -- What every other skin inherited from Ka0s Default before minor 14 gave it Oxanium and the Ka0s
 -- Default bar: Friz Quadrata and the client's Blizzard bar. A skin that sets its own keeps that; WoW
--- Default is the one skin that sets no face and no bar, so these are its. The face is the shipped
--- Friz since minor 18, since a client's own file need not be Friz at all (D-01). The HUD face left
--- KEEP in minor 16: every skin names its own (HUD_FACE below).
-local FRIZ = "Ka0s Friz Quadrata TT"
-local KEEP = { ["font.body"] = FRIZ, ["font.title"] = FRIZ, ["bar.texture"] = "Blizzard",
+-- Default is the one skin that sets no face and no bar, so these are its. The face was a shipped
+-- Friz from minor 18, since a client's own file need not be Friz at all (D-01), and is Ubuntu since
+-- R3-L6; that Friz left the payload at R3-L7. The HUD face left KEEP in minor 16: every skin names
+-- its own (HUD_FACE below).
+local UBUNTU = "Ka0s Ubuntu"
+local KEEP = { ["font.body"] = UBUNTU, ["font.title"] = UBUNTU, ["bar.texture"] = "Blizzard",
   -- Minor 2, cause L1: Ka0s Default's gold lines and pure green and red are its own, so a skin with
   -- no `gtip.body` of its own to FOLLOW, and every skin's status words, take the value it inherits.
   ["gtip.line"] = KA0S["gtip.body"], ["gtip.on"] = KA0S["sem.on"], ["gtip.off"] = KA0S["sem.off"] }
@@ -238,7 +251,7 @@ local ICON_EDGE = {
 -- is its token above (Prototype, minor 17).
 local HUD_FACE = {
   obsidian = "Ka0s Expressway", azeroth = "Ka0s Open Sans Semibold", glass = "Ka0s Avant Garde",
-  contrast = "Ka0s Doris PP", ember = "Ka0s Emblem", wow = FRIZ,
+  contrast = "Ka0s Doris PP", ember = "Ka0s Emblem", wow = UBUNTU,
   midnight = "Ka0s Segoe UI Semibold", forever = "Ka0s Fira Sans SemiBold",
 }
 
@@ -246,7 +259,7 @@ local HUD_FACE = {
 -- Default's width at 12, measured as the body and title sizes are (tests/test_skin_width_parity.lua).
 -- A reference, not a size: S.HudFontSize draws a stored 24 at 24 * HUD_SIZE / 12.
 local HUD_SIZE = {
-  obsidian = 13, azeroth = 11, glass = 11, contrast = 10.5, ember = 11, wow = 11, midnight = 11.5, forever = 11.5,
+  obsidian = 13, azeroth = 11, glass = 11, contrast = 10.5, ember = 11, wow = 11.5, midnight = 11.5, forever = 11.5,
 }
 
 -- Each skin's HUD text shadow (minor 6, cause D6): the darkest color of its own palette, so the shadow
@@ -307,7 +320,9 @@ local BAR_EDGE = {
 -- Measured by Ka0sAddonsCommonTasks docs/2026-10-31-FONT_PICKERS_AND_SKIN_FACES/plan-data/
 -- font_metrics_shipped.py, its section 10, and held to lib.FONTS and to each
 -- skin's own sizes by tests/test_skin_width_parity.lua. JetBrains Mono is the small one, monospace
--- being wide.
+-- being wide. A body row may sit one step under its parity size when the step above draws Loot
+-- History's Date, "02-Nov-2026", wider than Prototype at 12, the widest that column holds:
+-- Expressway's, whose digits are wider than its letters (R3-L4, 12.5 to 12).
 lib.__FACE_SIZES = {
   ["JetBrains Mono"]           = { 9, 11, 9.5 },
   ["Ka0s Atkinson"]            = { 12, 14, 12 },
@@ -317,11 +332,10 @@ lib.__FACE_SIZES = {
   ["Ka0s Bitter Bold"]         = { 11, 12.5, 11 },
   ["Ka0s Doris PP"]            = { 10.5, 12.5, 10.5 },
   ["Ka0s Emblem"]              = { 11, 12.5, 11 },
-  ["Ka0s Expressway"]          = { 12.5, 14.5, 13 },
+  ["Ka0s Expressway"]          = { 12, 14.5, 13 },
   ["Ka0s Fira Sans"]           = { 12, 13.5, 12 },
   ["Ka0s Fira Sans Medium"]    = { 12, 13.5, 11.5 },
   ["Ka0s Fira Sans SemiBold"]  = { 11.5, 13.5, 11.5 },
-  ["Ka0s Friz Quadrata TT"]    = { 11, 13, 11 },
   ["Ka0s Inter"]               = { 11, 13, 11 },
   ["Ka0s Inter SemiBold"]      = { 11, 12.5, 10.5 },
   ["Ka0s Nunito"]              = { 11.5, 13.5, 11.5 },
@@ -340,9 +354,15 @@ lib.__FACE_SIZES = {
   ["Ka0s Segoe UI Bold"]       = { 11, 13, 11 },
   ["Ka0s Segoe UI Light"]      = { 12.5, 14.5, 12.5 },
   ["Ka0s Segoe UI Semibold"]   = { 11.5, 13.5, 11.5 },
+  ["Ka0s Ubuntu"]              = { 12, 13.5, 11.5 },
   ["Ka0s Vollkorn"]            = { 12, 14, 12 },
   ["Ka0s Vollkorn Bold"]       = { 11.5, 12.5, 11 },
 }
+
+-- A shipped face that left the payload, and the face a stored pick of it becomes (R3-L7): Skin.lua's
+-- SetOverride and WriteChoice read it, so the owner's store, and the host's profile from its next
+-- write, hold the successor. LibSharedMedia's own "Friz Quadrata TT" is the client's, and stays.
+lib.RETIRED_FONTS = { ["Ka0s Friz Quadrata TT"] = "Ka0s Ubuntu" }
 
 local function register(key, label, desc, swatches, mock, extra)
   local tokens = translate(mock, extra)
@@ -363,10 +383,11 @@ local function register(key, label, desc, swatches, mock, extra)
 end
 
 -- ── Obsidian ── mockup `obsidian`. Expressway, the owner's pick (minor 17, LK-A1; Inter, the
--- mockup's own face, from minor 11, Barlow before).
+-- mockup's own face, from minor 11, Barlow before). Its body is 12, a step under parity, for the Date
+-- column (R3-L4); its titles and HUD keep theirs.
 register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool blue accent.",
   { "#0a0a0b", "#202024", "#141416", "#4db8ff" }, {
-    font = "Ka0s Expressway", tfont = "Ka0s Expressway", fs = 12.5, titleSize = 14.5,
+    font = "Ka0s Expressway", tfont = "Ka0s Expressway", fs = 12, titleSize = 14.5,
     barTex = "Ka0s Matte",
     win = hex("#0A0A0B"), winBorder = edge(1, "flat", hex("#202024")), winInner = false, radius = 0,
     titleBg = hex("#1E1E22"), titleColor = hex("#2A86D1"), divider = hex("#4A4A54"),
@@ -378,7 +399,7 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
     priBg = hex("#2A86D1"), priBorder = edge(1, "flat", hex("#4DB8FF")), priText = hex("#FFFFFF"),
     inBg = hex("#040405"), inBorder = edge(1, "flat", hex("#26262b")), inRadius = 0,
     inText = hex("#E8E8EC"), inPh = hex("#8A8A93"),
-    hdrBg = hex("#101012"), hdrText = hex("#4DB8FF"), hdrArrow = hex("#F2F2F4"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = hex("#101012"), hdrText = hex("#4DB8FF"), hdrArrow = hex("#F2F2F4"), rowAlt = rgba(255, 255, 255, 0.09),
     rowSel = rgba(77, 184, 255, 0.14),
     tabBg = CLEAR, tabText = hex("#9B9BA4"), tabBorder = edge(1, "flat", CLEAR), tabRadius = 0,
     tabOnBg = CLEAR, tabOnText = hex("#F2F2F4"), tabOnLine = hex("#4DB8FF"),
@@ -425,7 +446,7 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
     priBg = AZ_WAX, priBorder = edge(1, "flat", AZ_GOLD), priText = hex("#FFD866"),
     inBg = hex("#1c130b"), inBorder = edge(1, "flat", AZ_EDGE), inRadius = 0, inText = AZ_TEXT,
     inPh = hex("#8E7A58"),
-    hdrBg = hex("#3a2614"), hdrText = AZ_GOLD, hdrArrow = AZ_TEXT, rowAlt = rgba(233, 221, 188, 0.07),
+    hdrBg = hex("#3a2614"), hdrText = AZ_GOLD, hdrArrow = AZ_TEXT, rowAlt = rgba(233, 221, 188, 0.11),
     rowSel = rgba(163, 36, 26, 0.35),
     tabBg = hex("#3a2614"), tabText = hex("#CDB78A"), tabBorder = edge(1, "flat", hex("#24160a")),
     tabRadius = 0, tabOnBg = hex("#7a1a10"), tabOnText = hex("#FFD866"), tabOnLine = CLEAR,
@@ -474,7 +495,7 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
     priText = hex("#1A1033"),
     inBg = rgba(0, 0, 0, 0.30), inBorder = edge(1, "flat", rgba(255, 255, 255, 0.18)),
     inRadius = 0, inText = hex("#F2F4F8"), inPh = hex("#B8BFCC"),
-    hdrBg = rgba(255, 255, 255, 0.06), hdrText = hex("#B69CFF"), hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = rgba(255, 255, 255, 0.06), hdrText = hex("#B69CFF"), hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.09),
     rowSel = rgba(182, 156, 255, 0.24),
     tabBg = CLEAR, tabText = hex("#C9CFDB"), tabBorder = edge(1, "flat", CLEAR), tabRadius = 0,
     tabOnBg = rgba(182, 156, 255, 0.10), tabOnText = hex("#FFFFFF"), tabOnLine = hex("#B69CFF"),
@@ -577,7 +598,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Emblem type.
     priText = hex("#FFFFFF"),
     inBg = hex("#140a07"), inBorder = edge(1, "flat", hex("#5a2a16")), inRadius = 0,
     inText = hex("#F4E7DC"), inPh = hex("#A88A76"),
-    hdrBg = rgba(255, 122, 51, 0.08), hdrText = hex("#FFB45A"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = rgba(255, 122, 51, 0.08), hdrText = hex("#FFB45A"), rowAlt = rgba(255, 255, 255, 0.09),
     rowSel = rgba(255, 122, 51, 0.18),
     tabBg = hex("#2a140c"), tabText = hex("#C7A993"), tabBorder = edge(1, "flat", hex("#5a2a16")),
     tabRadius = 0, tabOnBg = hex("#4a2012"), tabOnText = hex("#FFB45A"), tabOnLine = hex("#FF7A33"),
@@ -613,12 +634,13 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Emblem type.
 -- states (the InActiveTab art is drawn shorter, so idle tabs stood lower than the selected one; the
 -- owner's note, round 3), the selected tab told by its white label; the scroll thumb is UI-ScrollBar-Knob; the checkbox is UI-CheckBox-Up and -Check.
 -- An art token draws that art at its own colors; the color token beside it is the fallback when
--- the art does not load. Friz Quadrata (the shipped face since minor 18, D-01) and the client's
--- Blizzard bar, through KEEP: no font token and no bar texture.
+-- the art does not load. Ubuntu (R3-L6; a shipped Friz Quadrata from minor 18, D-01, until then)
+-- and the client's Blizzard bar, through KEEP: no font token and no bar texture. Sizes are Ubuntu's
+-- row, which draws Loot History's Date whole.
 local WOW_RED = grad(hex("#b3200f"), hex("#640c05"))
 register("wow", "WoW Default", "The vanilla client: dialog-box border, red buttons, gold text.",
   { "#1e1c19", "#a8a8a8", "#640c05", "#ffd100" }, {
-    fs = 11, titleSize = 13,
+    fs = 12, titleSize = 13.5,
     win = hex("#1e1c19"), winBorder = edge(32, "nine:Blizzard Dialog", hex("#FFFFFF")),
     winInner = false, radius = 0,
     titleBg = grad(hex("#4b4b4b"), hex("#252525")), titleColor = hex("#FFD100"),
@@ -631,7 +653,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     priText = hex("#FFFFFF"),
     inBg = hex("#000000"), inBorder = edge(1, "bevelIn", hex("#7a7a7a")), inRadius = 0,
     inText = hex("#FFFFFF"), inPh = hex("#9A9A9A"),
-    hdrBg = rgba(255, 255, 255, 0.07), hdrText = hex("#FFD100"), hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = rgba(255, 255, 255, 0.07), hdrText = hex("#FFD100"), hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.09),
     rowSel = rgba(255, 209, 0, 0.18),
     tabBg = hex("#262626"), tabText = hex("#C9B048"), tabBorder = edge(2, "bevelOut", hex("#7a7a7a")),
     tabRadius = 0, tabOnBg = hex("#4a4a4a"), tabOnText = hex("#FFFFFF"), tabOnLine = CLEAR,
@@ -689,7 +711,7 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     priText = hex("#FFFFFF"),
     inBg = hex("#08091a"), inBorder = edge(1, "flat", hex("#5a4a26")), inRadius = 0,
     inText = hex("#F2EEF8"), inPh = hex("#9A95B0"),
-    hdrBg = rgba(180, 140, 255, 0.08), hdrText = hex("#F6D27A"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = rgba(180, 140, 255, 0.08), hdrText = hex("#F6D27A"), rowAlt = rgba(255, 255, 255, 0.09),
     rowSel = rgba(180, 140, 255, 0.2),
     tabBg = hex("#1a1730"), tabText = hex("#B4AFC8"), tabBorder = edge(1, "flat", hex("#5a4a26")),
     tabRadius = 0, tabOnBg = hex("#2c2550"), tabOnText = hex("#F6D27A"), tabOnLine = hex("#B48CFF"),
@@ -738,7 +760,7 @@ register("forever", "WoW Forever", "Warm charcoal, black title bars with centere
     priBg = hex("#9C7A58"), priBorder = edge(1, "flat", FV_TAN), priText = hex("#FFFFFF"),
     inBg = hex("#0a0908"), inBorder = edge(1, "flat", hex("#3e3934")), inRadius = 0,
     inText = hex("#FFFFFF"), inPh = hex("#8F8A83"),
-    hdrBg = rgba(0, 0, 0, 0.35), hdrText = FV_TAN, hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.06),
+    hdrBg = rgba(0, 0, 0, 0.35), hdrText = FV_TAN, hdrArrow = hex("#FFFFFF"), rowAlt = rgba(255, 255, 255, 0.10),
     rowSel = rgba(201, 160, 122, 0.16),
     tabBg = CLEAR, tabText = hex("#A39E97"), tabBorder = edge(1, "flat", CLEAR), tabRadius = 0,
     tabOnBg = rgba(0, 0, 0, 0.4), tabOnText = hex("#FFFFFF"), tabOnLine = FV_TAN,

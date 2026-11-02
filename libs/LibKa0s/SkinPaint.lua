@@ -128,7 +128,10 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Minor 17 (FS-FIX of the same bundle): a box's `noBg` holds on a frame with no backdrop, where
 -- regionBox re-read `spec.fill` and drew it anyway: S.TitleBar's fill over a Shell's band, in WhatGroup,
 -- Premade Groups Filter Extension and Drop Watcher. It hides a fill an earlier paint made. No function
--- is added, so the census's window-block peel stays unfired.
+-- is added, so the census's window-block peel stays unfired. Then (R3-DR-1 of Ka0sAddonsCommonTasks
+-- docs/2026-11-02-SMOKE_ROUND3, still minor 17, not yet shipped): P.font and P.unfont hold the face
+-- they hand over through SkinPaintExtras' P.holdFace, since a string's own SetFont beats any font
+-- object in the client. No function is added here.
 local PAINT_MINOR = 17
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
@@ -530,6 +533,7 @@ function P.unfont(rec, fs)
   local obj = namedFont(fs, s.obj)
   if obj then
     fs:SetFontObject(obj)
+    if P.holdFace then P.holdFace(fs, s.path, s.size, s.flags) end   -- the face it showed, not ours
   elseif s.path and type(s.size) == "number" and s.size > 0 then   -- never a height SetFont refuses
     fs:SetFont(s.path, s.size, s.flags)
     if s.shadowOffset and type(fs.SetShadowOffset) == "function" then
@@ -598,6 +602,7 @@ function P.font(owner, rec, fs, role, color)
   local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false and not darkColor(color))
   if obj then
     fs:SetFontObject(obj)
+    if P.holdFace then P.holdFace(fs, obj:GetFont()) end   -- a string's own SetFont beats the object
   else
     fs:SetFont(path, size, flags)
   end
@@ -801,7 +806,7 @@ local function restoreColors(rec, method)
   end
 end
 
---- The saved alpha, text alignment, gradient and fonts back, in that order (P.unpaint's first step,
+--- The saved alpha, text alignment, gradient, fonts and texcoords (S.IconBorder's zoom) back, in that order (P.unpaint's first step,
 --- out of it at minor 16 so it stays under CCN 15).
 local function restoreSaved(rec)
   local s = rec.regions.saved or {}
@@ -812,6 +817,10 @@ local function restoreSaved(rec)
   for tex, g in pairs(s.glow or {}) do tex:SetGradient("VERTICAL", g.bottom, g.top) end
   s.glow = nil
   for fs in pairs(s.font or {}) do P.unfont(rec, fs) end
+  for tex, c in pairs(s.coords or {}) do
+    if c[1] then tex:SetTexCoord(unpack(c)) end
+  end
+  s.coords = nil
 end
 
 --- Undo everything a primitive did to a target: faded art back to its alpha, fonts, text and vertex
