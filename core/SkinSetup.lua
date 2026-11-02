@@ -502,14 +502,18 @@ local noticeStore = {
 function NS.MaybeShowSkinNotice()
     local O = NS.Options
     if not (O and type(O.SkinNotice) == "function" and noticeGlobal()) then return nil, "unavailable" end
-    if NS.IsStoodDown and NS.IsStoodDown() then return nil, "standdown" end
+    if NS.IsStoodDown and NS.IsStoodDown() then
+        -- A stood-down addon shows nothing, but a seen record still silences the rest (SG-L3).
+        O.SkinNotice(nil, noticeStore, true)
+        return nil, "standdown"
+    end
     local spec = NS.SkinPickerSpec()
     local frame, why = O.SkinNotice(spec, noticeStore)
     if why == "combat" and not noticeWaiting and type(_G.C_Timer) == "table" and _G.C_Timer.After then
         noticeWaiting = true
         _G.C_Timer.After(NOTICE_RETRY, function()
-            NS.MaybeShowSkinNotice()
             noticeWaiting = false
+            NS.MaybeShowSkinNotice()
         end)
     end
     return frame, why
