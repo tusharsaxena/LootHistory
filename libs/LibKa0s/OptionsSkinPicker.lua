@@ -1229,22 +1229,30 @@ function lib.__AttachSkinPicker(O, d)
 
   --- The one-time skin notice (minor 9, SG-L3). `store` is { get = fn answering the version this
   --- addon recorded, or nil; set = fn(version) recording it, in the host's account-wide store }.
-  --- Recorded version at or past lib.SKIN_NOTICE_VERSION: nothing, "seen". Otherwise, when another
-  --- addon already claimed the notice this session: this addon records it, nothing, "claimed". Else
-  --- this addon claims it, records it and shows O.SkinPicker(spec) (the frame, or nil, "queued").
-  --- In combat nothing is claimed or recorded (nil, "combat"): the host asks again after it. The
-  --- claim lives on the library table, so every vendored copy of an addon shares it.
-  function O.SkinNotice(spec, store)
+  --- Recorded version at or past lib.SKIN_NOTICE_VERSION: nothing, "seen" -- and the claim is made,
+  --- so an addon that loads later without a record cannot show it over one that has. Otherwise, when
+  --- another addon already claimed the notice this session: this addon records it, nothing,
+  --- "claimed". `recordOnly` (a stood-down host, which shows no window) stops there: those two
+  --- answers, else nil, "standdown", recording nothing. Else this addon claims it, records it and
+  --- shows O.SkinPicker(spec) (the frame, or nil, "queued"). In combat nothing is claimed or
+  --- recorded (nil, "combat"): the host asks again after it. The claim lives on the library table,
+  --- so every vendored copy of an addon shares it. No timer: a stand-down must leave nothing armed,
+  --- so an addon loading BEFORE the ones that have seen it, with no record of its own, still shows it.
+  function O.SkinNotice(spec, store, recordOnly)
     local v = lib.SKIN_NOTICE_VERSION
     if type(store) ~= "table" or type(store.get) ~= "function" or type(store.set) ~= "function" then
       return nil, "unavailable"
     end
     local seen = store.get()
-    if type(seen) == "number" and seen >= v then return nil, "seen" end
+    if type(seen) == "number" and seen >= v then
+      lib.__noticeClaimed = v
+      return nil, "seen"
+    end
     if lib.__noticeClaimed and lib.__noticeClaimed >= v then
       store.set(v)
       return nil, "claimed"
     end
+    if recordOnly then return nil, "standdown" end
     if inLockdown() then return nil, "combat" end
     local f, why = O.SkinPicker(spec)
     if not f and why ~= "queued" then return nil, "unavailable" end
