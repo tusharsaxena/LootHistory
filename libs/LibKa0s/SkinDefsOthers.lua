@@ -45,6 +45,10 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- Then (R3-L4 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, still minor 8, not yet shipped):
 -- Obsidian's body, and Expressway's body row in `__FACE_SIZES`, is 12, one step under the parity
 -- size 12.5, so Loot History's Date column draws "02-Nov-2026" whole, as Ka0s Default does.
+-- Then (R4-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, still minor 8): every skin's
+-- `icon.outline` through HUD_LOOK's `outline` (SkinDefs minor 26), the window icon outline the owner
+-- signed off (option 2): Glass white at 0.35, Ember #8A3C1C, WoW Midnight #7A6532, WoW Forever
+-- #5A5048, and every other skin its `icon.border`. `icon.border`, the HUD hosts' edge, does not move.
 local OTHERS_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
@@ -282,29 +286,30 @@ local FV_TAN, FV_EDGE = hex("#C9A07A"), hex("#3a3530")
 
 -- Each skin's bar, icon, glow and cover values (minor 7, the owner's ruling of 2026-11-01), all from
 -- its own palette: `bg` a translucent dark of the window behind a bar's fill, `edge` and `icon` its
--- control edges, `glow` its accent (WoW Default's is its primary's gold edge, its accent being Ka0s
+-- control edges, `outline` its icon outline in a window (R4-L3: lighter than `icon` where that one
+-- did not show against the window and the icon's dark art, else the same), `glow` its accent (WoW Default's is its primary's gold edge, its accent being Ka0s
 -- Default's gold), `dim` its darkest color at the alpha that still shows the page. A skin's `extra` may
 -- still override. Ka0s Default's are its tokens, and no meaning color is here.
 local HUD_LOOK = {
-  obsidian = { bg = hex("#141416", 0.8), edge = hex("#2a2a30"), icon = hex("#34343b"), glow = hex("#4DB8FF"),
-               dim = hex("#050506", 0.7) },
-  azeroth = { bg = hex("#1a110a", 0.8), edge = AZ_EDGE, icon = hex("#8a6a36"), glow = AZ_GOLD,
-              dim = hex("#1a110a", 0.7) },
+  obsidian = { bg = hex("#141416", 0.8), edge = hex("#2a2a30"), icon = hex("#34343b"), outline = hex("#34343b"),
+               glow = hex("#4DB8FF"), dim = hex("#050506", 0.7) },
+  azeroth = { bg = hex("#1a110a", 0.8), edge = AZ_EDGE, icon = hex("#8a6a36"), outline = hex("#8a6a36"),
+              glow = AZ_GOLD, dim = hex("#1a110a", 0.7) },
   glass = { bg = rgba(255, 255, 255, 0.08), edge = rgba(255, 255, 255, 0.22), icon = GLASS_EDGE,
-            glow = hex("#B69CFF"), dim = rgba(18, 22, 34, 0.6) },
-  contrast = { bg = hex("#1a1a1a", 0.85), edge = HC_WHITE, icon = hex("#E0E0E0"), glow = HC_YELLOW,
-               dim = hex("#000000", 0.8) },
-  ember = { bg = hex("#140a07", 0.8), edge = hex("#8a3c1c"), icon = hex("#6a2e17"), glow = hex("#FF7A33"),
-            dim = hex("#140a07", 0.7) },
-  wow = { bg = hex("#1e1c19", 0.7), edge = hex("#6e6e6e"), icon = hex("#9a9a9a"), glow = hex("#E0B040"),
-          dim = hex("#1e1c19", 0.7) },
-  midnight = { bg = hex("#08091a", 0.8), edge = MN_GOLD, icon = hex("#5a4a26"), glow = hex("#B48CFF"),
-               dim = hex("#08091a", 0.7) },
-  forever = { bg = hex("#0a0908", 0.8), edge = hex("#48433d"), icon = FV_EDGE, glow = FV_TAN,
-              dim = hex("#0a0908", 0.65) },
+            outline = rgba(255, 255, 255, 0.35), glow = hex("#B69CFF"), dim = rgba(18, 22, 34, 0.6) },
+  contrast = { bg = hex("#1a1a1a", 0.85), edge = HC_WHITE, icon = hex("#E0E0E0"), outline = hex("#E0E0E0"),
+               glow = HC_YELLOW, dim = hex("#000000", 0.8) },
+  ember = { bg = hex("#140a07", 0.8), edge = hex("#8a3c1c"), icon = hex("#6a2e17"), outline = hex("#8a3c1c"),
+            glow = hex("#FF7A33"), dim = hex("#140a07", 0.7) },
+  wow = { bg = hex("#1e1c19", 0.7), edge = hex("#6e6e6e"), icon = hex("#9a9a9a"), outline = hex("#9a9a9a"),
+          glow = hex("#E0B040"), dim = hex("#1e1c19", 0.7) },
+  midnight = { bg = hex("#08091a", 0.8), edge = MN_GOLD, icon = hex("#5a4a26"), outline = hex("#7a6532"),
+               glow = hex("#B48CFF"), dim = hex("#08091a", 0.7) },
+  forever = { bg = hex("#0a0908", 0.8), edge = hex("#48433d"), icon = FV_EDGE, outline = hex("#5a5048"),
+              glow = FV_TAN, dim = hex("#0a0908", 0.65) },
 }
-local HUD_LOOK_TOKENS = { bg = "bar.bg", edge = "bar.border", icon = "icon.border", glow = "glow.color",
-                          dim = "cover.dim" }
+local HUD_LOOK_TOKENS = { bg = "bar.bg", edge = "bar.border", icon = "icon.border", outline = "icon.outline",
+                          glow = "glow.color", dim = "cover.dim" }
 
 -- The skins whose palette calls for a real bar border (minor 7): a style and a size, which win over
 -- the player's. Azeroth's leather edge, High Contrast's white, WoW Default's tooltip art and Midnight's

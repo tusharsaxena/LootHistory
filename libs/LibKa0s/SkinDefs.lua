@@ -189,6 +189,12 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 --- `icon.arrow` is; the arrows elsewhere stay `icon.arrow`.
 --- Then (SF-L4, still minor 26): Ka0s Default's `title.bg` is black at 0.9, where it sat one step
 --- under its window, so its header stands off its content as the owner asked of every skin.
+--- Then (R4-L2 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, still minor 26): that black
+--- read as one near-black with the body, so the band is the owner's dark gold gradient, opaque, and
+--- `title.bg` its blend; the picker's second swatch is the header. Then (R4-L3, still minor 26):
+--- `icon.outline`, an icon's outline in a window (S.IconBorder, S.SquareIcon), apart from
+--- `icon.border`, the HUD hosts' icon edge, which keeps its value in every skin. Ka0s Default's is
+--- #4D4D57; every other skin's is in SkinDefsOthers' HUD_LOOK.
 local DEFS_MINOR = 26
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
@@ -252,7 +258,7 @@ local GROUPS = {
     .. "popup.borderStyle:string? popup.radius:number tooltip.bg:color? tooltip.border:color? "
     .. "strip.test:color strip.sim:color cover.dim:color cover.text:color" },
   { "HUD", "bar.texture:string bar.gloss:bool bar.bg:color? bar.border:color? "
-    .. "bar.borderStyle:string bar.borderSize:number icon.border:color? glow.color:color? "
+    .. "bar.borderStyle:string bar.borderSize:number icon.border:color? icon.outline:color? glow.color:color? "
     .. "hud.font:string hud.fontSize:number hud.outline:string icon.borderStyle:string "
     .. "icon.borderSize:number hud.text:color hud.label:color bar.fill:color hud.shadow:color? "
     .. "hud.shadowX:number hud.shadowY:number" },
@@ -474,7 +480,12 @@ local KA0S = {
   -- palette, the client's quality colors written out, or `false`, the explicit "none" (a decoration
   -- Ka0s Default does not draw, which is a setting, not a fallback).
   ["win.bgTop"] = false, ["win.bgBottom"] = false, ["win.bgTexture"] = false,
-  ["title.bg"] = { 0, 0, 0, 0.9 }, ["title.bgTop"] = false, ["title.bgBottom"] = false,
+  -- The title band (R4-L2 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, the owner's option
+  -- E): an opaque dark gold gradient, #3A2F0A at the top to #1F1905, lighter than the body and under
+  -- the gold title. `title.bg` is the blend, #2C2408, for a flat reader (MultiMeters' meter header).
+  ["title.bg"] = { 0x2c / 255, 0x24 / 255, 0x08 / 255, 1 },
+  ["title.bgTop"] = { 0x3a / 255, 0x2f / 255, 0x0a / 255, 1 },
+  ["title.bgBottom"] = { 0x1f / 255, 0x19 / 255, 0x05 / 255, 1 },
   ["title.align"] = "CENTER", ["foot.bg"] = { 0.04, 0.04, 0.05, 0.9 },
   ["btn.bgTop"] = false, ["btn.bgBottom"] = false, ["btnPrimary.bgTop"] = false, ["btnPrimary.bgBottom"] = false,
   ["input.text"] = BODY, ["input.placeholder"] = DIM,
@@ -495,6 +506,11 @@ local KA0S = {
   ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = false,
   ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
   ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },
+  -- An icon's outline in a window (R4-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, the
+  -- owner's option 2): S.IconBorder's and S.SquareIcon's edge, #4D4D57, Ka0s Default's EDGE lifted one
+  -- step, so it shows against the window and the icon's dark art where the black did not (image 19).
+  -- `icon.border` stays black: the HUD hosts' icon edge, which reads over the game world.
+  ["icon.outline"] = { 0x4d / 255, 0x4d / 255, 0x57 / 255, 1 },
   ["glow.color"] = GOLD,
   -- The client's ITEM_QUALITY_COLORS, written out exactly (hex / 255, minor 16): the values every
   -- Blizzard frame draws.
@@ -507,6 +523,6 @@ lib:RegisterSkin({
   key = "ka0s",
   label = "Ka0s Default",
   desc = "Today's look: dark panels, hard 1px black edges, gold titles.",
-  swatches = { "#0f0f14", "#000000", "#3d3d45", "#ffd100" },
+  swatches = { "#0f0f14", "#2c2408", "#3d3d45", "#ffd100" },
   tokens = KA0S,
 })

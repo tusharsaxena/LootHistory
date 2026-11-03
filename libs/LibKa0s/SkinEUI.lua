@@ -62,6 +62,8 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- `gtip.emphasis` and `menu.suggestBg`.
 -- Minor 4 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): `glow.color` follows the
 -- accent, and `bar.bg`, `cover.dim`, `bar.border` and `icon.border` follow the panel color.
+-- Then (R4-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, still minor 4): `icon.outline`
+-- follows it as `icon.border` does, the panel color at half brightness.
 local EUI_MINOR = 4
 if lib.__euiMinor and lib.__euiMinor >= EUI_MINOR
   and lib.__euiShellMinor == lib.MINOR then return end
@@ -115,7 +117,7 @@ local FONT_TOKENS = { "font.body", "font.title" }
 -- The panel color at a token's own alpha (Ka0s Default's), and the edges at half its brightness, so
 -- a theme's dark flat look keeps a dark edge (minor 4).
 local PANEL_WASH = { ["bar.bg"] = 0.5, ["cover.dim"] = 0.6 }
-local PANEL_EDGES = { "bar.border", "icon.border" }
+local PANEL_EDGES = { "bar.border", "icon.border", "icon.outline" }
 
 local function report(err)
   local h = type(geterrorhandler) == "function" and geterrorhandler()

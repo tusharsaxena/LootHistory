@@ -836,8 +836,8 @@ prim.PageButton = function(owner, btn, dir, opts)
 end
 
 --- S.SquareIcon(frame, opts): an icon button. `opts.crop` trims the icon art's built-in border
---- (`opts.icon`, else `frame.icon` / `frame.Icon`, to .08-.92); an `icon.border` edge on the holder
---- (nil in Ka0s Default). Draws no Media icon.
+--- (`opts.icon`, else `frame.icon` / `frame.Icon`, to .08-.92); a 1 UI unit edge on the holder in
+--- `icon.outline`, else `icon.border` (R4-L3; every shipped skin sets both). Draws no Media icon.
 prim.SquareIcon = function(owner, frame, opts)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "SquareIcon", opts)
@@ -845,7 +845,8 @@ prim.SquareIcon = function(owner, frame, opts)
   local icon = P.isTexture(opts.icon) and opts.icon or P.field(frame, "icon", "Texture")
     or P.field(frame, "Icon", "Texture")
   if icon and opts.crop then icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
-  P.edges(rec, frame, P.T(owner)["icon.border"], "flat", 1)
+  local T = P.T(owner)
+  P.edges(rec, frame, T["icon.outline"] or T["icon.border"], "flat", 1)
 end
 
 -- A Texture's shown state reaches its holder: a border must not stand around a hidden icon.
@@ -880,13 +881,15 @@ local function textureHolder(rec, tex)
 end
 
 -- The outline (R3-L3 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, images 91 and 92): flat,
--- in `icon.border` (else `divider`, else the body text at 0.4: P.edgeColor), in physical pixels
+-- in `icon.outline` (R4-L3 of docs/2026-11-03-SMOKE_ROUND4: a window's icon outline, apart from the
+-- HUD's `icon.border`), else `icon.border`, else `divider`, else the body text at 0.4 (P.edgeColor),
+-- in physical pixels
 -- (P.px). With `opts.fromSkin` it is 1 px in every skin: `icon.borderStyle` and `icon.borderSize`
 -- are no longer read, since a 2px size (Ka0s Default, Azeroth, Ember, WoW Midnight) or WoW Default's
 -- Blizzard Tooltip nine-slice drew a heavier frame than the owner's 1 px.
 local function drawIconEdge(rec, frame, T, opts)
   local size = opts.fromSkin ~= true and type(opts.size) == "number" and opts.size or 1
-  local c = P.edgeColor(T, "icon.border")
+  local c = T["icon.outline"] or P.edgeColor(T, "icon.border")
   local h = c and P.holder(rec, frame)
   P.edges(rec, frame, c, "flat", h and P.px(h, size) or size)
   if h and P.pxWatch then P.pxWatch(frame, h, "IconBorder", "edge", size) end
@@ -912,10 +915,10 @@ local function zoomIcon(rec, frame, opts)
   icon:SetTexCoord(math.max(z, c[1]), math.min(1 - z, c[7]), math.max(z, c[2]), math.min(1 - z, c[8]))
 end
 
---- S.IconBorder(frame, opts): a flat `icon.border` edge on the frame's holder, in physical pixels,
+--- S.IconBorder(frame, opts): a flat `icon.outline` edge (else `icon.border`, R4-L3) on the frame's holder, in physical pixels,
 --- and the icon zoomed. Without `opts.fromSkin` the edge is `opts.size` pixels (1 by default). With
 --- `opts.fromSkin = true` (minor 9, LK-04) it is the skin's outline, 1 px in every skin since R3-L3,
---- and `opts.size` is not read. A skin with no `icon.border` draws its `divider`, else its body text
+--- and `opts.size` is not read. A skin with neither token draws its `divider`, else its body text
 --- at 0.4. The icon (the Texture itself, `opts.icon`, else `frame.icon` / `frame.Icon`) is zoomed to
 --- texcoords 0.07..0.93; `opts.zoom` sets another inset, `false` leaves the coords alone. `frame` may
 --- be a Texture (minor 15): the edge hangs on a plain child of its parent (textureHolder), shown and

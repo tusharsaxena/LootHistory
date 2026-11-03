@@ -437,8 +437,8 @@ local function buildBody(f, D, ctx, pal)
   f.lineCount = lineCount
 end
 
---- The title bar: the drag bar, the centered title, the divider under it, Copy | Clear | Close on the
---- right, the toggle and the Diagnostics link on the left. Answers what the minimum width reads.
+--- The title bar: the drag bar, the centered title, Copy | Clear | Close on the right, the toggle and
+--- the Diagnostics link on the left. No line under it (R4-SEP). Answers what the minimum width reads.
 local function buildTitleBar(f, D, ctx, pal, S)
   local d = ctx.d
   local titleBar = dragBar(f, TITLE_H)
@@ -452,17 +452,10 @@ local function buildTitleBar(f, D, ctx, pal, S)
   title:SetText(f.titleText)
   f.title = title
 
-  local divider = f:CreateTexture(nil, "ARTWORK")
-  divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
-  divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
-  divider:SetHeight(1)
-  -- Colored from the skin rather than hardcoded black. `applySkin` runs at the end of the build
-  -- and tints it again, so this value only shows on a host whose own applySkin ignores the divider
-  -- — and black under a gray-inner-bordered window is exactly the mismatch it exists to remove.
-  local skin = ctx.skin
-  local dc = type(skin.divider) == "table" and skin.divider or { 0, 0, 0, 1 }
-  divider:SetColorTexture(dc[1], dc[2], dc[3], dc[4])
-  f.divider = divider
+  -- No divider under the title bar (R4-SEP of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4,
+  -- image 28, still minor 3): the console made `f.divider` here, a 1px rule tinted by the skin, and
+  -- no window draws a line under its header now. `f.divider` is nil, so a host applySkin that tints
+  -- it under `if f.divider` finds none. The status rule over the footer stays.
 
   -- The three title-bar controls read Copy | Clear | Close, left to right. The offsets are DERIVED
   -- from the close button's width rather than hard-coded, which matters as soon as a host supplies

@@ -511,7 +511,7 @@ local RING = { Top = { "TOPLEFT", "TOPRIGHT", "SetHeight" }, Bottom = { "BOTTOML
                Left = { "TOPLEFT", "BOTTOMLEFT", "SetWidth" }, Right = { "TOPRIGHT", "BOTTOMRIGHT", "SetWidth" } }
 
 --- An edge's color: the token `first` (the ring's `panel.border`, as S.Panel edges a box, image 93;
---- S.IconBorder's `icon.border`, R3-L3), else `divider`, else the body text at 0.4, so a skin that
+--- S.IconBorder's `icon.border`, read after `icon.outline`), else `divider`, else the body text at 0.4, so a skin that
 --- sets none still draws a visible edge.
 function P.edgeColor(T, first)
   local c = T[first or "panel.border"] or T["divider"]

@@ -81,8 +81,9 @@ end
 -- ── the window chrome seam ─────────────────────────────────────────────────────────────────
 
 -- The one skin every Ka0s window wears: a flat 1px BLACK outer edge with a 1px light-gray highlight
--- synthesized just inside it (the "double edge"), a gold title, and a gray divider under the title
--- bar. Every color travels in the same table as the backdrop fields because they are one decision:
+-- synthesized just inside it (the "double edge") and a gold title. Until R4-SEP (Ka0sAddonsCommonTasks
+-- docs/2026-11-03-SMOKE_ROUND4, still minor 15) it also drew a gray divider under the title bar; no
+-- Ka0s window draws a line under its header now, so ApplySkin hides `frame.divider` (hideHeaderRule). Every color travels in the same table as the backdrop fields because they are one decision:
 -- a copy that took the backdrop but not the colors is exactly the drift this exists to prevent.
 -- WoW's backdrop system reads only the fields it knows, so the extra keys are inert when the table
 -- is handed to SetBackdrop.
@@ -107,18 +108,28 @@ lib.SKIN = {
   -- frame, a FontString tint and a texture color are CALLS — which is why `ApplySkin` grew to make
   -- them rather than the table growing to describe them.
   innerBorder = { 0.24, 0.24, 0.27, 0.85 },
+  -- The rule color Ka0s Default's `divider` token equals. ApplySkin no longer draws it (R4-SEP): it is
+  -- kept for a host or a primitive that draws a body rule in it.
   divider     = { 0.24, 0.24, 0.27, 0.85 },
   title       = { 1.0, 0.82, 0.0 },
 }
 
--- The two accents that are not backdrop fields and not the inner border: a FontString tint and a
--- texture color. Described as data rather than written out twice so the type-not-truthiness guard
--- below exists exactly once. `n` is the argument COUNT and is not cosmetic — a title takes three
--- components and a divider takes four, and collapsing them to one arity drops the divider's alpha.
+-- The accent that is not a backdrop field and not the inner border: a FontString tint. Described as
+-- data so the type-not-truthiness guard below exists exactly once. `n` is the argument COUNT. The
+-- divider was the second accent (a texture color, four components) until R4-SEP: the line under a
+-- title is gone from every window, so it is hidden, never colored (hideHeaderRule).
 local ACCENTS = {
   { key = "title",   method = "SetTextColor",    n = 3 },
-  { key = "divider", method = "SetColorTexture", n = 4 },
 }
+
+-- No line under a window's title (R4-SEP, the owner's "no separator line below header", every window
+-- of every addon, like the Skin Tester's showroom): a `frame.divider` texture, the convention this
+-- seam colored until now, is hidden on every call, whoever built it. Hidden rather than left
+-- unpainted, which would show the texture's own white. Same type-not-truthiness rule as below.
+local function hideHeaderRule(frame)
+  local d = frame.divider
+  if type(d) == "table" and type(d.Hide) == "function" then d:Hide() end
+end
 
 -- The backdrop proper: the table itself, then the two colors it carries. Guarded on the key being
 -- a table so a caller passing a plain WoW backdrop table (no `bg`, no `border`) gets a plain
@@ -170,8 +181,7 @@ local function applyInnerBorder(frame, skin)
   end
 end
 
--- Both accents are optional on the FRAME, not just in the skin: the copy window and the perf panel
--- carry a title and no divider, and a bare frame carries neither. Same type-not-truthiness rule as
+-- The accent is optional on the FRAME, not just in the skin: a bare frame carries no title. Same type-not-truthiness rule as
 -- the inner border, for the same reason.
 local function applyAccents(frame, skin)
   for _, a in ipairs(ACCENTS) do
@@ -226,6 +236,7 @@ function lib.ApplySkin(frame, skin, owner)
   applyBackdrop(frame, skin)
   applyInnerBorder(frame, skin)
   applyAccents(frame, skin)
+  hideHeaderRule(frame)
   if S then S.Shell(frame) end
 end
 
