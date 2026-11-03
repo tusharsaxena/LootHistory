@@ -22,7 +22,10 @@ local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W or not lib.__panelKit then return end
 
 -- Minor 1: the renderer section, moved here unchanged from SimPanel.lua (its minor 9).
-local RENDER_MINOR = 2
+local RENDER_MINOR = 3
+-- Minor 3 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned panel's title and
+-- close mark are anchored to the band S.Shell lays (the facade's Header) at y 0. An unowned panel is
+-- as it was.
 -- Minor 2 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title band is 30 high, the
 -- skin's `title.height` and what S.Shell paints, not 24, with the title and the close mark on its middle.
 
@@ -309,6 +312,7 @@ local function StepPanel(d)
   --- An owned panel: the window through the facade; each switch refills, recolors and repaints.
   local function adopt(S)
     core.ApplySkin(frame, nil, d.addonName)
+    if S.Header then S.Header(frame, { title = frame.title, right = { frame.closeButton } }) end   -- minor 3
     S.OnLooksChanged(function()
       fillPalette(pal, S)
       for _, b in ipairs(buttons) do setColor(b.cmd, pal.cmd) end

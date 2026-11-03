@@ -32,7 +32,9 @@ if not lib then return end
 -- `text.disabled`. The help mark's comments say what minor 6's tints do since SkinPaint minor 6.
 -- Minor 8 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): while the chrome is
 -- skinned the X is the Ka0s `close` icon in `icon.tint`, on `__removeIcon`; `__removeAtlas` is stock's.
-local IDLIST_MINOR = 8
+-- Minor 9 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the entry icon is cropped
+-- 0.07 a side and, on an owned page, edged in `icon.outline` on a frame the list owns (entryIconEdge).
+local IDLIST_MINOR = 9
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -856,6 +858,37 @@ function lib.__AttachIdList(O, d, ids)
     if O.__hoverArt then O.__hoverArt(lbl.highlight) end
   end
 
+  -- THE ICON RULE (minor 9, docs/api/README.md's *Icon art*): the crop rides in SetImage's own
+  -- texcoords, which AceGUI resets to 0..1 on the next SetImage, so a pooled label needs no undo. The
+  -- edge is NOT a record on `lbl.image`: AceGUI pools that Texture across every addon and never hides
+  -- it, so an edge there outlives the entry. It is a plain frame of this instance's own, laid over the
+  -- image while the entry is drawn and handed back to the pool by entryRelease.
+  local ID_ICON_CROP = { 0.07, 0.93, 0.07, 0.93 }
+  local ID_ICON_EDGE = { fromSkin = true, zoom = false }
+  local iconEdges = {}
+
+  local function entryIconEdge(lbl)
+    local tex = lbl.image
+    if type(tex) ~= "table" or type(tex.GetObjectType) ~= "function" then return end
+    if not (O.__chromePaint and O.__chromeSkin and O.__chromeSkin()) then return end
+    local e = table.remove(iconEdges) or CreateFrame("Frame")
+    e:SetParent(lbl.frame)
+    e:ClearAllPoints()
+    e:SetAllPoints(tex)
+    e:Show()
+    O.__chromePaint("IconBorder", e, ID_ICON_EDGE)
+    lbl.__ka0sIconEdge = e
+  end
+
+  local function entryIconBack(w)
+    local e = w.__ka0sIconEdge
+    if not e then return end
+    w.__ka0sIconEdge = nil
+    e:Hide()
+    e:ClearAllPoints()
+    iconEdges[#iconEdges + 1] = e
+  end
+
   --- The ONE "OnRelease" an entry's label gets, and everything that has to happen inside it.
   ---
   --- WHY ONE. WidgetBase.SetCallback stores a handler by event name (`self.events[name] = func`,
@@ -886,6 +919,7 @@ function lib.__AttachIdList(O, d, ids)
   --- where `w` below comes from, so the handler clears the markers on the widget it was fired for.
   local function entryRelease(lbl, fs)
     lbl:SetCallback("OnRelease", function(w)
+      entryIconBack(w)
       if fs and type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
       w.__wordWrap = nil
       w.__highlight = nil
@@ -926,8 +960,9 @@ function lib.__AttachIdList(O, d, ids)
     entryRelease(lbl, fs)
     lbl:SetText(entryLabel(spec, k, entry.id, name, entrySuffix(entry)))
     if icon then
-      lbl:SetImage(icon)
+      lbl:SetImage(icon, unpack(ID_ICON_CROP))
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
+      entryIconEdge(lbl)
     end
     lbl:SetRelativeWidth(entryNameRel(iconStyle, cols, hasHelp))
     entryTooltip(lbl, k, entry.id, cols > 1 and line or nil)

@@ -152,7 +152,13 @@ if not lib then return end
 -- Minor 9 (SG-L3 of the same bundle): O.SkinNotice, the one-time announcement that skins exist.
 -- Once per account, keyed by lib.SKIN_NOTICE_VERSION: the first addon to ask in a session claims it
 -- and shows the picker, every other addon records the version in its own store and stays quiet.
-local PICKER_MINOR = 9
+-- Minor 10 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the title and the close mark
+-- are anchored to the band S.Shell lays (the facade's Header) at y 0, where they sat TOP-anchored at
+-- -8 and -6, off the band's middle and font-dependent.
+-- Still minor 10, not yet vendored (R5-L4 of the same bundle, the owner's item 6): the open list
+-- closes on a press outside it and its dropdown button, the window's own body, title, eye and gear
+-- included; see AN OUTSIDE PRESS CLOSES THE LIST, at buildList.
+local PICKER_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -194,6 +200,14 @@ lib.SKIN_PICKER_STRINGS = {
 
 local WIDTH, PAD, TOP = 308, 12, 40
 local DD_H, ROW_H, ICON, BTN_H, APPLY_W = 26, 22, 24, 24, 80
+local MOUSE_DOWN = "GLOBAL_MOUSE_DOWN"   -- the open list's outside press (R5-L4)
+
+--- Whether the mouse is over `frame`: only a true answer counts.
+local function mouseOver(frame)
+  local probe = frame and frame.IsMouseOver
+  return type(probe) == "function" and probe(frame) == true
+end
+
 -- The owner's line sits at TOP; the dropdown row one line below it.
 local LABEL_H = 18
 local DD_TOP = TOP + LABEL_H + 4
@@ -602,12 +616,44 @@ function lib.__AttachSkinPicker(O, d)
     end
   end
 
+  --- `p`'s list listening for GLOBAL_MOUSE_DOWN while it is open, and not otherwise (R5-L4): see
+  --- AN OUTSIDE PRESS CLOSES THE LIST, at buildList. Through Core's pcall'd SafeRegisterEvent, as
+  --- OptionsCombat's pullout watcher registers: no raw site of CLAUDE.md's events-frames-taint-§1
+  --- row. Without Core nothing registers, and the list closes by its toggle, as before.
+  local function listen(p)
+    local list = p.frame and p.frame.list
+    if not (list and type(list.IsEventRegistered) == "function") then return end
+    local on = list:IsEventRegistered(MOUSE_DOWN) == true
+    if p.open and not on then
+      local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
+      local register = core and core.SafeRegisterEvent
+      if type(register) == "function" then register(list, MOUSE_DOWN) end
+    elseif on and not p.open then
+      list:UnregisterEvent(MOUSE_DOWN)
+    end
+  end
+
   local function setOpen(open, p)
     p = p or P
     dropFocus(p)
     p.open = open and true or false
     layout(p)
+    listen(p)
     if p.open then dressRows(p) end
+  end
+
+  --- A press anywhere while `p`'s list is open: over neither the list (a row, or the gutter between
+  --- rows) nor its dropdown button, it closes the list. Listened to, never caught, so the press goes
+  --- on to what is under it: the window's body, title, eye or gear, a media row, the game world.
+  local function outsidePress(p)
+    local f = p.frame
+    if not f then return end
+    if not (p.open and f.list:IsShown()) then
+      f.list:UnregisterEvent(MOUSE_DOWN)
+      return
+    end
+    if mouseOver(f.list) or mouseOver(f.dd) then return end
+    setOpen(false, p)
   end
 
   local function reloadPopup(labels)
@@ -971,6 +1017,22 @@ function lib.__AttachSkinPicker(O, d)
     list:SetFrameStrata("FULLSCREEN_DIALOG")   -- T8: over the rows and the buttons (LAYERING)
     list:SetClampedToScreen(true)
     list:EnableMouse(true)                     -- a click between rows reaches no row under it
+    -- AN OUTSIDE PRESS CLOSES THE LIST (R5-L4, the owner's item 6, images 46 and 47). The list is
+    -- neither an AceGUI pullout (OptionsCombat's watcher, R4-L1) nor the shared Widgets menu, so
+    -- neither seam reaches it. It LISTENS on its own frame, while open, as the Widgets menu's
+    -- __OutsideClick does: GLOBAL_MOUSE_DOWN reaches it for a press anywhere, consumed or not, and
+    -- outsidePress closes it unless the press is over the list or its dropdown button. The button is
+    -- exempt because its own OnClick is the toggle, on the release: closed on the press, the release
+    -- would open it again. The list opens on that release, so the press that opened it has gone by.
+    -- One listener per list, so two pickers' lists close independently. Escape is unchanged: it
+    -- closes the window (UISpecialFrames), and the list with it.
+    local mine = P
+    list:SetScript("OnEvent", function(_, event)
+      if event == MOUSE_DOWN then outsidePress(mine) end
+    end)
+    -- Hidden with its window's parent (Alt-Z) it lets go, and listens again when shown still open.
+    list:SetScript("OnHide", function(self) self:UnregisterEvent(MOUSE_DOWN) end)
+    list:SetScript("OnShow", function() listen(mine) end)
     P.Sk.MenuFrame(list)
     syncRows()
     list:Hide()
@@ -1060,6 +1122,7 @@ function lib.__AttachSkinPicker(O, d)
         f.close = close
       end
     end
+    if P.Sk.Header then P.Sk.Header(f, { title = title, right = { f.close } }) end   -- minor 10
   end
 
   -- The Skin tab's rows live in OptionsSkinPickerRows.lua, which answers the three functions the

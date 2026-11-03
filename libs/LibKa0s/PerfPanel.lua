@@ -11,7 +11,10 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 12
+local PANEL_MINOR = 13
+-- Minor 13 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned panel's title and
+-- close mark are anchored to the band S.Shell lays (the facade's Header) at y 0, so they stay on its
+-- middle under a 2 px edge and EllesmereUI's 25 px bar. An unowned panel is as it was.
 -- Minor 12 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title band is 30 high, the
 -- skin's `title.height` and what S.Shell paints, not 24, with the title and the close mark on its middle.
 -- Minor 9: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
@@ -295,6 +298,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
 
     if S then
       core.ApplySkin(frame, nil, owner)
+      if S.Header then S.Header(frame, { title = title, right = { frame.closeButton } }) end   -- minor 13
       -- After the facade replayed the window: the rows' colors, and the command column's.
       S.OnLooksChanged(function()
         fillPalette(pal, S)

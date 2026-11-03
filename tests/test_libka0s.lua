@@ -1087,7 +1087,7 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   assertTrue(options.OptionsWidgets >= 41) -- 44 since v1.85.0, pinned there
   assertEqual(options.OptionsFlow, 2)
   assertTrue(options.OptionsIds >= 6) -- 7 since v1.85.0, pinned there
-  assertEqual(options.OptionsIdSuggest, 1)
+  assertTrue(options.OptionsIdSuggest >= 1) -- 2 since v1.85.0, pinned there
   assertTrue(options.OptionsTabs >= 13) -- 15 since v1.85.0, pinned there
   assertEqual(options.OptionsTabbed, 2)
   assertTrue(options.OptionsCompose >= 16) -- 17 since v1.85.0, pinned there
@@ -1120,31 +1120,31 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   local glow = modules("LibKa0s-Glow-1.0")
   assertEqual(glow.Glow, 2)
   local toast = modules("LibKa0s-Toast-1.0")
-  assertEqual(toast.Toast, 2)
+  assertEqual(toast.Toast, 3) -- 3 since R5-L2 (toasts opt out of the band)
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 15)
-  assertEqual(skin.SkinDefs, 26)
+  assertEqual(skin.Skin, 16) -- 16 since R5-L3 (VOCAB gains Band, Header)
+  assertEqual(skin.SkinDefs, 27) -- 27 since R5-L1 (a darker title band)
   assertEqual(skin.SkinDefsOthers, 8)
-  assertEqual(skin.SkinPaint, 17)
-  assertEqual(skin.SkinPaintExtras, 16)
+  assertEqual(skin.SkinPaint, 18) -- 18 since R5-L2 (the band over the fill)
+  assertEqual(skin.SkinPaintExtras, 17) -- 17 since R5-L3 (S.Band, S.Header)
   assertEqual(skin.SkinPaintControls, 17) -- 17 since R4-L4 (opts.hud)
   assertEqual(skin.SkinEUI, 4)
   assertEqual(skin.SkinAce, 9)
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 21)
+  assertEqual(widgets.Widgets, 22) -- 22 since R5-L5 (W.IconText)
   assertEqual(widgets.WidgetsReorder, 5)
   assertEqual(widgets.WidgetsDragHandle, 12)
   assertEqual(widgets.WidgetsLineChart, 6)
-  assertEqual(widgets.WidgetsAutocomplete, 6)
-  assertEqual(widgets.WidgetsCopyWindow, 4)
+  assertEqual(widgets.WidgetsAutocomplete, 7) -- 7 since R5-L5
+  assertEqual(widgets.WidgetsCopyWindow, 5) -- 5 since R5-L3
   local debugLog = modules("LibKa0s-DebugLog-1.0")
-  assertEqual(debugLog.DebugLogWindow, 3)
+  assertEqual(debugLog.DebugLogWindow, 4) -- 4 since R5-L3
   local launcher = modules("LibKa0s-Launcher-1.0")
   assertEqual(launcher.Launcher, 7)
   local options = modules("LibKa0s-Options-1.0")
   assertEqual(options.OptionsWidgets, 44)
   assertEqual(options.OptionsIds, 7)
-  assertEqual(options.OptionsIdList, 8)
+  assertEqual(options.OptionsIdList, 9) -- 9 since R5-L5
   assertEqual(options.OptionsTabs, 15)
   assertEqual(options.OptionsCompose, 18)
   assertEqual(options.OptionsScroll, 13)
@@ -1152,13 +1152,14 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsDrawer, 5)
   assertEqual(options.OptionsKeybinds, 7)
   assertEqual(options.OptionsAppearance, 6)
-  assertEqual(options.OptionsSkinPicker, 9)
+  assertEqual(options.OptionsSkinPicker, 10) -- 10 since R5-L3, R5-L4
+  assertEqual(options.OptionsIdSuggest, 2) -- 2 since R5-L5
   assertEqual(options.OptionsMedia, 4)
   assertEqual(options.OptionsCombat, 4)
   local perf = modules("LibKa0s-Perf-1.0")
-  assertEqual(perf.PerfPanel, 12)
+  assertEqual(perf.PerfPanel, 13) -- 13 since R5-L3
   local sim = modules("LibKa0s-Sim-1.0")
   assertEqual(sim.SimPanel, 10)
-  assertEqual(sim.SimPanelRender, 2)
+  assertEqual(sim.SimPanelRender, 3) -- 3 since R5-L3
   assertEqual(T.KIT_VERSION, 50)
 end)

@@ -103,7 +103,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 21 (FS-FIX of the same bundle): `lib.ContextMenu`, the shared menu opened by a host; the row
 -- options `title`, `disabled`, `divider`, `tooltip` and `keepOpen`, for a dropdown too; onSelect takes
 -- the row; the dropdown's label is one line.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 21
+-- Minor 22 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): `lib.IconText`, inline icon
+-- markup cropped by the icon rule.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 22
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -1034,4 +1036,23 @@ function lib.TestStrip(parent, opts)
   stripMenu(s, opts)
   s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
   return s
+end
+
+-- ── inline icon markup (minor 22) ────────────────────────────────────────────────────────────
+
+--- Inline `|T...|t` markup for Blizzard icon art (an item, spell, spec, class or currency fileID or
+--- path) in a tooltip or chat line, cropped as the icon rule asks (docs/api/README.md's *Icon art*):
+--- texcoords 5..59 of 64 a side, 0.078, past the art's own bevel. Markup cannot take an edge, so it
+--- is cropped only. `size` is the height, 0 or nil for the line's own; `width` defaults to it. A
+--- nil icon answers "". Not for an atlas glyph or a Ka0s catalog mark, which are drawn whole
+--- (S.MarkText).
+--- @param icon number|string|nil
+--- @param size number|nil
+--- @param width number|nil
+--- @return string
+function lib.IconText(icon, size, width)
+  if icon == nil then return "" end
+  size = tonumber(size) or 0
+  width = tonumber(width) or size
+  return ("|T%s:%d:%d:0:0:64:64:5:59:5:59|t"):format(tostring(icon), size, width)
 end

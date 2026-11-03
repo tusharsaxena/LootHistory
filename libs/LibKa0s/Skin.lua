@@ -118,18 +118,16 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named). No
 -- behavior moves: RegisterOwner and `__Tokens` reach it through `lib.__takeTokens` and
 -- `lib.__withOwnTokens`, and `lib.__tokenHelpers` hands it the three locals it shares with this file.
--- Minor 12 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): VOCAB gains Mark and
--- MarkText, SkinPaintExtras minor 9's.
--- Minor 13 (FS-T1 of the same bundle, causes D2, D3 and D6): VOCAB gains HudTextColor, HudLabelColor,
--- BarFillColor and HudShadow, SkinPaintExtras minor 12's, and Ignore fonts reaches `hud.shadow`,
--- `hud.shadowX` and `hud.shadowY` as it reaches `hud.outline`. The HUD's colors are not fonts.
--- Minor 14 (FS-FIX of the same bundle, the AbsorbTracker pilot's gaps): VOCAB gains BarGloss and
--- HudFont, SkinPaintExtras minor 14's, and FollowOnce, the record gate every host's step wrote.
+-- Minors 12 to 14 (L6, FS-T1 and FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): VOCAB
+-- gains Mark, MarkText, HudTextColor, HudLabelColor, BarFillColor, HudShadow, BarGloss and HudFont; Ignore
+-- fonts reaches `hud.shadow*` as it reaches `hud.outline`; FollowOnce, the record gate every host wrote.
 -- Minor 15 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): a skin's None `bar.borderStyle`
 -- defers in Resolve; VOCAB gains BarBorder and HoverArt, SkinPaintExtras minor 16's; a path's numeric
 -- segment reaches a list entry, which ResetToSkin and FollowOnce skipped with no word. Then (R3-L7): a
 -- font override naming a retired shipped face (`RETIRED_FONTS`, SkinDefsOthers) lands as its successor.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 15
+-- Minor 16 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): VOCAB gains Band and Header,
+-- SkinPaintExtras minor 17's, the title band as a frame and every header child centered on it.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -157,6 +155,7 @@ lib.VOCAB = {
   "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
   "BarTexture", "FontFlags", "HudFontSize", "Mark", "MarkText",
   "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HudFont", "BarBorder", "HoverArt",
+  "Band", "Header",
 }
 
 local WEAK_KEYS = { __mode = "k" }

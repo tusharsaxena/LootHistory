@@ -19,7 +19,11 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local COPY_MINOR = 4
+local COPY_MINOR = 5
+-- Minor 5 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a skinned window's header is
+-- on the band S.Shell lays (the facade's Header): the drag bar takes its rect, and the title and the
+-- close mark are anchored to it at y 0. `f.titleBar` and `f.closeButton` are recorded. An unskinned
+-- window is as it was.
 -- Minor 4 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
 -- skin's `title.height` and the band S.Shell paints, not 26, and the text keeps its 3 px under it.
 -- Minor 3 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a skinned window's fill is
@@ -147,8 +151,10 @@ end
 local function skinCopy(f, d, owner)
   local Skin = skinOf(owner)
   if not Skin then return end
+  local S = Skin:For(owner)
   local sb = rawget(f.scroll, "ScrollBar")
-  if type(sb) == "table" then Skin:For(owner).ScrollBar(sb) end
+  if type(sb) == "table" then S.ScrollBar(sb) end
+  if S.Header then S.Header(f, { title = f.title, bars = { f.titleBar }, right = { f.closeButton } }) end   -- minor 5
   f.__copyDesc = d
   if type(lib.__onSkin) == "function" then lib.__onSkin(Skin, owner, f, copyDense) end
   copyDense(f, owner)
@@ -191,6 +197,7 @@ local function buildCopyFrame(d)
   f:SetClampedToScreen(true)
 
   local bar = CreateFrame("Frame", nil, f)
+  f.titleBar = bar
   bar:SetPoint("TOPLEFT", 1, -1)
   bar:SetPoint("TOPRIGHT", -1, -1)
   bar:SetHeight(TITLE_H)
@@ -213,6 +220,7 @@ local function buildCopyFrame(d)
   if makeClose then
     local close = makeClose(bar, function() f:Hide() end, d.addonName)
     if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
+    f.closeButton = close
   end
 
   local scroll = CreateFrame("ScrollFrame", d.scrollName, f, "UIPanelScrollFrameTemplate")

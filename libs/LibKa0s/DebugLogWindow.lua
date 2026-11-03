@@ -47,10 +47,14 @@ if not lib then return end
 -- Core is guaranteed present here: DebugLog.lua refuses to register without it.
 local core = LibStub("LibKa0s-Core-1.0", true)
 
-local WINDOW_MINOR = 3
+local WINDOW_MINOR = 4
 -- Minor 3 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
 -- skin's `title.height` and the band S.Shell paints, not 26. The console's title stays centered: the
 -- bar's two ends hold its controls.
+-- Minor 4 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned console puts its
+-- header on the band S.Shell lays (the facade's Header): the drag bar takes the band's rect and the
+-- title, Copy, Clear, Close and the toggle are anchored to it at y 0, so they stay on its middle under
+-- a 2 px edge and EllesmereUI's 25 px bar. The title stays centered. An unowned console is as it was.
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -461,7 +465,7 @@ local function buildTitleBar(f, D, ctx, pal, S)
   -- from the close button's width rather than hard-coded, which matters as soon as a host supplies
   -- its own: Core's is 18 wide, so Clear lands at -30 and Copy at -78, but a 24-wide button would
   -- have put Clear's right edge (-30) precisely on that button's left edge.
-  local _, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
+  local closeBtn, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
     addonName  = d.addonName,
     close      = ctx.makeCloseButton,
     onClose    = function() D:Hide() end,
@@ -476,7 +480,7 @@ local function buildTitleBar(f, D, ctx, pal, S)
   -- API, so these are the only handle a host's own test has on what its close button did to the
   -- layout, and on which of the two shapes the controls took.
   f.titleBarOffsets = offsets
-  f.clearButton, f.copyButton = clearBtn, copyBtn
+  f.clearButton, f.copyButton, f.closeButton, f.titleBar = clearBtn, copyBtn, closeBtn, titleBar
 
   -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
   -- label's color is always the flag's color rather than whatever the last hover left behind.
@@ -527,6 +531,14 @@ end
 --- itself is painted by `ctx.applySkin` (Core.ApplySkin with the owner).
 local function adopt(f, D, S, pal)
   f.__logLine = ownedLine(pal)
+  -- Minor 4: the header on the band, at the offsets the controls were built at (minor 4's header note).
+  local o = f.titleBarOffsets
+  if S.Header then S.Header(f, {
+    title = f.title, align = "CENTER", bars = { f.titleBar },
+    right = { { frame = f.closeButton, x = -o.close }, { frame = f.clearButton, x = -o.clear },
+              { frame = f.copyButton, x = -o.copy } },
+    left = { { frame = f.debugToggleBtn, x = TOGGLE_X } },
+  }) end
   S.ScrollBar(f.scrollBar, { track = f.__track, thumb = f.__thumb })
   S.Divider(f.statusDivider)
   S.OnLooksChanged(function()

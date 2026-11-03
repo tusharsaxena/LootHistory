@@ -30,7 +30,11 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- P.holdFace, so a face shows on a string given its own SetFont first (R3-DR-1L); P.px and
 -- FadeNineSlice's 1 px edge in every skin (R3-L2); P.pxWatch, which keeps a pixel edge one pixel
 -- through a UI scale, display size or ancestor SetScale change (R3-FIX).
-local EXTRAS_MINOR = 16
+-- Minor 17 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5, feedback item 5): S.Band, the
+-- window's title band as a frame Shell lays and keeps (EllesmereUI's 25 px bar under that source), and
+-- S.Header, which anchors every header child LEFT, CENTER or RIGHT to it at y 0, the title by
+-- `title.align` or the caller's `align`. S.TitleBar's `opts.place` takes the same title anchor.
+local EXTRAS_MINOR = 17
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -95,16 +99,22 @@ local TITLE_INSET = 8
 
 --- opts.place: the bar takes `title.height`, and its text an anchor on the bar's `title.align`.
 --- Justifying a string only moves it inside its own width, and a hand-anchored title has none.
+-- A title on `anchor` (a bar, or the band) by `align`, at y 0: LEFT `left` px in, RIGHT `right` px in,
+-- CENTER on the middle. One anchor, so a repaint leaves one.
+local function anchorTitle(anchor, fs, align, left, right)
+  local x = 0
+  if align == "LEFT" then x = left or TITLE_INSET end
+  if align == "RIGHT" then x = -(right or TITLE_INSET) end
+  fs:ClearAllPoints()
+  fs:SetPoint(align, anchor, align, x, 0)
+end
+
 local function place(bar, fs, T, spec)
   if T["title.height"] then bar:SetHeight(T["title.height"]) end
   local align = T["title.align"]
   if not (fs and align) then return end
   local reserve = type(spec) == "table" and spec or {}
-  local x = 0
-  if align == "LEFT" then x = reserve.left or TITLE_INSET end
-  if align == "RIGHT" then x = -(reserve.right or TITLE_INSET) end
-  fs:ClearAllPoints()
-  fs:SetPoint(align, bar, align, x, 0)
+  anchorTitle(bar, fs, align, reserve.left, reserve.right)
 end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
@@ -126,6 +136,129 @@ prim.TitleBar = function(owner, bar, opts)
   P.tint(rec, fs, T, "title.text")
   P.font(owner, rec, fs, "title")
   justify(rec, fs, T["title.align"])
+end
+
+-- ── the band and the header (minor 17) ───────────────────────────────────────────────────────
+
+-- EllesmereUI's shell bar, flush with the window's top: what a player sees as the header while
+-- EllesmereUI paints the owner (Premade Groups Filter Extension measured it, modules/Panel.lua).
+local EUI_BAR_H = 25
+-- A header control's width when its frame answers none (before layout, or headless): Core's close.
+local CONTROL_W = 18
+local HEADER_PAD, HEADER_GAP = 6, 4
+
+--- Where the band stands: in from a flat edge by `win.borderSize`, else 1, `title.height` high (the
+--- top bar S.Shell paints); flush at the top and 25 high while EllesmereUI paints the owner's Shell.
+local function bandGeometry(owner, frame, T)
+  local route = lib.__euiRoute
+  if type(route) == "function" and route(owner, "Shell") and not lib.euiRefused[owner]
+    and not lib.shared[frame] then
+    return 0, EUI_BAR_H
+  end
+  local inset = (T["win.borderStyle"] or "flat") == "flat" and T["win.borderSize"] or 1
+  return type(inset) == "number" and inset or 1, T["title.height"] or 30
+end
+
+--- The record's band holder for `frame`, laid where the band stands now: an invisible child frame,
+--- made once, that takes no mouse. Shell lays it on every paint, `noTopBar` or not (geometry is not
+--- fill), so a child anchored to it moves with a switch and no host code.
+function P.layBand(owner, rec, frame, T)
+  local b = rec and rec.regions.band
+  if not b then
+    if not rec or type(CreateFrame) ~= "function" or not P.isFrame(frame) then return nil end
+    b = CreateFrame("Frame", nil, frame)
+    if type(b) ~= "table" then return nil end
+    if type(b.EnableMouse) == "function" then b:EnableMouse(false) end
+    lib.__ours[b] = true
+    rec.regions.band = b
+  end
+  local inset, h = bandGeometry(owner, frame, T or P.T(owner))
+  b:ClearAllPoints()
+  b:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -inset)
+  b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -inset, -inset)
+  b:SetHeight(h)
+  b:Show()
+  return b
+end
+
+--- S.Band(frame): the window's title band as a frame, answered for a host to anchor its header to.
+--- Recorded, so a switch (to or from the eui source too) lays it again. Draws nothing.
+prim.Band = function(owner, frame)
+  if type(frame) ~= "table" then return nil end
+  return P.layBand(owner, P.track(owner, frame, "Band"), frame)
+end
+
+--- A header entry: a frame, or `{ frame = f, width = n, x = n }` (`x` its offset from the band's
+--- edge, else chained after the one before it). Answers the frame, its width and its x or nil.
+local function isWidget(o)
+  local k = P.kind(o)
+  return k ~= nil and k ~= "table"
+end
+
+local function entryOf(e)
+  if isWidget(e) then return e, nil, nil end
+  if type(e) == "table" and isWidget(e.frame) then return e.frame, e.width, e.x end
+  return nil
+end
+
+local function widthOf(f, w)
+  if type(w) == "number" then return w end
+  local got = type(f.GetWidth) == "function" and f:GetWidth()
+  return (type(got) == "number" and got > 0) and got or CONTROL_W
+end
+
+--- Anchor `list` to `band`'s `side` (LEFT or RIGHT) at y 0, the first `pad` in and each next `gap`
+--- past the one before. Answers how far in from that edge the controls reach (0 with none).
+local function chain(band, list, side, pad, gap)
+  local off, reach = pad, 0
+  for _, e in ipairs(type(list) == "table" and list or {}) do
+    local f, w, x = entryOf(e)
+    if f then
+      off = x or off
+      f:ClearAllPoints()
+      f:SetPoint(side, band, side, side == "RIGHT" and -off or off, 0)
+      reach = off + widthOf(f, w)
+      off = reach + gap
+    end
+  end
+  return reach
+end
+
+--- `bars` (drag strips) take the band's whole rect.
+local function layBars(band, bars)
+  for _, bar in ipairs(type(bars) == "table" and bars or {}) do
+    if P.isFrame(bar) then bar:ClearAllPoints(); bar:SetAllPoints(band) end
+  end
+end
+
+--- `spec.title` on the band by `spec.align`, else `title.align`, clear of the controls that reach
+--- `left` and `right` in from its edges (`spec.inset` with none), and justified to it.
+local function headerTitle(rec, band, T, spec, left, right, gap)
+  local fs = spec.title
+  if not P.isFS(fs) then return end
+  local align = spec.align or T["title.align"] or "CENTER"
+  anchorTitle(band, fs, align, left > 0 and left + gap or spec.inset, right > 0 and right + gap or spec.inset)
+  justify(rec, fs, align)
+end
+
+--- S.Header(frame, spec): a window's header on its band (S.Band). `spec.right` and `spec.left` are its
+--- controls, outermost first, each anchored RIGHT or LEFT to the band at y 0, `spec.pad` (6) in and
+--- `spec.gap` (4) apart, an entry `{ frame, width, x }` naming its own; `spec.title` is anchored by
+--- `spec.align`, else `title.align`, clear of the controls on its side (8 px with none), and justified
+--- to it; `spec.bars` (drag strips) take the band's whole rect. Every child is vertically centered on
+--- the band's geometric middle in every skin, and the call is recorded, so a switch places it again.
+--- Geometry only: P.unpaint leaves the anchors and gives back the justification. Draws nothing.
+prim.Header = function(owner, frame, spec)
+  if type(frame) ~= "table" or type(spec) ~= "table" then return end
+  local rec = P.track(owner, frame, "Header", spec)
+  local T = P.T(owner)
+  local band = P.layBand(owner, rec, frame, T)
+  if not band then return end
+  layBars(band, spec.bars)
+  local pad, gap = spec.pad or HEADER_PAD, spec.gap or HEADER_GAP
+  local right = chain(band, spec.right, "RIGHT", pad, gap)
+  local left = chain(band, spec.left, "LEFT", pad, gap)
+  headerTitle(rec, band, T, spec, left, right, gap)
 end
 
 --- S.Divider(target, opts): a rule. A texture is colored in place (`SetColorTexture`, four

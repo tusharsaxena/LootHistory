@@ -67,7 +67,9 @@ if not lib then return end
 -- Minor 5: the rows' face and `opts.panel` (the header's THE SCOPE SWITCHES).
 -- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a skinned list's fill and
 -- edge come from the skin, and a host's `opts.font` is the rows' template, with the skin's face over it.
-local AUTOCOMPLETE_MINOR = 6
+-- Minor 7 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a row's icon is cropped 0.07 a
+-- side, and an owned list's is edged in `icon.outline` (edgeIcon).
+local AUTOCOMPLETE_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -79,6 +81,10 @@ lib.MODULES.WidgetsAutocomplete = AUTOCOMPLETE_MINOR
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local min, max = math.min, math.max
+-- The icon rule (docs/api/README.md's *Icon art*): every row's icon art cropped this much a side,
+-- and an owned list's edged in the window outline, 1 px (S.IconBorder with no `hud`).
+local ICON_CROP = 0.07
+local ICON_EDGE = { fromSkin = true }
 
 --- The list's published chrome and timing. READ, never restated. BORDER and BG are the house flat
 --- skin (the dropdown's and the search box's own), used only when the box answers no backdrop
@@ -246,6 +252,7 @@ local function paintRow(h, row, item, text, hover)
   row.__item = item
   local icon = item.icon
   if icon ~= nil then row.icon:SetTexture(icon) end
+  row.icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
   row.icon:SetShown(icon ~= nil)
   row.label:ClearAllPoints()
   row.label:SetPoint("LEFT", row, "LEFT", icon ~= nil and (AC.ICON + AC.TEXT_INSET + 2) or AC.TEXT_INSET, 0)
@@ -260,6 +267,23 @@ local function paintRow(h, row, item, text, hover)
   markRow(row, false)
   row:SetHeight(h.__rowH)
   row:Show()
+end
+
+--- The icon's edge (minor 7): an owned list's in `icon.outline` through the owner's facade, shown and
+--- hidden with the icon; a row an owned paint edged and an owner-less one now draws is given back.
+local function edgeIcon(h, row, Skin)
+  local icon = row.icon
+  if Skin then
+    Skin:For(h.__owner).IconBorder(icon, ICON_EDGE)
+    row.__edged = true
+    return
+  end
+  if not row.__edged then return end
+  row.__edged = nil
+  local S = LibStub("LibKa0s-Skin-1.0", true)
+  local rec = S and type(S.painted) == "table" and S.painted[icon]
+  if rec and S.__P and type(S.__P.unpaint) == "function" then pcall(S.__P.unpaint, rec, icon) end
+  if S and type(S.Untrack) == "function" then S:Untrack(icon) end
 end
 
 local function render(h, items)
@@ -281,6 +305,7 @@ local function render(h, items)
     if type(item) ~= "table" then item = { text = tostring(item) } end
     shown[i] = item
     paintRow(h, row, item, text, hover)
+    edgeIcon(h, row, Skin)
   end
   for i = n + 1, #h.__rows do h.__rows[i]:Hide() end
   list:SetHeight(n * h.__rowH + 2 * AC.PAD)

@@ -561,6 +561,9 @@ if not Skin then
     -- LibKa0s v1.85.0: this addon has no HUD and reads none of these, but the facade answers every
     -- VOCAB name. Nil is each getter's degraded answer, and with no skin there is no gloss.
     "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HoverArt",
+    -- LibKa0s v1.85.0 round 5 (Skin minor 16, R5-L3): the band holder answers nil and the header
+    -- placement does nothing, so each window keeps the anchors it set before calling them.
+    "Band", "Header",
   }) do S[name] = noop end
 
   S.Token = function(name)

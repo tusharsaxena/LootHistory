@@ -195,7 +195,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 --- `icon.outline`, an icon's outline in a window (S.IconBorder, S.SquareIcon), apart from
 --- `icon.border`, the HUD hosts' icon edge, which keeps its value in every skin. Ka0s Default's is
 --- #4D4D57; every other skin's is in SkinDefsOthers' HUD_LOOK.
-local DEFS_MINOR = 26
+--- Minor 27 (R5-L1 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5, the owner's option C in
+--- R5_SIGNOFF.md): Ka0s Default's band is darker, #262006 over #141103, its blend #1D1805, and the
+--- picker's second swatch with it. It moves although v1.85.0 is a local cut: minor 26 copies already
+--- sit in vendored trees, and of two copies at one minor the first loaded wins.
+local DEFS_MINOR = 27
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -480,12 +484,14 @@ local KA0S = {
   -- palette, the client's quality colors written out, or `false`, the explicit "none" (a decoration
   -- Ka0s Default does not draw, which is a setting, not a fallback).
   ["win.bgTop"] = false, ["win.bgBottom"] = false, ["win.bgTexture"] = false,
-  -- The title band (R4-L2 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4, the owner's option
-  -- E): an opaque dark gold gradient, #3A2F0A at the top to #1F1905, lighter than the body and under
-  -- the gold title. `title.bg` is the blend, #2C2408, for a flat reader (MultiMeters' meter header).
-  ["title.bg"] = { 0x2c / 255, 0x24 / 255, 0x08 / 255, 1 },
-  ["title.bgTop"] = { 0x3a / 255, 0x2f / 255, 0x0a / 255, 1 },
-  ["title.bgBottom"] = { 0x1f / 255, 0x19 / 255, 0x05 / 255, 1 },
+  -- The title band: an opaque dark gold gradient (R4-L2 of Ka0sAddonsCommonTasks
+  -- docs/2026-11-03-SMOKE_ROUND4), made darker by R5-L1 of docs/2026-11-03-SMOKE_ROUND5 (the owner's
+  -- option C, "make the header a bit darker"): #262006 at the top to #141103, still lighter than the
+  -- body and under the gold title. `title.bg` is the blend, #1D1805, for a flat reader (MultiMeters'
+  -- meter header). Round 4's option E was #3A2F0A to #1F1905, blend #2C2408.
+  ["title.bg"] = { 0x1d / 255, 0x18 / 255, 0x05 / 255, 1 },
+  ["title.bgTop"] = { 0x26 / 255, 0x20 / 255, 0x06 / 255, 1 },
+  ["title.bgBottom"] = { 0x14 / 255, 0x11 / 255, 0x03 / 255, 1 },
   ["title.align"] = "CENTER", ["foot.bg"] = { 0.04, 0.04, 0.05, 0.9 },
   ["btn.bgTop"] = false, ["btn.bgBottom"] = false, ["btnPrimary.bgTop"] = false, ["btnPrimary.bgBottom"] = false,
   ["input.text"] = BODY, ["input.placeholder"] = DIM,
@@ -523,6 +529,6 @@ lib:RegisterSkin({
   key = "ka0s",
   label = "Ka0s Default",
   desc = "Today's look: dark panels, hard 1px black edges, gold titles.",
-  swatches = { "#0f0f14", "#2c2408", "#3d3d45", "#ffd100" },
+  swatches = { "#0f0f14", "#1d1805", "#3d3d45", "#ffd100" },
   tokens = KA0S,
 })
