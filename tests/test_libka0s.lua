@@ -1146,7 +1146,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsIds, 7)
   assertEqual(options.OptionsIdList, 9) -- 9 since R5-L5
   assertEqual(options.OptionsTabs, 15)
-  assertEqual(options.OptionsCompose, 18)
+  assertEqual(options.OptionsCompose, 19) -- 19 since R6-SIM-L (the Sim mode checkbox)
   assertEqual(options.OptionsScroll, 13)
   assertEqual(options.OptionsNav, 5)
   assertEqual(options.OptionsDrawer, 5)
