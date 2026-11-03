@@ -23,9 +23,9 @@
 --     the one the window opened with previews with the font and texture overrides cleared, as Apply
 --     will save it (minor 3); a pick back to it restores them. The owner's write seam is not called
 --     and no popup is raised. It closes the list, not the window;
---   * the eye (Media icon "eye"), only when `spec.onPreview` is a function: the host's test mode, so
---     the player sees the skin on the addon's own frames; it keeps working while a preview is
---     pending, and the window is Raise()d once onPreview returns;
+--   * the eye (Media icon "eye"), shown with `spec.preview` (THE PREVIEW, below) or `spec.onPreview`:
+--     the host's preview mode, so the player sees the skin on the addon's own frames; it keeps
+--     working while a preview is pending, and the window is Raise()d once the host returns;
 --   * the gear (Media icon "settings"): saves the pending pick as Apply does, then `spec.onSettings`,
 --     by default the settings panel opened at `spec.page` (O.OpenOptionsPanel(page), OptionsRegistry
 --     minor 4) and O.SelectTab(page, spec.tab or "Appearance"); then the window closes;
@@ -158,7 +158,10 @@ if not lib then return end
 -- Still minor 10, not yet vendored (R5-L4 of the same bundle, the owner's item 6): the open list
 -- closes on a press outside it and its dropdown button, the window's own body, title, eye and gear
 -- included; see AN OUTSIDE PRESS CLOSES THE LIST, at buildList.
-local PICKER_MINOR = 10
+-- Minor 11 (R6-L1 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND6, the owner's images 62, 63
+-- and 66): spec.preview, the preview contract; see THE PREVIEW, at the eye. Every minor-10 copy sits
+-- in a vendored tree, so the minor moves although v1.85.0 is a local cut.
+local PICKER_MINOR = 11
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -188,6 +191,15 @@ lib.SKIN_PICKER_STRINGS = {
   APPLY_ALL_TIP  = "Keep these choices, and give every other loaded Ka0s addon that uses skins the " ..
                    "same skin source, skin, scope, font, texture and font outline.",
   PREVIEW_TIP    = "Preview: open test mode",
+  -- The eye under spec.preview (minor 11): one tooltip per mode and state, read at every paint.
+  PREVIEW_TEST_ON     = "Preview: test mode is on. Click to turn it off.",
+  PREVIEW_TEST_OFF    = "Preview: test mode is off. Click to turn it on.",
+  PREVIEW_UNLOCK_ON   = "Preview: the frames are unlocked. Click to lock them.",
+  PREVIEW_UNLOCK_OFF  = "Preview: the frames are locked. Click to unlock them.",
+  PREVIEW_WINDOW_ON   = "Preview: the window is open. Click to close it.",
+  PREVIEW_WINDOW_OFF  = "Preview: the window is closed. Click to open it.",
+  PREVIEW_CONSOLE_ON  = "Preview: the debug console is open. Click to close it.",
+  PREVIEW_CONSOLE_OFF = "Preview: the debug console is closed. Click to open it.",
   SETTINGS_TIP   = "Keep these choices and open the Skin settings",
   PREVIEW_GLYPH  = "o",
   SETTINGS_GLYPH = "*",
@@ -257,6 +269,24 @@ local function safeCall(fn, ...)
   local ok, err = pcall(fn, ...)
   if not ok then report(err) end
 end
+
+--- `fn(...)`'s first answer under pcall, a raise reported and answering nil.
+local function ask(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  local ok, v = pcall(fn, ...)
+  if ok then return v end
+  report(v)
+end
+
+--- spec.preview when it carries enter, exit and isActive (THE PREVIEW), else nil.
+local function previewHook(spec)
+  local h = type(spec) == "table" and spec.preview
+  if type(h) == "table" and type(h.enter) == "function" and type(h.exit) == "function"
+    and type(h.isActive) == "function" then return h end
+  return nil
+end
+
+local function modeOn(h) return ask(h.isActive) and true or false end
 
 -- ── the queue (library level) ────────────────────────────────────────────────────────────────
 --
@@ -847,6 +877,81 @@ function lib.__AttachSkinPicker(O, d)
     f.scopeLabel:Hide()
   end
 
+  -- THE PREVIEW (minor 11, R6-L1; the owner's rule). spec.preview = { mode = "test" | "unlock" |
+  -- "window" | "console", enter(why), exit(why), isActive(), isShown() }: enter, exit and isActive
+  -- required, every call under pcall. A fresh show records { active, shown } on the owner's record
+  -- (p.previewWas) and, with the surface hidden (no isShown reads as hidden) and the mode off, calls
+  -- enter("picker"), then raises the window. The eye calls exit("eye") or enter("eye"); it is lit
+  -- while the mode is on, dimmed and grayed while off, its tooltip PREVIEW_<MODE>_ON or _OFF.
+  -- closed() undoes what the picker and its eye moved (p.previewMoved: a call after which the mode
+  -- read otherwise), after the skin's revert and before onClose and the queue's advance:
+  -- exit("picker") for a mode on now that was off at open, enter("picker") for one off now that was
+  -- on. So a refused enter (combat) leaves nothing to undo, and a mode the player's own verb turned on
+  -- stays. A restore refused under InCombatLockdown() is parked on the end-of-combat park and asked
+  -- again, unless the owner's picker is up again by then. A queued picker never shown records and
+  -- restores nothing. spec.onPreview alone keeps minor 10's one-shot eye, with no enter at show and
+  -- no restore; spec.preview wins when both are given.
+
+  local function previewState(h)
+    return { active = modeOn(h), shown = ask(h.isShown) and true or false }
+  end
+
+  --- `h[verb](why)` on `p`'s behalf, noting in p.previewMoved a call after which the mode moved.
+  local function previewCall(p, h, verb, why)
+    local was = modeOn(h)
+    ask(h[verb], why)
+    if modeOn(h) ~= was then p.previewMoved = true end
+  end
+
+  --- The eye's words for hook `h` with the mode `on`: PREVIEW_<MODE>_ON or _OFF, an unknown mode as TEST.
+  local function eyeTip(p, h, on)
+    local mode = tostring(h.mode or "test"):upper()
+    if not p.S["PREVIEW_" .. mode .. "_ON"] then mode = "TEST" end
+    return p.S["PREVIEW_" .. mode .. (on and "_ON" or "_OFF")]
+  end
+
+  --- The eye from the mode now: lit with the _ON words while on, dimmed and grayed with _OFF while off;
+  --- lit, with applySpec's PREVIEW_TIP, under onPreview alone.
+  local function paintEye(p)
+    local btn, h = p.frame and p.frame.preview, previewHook(p.spec)
+    if not btn then return end
+    local on = not h or modeOn(h)
+    btn.lit = h and on or nil
+    if h then btn.__tip = eyeTip(p, h, on) end
+    local art = btn.icon or btn.text
+    if art and type(art.SetAlpha) == "function" then art:SetAlpha(on and 1 or 0.45) end
+    if btn.icon and type(btn.icon.SetDesaturated) == "function" then btn.icon:SetDesaturated(not on) end
+  end
+
+  local function raise(p)
+    local f = p.frame
+    if f and f:IsShown() and type(f.Raise) == "function" then f:Raise() end
+  end
+
+  --- A fresh show of `p`, up: the mode entered when the surface is hidden and the mode off, then raised.
+  local function previewOpen(p)
+    local h, was = previewHook(p.spec), p.previewWas
+    if not (h and was) then return end
+    if not was.shown and not was.active then previewCall(p, h, "enter", "picker") end
+    paintEye(p)
+    raise(p)
+  end
+
+  --- `p` closed: what the picker and its eye moved goes back (THE PREVIEW).
+  local function previewRestore(p)
+    local h, was = previewHook(p.spec), p.previewWas
+    local owed = h and was and p.previewMoved and modeOn(h) ~= was.active
+    p.previewWas, p.previewMoved = nil, nil
+    if not owed then return end
+    local verb = was.active and "enter" or "exit"
+    local before = modeOn(h)
+    ask(h[verb], "picker")
+    if modeOn(h) ~= before or not inLockdown() or type(lib.__parkRegistration) ~= "function" then return end
+    lib.__parkRegistration(function()
+      if not p.shown and modeOn(h) ~= was.active then ask(h[verb], "picker") end
+    end)
+  end
+
   --- Picker `p`'s window has gone, by any route: a pending preview put back, `spec.onClose` once per
   --- showing, then the next queued picker, when `p` was the picker shown. It takes the record, never
   --- the upvalue P: the client fires OnHide inside Hide(), and the advance there can make another
@@ -858,6 +963,7 @@ function lib.__AttachSkinPicker(O, d)
     setOpen(false, p)
     releaseControls(p)
     revert(p)
+    previewRestore(p)
     safeCall(p.spec.onClose)
     local cur = queue().current
     if cur and cur.inst == O and cur.owner == p.owner then advance() end
@@ -924,13 +1030,21 @@ function lib.__AttachSkinPicker(O, d)
     hide()
   end
 
-  --- The eye: the host's preview, then the window raised, so the addon window it showed (or raised)
-  --- does not cover it among its DIALOG peers (a HIGH window cannot: see LAYERING).
+  --- The eye: spec.preview's toggle (THE PREVIEW), else the one-shot onPreview; then the window
+  --- raised, so the addon window it showed does not cover it among its DIALOG peers (LAYERING).
   local function preview()
     local p = P
-    safeCall(p.spec.onPreview)
-    local f = p.frame
-    if f and f:IsShown() and type(f.Raise) == "function" then f:Raise() end
+    local h = previewHook(p.spec)
+    if h then
+      p.previewWas = p.previewWas or previewState(h)
+      previewCall(p, h, modeOn(h) and "exit" or "enter", "eye")
+      paintEye(p)
+      local eye, tip = p.frame.preview, GameTooltip  -- a tooltip up under the pointer takes the new words
+      if tip and type(tip.IsOwned) == "function" and tip:IsOwned(eye) then eye:GetScript("OnEnter")(eye) end
+    else
+      safeCall(p.spec.onPreview)
+    end
+    raise(p)
   end
 
   local resetMedia   -- the rows' section, below
@@ -1199,9 +1313,10 @@ function lib.__AttachSkinPicker(O, d)
     f.apply.__tip, f.applyAll.__tip = S.APPLY_TIP, S.APPLY_ALL_TIP
     f.apply.text:SetText(S.APPLY)
     f.applyAll.text:SetText(S.APPLY_ALL)
-    if type(P.spec.onPreview) == "function" then f.preview:Show() else f.preview:Hide() end
+    if previewHook(P.spec) or type(P.spec.onPreview) == "function" then f.preview:Show() else f.preview:Hide() end
     if #others() > 0 then f.applyAll:Show() else f.applyAll:Hide() end
     anchorDropdown(f)
+    paintEye(P)
   end
 
   --- What `p` restores to from now, and no preview left in any row: a fresh showing, or the Skin tab's
@@ -1235,6 +1350,9 @@ function lib.__AttachSkinPicker(O, d)
       P.pending, P.reload = nil, false
       opening(P)
       place(f)
+      P.previewWas, P.previewMoved = nil, nil
+      local h = previewHook(spec)
+      if h then P.previewWas = previewState(h) end
     end
     acquireControls(P)
     setOpen(false)
@@ -1252,6 +1370,7 @@ function lib.__AttachSkinPicker(O, d)
         if P == mine then refresh() end
       end,
     }
+    if fresh then previewOpen(mine) end
     return f
   end
 
@@ -1272,7 +1391,9 @@ function lib.__AttachSkinPicker(O, d)
   --- already up on another instance answers that window. Answers nil
   --- without the Skin major, a client, or for an owner that never registered. `spec`: get and set
   --- (the Skin tab's seams: set MUST be the owner's write seam, called by Apply, Apply to all and the
-  --- gear, never by a pick or a row, as the tab calls it; without one the rows are not drawn), onPreview (the eye; absent without it), onSettings (the gear; default:
+  --- gear, never by a pick or a row, as the tab calls it; without one the rows are not drawn), preview
+  --- (the eye's mode, entered at show and restored at close: THE PREVIEW), onPreview (minor 10's one-shot
+  --- eye; no eye without either), onSettings (the gear; default:
   --- O.OpenOptionsPanel(spec.page), then O.SelectTab(spec.page, spec.tab or "Appearance")), page,
   --- tab, onClose (called once each time the window closes, by any route, and for a queued picker
   --- Apply to all dismisses), strings.

@@ -1152,7 +1152,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsDrawer, 5)
   assertEqual(options.OptionsKeybinds, 7)
   assertEqual(options.OptionsAppearance, 6)
-  assertEqual(options.OptionsSkinPicker, 10) -- 10 since R5-L3, R5-L4
+  assertEqual(options.OptionsSkinPicker, 11) -- 11 since R6-L1 (spec.preview)
   assertEqual(options.OptionsIdSuggest, 2) -- 2 since R5-L5
   assertEqual(options.OptionsMedia, 4)
   assertEqual(options.OptionsCombat, 4)
