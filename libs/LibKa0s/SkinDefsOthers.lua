@@ -235,13 +235,15 @@ local function translate(mock, extra)
   return out
 end
 
--- Each skin's icon border (minor 15), a style and a size of its own: a flat edge as thin as the
--- skin's own control edges (1px where its edges are hairlines, 2px where they are heavier), and WoW
--- Default the client's tooltip edge, its one Blizzard-art skin. The mockups draw no icon border, so
+-- Each skin's icon border (minor 15): since R3-FIX of Ka0sAddonsCommonTasks
+-- docs/2026-11-02-SMOKE_ROUND3 (still minor 8, not yet shipped) a flat 1px edge in every skin, the
+-- owner's "exactly 1 px in every skin", so a host that draws its own icon border from these tokens
+-- (KickCD, ConsumableMaster, Drop Watcher) matches S.IconBorder's outline. Azeroth, Ember and WoW
+-- Midnight drew 2px and WoW Default the client's tooltip edge. The mockups draw no icon border, so
 -- none comes through MOCK_MAP; a skin's `extra` may still override.
 local ICON_EDGE = {
-  obsidian = { "Solid", 1 }, azeroth = { "Solid", 2 }, glass = { "Solid", 1 }, contrast = { "Solid", 1 },
-  ember = { "Solid", 2 }, wow = { "Blizzard Tooltip", 2 }, midnight = { "Solid", 2 }, forever = { "Solid", 1 },
+  obsidian = { "Solid", 1 }, azeroth = { "Solid", 1 }, glass = { "Solid", 1 }, contrast = { "Solid", 1 },
+  ember = { "Solid", 1 }, wow = { "Solid", 1 }, midnight = { "Solid", 1 }, forever = { "Solid", 1 },
 }
 
 -- Each skin's HUD face (minor 16, R-4): its own family, a weight heavy enough that its strokes do

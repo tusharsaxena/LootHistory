@@ -28,7 +28,8 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Ignore fonts (15); S.BarBorder, shadow tokens, one font object per look, S.HoverArt (16).
 -- Then, still minor 16 and not yet shipped (Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3):
 -- P.holdFace, so a face shows on a string given its own SetFont first (R3-DR-1L); P.px and
--- FadeNineSlice's 1 px edge in every skin (R3-L2).
+-- FadeNineSlice's 1 px edge in every skin (R3-L2); P.pxWatch, which keeps a pixel edge one pixel
+-- through a UI scale, display size or ancestor SetScale change (R3-FIX).
 local EXTRAS_MINOR = 16
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
@@ -442,6 +443,68 @@ function P.px(frame, n)
   return n * pu.GetPixelToUIUnitFactor() / scale
 end
 
+-- Pixel edges stay one pixel (R3-FIX of docs/2026-11-02-SMOKE_ROUND3): each is recorded weakly and
+-- re-sized, never repainted, when UIParent's size moves (a UI scale or display size change) and on a
+-- SetScale of the holder or an ancestor, UIParent's included, that moves the scale (DpsRace's HUD,
+-- WhatGroup's and MultiMeters' windows). Hooks, never an event: a library-wide registration would
+-- outlive every host's stand-down.
+lib.__pxSized = lib.__pxSized or setmetatable({}, { __mode = "k" })    -- target -> { h, prim, prefix, n }
+lib.__pxScales = lib.__pxScales or setmetatable({}, { __mode = "k" })  -- hooked frame -> last scale
+local PX_SIDES = { Top = "SetHeight", Bottom = "SetHeight", Left = "SetWidth", Right = "SetWidth" }
+
+--- Re-size every recorded pixel edge whose primitive still paints its target.
+function lib:__RefreshPixels()
+  for target, e in pairs(self.__pxSized) do
+    local rec, regions = self.painted[target], self.__regions[target]
+    if rec and regions and rec.calls and rec.calls[e.prim] then
+      local size = P.px(e.h, e.n)
+      for side, method in pairs(PX_SIDES) do
+        local t = regions[e.prefix .. side]
+        if t then t[method](t, size) end
+      end
+    end
+  end
+end
+
+local function refreshLive()
+  local live = LibStub and LibStub("LibKa0s-Skin-1.0", true)
+  if live and live.__RefreshPixels then live:__RefreshPixels() end
+end
+
+local function pxScreen()
+  local ui = UIParent
+  if lib.__pxScreenHooked or type(ui) ~= "table" or type(ui.HookScript) ~= "function" then return end
+  lib.__pxScreenHooked = true
+  ui:HookScript("OnSizeChanged", refreshLive)
+end
+
+--- Post-hook SetScale on `h` and each ancestor, once each, so a scale that moves re-sizes the edges;
+--- the same scale again costs one comparison.
+local function hookScales(h)
+  if type(hooksecurefunc) ~= "function" then return end
+  local f, guard = h, 0
+  while P.isFrame(f) and guard < 32 do
+    if lib.__pxScales[f] == nil and type(f.SetScale) == "function" then
+      lib.__pxScales[f] = type(f.GetScale) == "function" and f:GetScale() or 1
+      hooksecurefunc(f, "SetScale", function(self, s)
+        local scales = lib.__pxScales
+        if scales[self] == s then return end
+        scales[self] = s
+        refreshLive()
+      end)
+    end
+    f, guard = type(f.GetParent) == "function" and f:GetParent() or nil, guard + 1
+  end
+end
+
+--- Record `target`'s pixel edge for the refresh: primitive `name` paints it, its four regions are
+--- `prefix .. side` on holder `h`, `n` physical pixels wide.
+function P.pxWatch(target, h, name, prefix, n)
+  lib.__pxSized[target] = { h = h, prim = name, prefix = prefix, n = n }
+  pxScreen()
+  hookScales(h)
+end
+
 -- FadeNineSlice's edge, four regions of its own on the holder (R3-L2): the faded art leaves the frame
 -- no edge, and a dark frame vanished on a dark skin (images 85 to 87).
 local RING = { Top = { "TOPLEFT", "TOPRIGHT", "SetHeight" }, Bottom = { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight" },
@@ -477,6 +540,7 @@ local function sliceRing(rec, frame, T, opts)
       P.hide(rec, "ring" .. side)
     end
   end
+  if h then P.pxWatch(frame, h, "FadeNineSlice", "ring", 1) end
 end
 
 --- S.FadeNineSlice(frame, opts): fade the nine pieces of `frame.NineSlice`, under every skin, Ka0s

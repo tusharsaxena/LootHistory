@@ -887,12 +887,16 @@ end
 local function drawIconEdge(rec, frame, T, opts)
   local size = opts.fromSkin ~= true and type(opts.size) == "number" and opts.size or 1
   local c = P.edgeColor(T, "icon.border")
-  P.edges(rec, frame, c, "flat", c and P.px(P.holder(rec, frame), size) or size)
+  local h = c and P.holder(rec, frame)
+  P.edges(rec, frame, c, "flat", h and P.px(h, size) or size)
+  if h and P.pxWatch then P.pxWatch(frame, h, "IconBorder", "edge", size) end
 end
 
 -- The zoom (R3-L3, images 88 to 90: the art's own edge showed inside the outline). The icon is the
 -- Texture handed in, else `opts.icon`, else `frame.icon` / `frame.Icon`; a frame with none is left,
--- never a region guessed at. Its coords are saved once and given back by P.unpaint.
+-- never a region guessed at. Its coords are saved once and given back by P.unpaint. The zoom only
+-- tightens (R3-FIX): each side takes the larger of `z` and the inset the icon already shows, so a
+-- host's tighter crop (S.SquareIcon's 0.08) stands, through every replay.
 local ICON_ZOOM = 0.07
 
 local function zoomIcon(rec, frame, opts)
@@ -903,7 +907,9 @@ local function zoomIcon(rec, frame, opts)
   local z = type(opts.zoom) == "number" and opts.zoom or ICON_ZOOM
   local coords = P.saved(rec, "coords")
   if coords[icon] == nil then coords[icon] = { icon:GetTexCoord() } end
-  icon:SetTexCoord(z, 1 - z, z, 1 - z)
+  local c = { icon:GetTexCoord() }
+  for i, d in ipairs({ 0, 0, 0, 1, 1, 0, 1, 1 }) do c[i] = type(c[i]) == "number" and c[i] or d end
+  icon:SetTexCoord(math.max(z, c[1]), math.min(1 - z, c[7]), math.max(z, c[2]), math.min(1 - z, c[8]))
 end
 
 --- S.IconBorder(frame, opts): a flat `icon.border` edge on the frame's holder, in physical pixels,

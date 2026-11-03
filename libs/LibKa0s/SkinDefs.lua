@@ -92,8 +92,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- border family, `icon.borderStyle` (a LibSharedMedia border key, as `bar.borderStyle` is; "Solid" is
 -- the flat WHITE8X8 edge and "None" draws none) and `icon.borderSize` beside `icon.border`, so an item
 -- icon's border can follow the skin (S.IconBorder's `opts.fromSkin`, OptionsCompose's
--- `BorderGroup{ fromSkin = "icon" }`). Ka0s Default's is Drop Watcher's Window › Icons border today,
--- Solid 2px; every other skin sets its own (ICON_EDGE below). No existing token moves.
+-- `BorderGroup{ fromSkin = "icon" }`). Ka0s Default's was Drop Watcher's Window › Icons border,
+-- Solid 2px; every other skin sets its own (SkinDefsOthers' ICON_EDGE). Since R3-FIX of
+-- docs/2026-11-02-SMOKE_ROUND3 (minor 26, not yet shipped) every skin's is Solid 1px.
 -- Minor 16 (LK-09 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, the owner's
 -- ruling R-8): Ka0s Default's `q.*` tokens equal the client's quality colors exactly, hex / 255
 -- (9d9d9d, ffffff, 1eff00, 0070dd, a335ee, ff8000), where they were rounded to two places (0.64,
@@ -429,10 +430,10 @@ local KA0S = {
   -- shadow, which is what the HUD stores; the offset is the client's, for a skin or host that draws one.
   ["hud.text"] = WHITE, ["hud.label"] = GOLD, ["bar.fill"] = { 0.20, 0.55, 0.95, 1 },
   ["hud.shadow"] = false, ["hud.shadowX"] = 1, ["hud.shadowY"] = -1,
-  -- The icon border (minor 15): Drop Watcher's Window › Icons border, the one item-icon border a Ka0s
-  -- addon draws today (its defaults/Profile.lua icons.borderStyle "Solid", icons.borderSize 2; the
-  -- color is `icon.border`'s black, below).
-  ["icon.borderStyle"] = "Solid", ["icon.borderSize"] = 2,
+  -- The icon border (minor 15): flat, in `icon.border`'s black, below; 1px since R3-FIX of
+  -- docs/2026-11-02-SMOKE_ROUND3, the owner's "exactly 1 px in every skin" (it was Drop Watcher's
+  -- Window › Icons border, Solid 2px).
+  ["icon.borderStyle"] = "Solid", ["icon.borderSize"] = 1,
   -- Charts: Widgets LINE_CHART, LootHistory AnalyticsCharts / AnalyticsLedger / C.TIMELINE.
   ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 }, ["chart.axisAlt"] = { 0.55, 0.55, 0.60, 0.9 },
   ["chart.grid"] = { 1, 1, 1, 0.07 }, ["chart.crosshair"] = { 1, 1, 1, 0.35 },
