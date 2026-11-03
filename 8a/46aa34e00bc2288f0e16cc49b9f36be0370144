@@ -1,0 +1,5 @@
+R6-RV independent review (2026-11-04, round 6 M2 reviewer): PASS.
+libs/LibKa0s equals LibKa0s tag v1.85.0 (79d043d) LibKa0s/ except the media/icons prune the CLAUDE.md
+declaration drives; tests/_kit equals the tag's tests/_kit. Only OptionsSkinPicker moved (minor 11);
+the test_libka0s pin 10->11 is correct. Provenance line already named v1.85.0. SKIN-53 added, Result blank.
+Gate fresh: 1967 passed / 0 failed / 1 skipped; luacheck 0/0.
