@@ -1580,7 +1580,7 @@ Total.
 - Skin verb: in combat nothing shows and the gray line prints on every call
 - Skin verb: refused while the addon is disabled, with the one refusal line
 
-### test_skin_chrome.lua (9)
+### test_skin_chrome.lua (10)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
 - skin chrome: every surface is painted for this addon's owner, so a switch reaches it
@@ -1590,6 +1590,7 @@ Total.
 - skin chrome: the test strip's info mark takes icon.tint and follows a switch
 - skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
 - skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup
+- skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
 
 ### test_skin_table.lua (8)
@@ -2075,15 +2076,13 @@ Total.
 - skin values: no typed value outside the kit's categories and the host's rows
 - skin values: the check is falsifiable, a planted value of each shape is reported
 
-### test_skin_switch.lua (105)
+### test_skin_switch.lua (103)
 
 - skin switch: the check is falsifiable, a surface that redraws a literal is reported
 - skin switch: the window's edge changes
 - skin switch: the window's edge changes with the Scope ignored
 - skin switch: the window's title changes
 - skin switch: the window's title changes with the Scope ignored
-- skin switch: the window's divider changes
-- skin switch: the window's divider changes with the Scope ignored
 - skin switch: the close control changes
 - skin switch: the close control changes with the Scope ignored
 - skin switch: the selected tab's label changes
@@ -2303,7 +2302,7 @@ Total.
 | test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
 | test_skin_verb.lua | 4 |
-| test_skin_chrome.lua | 9 |
+| test_skin_chrome.lua | 10 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 20 |
 | test_skin_settings.lua | 8 |
@@ -2333,10 +2332,10 @@ Total.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_skin_values.lua | 3 |
-| test_skin_switch.lua | 105 |
+| test_skin_switch.lua | 103 |
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1957** |
+| **Total** | **1956** |
