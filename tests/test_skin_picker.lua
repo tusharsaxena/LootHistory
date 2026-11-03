@@ -685,6 +685,34 @@ test("Skin preview: test mode already on stays on; stopped by the eye, a close t
   assertTrue(windowShown())
 end))
 
+test("Skin preview: test mode on with the window closed: the close that turns it back on hides the window again", fromHidden(function()
+  -- Test mode outlives its window (the close control and Escape leave it on). The picker shows over
+  -- a hidden window with the mode on, so it enters nothing; the eye stops the mode; the close's
+  -- restore enter("picker") starts it again, and a start opens the window. red under: a restore that
+  -- leaves open a window that was hidden when the picker showed.
+  BT:SetTestMode(true)
+  B:Hide()
+  local f = openVerb()
+  assertTrue(BT.testMode == true)
+  assertFalse(windowShown(), "the picker opened a window over a mode already on")
+  f.preview:__fire("OnClick")
+  assertFalse(BT.testMode == true, "the eye did not stop test mode")
+  f.close:__fire("OnClick")
+  assertTrue(BT.testMode == true, "the close did not put test mode back on")
+  assertFalse(windowShown(), "the restore left open a window that was hidden when the picker showed")
+end))
+
+test("Skin preview: combat ends the mode under the picker; the close still hides the window the preview opened", fromHidden(function()
+  -- EndTestModeForCombat stops the mode without the preview's exit, so the library owes no restore.
+  -- red under: a window the preview opened that outlives the picker because the stop was not its own.
+  local f = openVerb()
+  assertTrue(BT.testMode == true and windowShown())
+  BT:EndTestModeForCombat()
+  assertFalse(BT.testMode == true)
+  f.close:__fire("OnClick")
+  assertFalse(windowShown(), "the close left open the window the preview opened")
+end))
+
 test("Skin preview: a refused start (combat) moves nothing, and the close undoes nothing", fromHidden(function()
   -- SetTestMode refuses a start in combat with one line and answers false. red under: an enter
   -- that opens the window anyway, or a host flag set by a start that never happened.

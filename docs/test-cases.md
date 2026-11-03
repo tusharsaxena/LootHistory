@@ -1545,7 +1545,7 @@ Total.
 - Skin outline: the stored mode is applied with the skin
 - Skin outline: a profile switch applies the incoming profile's mode, and back
 
-### test_skin_picker.lua (35)
+### test_skin_picker.lua (37)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
 - Skin picker: the spec names this owner, its seams, the Skin tab and the eye
@@ -1581,6 +1581,8 @@ Total.
 - Skin preview: the eye turned off, a close changes nothing more
 - Skin preview: a History window already shown is left alone
 - Skin preview: test mode already on stays on; stopped by the eye, a close turns it back on
+- Skin preview: test mode on with the window closed: the close that turns it back on hides the window again
+- Skin preview: combat ends the mode under the picker; the close still hides the window the preview opened
 - Skin preview: a refused start (combat) moves nothing, and the close undoes nothing
 
 ### test_skin_verb.lua (4)
@@ -2311,7 +2313,7 @@ Total.
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 10 |
 | test_skin_outline.lua | 10 |
-| test_skin_picker.lua | 35 |
+| test_skin_picker.lua | 37 |
 | test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 11 |
 | test_skin_table.lua | 8 |
@@ -2349,4 +2351,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1967** |
+| **Total** | **1969** |

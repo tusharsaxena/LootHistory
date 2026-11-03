@@ -441,7 +441,14 @@ local PICKER_PREVIEW = {
 --- The player's close: the picker seen, and nothing else. The library's put-back already wears the
 --- stored choice (PK-03 reads `get` at the close), so the skin is not this callback's to move.
 local function pickerClosed()
-  previewOpenedWindow = false -- the library's restore has run; the next showing starts afresh
+  -- The library's restore has run. A window the preview opened that is still up was hidden when the
+  -- picker showed: the restore's own start reopened it (test mode on over a closed window, stopped by
+  -- the eye), or combat ended the mode without the exit (EndTestModeForCombat). Hide it again; the
+  -- next showing starts afresh.
+  if previewOpenedWindow then
+    previewOpenedWindow = false
+    if historyShown() and NS.Browser and NS.Browser.Hide then NS.Browser:Hide() end
+  end
   if quietClose then return end
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
