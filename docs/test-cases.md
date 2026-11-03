@@ -1580,7 +1580,7 @@ Total.
 - Skin verb: in combat nothing shows and the gray line prints on every call
 - Skin verb: refused while the addon is disabled, with the one refusal line
 
-### test_skin_chrome.lua (10)
+### test_skin_chrome.lua (11)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
 - skin chrome: every surface is painted for this addon's owner, so a switch reaches it
@@ -1592,6 +1592,7 @@ Total.
 - skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup
 - skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
+- skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)
 
 ### test_skin_table.lua (8)
 
@@ -2302,7 +2303,7 @@ Total.
 | test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 25 |
 | test_skin_verb.lua | 4 |
-| test_skin_chrome.lua | 10 |
+| test_skin_chrome.lua | 11 |
 | test_skin_table.lua | 8 |
 | test_skin_insights.lua | 20 |
 | test_skin_settings.lua | 8 |
@@ -2338,4 +2339,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1956** |
+| **Total** | **1957** |

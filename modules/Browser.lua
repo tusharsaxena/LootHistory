@@ -1014,6 +1014,14 @@ local function EnsureFrame()
   local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
   close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
   frame.closeButton = close
+
+  -- The header on the window's title band (R5-WIN of Ka0sAddonsCommonTasks
+  -- docs/2026-11-03-SMOKE_ROUND5, items 2 and 5): S.Band is the band at Shell's own inset and
+  -- title.height in every skin, and S.Header gives the title bar its rect and anchors the title by
+  -- title.align and the close 6 px in from the right, each at the band's vertical middle. Recorded,
+  -- so a skin switch places them again. The anchors above are the degraded install's, whose facade
+  -- Header does nothing.
+  NS.Skin.Header(frame, { title = title, right = { close }, bars = { titleBar } })
   -- (Settings gear removed; open the options panel with /lh config.)
 
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared

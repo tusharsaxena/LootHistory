@@ -370,3 +370,94 @@ test("skin chrome: the degraded facade draws the flat button and the divider tod
   S.Divider(bar)
   assertEqual(ct, today("divider"), "the divider frame's line in today's gray")
 end)
+
+-- ── the header on the title band (R5-WIN) ───────────────────────────────────────────────────────
+--
+-- R5-WIN of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5 (feedback items 2 and 5; the lead's
+-- calls 2 and 6): every header child is anchored LEFT, CENTER or RIGHT to the title band's own frame
+-- (S.Band, LibKa0s SkinPaintExtras minor 17) at y 0, in every skin, and a child title bar under
+-- noTopBar takes the band's rect. The band itself sits at Shell's inset (`win.borderSize` in from a
+-- flat edge, else 1) and is `title.height` tall. Headless, only the anchor shape can be measured: a
+-- LEFT, CENTER or RIGHT point on the band at y 0 IS the band's vertical middle.
+
+local CENTERED = { LEFT = true, CENTER = true, RIGHT = true }
+
+-- A region's recorded anchors as { point, rel, relPoint, x, y } lists: the harness's frames
+-- (tests/wow_mock.lua) record named fields, the paint recorder's regions positional ones.
+local function points(region)
+  local out = {}
+  for _, e in ipairs(rawget(region, "__points") or {}) do
+    if e.point then
+      out[#out + 1] = { e.point, e.relativeTo, e.relativePoint, e.x, e.y }
+    else
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+
+local function bandOf(frame)
+  local rec = Skin.painted[frame]
+  return rec and rec.regions.band
+end
+
+local function assertBand(frame, key, what)
+  local t = Skin:ResolveSkin(key)
+  local inset = (t["win.borderStyle"] or "flat") == "flat" and t["win.borderSize"] or 1
+  local band = bandOf(frame)
+  assertTrue(band ~= nil, what .. ": no band holder")
+  local pts = points(band)
+  assertEqual(#pts, 2, what .. ": the band's two anchors")
+  local p1, r1, q1, x1, y1 = unpack(pts[1])
+  assertEqual(p1 .. q1, "TOPLEFTTOPLEFT", what .. ": the band's first point")
+  assertTrue(r1 == frame, what .. ": the band is on the window")
+  assertEqual(x1, inset, what .. ": the band's left inset")
+  assertEqual(y1, -inset, what .. ": the band's top inset")
+  assertEqual(band:GetHeight(), t["title.height"] or 30, what .. ": the band's height")
+  return band
+end
+
+local function assertOnBand(region, band, what)
+  local pts = points(region)
+  assertTrue(#pts >= 1 and #pts <= 2, what .. ": anchored")
+  for _, pt in ipairs(pts) do
+    local point, rel, relPoint, _, y = unpack(pt)
+    assertTrue(CENTERED[point], ("%s: a %s point, never TOP*"):format(what, tostring(point)))
+    assertEqual(relPoint, point, what .. ": to the band's own " .. tostring(point))
+    assertTrue(rel == band, what .. ": anchored to the band")
+    assertEqual(y, 0, what .. ": y 0, the band's middle")
+  end
+end
+
+-- The rect a frame was last given by SetAllPoints, spied for the replay a skin switch runs.
+local function spyAllPoints(f)
+  rawset(f, "SetAllPoints", function(self, rel) rawset(self, "__allRect", rel) end)
+  rawset(f, "ClearAllPoints", function(self) rawset(self, "__allRect", nil) end)
+end
+
+local function assertHeader(frame, bar, title, close, key, what)
+  local band = assertBand(frame, key, what)
+  assertTrue(rawget(bar, "__allRect") == band, what .. ": the title bar takes the band's rect")
+  assertOnBand(title, band, what .. " title")
+  assertOnBand(close, band, what .. " close")
+  assertEqual(points(close)[1][4], -6, what .. ": the close is 6 px in from the band's right")
+end
+
+test("skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)", function()
+  withFreshWindows(function(win, exp)
+    assertTrue(exp.closeButton ~= nil, "the export modal keeps its close control")
+    spyAllPoints(win.titleBar); spyAllPoints(exp.titleBar)
+    -- Away first, so the first skin of the loop is a switch too (a choice already worn replays nothing).
+    Skin:SetChoice(OWNER, "ka0s", SW.key(Skin))
+    for _, def in ipairs(Skin:Skins()) do
+      Skin:SetChoice(OWNER, "ka0s", def.key)
+      assertHeader(win, win.titleBar, win.title, win.closeButton, def.key, def.key .. ": History")
+      assertHeader(exp, exp.titleBar, exp.titleFS, exp.closeButton, def.key, def.key .. ": export")
+      local badge = points(win.testBadge)
+      assertEqual(#badge, 1, def.key .. ": the badge has one anchor")
+      local point, rel, relPoint, _, y = unpack(badge[1])
+      assertEqual(point .. relPoint, "LEFTRIGHT", def.key .. ": the badge beside the title")
+      assertTrue(rel == win.title and y == 0, def.key .. ": the badge on the title's middle")
+    end
+  end)
+end)
