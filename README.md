@@ -1,4 +1,4 @@
-# Ka0s Loot History
+# Loot History
 
 ![WoW](https://img.shields.io/badge/WoW-Midnight_12.1.5-purple)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
@@ -6,7 +6,7 @@
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
 ![Tests](https://img.shields.io/badge/Tests-1969%2F1969_passing-green)
 
-Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
+Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
 The history is account-wide. Every character writes to and reads from the same log, and it survives reloads and logouts. You pick a minimum quality, and anything below it is ignored.
 
