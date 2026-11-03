@@ -7,7 +7,7 @@ local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip stri
 
 -- The window GEOMETRY this addon owns: every height the layout is measured from. No color is here.
 -- The window's look is the player's skin (the Skin tab; core/SkinSetup.lua's NS.Skin, over
--- LibKa0s-Skin-1.0): the edge, the title bar, the divider, the close control, the tab labels and
+-- LibKa0s-Skin-1.0): the edge, the title bar, the close control, the tab labels and
 -- underline, the bar's buttons and the footer all read its tokens and follow a skin switch with no
 -- reload. Ka0s Default is the look this window always had.
 local SKIN = {
@@ -959,7 +959,7 @@ local function EnsureFrame()
   frame:SetClampedToScreen(true)
   -- Resizable, and its bounds, come from the corner grip below (NS.MakeResizable).
 
-  -- Title bar (also the drag handle), flat with a divider line beneath it.
+  -- Title bar (also the drag handle), flat, with no line beneath it (R4-SEP).
   local titleBar = CreateFrame("Frame", nil, frame)
   titleBar:SetPoint("TOPLEFT", 1, -1)
   titleBar:SetPoint("TOPRIGHT", -1, -1)
@@ -998,15 +998,15 @@ local function EnsureFrame()
   -- title color and font, and painting it twice would be a second call for one color.
   NS.Skin.TitleBar(titleBar)
 
-  -- The divider under the title bar is a 1px FRAME, and the skin's Divider draws its line on that
-  -- frame's own holder. Never a direct region of this window: EllesmereUI's FadeRegions fades every
-  -- direct region of the frame it skins, and a texture here would be erased with them. Held as
-  -- `dividerBar` rather than the edge's `divider` field, which names a texture to tint.
+  -- No line under the title bar (R4-SEP of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4,
+  -- the owner's "no separator line below header" in every window, like the Skin Tester's
+  -- showroom). The 1px frame stays, empty, because the tab strip anchors under it
+  -- (LayoutTabButtons), so the layout does not move. Held as `dividerBar` rather than the edge's
+  -- `divider` field, which names a texture to tint.
   local divider = CreateFrame("Frame", nil, frame)
   divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
   divider:SetHeight(1)
-  NS.Skin.Divider(divider)
   frame.dividerBar = divider
 
   -- ElvUI-style thin × close glyph (class-colored on hover). Anchored to the title bar's

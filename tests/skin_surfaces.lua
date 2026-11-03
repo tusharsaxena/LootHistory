@@ -114,15 +114,6 @@ return function(NS, mocks)
     end
   end
 
-  -- The line the Divider primitive drew on the divider frame's holder.
-  local function dividerLine(bar)
-    for _, child in ipairs({ bar:GetChildren() }) do
-      for _, r in ipairs(rawget(child, "__paintRegions") or {}) do
-        if rawget(r, "__color") then return r end
-      end
-    end
-  end
-
   -- ── the History table ───────────────────────────────────────────────────────────────────────
 
   local BT_KEYS = { "frame", "pane", "headerFrame", "scroll", "rowHost", "rowPool", "emptyText",
@@ -318,7 +309,6 @@ return function(NS, mocks)
   local surfaces = {
     { name = "the window's edge", build = function() return edgeOf((windows())) end },
     { name = "the window's title", build = function() return (windows()).title end },
-    { name = "the window's divider", build = function() return dividerLine((windows()).dividerBar) end },
     { name = "the close control", build = function() return (windows()).closeButton end },
     { name = "the selected tab's label", build = function() return (windows()).tabs.History.label end },
     { name = "an unselected tab's label", build = function() return (windows()).tabs.Insights.label end },

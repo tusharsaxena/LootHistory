@@ -127,9 +127,9 @@ local function assertChrome(win, exp, want, label)
   assertTrue(edge ~= nil, label .. ": the window has no edge on its holder")
   assertEqual(rgba(rawget(edge, "__color")), want("win.border"), label .. ": the window edge")
   assertEqual(textColor(win.title), want("title.text"), label .. ": the window title")
-  local line = dividerLine(win.dividerBar)
-  assertTrue(line ~= nil, label .. ": the divider drew no line on its holder")
-  assertEqual(rgba(rawget(line, "__color")), want("divider"), label .. ": the divider")
+  -- No line under the title (R4-SEP, Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4): the
+  -- 1px `dividerBar` stays only as the tab strip's anchor and draws nothing in any skin.
+  assertTrue(dividerLine(win.dividerBar) == nil, label .. ": a line is drawn under the title")
   for name, tab in pairs(win.tabs) do
     assertTrue(recorded(tab, "Tab"), label .. ": tab " .. name .. " is the skin's Tab")
     local regions = Skin.painted[tab].regions
@@ -189,7 +189,7 @@ test("skin chrome: every surface is painted for this addon's owner, so a switch 
   withFreshWindows(function(win, exp)
     assertTrue(recorded(win, "Shell"), "the window edge is the skin's Shell")
     assertTrue(recorded(win.titleBar, "TitleBar"), "the title bar is the skin's TitleBar")
-    assertTrue(recorded(win.dividerBar, "Divider"), "the divider is the skin's Divider")
+    assertTrue(not recorded(win.dividerBar, "Divider"), "the title bar has a Divider under it (R4-SEP)")
     assertTrue(recorded(win.closeButton, "CloseButton"), "the close control is the skin's CloseButton")
     assertTrue(recorded(B._footer, "Text") and recorded(B._dbFooter, "Text"), "both footers are skin text")
     for key, ctl in pairs(B._barCtl) do
@@ -204,12 +204,9 @@ test("skin chrome: every surface is painted for this addon's owner, so a switch 
     end
     assertTrue(recorded(exp, "Shell"), "the export modal's edge is the skin's Shell")
     assertTrue(recorded(csvButton(exp), "Button"), "Export to CSV is the skin's Button")
-    -- The divider is a frame of its own, never a direct region of the window that EllesmereUI's
-    -- FadeRegions would fade with the rest, and no `divider` field names it as a texture to tint.
-    local line = dividerLine(win.dividerBar)
-    for _, r in ipairs(rawget(win, "__paintRegions")) do
-      assertTrue(r ~= line, "the divider line is a direct region of the window")
-    end
+    -- No line under the title (R4-SEP): the anchor frame holds no line, and no `divider` field
+    -- names a texture for the window edge to tint.
+    assertTrue(dividerLine(win.dividerBar) == nil, "a line is drawn under the title")
     assertTrue(rawget(win, "divider") == nil, "a `divider` field the window edge would tint")
   end)
 end)
@@ -333,6 +330,19 @@ test("skin chrome: the degraded facade draws a tab and a checkbox, and MarkText 
   assertEqual(tick:IsShown(), false, "the tick hides again")
   assertEqual(rgba({ dns.SkinColor("menu.text") }), rgba({ 0.9, 0.9, 0.9, 1 }), "the row menu's label has its token")
   assertEqual(S.MarkText("a\\b", 14), "|Ta\\b:14:14|t")
+end)
+
+test("skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)", function()
+  local dns, _, dm = dofile("tests/degraded_env.lua")()
+  local f = dm.CreateFrame("Frame", nil, dm.UIParent, "BackdropTemplate")
+  local d = f:CreateTexture(nil, "ARTWORK")
+  local tinted
+  rawset(d, "SetColorTexture", function() tinted = true end)
+  f.divider = d
+  d:Show()
+  dns.ApplySkin(f)
+  assertTrue(not d:IsShown(), "a line under the title stays shown on a degraded install")
+  assertTrue(not tinted, "the degraded edge tints a line under the title")
 end)
 
 test("skin chrome: the degraded facade draws the flat button and the divider today's way", function()

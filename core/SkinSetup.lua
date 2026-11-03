@@ -647,8 +647,8 @@ if not Skin then
     local r, g, b, a = color(role == "title" and "title.text" or ("text." .. tostring(role)))
     if r and fs and fs.SetTextColor then fs:SetTextColor(r, g, b, a) end
   end
-  -- A rule: a texture colored in place, or a frame given one texture filling it (made once). The
-  -- History window's divider is a frame (modules/Browser.lua), so a degraded install still draws it.
+  -- A rule: a texture colored in place, or a frame given one texture filling it (made once). No
+  -- window of this addon calls it under its title (R4-SEP); it stays for facade parity.
   local rules = setmetatable({}, { __mode = "k" })
   S.Divider = function(target, opts)
     if type(target) ~= "table" then return end

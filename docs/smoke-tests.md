@@ -37,7 +37,7 @@ free number in its theme.
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 48 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be |
+| SKIN-1 to 49 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title |
 | SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
@@ -981,13 +981,12 @@ screen (pushed up if needed), on History and on Holdings. Result: pass (owner, 2
 
 **HIST-43. The window chrome follows the skin (LH-02; SK-LH-WINDOW, SK-01, SK-03).** On **Ka0s
 Default**, `/lh show` and open **Export** from the filter bar → both windows look exactly as before
-the skinning run: the dark window with its black edge and gray inner line, the gold title, the gray
-line under the title bar, the gray close mark (red under the pointer), the tabs on a dark backing
+the skinning run: the dark window with its black edge and gray inner line, the gold title, the gray close mark (red under the pointer), the tabs on a dark backing
 (lighter on the active one), the gold active tab with its gold underline and gray idle tabs, the dropdowns and Search box, the four bar buttons (white words,
 gold under the pointer, each tooltip), the gray footer lines, and in Export the gold **Export
 History** title, the Data Set dropdown and **Export to CSV** with its spreadsheet mark. With both
 windows open, pick **Obsidian** on Settings → General → **Skin** → with no reload, every one of
-those surfaces repaints in Obsidian's colors (the window, both titles, the title-bar line, the close
+those surfaces repaints in Obsidian's colors (the window, both titles, the close
 mark, the tabs and underline, the dropdowns and Search box, the bar buttons and their hover, the
 footer, the Export modal and its button); click another tab and back → the tabs keep the new colors.
 Walk the other seven skins (Azeroth, Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW
@@ -995,8 +994,9 @@ Forever) the same way: the title stays centered, every word stays readable, noth
 **Ka0s Default** again → the first look comes back exactly. The History table, Insights, Timeline and
 Holdings repaint in later items (LH-03, LH-04), so their look is not part of this check. (Amended by
 FS-LH-FIX, 2026-11-01: the tabs' backing is new on Ka0s Default, cause A1, and Export's title bar is
-30 high, cause L9.) Fail: a
-surface that keeps the old skin until `/reload`, a missing divider line under the title bar, a
+30 high, cause L9. Amended by R4-SEP, 2026-11-03: the gray line under the title bar is gone in every
+skin, and SKIN-49 checks it.) Fail: a
+surface that keeps the old skin until `/reload`, a
 changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **HIST-44. The History table follows the skin (LH-03; SK-LH-TABLE, SK-06).** On **Ka0s Default**,
@@ -1394,7 +1394,7 @@ and the checkbox is ticked; `/lh debug` again → the console closes and the che
 it once more and close it with Esc or its ✕ → the checkbox unticks. `/reload` → unticked. Result: pass (owner-marked 2026-10-10)
 
 **DIAG-10. Console chrome.** Open `/lh debug` → a flat 1px black border with a lighter inner line, a
-gold title, a gray divider, and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
+gold title, no line under the title bar (amended by R4-SEP, 2026-11-03; SKIN-49 checks it), and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
 the copy window takes the same ✕. It matches every other Ka0s console. Fail: a thin × with the words
 "Copy" and "Clear", meaning `core/DebugLogSetup.lua` stopped passing `addonName`. Result: pass (owner-marked 2026-10-10)
 
@@ -2445,6 +2445,8 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
 **SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
 
+**SKIN-49. No line under any window's title (R4-SEP, R4-RV2; owner's round 4 sign-off, image 25).** On **Ka0s Default**, `/lh show` → nothing is drawn between the title bar and the tab strip: the tabs sit where they sat, with no gray line above them (compare the Skin Tester's `/skintester` showroom, which has none). Open **Export** from the filter bar, then **Export to CSV** → neither the export modal nor its copy window has a line under its title. `/lh debug` → the console has no line under its title bar (the status rule above its footer stays); its copy button's window has none either. `/lh skin` → the skin picker has none. Pick **Obsidian**, then **Azeroth** → still no line under any of those titles, and nothing moves. The Insights LOOT, CURRENCY and GAINS & LOSSES rules, the active tab's underline and the settings pages' gold header rule stay. Fail: a 1px line under any window title in any skin, the tab strip shifted up or down, or a Lua error. Result:
+
 
 ## Degraded install
 
@@ -2602,5 +2604,7 @@ HIST-43, HIST-44, INS-23, LED-13 and TL-18, whose Ka0s Default look moved, and S
 DEGRADED-15, new. INS-23 moves only by the scroll bars' step buttons.
 
 Owed from the owner's third smoke round (Ka0sAddonsCommonTasks `docs/2026-11-02-SMOKE_ROUND3/`, R3-FRIZ): SKIN-48, and SKIN-7, whose WoW Default face is now Ka0s Ubuntu, so its pass mark came off.
+
+Added or amended by the owner's fourth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND4/`, R4-SEP), awaiting the owner: SKIN-49, new. HIST-43 and DIAG-10 lose the line under the title bar from their wording and keep their results; SKIN-49 checks its absence.
 
 On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.
