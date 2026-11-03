@@ -79,7 +79,11 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- yet shipped (R3-L3 of docs/2026-11-02-SMOKE_ROUND3): S.IconBorder draws a flat 1 px outline in
 -- every skin, one physical pixel, and zooms the icon 0.07 (`opts.zoom`). Still minor 16 (R3-L1):
 -- the WowStyle1 chevron is P.ddChevron, which SkinAce's AceGUI Dropdown draws too.
-local CONTROLS_MINOR = 16
+-- Minor 17 (R4-L4 of docs/2026-11-03-SMOKE_ROUND4, R4_ADDENDUM_HUD_ICON_EDGE.md): S.IconBorder's
+-- `opts.hud` draws the HUD's `icon.border` and never `icon.outline`, so an icon a HUD edges through
+-- it keeps the owner's black edge under Ka0s Default. Bumped though v1.85.0 is a local cut: minor 16
+-- copies already sit in vendored trees, and the same minor would let the first loaded one win.
+local CONTROLS_MINOR = 17
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -887,9 +891,13 @@ end
 -- (P.px). With `opts.fromSkin` it is 1 px in every skin: `icon.borderStyle` and `icon.borderSize`
 -- are no longer read, since a 2px size (Ka0s Default, Azeroth, Ember, WoW Midnight) or WoW Default's
 -- Blizzard Tooltip nine-slice drew a heavier frame than the owner's 1 px.
+-- With `opts.hud = true` (minor 17, R4-L4) the edge is the HUD's `icon.border`, else `divider`, else
+-- the body text at 0.4, and `icon.outline` is never read: a HUD icon keeps its black edge under
+-- Ka0s Default (the owner's scope answer, R4_SIGNOFF.md).
 local function drawIconEdge(rec, frame, T, opts)
   local size = opts.fromSkin ~= true and type(opts.size) == "number" and opts.size or 1
-  local c = T["icon.outline"] or P.edgeColor(T, "icon.border")
+  local c = P.edgeColor(T, "icon.border")
+  if opts.hud ~= true then c = T["icon.outline"] or c end
   local h = c and P.holder(rec, frame)
   P.edges(rec, frame, c, "flat", h and P.px(h, size) or size)
   if h and P.pxWatch then P.pxWatch(frame, h, "IconBorder", "edge", size) end
@@ -922,7 +930,9 @@ end
 --- at 0.4. The icon (the Texture itself, `opts.icon`, else `frame.icon` / `frame.Icon`) is zoomed to
 --- texcoords 0.07..0.93; `opts.zoom` sets another inset, `false` leaves the coords alone. `frame` may
 --- be a Texture (minor 15): the edge hangs on a plain child of its parent (textureHolder), shown and
---- hidden with the Texture. Draws no Media icon.
+--- hidden with the Texture. `opts.hud = true` (minor 17) draws the HUD's `icon.border` in place of
+--- `icon.outline`, for an icon on a HUD rather than in a window; it is recorded with the call, so a
+--- repaint and a skin switch keep it. Draws no Media icon.
 prim.IconBorder = function(owner, frame, opts)
   local isTex = P.isTexture(frame)
   if not (isTex or P.isFrame(frame)) then return end

@@ -1127,7 +1127,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(skin.SkinDefsOthers, 8)
   assertEqual(skin.SkinPaint, 17)
   assertEqual(skin.SkinPaintExtras, 16)
-  assertEqual(skin.SkinPaintControls, 16)
+  assertEqual(skin.SkinPaintControls, 17) -- 17 since R4-L4 (opts.hud)
   assertEqual(skin.SkinEUI, 4)
   assertEqual(skin.SkinAce, 9)
   local widgets = modules("LibKa0s-Widgets-1.0")
