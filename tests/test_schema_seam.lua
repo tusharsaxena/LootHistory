@@ -399,6 +399,7 @@ settings.trackLedger | bool | true | nil | nil | nil
 settings.visibility | string | "always" | nil | nil | nil
 settings.windowScale | number | 1 | 0.6 | 1.6 | 0.05
 state.debugConsole | bool | false | nil | nil | nil
+state.sim | bool | false | nil | nil | nil
 state.testMode | bool | false | nil | nil | nil
 ]]
 

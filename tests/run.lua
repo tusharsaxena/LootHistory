@@ -187,6 +187,9 @@ local SUITES = {
   -- `/lh sim` (LootHistory#37): every verb, the host verb `loot [n]`, the disabled refusal and the
   -- library-absent stub. After test_sim_panel; every case stops its session.
   "test_sim_slash",
+  -- The Master controls Sim mode checkbox (R6-SIM): the launcher's pair on the composed row, and
+  -- the sim's listener refreshing it. After test_sim_slash; every case stops its session.
+  "test_sim_checkbox",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside

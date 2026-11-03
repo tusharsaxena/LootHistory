@@ -91,6 +91,28 @@ toggleButton:SetScript("OnClick", function()
   runVerb("toggle")
 end)
 
+-- ── THE SIM PAIR (launcher Sim mode entry and the Master controls Sim mode box) ───────────────
+--
+-- ONE pair, read by BOTH surfaces: the launcher descriptor below and settings/Schema.lua's
+-- O.MasterControls spec (LibKa0s compose minor 19, R6-SIM), so the menu entry, the settings box
+-- and `/lh sim` are one act and cannot drift into two spellings. Above the degraded exit because
+-- the settings spec reads it whether or not the launcher library loaded. NS.Sim is looked up at
+-- CALL time: modules/Sim.lua builds it after this file, and a test may swap in the stub.
+
+--- Whether a simulation runs: NS.Sim:IsActive(), false while there is no session object.
+function NS.IsSimMode()
+  local s = NS.Sim
+  return type(s) == "table" and type(s.IsActive) == "function" and s:IsActive() == true
+end
+
+--- The typed verb's own acts: stop a running sim, otherwise the bare `/lh sim` (status and the sim
+--- panel, where the player picks a scenario). It never starts a scenario of its own.
+function NS.ToggleSim()
+  local s = NS.Sim
+  if type(s) ~= "table" or type(s.RunVerb) ~= "function" then return end
+  s:RunVerb(s:IsActive() and "stop" or "")
+end
+
 -- The labels Options -> Keybindings shows (launcher-§6, standard v2.88.0). Every <Binding> in
 -- Bindings.xml sits in category BINDING_HEADER_LOOTHISTORY and carries no header=, so the client
 -- gives this addon a section of its own titled with this global: the brand, as the launcher's broker
@@ -197,13 +219,9 @@ NS.Launcher = Launcher:New({
   -- is a function because the library asks on every show and never caches.
   --
   -- The version is the TOC's (`NS.Version`, core/EnvSetup.lua), the one `/lh version` prints.
-  isSimMode = function() local s = NS.Sim; return type(s) == "table" and type(s.IsActive) == "function" and s:IsActive() == true end,
-  toggleSim = function()
-      local s = NS.Sim
-      if type(s) ~= "table" or type(s.RunVerb) ~= "function" then return end
-      -- The typed verb's own acts: stop a running sim, otherwise the bare verb (status and the sim panel).
-      s:RunVerb(s:IsActive() and "stop" or "")
-  end,
+  -- SIM MODE: the one pair above, shared with the Master controls Sim mode box (R6-SIM).
+  isSimMode = NS.IsSimMode,
+  toggleSim = NS.ToggleSim,
   version = function() return NS.Version and NS.Version() end,
 
   -- The addon's OWN line and nothing else: the record count. The title, the status and both click

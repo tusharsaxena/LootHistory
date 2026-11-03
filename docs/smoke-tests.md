@@ -38,7 +38,7 @@ free number in its theme.
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
 | SKIN-1 to 54 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview |
-| SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
+| SIM-1 to 13 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -2024,6 +2024,23 @@ and every tab's pane starts under the strip. Hover the strip → its tooltip is 
 `/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
+**SIM-13. The Master controls Sim mode checkbox (R6-SIM; Ka0sAddonsCommonTasks
+`docs/2026-11-03-SMOKE_ROUND6/`, LibKa0s compose minor 19).** Open **Settings → AddOns → Ka0s Loot
+History → General → Master controls** → a **Sim mode** checkbox opens the line below Minimap button |
+Test mode, unticked; hover it → the library's tooltip, then *Ticking it is a bare /lh sim: the status
+line and the sim panel, where you pick a scenario; the box ticks once one starts.* Tick it → exactly
+what a bare `/lh sim` does: the `Simulation: idle.` status line and usage, and the sim panel opens;
+the box goes back to unticked because no scenario runs. Pick **loot** in the panel and start it → the
+box ticks with the page still open. Untick it → the simulation stops (`Simulation stopped.`, the cyan
+strip goes). With the page open, type `/lh sim start loot` → the box ticks at once; `/lh sim stop` →
+it unticks. Close Settings, `/lh sim start loot`, reopen the page → the box is ticked. Enter combat
+with the sim running → the sim stops itself and the box unticks; tick it in combat → it stays
+unticked. With the sim running, press **Reset all settings** and confirm → the sim stops and the box
+reads unticked; with no sim running, Reset all settings starts none. Start a sim, then `/reload` → the
+box is unticked. Right-click the minimap button → its **Sim mode** entry agrees with the box. Fail: a
+missing box, a box that starts a scenario of its own, a box that stays ticked after the sim stopped (or
+unticked while it runs), a reset that starts a sim, or a Lua error. Result:
+
 ## Skins
 
 The skinning run's checks, leg 1 (Ka0sAddonsCommonTasks `docs/2026-10-25-SKINNING/`, its
@@ -2623,6 +2640,6 @@ Added or amended by the owner's fourth smoke round (Ka0sAddonsCommonTasks `docs/
 
 Added by the owner's fifth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND5/`), awaiting the owner: SKIN-51 (R5-RV) and SKIN-52 (R5-WIN), new.
 
-Added by the owner's sixth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`), awaiting the owner: SKIN-53 (R6-RV) and SKIN-54 (R6-PV), new. SKIN-29's eye, which opened test mode, is now the toggle SKIN-54 checks.
+Added by the owner's sixth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`), awaiting the owner: SKIN-53 (R6-RV), SKIN-54 (R6-PV) and SIM-13 (R6-SIM), new. SKIN-29's eye, which opened test mode, is now the toggle SKIN-54 checks.
 
 On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.

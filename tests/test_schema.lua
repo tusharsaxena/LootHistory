@@ -56,6 +56,9 @@ local MASTER_ROWS = {
   -- the optional one pairs to its right (options-ui-§15).
   { "minimap.shown",        "Minimap button" },
   { "state.testMode",      "Test mode" },
+  -- The Sim mode row (LibKa0s compose minor 19, R6-SIM): this addon has a simulation, so the
+  -- composer draws it after Test mode, opening the next line (tests/test_sim_checkbox.lua).
+  { "state.sim",           "Sim mode" },
 }
 
 test("Schema: Master controls is the FIRST group on the General page", function()
@@ -658,7 +661,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 8 }, { "Capture", 6 }, { "AH price", 2 },
+    { "Master controls", 9 }, { "Capture", 6 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     { "Interface", 5 }, { "History", 2 },
     -- The skin's two rows (skinning-§3), the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5), the

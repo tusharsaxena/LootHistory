@@ -430,6 +430,20 @@ local STOP_STEPS = {
 
 for _, step in ipairs(STOP_STEPS) do NS.Sim:OnStop(step) end
 
+-- THE SIM MODE BOX FOLLOWS THE LIVE STATE (R6-SIM; LibKa0s compose minor 19). The Master controls
+-- box reads NS.IsSimMode, so a sim started or ended from the slash verb, the sim panel, the launcher
+-- or its own auto-stop has to tell an open settings page to re-read. Only on a change of running
+-- state: the listener fires on every step too, and a step moves nothing the box shows. The
+-- refresher is looked up at call time (settings/OptionsSetup.lua loads after this file).
+local simWasActive = false
+NS.Sim:AddListener(function()
+  local now = NS.Sim:IsActive() == true
+  if now == simWasActive then return end
+  simWasActive = now
+  local O = NS.Options
+  if O and O.RefreshScalars then O.RefreshScalars() end
+end)
+
 --- Stop a running simulation: the first stand-down step (core/LifecycleSetup.lua, H6) calls it bare
 --- (`standDown`), and NS.OnProfileEvent calls it with `profile`. A no-op when none runs.
 function NS.SimStop(reason)
