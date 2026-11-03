@@ -2020,6 +2020,15 @@ Total.
 - sim slash: refused while the addon is disabled, on the one line, and nothing starts
 - sim slash: with no LibKa0s-Sim-1.0 the stub answers the collection's line
 
+### test_sim_checkbox.lua (6)
+
+- sim checkbox: the launcher and the Master controls spec share one NS pair
+- sim checkbox: the row is the composed session-only Sim mode, opening the line after Test mode
+- sim checkbox: ticking acts exactly as a bare `/lh sim`; the box ticks once a scenario starts
+- sim checkbox: unticking stops the sim; an untick while idle does nothing
+- sim checkbox: a start or stop from elsewhere signals the settings refresh
+- sim checkbox: with the stub session the box reads unticked and ticking says the stub's line
+
 ### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -2338,6 +2347,7 @@ Total.
 | test_sim_store.lua | 6 |
 | test_sim_panel.lua | 26 |
 | test_sim_slash.lua | 10 |
+| test_sim_checkbox.lua | 6 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
@@ -2351,4 +2361,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1969** |
+| **Total** | **1975** |
