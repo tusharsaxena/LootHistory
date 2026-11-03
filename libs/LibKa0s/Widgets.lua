@@ -4,24 +4,17 @@
 --
 -- ── WHY THIS IS A LIBRARY AND NOT A COPY ──────────────────────────────────────────────────────
 --
--- It was BankLedger's, local to modules/Browser.lua, and it was about to be MultiMeters' too. Two
--- copies of a widget is two skins to keep in step, and the collection stops looking like one
--- author's work the first time one copy is restyled and the other is not. That is the argument the
--- icons were consolidated under at v1.9.0; a widget that DRAWS those icons is the same argument one
--- layer up.
+-- It was BankLedger's, local to modules/Browser.lua, and about to be MultiMeters' too. Two copies
+-- of a widget is two skins to keep in step, the argument the icons were consolidated under at v1.9.0.
 --
--- The test-mode strip (`lib.TestStrip`, #48) is here for the same reason. DropWatcher drew it, and
--- LootHistory, BankLedger and MultiMeters each marked test mode their own way: a red title-bar
--- word in two of them and a title suffix in the third, which a hidden header hides with it. The
--- owner's 2026-10-22 ruling promoted DropWatcher's strip so all four say "this is not your data"
--- with one band, in one color, at one height.
+-- The test-mode strip (`lib.TestStrip`, #48) is here for the same reason: DropWatcher drew it and
+-- three hosts each marked test mode their own way. The owner's 2026-10-22 ruling promoted it, so all
+-- four say "this is not your data" with one band, in one color, at one height.
 --
--- The same strip marks a simulation (`opts.kind = "sim"`, minor 14): a flavor of `TestStrip`, with
--- its own cyan tint, and not a new function. The owner's 2026-10-23 ruling asked for the strip to
--- be made generic so a simulation is marked the way test mode is. A `ModeStrip` constructor with
--- `TestStrip` kept as an alias was REJECTED: it is a second name for one function, a member added
--- purely for naming, and the four existing hosts would keep calling `TestStrip` anyway. Re-check
--- trigger: a third kind is asked for.
+-- The same strip marks a simulation (`opts.kind = "sim"`, minor 14, the owner's 2026-10-23 ruling): a
+-- flavor of `TestStrip`, with its own cyan tint. A `ModeStrip` constructor with `TestStrip` kept as an
+-- alias was REJECTED: a second name for one function, which the four hosts would not call anyway.
+-- Re-check trigger: a third kind is asked for.
 --
 -- ── WHY IT DOES NOT DEPEND ON LibKa0s-Media-1.0 ───────────────────────────────────────────────
 --
@@ -37,28 +30,23 @@
 -- ── WHAT IT DELIBERATELY IS NOT ───────────────────────────────────────────────────────────────
 --
 -- The dropdown's menu has no search box inside it (the filter bar's search box beside it is
--- `lib.SearchBox`, below), no keyboard navigation, no scrolling for a long list, no sub-menus, no
--- per-row disable. None of those is wanted by either shipped consumer, and every one of them is
--- reachable later without a major bump. A widget that grows features nobody asked for is a widget
--- whose degraded behavior nobody has tested.
+-- `lib.SearchBox`, below), no keyboard navigation, no scrolling for a long list, no sub-menus. None
+-- of those is wanted by a shipped consumer, and each is reachable later without a major bump. Row
+-- options and a public open arrived with the hosts that needed them (minor 21).
 --
 -- Two flat controls were censused with the search box at minor 13 (#52) and REJECTED:
 --
---   * `W.Checkbox`, a flat checkbox. No consumer draws one today. Re-check trigger: a second addon
---     hand-builds a flat checkbox.
---   * An exported flat skin (the `SKIN` table below, or an applier that paints it). It stays
---     file-local: the dropdown and the search box are its only readers, and the autocomplete
---     publishes its own copy as `AUTOCOMPLETE.BORDER` / `.BG`. Re-check trigger: a third flat
---     control outside this file copies the literals.
+--   * `W.Checkbox`. No consumer draws one. Re-check trigger: a second addon hand-builds a flat one.
+--   * An exported flat skin (the `SKIN` table below, or an applier). The dropdown and the search box
+--     are its only readers, and the autocomplete publishes its own copy as `AUTOCOMPLETE.BORDER` /
+--     `.BG`. Re-check trigger: a third flat control outside this file copies the literals.
 --
--- The test-mode strip is a band, a mark and a line of text, and deliberately nothing more. It has
--- no tooltip option (three hosts, three tooltip renderers; a host enables the mouse and hooks
--- OnEnter itself), no color option (the sameness is the point: the two fixed flavors, test and
--- sim, are the library's, and a host still cannot pass a color), no wrap, no measuring and no
--- `Height()` (one host wraps, and one must never measure), no test-mode state (the host decides
--- when it shows and what it says), no placement and no body shift (that is host layout; a host
--- leaves its own gap around `TEST_STRIP.HEIGHT`), and no icon fallback (no icon is a valid state:
--- the text moves to the left edge). Re-check trigger for all six: a consumer needs a different
+-- The test-mode strip is a band, a mark and a line of text, and deliberately nothing more. No
+-- tooltip option (three hosts, three renderers; a host enables the mouse and hooks OnEnter), no color
+-- option (the sameness is the point: test and sim are the library's), no wrap, measuring or
+-- `Height()` (one host wraps, and one must never measure), no test-mode state (the host decides),
+-- no placement or body shift (host layout, around `TEST_STRIP.HEIGHT`), and no icon fallback (with no
+-- icon the text moves to the left edge). Re-check trigger for all six: a consumer needs a different
 -- color, a tooltip renderer or a measured height with the same semantics as another.
 --
 -- ── SKIN OWNERS (minor 16) ────────────────────────────────────────────────────────────────────
@@ -82,8 +70,9 @@
 -- template's gold under Ka0s Default), and, in the secondary files, the autocomplete's rows, the
 -- chart's tick labels and the drag handle's label. Under Ka0s Default that face is Oxanium where the
 -- template drew Friz Quadrata (decision D-13). The paint is recorded, so the owner's "Ignore fonts"
--- gives each string its template back, live. A face a host named (`opts.font`, `spec.labelFont`,
--- `opts.glyphFont`) is the host's and is never touched.
+-- gives each string its template back, live. A face a host named (`opts.font`, `spec.labelFont`) is
+-- that template from minor 19: the skin's face goes over it, and an owner-less control keeps it.
+-- `opts.glyphFont` is the menu's glyph column, whose owned face is `font.mono` (minor 19).
 --
 -- `opts.panel = true` on any owned constructor (Dropdown, SearchBox, TestStrip, Autocomplete,
 -- LineChart, DragHandle) says the control sits on its owner's SETTINGS PAGE: while that owner ignores
@@ -103,7 +92,20 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 16: the skin owner (the header's SKIN OWNERS).
 -- Minor 17: the scope switches (the header's THE SCOPE SWITCHES): every string an owned control draws
 -- in its skin's body face, and `opts.panel`.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 17
+-- Minor 18 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): lib.__ownedMark. An owned
+-- control a host gave no art draws the Ka0s icon, not the client rung, and the strip's icon wears
+-- `icon.tint`.
+-- Minor 19 (cause L8 of the same bundle): an owned menu's glyph column reads the skin's `font.mono`; a
+-- host's `glyphFont` is what turns the column on, and what an owner-less menu and Ignore fonts draw.
+-- A face a host names on an owned control (`opts.font`, `spec.labelFont`) is now its template.
+-- Minor 20 (FS-FIX of the same bundle): an owned dropdown's tick and arrow follow a skin switch and
+-- the Scope, live, where they were baked in the constructor.
+-- Minor 21 (FS-FIX of the same bundle): `lib.ContextMenu`, the shared menu opened by a host; the row
+-- options `title`, `disabled`, `divider`, `tooltip` and `keepOpen`, for a dropdown too; onSelect takes
+-- the row; the dropdown's label is one line.
+-- Minor 22 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): `lib.IconText`, inline icon
+-- markup cropped by the icon rule.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 22
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -133,7 +135,7 @@ local CHECK_FALLBACK   = "Interface\\Buttons\\UI-CheckBox-Check"
 -- back (minor 17).
 local SEARCH_ICON_TINT = { 0.7, 0.7, 0.72 }
 
-local MENU_ROW_H = 16
+local MENU_ROW_H, MENU_DIVIDER_H = 16, 8
 
 -- ── the skin owner (minor 16; the header's SKIN OWNERS) ──────────────────────────────────────
 
@@ -154,6 +156,18 @@ local function panelOff(Skin, owner, panel)
     and Skin:GetIgnore(owner) == true
 end
 lib.__panelOff = panelOff
+
+--- The path of Media icon `name` in `owner`'s copy for an owned control a host gave no art (minor
+--- 18), or nil: no owner, no Media, or a panel-scoped control on an ignored panel, each of which
+--- draws its client rung. `name` is one of docs/releasing.md's library-drawn icons, so the host
+--- declares it. Read at call time.
+local function ownedMark(owner, name, panel)
+  local Skin = skinOf(owner)
+  if not Skin or panelOff(Skin, owner, panel) then return nil end
+  local media = LibStub("LibKa0s-Media-1.0", true)
+  return media and type(media.Icon) == "function" and media.Icon(owner, name) or nil
+end
+lib.__ownedMark = ownedMark
 
 -- Strings __skinFont put a skin face on, so an owner-less paint knows which to give back.
 lib.__fonted = lib.__fonted or setmetatable({}, { __mode = "k" })
@@ -217,8 +231,10 @@ local function token(Skin, owner, name, fallback)
   return c
 end
 
--- The shared menu's row colors: selected, plain, and the highlight under the pointer.
-local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 0.82, 0, 0.15 } }
+-- The shared menu's row colors: selected, plain, the highlight under the pointer, and a title, a
+-- disabled row and a divider (minor 21).
+local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 0.82, 0, 0.15 },
+                   title = { 1, 0.82, 0 }, off = { 0.5, 0.5, 0.5 }, rule = { 0.24, 0.24, 0.27, 0.85 } }
 -- No addon registers this name, so its facade reads Ka0s Default: the menu is given back through it.
 local DEFAULT_OWNER = MAJOR
 
@@ -274,7 +290,18 @@ local function makeMenuRow(menu)
   hl:SetColorTexture(1, 0.82, 0, 0.15)
   -- Minor 16: kept, with the color it wears, so a skinned open repaints it (Populate).
   b.__hl, b.__hlc = hl, MENU_PAL.hover
+  b.__rule = b:CreateTexture(nil, "ARTWORK")   -- a divider row's line (minor 21), 1 high on its 8
+  b.__rule:SetPoint("TOPLEFT", 8, -4)
+  b.__rule:SetPoint("BOTTOMRIGHT", -8, 3)
   return b
+end
+
+--- True for a row that takes no click: a title, a divider, or a disabled row (`disabled`, true or a
+--- predicate of the dropdown, read on every open).
+local function rowInert(dd, opt)
+  if opt.title or opt.divider then return true end
+  if type(opt.disabled) == "function" then return opt.disabled(dd) and true or false end
+  return opt.disabled == true
 end
 
 -- Selection state: single-select highlights the one active value; multi-select highlights
@@ -295,12 +322,45 @@ local function rowSelected(dd, opt)
   return (opt.value == dd._value)
 end
 
+--- The glyph column's face (minor 19): the opener's `font.mono`, else the host's. Nil when the host
+--- named none: that is what asks for a column at all, in every skin.
+local function menuGlyphFace(menu, dd)
+  local host, Skin, owner = dd.__glyphFont, menu.__fontSkin, menu.__fontOwner
+  if not (host and Skin) then return host end
+  local _, noFonts = Skin:GetIgnore(owner)
+  if noFonts then return host end
+  return Skin:For(owner).GetFont("mono") or host
+end
+
+--- A row's label color: a title's, a disabled row's, the selection's, the value's own, or plain.
+local function rowColor(dd, opt, selected, pal)
+  if opt.title then return pal.title end
+  if rowInert(dd, opt) then return pal.off end
+  if selected then return pal.sel end
+  return opt.color or pal.text
+end
+
+--- A row's shape and tooltip (minor 21), every field written for the pool's sake, as below. An inert
+--- row takes the mouse too: the menu has none of its own and `__OutsideClick` exempts a press by
+--- geometry, so a press let through keeps the menu open and lands on whatever is under it.
+local function paintRowKind(b, dd, opt, pal)
+  local tip = opt.tooltip
+  b:SetHeight(opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
+  b.__rule:SetShown(opt.divider == true)
+  if opt.divider then b.__rule:SetColorTexture(pal.rule[1], pal.rule[2], pal.rule[3], pal.rule[4]) end
+  b.__hl:SetShown(not rowInert(dd, opt))
+  b:EnableMouse(true)
+  b:SetScript("OnEnter", tip and function(self) lib.__rowTip(self, opt, pal) end or nil)
+  b:SetScript("OnLeave", tip and function() lib.__rowTipOff() end or nil)
+end
+
 -- Repaint one row from its option. EVERY field is written on every pass, including the blank ones:
 -- the rows are pooled across dropdowns, so a field left alone leaks the previous menu's glyph or
 -- color onto this one.
-local function paintMenuRow(b, dd, opt, selected, pal)
+local function paintMenuRow(b, dd, opt, selected, pal, glyphFace)
   local check = (dd.multi and selected) and dd.__check or ""
-  b.fs:SetText(check .. opt.label)
+  paintRowKind(b, dd, opt, pal)
+  b.fs:SetText(check .. (opt.label or ""))
   -- A glyphed row indents its text to clear the glyph; every other row starts at the margin.
   b.fs:ClearAllPoints()
   b.fs:SetPoint("LEFT", opt.glyph and 22 or 8, 0)
@@ -315,21 +375,16 @@ local function paintMenuRow(b, dd, opt, selected, pal)
   -- family of comments is about. The column is DROPPED, not crashed into — the SetText a line
   -- below runs on every row whether or not this branch did, which is why makeMenuRow builds the
   -- glyph from a font template.
-  if dd.__glyphFont and opt.glyph then
-    b.glyph:SetFont(dd.__glyphFont, 11, "")
+  if glyphFace and opt.glyph then
+    b.glyph:SetFont(glyphFace, 11, "")
   end
   b.glyph:SetText(opt.glyph or "")
-  b.glyph:SetShown(opt.glyph ~= nil and dd.__glyphFont ~= nil)
+  b.glyph:SetShown(opt.glyph ~= nil and glyphFace ~= nil)
   -- The selected row goes gold to mark the selection; otherwise the value keeps its own color
   -- (store / direction / class), so the menu reads like the column it filters. The glyph always
   -- keeps the direction's color — it IS the value, not a selection state.
-  if selected then
-    b.fs:SetTextColor(pal.sel[1], pal.sel[2], pal.sel[3])
-  elseif opt.color then
-    b.fs:SetTextColor(opt.color[1], opt.color[2], opt.color[3])
-  else
-    b.fs:SetTextColor(pal.text[1], pal.text[2], pal.text[3])
-  end
+  local c = rowColor(dd, opt, selected, pal)
+  b.fs:SetTextColor(c[1], c[2], c[3])
   -- The highlight only when the menu's colors changed since this row last wore them.
   if b.__hl and b.__hlc ~= pal.hover then
     b.__hl:SetColorTexture(pal.hover[1], pal.hover[2], pal.hover[3], pal.hover[4])
@@ -338,7 +393,25 @@ local function paintMenuRow(b, dd, opt, selected, pal)
   if opt.color then b.glyph:SetTextColor(opt.color[1], opt.color[2], opt.color[3]) end
 end
 
--- One row's click handler.
+--- A row's tooltip: a string, or the host's renderer `fn(rowFrame, opt)`, on GameTooltip either way.
+function lib.__rowTip(row, opt, pal)
+  if type(GameTooltip) ~= "table" then return end
+  lib.__tipUp = true
+  if type(opt.tooltip) == "function" then return opt.tooltip(row, opt) end
+  GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+  GameTooltip:SetText(tostring(opt.tooltip), pal.text[1], pal.text[2], pal.text[3], 1, true)
+  GameTooltip:Show()
+end
+
+function lib.__rowTipOff()
+  if lib.__tipUp and type(GameTooltip) == "table" then GameTooltip:Hide() end
+  lib.__tipUp = nil
+end
+
+-- One row's click handler. The menu hides BEFORE the callback, which is contract (minor 21): a
+-- callback may open another menu, and hiding after it would close that one. `keepOpen` holds the menu
+-- and repaints it after the callback, so a toggle row shows its new state, unless that callback closed
+-- the menu or opened another: the shared frame's rows then belong to someone else.
 local function rowOnClick(menu, dd, opt)
   return function()
     if dd.multi then
@@ -346,11 +419,12 @@ local function rowOnClick(menu, dd, opt)
       dd:ToggleSelected(opt.value)
       menu:Populate(dd)
       if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
-    else
-      dd:SetValue(opt.value, opt.label)
-      menu:Hide()
-      if dd.onSelect then dd.onSelect(opt.value) end
+      return
     end
+    dd:SetValue(opt.value, opt.label)
+    if not opt.keepOpen then menu:Hide() end
+    if dd.onSelect then dd.onSelect(opt.value, opt) end
+    if opt.keepOpen and menu:IsShown() and menu.__dd == dd then menu:Populate(dd) end
   end
 end
 
@@ -368,7 +442,10 @@ local function skinMenu(m, dd)
     Skin:For(owner).MenuFrame(m)
     m.__pal = { sel = token(Skin, owner, "menu.textSel", MENU_PAL.sel),
                 text = token(Skin, owner, "menu.text", MENU_PAL.text),
-                hover = token(Skin, owner, "menu.hover", MENU_PAL.hover) }
+                hover = token(Skin, owner, "menu.hover", MENU_PAL.hover),
+                title = token(Skin, owner, "menu.textSel", MENU_PAL.title),
+                off = token(Skin, owner, "text.disabled", MENU_PAL.off),
+                rule = token(Skin, owner, "divider", MENU_PAL.rule) }
     return
   end
   if not m.__pal then return end
@@ -392,32 +469,26 @@ local function EnsureMenu()
 
   -- ── HOW AN OUTSIDE CLICK CLOSES THIS, AND WHY IT IS NOT A CATCHER ──────────────────────────
   --
-  -- Through minor 4 this was a full-screen `Button` at FULLSCREEN strata, shown alongside the menu,
-  -- whose OnClick hid it. That frame INTERCEPTED the click, and intercepting was the defect:
-  --
-  --   * A `Button` with no `RegisterForClicks` takes `LeftButtonUp` and nothing else. A right-click
-  --     anywhere while a menu was open landed on the catcher, found no handler for that button and
-  --     was SWALLOWED — the menu stayed open and whatever was underneath never heard the click. It
-  --     survived from minor 1 because neither shipped consumer had a right-click surface on the
-  --     same window as a dropdown; LootHistory was the first, and there a right-click on a history
-  --     row simply did nothing.
-  --   * Even the left-click it did handle was eaten. Dismissing the menu cost a click that did
-  --     nothing else, which is not how a menu should feel.
+  -- Through minor 4 this was a full-screen `Button` at FULLSCREEN strata whose OnClick hid it. That
+  -- frame INTERCEPTED the click, and intercepting was the defect: it swallowed a right-click whole,
+  -- and dismissing the menu cost a left-click that did nothing else.
   --
   -- So the menu no longer intercepts anything. It LISTENS: `GLOBAL_MOUSE_DOWN` fires for a press
   -- anywhere in the UI, on any button, whether or not something else consumed it — so the menu can
   -- react to a click it never touched, and the click goes on to reach whatever is under the cursor.
   -- One press now both dismisses the menu and does the thing the player pressed on.
   --
-  -- Registered while shown and dropped on hide, rather than for the life of the process: this is a
-  -- handler that would otherwise run on every mouse press in the game for the rest of the session,
-  -- in every host that ever vendored this file, and no host agreed to that.
+  -- Registered while shown and dropped on hide, rather than for the life of the process: a handler
+  -- that would otherwise run on every mouse press for the session, in every host.
   -- The button that was pressed arrives as the next argument and is deliberately not read: no
   -- button is enumerated anywhere in this widget, so a mouse with more of them behaves the same.
   menu:SetScript("OnEvent", function(self, event)
     if event == "GLOBAL_MOUSE_DOWN" then self:__OutsideClick() end
   end)
-  menu:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
+  menu:SetScript("OnHide", function(self)
+    self:UnregisterEvent("GLOBAL_MOUSE_DOWN")
+    lib.__rowTipOff()
+  end)
 
   -- Two presses are NOT outside, and both exemptions are load-bearing:
   --
@@ -439,6 +510,8 @@ local function EnsureMenu()
     for _, b in ipairs(self.buttons) do b:Hide() end
     local opts = dd._options or {}
     local w = menuWidth(self, dd, opts)
+    local glyphFace = menuGlyphFace(self, dd)
+    local y = 4
     for i, opt in ipairs(opts) do
       local b = self.buttons[i]
       if not b then
@@ -449,14 +522,36 @@ local function EnsureMenu()
       lib.__skinFont(b.fs, self.__fontOwner, self.__fontSkin, "GameFontHighlightSmall")
       b:SetWidth(w)
       b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", 0, -4 - (i - 1) * MENU_ROW_H)
-      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL)
-      b:SetScript("OnClick", rowOnClick(self, dd, opt))
+      b:SetPoint("TOPLEFT", 0, -y)
+      y = y + (opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
+      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL, glyphFace)
+      b:SetScript("OnClick", not rowInert(dd, opt) and rowOnClick(self, dd, opt) or nil)
       b:Show()
     end
-    self:SetSize(w, #opts * MENU_ROW_H + 8)
+    self:SetSize(w, y + 4)
   end
   return menu
+end
+
+--- Open the shared menu for `dd`, placed by `place(menu)`, as `owner`'s: a press on `owner` is no
+--- outside press.
+local function openMenu(owner, dd, place)
+  local m = EnsureMenu()
+  m._owner, m.__dd = owner, dd
+  skinMenu(m, dd)
+  m:Populate(dd)
+  m:ClearAllPoints()
+  place(m)
+  m:Show()
+  m:RegisterEvent("GLOBAL_MOUSE_DOWN")
+  return m
+end
+
+local function placeAtCursor(m)
+  local x, y = GetCursorPosition()
+  local scale = UIParent:GetEffectiveScale()
+  if type(scale) ~= "number" or scale <= 0 then scale = 1 end
+  m:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
 end
 
 -- A preset row that reports itself active NAMES THE WHOLE SELECTION, so its label is the collapsed
@@ -496,6 +591,38 @@ local function summarizeSelection(labels, allLabel)
   return (allLabel:match("^(.-):") or allLabel) .. ": " .. n .. " selected"
 end
 
+--- The "all" sentinel's label, else the first row that is a value: a title or a divider, which may
+--- stand first (minor 21), names nothing.
+local function allRowLabel(dd)
+  local first
+  for _, o in ipairs(dd._options or {}) do
+    if o.value == "all" then return o.label or "All" end
+    if first == nil and not (o.title or o.divider) then first = o.label end
+  end
+  return first or "All"
+end
+
+--- The tick markup a multi-select row leads with (see MakeDropdown): the host's art, an owned
+--- dropdown's Ka0s `confirm` in `icon.hot` (minor 18), else the client rung.
+local function dropdownCheck(opts)
+  local art = not opts.check and ownedMark(opts.owner, "confirm", opts.panel)
+  if art then return skinOf(opts.owner):For(opts.owner).MarkText(art, 0, "icon.hot") .. " " end
+  return "|T" .. (opts.check or CHECK_FALLBACK) .. ":0|t "
+end
+
+--- The arrow's art: the host's, an owned dropdown's Ka0s `chevron-down` (minor 18), else the client
+--- rung.
+local function dropdownArrow(opts)
+  return opts.chevron or ownedMark(opts.owner, "chevron-down", opts.panel) or CHEVRON_FALLBACK
+end
+
+--- An owned dropdown's marks again after its skin changed (minor 20): the tick holds its tint as
+--- text, and the Scope swaps both marks for the client's. The menu reads `__check` on every open.
+local function redressDropdown(dd)
+  dd.__check = dropdownCheck(dd.__markOpts)
+  dd.arrow:SetTexture(dropdownArrow(dd.__markOpts))
+end
+
 -- A dropdown button: shows the current label plus a ▼ texture; clicking opens the shared menu.
 local function MakeDropdown(parent, width, opts)
   opts = opts or {}
@@ -507,8 +634,9 @@ local function MakeDropdown(parent, width, opts)
   dd:SetBackdropBorderColor(unpack(SKIN.line))
 
   -- The tick a multi-select dropdown puts in front of every chosen row. INLINE |T…|t markup,
-  -- resolved ONCE per dropdown so a degraded install appends the Blizzard string it always did
-  -- rather than concatenating a nil into an escape.
+  -- resolved per dropdown so a degraded install appends the Blizzard string it always did rather
+  -- than concatenating a nil into an escape. An owned one is resolved again on a skin change
+  -- (redressDropdown, minor 20).
   --
   -- PER-DROPDOWN, not a file-local, and that is the difference from the version this was lifted
   -- out of: one popup menu is shared by every dropdown in the process, and that process now spans
@@ -519,7 +647,7 @@ local function MakeDropdown(parent, width, opts)
   -- Blizzard's beveled tick on the rows below it would be the one place where two eras of art meet
   -- inside a single widget. The trailing space is the gap to the label; the path stays as the host
   -- resolved it, EXTENSIONLESS or not.
-  dd.__check = "|T" .. (opts.check or CHECK_FALLBACK) .. ":0|t "
+  dd.__check = dropdownCheck(opts)
   -- The mono face the optional row glyph is drawn in, read by paintMenuRow on every pass. Absent
   -- means the host wants no glyph column at all.
   dd.__glyphFont = opts.glyphFont
@@ -528,6 +656,7 @@ local function MakeDropdown(parent, width, opts)
   fs:SetPoint("LEFT", 6, 0)
   fs:SetPoint("RIGHT", -16, 0)
   fs:SetJustifyH("LEFT")
+  fs:SetWordWrap(false)   -- minor 21: a long pick truncates; it never wraps past the button's edge
   dd.text = fs
 
   -- The ▼ affordance. It is a texture rather than a character because the ▼ glyph is not in the
@@ -538,7 +667,7 @@ local function MakeDropdown(parent, width, opts)
   local arrow = dd:CreateTexture(nil, "OVERLAY")
   arrow:SetSize(12, 12)
   arrow:SetPoint("RIGHT", -4, 0)
-  arrow:SetTexture(opts.chevron or CHEVRON_FALLBACK)
+  arrow:SetTexture(dropdownArrow(opts))
   arrow:SetVertexColor(0.7, 0.7, 0.72)
   dd.arrow = arrow   -- kept for the out-of-game art suite; nothing at runtime reads it back
 
@@ -585,27 +714,24 @@ local function MakeDropdown(parent, width, opts)
   function dd:UpdateMultiLabel()
     local preset = activePresetLabel(self)
     if preset then self.text:SetText(preset); return end
-    local allLabel = (self._options and self._options[1] and self._options[1].label) or "All"
-    self.text:SetText(summarizeSelection(selectionLabels(self), allLabel))
+    self.text:SetText(summarizeSelection(selectionLabels(self), allRowLabel(self)))
   end
 
   dd:SetScript("OnClick", function(self2)
     local m = EnsureMenu()
     if m:IsShown() and m._owner == self2 then m:Hide(); return end
-    m._owner = self2
-    skinMenu(m, self2)
-    m:Populate(self2)
-    m:ClearAllPoints()
-    m:SetPoint("TOPLEFT", self2, "BOTTOMLEFT", 0, -1)
-    m:Show()
-    m:RegisterEvent("GLOBAL_MOUSE_DOWN")
+    openMenu(self2, self2, function(menuFrame) menuFrame:SetPoint("TOPLEFT", self2, "BOTTOMLEFT", 0, -1) end)
   end)
   -- Minor 16: the skin owner, read by skinMenu on every open; its button wears the owner's skin.
   -- Minor 17: `opts.panel`, a dropdown on its owner's settings page (the header's SCOPE SWITCHES).
   dd.__owner = opts.owner
   dd.__panel = opts.panel == true
   local Skin = skinOf(opts.owner)
-  if Skin then Skin:For(opts.owner).Dropdown(dd, dd.__panel and PANEL or nil) end
+  if Skin then
+    Skin:For(opts.owner).Dropdown(dd, dd.__panel and PANEL or nil)
+    dd.__markOpts = opts
+    lib.__onSkin(Skin, opts.owner, dd, redressDropdown)
+  end
   return dd
 end
 
@@ -623,26 +749,44 @@ function lib.Dropdown(parent, width, opts)
   return MakeDropdown(parent, width, opts)
 end
 
+local function noop() end
+
+--- Open the shared popup menu on `rows` (minor 21), a dropdown's options, each with its row options
+--- (`title`, `divider`, `disabled`, `tooltip`, `keepOpen`) and `onClick(value, row)`, from `anchor`, a
+--- press on which is no outside press. A second call on it closes the menu, as a dropdown's second
+--- click does, unless `opts.cursor` opens at the pointer. `opts`: { owner, panel, glyphFont, width,
+--- cursor }. Answers the menu, or nil with no anchor or no rows. docs/api/Widgets has the table.
+function lib.ContextMenu(anchor, rows, opts)
+  if type(anchor) ~= "table" or type(rows) ~= "table" or #rows == 0 then return nil end
+  opts = type(opts) == "table" and opts or {}
+  local m = EnsureMenu()
+  if m:IsShown() and m._owner == anchor and not opts.cursor then
+    m:Hide()
+    return m
+  end
+  local ctx = { _options = rows, _selected = {}, __check = "", __owner = opts.owner, __panel = opts.panel == true,
+                __glyphFont = opts.glyphFont, SetValue = noop }
+  ctx._value = ctx   -- no row's value: a row with none is not the selection (rowSelected)
+  function ctx.GetWidth() return tonumber(opts.width) or 90 end
+  function ctx.onSelect(value, row)
+    if type(row.onClick) == "function" then row.onClick(value, row) end
+  end
+  return openMenu(anchor, ctx, opts.cursor and placeAtCursor or function(frame)
+    frame:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -1)
+  end)
+end
+
 --- Close the shared popup menu, if it is open. Safe to call when no dropdown has ever opened the
 --- menu (menu is still nil) and safe to call when the menu is already hidden — both are plain
 --- no-ops.
 ---
---- A HOST CANNOT DO THIS ITSELF: the popup is a process-wide singleton, built lazily on the first
---- click of any dropdown in the process and parented to `UIParent` at `FULLSCREEN_DIALOG` (see
---- EnsureMenu above), not to any one host's frame. It outlives every window that ever opened it,
---- so no host holds a reference to it and no host's own Hide/OnHide reaches it — the widget kept
---- that shape on purpose (see the header comment on `dd.__check`) precisely so that two addons'
---- dropdowns can share one pool. `menu:Hide()` is enough on this end: the menu's own `OnHide`
---- script (set in EnsureMenu) drops its `GLOBAL_MOUSE_DOWN` registration, so this function does not
---- unregister anything itself.
+--- A HOST CANNOT DO THIS ITSELF: the popup is a process-wide singleton parented to `UIParent` at
+--- `FULLSCREEN_DIALOG` (EnsureMenu), so it outlives every window that opened it and no host's own
+--- Hide reaches it. The menu's own `OnHide` drops its `GLOBAL_MOUSE_DOWN` registration.
 ---
---- Without this, a host that closes its own window by any route that is not a click on the
---- dropdown — Escape, a slash command, anything that is not a mouse press at all —
---- leaves the menu ORPHANED: still shown, still at FULLSCREEN_DIALOG, floating over the game with
---- no owner left to hide it. A host must call this from every non-click close path it has. Since
---- minor 5 the menu closes itself on a mouse press anywhere outside it, which narrows the window
---- but does not close it: a host window hidden by Escape or a slash command is hidden without any
---- click at all.
+--- A host that closes its window by any route that is not a mouse press (Escape, a slash command)
+--- leaves the menu ORPHANED, floating over the game with no owner to hide it, so it calls this from
+--- every such path. The outside-press close (minor 5) cannot help: no click happened.
 function lib.CloseMenu()
   if menu and menu:IsShown() then menu:Hide() end
 end
@@ -767,6 +911,12 @@ local STRIP_H, STRIP_ICON, STRIP_INSET = 18, 12, 6
 --- table moves nothing: the constructor reads the file-local.
 lib.TEST_STRIP = { HEIGHT = STRIP_H }
 
+--- A tinted strip mark: an owned strip's icon in `icon.tint`, given back while a panel-scoped one is
+--- ignored (minor 18).
+local function stripMark(s, Skin, owner, panel)
+  if s.__icon then Skin:For(owner).Mark(s.__icon, { panel = panel and true or nil }) end
+end
+
 -- The strip's icon (host-passed art, optional) and its line, laid out left to right; split out of
 -- TestStrip so the constructor stays under CCN 15 (the v1.81.0 release run measured it at 16).
 local function stripLine(s, opts)
@@ -805,7 +955,7 @@ end
 --- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
 ---
 --- @param parent table     the frame to parent it to
---- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel }; text is the host's
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel, sim, onEnd, L }; text is the host's
 ---                         localized line ('' when absent), no icon puts the text at LEFT+6, any
 ---                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
 ---                         and `owner` (minor 16) is a registered skin owner whose skin the wash
@@ -815,6 +965,43 @@ end
 ---                the icon's RIGHT+6 or the strip's LEFT+6, RIGHT at -6, JustifyH LEFT, no wrap)
 ---                and `strip.kind` ("test" or "sim"), read-only and set once at birth: writing it
 ---                repaints nothing
+-- ── the strip's right-click menu (minor 21, SF-F1) ──
+--
+-- A right-click opens `lib.ContextMenu` with what the strip can end. `opts.sim` is a Sim instance
+-- (`LibKa0s-Sim-1.0`): the library ends it (`:Stop()`), steps it and restarts it, with nothing more
+-- from the host. `opts.onEnd` is the host's own end for a mode the library cannot see, a test mode,
+-- and it wins over the instance's Stop. A strip given neither takes no mouse, as before.
+-- `opts.L` overrides END_TEST, END_SIM, STEP and RESTART.
+local STRIP_L = { END_TEST = "End test", END_SIM = "End sim", STEP = "Step", RESTART = "Restart" }
+
+local function stripRows(s, opts, L)
+  local sim = opts.sim
+  local live = type(sim) == "table" and type(sim.IsActive) == "function" and sim:IsActive()
+  local rows = {}
+  local function add(key, fn) rows[#rows + 1] = { label = L[key] or STRIP_L[key], value = key, onClick = fn } end
+  if type(opts.onEnd) == "function" then
+    add(s.kind == "sim" and "END_SIM" or "END_TEST", opts.onEnd)
+  elseif live and type(sim.Stop) == "function" then
+    add("END_SIM", function() sim:Stop("stop") end)
+  end
+  if live and type(sim.Steps) == "function" and type(sim.Step) == "function" and #sim:Steps() > 0 then
+    add("STEP", function() sim:Step() end)
+  end
+  if live and type(sim.Restart) == "function" then add("RESTART", function() sim:Restart() end) end
+  return rows
+end
+
+local function stripMenu(s, opts)
+  if type(opts.onEnd) ~= "function" and type(opts.sim) ~= "table" then return end
+  local L = type(opts.L) == "table" and opts.L or {}
+  s:EnableMouse(true)
+  s:SetScript("OnMouseUp", function(self, button)
+    if button ~= "RightButton" then return end
+    local rows = stripRows(self, opts, L)
+    if #rows > 0 then lib.ContextMenu(self, rows, { owner = opts.owner, panel = opts.panel == true, cursor = true }) end
+  end)
+end
+
 function lib.TestStrip(parent, opts)
   opts = type(opts) == "table" and opts or {}
   local kind = opts.kind == "sim" and "sim" or "test"
@@ -838,6 +1025,7 @@ function lib.TestStrip(parent, opts)
   -- is put back to its own wash while ignored (the primitive cannot read a texture's color back).
   if Skin then
     Skin:For(opts.owner).Text(text, "accent", panel and PANEL or nil)
+    stripMark(s, Skin, opts.owner, panel)
     if panel then
       lib.__onSkin(Skin, opts.owner, fill, function(f, owner)
         if panelOff(skinOf(owner), owner, true) then f:SetColorTexture(unpack(STRIP_FILL[kind])) end
@@ -845,6 +1033,26 @@ function lib.TestStrip(parent, opts)
     end
   end
 
+  stripMenu(s, opts)
   s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
   return s
+end
+
+-- ── inline icon markup (minor 22) ────────────────────────────────────────────────────────────
+
+--- Inline `|T...|t` markup for Blizzard icon art (an item, spell, spec, class or currency fileID or
+--- path) in a tooltip or chat line, cropped as the icon rule asks (docs/api/README.md's *Icon art*):
+--- texcoords 5..59 of 64 a side, 0.078, past the art's own bevel. Markup cannot take an edge, so it
+--- is cropped only. `size` is the height, 0 or nil for the line's own; `width` defaults to it. A
+--- nil icon answers "". Not for an atlas glyph or a Ka0s catalog mark, which are drawn whole
+--- (S.MarkText).
+--- @param icon number|string|nil
+--- @param size number|nil
+--- @param width number|nil
+--- @return string
+function lib.IconText(icon, size, width)
+  if icon == nil then return "" end
+  size = tonumber(size) or 0
+  width = tonumber(width) or size
+  return ("|T%s:%d:%d:0:0:64:64:5:59:5:59|t"):format(tostring(icon), size, width)
 end

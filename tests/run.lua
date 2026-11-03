@@ -84,6 +84,7 @@ local SUITES = {
   -- BEFORE test_slash, deliberately: it leaves inert LibDataBroker / LibDBIcon fakes behind for the
   -- suites after it, which bring the launcher up on a registered button.
   "test_launcher",
+  "test_launcher_skin_entry",
   -- The Show window key binding (launcher-§6): the root Bindings.xml and the button it clicks.
   -- After test_launcher, beside the rest of the launcher's surface; it builds no window.
   "test_keybinding",
@@ -131,9 +132,6 @@ local SUITES = {
   -- window and the AH drag list painted for this owner, and the factory seams naming it. After
   -- test_skin_settings; leaves the skin on Ka0s Default.
   "test_skin_tools",
-  -- The hard-coded color gate (LH-05): no numeric color literal in a paint call and no |cff escape
-  -- outside core/SkinSetup.lua and its named allow-list. Reads the checkout, no addon state.
-  "test_skin_literals",
   -- The display-glyph guard (LH-02, ruling D-19): every display string in characters every shipped
   -- skin face draws (the kit's assertDisplayGlyphs), and the four sites that changed. Reads the
   -- checkout and the built General page; writes nothing.
@@ -189,6 +187,9 @@ local SUITES = {
   -- `/lh sim` (LootHistory#37): every verb, the host verb `loot [n]`, the disabled refusal and the
   -- library-absent stub. After test_sim_panel; every case stops its session.
   "test_sim_slash",
+  -- The Master controls Sim mode checkbox (R6-SIM): the launcher's pair on the composed row, and
+  -- the sim's listener refreshing it. After test_sim_slash; every case stops its session.
+  "test_sim_checkbox",
   "test_doc_structure",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
@@ -212,6 +213,12 @@ local SUITES = {
   -- `Files over the 1500-line cap` census in docs/ARCHITECTURE.md. Like test_eol it reads the
   -- checkout through git and no addon state, so it wants no particular slot.
   { name = "test_layout_cap", dir = "tests/_kit/" },
+  -- The kit's typed-value gate and skin-switch test (revision 50, skinning-§1): Kit.skinValues and
+  -- Kit.skinSwitch, below, are this addon's facts.
+  { name = "test_skin_values", dir = "tests/_kit/" },
+  { name = "test_skin_switch", dir = "tests/_kit/" },
+  -- Takes down the fixture the switch test's last surface left standing, and reads the declaration.
+  "test_skin_surfaces",
   -- The kit's diagnostics contract (revision 34, debug-logging-14): the dispatcher half of the
   -- report, run against this addon's own dispatcher through Kit.diagnostics (set below), including
   -- the run turning logging on for the session.
@@ -265,7 +272,16 @@ Kit.diagnostics = {
   setDisabled = function(off) NS.Schema:Set("settings.enabled", not off) end,
 }
 
+-- The typed-value gate's facts (kit revision 50): the host's own paint calls, name to color positions.
+-- No row: every value it finds in this addon is a kit category or a token.
+Kit.skinValues = {
+  calls = { SkinBar = { 2, 3, 4 }, setCell = { 3, 4, 5 }, IconMarkup = { 4, 5, 6 } },
+}
+-- The painted surfaces the skin-switch test flips, one object each (tests/skin_surfaces.lua).
+Kit.skinSwitch = dofile("tests/skin_surfaces.lua")(NS, mocks)
+
 _G.LH_TEST = Kit.expose{
+  skinSwitch = Kit.skinSwitch,
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
 }

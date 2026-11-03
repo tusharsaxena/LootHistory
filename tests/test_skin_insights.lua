@@ -94,6 +94,7 @@ local function withFresh(mod, keys, build, fn)
   local painted = mocks.CreateFrame
   rawset(mocks, "CreateFrame", function(...)
     local f = painted(...)
+    if (...) == "CheckButton" then SW.checkButton(f) end
     local createFS = rawget(f, "CreateFontString")
     if createFS then
       rawset(f, "CreateFontString", function(self, name, layer, template)
@@ -120,6 +121,7 @@ local TODAY = {
   ["card.bg"] = { 0.1, 0.1, 0.12, 0.85 }, ["card.border"] = { 0.24, 0.24, 0.27, 0.9 },
   ["panel.bg"] = { 0.08, 0.08, 0.10, 0.6 }, ["panel.border"] = { 0.24, 0.24, 0.27, 0.7 },
   ["text.heading"] = { 1, 0.82, 0 }, ["text.disabled"] = { 0.5, 0.5, 0.5 },
+  ["list.header.bg"] = { 1, 1, 1, 0.04 },
   ["section.rule"] = { 1, 0.82, 0, 0.35 }, ["chart.track"] = { 1, 1, 1, 0.06 },
   ["chart.bar"] = { 0.40, 0.60, 0.95, 0.9 }, ["text.muted"] = { 0.7, 0.7, 0.72 },
   ["text.value"] = { 0.8, 0.8, 0.82 }, ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 },
@@ -405,6 +407,8 @@ local function withTimeline(fn)
   NS.Holdings:ApplyMoney("Mock-Realm", 50000, now - 86400)
   NS.Holdings:ApplyMoney("Mock-Realm", 70000, now)
   NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 10000, now)
+  local hook = mocks.hooksecurefunc
+  rawset(mocks, "hooksecurefunc", SW.hooksecurefunc)
   local ok, err = pcall(unfiltered, "Timeline", function()
     withFresh(TL, TL_KEYS, function(pane)
       TL.thing = "g"
@@ -412,6 +416,7 @@ local function withTimeline(fn)
       TL:Layout(640, 320)
     end, fn)
   end)
+  rawset(mocks, "hooksecurefunc", hook)
   g.holdings, g.daily = holdings, daily
   if not ok then error(err, 0) end
 end
@@ -425,8 +430,10 @@ local function assertTimeline(want, label)
   assertTrue(recorded(b, "Button"), label .. ": the toggle is the skin's Button")
   assertEqual(rgba(rawget(b, "__backdropColor")), want("btn.bg"), label .. ": the toggle's fill")
   assertEqual(rgba(rawget(b, "__backdropBorderColor")), want("btn.border"), label .. ": the toggle's edge")
-  assertEqual(texColor(b.box), want("check.bg"), label .. ": the toggle's box")
-  assertEqual(texColor(b.tick), want("check.mark"), label .. ": the toggle's tick")
+  assertTrue(recorded(b.box, "Checkbox"), label .. ": the toggle's box is the skin's Checkbox")
+  local regions = Skin.painted[b.box].regions
+  assertEqual(rgba(rawget(regions.box, "__vertex")), want("check.bg"), label .. ": the toggle's box")
+  assertEqual(rgba(rawget(regions.mark, "__vertex")), want("check.mark"), label .. ": the toggle's tick")
   assertEqual(textColor(TL.title), want("text.heading"), label .. ": the title")
   assertEqual(textColor(TL.hint), want("text.disabled"), label .. ": the hint")
   assertEqual(texColor(TL.stripAxis), want("chart.axis"), label .. ": the strip's axis")
@@ -451,6 +458,27 @@ test("skin timeline: a switch repaints the toggle, header and strip and rebuilds
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertTimeline(today, "back on Ka0s Default")
   end)
+end)
+
+test("skin timeline: the toggle's tick follows the state, and its box leaves the mouse to the button", function()
+  local profile = NS.db.profile
+  local views = profile.savedViews
+  profile.savedViews = nil
+  local ok, err = pcall(withTimeline, function()
+    local b = TL.totalOnlyBtn
+    local mark = Skin.painted[b.box].regions.mark
+    assertEqual(b.box:IsMouseEnabled(), false, "the 12px box would swallow the button's click and hover")
+    assertEqual(b.box:GetChecked(), false)
+    assertEqual(mark:IsShown(), false, "the tick shows while off")
+    TL:SetTotalOnly(true)
+    assertEqual(b.box:GetChecked(), true, "the box is told the state")
+    assertEqual(mark:IsShown(), true, "the tick shows while on")
+    TL:SetTotalOnly(false)
+    assertEqual(b.box:GetChecked(), false)
+    assertEqual(mark:IsShown(), false, "the tick hides again")
+  end)
+  profile.savedViews = views
+  if not ok then error(err, 0) end
 end)
 
 -- ── Holdings ────────────────────────────────────────────────────────────────────────────────────
@@ -486,10 +514,14 @@ local function holderRow(holder)
 end
 
 local function assertHoldings(want, label)
+  assertTrue(recorded(HT.header, "SortHeaderBar"), label .. ": the header is the skin's SortHeaderBar")
+  -- The recorder gives every frame a backdrop, so the band lands there; the client's bare frame takes
+  -- the same fill as a region.
+  assertEqual(rgba(rawget(HT.header, "__backdropColor")), want("list.header.bg"), label .. ": the header band")
   for key, b in pairs(HT.header.cells) do
     assertEqual(textColor(b.fs), want("list.header.text"), label .. ": header " .. key)
   end
-  local r, g, b = Skin:Color(OWNER, "list.header.text")
+  local r, g, b = Skin:Color(OWNER, "list.header.arrow")
   local arrow = NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
   assertTrue(rawget(HT.header.cells.name.fs, "__text"):find(arrow, 1, true) ~= nil, label .. ": the sort arrow")
   local all = {}
@@ -521,7 +553,8 @@ test("skin holdings: a switch rebuilds the arrows and repaints every pooled row 
   withHoldings(function()
     park()
     NS.ApplySkinChoice("ka0s", SW.key(Skin))
-    assertMoves({ "list.header.text", "list.stripe", "list.hover", "text.disabled", "text.highlight" }, today)
+    assertMoves({ "list.header.bg", "list.header.text", "list.stripe", "list.hover", "text.disabled",
+                  "text.highlight" }, today)
     assertHoldings(tokenOf, "the switch skin")
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertHoldings(today, "back on Ka0s Default")

@@ -31,7 +31,9 @@ if not lib then return end
 -- opened (OptionsIds minor 3's O.__closeOwnedSuggest), after the pullout rather than instead of it.
 -- Minor 3: a registered skin owner's cover takes its skin each time it goes up (S.Cover: the dim
 -- and the line), so an owner that registered after the page was built still gets it (LK-07).
-local COMBAT_MINOR = 3
+-- Minor 4: an AceGUI pullout on a Ka0s surface closes on a mouse press outside it (R4-L1 of
+-- Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4/): lib.__armPulloutClose and the watcher below.
+local COMBAT_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__combatMinor and lib.__combatMinor >= COMBAT_MINOR
@@ -124,6 +126,8 @@ end
 --- A page came on screen: watch combat. Asked of the page rather than taken from the OnShow that
 --- called this, so a show that did not leave the page on screen registers nothing.
 function lib.__pageShown(ctx)
+  -- A page show re-arms the pullout close (minor 4): an AceGUI that upgraded since load is hooked.
+  if lib.__armPulloutClose then lib.__armPulloutClose() end
   if not onScreen(ctx) then return end
   lib.__shownPages[ctx] = true
   local f = lib.__combatFrame
@@ -149,6 +153,175 @@ do
   end
   -- An older copy (v1.46.0) registered for good at load; this lets go unless a page is shown.
   lib.__syncCombatEvents()
+end
+
+-- ── the outside press that closes an AceGUI pullout (minor 4) ───────────────────────────────
+--
+-- Stock AceGUI has no outside-click close. A Dropdown's pullout (and every type built from it:
+-- Ka0sMedia_Font, Ka0sMedia_Statusbar and the other media pickers, AuraMaster's AuraMasterDropdown)
+-- closes only through AceGUI:ClearFocus, which AceGUI's own Frame container calls on a press and
+-- which no Ka0s settings canvas or window ever calls. The library's own Widgets dropdown and the
+-- client's Menu close on GLOBAL_MOUSE_DOWN; this gives the AceGUI ones the same.
+--
+-- THE SEAM. Dropdown_TogglePullout calls AceGUI:SetFocus(self) right after the pullout opens, so
+-- one post-hook on AceGUI.SetFocus sees every open. It is a plain Lua table hook (AceGUI is
+-- insecure; SkinAce.lua hooks AceGUI objects the same way). The toggle runs on OnClick, the
+-- RELEASE, so the press that opened the pullout has already gone by when the watcher registers:
+-- no frame delay is needed and the opening click cannot close what it opened.
+--
+-- KA0S SURFACES ONLY (the lead's call 1). The pullout must hang off a Ka0s settings page on screen
+-- (lib.__shownPages, which an AceDBOptions Profiles page joins too: its AceConfigDialog container
+-- is parented to the page's body) or a window the Skin major painted with Shell (Core.ApplySkin's
+-- `owner` path and every host's S.Shell). Another author's AceGUI dropdown in the same client keeps
+-- AceGUI's behavior. Escape is not added.
+--
+-- LISTENED, NEVER CAUGHT. One hidden frame for the process (`lib.__pulloutWatch`, kept across a
+-- LibStub upgrade) registers GLOBAL_MOUSE_DOWN only while such a pullout is open, as the Widgets
+-- menu does. The press still reaches whatever is under the cursor: a press on another dropdown
+-- closes this pullout, and that dropdown's release opens its own. A press over the pullout (a row,
+-- its scrollbar, the multiselect Close row: all inside the pullout frame's bounds) or over the
+-- owning dropdown (whose release is the toggle) is not outside. The handler reads
+-- AceGUI.FocusedWidget when the press arrives, never a widget captured at open, and lets go
+-- lazily: a pullout closed by any other route (a pick, the toggle, Dropdown_OnHide when its panel
+-- hides, O.__releaseOwnedFocus at combat start, the skin picker's dropFocus, a release from the
+-- pool) is found closed on the next press, which unregisters and clears nothing. Both frames are
+-- plain and non-protected, so this works in combat too. The registration goes through Core's
+-- SafeRegisterEvent.
+--
+-- THE HOOK GUARD is keyed on the AceGUI table and its LibStub minor, not on the function: a newer
+-- AceGUI that loads later redefines SetFocus and is hooked again at the next arm (every instance's
+-- New and every page show arm), while another addon's hook laid over ours is not hooked over. If
+-- ours were ever laid twice, the handler is idempotent (a second RegisterEvent is a no-op). The hook
+-- looks lib.__OnPulloutFocus up when it runs, so the newest copy's code is what answers.
+
+local MOUSE_DOWN = "GLOBAL_MOUSE_DOWN"
+local SURFACE_DEPTH = 100
+
+--- The pullout of `w` when `w` is an AceGUI dropdown whose pullout is open, else nil.
+local function openPullout(w)
+  if type(w) ~= "table" or not w.open or type(w.frame) ~= "table" then return nil end
+  local pullout = rawget(w, "pullout")
+  if type(pullout) ~= "table" or type(pullout.frame) ~= "table" then return nil end
+  return pullout
+end
+
+-- The panels of the Ka0s settings pages on screen, as a set.
+local function shownPanels()
+  local pages = {}
+  for ctx in pairs(lib.__shownPages) do
+    if type(ctx) == "table" and ctx.panel then pages[ctx.panel] = true end
+  end
+  return pages
+end
+
+-- The Skin major's paint records (frame -> { owner, calls, ... }), or nil with no Skin major.
+local function paintRecords()
+  local Skin = LibStub and LibStub("LibKa0s-Skin-1.0", true)
+  return type(Skin) == "table" and type(Skin.painted) == "table" and Skin.painted or nil
+end
+
+-- Did the Skin major paint `f` as a window (Shell)?
+local function shellPainted(painted, f)
+  local rec = painted and painted[f]
+  return type(rec) == "table" and type(rec.calls) == "table" and rec.calls.Shell ~= nil
+end
+
+--- Does `frame` sit on a Ka0s surface: a Ka0s settings page on screen, or a Shell-painted window?
+--- A bounded walk up GetParent.
+--- @return boolean
+function lib.__onKa0sSurface(frame)
+  local pages, painted = shownPanels(), paintRecords()
+  local f = frame
+  for _ = 1, SURFACE_DEPTH do
+    if type(f) ~= "table" then return false end
+    if pages[f] or shellPainted(painted, f) then return true end
+    local parent = f.GetParent and f:GetParent()
+    if parent == f then return false end
+    f = parent
+  end
+  return false
+end
+
+local function onPulloutEvent(_, event)
+  if event ~= MOUSE_DOWN then return end
+  local handler = lib.__OnPulloutPress
+  if type(handler) == "function" then handler() end
+end
+
+local function pulloutWatch()
+  local f = lib.__pulloutWatch
+  if f then return f end
+  if type(CreateFrame) ~= "function" then return nil end
+  f = CreateFrame("Frame")
+  if not f then return nil end
+  f:Hide()
+  f:SetScript("OnEvent", onPulloutEvent)
+  lib.__pulloutWatch = f
+  return f
+end
+
+local function stopWatch()
+  local f = lib.__pulloutWatch
+  if f then f:UnregisterEvent(MOUSE_DOWN) end
+  lib.__pulloutAce = nil
+end
+
+local function mouseOver(frame)
+  local probe = frame.IsMouseOver
+  return type(probe) == "function" and probe(frame) == true
+end
+
+--- AceGUI:SetFocus's post-hook: a dropdown on a Ka0s surface just opened its pullout, so listen.
+function lib.__OnPulloutFocus(AceGUI, w)
+  if not openPullout(w) or not lib.__onKa0sSurface(w.frame) then return end
+  local f = pulloutWatch()
+  if not f then return end
+  lib.__pulloutAce = AceGUI
+  -- Through Core's pcall'd SafeRegisterEvent, as OptionsKeybinds' frame does: not a raw site of
+  -- CLAUDE.md's events-frames-taint-§1 row. Without it nothing registers and nothing closes.
+  local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
+  local register = core and core.SafeRegisterEvent
+  if type(register) == "function" and not f:IsEventRegistered(MOUSE_DOWN) then register(f, MOUSE_DOWN) end
+end
+
+--- GLOBAL_MOUSE_DOWN while listening: close the focused pullout unless the press is on it or on its
+--- dropdown; let go when nothing of ours is open any more.
+function lib.__OnPulloutPress()
+  local AceGUI = lib.__pulloutAce
+  local w = AceGUI and AceGUI.FocusedWidget
+  local pullout = openPullout(w)
+  if not pullout or not lib.__onKa0sSurface(w.frame) then
+    stopWatch()
+    return
+  end
+  if mouseOver(pullout.frame) or mouseOver(w.frame) then return end
+  stopWatch()
+  pcall(AceGUI.ClearFocus, AceGUI)
+end
+
+--- Hook `AceGUI` (default: LibStub's AceGUI-3.0 and its minor) once per AceGUI table and minor.
+--- Answers true when it hooked. Internal: called at load, from every instance's New and every page
+--- show.
+--- @return boolean
+function lib.__armPulloutClose(AceGUI, minor)
+  if AceGUI == nil and LibStub then AceGUI, minor = LibStub("AceGUI-3.0", true) end
+  if type(AceGUI) ~= "table" or type(AceGUI.SetFocus) ~= "function" then return false end
+  if type(hooksecurefunc) ~= "function" then return false end
+  local rec = lib.__pulloutHook
+  if rec and rec.ace == AceGUI and rec.minor == minor then return false end
+  hooksecurefunc(AceGUI, "SetFocus", function(self, w)
+    local fn = lib.__OnPulloutFocus
+    if type(fn) == "function" then fn(self, w) end
+  end)
+  lib.__pulloutHook = { ace = AceGUI, minor = minor }
+  return true
+end
+
+do
+  -- A watcher an older copy made takes this copy's handler, and this load arms the AceGUI loaded
+  -- so far.
+  if lib.__pulloutWatch then lib.__pulloutWatch:SetScript("OnEvent", onPulloutEvent) end
+  lib.__armPulloutClose()
 end
 
 -- The cover's frame level: the deepest level under the page, plus one, and never less than
@@ -203,6 +376,8 @@ end
 --- Attach the cover's two members to one instance. Called by lib.__AttachTabs (OptionsTabs minor
 --- 6) at the point they used to be defined there, so they arrive in the same order.
 function lib.__AttachCombat(O)
+  -- Every instance's New arms the pullout close (minor 4), after the host's own AceGUI loaded.
+  if lib.__armPulloutClose then lib.__armPulloutClose() end
   -- ── the combat cover (minor 2) ──────────────────────────────────────────────────────────
 
   --- The cover over one page (Options.lua's CreatePanel calls this, out of combat): a plain,

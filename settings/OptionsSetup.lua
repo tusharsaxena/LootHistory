@@ -121,6 +121,8 @@ if not lib then
     -- PositionBlock, new at LibKa0s v1.84.0 (OptionsCompose minor 15): a composer no row here calls.
     -- It answers `rows, hook` on the live table, so the stub answers an empty row list and no hook.
     PositionBlock = function() return {}, nil end,
+    -- LabelFont, new at LibKa0s v1.85.0 (OptionsWidgets minor 43): no library, no widget to set it on.
+    LabelFont = noop,
     -- NavRail, new at LibKa0s v1.61.0 (OptionsNav minor 1): drawn only by a page render, and no
     -- page here draws a rail, so the same inert no-op applies.
     NavRail = noop,
@@ -157,6 +159,7 @@ if not lib then
     -- The reserved `/lh skin` verb's act (LibKa0s v1.82.0, OptionsSkinPicker minor 3, ruling D-16).
     -- Without the library it answers nil, "absent", and NS.RunSkinVerb prints the library-absent line.
     SkinVerb = function() return nil, "absent" end,
+    SkinNotice = function() return nil, "unavailable" end,
 
     -- ── the schema composers (options-ui-§15/§16/§17) ─────────────────────────────────────────
     -- PURE FUNCTIONS returning arrays of ordinary schema rows: no widget, no AceGUI, no state.

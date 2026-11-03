@@ -604,7 +604,7 @@ Total.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 14
+- Database: a fresh store at schemaVersion 0 walks every step to 15
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -975,6 +975,11 @@ Total.
 - launcher: Locked and Test mode are read on every show, never cached
 - launcher: while disabled the tooltip still shows, says Enabled: No, and keeps the same hints
 - launcher: the descriptor answers the library's questions, and every toggle is the addon's own
+
+### test_launcher_skin_entry.lua (2)
+
+- launcher descriptor passes openSkinPicker, which runs the skin verb
+- mode strips pass sim or onEnd, so the right-click menu has something to end (SF-F1)
 
 ### test_keybinding.lua (7)
 
@@ -1385,7 +1390,7 @@ Total.
 - TestData: the seeded sample stores are byte-identical to the pinned build
 - TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
 
-### test_views.lua (16)
+### test_views.lua (17)
 
 - Views: Save on each tab writes only that tab's slot
 - Views: Clear on one tab applies its saved view, touching no other tab and no slot
@@ -1403,6 +1408,7 @@ Total.
 - Migrate v13->v14: a profile's saved view becomes four identical per-tab views, the old key goes
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
+- Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in every profile, Blizzard's Friz kept
 
 ### test_panel.lua (48)
 
@@ -1539,7 +1545,7 @@ Total.
 - Skin outline: the stored mode is applied with the skin
 - Skin outline: a profile switch applies the incoming profile's mode, and back
 
-### test_skin_picker.lua (25)
+### test_skin_picker.lua (37)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
 - Skin picker: the spec names this owner, its seams, the Skin tab and the eye
@@ -1551,7 +1557,6 @@ Total.
 - Skin picker: a new profile and a reset profile show it again
 - Skin picker: the player's close marks it seen; this addon's own hide does not
 - Skin picker: a profile that has seen it takes a shown picker down, unmarked
-- Skin picker: the eye opens the History window in test mode
 - Skin picker: the title is "Choose a skin" and the owner line names this addon
 - Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
 - Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
@@ -1566,6 +1571,19 @@ Total.
 - Skin picker: the stand-down takes a queued picker out of the queue, unseen
 - Skin picker: a close leaves the put-back to the library; the host moves no skin
 - Skin picker: a picker queued behind another addon's waits for combat to end
+- Skin preview: /lh skin with the window hidden turns test mode on and shows the window
+- Skin preview: the eye turns test mode off and on, the window it opened with it
+- Skin preview: the close control turns test mode off and hides the window again
+- Skin preview: Escape turns test mode off and hides the window again
+- Skin preview: Apply turns test mode off and hides the window again
+- Skin preview: the gear turns test mode off and hides the window again
+- Skin preview: the stand-down's NS.HideSkinPicker turns test mode off and hides the window again
+- Skin preview: the eye turned off, a close changes nothing more
+- Skin preview: a History window already shown is left alone
+- Skin preview: test mode already on stays on; stopped by the eye, a close turns it back on
+- Skin preview: test mode on with the window closed: the close that turns it back on hides the window again
+- Skin preview: combat ends the mode under the picker; the close still hides the window the preview opened
+- Skin preview: a refused start (combat) moves nothing, and the close undoes nothing
 
 ### test_skin_verb.lua (4)
 
@@ -1574,14 +1592,19 @@ Total.
 - Skin verb: in combat nothing shows and the gray line prints on every call
 - Skin verb: refused while the addon is disabled, with the one refusal line
 
-### test_skin_chrome.lua (6)
+### test_skin_chrome.lua (11)
 
 - skin chrome: on Ka0s Default every chrome surface draws the value it drew before skins
 - skin chrome: every surface is painted for this addon's owner, so a switch reaches it
 - skin chrome: a flat button is white at rest and gold under the pointer, its tip in gtip.body
 - skin chrome: a skin switch repaints every chrome surface live, and Ka0s Default puts it back
+- skin chrome: the History grip follows the skin, and the export title bar is title.height
+- skin chrome: the test strip's info mark takes icon.tint and follows a switch
 - skin chrome: NS.SkinColor keeps a call site's arity (three components when opaque)
+- skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup
+- skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
+- skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)
 
 ### test_skin_table.lua (8)
 
@@ -1594,7 +1617,7 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (19)
+### test_skin_insights.lua (20)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
@@ -1604,6 +1627,7 @@ Total.
 - skin insights: the host's tooltip lines read gtip.* in core/Compat.lua and follow a switch
 - skin timeline: Ka0s Default draws today's toggle, header and strip; the series are the skin's
 - skin timeline: a switch repaints the toggle, header and strip and rebuilds the series
+- skin timeline: the toggle's tick follows the state, and its box leaves the mouse to the button
 - skin holdings: Ka0s Default draws today's header, arrows, rows and cells
 - skin holdings: a switch rebuilds the arrows and repaints every pooled row live
 - skin AH table: a switch repaints the parked host, ticks rebuilt, and Ka0s Default puts it back
@@ -1636,12 +1660,6 @@ Total.
 - the reorder list seam names the owner
 - the AH drag list follows Ignore settings panel: stock while it is on, skinned when off
 - every remaining factory seam passes the owner
-
-### test_skin_literals.lua (3)
-
-- no color literal outside core/SkinSetup.lua and the named allow-list
-- every allow-list entry carries its reason
-- the gate is falsifiable: a planted literal of each shape is reported
 
 ### test_glyphs.lua (5)
 
@@ -1695,7 +1713,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (43)
+### test_libka0s.lua (44)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1740,6 +1758,7 @@ Total.
 - v1.82.0: the vendored minors and the kit revision match the release
 - v1.83.0: the vendored minors and the kit revision match the release
 - v1.84.0: the vendored minors and the kit revision match the release
+- v1.85.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2001,6 +2020,15 @@ Total.
 - sim slash: refused while the addon is disabled, on the one line, and nothing starts
 - sim slash: with no LibKa0s-Sim-1.0 the stub answers the collection's line
 
+### test_sim_checkbox.lua (6)
+
+- sim checkbox: the launcher and the Master controls spec share one NS pair
+- sim checkbox: the row is the composed session-only Sim mode, opening the line after Test mode
+- sim checkbox: ticking acts exactly as a bare `/lh sim`; the box ticks once a scenario starts
+- sim checkbox: unticking stops the sim; an untick while idle does nothing
+- sim checkbox: a start or stop from elsewhere signals the settings refresh
+- sim checkbox: with the stub session the box reads unticked and ticking says the stub's line
+
 ### test_doc_structure.lua (8)
 
 - docs/ARCHITECTURE.md carries the ten sections documentation-§3 names
@@ -2063,6 +2091,124 @@ Total.
 - layoutcap self-test: the census and the exempt set are held to naming the same paths
 - layoutcap self-test: a census that states nothing is told apart from one that states none
 - layoutcap self-test: the exempt set takes folders as well as paths
+
+### test_skin_values.lua (3)
+
+- skin values: every host row carries its file, substring, why and cause id
+- skin values: no typed value outside the kit's categories and the host's rows
+- skin values: the check is falsifiable, a planted value of each shape is reported
+
+### test_skin_switch.lua (103)
+
+- skin switch: the check is falsifiable, a surface that redraws a literal is reported
+- skin switch: the window's edge changes
+- skin switch: the window's edge changes with the Scope ignored
+- skin switch: the window's title changes
+- skin switch: the window's title changes with the Scope ignored
+- skin switch: the close control changes
+- skin switch: the close control changes with the Scope ignored
+- skin switch: the selected tab's label changes
+- skin switch: the selected tab's label changes with the Scope ignored
+- skin switch: an unselected tab's label changes
+- skin switch: an unselected tab's label changes with the Scope ignored
+- skin switch: the record footer changes
+- skin switch: the record footer changes with the Scope ignored
+- skin switch: the DB-size footer changes
+- skin switch: the DB-size footer changes with the Scope ignored
+- skin switch: the filter bar's Export button changes
+- skin switch: the filter bar's Export button changes with the Scope ignored
+- skin switch: the filter bar's Save button changes
+- skin switch: the filter bar's Save button changes with the Scope ignored
+- skin switch: the filter bar's Reset button changes
+- skin switch: the filter bar's Reset button changes with the Scope ignored
+- skin switch: the filter bar's Clear button changes
+- skin switch: the filter bar's Clear button changes with the Scope ignored
+- skin switch: the export modal's edge changes
+- skin switch: the export modal's edge changes with the Scope ignored
+- skin switch: the export modal's title changes
+- skin switch: the export modal's title changes with the Scope ignored
+- skin switch: the export modal's CSV button changes
+- skin switch: the export modal's CSV button changes with the Scope ignored
+- skin switch: the test strip changes
+- skin switch: the test strip changes with the Scope ignored
+- skin switch: a table header label changes
+- skin switch: a table header label changes with the Scope ignored
+- skin switch: the sorted header's arrow changes
+- skin switch: the sorted header's arrow changes with the Scope ignored
+- skin switch: the Bound header's lock changes
+- skin switch: the Bound header's lock changes with the Scope ignored
+- skin switch: a row's stripe changes
+- skin switch: a row's stripe changes with the Scope ignored
+- skin switch: a row's hover changes
+- skin switch: a row's hover changes with the Scope ignored
+- skin switch: a group header row changes
+- skin switch: a group header row changes with the Scope ignored
+- skin switch: a default cell changes
+- skin switch: a default cell changes with the Scope ignored
+- skin switch: the padlock changes
+- skin switch: the padlock changes with the Scope ignored
+- skin switch: an item's quality text changes
+- skin switch: an item's quality text changes with the Scope ignored
+- skin switch: the row menu changes
+- skin switch: the row menu changes with the Scope ignored
+- skin switch: a KPI card changes
+- skin switch: a KPI card changes with the Scope ignored
+- skin switch: a KPI headline changes
+- skin switch: a KPI headline changes with the Scope ignored
+- skin switch: a KPI caption changes
+- skin switch: a KPI caption changes with the Scope ignored
+- skin switch: a section heading changes
+- skin switch: a section heading changes with the Scope ignored
+- skin switch: a section divider's rule changes
+- skin switch: a section divider's rule changes with the Scope ignored
+- skin switch: a section divider's title changes
+- skin switch: a section divider's title changes with the Scope ignored
+- skin switch: a list panel changes
+- skin switch: a list panel changes with the Scope ignored
+- skin switch: the ledger's caveat changes
+- skin switch: the ledger's caveat changes with the Scope ignored
+- skin switch: a bar's track changes
+- skin switch: a bar's track changes with the Scope ignored
+- skin switch: a strip bar's fill changes
+- skin switch: a strip bar's fill changes with the Scope ignored
+- skin switch: a strip bar's label changes
+- skin switch: a strip bar's label changes with the Scope ignored
+- skin switch: a legend chip changes
+- skin switch: a legend chip changes with the Scope ignored
+- skin switch: the ledger's center axis changes
+- skin switch: the ledger's center axis changes with the Scope ignored
+- skin switch: the Timeline's toggle changes
+- skin switch: the Timeline's toggle changes with the Scope ignored
+- skin switch: the Timeline's title changes
+- skin switch: the Timeline's title changes with the Scope ignored
+- skin switch: the Timeline's hint changes
+- skin switch: the Timeline's hint changes with the Scope ignored
+- skin switch: the Timeline's strip axis changes
+- skin switch: the Timeline's strip axis changes with the Scope ignored
+- skin switch: the Holdings header band changes
+- skin switch: the Holdings header band changes with the Scope ignored
+- skin switch: a Holdings header label changes
+- skin switch: a Holdings header label changes with the Scope ignored
+- skin switch: a Holdings row's stripe changes
+- skin switch: a Holdings row's stripe changes with the Scope ignored
+- skin switch: a Holdings row's hover changes
+- skin switch: a Holdings row's hover changes with the Scope ignored
+- skin switch: a Holdings row's cell changes
+- skin switch: a Holdings row's cell changes with the Scope ignored
+- skin switch: the AH table's header changes
+- skin switch: the AH table's addon name changes
+- skin switch: the AH table's status changes
+- skin switch: the AH table's tick changes
+- skin switch: the debug console changes
+- skin switch: the debug console changes with the Scope ignored
+- skin switch: the export copy window changes
+- skin switch: the export copy window changes with the Scope ignored
+
+### test_skin_surfaces.lua (3)
+
+- skin surfaces: the last fixture comes down and the paint recorder with it
+- skin surfaces: the degraded facade's BarBorder answers the three it is handed
+- skin surfaces: every window and tab this addon draws is declared
 
 ### test_diagnostics_contract.lua (9)
 
@@ -2152,6 +2298,7 @@ Total.
 | test_debuglog.lua | 20 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
+| test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 50 |
 | test_slash_verbs.lua | 13 |
@@ -2167,7 +2314,7 @@ Total.
 | test_timelinetab.lua | 35 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
-| test_views.lua | 16 |
+| test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
@@ -2175,18 +2322,17 @@ Total.
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 10 |
 | test_skin_outline.lua | 10 |
-| test_skin_picker.lua | 25 |
+| test_skin_picker.lua | 37 |
 | test_skin_verb.lua | 4 |
-| test_skin_chrome.lua | 6 |
+| test_skin_chrome.lua | 11 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 19 |
+| test_skin_insights.lua | 20 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
-| test_skin_literals.lua | 3 |
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 43 |
+| test_libka0s.lua | 44 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2201,14 +2347,18 @@ Total.
 | test_sim_store.lua | 6 |
 | test_sim_panel.lua | 26 |
 | test_sim_slash.lua | 10 |
+| test_sim_checkbox.lua | 6 |
 | test_doc_structure.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
+| test_skin_values.lua | 3 |
+| test_skin_switch.lua | 103 |
+| test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1841** |
+| **Total** | **1975** |

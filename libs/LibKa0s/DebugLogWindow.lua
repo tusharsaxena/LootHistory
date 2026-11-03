@@ -47,7 +47,14 @@ if not lib then return end
 -- Core is guaranteed present here: DebugLog.lua refuses to register without it.
 local core = LibStub("LibKa0s-Core-1.0", true)
 
-local WINDOW_MINOR = 2
+local WINDOW_MINOR = 4
+-- Minor 3 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
+-- skin's `title.height` and the band S.Shell paints, not 26. The console's title stays centered: the
+-- bar's two ends hold its controls.
+-- Minor 4 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned console puts its
+-- header on the band S.Shell lays (the facade's Header): the drag bar takes the band's rect and the
+-- title, Copy, Clear, Close and the toggle are anchored to it at y 0, so they stay on its middle under
+-- a 2 px edge and EllesmereUI's 25 px bar. The title stays centered. An unowned console is as it was.
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -68,7 +75,9 @@ end
 
 -- ── window furniture ───────────────────────────────────────────────────────────────────────
 
-local TITLE_H  = 26      -- drag bar height
+-- Drag bar height: `title.height`, which every skin carries at one value (SkinDefs.lua's geometry
+-- note). tests/test_title_shape.lua pins the two equal; a window draws one with no Skin major too.
+local TITLE_H  = 30
 local STATUS_H = 16      -- bottom status bar height
 local BAR_W    = 8       -- scrollbar gutter width
 -- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
@@ -432,8 +441,8 @@ local function buildBody(f, D, ctx, pal)
   f.lineCount = lineCount
 end
 
---- The title bar: the drag bar, the centered title, the divider under it, Copy | Clear | Close on the
---- right, the toggle and the Diagnostics link on the left. Answers what the minimum width reads.
+--- The title bar: the drag bar, the centered title, Copy | Clear | Close on the right, the toggle and
+--- the Diagnostics link on the left. No line under it (R4-SEP). Answers what the minimum width reads.
 local function buildTitleBar(f, D, ctx, pal, S)
   local d = ctx.d
   local titleBar = dragBar(f, TITLE_H)
@@ -447,23 +456,16 @@ local function buildTitleBar(f, D, ctx, pal, S)
   title:SetText(f.titleText)
   f.title = title
 
-  local divider = f:CreateTexture(nil, "ARTWORK")
-  divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
-  divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
-  divider:SetHeight(1)
-  -- Colored from the skin rather than hardcoded black. `applySkin` runs at the end of the build
-  -- and tints it again, so this value only shows on a host whose own applySkin ignores the divider
-  -- — and black under a gray-inner-bordered window is exactly the mismatch it exists to remove.
-  local skin = ctx.skin
-  local dc = type(skin.divider) == "table" and skin.divider or { 0, 0, 0, 1 }
-  divider:SetColorTexture(dc[1], dc[2], dc[3], dc[4])
-  f.divider = divider
+  -- No divider under the title bar (R4-SEP of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4,
+  -- image 28, still minor 3): the console made `f.divider` here, a 1px rule tinted by the skin, and
+  -- no window draws a line under its header now. `f.divider` is nil, so a host applySkin that tints
+  -- it under `if f.divider` finds none. The status rule over the footer stays.
 
   -- The three title-bar controls read Copy | Clear | Close, left to right. The offsets are DERIVED
   -- from the close button's width rather than hard-coded, which matters as soon as a host supplies
   -- its own: Core's is 18 wide, so Clear lands at -30 and Copy at -78, but a 24-wide button would
   -- have put Clear's right edge (-30) precisely on that button's left edge.
-  local _, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
+  local closeBtn, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
     addonName  = d.addonName,
     close      = ctx.makeCloseButton,
     onClose    = function() D:Hide() end,
@@ -478,7 +480,7 @@ local function buildTitleBar(f, D, ctx, pal, S)
   -- API, so these are the only handle a host's own test has on what its close button did to the
   -- layout, and on which of the two shapes the controls took.
   f.titleBarOffsets = offsets
-  f.clearButton, f.copyButton = clearBtn, copyBtn
+  f.clearButton, f.copyButton, f.closeButton, f.titleBar = clearBtn, copyBtn, closeBtn, titleBar
 
   -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
   -- label's color is always the flag's color rather than whatever the last hover left behind.
@@ -529,6 +531,14 @@ end
 --- itself is painted by `ctx.applySkin` (Core.ApplySkin with the owner).
 local function adopt(f, D, S, pal)
   f.__logLine = ownedLine(pal)
+  -- Minor 4: the header on the band, at the offsets the controls were built at (minor 4's header note).
+  local o = f.titleBarOffsets
+  if S.Header then S.Header(f, {
+    title = f.title, align = "CENTER", bars = { f.titleBar },
+    right = { { frame = f.closeButton, x = -o.close }, { frame = f.clearButton, x = -o.clear },
+              { frame = f.copyButton, x = -o.copy } },
+    left = { { frame = f.debugToggleBtn, x = TOGGLE_X } },
+  }) end
   S.ScrollBar(f.scrollBar, { track = f.__track, thumb = f.__thumb })
   S.Divider(f.statusDivider)
   S.OnLooksChanged(function()

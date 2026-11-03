@@ -1,4 +1,4 @@
-local _, NS = ...
+local addonName, NS = ...
 NS.Browser = NS.Browser or {}
 local B = NS.Browser
 local frame
@@ -7,7 +7,7 @@ local L = NS.L           -- locales/enUS.lua: the test-mode badge and strip stri
 
 -- The window GEOMETRY this addon owns: every height the layout is measured from. No color is here.
 -- The window's look is the player's skin (the Skin tab; core/SkinSetup.lua's NS.Skin, over
--- LibKa0s-Skin-1.0): the edge, the title bar, the divider, the close control, the tab labels and
+-- LibKa0s-Skin-1.0): the edge, the title bar, the close control, the tab labels and
 -- underline, the bar's buttons and the footer all read its tokens and follow a skin switch with no
 -- reload. Ka0s Default is the look this window always had.
 local SKIN = {
@@ -172,8 +172,7 @@ function B:SelectTab(name)
   for _, t in ipairs(tabOrder) do
     local active = (t == name)
     frame.panes[t]:SetShown(active)
-    NS.Skin.Text(frame.tabs[t].label, active and "accent" or "muted")
-    frame.tabs[t].underline:SetShown(active)
+    NS.Skin.SetTabSelection(frame.tabs[t], active)
   end
   BuildPane(name)
   -- Refresh the shown view against the shared filter, then the shared footer/DB size (issue #13).
@@ -269,34 +268,17 @@ local function LayoutTabButtons()
       tab = CreateFrame("Button", nil, strip); tab:SetSize(90, SKIN.tabStripH)
       tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
       tab.label:SetPoint("CENTER"); tab.label:SetText(name)
-      tab.underline = tab:CreateTexture(nil, "ARTWORK")
-      tab.underline:SetColorTexture(NS.SkinColor("tab.onLine")); tab.underline:SetHeight(2)
-      tab.underline:SetPoint("BOTTOMLEFT", 8, 0); tab.underline:SetPoint("BOTTOMRIGHT", -8, 0)
       tab:SetScript("OnClick", function() B:SelectTab(name) end)
+      -- The skin's Tab: backing, edge, underline and label, repainted by the library on a switch.
+      -- SelectTab moves the selection. The tokens are tab.*, drawn for this backing, so tab.text
+      -- reads on it in every skin (cause A1 of the full skinning run; the look moves a little on
+      -- Ka0s Default, which gains the backing).
+      NS.Skin.Tab(tab, { text = tab.label, selected = name == lastTab })
       frame.tabs[name] = tab
     end
     tab:ClearAllPoints(); tab:SetPoint("LEFT", (i - 1) * 94, 0)
   end
 end
-
--- The tabs on a skin switch (OnLooksChanged, below). They are not the skin's Tab primitive: on Ka0s
--- Default that draws the settings tab strip's gradient backing, which these tabs never had, so the
--- tabs keep their own two calls and take only the colors from the skin -- each label through
--- `S.Text` in `accent` / `muted` by the active tab, as SelectTab paints it, and the underline in
--- `tab.onLine`. The text roles, not `tab.onText` / `tab.text`: those are colored for a tab's own
--- backing, which these tabs have none of, while the text roles are held to read on the window in
--- every skin (Azeroth's cream `tab.text` vanished on its parchment). Ka0s Default's are the same
--- gray and gold. Nothing to do before the window is built: LayoutTabButtons and SelectTab read the
--- skin when they first paint.
-local function ReskinTabs()
-  if not (frame and frame.tabs) then return end
-  for name, tab in pairs(frame.tabs) do
-    NS.Skin.Text(tab.label, name == lastTab and "accent" or "muted")
-    tab.underline:SetColorTexture(NS.SkinColor("tab.onLine"))
-  end
-end
-B._reskinTabs = ReskinTabs   -- tests/test_skin_chrome.lua
-if NS.Skin then NS.Skin.OnLooksChanged(ReskinTabs) end
 
 -- Meant for file load, before the window is built; a later call creates the pane + button on the spot.
 function B:RegisterTab(spec)
@@ -977,7 +959,7 @@ local function EnsureFrame()
   frame:SetClampedToScreen(true)
   -- Resizable, and its bounds, come from the corner grip below (NS.MakeResizable).
 
-  -- Title bar (also the drag handle), flat with a divider line beneath it.
+  -- Title bar (also the drag handle), flat, with no line beneath it (R4-SEP).
   local titleBar = CreateFrame("Frame", nil, frame)
   titleBar:SetPoint("TOPLEFT", 1, -1)
   titleBar:SetPoint("TOPRIGHT", -1, -1)
@@ -1016,15 +998,15 @@ local function EnsureFrame()
   -- title color and font, and painting it twice would be a second call for one color.
   NS.Skin.TitleBar(titleBar)
 
-  -- The divider under the title bar is a 1px FRAME, and the skin's Divider draws its line on that
-  -- frame's own holder. Never a direct region of this window: EllesmereUI's FadeRegions fades every
-  -- direct region of the frame it skins, and a texture here would be erased with them. Held as
-  -- `dividerBar` rather than the edge's `divider` field, which names a texture to tint.
+  -- No line under the title bar (R4-SEP of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4,
+  -- the owner's "no separator line below header" in every window, like the Skin Tester's
+  -- showroom). The 1px frame stays, empty, because the tab strip anchors under it
+  -- (LayoutTabButtons), so the layout does not move. Held as `dividerBar` rather than the edge's
+  -- `divider` field, which names a texture to tint.
   local divider = CreateFrame("Frame", nil, frame)
   divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
   divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
   divider:SetHeight(1)
-  NS.Skin.Divider(divider)
   frame.dividerBar = divider
 
   -- ElvUI-style thin × close glyph (class-colored on hover). Anchored to the title bar's
@@ -1032,6 +1014,14 @@ local function EnsureFrame()
   local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
   close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
   frame.closeButton = close
+
+  -- The header on the window's title band (R5-WIN of Ka0sAddonsCommonTasks
+  -- docs/2026-11-03-SMOKE_ROUND5, items 2 and 5): S.Band is the band at Shell's own inset and
+  -- title.height in every skin, and S.Header gives the title bar its rect and anchors the title by
+  -- title.align and the close 6 px in from the right, each at the band's vertical middle. Recorded,
+  -- so a skin switch places them again. The anchors above are the degraded install's, whose facade
+  -- Header does nothing.
+  NS.Skin.Header(frame, { title = title, right = { close }, bars = { titleBar } })
   -- (Settings gear removed; open the options panel with /lh config.)
 
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
@@ -1087,7 +1077,8 @@ local function EnsureFrame()
   B:UpdateDbSize()
 
   -- Resize grip, bottom-right: Core.MakeResizable through the seam (#33). The library draws the
-  -- client's chat size grabber, the same corner every window in the collection wears.
+  -- client's chat size grabber, the same corner every window in the collection wears, tinted by
+  -- `icon.grip` for the owner named here (false in Ka0s Default, so the art stays the client's).
   --   * minHeight is passed on purpose: the library's default floor is the CURRENT size, and the
   --     window opens at SKIN.defaultH, so leaving it out would raise the floor from minH to 700.
   --   * Lock frame gates the resize as well as the title-bar drag (canResize, read at every press):
@@ -1096,6 +1087,7 @@ local function EnsureFrame()
   --     also runs on every OnSizeChanged -- every frame of a drag, and RestoreWindow's SetSize. The
   --     live relayout during a drag is the scroll frames' own OnSizeChanged.
   NS.MakeResizable(frame, {
+    owner = addonName,
     minWidth = minW,
     minHeight = minH,
     canResize = function() return not B:IsLocked() end,

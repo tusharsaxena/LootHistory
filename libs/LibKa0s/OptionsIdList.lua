@@ -30,7 +30,11 @@ if not lib then return end
 -- highlight art takes `list.hoverArt` (O.__hoverArt) and is given back to the client's on release;
 -- the id gray in its labels and notes is OptionsIds minor 5's `idGray`, the owner's
 -- `text.disabled`. The help mark's comments say what minor 6's tints do since SkinPaint minor 6.
-local IDLIST_MINOR = 7
+-- Minor 8 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): while the chrome is
+-- skinned the X is the Ka0s `close` icon in `icon.tint`, on `__removeIcon`; `__removeAtlas` is stock's.
+-- Minor 9 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the entry icon is cropped
+-- 0.07 a side and, on an owned page, edged in `icon.outline` on a frame the list owns (entryIconEdge).
+local IDLIST_MINOR = 9
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idListMinor and lib.__idListMinor >= IDLIST_MINOR
@@ -84,6 +88,8 @@ function lib.__AttachIdList(O, d, ids)
   -- columns -- the arithmetic is under ID_COLUMNS_MAX.
   local ID_REMOVE_REL    = 0.08
   local ID_REMOVE_ATLAS  = "transmog-icon-remove"
+  local ID_REMOVE_ICON   = "close"              -- the art while the chrome is skinned (minor 8)
+  local ID_REMOVE_REST   = { 1, 1, 1 }          -- skinTint's key; no literal draws
   local ID_REMOVE_SIZE   = 16
   local ID_REMOVE_HIT    = 26
   -- The gutter between one entry and the next inside a shared row (minor 24), as a fraction of the
@@ -567,7 +573,8 @@ function lib.__AttachIdList(O, d, ids)
   -- than giving the constants tokens of their own: Ka0s Default looking like every other skin is
   -- what ruling R-2 asks (DECISIONS D-07).
   local HELP_TOKEN = { [ID_HELP_TINT] = "text.accent", [ID_HELP_BLOCKED] = "sem.bad",
-                       [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot" }
+                       [ID_HELP_DIM] = "text.disabled", [ID_HELP_OVER] = "icon.hot",
+                       [ID_REMOVE_REST] = "icon.tint" }
 
   --- `tint`, or its token in the page owner's skin while the chrome is skinned.
   local function skinTint(tint)
@@ -712,8 +719,17 @@ function lib.__AttachIdList(O, d, ids)
     local x = O.AceGUI:Create("Icon")
     x:SetImageSize(ID_REMOVE_SIZE, ID_REMOVE_SIZE)
     local tex = x.image
-    if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
-    x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
+    local art = O.__chromeMark and O.__chromeMark(ID_REMOVE_ICON)
+    if art then
+      if type(tex) == "table" and tex.SetTexture then tex:SetTexture(art) end
+      local c = skinTint(ID_REMOVE_REST)
+      if type(tex) == "table" and tex.SetVertexColor then tex:SetVertexColor(c[1], c[2], c[3]) end
+      x.__removeIcon, x.__removeAtlas = art, nil   -- as __removeAtlas: for a host's suite
+    else
+      if type(tex) == "table" and tex.SetAtlas then tex:SetAtlas(ID_REMOVE_ATLAS) end
+      x.__removeAtlas = ID_REMOVE_ATLAS   -- the art it wears, for a host's suite (a fake draws none)
+      x.__removeIcon = nil
+    end
     -- A FLOOR, NOT A FRACTION, AND WIDER THAN THE ART IT CARRIES. ID_REMOVE_REL is what the NAME
     -- beside the X gives up for it -- the label's width already subtracts it -- and the X's own
     -- frame is absolute. A relative width is multiplied by the row at layout time, so
@@ -842,6 +858,37 @@ function lib.__AttachIdList(O, d, ids)
     if O.__hoverArt then O.__hoverArt(lbl.highlight) end
   end
 
+  -- THE ICON RULE (minor 9, docs/api/README.md's *Icon art*): the crop rides in SetImage's own
+  -- texcoords, which AceGUI resets to 0..1 on the next SetImage, so a pooled label needs no undo. The
+  -- edge is NOT a record on `lbl.image`: AceGUI pools that Texture across every addon and never hides
+  -- it, so an edge there outlives the entry. It is a plain frame of this instance's own, laid over the
+  -- image while the entry is drawn and handed back to the pool by entryRelease.
+  local ID_ICON_CROP = { 0.07, 0.93, 0.07, 0.93 }
+  local ID_ICON_EDGE = { fromSkin = true, zoom = false }
+  local iconEdges = {}
+
+  local function entryIconEdge(lbl)
+    local tex = lbl.image
+    if type(tex) ~= "table" or type(tex.GetObjectType) ~= "function" then return end
+    if not (O.__chromePaint and O.__chromeSkin and O.__chromeSkin()) then return end
+    local e = table.remove(iconEdges) or CreateFrame("Frame")
+    e:SetParent(lbl.frame)
+    e:ClearAllPoints()
+    e:SetAllPoints(tex)
+    e:Show()
+    O.__chromePaint("IconBorder", e, ID_ICON_EDGE)
+    lbl.__ka0sIconEdge = e
+  end
+
+  local function entryIconBack(w)
+    local e = w.__ka0sIconEdge
+    if not e then return end
+    w.__ka0sIconEdge = nil
+    e:Hide()
+    e:ClearAllPoints()
+    iconEdges[#iconEdges + 1] = e
+  end
+
   --- The ONE "OnRelease" an entry's label gets, and everything that has to happen inside it.
   ---
   --- WHY ONE. WidgetBase.SetCallback stores a handler by event name (`self.events[name] = func`,
@@ -872,6 +919,7 @@ function lib.__AttachIdList(O, d, ids)
   --- where `w` below comes from, so the handler clears the markers on the widget it was fired for.
   local function entryRelease(lbl, fs)
     lbl:SetCallback("OnRelease", function(w)
+      entryIconBack(w)
       if fs and type(fs.SetWordWrap) == "function" then fs:SetWordWrap(true) end
       w.__wordWrap = nil
       w.__highlight = nil
@@ -912,8 +960,9 @@ function lib.__AttachIdList(O, d, ids)
     entryRelease(lbl, fs)
     lbl:SetText(entryLabel(spec, k, entry.id, name, entrySuffix(entry)))
     if icon then
-      lbl:SetImage(icon)
+      lbl:SetImage(icon, unpack(ID_ICON_CROP))
       lbl:SetImageSize(ID_ICON_SIZE, ID_ICON_SIZE)
+      entryIconEdge(lbl)
     end
     lbl:SetRelativeWidth(entryNameRel(iconStyle, cols, hasHelp))
     entryTooltip(lbl, k, entry.id, cols > 1 and line or nil)

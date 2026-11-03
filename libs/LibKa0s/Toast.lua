@@ -16,7 +16,15 @@
 -- else in `d` is a value or a getter the host reads out of its own profile: duration, scale, sound,
 -- the drag predicate, the saved position. There is no behavior flag: a host that holds toasts in
 -- combat does not call Show in combat (or calls Hold and Release), and a host that wants a toast
--- to replace another calls Remove first. docs/api/Toast/version-1-docs.md is the full contract.
+-- to replace another calls Remove first. docs/api/Toast/version-3-docs.md is the full contract.
+--
+-- Minor 2 (FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): d.soundFile, additive,
+-- for a host whose alert is a file rather than a sound kit id. A host that does not pass it plays
+-- exactly what it played.
+-- Minor 3 (R5-L2 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a toast has no title bar, so an
+-- owned toast asks its owner's facade for `Shell(f, { noTopBar = true })` after ApplySkin, now that
+-- Shell's top band shows on a backdrop frame (SkinPaint minor 18). Core's `__SkinFacade` is read at
+-- call time; a Core without it, or an unregistered owner, paints exactly as before.
 --
 -- ── WHAT THE SHELL DOES ──────────────────────────────────────────────────────────────────────
 --
@@ -50,7 +58,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Toast-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Toast-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -214,6 +222,8 @@ end
 
 local function decorate(S, f)
   if type(core.ApplySkin) == "function" then core.ApplySkin(f, nil, S.d.owner) end
+  local skin = type(core.__SkinFacade) == "function" and core.__SkinFacade(S.d.owner)
+  if skin then skin.Shell(f, { noTopBar = true }) end   -- no band on a toast (minor 3)
   if type(core.MakeCloseButton) ~= "function" then return end
   local close = core.MakeCloseButton(f, function() dismiss(S) end, S.d.owner)
   if not close then return end
@@ -252,8 +262,23 @@ local function enqueue(S, entry, front)
   while #q > cap do table.remove(q, front and #q or 1) end
 end
 
+--- A file PlaySoundFile takes: a non-empty path or a file data id.
+local function soundFileOf(S)
+  local file = read(S.d.soundFile)
+  if type(file) == "number" or (type(file) == "string" and file ~= "") then return file end
+  return nil
+end
+
+--- A host's d.soundFile is the whole answer when it names a file: on a client without PlaySoundFile
+--- the toast is silent, never the default alert in its place. Otherwise the kit path.
 local function playSound(S)
-  if read(S.d.sound) ~= true or type(PlaySound) ~= "function" then return end
+  if read(S.d.sound) ~= true then return end
+  local file = soundFileOf(S)
+  if file then
+    if type(PlaySoundFile) == "function" then PlaySoundFile(file, "Master") end
+    return
+  end
+  if type(PlaySound) ~= "function" then return end
   local kit = type(SOUNDKIT) == "table" and SOUNDKIT or {}
   local id = read(S.d.soundKit)
   if type(id) ~= "number" then id = kit.UI_EPICLOOT_TOAST or kit.RAID_WARNING end

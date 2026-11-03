@@ -150,7 +150,11 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- control's strings in the skin's face (so Ignore fonts reaches them) and adds `panel = true` for a
   -- control on its owner's settings page. No member is added or removed; this addon's dropdowns sit
   -- on its windows, never its settings panel, so none passes `panel`.
-  assertEqual(lib.MODULES.Widgets, 17, "this adoption is written against Widgets minor 17")
+  --
+  -- Minor 22 (LibKa0s v1.85.0 round 5 re-cut, R5-L5) adds `lib.IconText`, inline icon markup cropped
+  -- by the icon rule. No member or opts field of Dropdown, CloseMenu or CopyWindow moves; this addon
+  -- draws no icon markup through Widgets, so nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 22, "this adoption is written against Widgets minor 22")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

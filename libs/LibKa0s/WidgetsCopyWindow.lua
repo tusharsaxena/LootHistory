@@ -19,7 +19,15 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local COPY_MINOR = 2
+local COPY_MINOR = 5
+-- Minor 5 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a skinned window's header is
+-- on the band S.Shell lays (the facade's Header): the drag bar takes its rect, and the title and the
+-- close mark are anchored to it at y 0. `f.titleBar` and `f.closeButton` are recorded. An unskinned
+-- window is as it was.
+-- Minor 4 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
+-- skin's `title.height` and the band S.Shell paints, not 26, and the text keeps its 3 px under it.
+-- Minor 3 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a skinned window's fill is
+-- `win.bgDense` whatever `backdrop` says; `backdrop` is an owner-less window's fill.
 -- Minor 2: a skinned window's resize grip wears its owner's skin (Core minor 14's `opts.owner`; an
 -- older Core ignores the key). LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS,
 -- ruling R-5.
@@ -93,7 +101,6 @@ local function copyDescriptor(d)
     fontSize  = d.fontSize or COPY_DEFAULTS.fontSize,
     applySkin = d.applySkin,
     backdrop  = d.backdrop or COPY_DEFAULTS.backdrop,
-    hostBackdrop = d.backdrop ~= nil,
     anchorTo  = d.anchorTo,
     -- Optional, minor 7, and NOT defaulted to anything. UIPanelScrollFrameTemplate derives its
     -- scrollbar children's names from its parent's, so an anonymous scroll frame leaves them
@@ -132,11 +139,11 @@ local function makeCopyResizable(f, d, coreLib)
 end
 
 --- The denser fill, again after each skin change of a skinned window (minor 16): the host's own
---- `backdrop` when it passed one, else the owner's `win.bgDense`. Shell repaints the window first.
+--- the owner's `win.bgDense` (minor 3), else `backdrop`. Shell repaints the window first.
 local function copyDense(f, owner)
   local d, Skin = f.__copyDesc, skinOf(owner)
   if not (d and Skin and f.SetBackdropColor) then return end
-  local c = d.hostBackdrop and d.backdrop or Skin:Token(owner, "win.bgDense") or d.backdrop
+  local c = Skin:Token(owner, "win.bgDense") or d.backdrop
   f:SetBackdropColor(c[1], c[2], c[3], c[4])
 end
 
@@ -144,8 +151,10 @@ end
 local function skinCopy(f, d, owner)
   local Skin = skinOf(owner)
   if not Skin then return end
+  local S = Skin:For(owner)
   local sb = rawget(f.scroll, "ScrollBar")
-  if type(sb) == "table" then Skin:For(owner).ScrollBar(sb) end
+  if type(sb) == "table" then S.ScrollBar(sb) end
+  if S.Header then S.Header(f, { title = f.title, bars = { f.titleBar }, right = { f.closeButton } }) end   -- minor 5
   f.__copyDesc = d
   if type(lib.__onSkin) == "function" then lib.__onSkin(Skin, owner, f, copyDense) end
   copyDense(f, owner)
@@ -170,6 +179,10 @@ local function paintCopyFrame(f, d, coreLib)
   if owner then skinCopy(f, d, owner) end
 end
 
+-- `title.height`, which every skin carries at one value (tests/test_title_shape.lua pins the two
+-- equal; a window draws one with no Skin major too).
+local TITLE_H = 30
+
 --- Build the frame. Called once, lazily, on the first Show — a modal rebuilt per open leaks a
 --- frame per open for the life of the session, because frames are never destroyed in WoW.
 local function buildCopyFrame(d)
@@ -184,9 +197,10 @@ local function buildCopyFrame(d)
   f:SetClampedToScreen(true)
 
   local bar = CreateFrame("Frame", nil, f)
+  f.titleBar = bar
   bar:SetPoint("TOPLEFT", 1, -1)
   bar:SetPoint("TOPRIGHT", -1, -1)
-  bar:SetHeight(26)
+  bar:SetHeight(TITLE_H)
   bar:EnableMouse(true)
   bar:RegisterForDrag("LeftButton")
   bar:SetScript("OnDragStart", function() f:StartMoving() end)
@@ -206,10 +220,11 @@ local function buildCopyFrame(d)
   if makeClose then
     local close = makeClose(bar, function() f:Hide() end, d.addonName)
     if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
+    f.closeButton = close
   end
 
   local scroll = CreateFrame("ScrollFrame", d.scrollName, f, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 8, -30)
+  scroll:SetPoint("TOPLEFT", 8, -(TITLE_H + 4))
   scroll:SetPoint("BOTTOMRIGHT", -28, COPY_SCROLL_BOTTOM)
 
   local edit = CreateFrame("EditBox", nil, scroll)

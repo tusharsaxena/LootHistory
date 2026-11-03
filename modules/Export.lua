@@ -466,7 +466,7 @@ local function EnsureFrame()
   end
 
   local tbar = CreateFrame("Frame", nil, frame)
-  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(26)
+  tbar:SetPoint("TOPLEFT", 1, -1); tbar:SetPoint("TOPRIGHT", -1, -1); tbar:SetHeight(30)
   tbar:EnableMouse(true); tbar:RegisterForDrag("LeftButton")
   -- Lock frame (options-ui-§15) is addon-wide, so it covers this modal too — asked of NS.Browser,
   -- which owns this addon's window chrome and is where the master rows are read.
@@ -482,11 +482,19 @@ local function EnsureFrame()
   -- and the title in the title color and font. `titleFS` is not the `title` field the window edge
   -- tints, so before the skin engine this title was never tinted at all; GameFontNormal is that
   -- same gold, so Ka0s Default draws what it always drew, and every other skin reaches it.
+  -- The bar's height and the title's anchor (title.align) are S.Header's, below, so `place`
+  -- (which anchored the title to the bar rather than the band) is not passed.
   NS.Skin.TitleBar(tbar, { text = t })
-  if NS.Browser and NS.Browser.MakeCloseButton then
-    NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
-      :SetPoint("RIGHT", tbar, "RIGHT", -6, 0)
-  end
+  frame.titleBar = tbar
+  local close = NS.Browser and NS.Browser.MakeCloseButton
+    and NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
+  if close then close:SetPoint("RIGHT", tbar, "RIGHT", -6, 0) end
+  frame.closeButton = close
+  -- The header on the window's title band (R5-WIN, as the History window's, modules/Browser.lua):
+  -- the bar takes the band's rect, the title is anchored by title.align and the close 6 px in from
+  -- the right, all at the band's vertical middle in every skin. The anchors above are the degraded
+  -- install's.
+  NS.Skin.Header(frame, { title = t, right = { close }, bars = { tbar } })
 
   -- Data Set dropdown (built above, as the library probe), spanning the full button-row width.
   -- Through core/WidgetsSetup.lua's one factory, like the filter bar's nine -- not through

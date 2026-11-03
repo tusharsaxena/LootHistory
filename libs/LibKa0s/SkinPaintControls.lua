@@ -65,7 +65,25 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- label and a close button's glyph take their color through SkinPaint minor 13's P.color, so an
 -- opaque color is drawn opaque over a label an owner's faded disabled color reached first (DpsRace's
 -- Arm Race read disabled while enabled, image-55..57).
-local CONTROLS_MINOR = 11
+-- Minor 12 (cause L3 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): Tab reads `tab.border`,
+-- `tab.borderSize` and `tab.borderStyle`, around `opts.fill` when it names one; a tab wearing the
+-- skin's art draws no edge, since the art is its edge. `opts.glow` takes `tab.glow`.
+-- Minor 13 (cause L7 of the same bundle): S.ScrollBar's step buttons are the Ka0s `chevron-up` and
+-- `chevron-down` in `icon.arrow`, Ka0s Default included: P.stepArrows, which SkinAce minor 8 calls too.
+-- Minor 14 (cause L8 of the same bundle): a stock close button's "x" wears the skin's body face, so
+-- Ignore fonts reaches it.
+-- Minor 15 (FS-FIX of the same bundle): S.IconBorder takes a Texture, its edge on a plain child of the
+-- Texture's parent, shown and hidden with it, so a secure parent is never written to.
+-- Minor 16 (SF-L2 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a sort header's arrows
+-- take `list.header.arrow`, a color of their own, where they took `icon.arrow`. Still minor 16, not
+-- yet shipped (R3-L3 of docs/2026-11-02-SMOKE_ROUND3): S.IconBorder draws a flat 1 px outline in
+-- every skin, one physical pixel, and zooms the icon 0.07 (`opts.zoom`). Still minor 16 (R3-L1):
+-- the WowStyle1 chevron is P.ddChevron, which SkinAce's AceGUI Dropdown draws too.
+-- Minor 17 (R4-L4 of docs/2026-11-03-SMOKE_ROUND4, R4_ADDENDUM_HUD_ICON_EDGE.md): S.IconBorder's
+-- `opts.hud` draws the HUD's `icon.border` and never `icon.outline`, so an icon a HUD edges through
+-- it keeps the owner's black edge under Ka0s Default. Bumped though v1.85.0 is a local cut: minor 16
+-- copies already sit in vendored trees, and the same minor would let the first loaded one win.
+local CONTROLS_MINOR = 17
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -335,6 +353,59 @@ end
 
 -- ── dropdowns, scroll bars, sliders ──────────────────────────────────────────────────────────
 
+local STEP_ICON = 12   -- the art is square, in a template button 18 by 16
+
+--- The path of icon `name` in `owner`'s copy, or nil without Media or an addon name.
+local function stepArt(owner, name)
+  local Media = LibStub and LibStub("LibKa0s-Media-1.0", true)
+  if not (Media and type(Media.Icon) == "function") then return nil end
+  return Media.Icon(owner, name)
+end
+
+-- ── WowStyle1DropdownTemplate (minor 17, #71) ──
+--
+-- The template's `Background` is its own art and its `Arrow` is the whole gold button, so the arrow
+-- is faded and the owner's `chevron-down` laid over it instead of tinting the button. Blizzard's
+-- OnButtonStateChanged resets the label to white on hover and press, so the label is painted again
+-- on those scripts.
+local function wowStyle(dd)
+  local bg = P.field(dd, "Background", "Texture")
+  if bg then return { Background = bg } end
+  return nil
+end
+
+--- A dropdown's one chevron: the owner's `chevron-down` as region `key` of `rec` on `host`, 6px in
+--- from the right of `bar`, in `tok`. Nil, and nothing made, without Media or an addon name. S.Dropdown's
+--- WowStyle1 arrow, and since R3-L1 (Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3) SkinAce's
+--- AceGUI Dropdown, so the two dropdowns wear one mark.
+function P.ddChevron(owner, rec, key, host, bar, T, tok)
+  local art = stepArt(owner, "chevron-down")
+  local t = art and P.tex(rec, key, host, "OVERLAY", 7)
+  if not t then return nil end
+  t:ClearAllPoints()
+  t:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
+  t:SetSize(STEP_ICON, STEP_ICON)
+  t:SetTexture(art)
+  t:Show()
+  P.glyph(rec, t, T, tok)
+  return t
+end
+
+local function wowArrow(owner, rec, dd, arrow, T)
+  P.fade(rec, arrow)
+  P.ddChevron(owner, rec, "wowArrow", dd, dd, T, "icon.arrow")
+end
+
+local function wowLabel(rec, dd)
+  local function repaint(self, r)
+    local label = P.field(self, "text", "FontString") or P.field(self, "Text", "FontString")
+    if label then P.tint(r, label, P.T(r.owner), "input.text") end
+  end
+  for _, script in ipairs({ "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp" }) do
+    P.hook(rec, dd, script, repaint)
+  end
+end
+
 --- S.Dropdown(dd, opts): a dropdown button. The flat-control box from `input.*` (Widgets'
 --- dropdown: its backdrop, fill and edge, call for call), the template's pieces faded, the arrow
 --- (`dd.arrow` / `dd.Arrow`) in `icon.tint`, the label (`dd.text` / `dd.Text`) in `input.text` and
@@ -349,12 +420,19 @@ prim.Dropdown = function(owner, dd, opts)
   local T = P.T(owner)
   P.fadeAll(rec, P.stockRegions(dd, opts))
   P.box(rec, dd, T, INPUT, opts)
+  local wow = wowStyle(dd)
+  if wow then P.fade(rec, wow.Background) end
   local arrow = P.field(dd, "arrow", "Texture") or P.field(dd, "Arrow", "Texture")
-  if arrow then P.glyph(rec, arrow, T, "icon.arrow") end
+  if arrow and wow and not rawget(dd, "arrow") then
+    wowArrow(owner, rec, dd, arrow, T)
+  elseif arrow then
+    P.glyph(rec, arrow, T, "icon.arrow")
+  end
   local fs = P.field(dd, "text", "FontString") or P.field(dd, "Text", "FontString")
   if fs then
     P.tint(rec, fs, T, "input.text")
     P.font(owner, rec, fs, "body")
+    if wow then wowLabel(rec, dd) end
   end
 end
 
@@ -415,18 +493,110 @@ local function paintKnob(rec, sb, T, opts)
   t:SetShown(type(thumb.IsShown) ~= "function" or thumb:IsShown())
 end
 
+-- ── the step buttons ─────────────────────────────────────────────────────────────────────────
+--
+-- A bar's two buttons belong to no primitive's record. A settings page's bar is painted by S.ScrollBar
+-- and, as an AceGUI widget, by SkinAce, each on a record of its own, and two records fading one
+-- texture would have the second save the first's 0 as the art's own alpha. So a button's record is
+-- its own, keyed on the button (weak), and either path paints or gives it back, any number of times.
+
+local STEPS = { { key = "ScrollUpButton", icon = "chevron-up" },
+                { key = "ScrollDownButton", icon = "chevron-down" } }
+
+lib.__steps = lib.__steps or setmetatable({}, { __mode = "k" })
+
+--- The step button `key` of bar `sb`: the template's key, else its name (a Classic-era template).
+local function stepButton(sb, key)
+  if not P.isFrame(sb) then return nil end
+  local b = rawget(sb, key)
+  if P.isFrame(b) then return b end
+  local name = type(sb.GetName) == "function" and sb:GetName()
+  b = type(name) == "string" and _G[name .. key] or nil
+  if P.isFrame(b) then return b end
+  return nil
+end
+
+--- The mark in the color of the button's state, read from the record so a switch reaches the hooks.
+local function stepTint(b, rec)
+  if not rec.on then return end
+  local T = P.T(rec.owner)
+  local c = T[rec.hover and "icon.hot" or "icon.arrow"]
+  if type(b.IsEnabled) == "function" and not b:IsEnabled() then c = T["scroll.thumbOff"] or c end
+  if c then rec.regions.art:SetVertexColor(rgba(c)) end
+end
+
+local function stepHooks(b, rec)
+  if rec.hooked or type(b.HookScript) ~= "function" then return end
+  rec.hooked = true
+  local function hover(on) return function() rec.hover = on; stepTint(b, rec) end end
+  local function state() stepTint(b, rec) end
+  b:HookScript("OnEnter", hover(true))
+  b:HookScript("OnLeave", hover(false))
+  b:HookScript("OnEnable", state)    -- the client disables a button at its end of the range
+  b:HookScript("OnDisable", state)
+end
+
+local function giveStepBack(b)
+  local rec = lib.__steps[b]
+  if not (rec and rec.on) then return end
+  rec.on, rec.hover = false, false
+  P.unpaint(rec, b)
+end
+
+local function paintStep(owner, b, name)
+  local art = stepArt(owner, name)
+  if not art then return giveStepBack(b) end
+  local rec = lib.__steps[b] or { regions = {} }
+  local t = P.tex(rec, "art", b, "OVERLAY", 7)
+  if not t then return end
+  lib.__steps[b] = rec
+  rec.owner, rec.on = owner, true
+  P.fadeAll(rec, P.stockRegions(b))
+  t:ClearAllPoints()
+  t:SetPoint("CENTER", b, "CENTER", 0, 0)
+  t:SetSize(STEP_ICON, STEP_ICON)
+  t:SetTexture(art)
+  t:Show()
+  stepTint(b, rec)
+  stepHooks(b, rec)
+end
+
+--- Paint bar `sb`'s step buttons for `owner`, recording on `rec` that P.unpaint gives them back. The
+--- icons come from the host's copy, so they are among docs/releasing.md's library-drawn icons.
+function P.stepArrows(rec, owner, sb)
+  for _, s in ipairs(STEPS) do
+    local b = stepButton(sb, s.key)
+    if b then
+      paintStep(owner, b, s.icon)
+      rec.regions.stepped = true
+    end
+  end
+end
+
+--- Give bar `sb`'s step buttons back: the stock art's alpha, the mark hidden. P.unpaint calls it.
+function P.unstep(rec, sb)
+  rec.regions.stepped = nil
+  for _, s in ipairs(STEPS) do
+    local b = stepButton(sb, s.key)
+    if b then giveStepBack(b) end
+  end
+end
+
 --- S.ScrollBar(sb, opts): a scroll bar, a corridor and one knob in every skin. `opts.track` /
 --- `opts.thumb`, textures the caller drew, are filled with `scroll.track` / `scroll.thumb`
 --- (DebugLog's console bar). Otherwise the bar's own thumb art is faded and a flat knob laid in its
 --- place, in `scroll.thumb`, or `scroll.thumbOn` / `scroll.thumbOff` for `opts.state` "on" / "off"
 --- (OptionsScroll's always-shown bar); and a `scroll.track` corridor is laid under it, the bar's
---- full size. Draws no Media icon.
+--- full size. A template bar's step buttons wear the host's `chevron-up` and `chevron-down` in
+--- `icon.arrow` (P.stepArrows), `icon.hot` under the pointer and `scroll.thumbOff` disabled; with no
+--- host art they stay the client's.
 prim.ScrollBar = function(owner, sb, opts)
   if type(sb) ~= "table" then return end
   local rec = P.track(owner, sb, "ScrollBar", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
   if P.isTexture(opts.track) and T["scroll.track"] then opts.track:SetColorTexture(rgba(T["scroll.track"])) end
+  P.stepArrows(rec, owner, sb)
   paintKnob(rec, sb, T, opts)
   if opts.track or not T["scroll.track"] then return P.hide(rec, "track") end
   local t = P.tex(rec, "track", sb, "BACKGROUND", -1)
@@ -495,10 +665,43 @@ local function tabLine(rec, tab, T, selected)
   t:Show()
 end
 
+--- The tab's edge, on its own holder so the selected underline stays on the tab's. A tab drawn in
+--- the skin's art has no other edge than the art's; a named fill is the tab's face, which a settings
+--- strip's button is taller than.
+local function tabEdge(rec, tab, T, opts, selected)
+  local c = T["tab.border"]
+  if not c or P.media("background", T[selected and "tab.onTexture" or "tab.texture"]) then
+    return P.hideEdges(rec, tab)
+  end
+  local h = P.edgeHolder(rec, tab)
+  P.edges(rec, tab, c, T["tab.borderStyle"], T["tab.borderSize"], h)
+  if h and P.isTexture(opts.fill) and not rec.regions.nine then
+    h:ClearAllPoints()
+    h:SetAllPoints(opts.fill)
+  end
+end
+
+--- The two glow textures the caller drew (`opts.glow`: `hover`, `sel`, and its stock gradient's
+--- `bottom` and `top`) in `tab.glow`, fading to the same top. Only one is lit at a time, by the
+--- caller's own color, so this moves neither. P.unpaint puts the stock gradient back.
+local function tabGlow(rec, T, glow)
+  if type(glow) ~= "table" then return end
+  local c, prior = T["tab.glow"], P.saved(rec, "glow")
+  local bottom = c and P.asColor(c) or glow.bottom
+  for _, tex in ipairs({ glow.hover or false, glow.sel or false }) do
+    if tex and tex.SetGradient then
+      tex:SetGradient("VERTICAL", bottom, glow.top)
+      prior[tex] = glow
+    end
+  end
+end
+
 --- S.Tab(tab, opts): a tab. The stock art faded (with `opts.stock`, regions the caller drew from
 --- the client's art, such as the settings strip's atlases); the backing (`opts.fill`, else a region)
 --- `tab.onTexture` / `tab.texture` art, else `tab.onBg` / `tab.bg` and its gradient; a `tab.onLine`
---- underline on the holder while selected; the label (`opts.text`, else the tab's own) in
+--- underline on the holder while selected; a `tab.border` edge at `tab.borderSize` and
+--- `tab.borderStyle`, around `opts.fill` when it names one, and none on a tab in the skin's art;
+--- `opts.glow`'s textures in `tab.glow`; the label (`opts.text`, else the tab's own) in
 --- `tab.onText` / `tab.text` and the body font. `opts.selected` is the first state;
 --- `S.SetTabSelection` moves it. Draws no Media icon.
 prim.Tab = function(owner, tab, opts)
@@ -514,6 +717,8 @@ prim.Tab = function(owner, tab, opts)
   P.fadeAll(rec, P.stockRegions(tab, opts))
   tabFill(rec, tab, T, opts, selected)
   tabLine(rec, tab, T, selected)
+  tabEdge(rec, tab, T, opts, selected)
+  tabGlow(rec, T, opts.glow)
   local fs = P.isFS(opts.text) and opts.text or labelOf(tab)
   if fs then
     P.label(owner, rec, fs, T, selected and "tab.onText" or "tab.text")
@@ -558,6 +763,7 @@ local function closeGlyph(rec, btn)
   if not fs then return end
   fs:SetPoint("CENTER")
   fs:SetText("x")
+  P.font(rec.owner, rec, fs, "body", P.T(rec.owner)["close.rest"])
   fs:Show()
 end
 
@@ -576,7 +782,7 @@ end
 --- `btn.glyph`, a font string) in `close.rest`, `close.hot` under the pointer, under every skin,
 --- Ka0s Default included. The art's own tint is recorded on the first paint (P.tint) and given back
 --- when the button is unpainted (minor 10). A stock close button (the client's template) has its
---- art faded and an "x" glyph drawn, under every skin. `opts.own` (a button the library built,
+--- art faded and an "x" glyph drawn in the skin's body face (minor 14), under every skin. `opts.own` (a button the library built,
 --- Core.MakeCloseButton's) SetScripts the hover pair as Core does, keeping the host's pair to fall
 --- back to once the button is no longer painted; otherwise it is HookScript'd. Draws no Media icon
 --- (Core's `close` icon is the caller's).
@@ -634,8 +840,8 @@ prim.PageButton = function(owner, btn, dir, opts)
 end
 
 --- S.SquareIcon(frame, opts): an icon button. `opts.crop` trims the icon art's built-in border
---- (`opts.icon`, else `frame.icon` / `frame.Icon`, to .08-.92); an `icon.border` edge on the holder
---- (nil in Ka0s Default). Draws no Media icon.
+--- (`opts.icon`, else `frame.icon` / `frame.Icon`, to .08-.92); a 1 UI unit edge on the holder in
+--- `icon.outline`, else `icon.border` (R4-L3; every shipped skin sets both). Draws no Media icon.
 prim.SquareIcon = function(owner, frame, opts)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "SquareIcon", opts)
@@ -643,37 +849,105 @@ prim.SquareIcon = function(owner, frame, opts)
   local icon = P.isTexture(opts.icon) and opts.icon or P.field(frame, "icon", "Texture")
     or P.field(frame, "Icon", "Texture")
   if icon and opts.crop then icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
-  P.edges(rec, frame, P.T(owner)["icon.border"], "flat", 1)
-end
-
--- The edge style an `icon.borderStyle` names (minor 9, LK-04): "Solid" is the flat WHITE8X8 edge,
--- "None" draws none (nil), any other LibSharedMedia border key a nine-slice of that art.
-local function iconEdgeStyle(style)
-  if style == "None" then return nil end
-  if style == nil or style == "Solid" then return "flat" end
-  return "nine:" .. tostring(style)
-end
-
---- S.IconBorder(frame, opts): an `icon.border` edge on the frame's holder. Without `opts.fromSkin` it
---- is flat, `opts.size` pixels (1 by default), as it always was. With `opts.fromSkin = true` (minor 9,
---- LK-04) it is the skin's icon border: `icon.borderStyle` ("Solid" flat, "None" none, another
---- LibSharedMedia border key a nine-slice) at `icon.borderSize` pixels, and `opts.size` is not read.
---- Ka0s Default's is Solid 2px black. Draws no Media icon.
-prim.IconBorder = function(owner, frame, opts)
-  if not P.isFrame(frame) then return end
-  local rec = P.track(owner, frame, "IconBorder", opts)
   local T = P.T(owner)
-  if type(opts) == "table" and opts.fromSkin == true then
-    local style = iconEdgeStyle(T["icon.borderStyle"])
-    return P.edges(rec, frame, style and T["icon.border"] or nil, style, T["icon.borderSize"] or 1)
+  P.edges(rec, frame, T["icon.outline"] or T["icon.border"], "flat", 1)
+end
+
+-- A Texture's shown state reaches its holder: a border must not stand around a hidden icon.
+local ICON_SHOWN = { "Show", "Hide", "SetShown" }
+
+local function followShown(rec, tex, h)
+  h:SetShown(tex:IsShown())
+  local hooks = P.saved(rec, "hooks")
+  if hooks.iconShown or type(hooksecurefunc) ~= "function" then return end
+  hooks.iconShown = true
+  for _, method in ipairs(ICON_SHOWN) do
+    hooksecurefunc(tex, method, function(self) h:SetShown(self:IsShown()) end)
   end
-  local size = type(opts) == "table" and opts.size or 1
-  P.edges(rec, frame, T["icon.border"], "flat", size)
+end
+
+--- The holder for an edge on Texture `tex`, made once as the record's own: a plain child of the
+--- Texture's parent, on the Texture's bounds, one level over that parent. It takes no mouse, and
+--- nothing is called on the parent but its level's read, so a secure button stays untouched in
+--- combat. Nil with no parent frame.
+local function textureHolder(rec, tex)
+  local h = rec.regions.holder
+  if h then return h end
+  local parent = tex:GetParent()
+  if type(CreateFrame) ~= "function" or not P.isFrame(parent) then return nil end
+  h = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  h:SetAllPoints(tex)
+  local level = parent:GetFrameLevel()
+  if type(level) == "number" then h:SetFrameLevel(math.max(0, level + 1)) end
+  lib.__ours[h] = true
+  rec.regions.holder = h
+  return h
+end
+
+-- The outline (R3-L3 of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3, images 91 and 92): flat,
+-- in `icon.outline` (R4-L3 of docs/2026-11-03-SMOKE_ROUND4: a window's icon outline, apart from the
+-- HUD's `icon.border`), else `icon.border`, else `divider`, else the body text at 0.4 (P.edgeColor),
+-- in physical pixels
+-- (P.px). With `opts.fromSkin` it is 1 px in every skin: `icon.borderStyle` and `icon.borderSize`
+-- are no longer read, since a 2px size (Ka0s Default, Azeroth, Ember, WoW Midnight) or WoW Default's
+-- Blizzard Tooltip nine-slice drew a heavier frame than the owner's 1 px.
+-- With `opts.hud = true` (minor 17, R4-L4) the edge is the HUD's `icon.border`, else `divider`, else
+-- the body text at 0.4, and `icon.outline` is never read: a HUD icon keeps its black edge under
+-- Ka0s Default (the owner's scope answer, R4_SIGNOFF.md).
+local function drawIconEdge(rec, frame, T, opts)
+  local size = opts.fromSkin ~= true and type(opts.size) == "number" and opts.size or 1
+  local c = P.edgeColor(T, "icon.border")
+  if opts.hud ~= true then c = T["icon.outline"] or c end
+  local h = c and P.holder(rec, frame)
+  P.edges(rec, frame, c, "flat", h and P.px(h, size) or size)
+  if h and P.pxWatch then P.pxWatch(frame, h, "IconBorder", "edge", size) end
+end
+
+-- The zoom (R3-L3, images 88 to 90: the art's own edge showed inside the outline). The icon is the
+-- Texture handed in, else `opts.icon`, else `frame.icon` / `frame.Icon`; a frame with none is left,
+-- never a region guessed at. Its coords are saved once and given back by P.unpaint. The zoom only
+-- tightens (R3-FIX): each side takes the larger of `z` and the inset the icon already shows, so a
+-- host's tighter crop (S.SquareIcon's 0.08) stands, through every replay.
+local ICON_ZOOM = 0.07
+
+local function zoomIcon(rec, frame, opts)
+  if opts.zoom == false then return end
+  local icon = P.isTexture(frame) and frame or (P.isTexture(opts.icon) and opts.icon)
+    or P.field(frame, "icon", "Texture") or P.field(frame, "Icon", "Texture")
+  if not icon then return end
+  local z = type(opts.zoom) == "number" and opts.zoom or ICON_ZOOM
+  local coords = P.saved(rec, "coords")
+  if coords[icon] == nil then coords[icon] = { icon:GetTexCoord() } end
+  local c = { icon:GetTexCoord() }
+  for i, d in ipairs({ 0, 0, 0, 1, 1, 0, 1, 1 }) do c[i] = type(c[i]) == "number" and c[i] or d end
+  icon:SetTexCoord(math.max(z, c[1]), math.min(1 - z, c[7]), math.max(z, c[2]), math.min(1 - z, c[8]))
+end
+
+--- S.IconBorder(frame, opts): a flat `icon.outline` edge (else `icon.border`, R4-L3) on the frame's holder, in physical pixels,
+--- and the icon zoomed. Without `opts.fromSkin` the edge is `opts.size` pixels (1 by default). With
+--- `opts.fromSkin = true` (minor 9, LK-04) it is the skin's outline, 1 px in every skin since R3-L3,
+--- and `opts.size` is not read. A skin with neither token draws its `divider`, else its body text
+--- at 0.4. The icon (the Texture itself, `opts.icon`, else `frame.icon` / `frame.Icon`) is zoomed to
+--- texcoords 0.07..0.93; `opts.zoom` sets another inset, `false` leaves the coords alone. `frame` may
+--- be a Texture (minor 15): the edge hangs on a plain child of its parent (textureHolder), shown and
+--- hidden with the Texture. `opts.hud = true` (minor 17) draws the HUD's `icon.border` in place of
+--- `icon.outline`, for an icon on a HUD rather than in a window; it is recorded with the call, so a
+--- repaint and a skin switch keep it. Draws no Media icon.
+prim.IconBorder = function(owner, frame, opts)
+  local isTex = P.isTexture(frame)
+  if not (isTex or P.isFrame(frame)) then return end
+  local rec = P.track(owner, frame, "IconBorder", opts)
+  local h = isTex and textureHolder(rec, frame)
+  if isTex and not h then return end
+  opts = type(opts) == "table" and opts or {}
+  drawIconEdge(rec, frame, P.T(owner), opts)
+  zoomIcon(rec, frame, opts)
+  if isTex then followShown(rec, frame, h) end
 end
 
 --- S.SortHeaderBar(bar, opts): a list's header row. `list.header.bg` behind it (nil in Ka0s
 --- Default), each of `opts.texts` in `list.header.text`, each of `opts.arrows` (textures) in
---- `icon.tint`. Draws no Media icon.
+--- `list.header.arrow`. Draws no Media icon.
 prim.SortHeaderBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "SortHeaderBar", opts)
@@ -684,7 +958,7 @@ prim.SortHeaderBar = function(owner, bar, opts)
     if P.isFS(fs) then P.label(owner, rec, fs, T, "list.header.text") end
   end
   for _, t in ipairs(type(opts.arrows) == "table" and opts.arrows or {}) do
-    if P.isTexture(t) then P.glyph(rec, t, T, "icon.arrow") end
+    if P.isTexture(t) then P.glyph(rec, t, T, "list.header.arrow") end
   end
 end
 

@@ -148,7 +148,7 @@ local function assertTable(want, label)
       assertEqual(rgba(rawget(btn.tex, "__vertex")), want("list.header.text"), label .. ": the Bound lock")
     end
   end
-  local r, g, b = Skin:Color(OWNER, "list.header.text")
+  local r, g, b = Skin:Color(OWNER, "list.header.arrow")
   local arrow = NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
   local dateLabel = rawget(hdr.buttons.date.fs, "__text")
   assertTrue(dateLabel:find(arrow, 1, true) ~= nil, label .. ": the sort arrow is not in the header color: " .. dateLabel)
@@ -163,7 +163,8 @@ local function assertTable(want, label)
   end
   local bound = rows()
   local head = rawget(bound[1].header, "__text")
-  local chevron = NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, r, g, b)
+  local hr, hg, hb = Skin:Color(OWNER, "list.header.text")
+  local chevron = NS.IconMarkup("chevron-down", "Interface\\Buttons\\UI-MinusButton-Up", 0, hr, hg, hb)
   assertTrue(head:find(chevron, 1, true) == 1, label .. ": the chevron is not in the header color: " .. head)
   local count = escape({ Skin:Color(OWNER, "text.disabled") }) .. "(3)|r"
   assertTrue(head:find(count, 1, true) ~= nil, label .. ": the count is not in text.disabled: " .. head)
@@ -179,7 +180,7 @@ end
 -- Today's values, the literals these surfaces drew before the skin engine.
 local TODAY = {
   ["list.header.text"] = { 1, 0.82, 0 }, ["list.stripe"] = { 1, 1, 1, 0.03 },
-  ["list.hover"] = { 1, 0.82, 0, 0.10 }, ["text.body"] = { 0.9, 0.9, 0.9 },
+  ["list.hover"] = { 1, 0.82, 0, 0.10 }, ["text.body"] = { 0.9, 0.9, 0.9 }, ["menu.text"] = { 0.9, 0.9, 0.9 },
   ["text.disabled"] = { 0.5, 0.5, 0.5 },
   ["menu.bg"] = { 0.06, 0.06, 0.08, 0.98 }, ["menu.borderAlt"] = { 0.62, 0.5, 0.18, 1 },
   ["menu.hover"] = { 1, 0.82, 0, 0.15 },
@@ -199,10 +200,11 @@ test("skin table: on Ka0s Default every table surface draws the value it drew be
     -- ITEM_QUALITY_COLORS answer white for all.
     assertEqual(textColor(data.cells.item), rgba({ 163 / 255, 53 / 255, 238 / 255 }), "the client's epic color, as before")
     assertTrue(rawget(rows()[1].header, "__text"):find("|cff808080(3)|r", 1, true) ~= nil, "the count's bytes")
-    -- The header band and the scroll bar are recorded. The header lays no band of its own; the scroll
-    -- bar takes its track, as under every skin (LibKa0s SkinPaintControls minor 4).
+    -- The header band and the scroll bar are recorded. The recorder gives every frame a backdrop, so
+    -- the band lands there, not on a region; the scroll bar takes its track, as under every skin
+    -- (LibKa0s SkinPaintControls minor 4).
     assertTrue(recorded(BT.headerFrame, "SortHeaderBar"), "the header is the skin's SortHeaderBar")
-    assertEqual(#(rawget(BT.headerFrame, "__paintRegions") or {}), 0, "Ka0s Default lays no band under the header")
+    assertEqual(rgba(rawget(BT.headerFrame, "__backdropColor")), rgba({ 1, 1, 1, 0.04 }), "Ka0s Default's band")
     local sb = rawget(BT.scroll, "ScrollBar")
     assertTrue(recorded(sb, "ScrollBar"), "the scroll bar is the skin's ScrollBar")
     assertTrue(#(rawget(sb, "__paintRegions") or {}) > 0, "Ka0s Default lays the track under the bar")
@@ -231,7 +233,10 @@ test("skin table: the row menu is the skin's MenuFrame, call for call today's ba
     end
     -- Link to chat is disabled (no link), Blacklist item enabled; Delete in today's red bytes.
     assertEqual(textColor(m.buttons[1].fs), today("text.disabled"), "a disabled entry")
-    assertEqual(textColor(m.buttons[5].fs), today("text.body"), "an enabled entry")
+    assertEqual(textColor(m.buttons[5].fs), today("menu.text"), "an enabled entry")
+    local tint = ("0:0:64:64:0:64:0:64:%d:%d:%d|t"):format(Skin:Color(OWNER, "icon.tint") * 255 + 0.5,
+      select(2, Skin:Color(OWNER, "icon.tint")) * 255 + 0.5, select(3, Skin:Color(OWNER, "icon.tint")) * 255 + 0.5)
+    assertTrue(labels[5]:find(tint, 1, true) ~= nil, "the item's mark takes icon.tint: " .. labels[5])
     assertTrue(labels[5]:find("|cffff5555Delete|r", 1, true) ~= nil, "Delete keeps |cffff5555: " .. labels[5])
   end)
 end)
@@ -285,9 +290,10 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
     NS.ApplySkinChoice("ka0s", SW.key(Skin))
     -- The case means something only where the switch skin differs from today.
     for _, name in ipairs({ "list.header.text", "list.stripe", "list.hover", "text.body", "gtip.title",
-                            "menu.bg", "menu.hover" }) do
+                            "menu.bg", "menu.hover", "menu.text" }) do
       assertTrue(tokenOf(name) ~= today(name), "the switch skin's " .. name .. " is today's value")
     end
+    assertTrue(tokenOf("menu.text") ~= tokenOf("text.body"), "the switch skin's menu.text is text.body")
     assertTrue(tokenOf("sem.boundBoP") ~= rgba({ 0.30, 0.82, 0.42, 1 }), "the switch skin's BoP is today's")
     assertTrue(#BT.rowPool.free >= 1, "the switch's rebind took the free row")
     for _, row in ipairs(BT.rowPool.free) do
@@ -302,6 +308,7 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
     local m = BT:MenuFrame()
     assertEqual(rgba(rawget(m, "__backdropColor")), tokenOf("menu.bg"), "the menu fill follows the skin")
     assertEqual(rgba(rawget(m.buttons[1].hl, "__color")), tokenOf("menu.hover"), "the menu hover")
+    assertEqual(textColor(m.buttons[5].fs), tokenOf("menu.text"), "an enabled entry follows menu.text")
     local danger = escape({ Skin:Color(OWNER, "sem.danger") })
     assertTrue(danger ~= "|cffff5555", "the switch skin's sem.danger is today's")
     assertTrue(rawget(m.buttons[5].fs, "__text"):find(danger .. "Delete|r", 1, true) ~= nil, "Delete in sem.danger")

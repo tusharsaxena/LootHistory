@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 11
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -151,7 +151,9 @@ lib.ICONS = {
 -- Bitter (Ember), Philosopher (WoW Midnight), Fira Sans (WoW Forever: Medium for body text since
 -- minor 10, SemiBold for titles and HUD) and Atkinson Hyperlegible (High Contrast), each SIL OFL 1.1;
 -- Prototype (Ka0s Default) and Expressway (Obsidian) are not, each on a recorded owner ruling (below);
--- WoW Default draws the client's Friz Quadrata. The skins' faces move again with SkinDefs in this
+-- WoW Default draws Ubuntu (minor 12; the client's Friz Quadrata, then a shipped copy, until then;
+-- the copy left at minor 12).
+-- The skins' faces move again with SkinDefs in this
 -- release, so that list dates from minor 10. Barlow and Cinzel, minor 6's, left at minor 8, never
 -- released. `tools/artwork/fonts.py` is their provenance record: the pinned upstream commits, and the
 -- static weights it cuts from the three variable fonts. A skin names a face by this key and resolves
@@ -160,8 +162,8 @@ lib.ICONS = {
 -- THE MASK IS PER FACE (minor 6; minor 5 had one for all). LibSharedMedia refuses a font whose mask
 -- lacks the client's locale bit, which is the point: a face that draws a player's text as boxes does
 -- not belong in their dropdown. The mask is read off each shipped file's cmap: JetBrains Mono and the
--- families with Cyrillic (Expressway among them) are western + ruRU; Atkinson, Prototype, Friz, Emblem
--- and Doris PP have none and are western only.
+-- families with Cyrillic (Expressway and Ubuntu among them) are western + ruRU; Atkinson, Prototype,
+-- Emblem and Doris PP have none and are western only.
 -- None has Hangul or Han, and on such a client the skin falls back to the client's own font.
 --
 -- PROTOTYPE IS KA0S DEFAULT'S FACE (minor 10; the owner's ruling of 2026-10-30), for body, titles
@@ -191,13 +193,26 @@ lib.ICONS = {
 -- Condensed" the CondBold file, the keys the owner sees from Sorted. Open Sans is Apache 2.0, its text
 -- beside it. The other eight have no license allowing this and ship on the owner's ruling alone;
 -- `FONTS.md` quotes each notice, and is the `license` such a face names. Friz, Emblem and Doris PP have
--- no Cyrillic, so western; Segoe UI, Open Sans and Avant Garde have the Russian alphabet.
+-- no Cyrillic, so western; Segoe UI, Open Sans and Avant Garde have the Russian alphabet. Friz left at
+-- minor 12 (R3-L7, below).
 --
 -- EVERY FACE STAYS (minor 11, the owner's item 3), a skin naming it or not: Nunito, Vollkorn, Bitter,
 -- Philosopher, Fira Sans and Atkinson stay pickable after their skins moved on. That reverses the
 -- rule minor 10 worked to, under which Oxanium SemiBold and Bold, Fira Sans Regular and Inter Regular
 -- and SemiBold left: v1.81.0 shipped those five, so they come back with the Oxanium and Inter texts,
 -- and a profile naming one keeps resolving.
+--
+-- UBUNTU IS WOW DEFAULT'S FACE (minor 12, not yet shipped; R3-L6 of Ka0sAddonsCommonTasks
+-- docs/2026-11-02-SMOKE_ROUND3, the owner's ruling of 2026-11-02), for body, titles and HUD text:
+-- Friz Quadrata could not shrink to fit Loot History's Date column and stay readable. The official
+-- static Ubuntu-Regular.ttf (0.83) from google/fonts' ufl/ubuntu, unchanged, under the Ubuntu font
+-- license 1.0, which allows redistribution; upstream's UFL.txt ships beside it as `Ubuntu-UFL.txt`.
+-- Its cmap has the Russian alphabet (and Greek), so western + ruRU.
+--
+-- KA0S FRIZ QUADRATA TT IS GONE (minor 12, not yet shipped; R3-L7 of the same bundle): no skin draws it
+-- once WoW Default draws Ubuntu, and the owner ruled it out of the payload. Skin.lua's RETIRED_FONTS
+-- moves a stored pick of the key to Ka0s Ubuntu. LibSharedMedia's own "Friz Quadrata TT", the client's
+-- face, is not ours and is untouched.
 local WEST_RU = { "western", "ruRU" }
 lib.FONTS = {
   ["JetBrains Mono"]          = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
@@ -228,7 +243,6 @@ lib.FONTS = {
   ["Ka0s Prototype"]          = { file = "Prototype-Regular.ttf", license = "Prototype.txt", langmask = { "western" } },
   ["Ka0s Expressway"]         = { file = "Expressway-Bold.ttf", license = "Expressway-EULA.pdf",
                                   langmask = WEST_RU },
-  ["Ka0s Friz Quadrata TT"]   = { file = "FrizQuadrataTT-Regular.ttf", license = "FONTS.md", langmask = { "western" } },
   ["Ka0s Segoe UI"]           = { file = "SegoeUI-Regular.ttf", license = "FONTS.md", langmask = WEST_RU },
   ["Ka0s Segoe UI Bold"]      = { file = "SegoeUI-Bold.ttf", license = "FONTS.md", langmask = WEST_RU },
   ["Ka0s Segoe UI Light"]     = { file = "SegoeUI-Semilight.ttf", license = "FONTS.md", langmask = WEST_RU },
@@ -246,6 +260,7 @@ lib.FONTS = {
   ["Ka0s Emblem"]             = { file = "Emblem-Regular.ttf", license = "FONTS.md", langmask = { "western" } },
   ["Ka0s Doris PP"]           = { file = "DorisPP-Bold.ttf", license = "FONTS.md", langmask = { "western" } },
   ["Ka0s Avant Garde"]        = { file = "AvantGarde-Regular.ttf", license = "FONTS.md", langmask = WEST_RU },
+  ["Ka0s Ubuntu"]             = { file = "Ubuntu-Regular.ttf", license = "Ubuntu-UFL.txt", langmask = WEST_RU },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is
@@ -304,8 +319,9 @@ lib.TEXTURES = {
 -- `SetTextureSliceMargins`, so its corners stay 8x8 at any frame size and meet the border's.
 --
 -- ONLY SHIPPED ART. The in-client keys the skins use (`Blizzard Dialog`, `Blizzard Tooltip`,
--- `Blizzard Dialog Background`, `Solid`, ...) are LibSharedMedia's own defaults already, so nothing
--- here re-registers them.
+-- `Blizzard Dialog Background`, ...) are LibSharedMedia's own defaults already, so nothing here
+-- re-registers them. `Solid` is a default of LSM's `background` and `statusbar` only, and it has no
+-- file here, so its `border` is no row of this catalog: RegisterLSM offers it by hand (minor 12).
 lib.BORDERS = {
   ["Ka0s Glass"] = { file = "glass-border.tga", edgeSize = 8 },
 }
@@ -503,6 +519,9 @@ local function registerOne(LSM, kind, name, path, langmask)
   return LSM:IsValid(kind, name) and 1 or 0
 end
 
+-- The client's white, which a backdrop's `edgeFile` draws as a flat line: the LSM `Solid` border.
+local FLAT_EDGE = "Interface\\Buttons\\WHITE8X8"
+
 --- The locale mask for one face, the sum of `LSM.LOCALE_BIT_<group>` over its `langmask` list
 --- (see RegisterLSM), or nil when LSM publishes no bit for one of them, so an LSM too old to carry
 --- the constants gets the plain call.
@@ -583,11 +602,18 @@ end
 --- ends when the collection's rollout re-vendors v1.78.0 into every consumer, since every folder
 --- then carries the files.
 ---
+--- THE FLAT EDGE (minor 12). LSM has no `Solid` border, and a skin's `bar.borderStyle` names one, so
+--- it is offered here: a host that fetches the skin's answer itself gets the flat edge, rather than
+--- LSM's default None or its own fallback, whichever addons happen to be enabled. It is the client's
+--- own white, the path each addon that registers the key offers, so which of them gets there first
+--- changes nothing.
+---
 --- @param addonName string  the consumer's own addon folder name
 --- @param vendorPath string optional
 --- @return number fonts, number statusbars, number borders, number backgrounds  how many of each LSM
 ---         holds after the call; all 0 when LSM is absent, which is not an error. The third and
----         fourth arrived at minor 6; a caller reading two still reads the first two.
+---         fourth arrived at minor 6; a caller reading two still reads the first two. The third
+---         counts `Solid` from minor 12.
 function lib.RegisterLSM(addonName, vendorPath)
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if not LSM then return 0, 0, 0, 0 end
@@ -606,7 +632,7 @@ function lib.RegisterLSM(addonName, vendorPath)
 
   -- BORDER and BACKGROUND, the same bargain again: a frame-art dropdown offers them by name.
   local borders = registerCatalog(LSM, mt.BORDER or "border", lib.BORDERS, lib.Border,
-    addonName, vendorPath)
+    addonName, vendorPath) + registerOne(LSM, mt.BORDER or "border", "Solid", FLAT_EDGE)
   local backgrounds = registerCatalog(LSM, mt.BACKGROUND or "background", lib.BACKGROUNDS,
     lib.Background, addonName, vendorPath)
 

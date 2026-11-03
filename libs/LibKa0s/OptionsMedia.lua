@@ -52,7 +52,10 @@ if not lib then return end
 -- Minor 2 (the owner's ruling of 2026-11-01): lib.__MediaWidgetType answers for an LSM30_* name
 -- whether or not that type is registered, and OptionsWidgets asks it first. No picker changed.
 -- Minor 3 (the owner's ruling of 2026-11-01): a comment only, its pointer into Options.lua.
-local MEDIA_MINOR = 3
+-- Minor 4 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): on a picker the skin
+-- painted, the play button is the Ka0s `volume-high` icon in `icon.tint` and the swatches take
+-- `icon.tint` and `input.bg`. Anywhere else a row is drawn as it was.
+local MEDIA_MINOR = 4
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__mediaMinor and lib.__mediaMinor >= MEDIA_MINOR
   and lib.__mediaShellMinor == lib.MINOR then return end
@@ -85,6 +88,8 @@ local ROW_TEXT_RIGHT     = -8          -- Dropdown-Item-Toggle's own text inset 
 local PLAY_SIZE          = 14
 local ROW_FACE_SIZE      = 12          -- a row's preview, Ka0s Prototype's body size
 local BAR_TINT           = 0.65        -- a white statusbar texture reads as a bar on a dark field
+local BORDER_FILL        = { 0.1, 0.1, 0.1 }   -- behind a border swatch, under no skin
+local NO_TINT            = { 1, 1, 1 }
 local WHITE              = "Interface\\Buttons\\WHITE8X8"
 local SPEAKER            = "Interface\\Common\\VoiceChat-Speaker"
 local SPEAKER_ON         = "Interface\\Common\\VoiceChat-On"
@@ -133,7 +138,8 @@ local function makeSwatch(parent)
 end
 
 --- Show `path` on swatch `s`: a bar, an edge over a dark fill, or a tiled fill. No path hides it.
-local function dressSwatch(s, kind, path)
+--- `look` is rowLook's answer, or nil for the typed colors.
+local function dressSwatch(s, kind, path, look)
   if not path then
     s:Hide()
     return
@@ -141,13 +147,16 @@ local function dressSwatch(s, kind, path)
   if kind == "statusbar" then
     s:SetBackdrop(nil)
     s.bar:SetTexture(path)
+    local tint = look and look.tint or { BAR_TINT, BAR_TINT, BAR_TINT }
+    s.bar:SetVertexColor(tint[1], tint[2], tint[3], 1)
     s.bar:Show()
   else
     s.bar:Hide()
     if kind == "border" then
       s:SetBackdrop({ bgFile = WHITE, edgeFile = path, edgeSize = 8,
                       insets = { left = 2, right = 2, top = 2, bottom = 2 } })
-      s:SetBackdropColor(0.1, 0.1, 0.1, 1)
+      local fill = look and look.fill or BORDER_FILL
+      s:SetBackdropColor(fill[1], fill[2], fill[3], 1)
       s:SetBackdropBorderColor(1, 1, 1, 1)
     else
       s:SetBackdrop({ bgFile = path, tile = true, tileSize = 16 })
@@ -170,6 +179,17 @@ local function makePlay(parent)
   btn:SetScript("OnClick", playOnClick)
   btn:Hide()
   return btn
+end
+
+--- The play button's art: the Ka0s speaker in the skin's tint under `look`, else the client's.
+local function dressSpeaker(btn, look)
+  local art = look and look.speaker
+  btn:SetNormalTexture(art or SPEAKER)
+  btn:SetHighlightTexture(art or SPEAKER_ON, "ADD")
+  local tex = type(btn.GetNormalTexture) == "function" and btn:GetNormalTexture()
+  if not (tex and tex.SetVertexColor) then return end
+  local tint = art and look.tint or NO_TINT
+  tex:SetVertexColor(tint[1], tint[2], tint[3], 1)
 end
 
 local function dressPlay(btn, path)
@@ -197,7 +217,19 @@ local function rowExtra(item, field, make)
   return e
 end
 
-local function dressRow(kind, m, item)
+--- What a pull-out row wears on picker `self`: nil unless the skin painted the picker, so an ignored
+--- panel and an unowned picker keep the typed look. Read at each open: a row is pooled.
+local function rowLook(self)
+  local Skin = LibStub and LibStub("LibKa0s-Skin-1.0", true)
+  local st = Skin and Skin.__ace and Skin.__ace[self]
+  local owner = st and st.owner
+  if not owner then return nil end
+  local media = LibStub("LibKa0s-Media-1.0", true)
+  return { speaker = media and type(media.Icon) == "function" and media.Icon(owner, "volume-high") or nil,
+           tint = Skin:Token(owner, "icon.tint"), fill = Skin:Token(owner, "input.bg") }
+end
+
+local function dressRow(kind, m, item, look)
   local st = item.__media
   local path = resolve(kind, previewOf(m, item.userdata and item.userdata.value))
   if kind == "font" then
@@ -210,10 +242,11 @@ local function dressRow(kind, m, item)
   local extra
   if kind == "sound" then
     extra = rowExtra(item, "play", makePlay)
+    dressSpeaker(extra, look)
     dressPlay(extra, path)
   else
     extra = rowExtra(item, "swatch", makeSwatch)
-    dressSwatch(extra, kind, path)
+    dressSwatch(extra, kind, path, look)
   end
   item.text:SetPoint("BOTTOMRIGHT", extra, "BOTTOMLEFT", -TEXT_GAP, 0)
 end
@@ -240,9 +273,10 @@ end
 -- ── the picker ───────────────────────────────────────────────────────────────────────────────
 
 local function dressRows(self)
+  local look = rowLook(self)
   local m = self.__media
   for _, item in self.pullout:IterateItems() do
-    if item.type == ITEM_TYPE then dressRow(m.kind, m, item) end
+    if item.type == ITEM_TYPE then dressRow(m.kind, m, item, look) end
   end
 end
 
@@ -262,7 +296,13 @@ local function dressClosed(self)
   local m = self.__media
   if m.kind == "font" then return dressFace(self) end
   local path = resolve(m.kind, previewOf(m, self.value))
-  if m.play then dressPlay(m.play, path) else dressSwatch(m.swatch, m.kind, path) end
+  local look = rowLook(self)
+  if m.play then
+    dressSpeaker(m.play, look)
+    dressPlay(m.play, path)
+  else
+    dressSwatch(m.swatch, m.kind, path, look)
+  end
 end
 
 --- Set `fs`'s text again, through "" since a client may skip setting the same string.

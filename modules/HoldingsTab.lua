@@ -313,7 +313,7 @@ local function rgb(c) return c[1], c[2], c[3] end
 -- baked, so the pair is REBUILT on a skin change (HT:Reskin) before the header is laid out again.
 local ARROW_ASC, ARROW_DESC
 local function buildArrows()
-  local r, g, b = headerRGB()
+  local r, g, b = NS.SkinColor("list.header.arrow")
   ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
   ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
 end
@@ -512,6 +512,8 @@ function HT:Attach(pane)
   header.cells = {}
   for _, col in ipairs(HT.COLUMNS) do header.cells[col.key] = makeHeaderCell(header, col) end
   self.header = header
+  -- The same band the History table's header wears (modules/BrowserTable.lua), list.header.bg.
+  NS.Skin.SortHeaderBar(header)
 
   -- Same scroll skin and anchors as the Insights pane (modules/Analytics.lua), below the header.
   local scroll = CreateFrame("ScrollFrame", nil, pane, "UIPanelScrollFrameTemplate")

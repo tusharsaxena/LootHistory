@@ -2,7 +2,9 @@
 -- (TitleBar, Divider, Footer, Card, Strip, Cover, Tooltip, MenuFrame), the stock-art faders of
 -- EllesmereUI's vocabulary (FadeRegions, FadeNineSlice, from SkinPaint.lua since its minor 11), the
 -- text and font primitives (Text, Font, White), the bar texture (BarTexture) and the getters
--- (GetAccentColor, GetPanelColor, GetFont, GlowColor, ChartStyle, BarStyle).
+-- (GetAccentColor, GetPanelColor, GetFont, GlowColor, HudTextColor, HudLabelColor, BarFillColor,
+-- HudShadow, ChartStyle, BarStyle, BarBorder), hover art (HoverArt), and the HUD's two shared looks
+-- (BarGloss, HudFont).
 --
 -- A file of its own so no primitive file reaches layout-§1's 1000-line band: it is part of the same
 -- major, paired on the shell's minor (`__extrasMinor` / `__extrasShellMinor`), and it paints with
@@ -18,40 +20,21 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
--- Minor 2 (the owner's notes, round 2): Footer, Card and Cover give the strings they color the
--- skin's face through P.label, so no labeled string keeps the client's font and its shadow.
--- Minor 3: a wash is a region of its frame at the bottom of BACKGROUND (SkinPaint minor 7's P.SUB),
--- not of the fill holder, which could tie the frame's parent for frame level.
--- Minor 4: BarTexture, the owner's bar texture (`bar.texture`, its texture override when it sets
--- one, Skin minor 6) on a Texture or a StatusBar, tinted and recorded (LibKa0s#63). A repaint and a
--- nil color keep the bar's live color (a host's own recolor included), never a first-paint snapshot.
--- Minor 5 (LK-02 of Ka0sAddonsCommonTasks docs/2026-10-29-SKINNING_ROLLOUT): Card's `opts.tokens`
--- slot remap (`bg`, `border`, `title`, `text`; SkinPaint minor 11's P.remap), and the two faders,
--- moved here unchanged from SkinPaint.lua, which they would have taken into layout-§1's band.
--- Then (LK-05 of the same run, still minor 5): TitleBar's and FadeNineSlice's `opts.stockDefault`
--- (SkinPaint minor 11's P.keepStock, retired at SkinPaint minor 12), and Panel and Inset, moved here
--- unchanged from SkinPaint.lua for the same reason. And (LK-01's review, still minor 5): S.Text takes an owner or library token
--- NAME as well as a role, so an owner token is drawn through a tracked, replayed primitive.
--- Minor 6 (LK-01 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-1):
--- BarStyle's `font`, `fontKey` and `outline` are nil while the owner ignores fonts, read through
--- `Skin:Token` like every host read, so the host's own setting stands.
--- Then (LK-05 of the same run, ruling R-5, decision D-02, still minor 6): P.panelIgnored, the
--- settings-panel scope every primitive and widget can share, and S.Text's `opts.panel`. It lives here
--- rather than in SkinPaint.lua, so that file stays out of layout-§1's 1000-line band.
--- Then (LK-02 of the same run, ruling R-2, still minor 6): the stock look is retired. TitleBar,
--- FadeNineSlice, Panel and Inset ignore a stale `opts.stockDefault` and paint under Ka0s Default as
--- under every skin (SkinPaint minor 12, which gives a TitleBar's alignment back in P.unpaint).
--- Then (LK-06a of the same run, ruling R-5, decision D-02, still minor 6): S.Strip takes
--- `opts.panel` as S.Text does, for `W.TestStrip`'s `opts.panel`; P.panelIgnored records its answer
--- as `rec.panelOff` for P.hook.
--- Minor 7 (LK-04 of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_FONTS_AND_FEEDBACK, the owner's ruling
--- D-07): S.FontFlags(value, where), the flags an element draws with from its stored Font flags: a
--- picked flag wins, and "From skin" (FROM_SKIN; nil too) resolves through the owner's Font outline
--- (Skin minor 9). OptionsCompose minor 14's `flagsFromSkin` offers the value. Then (LK-06 of the same
--- bundle, ruling D-09, still minor 7): S.HudFontSize(size, fromSkin), the size a HUD element stored at
--- `size` draws at: scaled by the skin's `hud.fontSize` over Ka0s Default's while it uses the skin's
--- face, the stored size while it draws its own (fromSkin false) or the owner ignores fonts.
-local EXTRAS_MINOR = 7
+-- Minors 2 to 16, each in the Skin document's *What changed*: P.label on Footer, Card and Cover;
+-- BarTexture; the faders, Panel and Inset moved here; P.panelIgnored; S.FontFlags and S.HudFontSize
+-- (to minor 7); boxed popup and rail edges (8); S.Mark and S.MarkText (9); S.GetFont("mono") (10);
+-- S.TitleBar's `opts.place` (11); the HUD color getters and S.HudShadow (12); S.Panel's `opts.popup`
+-- and the profile delete confirmation (13); S.BarGloss and S.HudFont (14), their companion and
+-- Ignore fonts (15); S.BarBorder, shadow tokens, one font object per look, S.HoverArt (16).
+-- Then, still minor 16 and not yet shipped (Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3):
+-- P.holdFace, so a face shows on a string given its own SetFont first (R3-DR-1L); P.px and
+-- FadeNineSlice's 1 px edge in every skin (R3-L2); P.pxWatch, which keeps a pixel edge one pixel
+-- through a UI scale, display size or ancestor SetScale change (R3-FIX).
+-- Minor 17 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5, feedback item 5): S.Band, the
+-- window's title band as a frame Shell lays and keeps (EllesmereUI's 25 px bar under that source), and
+-- S.Header, which anchors every header child LEFT, CENTER or RIGHT to it at y 0, the title by
+-- `title.align` or the caller's `align`. S.TitleBar's `opts.place` takes the same title anchor.
+local EXTRAS_MINOR = 17
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -109,11 +92,38 @@ local function justify(rec, fs, align)
     priors[fs] = nil
   end
 end
+P.justify = justify   -- SkinAce's AceGUI Dropdown label (R3-L1); P.unpaint gives the prior back
+
+-- Where a placed title stands: the token's edge, in from it by what the host reserved for controls.
+local TITLE_INSET = 8
+
+--- opts.place: the bar takes `title.height`, and its text an anchor on the bar's `title.align`.
+--- Justifying a string only moves it inside its own width, and a hand-anchored title has none.
+-- A title on `anchor` (a bar, or the band) by `align`, at y 0: LEFT `left` px in, RIGHT `right` px in,
+-- CENTER on the middle. One anchor, so a repaint leaves one.
+local function anchorTitle(anchor, fs, align, left, right)
+  local x = 0
+  if align == "LEFT" then x = left or TITLE_INSET end
+  if align == "RIGHT" then x = -(right or TITLE_INSET) end
+  fs:ClearAllPoints()
+  fs:SetPoint(align, anchor, align, x, 0)
+end
+
+local function place(bar, fs, T, spec)
+  if T["title.height"] then bar:SetHeight(T["title.height"]) end
+  local align = T["title.align"]
+  if not (fs and align) then return end
+  local reserve = type(spec) == "table" and spec or {}
+  anchorTitle(bar, fs, align, reserve.left, reserve.right)
+end
 
 --- S.TitleBar(bar, opts): a title bar. Its fill is `title.bg` (or the `title.bgTop` / `bgBottom`
 --- gradient), the bar's backdrop when it has one, else a region of the bar under its text; its text (`opts.text`, else
 --- `bar.title` / `bar.text`) takes `title.text`, the title font and `title.align`, every one given
---- back by P.unpaint (the alignment since SkinPaint minor 12). Draws no Media icon.
+--- back by P.unpaint (the alignment since SkinPaint minor 12). `opts.place` (minor 11), true or
+--- `{ left, right }`, the px a LEFT or RIGHT title stays clear of for the bar's controls (default 8),
+--- gives a hand-built bar `title.height` and anchors its text by `title.align`; that is geometry,
+--- so P.unpaint leaves it. Draws no Media icon.
 prim.TitleBar = function(owner, bar, opts)
   if type(bar) ~= "table" then return end
   local rec = P.track(owner, bar, "TitleBar", opts)
@@ -121,10 +131,134 @@ prim.TitleBar = function(owner, bar, opts)
   local T = P.T(owner)
   P.box(rec, bar, T, TITLE, opts)
   local fs = textOf(bar, opts, "text", { "title", "text" })
+  if opts.place then place(bar, fs, T, opts.place) end
   if not fs then return end
   P.tint(rec, fs, T, "title.text")
   P.font(owner, rec, fs, "title")
   justify(rec, fs, T["title.align"])
+end
+
+-- ── the band and the header (minor 17) ───────────────────────────────────────────────────────
+
+-- EllesmereUI's shell bar, flush with the window's top: what a player sees as the header while
+-- EllesmereUI paints the owner (Premade Groups Filter Extension measured it, modules/Panel.lua).
+local EUI_BAR_H = 25
+-- A header control's width when its frame answers none (before layout, or headless): Core's close.
+local CONTROL_W = 18
+local HEADER_PAD, HEADER_GAP = 6, 4
+
+--- Where the band stands: in from a flat edge by `win.borderSize`, else 1, `title.height` high (the
+--- top bar S.Shell paints); flush at the top and 25 high while EllesmereUI paints the owner's Shell.
+local function bandGeometry(owner, frame, T)
+  local route = lib.__euiRoute
+  if type(route) == "function" and route(owner, "Shell") and not lib.euiRefused[owner]
+    and not lib.shared[frame] then
+    return 0, EUI_BAR_H
+  end
+  local inset = (T["win.borderStyle"] or "flat") == "flat" and T["win.borderSize"] or 1
+  return type(inset) == "number" and inset or 1, T["title.height"] or 30
+end
+
+--- The record's band holder for `frame`, laid where the band stands now: an invisible child frame,
+--- made once, that takes no mouse. Shell lays it on every paint, `noTopBar` or not (geometry is not
+--- fill), so a child anchored to it moves with a switch and no host code.
+function P.layBand(owner, rec, frame, T)
+  local b = rec and rec.regions.band
+  if not b then
+    if not rec or type(CreateFrame) ~= "function" or not P.isFrame(frame) then return nil end
+    b = CreateFrame("Frame", nil, frame)
+    if type(b) ~= "table" then return nil end
+    if type(b.EnableMouse) == "function" then b:EnableMouse(false) end
+    lib.__ours[b] = true
+    rec.regions.band = b
+  end
+  local inset, h = bandGeometry(owner, frame, T or P.T(owner))
+  b:ClearAllPoints()
+  b:SetPoint("TOPLEFT", frame, "TOPLEFT", inset, -inset)
+  b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -inset, -inset)
+  b:SetHeight(h)
+  b:Show()
+  return b
+end
+
+--- S.Band(frame): the window's title band as a frame, answered for a host to anchor its header to.
+--- Recorded, so a switch (to or from the eui source too) lays it again. Draws nothing.
+prim.Band = function(owner, frame)
+  if type(frame) ~= "table" then return nil end
+  return P.layBand(owner, P.track(owner, frame, "Band"), frame)
+end
+
+--- A header entry: a frame, or `{ frame = f, width = n, x = n }` (`x` its offset from the band's
+--- edge, else chained after the one before it). Answers the frame, its width and its x or nil.
+local function isWidget(o)
+  local k = P.kind(o)
+  return k ~= nil and k ~= "table"
+end
+
+local function entryOf(e)
+  if isWidget(e) then return e, nil, nil end
+  if type(e) == "table" and isWidget(e.frame) then return e.frame, e.width, e.x end
+  return nil
+end
+
+local function widthOf(f, w)
+  if type(w) == "number" then return w end
+  local got = type(f.GetWidth) == "function" and f:GetWidth()
+  return (type(got) == "number" and got > 0) and got or CONTROL_W
+end
+
+--- Anchor `list` to `band`'s `side` (LEFT or RIGHT) at y 0, the first `pad` in and each next `gap`
+--- past the one before. Answers how far in from that edge the controls reach (0 with none).
+local function chain(band, list, side, pad, gap)
+  local off, reach = pad, 0
+  for _, e in ipairs(type(list) == "table" and list or {}) do
+    local f, w, x = entryOf(e)
+    if f then
+      off = x or off
+      f:ClearAllPoints()
+      f:SetPoint(side, band, side, side == "RIGHT" and -off or off, 0)
+      reach = off + widthOf(f, w)
+      off = reach + gap
+    end
+  end
+  return reach
+end
+
+--- `bars` (drag strips) take the band's whole rect.
+local function layBars(band, bars)
+  for _, bar in ipairs(type(bars) == "table" and bars or {}) do
+    if P.isFrame(bar) then bar:ClearAllPoints(); bar:SetAllPoints(band) end
+  end
+end
+
+--- `spec.title` on the band by `spec.align`, else `title.align`, clear of the controls that reach
+--- `left` and `right` in from its edges (`spec.inset` with none), and justified to it.
+local function headerTitle(rec, band, T, spec, left, right, gap)
+  local fs = spec.title
+  if not P.isFS(fs) then return end
+  local align = spec.align or T["title.align"] or "CENTER"
+  anchorTitle(band, fs, align, left > 0 and left + gap or spec.inset, right > 0 and right + gap or spec.inset)
+  justify(rec, fs, align)
+end
+
+--- S.Header(frame, spec): a window's header on its band (S.Band). `spec.right` and `spec.left` are its
+--- controls, outermost first, each anchored RIGHT or LEFT to the band at y 0, `spec.pad` (6) in and
+--- `spec.gap` (4) apart, an entry `{ frame, width, x }` naming its own; `spec.title` is anchored by
+--- `spec.align`, else `title.align`, clear of the controls on its side (8 px with none), and justified
+--- to it; `spec.bars` (drag strips) take the band's whole rect. Every child is vertically centered on
+--- the band's geometric middle in every skin, and the call is recorded, so a switch places it again.
+--- Geometry only: P.unpaint leaves the anchors and gives back the justification. Draws nothing.
+prim.Header = function(owner, frame, spec)
+  if type(frame) ~= "table" or type(spec) ~= "table" then return end
+  local rec = P.track(owner, frame, "Header", spec)
+  local T = P.T(owner)
+  local band = P.layBand(owner, rec, frame, T)
+  if not band then return end
+  layBars(band, spec.bars)
+  local pad, gap = spec.pad or HEADER_PAD, spec.gap or HEADER_GAP
+  local right = chain(band, spec.right, "RIGHT", pad, gap)
+  local left = chain(band, spec.left, "LEFT", pad, gap)
+  headerTitle(rec, band, T, spec, left, right, gap)
 end
 
 --- S.Divider(target, opts): a rule. A texture is colored in place (`SetColorTexture`, four
@@ -219,6 +353,87 @@ prim.Cover = function(owner, target, opts)
   end
 end
 
+--- The AceGUI widget that owns region `tex`, or nil: `opts.widget`, else the widget of the frame it is
+--- a region of (every AceGUI constructor sets `frame.obj`).
+local function pooledWidget(tex, opts)
+  if type(opts.widget) == "table" then return opts.widget end
+  local parent = type(tex.GetParent) == "function" and tex:GetParent()
+  local w = type(parent) == "table" and rawget(parent, "obj")
+  if type(w) == "table" and type(rawget(w, "type")) == "string" and rawget(w, "frame") ~= nil then return w end
+  return nil
+end
+
+--- A pool hands an AceGUI widget to the next caller, in any addon, with this paint's record and tint
+--- still on it, so release gives them back (QuickComms' ab3be75 did this by hand). Armed once per
+--- acquire: a replay finds it armed. A copy with no SkinAce.lua has no OnRelease, and arms nothing.
+local function giveBackOnRelease(rec, tex, opts)
+  local w = pooledWidget(tex, opts)
+  if not w or rec.regions.released == w or type(lib.OnRelease) ~= "function" then return end
+  rec.regions.released = w
+  lib:OnRelease(w, function()
+    rec.regions.released = nil
+    P.unpaint(rec, tex)
+    lib:Untrack(tex)
+    if type(opts.stock) == "function" then opts.stock(tex) end
+  end)
+end
+
+--- S.Mark(tex, opts): a small mark on texture `tex` in the skin's tint. `opts.token` names the color
+--- (default `icon.tint`; `sem.good` and `sem.bad` for a mark that means something), `opts.art` is the
+--- Ka0s icon drawn in place of the client art `tex` wore, a path the host resolved and declared.
+--- `opts.panel = true`: the mark is on the owner's settings panel, so while the owner ignores its
+--- panel the tint is given back and `opts.stock(tex)` puts the client art back, a texture's art
+--- being nothing P.unpaint can read. Live both ways, replayed on a skin switch. On a region of a
+--- pooled AceGUI widget (minor 16) the record and the tint are given back at its release, and
+--- `opts.stock` runs: nothing for a host to do. `opts.widget` names the widget where `tex` is not a
+--- region of its frame. Draws no Media icon of its own.
+prim.Mark = function(owner, tex, opts)
+  if not P.isTexture(tex) then return end
+  opts = type(opts) == "table" and opts or {}
+  local rec = P.track(owner, tex, "Mark", opts)
+  giveBackOnRelease(rec, tex, opts)
+  if P.panelIgnored(owner, rec, tex, opts) then
+    if type(opts.stock) == "function" then opts.stock(tex) end
+    return
+  end
+  if opts.art then tex:SetTexture(opts.art) end
+  P.tint(rec, tex, P.T(owner), opts.token or "icon.tint", "SetVertexColor")
+end
+
+--- S.HoverArt(tex, opts) (minor 16): hover art `tex`, an ADD highlight the client draws in its own
+--- color, desaturated and tinted `list.hoverArt`; left as the client draws it where that token is
+--- `false` (Ka0s Default, WoW Default). A recorded primitive, so a skin change needs no call, and
+--- the public seam for the Options instance's private `O.__hoverArt`. `opts.panel` is S.Mark's: the
+--- art is the client's while the owner ignores its panel. `opts.back`: give it back and forget it, for
+--- a pool of the host's own; a region of an AceGUI widget does that at release, as S.Mark's does.
+--- Draws no Media icon.
+prim.HoverArt = function(owner, tex, opts)
+  if not P.isTexture(tex) then return end
+  opts = type(opts) == "table" and opts or {}
+  if opts.back then
+    local rec = lib.painted[tex]
+    if rec then P.unpaint(rec, tex) end
+    return lib:Untrack(tex)
+  end
+  local rec = P.track(owner, tex, "HoverArt", opts)
+  giveBackOnRelease(rec, tex, opts)
+  if P.panelIgnored(owner, rec, tex, opts) then return end
+  P.glyph(rec, tex, P.T(owner), "list.hoverArt")
+end
+
+--- S.MarkText(path, size, token): the same mark as inline `|T...|t` markup, for a line of text: icon
+--- `path` at `size` (default 14; 0 is the line's height) in `token`, default `icon.tint`. A string
+--- cannot be repainted, so a caller writes it again after a skin switch. Draws no Media icon of its
+--- own.
+prim.MarkText = function(owner, path, size, token)
+  size = size or 14
+  local c = P.T(owner)[token or "icon.tint"]
+  if type(c) ~= "table" then return ("|T%s:%d:%d|t"):format(path, size, size) end
+  local function byte(x) return math.floor(x * 255 + 0.5) end
+  return ("|T%s:%d:%d:0:0:64:64:0:64:0:64:%d:%d:%d|t"):format(path, size, size,
+    byte(c[1]), byte(c[2]), byte(c[3]))
+end
+
 --- S.Tooltip(frame): a LIBRARY-OWNED tooltip frame, never GameTooltip. Its backdrop is recolored
 --- with `tooltip.bg` / `tooltip.border`. Draws no Media icon.
 prim.Tooltip = function(owner, frame)
@@ -238,17 +453,36 @@ local MENU = { fill = "menu.bg", border = "menu.border", style = "menu.borderSty
 local MENU_ALT = { fill = "menu.bg", border = "menu.borderAlt", style = "menu.borderStyle",
                    size = "menu.borderSize", insets = false }
 
+--- Give a settings frame its own art back after a skin boxed it, so the recolor that follows lands
+--- on the art it was built with.
+local function keepArt(rec, frame)
+  if not rec.regions.boxed then return end
+  rec.regions.boxed = nil
+  P.restoreBackdrop(rec, frame)
+  P.hide(rec, "grad")
+  P.hideEdges(rec, frame)
+end
+
+local POPUP = { fill = "popup.bg", border = "popup.border", style = "popup.borderStyle",
+                size = "popup.borderSize", insets = false }
+
 --- S.MenuFrame(frame, opts): a popup menu. The flat backdrop with no insets, `menu.bg` under
 --- `menu.border` (Widgets' shared popup menu), or `menu.borderAlt` with `opts.alt` (LootHistory's
 --- row menu). `opts.popup` recolors the backdrop the frame already wears with `popup.bg` /
 --- `popup.border` instead (the id-suggestion popup); a nil one restores what the frame wore before
---- the first paint. Draws no Media icon.
+--- the first paint. A skin stating `popup.borderStyle` boxes it in `popup.borderSize` instead of
+--- recoloring; `false`, Ka0s Default's, keeps the frame's art. Draws no Media icon.
 prim.MenuFrame = function(owner, frame, opts)
   if not P.hasBackdrop(frame) then return end
   local rec = P.track(owner, frame, "MenuFrame", opts)
   opts = type(opts) == "table" and opts or {}
   local T = P.T(owner)
+  if opts.popup and T["popup.borderStyle"] then
+    rec.regions.boxed = true
+    return P.box(rec, frame, T, POPUP, opts)
+  end
   if opts.popup then
+    keepArt(rec, frame)
     -- The frame is built once and kept, so a nil token puts that half back as the frame wore it
     -- before the first paint, not as the last skin left it.
     P.saveBackdrop(rec, frame)
@@ -266,8 +500,23 @@ end
 
 local PANEL = { fill = "panel.bg", border = "panel.border" }
 local NAV_SLOTS = { bg = "nav.bg", border = "nav.border" }
+local NAV = { fill = "nav.bg", border = "nav.border", style = "nav.borderStyle", size = "nav.borderSize" }
 local INSET = { fill = "input.bg", border = "input.border", style = "input.borderStyle",
                 size = "input.borderSize" }
+
+--- The settings nav rail: boxed in the skin's edge when it states `nav.borderStyle`, else its own
+--- backdrop art recolored, its colors saved first so P.unpaint can put them back (minor 8: the panel
+--- exception, live).
+local function navPane(owner, rec, frame, T, opts, name)
+  T = P.remap(owner, T, opts.tokens, NAV_SLOTS, nil, name)
+  if T["nav.borderStyle"] then
+    rec.regions.boxed = true
+    return P.box(rec, frame, T, NAV, opts)
+  end
+  keepArt(rec, frame)
+  if P.hasBackdrop(frame) then P.saveBackdrop(rec, frame) end
+  return P.recolor(frame, T["nav.bg"], T["nav.border"])
+end
 
 local function panel(owner, frame, opts, name, spec)
   if type(frame) ~= "table" then return end
@@ -275,14 +524,8 @@ local function panel(owner, frame, opts, name, spec)
   opts = type(opts) == "table" and opts or {}
   P.markStock(rec, frame, opts)
   local T = P.T(owner)
-  if opts.nav then
-    -- The settings nav rail keeps its own backdrop art and is recolored (OptionsNav's pane); its
-    -- colors are saved first, so P.unpaint can put them back (minor 8: the panel exception, live).
-    if P.hasBackdrop(frame) then P.saveBackdrop(rec, frame) end
-    T = P.remap(owner, T, opts.tokens, NAV_SLOTS, nil, name)
-    return P.recolor(frame, T["nav.bg"], T["nav.border"])
-  end
-  if opts.inset then spec = INSET end
+  if opts.nav then return navPane(owner, rec, frame, T, opts, name) end
+  if opts.inset then spec = INSET elseif opts.popup then spec = POPUP end
   T = P.remap(owner, T, opts.tokens, { bg = spec.fill, border = spec.border }, P.FILL_SLOTS, name)
   P.box(rec, frame, T, spec, opts)
 end
@@ -290,9 +533,12 @@ end
 --- S.Panel(frame, opts): a flat panel, `panel.bg` under a `panel.border` edge (LootHistory's list
 --- panels). `opts.inset` paints it as an inset (`input.*`); `opts.noBg`, `opts.noBorder` leave out
 --- either half; `opts.nav` recolors the backdrop the frame already wears with `nav.bg` /
---- `nav.border` (the settings nav rail). `opts.tokens` (SkinPaint minor 11) remaps `bg` and `border` (the
---- panel's, the inset's or the nav rail's) to a library or owner token by NAME (a caution callout).
---- Draws no Media icon.
+--- `nav.border` (the settings nav rail), or boxes it in `nav.borderStyle` and `nav.borderSize` when
+--- the skin states a style; `false`, Ka0s Default's, keeps the art. `opts.popup` (minor 13) paints it
+--- as a floating box instead, `popup.bg` under `popup.border` in `popup.borderStyle` and
+--- `popup.borderSize`. `opts.tokens` (SkinPaint minor 11) remaps `bg` and `border` (the
+--- panel's, the inset's, the popup's or the nav rail's) to a library or owner token by NAME (a
+--- caution callout). Draws no Media icon.
 prim.Panel = function(owner, frame, opts) return panel(owner, frame, opts, "Panel", PANEL) end
 
 --- S.Inset(frame, opts): a recessed area, the input colors (`input.bg`, `input.border`, its style
@@ -318,18 +564,147 @@ prim.FadeRegions = function(owner, frame, ...)
   end
 end
 
+--- `n` physical pixels (1 by default) in the UI units of `frame`, a frame: the client's PixelUtil
+--- factor over its effective scale, so a 1 px edge is one pixel at any UI scale (R3-L2, R3-L3). `n`
+--- itself where the client has no PixelUtil or the frame no scale.
+function P.px(frame, n)
+  n = type(n) == "number" and n or 1
+  local pu = PixelUtil
+  local scale = P.isFrame(frame) and type(frame.GetEffectiveScale) == "function" and frame:GetEffectiveScale()
+  if type(pu) ~= "table" or type(pu.GetPixelToUIUnitFactor) ~= "function" or type(scale) ~= "number"
+    or scale <= 0 then return n end
+  return n * pu.GetPixelToUIUnitFactor() / scale
+end
+
+-- Pixel edges stay one pixel (R3-FIX of docs/2026-11-02-SMOKE_ROUND3): each is recorded weakly and
+-- re-sized, never repainted, when UIParent's size moves (a UI scale or display size change) and on a
+-- SetScale of the holder or an ancestor, UIParent's included, that moves the scale (DpsRace's HUD,
+-- WhatGroup's and MultiMeters' windows). Hooks, never an event: a library-wide registration would
+-- outlive every host's stand-down.
+lib.__pxSized = lib.__pxSized or setmetatable({}, { __mode = "k" })    -- target -> { h, prim, prefix, n }
+lib.__pxScales = lib.__pxScales or setmetatable({}, { __mode = "k" })  -- hooked frame -> last scale
+local PX_SIDES = { Top = "SetHeight", Bottom = "SetHeight", Left = "SetWidth", Right = "SetWidth" }
+
+--- Re-size every recorded pixel edge whose primitive still paints its target.
+function lib:__RefreshPixels()
+  for target, e in pairs(self.__pxSized) do
+    local rec, regions = self.painted[target], self.__regions[target]
+    if rec and regions and rec.calls and rec.calls[e.prim] then
+      local size = P.px(e.h, e.n)
+      for side, method in pairs(PX_SIDES) do
+        local t = regions[e.prefix .. side]
+        if t then t[method](t, size) end
+      end
+    end
+  end
+end
+
+local function refreshLive()
+  local live = LibStub and LibStub("LibKa0s-Skin-1.0", true)
+  if live and live.__RefreshPixels then live:__RefreshPixels() end
+end
+
+local function pxScreen()
+  local ui = UIParent
+  if lib.__pxScreenHooked or type(ui) ~= "table" or type(ui.HookScript) ~= "function" then return end
+  lib.__pxScreenHooked = true
+  ui:HookScript("OnSizeChanged", refreshLive)
+end
+
+--- Post-hook SetScale on `h` and each ancestor, once each, so a scale that moves re-sizes the edges;
+--- the same scale again costs one comparison.
+local function hookScales(h)
+  if type(hooksecurefunc) ~= "function" then return end
+  local f, guard = h, 0
+  while P.isFrame(f) and guard < 32 do
+    if lib.__pxScales[f] == nil and type(f.SetScale) == "function" then
+      lib.__pxScales[f] = type(f.GetScale) == "function" and f:GetScale() or 1
+      hooksecurefunc(f, "SetScale", function(self, s)
+        local scales = lib.__pxScales
+        if scales[self] == s then return end
+        scales[self] = s
+        refreshLive()
+      end)
+    end
+    f, guard = type(f.GetParent) == "function" and f:GetParent() or nil, guard + 1
+  end
+end
+
+--- Record `target`'s pixel edge for the refresh: primitive `name` paints it, its four regions are
+--- `prefix .. side` on holder `h`, `n` physical pixels wide.
+function P.pxWatch(target, h, name, prefix, n)
+  lib.__pxSized[target] = { h = h, prim = name, prefix = prefix, n = n }
+  pxScreen()
+  hookScales(h)
+end
+
+-- FadeNineSlice's edge, four regions of its own on the holder (R3-L2): the faded art leaves the frame
+-- no edge, and a dark frame vanished on a dark skin (images 85 to 87).
+local RING = { Top = { "TOPLEFT", "TOPRIGHT", "SetHeight" }, Bottom = { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight" },
+               Left = { "TOPLEFT", "BOTTOMLEFT", "SetWidth" }, Right = { "TOPRIGHT", "BOTTOMRIGHT", "SetWidth" } }
+
+--- An edge's color: the token `first` (the ring's `panel.border`, as S.Panel edges a box, image 93;
+--- S.IconBorder's `icon.border`, read after `icon.outline`), else `divider`, else the body text at 0.4, so a skin that
+--- sets none still draws a visible edge.
+function P.edgeColor(T, first)
+  local c = T[first or "panel.border"] or T["divider"]
+  if c then return c end
+  local b = T["text.body"]
+  return type(b) == "table" and { b[1], b[2], b[3], 0.4 } or nil
+end
+local ringColor = P.edgeColor
+
+--- A frame another primitive already edged (a Shell's or a Panel's edge, a backdrop a primitive
+--- dressed) keeps that edge, and the ring hides, as it does under `opts.noBorder`.
+local function sliceRing(rec, frame, T, opts)
+  local edged = rec.regions.edgeTop or rec.regions.nine or rec.regions.backdrop
+  local c = not (opts.noBorder or edged) and ringColor(T) or nil
+  local h = c and P.holder(rec, frame)
+  for side, a in pairs(RING) do
+    local t = h and P.tex(rec, "ring" .. side, h, "BORDER")
+    if t then
+      t:ClearAllPoints()
+      t:SetPoint(a[1], h, a[1])
+      t:SetPoint(a[2], h, a[2])
+      t[a[3]](t, P.px(h, 1))
+      t:SetColorTexture(rgba(c))
+      t:Show()
+    else
+      P.hide(rec, "ring" .. side)
+    end
+  end
+  if h then P.pxWatch(frame, h, "FadeNineSlice", "ring", 1) end
+end
+
 --- S.FadeNineSlice(frame, opts): fade the nine pieces of `frame.NineSlice`, under every skin, Ka0s
---- Default included.
+--- Default included, and draw a 1 px edge in its place on the holder, one physical pixel, in
+--- `panel.border` (`divider`, else the body text at 0.4, where a skin sets none), in every skin
+--- (R3-L2). A frame another primitive edged keeps that edge alone, and `opts.noBorder` draws none.
 prim.FadeNineSlice = function(owner, frame, opts)
   if not P.isFrame(frame) then return end
   local rec = P.track(owner, frame, "FadeNineSlice", opts)
   rec.regions.stock = true
   local ns = rawget(frame, "NineSlice")
-  if not P.isFrame(ns) then return end
-  for _, k in ipairs(P.NINE_KEYS or {}) do P.fade(rec, P.field(ns, k, "Texture")) end
+  if P.isFrame(ns) then
+    for _, k in ipairs(P.NINE_KEYS or {}) do P.fade(rec, P.field(ns, k, "Texture")) end
+  end
+  sliceRing(rec, frame, P.T(owner), type(opts) == "table" and opts or {})
 end
 
 -- ── text and fonts ───────────────────────────────────────────────────────────────────────────
+
+--- Make `fs` draw `face`, `size` and `flags` after it was handed a font object that carries them. The
+--- client lets a font a string was given with its own SetFont beat any font object, so a string
+--- that ever had one keeps that face through SetFontObject (DpsRace's clocks under every skin, R3-DR-1
+--- of Ka0sAddonsCommonTasks docs/2026-11-02-SMOKE_ROUND3). Only a string whose GetFont disagrees is
+--- written, so one that never had a face of its own stays on the object alone; the shadow stays the
+--- object's, the only one a 12.0.7 client draws. SkinPaint's P.font and P.unfont call it too.
+function P.holdFace(fs, face, size, flags)
+  if type(face) ~= "string" or type(size) ~= "number" or size <= 0 or type(fs.GetFont) ~= "function" then return end
+  local f, s, fl = fs:GetFont()
+  if f == face and (fl or "") == (flags or "") and type(s) == "number" and math.abs(s - size) < 0.05 then return end
+  fs:SetFont(face, size, flags or "")
+end
 
 local TEXT_ROLE = {
   body = "text.body", muted = "text.muted", heading = "text.heading", headingAlt = "text.headingAlt",
@@ -450,13 +825,34 @@ prim.GetAccentColor = function(owner) return colorOf(owner, "text.accent") end
 --- S.GetPanelColor(): r, g, b, a of `win.bg`.
 prim.GetPanelColor = function(owner) return colorOf(owner, "win.bg") end
 --- S.GetFont(): the body font's path, or the client's standard font when the skin sets none.
-prim.GetFont = function(owner)
-  local path = P.media("font", P.T(owner)["font.body"])
-  if path then return path end
+prim.GetFont = function(owner, role)
+  local mono = role == "mono"
+  local path = P.media("font", P.T(owner)[mono and "font.mono" or "font.body"])
+  if path or mono then return path end
   return type(STANDARD_TEXT_FONT) == "string" and STANDARD_TEXT_FONT or nil
 end
 --- S.GlowColor(): r, g, b, a of `glow.color`, or nil (the host's own glow color stands).
 prim.GlowColor = function(owner) return colorOf(owner, "glow.color") end
+--- S.HudTextColor() (minor 12, D2): r, g, b, a of `hud.text`, HUD text's color. Never a class color.
+prim.HudTextColor = function(owner) return colorOf(owner, "hud.text") end
+--- S.HudLabelColor() (minor 12, D2): r, g, b, a of `hud.label`, a HUD label or header's color.
+prim.HudLabelColor = function(owner) return colorOf(owner, "hud.label") end
+--- S.BarFillColor() (minor 12, D3): r, g, b, a of `bar.fill`. Class and state fills stay the host's.
+prim.BarFillColor = function(owner) return colorOf(owner, "bar.fill") end
+--- S.HudShadow(token) (minor 12, D6): the skin's HUD text shadow as x, y, r, g, b, a; `false` when the
+--- skin draws none (`hud.shadow` false); nil while the owner ignores fonts, when the host's own setting
+--- stands. A 12.0.7 client draws only a font object's shadow, so set these on one (SkinPaint's header).
+--- `token` (minor 16), optional, names the color token to read instead, a library or owner token: an
+--- owner token following `hud.shadow` gives a host its shipped shadow under Ka0s Default. A name the
+--- owner cannot read is logged once and reads `hud.shadow`; one that is no color is no shadow.
+prim.HudShadow = function(owner, token)
+  if lib:__FontsIgnored(owner) then return nil end
+  local T = P.T(owner)
+  local named = token ~= nil and lib:__RemapName(owner, token, "HudShadow")
+  local c = T[named and token or "hud.shadow"]
+  if type(c) ~= "table" then return false end
+  return T["hud.shadowX"], T["hud.shadowY"], c[1], c[2], c[3], c[4] or 1
+end
 
 local CHART_KEYS = { "axis", "axisAlt", "grid", "crosshair", "marker", "line", "bar", "track", "total",
                      "other", "otherLine", "series" }
@@ -499,7 +895,8 @@ end
 
 --- S.BarStyle(): a fresh table of the HUD tokens: `texture` (the LSM path, or nil), `textureKey`,
 --- `gloss`, `bg`, `border`, `borderStyle`, `borderSize`, `font` (path or nil), `fontKey`, `fontSize`,
---- `outline`, `iconBorder`. `font`, `fontKey` and `outline` are nil while the owner ignores fonts
+--- `outline`, `iconBorder`, `text`, `label`, `fill` (minor 12). The shadow is `S.HudShadow`'s, not
+--- a field here. `font`, `fontKey` and `outline` are nil while the owner ignores fonts
 --- (minor 6, R-1): they read through `Skin:Token`, which leaves the HUD's face and outline alone then.
 --- `fontSize` is `S.HudFontSize()` (minor 7): the skin's own `hud.fontSize`, or Ka0s Default's 12
 --- while the owner ignores fonts, since the host's own face was never measured at the skin's size.
@@ -512,5 +909,320 @@ prim.BarStyle = function(owner)
     borderStyle = T["bar.borderStyle"], borderSize = T["bar.borderSize"],
     font = P.media("font", face), fontKey = face, fontSize = prim.HudFontSize(owner),
     outline = outline, iconBorder = T["icon.border"],
+    text = T["hud.text"], label = T["hud.label"], fill = T["bar.fill"],
   }
+end
+
+--- S.BarBorder(style, show, size, fromSkin) (minor 16): what a bar border draws, as style, show, size,
+--- from the host's stored three and its companion. With the companion off (or a stored value that is
+--- no FROM_SKIN), the stored three. Following a skin that states a real `bar.borderStyle`, the skin's
+--- style and `bar.borderSize`, and show true: a real style wins over Show border. Following a skin's
+--- None, the player's stored three, because None is no border of the skin's own. A stored FROM_SKIN
+--- names no style, so under None it answers "None" with the stored show. Never recorded.
+prim.BarBorder = function(owner, style, show, size, fromSkin)
+  local follows = fromSkin == true or style == lib.FROM_SKIN
+  if not follows then return style, show, size end
+  local skin = lib:Token(owner, "bar.borderStyle")
+  if skin ~= nil and skin ~= "None" then return skin, true, lib:Token(owner, "bar.borderSize") end
+  if style == lib.FROM_SKIN then style = skin end
+  return style, show, size
+end
+
+-- ── the HUD's shared looks (minor 14) ────────────────────────────────────────────────────────
+
+-- The one gloss look, as P.fill's tokens: no skin token says otherwise, `bar.gloss` is a bool.
+local GLOSS = { glossTop = { 1, 1, 1, 0.25 }, glossBottom = { 1, 1, 1, 0 } }
+
+--- S.BarGloss(statusBar, fromSkin) (minor 14): the skin's gloss on a bar of data, where `bar.gloss` is true: a
+--- white gradient over the fill's top half, 0.25 at the top and clear at the middle. One layer, built
+--- on first need, a region of the status bar at the bottom of OVERLAY, so it sits over the fill and
+--- under a host's text, and it is anchored to the fill, so it never shines past it. That makes it the
+--- one overlay that is no holder's: a holder would sit over a host's border and text. `fromSkin`
+--- (minor 15) is the host's texture companion: the gloss belongs to the skin's texture, so `false`, a
+--- player's own texture, hides it, and nil or true leave it to the skin. Recorded with the argument,
+--- so a skin change shows or hides it with no host call and a replay keeps `false`; call it once
+--- after the bar has its texture, again when the companion moves, and again if a host hands the bar
+--- a new fill Texture. Anything but a StatusBar is left alone. Draws no Media icon.
+prim.BarGloss = function(owner, statusBar, fromSkin)
+  if P.kind(statusBar) ~= "StatusBar" then return end
+  local rec = P.track(owner, statusBar, "BarGloss", fromSkin)
+  local fill = statusBar:GetStatusBarTexture()
+  if fromSkin == false or P.T(owner)["bar.gloss"] ~= true or not fill then
+    return P.hide(rec, "gloss")
+  end
+  local gloss = P.tex(rec, "gloss", statusBar, "OVERLAY", -8)
+  if not gloss then return end
+  gloss:ClearAllPoints()
+  gloss:SetPoint("TOPLEFT", fill, "TOPLEFT")
+  gloss:SetPoint("BOTTOMRIGHT", fill, "RIGHT")
+  P.fill(rec, gloss, GLOSS, "gloss")
+end
+
+-- `__hudLooks`: a look's key -> { obj, ready }, its one font object for the session, across owners.
+-- `__hudFonts`: a string -> the object it wears, which only says so. Kept across minors: a client
+-- never frees a font object, so a newer copy must not start over.
+lib.__hudFonts = lib.__hudFonts or setmetatable({}, { __mode = "k" })
+lib.__hudLooks = lib.__hudLooks or {}
+lib.__hudFontSeq = lib.__hudFontSeq or 0
+
+--- The look's entry, made on first need. Nil where the client has no CreateFont. A replaced CreateFont
+--- starts a fresh table, since the entries are another maker's: in the client that is an addon
+--- wrapping it, once, and in a suite it is what lets a fake see what S.HudFont writes.
+local function hudLook(key)
+  if type(CreateFont) ~= "function" then return nil end
+  if lib.__hudLookMaker ~= CreateFont then
+    lib.__hudLookMaker, lib.__hudLooks = CreateFont, {}
+  end
+  local look = lib.__hudLooks[key]
+  if look then return look end
+  lib.__hudFontSeq = lib.__hudFontSeq + 1
+  look = { obj = CreateFont("LibKa0sHud_" .. lib.__hudFontSeq) }
+  lib.__hudLooks[key] = look
+  return look
+end
+
+--- A stored shadow as x, y, r, g, b, a, or false: `true` is the client's 1, -1 in black, a table is
+--- `{ x, y, r, g, b, a }`, anything else is none.
+local function storedShadow(s)
+  if s == true then return 1, -1, 0, 0, 0, 1 end
+  if type(s) ~= "table" or type(s[1]) ~= "number" then return false end
+  return s[1], s[2] or 0, s[3] or 0, s[4] or 0, s[5] or 0, s[6] or 1
+end
+
+--- The shadow a HUD string draws. With the host's companion on (nil counts), S.HudShadow's answer for
+--- `opts.shadowToken`: false none, numbers those; nil, the owner ignoring fonts, and a companion off
+--- leave the stored one.
+local function hudShadow(owner, opts)
+  if opts.shadowFromSkin ~= false then
+    local x, y, r, g, b, a = prim.HudShadow(owner, opts.shadowToken)
+    if x == false then return false end
+    if x ~= nil then return x, y, r, g, b, a end
+  end
+  return storedShadow(opts.shadow)
+end
+
+--- Face, size and flags on `target`, answering whether the face took. The client answers false for a
+--- file it has not loaded, which on a fresh font object leaves no font at all, so the client's own
+--- face goes on instead.
+local function setHudFace(target, face, size, flags)
+  if target:SetFont(face, size, flags) ~= false then return true end
+  if type(STANDARD_TEXT_FONT) == "string" then target:SetFont(STANDARD_TEXT_FONT, size, flags) end
+  return false
+end
+
+--- BOTH shadow arms write: an off arm that skipped the calls would keep what the last pass set.
+local function setHudShadow(target, x, y, r, g, b, a)
+  if x == false then x, y, r, g, b, a = 0, 0, 0, 0, 0, 0 end
+  target:SetShadowColor(r, g, b, a)
+  target:SetShadowOffset(x, y)
+end
+
+--- Everything a font object carries, as a key: two strings with one key draw alike.
+local function hudLookKey(face, size, flags, x, y, r, g, b, a)
+  return ("%s|%s|%s|%s|%s|%s|%s|%s|%s"):format(face, tostring(size), flags, tostring(x), tostring(y),
+    tostring(r), tostring(g), tostring(b), tostring(a))
+end
+
+--- Face, size, flags and shadow on `fs`'s font object, or on `fs` where the client has none. Answers
+--- the object, or nil.
+local function wearHudLook(fs, face, size, flags, ...)
+  local look = hudLook(hudLookKey(face, size, flags, ...))
+  if not look then
+    setHudFace(fs, face, size, flags)
+    setHudShadow(fs, ...)
+    return nil
+  end
+  if not look.ready then
+    look.ready = setHudFace(look.obj, face, size, flags)
+    setHudShadow(look.obj, ...)
+  end
+  lib.__hudFonts[fs] = look.obj
+  fs:SetFontObject(look.obj)
+  P.holdFace(fs, look.obj:GetFont())
+  return look.obj
+end
+
+--- S.HudFont(fs, opts) (minor 14): the one way to give a HUD string its face, size, flags and shadow.
+--- It all goes on a named font object, the only place a 12.0.7 client draws a shadow, or on the string
+--- where the client has no CreateFont. One object per LOOK (minor 16), shared by every string and
+--- owner that draws it and never rewritten, because a client never frees one: a face the client
+--- refused is tried again on the next call. `opts`, all optional: `face` (a path; the
+--- skin's `hud.font`, unread while the owner ignores fonts (minor 15), else the client's), `size` (as it draws: pass `S.HudFontSize`'s
+--- answer; 12 when not above 0), `flags` (through S.FontFlags, so "@skin" is safe), `shadow` (the
+--- host's stored one: true, false or `{ x, y, r, g, b, a }`), `shadowFromSkin` (the host's companion;
+--- false draws `shadow` under every skin), `shadowToken` (minor 16, S.HudShadow's `token`). S.HudShadow's three answers apply while the companion is
+--- on: false no shadow, nil the stored `shadow`, numbers those. A keyed table is no shadow, with no
+--- error. Answers the font object, or nil.
+--- Not recorded: the face and size are the host's resolved values, which a replay would draw stale,
+--- so call it from the appearance pass a skin change reaches, and set the text color after it.
+prim.HudFont = function(owner, fs, opts)
+  if type(fs) ~= "table" or P.isTexture(fs) or type(fs.SetFont) ~= "function" then return nil end
+  opts = type(opts) == "table" and opts or {}
+  local face = opts.face
+  if type(face) ~= "string" or face == "" then
+    face = P.media("font", lib:Token(owner, "hud.font")) or STANDARD_TEXT_FONT
+  end
+  if type(face) ~= "string" then return nil end
+  local size, flags = prim.HudFontSize(owner, opts.size, false), prim.FontFlags(owner, opts.flags)
+  return wearHudLook(fs, face, size, flags, hudShadow(owner, opts))
+end
+
+-- ── AceConfigDialog's confirmation box, for a Ka0s profile page (cause A4) ─────────────────────
+--
+-- AceConfigDialog keeps ONE popup for the client, and AceDBOptions-3.0 hands every database the SAME
+-- `args` table, so neither can be written to for one addon. What is one addon's alone is the group
+-- AceDBOptions made for its database. So the first PaintAceTree of a page gives that group its own
+-- `args` with its own `delete` row, equal to the shared one but for a `confirm` function that says
+-- "this delete is ours" and answers true, which is what AceConfigDialog read from the shared row. No
+-- other row moves, and the group keeps it across every redraw of the page; a client-wide table is
+-- never written, and an AceDBOptions upgrade taking the shared `args` back only means the next
+-- PaintAceTree does this again.
+--
+-- The box paints when its text is set: AceConfigDialog sets it right after that `confirm`, and
+-- measures it right after, so the skin's font is the one it measures. Text set with nothing armed
+-- is someone else's use of the box, which is never modal, so a box of ours still open gives itself
+-- back first. Hiding gives it back too: every part, recorded by the primitives, and the registry
+-- forgets them, so the box is stock when it next opens. The hooks are inert while nothing is painted.
+--
+-- It is part of the settings panel: nothing paints while the owner ignores its panel. A box another
+-- skinning addon already took is left to it. This lives here, not in SkinAce.lua, to keep that file
+-- out of layout-§1's 1000-line band; SkinAce's PaintAceTree is the one caller.
+
+local WEAK_KEYS = { __mode = "k" }
+-- `rows`: a row of ours -> its owner. `hooked`: a popup -> true. `armed`: the owner whose delete is
+-- raising the box right now. `painted`: true while the box wears a skin.
+lib.__aceConfirm = lib.__aceConfirm or { rows = setmetatable({}, WEAK_KEYS), hooked = setmetatable({}, WEAK_KEYS) }
+local confirmBox = lib.__aceConfirm
+
+local OTHER_SKIN_MARKS = { "isSkinned", "backdrop", "template" }
+
+local function copyTable(t)
+  local out = {}
+  for k, v in pairs(t) do out[k] = v end
+  return out
+end
+
+--- The box's four painted parts, as a list, or nil when AceConfigDialog no longer builds them.
+local function confirmParts(popup)
+  local text, accept, cancel = P.field(popup, "text", "FontString"), rawget(popup, "accept"), rawget(popup, "cancel")
+  if not (text and P.isFrame(accept) and P.isFrame(cancel)) then return nil end
+  return { popup, text, accept, cancel }
+end
+
+local function takenByOtherSkin(parts)
+  for _, part in ipairs(parts) do
+    for _, mark in ipairs(OTHER_SKIN_MARKS) do
+      if rawget(part, mark) ~= nil then return true end
+    end
+  end
+  return false
+end
+
+local function giveConfirmBack(popup)
+  confirmBox.painted = nil
+  for _, part in ipairs(confirmParts(popup) or {}) do
+    local rec = lib.painted[part]
+    if rec then
+      P.unpaint(rec, part)
+      lib:Untrack(part)
+    end
+  end
+end
+
+--- The box for `owner`: `popup.*`, the body text, two buttons, and the client's border faded.
+local function paintConfirm(owner, popup)
+  local parts = confirmParts(popup)
+  if not parts or takenByOtherSkin(parts) then return end
+  local text, accept, cancel = parts[2], parts[3], parts[4]
+  confirmBox.painted = true
+  prim.Panel(owner, popup, { popup = true })
+  local rec = lib.painted[popup]
+  for _, child in ipairs({ popup:GetChildren() }) do
+    if child ~= accept and child ~= cancel and not lib.__ours[child] then P.fade(rec, child) end
+  end
+  prim.Text(owner, text, "body")
+  prim.Button(owner, accept)
+  prim.Button(owner, cancel)
+end
+
+--- The box's text was set: paint it for an armed owner, else give back whatever it wears. Internal.
+function lib.__AceConfirmRaised(popup)
+  local owner = confirmBox.armed
+  confirmBox.armed = nil
+  if owner then return paintConfirm(owner, popup) end
+  if confirmBox.painted then giveConfirmBack(popup) end
+end
+
+--- The box hid. Internal.
+function lib.__AceConfirmHidden(popup)
+  confirmBox.armed = nil
+  if confirmBox.painted then giveConfirmBack(popup) end
+end
+
+--- A hook's body must never raise into AceConfigDialog's own code path.
+local function guarded(fn, arg)
+  local ok, err = pcall(fn, arg)
+  if ok then return end
+  local handler = type(geterrorhandler) == "function" and geterrorhandler()
+  if type(handler) == "function" then handler("LibKa0s-Skin-1.0 confirm box: " .. tostring(err)) end
+end
+
+local function hookConfirm(popup, text)
+  if confirmBox.hooked[popup] then return end
+  confirmBox.hooked[popup] = true
+  hooksecurefunc(text, "SetText", function() guarded(lib.__AceConfirmRaised, popup) end)
+  popup:HookScript("OnHide", function(self) guarded(lib.__AceConfirmHidden, self) end)
+end
+
+--- `owner`'s delete is about to raise the box.
+local function armConfirm(owner)
+  local dialog = LibStub("AceConfigDialog-3.0", true)
+  local popup = dialog and dialog.popup
+  if not P.isFrame(popup) then return end
+  local parts = confirmParts(popup)
+  if not parts then return end
+  hookConfirm(popup, parts[2])
+  confirmBox.armed = lib:__PanelSkinned(owner) and owner or nil
+end
+
+--- The group holding row `user.option` when that row is AceDBOptions' delete, and its key.
+local function deleteRowOf(user)
+  local option, path = user.option, user.path
+  if type(option) ~= "table" or option.set ~= "DeleteProfile" or type(path) ~= "table" then return nil end
+  local group = user.options
+  for i = 1, #path - 1 do
+    group = type(group) == "table" and type(group.args) == "table" and group.args[path[i]] or nil
+  end
+  if type(group) ~= "table" or type(group.args) ~= "table" then return nil end
+  return group, path[#path]
+end
+
+--- True when `group` is the table AceDBOptions made for one database, which nobody else reads.
+local function ownGroup(group)
+  local dbo = LibStub("AceDBOptions-3.0", true)
+  local tables = dbo and dbo.optionTables
+  local handler = group.handler
+  return type(tables) == "table" and type(handler) == "table" and handler.db ~= nil
+    and tables[handler.db] == group
+end
+
+--- For PaintAceTree: when `widget` is AceDBOptions' delete row on `owner`'s page, give the row's
+--- group its own row that arms the box. Not while it has one, and never on a table AceDBOptions
+--- did not make for one database. Internal.
+function lib.__AceConfirmArm(owner, widget)
+  local user = rawget(widget, "userdata")
+  if type(user) ~= "table" then return end
+  local group, key = deleteRowOf(user)
+  if not group or key == nil then return end
+  local row = group.args[key]
+  if type(row) ~= "table" or confirmBox.rows[row] or not ownGroup(group) then return end
+  local mine = copyTable(row)
+  mine.confirm = function()
+    guarded(armConfirm, owner)
+    return true
+  end
+  local args = copyTable(group.args)
+  args[key] = mine
+  confirmBox.rows[mine] = owner
+  group.args = args
 end

@@ -25,6 +25,7 @@ local B, E = NS.Browser, NS.Export
 local Skin = mocks.LibStub("LibKa0s-Skin-1.0")
 local OptionsLib = mocks.LibStub("LibKa0s-Options-1.0")
 local installPaint = dofile("tests/_kit/mock_paint.lua")
+local SW = dofile("tests/skin_support.lua")
 local OWNER = "LootHistory"
 
 -- ── the skin back on Ka0s Default ───────────────────────────────────────────────────────────────
@@ -126,14 +127,18 @@ local function assertChrome(win, exp, want, label)
   assertTrue(edge ~= nil, label .. ": the window has no edge on its holder")
   assertEqual(rgba(rawget(edge, "__color")), want("win.border"), label .. ": the window edge")
   assertEqual(textColor(win.title), want("title.text"), label .. ": the window title")
-  local line = dividerLine(win.dividerBar)
-  assertTrue(line ~= nil, label .. ": the divider drew no line on its holder")
-  assertEqual(rgba(rawget(line, "__color")), want("divider"), label .. ": the divider")
+  -- No line under the title (R4-SEP, Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND4): the
+  -- 1px `dividerBar` stays only as the tab strip's anchor and draws nothing in any skin.
+  assertTrue(dividerLine(win.dividerBar) == nil, label .. ": a line is drawn under the title")
   for name, tab in pairs(win.tabs) do
-    local active = tab.underline:IsShown()
-    -- The text roles (they read on the window in every skin); Ka0s Default's are tab.onText / tab.text.
-    assertEqual(textColor(tab.label), want(active and "text.accent" or "text.muted"), label .. ": tab " .. name)
-    assertEqual(rgba(rawget(tab.underline, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
+    assertTrue(recorded(tab, "Tab"), label .. ": tab " .. name .. " is the skin's Tab")
+    local regions = Skin.painted[tab].regions
+    local active = regions.selected == true
+    assertEqual(textColor(tab.label), want(active and "tab.onText" or "tab.text"), label .. ": tab " .. name)
+    assertTrue(regions.fill ~= nil, label .. ": tab " .. name .. " has no backing")
+    if active then
+      assertEqual(rgba(rawget(regions.line, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
+    end
   end
   assertEqual(textColor(B._footer), want("text.disabled"), label .. ": the footer")
   assertEqual(textColor(B._dbFooter), want("text.disabled"), label .. ": the DB-size footer")
@@ -184,7 +189,7 @@ test("skin chrome: every surface is painted for this addon's owner, so a switch 
   withFreshWindows(function(win, exp)
     assertTrue(recorded(win, "Shell"), "the window edge is the skin's Shell")
     assertTrue(recorded(win.titleBar, "TitleBar"), "the title bar is the skin's TitleBar")
-    assertTrue(recorded(win.dividerBar, "Divider"), "the divider is the skin's Divider")
+    assertTrue(not recorded(win.dividerBar, "Divider"), "the title bar has a Divider under it (R4-SEP)")
     assertTrue(recorded(win.closeButton, "CloseButton"), "the close control is the skin's CloseButton")
     assertTrue(recorded(B._footer, "Text") and recorded(B._dbFooter, "Text"), "both footers are skin text")
     for key, ctl in pairs(B._barCtl) do
@@ -199,12 +204,9 @@ test("skin chrome: every surface is painted for this addon's owner, so a switch 
     end
     assertTrue(recorded(exp, "Shell"), "the export modal's edge is the skin's Shell")
     assertTrue(recorded(csvButton(exp), "Button"), "Export to CSV is the skin's Button")
-    -- The divider is a frame of its own, never a direct region of the window that EllesmereUI's
-    -- FadeRegions would fade with the rest, and no `divider` field names it as a texture to tint.
-    local line = dividerLine(win.dividerBar)
-    for _, r in ipairs(rawget(win, "__paintRegions")) do
-      assertTrue(r ~= line, "the divider line is a direct region of the window")
-    end
+    -- No line under the title (R4-SEP): the anchor frame holds no line, and no `divider` field
+    -- names a texture for the window edge to tint.
+    assertTrue(dividerLine(win.dividerBar) == nil, "a line is drawn under the title")
     assertTrue(rawget(win, "divider") == nil, "a `divider` field the window edge would tint")
   end)
 end)
@@ -252,12 +254,44 @@ test("skin chrome: a skin switch repaints every chrome surface live, and Ka0s De
     for _, tab in pairs(win.tabs) do tab.label:SetTextColor(0, 0, 0) end
     B:SelectTab("History")
     for name, tab in pairs(win.tabs) do
-      assertEqual(textColor(tab.label), tokenOf(name == "History" and "text.accent" or "text.muted"),
+      assertEqual(textColor(tab.label), tokenOf(name == "History" and "tab.onText" or "tab.text"),
         "SelectTab paints tab " .. name .. " in the skin")
     end
 
     NS.ApplySkinChoice("ka0s", "ka0s")
     assertChrome(win, exp, today, "back on Ka0s Default")
+  end)
+end)
+
+-- Cause L8 and L9 of the full skinning run: the History grip names its owner, so a skin that tints
+-- the grip reaches it, and the export modal's bar is `title.height` with its title placed by the skin.
+test("skin chrome: the History grip follows the skin, and the export title bar is title.height", function()
+  withFreshWindows(function(win, exp)
+    assertEqual(exp.titleBar:GetHeight(), Skin:Token(OWNER, "title.height"), "the export bar's height")
+    assertTrue(recorded(exp.titleBar, "TitleBar"), "the export bar is the skin's TitleBar")
+    local grip, spy = win.resizeGrip, {}
+    rawset(grip, "GetNormalTexture", function() return spy end)
+    function spy.SetVertexColor(_, r, g, b) spy.c = rgba({ r, g, b }) end
+    function spy.GetObjectType() return "Texture" end
+    function spy.SetDesaturated() end
+    Skin:SetChoice(OWNER, "ka0s", "obsidian")
+    local want = rgba({ Skin:Color(OWNER, "icon.grip") })
+    assertTrue(want ~= "nil,nil,nil,1", "the skin tints no grip")
+    assertEqual(spy.c ~= nil and spy.c:sub(1, 17), want:sub(1, 17), "the grip takes the skin's tint")
+  end)
+end)
+
+-- Cause L6: the strip names its owner, so the library tints its mark, and a switch reaches it.
+test("skin chrome: the test strip's info mark takes icon.tint and follows a switch", function()
+  withFreshWindows(function(win)
+    local strip = NS.MakeTestStrip(win, "strip")
+    local mark = strip.__icon
+    assertTrue(mark ~= nil and recorded(mark, "Mark"), "the strip's mark is the skin's Mark")
+    assertEqual(rgba(rawget(mark, "__vertex")), tokenOf("icon.tint"), "Ka0s Default's tint")
+    local before = rawget(mark, "__vertex")
+    Skin:SetChoice(OWNER, "ka0s", "obsidian")
+    assertTrue(rgba(rawget(mark, "__vertex")) ~= rgba(before), "the switch moved no tint")
+    assertEqual(rgba(rawget(mark, "__vertex")), tokenOf("icon.tint"), "the switch skin's tint")
   end)
 end)
 
@@ -267,6 +301,48 @@ test("skin chrome: NS.SkinColor keeps a call site's arity (three components when
   assertEqual(select("#", NS.SkinColor("tab.onText")), 3, "an opaque token answers r, g, b")
   assertEqual(select("#", NS.SkinColor("btn.bg")), 4, "a translucent token answers r, g, b, a")
   assertEqual(NS.SkinColor("no.such.token"), nil)
+end)
+
+test("skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup", function()
+  local dns, _, dm = dofile("tests/degraded_env.lua")()
+  local S = dns.Skin
+  local tab = dm.CreateFrame("Button", nil, dm.UIParent)
+  tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  S.Tab(tab, { text = tab.label, selected = false })
+  assertEqual(rgba(tab.label.__color), today("tab.text"))
+  S.SetTabSelection(tab, true)
+  assertEqual(rgba(tab.label.__color), today("tab.onText"))
+  -- The base mock's CreateTexture answers the frame itself, so the box hands out its own textures.
+  local box = SW.checkButton(dm.CreateFrame("CheckButton", nil, dm.UIParent))
+  local textures = {}
+  rawset(box, "CreateTexture", function()
+    textures[#textures + 1] = dm.CreateFrame("Frame")
+    return textures[#textures]
+  end)
+  rawset(dm, "hooksecurefunc", SW.hooksecurefunc)
+  S.Checkbox(box)
+  assertEqual(#textures, 2, "the box and the tick")
+  local tick = textures[2]
+  assertEqual(tick:IsShown(), false, "the tick starts hidden")
+  box:SetChecked(true)
+  assertEqual(tick:IsShown(), true, "the tick shows while checked")
+  box:SetChecked(false)
+  assertEqual(tick:IsShown(), false, "the tick hides again")
+  assertEqual(rgba({ dns.SkinColor("menu.text") }), rgba({ 0.9, 0.9, 0.9, 1 }), "the row menu's label has its token")
+  assertEqual(S.MarkText("a\\b", 14), "|Ta\\b:14:14|t")
+end)
+
+test("skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)", function()
+  local dns, _, dm = dofile("tests/degraded_env.lua")()
+  local f = dm.CreateFrame("Frame", nil, dm.UIParent, "BackdropTemplate")
+  local d = f:CreateTexture(nil, "ARTWORK")
+  local tinted
+  rawset(d, "SetColorTexture", function() tinted = true end)
+  f.divider = d
+  d:Show()
+  dns.ApplySkin(f)
+  assertTrue(not d:IsShown(), "a line under the title stays shown on a degraded install")
+  assertTrue(not tinted, "the degraded edge tints a line under the title")
 end)
 
 test("skin chrome: the degraded facade draws the flat button and the divider today's way", function()
@@ -293,4 +369,95 @@ test("skin chrome: the degraded facade draws the flat button and the divider tod
   rawset(bar, "SetColorTexture", function(_, ...) ct = rgba({ ... }) end)   -- the kit's texture is the frame
   S.Divider(bar)
   assertEqual(ct, today("divider"), "the divider frame's line in today's gray")
+end)
+
+-- ── the header on the title band (R5-WIN) ───────────────────────────────────────────────────────
+--
+-- R5-WIN of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5 (feedback items 2 and 5; the lead's
+-- calls 2 and 6): every header child is anchored LEFT, CENTER or RIGHT to the title band's own frame
+-- (S.Band, LibKa0s SkinPaintExtras minor 17) at y 0, in every skin, and a child title bar under
+-- noTopBar takes the band's rect. The band itself sits at Shell's inset (`win.borderSize` in from a
+-- flat edge, else 1) and is `title.height` tall. Headless, only the anchor shape can be measured: a
+-- LEFT, CENTER or RIGHT point on the band at y 0 IS the band's vertical middle.
+
+local CENTERED = { LEFT = true, CENTER = true, RIGHT = true }
+
+-- A region's recorded anchors as { point, rel, relPoint, x, y } lists: the harness's frames
+-- (tests/wow_mock.lua) record named fields, the paint recorder's regions positional ones.
+local function points(region)
+  local out = {}
+  for _, e in ipairs(rawget(region, "__points") or {}) do
+    if e.point then
+      out[#out + 1] = { e.point, e.relativeTo, e.relativePoint, e.x, e.y }
+    else
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+
+local function bandOf(frame)
+  local rec = Skin.painted[frame]
+  return rec and rec.regions.band
+end
+
+local function assertBand(frame, key, what)
+  local t = Skin:ResolveSkin(key)
+  local inset = (t["win.borderStyle"] or "flat") == "flat" and t["win.borderSize"] or 1
+  local band = bandOf(frame)
+  assertTrue(band ~= nil, what .. ": no band holder")
+  local pts = points(band)
+  assertEqual(#pts, 2, what .. ": the band's two anchors")
+  local p1, r1, q1, x1, y1 = unpack(pts[1])
+  assertEqual(p1 .. q1, "TOPLEFTTOPLEFT", what .. ": the band's first point")
+  assertTrue(r1 == frame, what .. ": the band is on the window")
+  assertEqual(x1, inset, what .. ": the band's left inset")
+  assertEqual(y1, -inset, what .. ": the band's top inset")
+  assertEqual(band:GetHeight(), t["title.height"] or 30, what .. ": the band's height")
+  return band
+end
+
+local function assertOnBand(region, band, what)
+  local pts = points(region)
+  assertTrue(#pts >= 1 and #pts <= 2, what .. ": anchored")
+  for _, pt in ipairs(pts) do
+    local point, rel, relPoint, _, y = unpack(pt)
+    assertTrue(CENTERED[point], ("%s: a %s point, never TOP*"):format(what, tostring(point)))
+    assertEqual(relPoint, point, what .. ": to the band's own " .. tostring(point))
+    assertTrue(rel == band, what .. ": anchored to the band")
+    assertEqual(y, 0, what .. ": y 0, the band's middle")
+  end
+end
+
+-- The rect a frame was last given by SetAllPoints, spied for the replay a skin switch runs.
+local function spyAllPoints(f)
+  rawset(f, "SetAllPoints", function(self, rel) rawset(self, "__allRect", rel) end)
+  rawset(f, "ClearAllPoints", function(self) rawset(self, "__allRect", nil) end)
+end
+
+local function assertHeader(frame, bar, title, close, key, what)
+  local band = assertBand(frame, key, what)
+  assertTrue(rawget(bar, "__allRect") == band, what .. ": the title bar takes the band's rect")
+  assertOnBand(title, band, what .. " title")
+  assertOnBand(close, band, what .. " close")
+  assertEqual(points(close)[1][4], -6, what .. ": the close is 6 px in from the band's right")
+end
+
+test("skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)", function()
+  withFreshWindows(function(win, exp)
+    assertTrue(exp.closeButton ~= nil, "the export modal keeps its close control")
+    spyAllPoints(win.titleBar); spyAllPoints(exp.titleBar)
+    -- Away first, so the first skin of the loop is a switch too (a choice already worn replays nothing).
+    Skin:SetChoice(OWNER, "ka0s", SW.key(Skin))
+    for _, def in ipairs(Skin:Skins()) do
+      Skin:SetChoice(OWNER, "ka0s", def.key)
+      assertHeader(win, win.titleBar, win.title, win.closeButton, def.key, def.key .. ": History")
+      assertHeader(exp, exp.titleBar, exp.titleFS, exp.closeButton, def.key, def.key .. ": export")
+      local badge = points(win.testBadge)
+      assertEqual(#badge, 1, def.key .. ": the badge has one anchor")
+      local point, rel, relPoint, _, y = unpack(badge[1])
+      assertEqual(point .. relPoint, "LEFTRIGHT", def.key .. ": the badge beside the title")
+      assertTrue(rel == win.title and y == 0, def.key .. ": the badge on the title's middle")
+    end
+  end)
 end)

@@ -23,9 +23,9 @@
 --     the one the window opened with previews with the font and texture overrides cleared, as Apply
 --     will save it (minor 3); a pick back to it restores them. The owner's write seam is not called
 --     and no popup is raised. It closes the list, not the window;
---   * the eye (Media icon "eye"), only when `spec.onPreview` is a function: the host's test mode, so
---     the player sees the skin on the addon's own frames; it keeps working while a preview is
---     pending, and the window is Raise()d once onPreview returns;
+--   * the eye (Media icon "eye"), shown with `spec.preview` (THE PREVIEW, below) or `spec.onPreview`:
+--     the host's preview mode, so the player sees the skin on the addon's own frames; it keeps
+--     working while a preview is pending, and the window is Raise()d once the host returns;
 --   * the gear (Media icon "settings"): saves the pending pick as Apply does, then `spec.onSettings`,
 --     by default the settings panel opened at `spec.page` (O.OpenOptionsPanel(page), OptionsRegistry
 --     minor 4) and O.SelectTab(page, spec.tab or "Appearance"); then the window closes;
@@ -143,7 +143,25 @@ if not lib then return end
 -- way to the OnUpdate in THE ROWS when re-vendoring turned seven addons' stand-down suites red.
 -- Minor 5: the rows' section moved out, unchanged, to OptionsSkinPickerRows.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
-local PICKER_MINOR = 5
+-- Minor 6 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the tooltip's line takes the owner's `gtip.title`, read at
+-- hover, so a preview reaches it. A window, so Ignore settings panel leaves it skinned.
+-- Minor 7 (cause L6 of the same bundle): the reset buttons and the dropdown's arrow are the Ka0s
+-- `reset` and `chevron-down` icons, with the client art only where Media is absent.
+-- Minor 8 (SF-L1 of Ka0sAddonsCommonTasks docs/2026-11-01-SMOKE_FEEDBACK): a tooltip wraps, so Apply
+-- to all's long sentence draws on several rows where it drew one line wider than the window.
+-- Minor 9 (SG-L3 of the same bundle): O.SkinNotice, the one-time announcement that skins exist.
+-- Once per account, keyed by lib.SKIN_NOTICE_VERSION: the first addon to ask in a session claims it
+-- and shows the picker, every other addon records the version in its own store and stays quiet.
+-- Minor 10 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the title and the close mark
+-- are anchored to the band S.Shell lays (the facade's Header) at y 0, where they sat TOP-anchored at
+-- -8 and -6, off the band's middle and font-dependent.
+-- Still minor 10, not yet vendored (R5-L4 of the same bundle, the owner's item 6): the open list
+-- closes on a press outside it and its dropdown button, the window's own body, title, eye and gear
+-- included; see AN OUTSIDE PRESS CLOSES THE LIST, at buildList.
+-- Minor 11 (R6-L1 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND6, the owner's images 62, 63
+-- and 66): spec.preview, the preview contract; see THE PREVIEW, at the eye. Every minor-10 copy sits
+-- in a vendored tree, so the minor moves although v1.85.0 is a local cut.
+local PICKER_MINOR = 11
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -160,6 +178,9 @@ lib.MODULES.OptionsSkinPicker = PICKER_MINOR
 -- lib.APPEARANCE_STRINGS'. TITLE is shown as it is; the addon's label is never a word here (it is
 -- the owner's, on its own line). The two glyphs stand in for the icons on a payload without
 -- LibKa0s-Media-1.0. ASCII throughout.
+--- The notice's version: raise it on a release that wants every account to see the picker once more.
+lib.SKIN_NOTICE_VERSION = 1
+
 lib.SKIN_PICKER_STRINGS = {
   TITLE          = "Choose a skin",
   CHOOSE_TIP     = "Pick a skin to try it on this addon. Apply keeps it; closing this window puts " ..
@@ -170,6 +191,15 @@ lib.SKIN_PICKER_STRINGS = {
   APPLY_ALL_TIP  = "Keep these choices, and give every other loaded Ka0s addon that uses skins the " ..
                    "same skin source, skin, scope, font, texture and font outline.",
   PREVIEW_TIP    = "Preview: open test mode",
+  -- The eye under spec.preview (minor 11): one tooltip per mode and state, read at every paint.
+  PREVIEW_TEST_ON     = "Preview: test mode is on. Click to turn it off.",
+  PREVIEW_TEST_OFF    = "Preview: test mode is off. Click to turn it on.",
+  PREVIEW_UNLOCK_ON   = "Preview: the frames are unlocked. Click to lock them.",
+  PREVIEW_UNLOCK_OFF  = "Preview: the frames are locked. Click to unlock them.",
+  PREVIEW_WINDOW_ON   = "Preview: the window is open. Click to close it.",
+  PREVIEW_WINDOW_OFF  = "Preview: the window is closed. Click to open it.",
+  PREVIEW_CONSOLE_ON  = "Preview: the debug console is open. Click to close it.",
+  PREVIEW_CONSOLE_OFF = "Preview: the debug console is closed. Click to open it.",
   SETTINGS_TIP   = "Keep these choices and open the Skin settings",
   PREVIEW_GLYPH  = "o",
   SETTINGS_GLYPH = "*",
@@ -182,6 +212,14 @@ lib.SKIN_PICKER_STRINGS = {
 
 local WIDTH, PAD, TOP = 308, 12, 40
 local DD_H, ROW_H, ICON, BTN_H, APPLY_W = 26, 22, 24, 24, 80
+local MOUSE_DOWN = "GLOBAL_MOUSE_DOWN"   -- the open list's outside press (R5-L4)
+
+--- Whether the mouse is over `frame`: only a true answer counts.
+local function mouseOver(frame)
+  local probe = frame and frame.IsMouseOver
+  return type(probe) == "function" and probe(frame) == true
+end
+
 -- The owner's line sits at TOP; the dropdown row one line below it.
 local LABEL_H = 18
 local DD_TOP = TOP + LABEL_H + 4
@@ -198,9 +236,8 @@ local ARROW = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 local HEIGHT_SHARE = 0.75
 -- The rows' template, which draws a name whenever its skin's face does not.
 local ROW_FONT = "GameFontHighlight"
--- The reset icons' art: the client's own refresh arrow, grayed to sit with the Media icons. Not the
--- Media icon "reset": a consumer's vendored icons are pruned to its `LibKa0s icons:` line, eleven of
--- them lack that file, and a texture that fails to load draws nothing and raises nothing.
+-- Where Media is absent, the client's own arrows, grayed to sit with the rest. The Media icons `reset`
+-- and `chevron-down` are library-drawn (docs/releasing.md), so every host's line declares them.
 local RESET_ART = "Interface\\Buttons\\UI-RefreshButton"
 local WAKE_EVERY = 0.25   -- seconds between reads of the lock while rows are drawn locked
 
@@ -232,6 +269,24 @@ local function safeCall(fn, ...)
   local ok, err = pcall(fn, ...)
   if not ok then report(err) end
 end
+
+--- `fn(...)`'s first answer under pcall, a raise reported and answering nil.
+local function ask(fn, ...)
+  if type(fn) ~= "function" then return nil end
+  local ok, v = pcall(fn, ...)
+  if ok then return v end
+  report(v)
+end
+
+--- spec.preview when it carries enter, exit and isActive (THE PREVIEW), else nil.
+local function previewHook(spec)
+  local h = type(spec) == "table" and spec.preview
+  if type(h) == "table" and type(h.enter) == "function" and type(h.exit) == "function"
+    and type(h.isActive) == "function" then return h end
+  return nil
+end
+
+local function modeOn(h) return ask(h.isActive) and true or false end
 
 -- ── the queue (library level) ────────────────────────────────────────────────────────────────
 --
@@ -422,14 +477,20 @@ local function setFace(fs, path, size)
   return set and true or fs:GetFont() == path
 end
 
---- Show `text` in the game tooltip while the pointer is over `btn`. Set before the skin's paint,
---- which hooks after the host's scripts.
-local function attachTip(btn, text)
+--- Show `text` in the game tooltip while the pointer is over `btn`, in `P`'s owner's `gtip.title`
+--- (the client's color for a skin without it), wrapped, so a long sentence takes several rows. Set
+--- before the skin's paint, which hooks after the host's scripts.
+local function attachTip(btn, text, P)
   btn.__tip = text
   btn:SetScript("OnEnter", function(self)
     if not (GameTooltip and GameTooltip.SetOwner) then return end
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(self.__tip or "")
+    local c = P.Sk and P.Sk.Token("gtip.title")
+    if type(c) == "table" and c[1] and c[2] and c[3] then
+      GameTooltip:SetText(self.__tip or "", c[1], c[2], c[3], 1, true)
+    else
+      GameTooltip:SetText(self.__tip or "", nil, nil, nil, nil, true)
+    end
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", function()
@@ -585,12 +646,44 @@ function lib.__AttachSkinPicker(O, d)
     end
   end
 
+  --- `p`'s list listening for GLOBAL_MOUSE_DOWN while it is open, and not otherwise (R5-L4): see
+  --- AN OUTSIDE PRESS CLOSES THE LIST, at buildList. Through Core's pcall'd SafeRegisterEvent, as
+  --- OptionsCombat's pullout watcher registers: no raw site of CLAUDE.md's events-frames-taint-§1
+  --- row. Without Core nothing registers, and the list closes by its toggle, as before.
+  local function listen(p)
+    local list = p.frame and p.frame.list
+    if not (list and type(list.IsEventRegistered) == "function") then return end
+    local on = list:IsEventRegistered(MOUSE_DOWN) == true
+    if p.open and not on then
+      local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
+      local register = core and core.SafeRegisterEvent
+      if type(register) == "function" then register(list, MOUSE_DOWN) end
+    elseif on and not p.open then
+      list:UnregisterEvent(MOUSE_DOWN)
+    end
+  end
+
   local function setOpen(open, p)
     p = p or P
     dropFocus(p)
     p.open = open and true or false
     layout(p)
+    listen(p)
     if p.open then dressRows(p) end
+  end
+
+  --- A press anywhere while `p`'s list is open: over neither the list (a row, or the gutter between
+  --- rows) nor its dropdown button, it closes the list. Listened to, never caught, so the press goes
+  --- on to what is under it: the window's body, title, eye or gear, a media row, the game world.
+  local function outsidePress(p)
+    local f = p.frame
+    if not f then return end
+    if not (p.open and f.list:IsShown()) then
+      f.list:UnregisterEvent(MOUSE_DOWN)
+      return
+    end
+    if mouseOver(f.list) or mouseOver(f.dd) then return end
+    setOpen(false, p)
   end
 
   local function reloadPopup(labels)
@@ -784,6 +877,81 @@ function lib.__AttachSkinPicker(O, d)
     f.scopeLabel:Hide()
   end
 
+  -- THE PREVIEW (minor 11, R6-L1; the owner's rule). spec.preview = { mode = "test" | "unlock" |
+  -- "window" | "console", enter(why), exit(why), isActive(), isShown() }: enter, exit and isActive
+  -- required, every call under pcall. A fresh show records { active, shown } on the owner's record
+  -- (p.previewWas) and, with the surface hidden (no isShown reads as hidden) and the mode off, calls
+  -- enter("picker"), then raises the window. The eye calls exit("eye") or enter("eye"); it is lit
+  -- while the mode is on, dimmed and grayed while off, its tooltip PREVIEW_<MODE>_ON or _OFF.
+  -- closed() undoes what the picker and its eye moved (p.previewMoved: a call after which the mode
+  -- read otherwise), after the skin's revert and before onClose and the queue's advance:
+  -- exit("picker") for a mode on now that was off at open, enter("picker") for one off now that was
+  -- on. So a refused enter (combat) leaves nothing to undo, and a mode the player's own verb turned on
+  -- stays. A restore refused under InCombatLockdown() is parked on the end-of-combat park and asked
+  -- again, unless the owner's picker is up again by then. A queued picker never shown records and
+  -- restores nothing. spec.onPreview alone keeps minor 10's one-shot eye, with no enter at show and
+  -- no restore; spec.preview wins when both are given.
+
+  local function previewState(h)
+    return { active = modeOn(h), shown = ask(h.isShown) and true or false }
+  end
+
+  --- `h[verb](why)` on `p`'s behalf, noting in p.previewMoved a call after which the mode moved.
+  local function previewCall(p, h, verb, why)
+    local was = modeOn(h)
+    ask(h[verb], why)
+    if modeOn(h) ~= was then p.previewMoved = true end
+  end
+
+  --- The eye's words for hook `h` with the mode `on`: PREVIEW_<MODE>_ON or _OFF, an unknown mode as TEST.
+  local function eyeTip(p, h, on)
+    local mode = tostring(h.mode or "test"):upper()
+    if not p.S["PREVIEW_" .. mode .. "_ON"] then mode = "TEST" end
+    return p.S["PREVIEW_" .. mode .. (on and "_ON" or "_OFF")]
+  end
+
+  --- The eye from the mode now: lit with the _ON words while on, dimmed and grayed with _OFF while off;
+  --- lit, with applySpec's PREVIEW_TIP, under onPreview alone.
+  local function paintEye(p)
+    local btn, h = p.frame and p.frame.preview, previewHook(p.spec)
+    if not btn then return end
+    local on = not h or modeOn(h)
+    btn.lit = h and on or nil
+    if h then btn.__tip = eyeTip(p, h, on) end
+    local art = btn.icon or btn.text
+    if art and type(art.SetAlpha) == "function" then art:SetAlpha(on and 1 or 0.45) end
+    if btn.icon and type(btn.icon.SetDesaturated) == "function" then btn.icon:SetDesaturated(not on) end
+  end
+
+  local function raise(p)
+    local f = p.frame
+    if f and f:IsShown() and type(f.Raise) == "function" then f:Raise() end
+  end
+
+  --- A fresh show of `p`, up: the mode entered when the surface is hidden and the mode off, then raised.
+  local function previewOpen(p)
+    local h, was = previewHook(p.spec), p.previewWas
+    if not (h and was) then return end
+    if not was.shown and not was.active then previewCall(p, h, "enter", "picker") end
+    paintEye(p)
+    raise(p)
+  end
+
+  --- `p` closed: what the picker and its eye moved goes back (THE PREVIEW).
+  local function previewRestore(p)
+    local h, was = previewHook(p.spec), p.previewWas
+    local owed = h and was and p.previewMoved and modeOn(h) ~= was.active
+    p.previewWas, p.previewMoved = nil, nil
+    if not owed then return end
+    local verb = was.active and "enter" or "exit"
+    local before = modeOn(h)
+    ask(h[verb], "picker")
+    if modeOn(h) ~= before or not inLockdown() or type(lib.__parkRegistration) ~= "function" then return end
+    lib.__parkRegistration(function()
+      if not p.shown and modeOn(h) ~= was.active then ask(h[verb], "picker") end
+    end)
+  end
+
   --- Picker `p`'s window has gone, by any route: a pending preview put back, `spec.onClose` once per
   --- showing, then the next queued picker, when `p` was the picker shown. It takes the record, never
   --- the upvalue P: the client fires OnHide inside Hide(), and the advance there can make another
@@ -795,6 +963,7 @@ function lib.__AttachSkinPicker(O, d)
     setOpen(false, p)
     releaseControls(p)
     revert(p)
+    previewRestore(p)
     safeCall(p.spec.onClose)
     local cur = queue().current
     if cur and cur.inst == O and cur.owner == p.owner then advance() end
@@ -861,29 +1030,38 @@ function lib.__AttachSkinPicker(O, d)
     hide()
   end
 
-  --- The eye: the host's preview, then the window raised, so the addon window it showed (or raised)
-  --- does not cover it among its DIALOG peers (a HIGH window cannot: see LAYERING).
+  --- The eye: spec.preview's toggle (THE PREVIEW), else the one-shot onPreview; then the window
+  --- raised, so the addon window it showed does not cover it among its DIALOG peers (LAYERING).
   local function preview()
     local p = P
-    safeCall(p.spec.onPreview)
-    local f = p.frame
-    if f and f:IsShown() and type(f.Raise) == "function" then f:Raise() end
+    local h = previewHook(p.spec)
+    if h then
+      p.previewWas = p.previewWas or previewState(h)
+      previewCall(p, h, modeOn(h) and "exit" or "enter", "eye")
+      paintEye(p)
+      local eye, tip = p.frame.preview, GameTooltip  -- a tooltip up under the pointer takes the new words
+      if tip and type(tip.IsOwned) == "function" and tip:IsOwned(eye) then eye:GetScript("OnEnter")(eye) end
+    else
+      safeCall(p.spec.onPreview)
+    end
+    raise(p)
   end
 
   local resetMedia   -- the rows' section, below
 
-  --- One icon button: the Media icon `icon` for the owner, else the text glyph; or, with `art`, that
-  --- client file grayed.
+  --- One icon button: the Media icon `icon` for the owner; else `art`, a client file, grayed; else
+  --- the text glyph.
   local function iconButton(f, icon, glyph, tip, onClick, art)
     local btn = CreateFrame("Button", nil, f)
     btn:SetSize(ICON, ICON)
-    local path = art or iconPath(P.owner, icon)
+    local media = iconPath(P.owner, icon)
+    local path = media or art
     if path then
       local t = btn:CreateTexture(nil, "ARTWORK")
       t:SetPoint("CENTER")
       t:SetSize(ICON - 8, ICON - 8)
       t:SetTexture(path)
-      if art and type(t.SetDesaturated) == "function" then t:SetDesaturated(true) end
+      if not media and type(t.SetDesaturated) == "function" then t:SetDesaturated(true) end
       btn.icon = t
     else
       local fs = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -891,7 +1069,7 @@ function lib.__AttachSkinPicker(O, d)
       fs:SetText(glyph)
       btn.text = fs
     end
-    attachTip(btn, tip)
+    attachTip(btn, tip, P)
     btn:SetScript("OnClick", function(...)
       dropFocus(P)
       onClick(...)
@@ -908,7 +1086,7 @@ function lib.__AttachSkinPicker(O, d)
     fs:SetPoint("CENTER")
     fs:SetText(text)
     btn.text = fs
-    attachTip(btn, tip)
+    attachTip(btn, tip, P)
     btn:SetScript("OnClick", function(...)
       dropFocus(P)
       onClick(...)
@@ -953,6 +1131,22 @@ function lib.__AttachSkinPicker(O, d)
     list:SetFrameStrata("FULLSCREEN_DIALOG")   -- T8: over the rows and the buttons (LAYERING)
     list:SetClampedToScreen(true)
     list:EnableMouse(true)                     -- a click between rows reaches no row under it
+    -- AN OUTSIDE PRESS CLOSES THE LIST (R5-L4, the owner's item 6, images 46 and 47). The list is
+    -- neither an AceGUI pullout (OptionsCombat's watcher, R4-L1) nor the shared Widgets menu, so
+    -- neither seam reaches it. It LISTENS on its own frame, while open, as the Widgets menu's
+    -- __OutsideClick does: GLOBAL_MOUSE_DOWN reaches it for a press anywhere, consumed or not, and
+    -- outsidePress closes it unless the press is over the list or its dropdown button. The button is
+    -- exempt because its own OnClick is the toggle, on the release: closed on the press, the release
+    -- would open it again. The list opens on that release, so the press that opened it has gone by.
+    -- One listener per list, so two pickers' lists close independently. Escape is unchanged: it
+    -- closes the window (UISpecialFrames), and the list with it.
+    local mine = P
+    list:SetScript("OnEvent", function(_, event)
+      if event == MOUSE_DOWN then outsidePress(mine) end
+    end)
+    -- Hidden with its window's parent (Alt-Z) it lets go, and listens again when shown still open.
+    list:SetScript("OnHide", function(self) self:UnregisterEvent(MOUSE_DOWN) end)
+    list:SetScript("OnShow", function() listen(mine) end)
     P.Sk.MenuFrame(list)
     syncRows()
     list:Hide()
@@ -968,10 +1162,11 @@ function lib.__AttachSkinPicker(O, d)
     local arrow = dd:CreateTexture(nil, "ARTWORK")
     arrow:SetSize(12, 12)
     arrow:SetPoint("RIGHT", dd, "RIGHT", -8, 0)
-    arrow:SetTexture(ARROW)
-    arrow:SetRotation(-math.pi / 2)
+    local chevron = iconPath(P.owner, "chevron-down")
+    arrow:SetTexture(chevron or ARROW)
+    if not chevron then arrow:SetRotation(-math.pi / 2) end
     dd.arrow = arrow
-    attachTip(dd, P.S.CHOOSE_TIP)
+    attachTip(dd, P.S.CHOOSE_TIP, P)
     dd:SetScript("OnClick", function() setOpen(not P.open) end)
     f.dd = dd
     P.Sk.Dropdown(dd)
@@ -999,7 +1194,7 @@ function lib.__AttachSkinPicker(O, d)
     f.reset = {}
     for _, row in ipairs(MEDIA_ROWS) do
       local which = row.which
-      local btn = iconButton(f, nil, nil, "", function() resetMedia(which) end, RESET_ART)
+      local btn = iconButton(f, "reset", nil, "", function() resetMedia(which) end, RESET_ART)
       btn:Hide()
       f.reset[which] = btn
     end
@@ -1041,6 +1236,7 @@ function lib.__AttachSkinPicker(O, d)
         f.close = close
       end
     end
+    if P.Sk.Header then P.Sk.Header(f, { title = title, right = { f.close } }) end   -- minor 10
   end
 
   -- The Skin tab's rows live in OptionsSkinPickerRows.lua, which answers the three functions the
@@ -1117,9 +1313,10 @@ function lib.__AttachSkinPicker(O, d)
     f.apply.__tip, f.applyAll.__tip = S.APPLY_TIP, S.APPLY_ALL_TIP
     f.apply.text:SetText(S.APPLY)
     f.applyAll.text:SetText(S.APPLY_ALL)
-    if type(P.spec.onPreview) == "function" then f.preview:Show() else f.preview:Hide() end
+    if previewHook(P.spec) or type(P.spec.onPreview) == "function" then f.preview:Show() else f.preview:Hide() end
     if #others() > 0 then f.applyAll:Show() else f.applyAll:Hide() end
     anchorDropdown(f)
+    paintEye(P)
   end
 
   --- What `p` restores to from now, and no preview left in any row: a fresh showing, or the Skin tab's
@@ -1153,6 +1350,9 @@ function lib.__AttachSkinPicker(O, d)
       P.pending, P.reload = nil, false
       opening(P)
       place(f)
+      P.previewWas, P.previewMoved = nil, nil
+      local h = previewHook(spec)
+      if h then P.previewWas = previewState(h) end
     end
     acquireControls(P)
     setOpen(false)
@@ -1170,6 +1370,7 @@ function lib.__AttachSkinPicker(O, d)
         if P == mine then refresh() end
       end,
     }
+    if fresh then previewOpen(mine) end
     return f
   end
 
@@ -1190,7 +1391,9 @@ function lib.__AttachSkinPicker(O, d)
   --- already up on another instance answers that window. Answers nil
   --- without the Skin major, a client, or for an owner that never registered. `spec`: get and set
   --- (the Skin tab's seams: set MUST be the owner's write seam, called by Apply, Apply to all and the
-  --- gear, never by a pick or a row, as the tab calls it; without one the rows are not drawn), onPreview (the eye; absent without it), onSettings (the gear; default:
+  --- gear, never by a pick or a row, as the tab calls it; without one the rows are not drawn), preview
+  --- (the eye's mode, entered at show and restored at close: THE PREVIEW), onPreview (minor 10's one-shot
+  --- eye; no eye without either), onSettings (the gear; default:
   --- O.OpenOptionsPanel(spec.page), then O.SelectTab(spec.page, spec.tab or "Appearance")), page,
   --- tab, onClose (called once each time the window closes, by any route, and for a queued picker
   --- Apply to all dismisses), strings.
@@ -1206,6 +1409,40 @@ function lib.__AttachSkinPicker(O, d)
     end
     if cur and cur.inst ~= O then return cur.frame end
     return show(owner, spec, Skin)
+  end
+
+  --- The one-time skin notice (minor 9, SG-L3). `store` is { get = fn answering the version this
+  --- addon recorded, or nil; set = fn(version) recording it, in the host's account-wide store }.
+  --- Recorded version at or past lib.SKIN_NOTICE_VERSION: nothing, "seen" -- and the claim is made,
+  --- so an addon that loads later without a record cannot show it over one that has. Otherwise, when
+  --- another addon already claimed the notice this session: this addon records it, nothing,
+  --- "claimed". `recordOnly` (a stood-down host, which shows no window) stops there: those two
+  --- answers, else nil, "standdown", recording nothing. Else this addon claims it, records it and
+  --- shows O.SkinPicker(spec) (the frame, or nil, "queued"). In combat nothing is claimed or
+  --- recorded (nil, "combat"): the host asks again after it. The claim lives on the library table,
+  --- so every vendored copy of an addon shares it. No timer: a stand-down must leave nothing armed,
+  --- so an addon loading BEFORE the ones that have seen it, with no record of its own, still shows it.
+  function O.SkinNotice(spec, store, recordOnly)
+    local v = lib.SKIN_NOTICE_VERSION
+    if type(store) ~= "table" or type(store.get) ~= "function" or type(store.set) ~= "function" then
+      return nil, "unavailable"
+    end
+    local seen = store.get()
+    if type(seen) == "number" and seen >= v then
+      lib.__noticeClaimed = v
+      return nil, "seen"
+    end
+    if lib.__noticeClaimed and lib.__noticeClaimed >= v then
+      store.set(v)
+      return nil, "claimed"
+    end
+    if recordOnly then return nil, "standdown" end
+    if inLockdown() then return nil, "combat" end
+    local f, why = O.SkinPicker(spec)
+    if not f and why ~= "queued" then return nil, "unavailable" end
+    lib.__noticeClaimed = v
+    store.set(v)
+    return f, why
   end
 
   --- Take this instance's pickers down: its queued owners leave the queue (never seen: no onClose),

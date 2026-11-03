@@ -63,7 +63,7 @@ local W = LibStub("LibKa0s-Widgets-1.0", true)
 local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W then return end
 
-local SIM_PANEL_MINOR = 9
+local SIM_PANEL_MINOR = 10
 -- Minor 6: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
 -- Minor 7: the panel and its buttons follow the skin owner (THE SKIN OWNER below; LK-09 of
 -- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
@@ -80,6 +80,8 @@ local SIM_PANEL_MINOR = 9
 -- Minor 9: the renderer section moved out, unchanged, to SimPanelRender.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
 -- This file keeps the six locals the two share and hands them over as `lib.__panelKit`.
+-- Minor 10 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an owned panel's tooltip title takes `gtip.title`, the
+-- key column's token, whose Ka0s Default is the gold the client drew. An owner-less title names none.
 -- Paired on the SHELL's minor as well as this file's own, as SimTimeline.lua is.
 if lib.__panelMinor and lib.__panelMinor >= SIM_PANEL_MINOR
   and lib.__panelShellMinor == lib.MINOR then return end
@@ -346,13 +348,18 @@ local function act(P, row)
 end
 
 --- GameTooltip: the row's label, then each tip line ({left, right?} or a string). The colors are
---- `pal`'s, the panel's palette at this hover (minor 8; DEFAULT's literals for an owner-less one).
+--- `pal`'s, the panel's palette at this hover (minor 8; DEFAULT's literals for an owner-less one,
+--- whose title names no color: the key column's literal is not the client's gold).
 local function showTip(owner, row, pal)
   local tip = GameTooltip
   if type(tip) ~= "table" then return end
   local k, v = (pal or DEFAULT).tipKey or DEFAULT.tipKey, (pal or DEFAULT).tipValue or DEFAULT.tipValue
   tip:SetOwner(owner, "ANCHOR_RIGHT")
-  tip:SetText(tostring(row.label))
+  if pal and pal ~= DEFAULT then
+    tip:SetText(tostring(row.label), k[1], k[2], k[3])
+  else
+    tip:SetText(tostring(row.label))
+  end
   for _, line in ipairs(row.tip or {}) do
     if type(line) ~= "table" then
       tip:AddLine(tostring(line), v[1], v[2], v[3])

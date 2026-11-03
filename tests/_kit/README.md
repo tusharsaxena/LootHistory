@@ -3,7 +3,7 @@
 The shared headless test harness for the Ka0s addon collection: the test registry and assertions,
 the source loader, the universal half of the WoW-API mock and its opt-in id lookups, the
 consolidated automated-test runner and the sighted shadow its complexity suite measures, the
-consumer-side vendoring gate, and five suites of its own.
+consumer-side vendoring gate, and seven suites of its own.
 
 **The full surface — every function, every mock seam, every fidelity rule — is documented in the
 LibKa0s repo under `docs/api/testkit/`, one document per kit revision:**
@@ -47,11 +47,15 @@ broken in the other twelve.
 | `test_diagnostics_contract.lua` | The diagnostics dump's dispatcher contract (`debug-logging-§14`), a kit suite run against the consumer's own dispatcher (kit revision 27) |
 | `lizard_sighted.lua` | The sanitized shadow `run-automated-tests.sh`'s complexity suite measures, and the function-count parity check over it (`automated-tests-§3`, kit revision 35) |
 | `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
+| `test_skin_values.lua` | The typed-value gate (`skinning-§1`), a kit suite run over the consumer's tracked source (kit revision 50) |
+| `skin_values.lua` | The scanner and the kit-shared allow categories `test_skin_values.lua` loads from its own folder (kit revision 50) |
+| `test_skin_switch.lua` | The skin-switch test (`skinning-§1`), a kit suite run over the surfaces the consumer declares (kit revision 50) |
+| `skin_switch.lua` | The probe skin, the setter spies and the two passes `test_skin_switch.lua` loads from its own folder (kit revision 50) |
 | `README.md` | This file |
 
 They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `bindings_xml.lua`, `glyphs.lua`, `mock_ace.lua`, `mock_record.lua`,
-`mock_events.lua`, `mock_resize.lua`, `mock_lines.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua` or
-`lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
+`mock_events.lua`, `mock_resize.lua`, `mock_lines.lua`, `prose_lists.lua`, `prose_coverage.lua`, `prose_selftests.lua`,
+`skin_values.lua`, `skin_switch.lua` or `lizard_sighted.lua` fails at load rather than passing over nothing; without `lizard_sighted.lua` the
 runner's complexity suite is a skip.
 
 ## `run-automated-tests.sh`
@@ -505,6 +509,59 @@ without it that case is a declared skip. It needs no consumer facts:
 ```lua
 Kit.run{ dir = "tests/", suites = { ..., { name = "test_lizard_sighted", dir = "tests/_kit/" } } }
 ```
+
+## `test_skin_values.lua`
+
+The sixth, new in kit revision 50 (`skinning-§1`, anti-pattern #107). It fails a color or a texture
+typed where a skin token belongs, in the tracked `.lua` under `core/`, `modules/` and `settings/`.
+It replaces the `tests/test_skin_literals.lua` eight addons each wrote. Its name differs on purpose:
+a host can wire it first and retire its own copy in a later commit, and keep any case in that file
+that is not the gate.
+
+Most of what a host used to allow is a kit-shared category now, and needs no row: the seam, `defaults/`,
+chat lines, hyperlink and quality colors, escape builders and search patterns, locale strings, meaning
+color tables, neutral resets, white bases and StaticPopup text; spell and item icons, L10 art, A6
+Blizzard art, degraded or ignored-panel stock paths, L12 mono, LSM picks and client defaults, the Ace
+profile page and `media/` paths. A category reads what the line says and stops there, so a client
+path drawn outright is still a hit, and a host row that repeats a category goes stale and fails. White
+counts as a base only with a tint on that object after it, a path in `SetStatusBarTexture` is a hit,
+and a font face is never `media/`.
+
+## `test_skin_switch.lua`
+
+The seventh, new in kit revision 50 (`skinning-§1`). A host declares its painted surfaces, and each
+must change when the skin does, read off spies on the drawing setters. It switches to a probe skin
+that gives every token its own value, because real skins share tokens and would fail falsely. A
+setter the two flips back to Ka0s Default disagree on is noise and is dropped, so a counter or a fade
+cannot pass a surface that draws only literals. It excludes Scope-ignored surfaces and companions off
+from its second pass.
+
+### How a host adopts both
+
+```lua
+Kit.skinValues = {
+  rows  = { { file = "modules/StandIn.lua", substring = "|cff999999",
+              why = "the stand-in's (test) mark", cause = "A7" } },   -- what no category takes
+  calls = { DrawEdge = { 3, 4, 5 } },                                 -- optional: own paint calls
+}
+Kit.skinSwitch = {
+  owner = "AuraMaster",
+  skin  = function() return LibStub("LibKa0s-Skin-1.0") end,
+  surfaces = {
+    { name = "a container's edge", build = function() ... return frame end },
+    { name = "the options heading", scope = "panel", build = ... },
+    { name = "the bar's fill", companion = function(on) ... end, build = ..., paint = ... },
+  },
+}
+Kit.run{ dir = "tests/", suites = { ..., { name = "test_skin_values", dir = "tests/_kit/" },
+  { name = "test_skin_switch", dir = "tests/_kit/" } } }
+```
+
+Both suites must be declared after the re-vendor, or the inventory goes red. With its facts unset,
+each is one declared skip that names the rule, so that commit stays green. Every row needs its `why`
+and a `cause` id. `build` answers what was painted; `paint` is the redraw a mock has no listener for;
+`scope` is `"panel"` or `"fonts"`; `companion(on)` writes the surface's `<key>FromSkin` row. The steps
+are in the kit revision 50 document, `docs/api/testkit/version-50-docs.md` in the LibKa0s repo.
 
 ## It is not a library
 

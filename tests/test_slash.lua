@@ -347,8 +347,16 @@ local function rowsThroughSeam()
 end
 
 --- Bring every row to its default, then move exactly two away from it.
+-- A reset shows the first-run skin picker (pickerSeen goes back to false), and with the History
+-- window hidden the picker starts test mode (core/SkinSetup.lua, R6-PV). Taking it down puts the
+-- mode back, so the next act starts from the defaults and not from a preview left running.
+local function pickerDown()
+  if NS.HideSkinPicker then NS.HideSkinPicker() end
+end
+
 local function twoRowsOffDefault()
   capture(function() Sl:CliResetAll() end)
+  pickerDown()
   NS.Schema:Set("settings.qualityThreshold", 4)
   NS.Schema:Set("settings.recordCurrency", false)
 end
@@ -519,7 +527,13 @@ test("Reset all settings resets the ACTIVE profile only, and publishes the profi
   -- message went out, so every window redraws off the reset.
   -- red under: a reset of every profile, a DeleteProfile, a reset that leaves the session rows, or
   -- one that empties the profile without the message.
-  acrossAProfileReset(function()
+  -- The first-run skin picker is held off for this case: a new or reset profile shows it, and with
+  -- the History window hidden it starts test mode (core/SkinSetup.lua, R6-PV), after the sweep this
+  -- case measures. test_skin_picker.lua pins that preview.
+  pickerDown()
+  local realShow = NS.MaybeShowSkinPicker
+  NS.MaybeShowSkinPicker = function() end
+  local okAll, errAll = pcall(acrossAProfileReset, function()
     local db = NS.db
     db:SetProfile("Alt")
     NS.Schema:Set("settings.qualityThreshold", 3)
@@ -556,6 +570,8 @@ test("Reset all settings resets the ACTIVE profile only, and publishes the profi
     db:DeleteProfile("Alt")
     assertEqual(alt, 3, "the other profile keeps its own value")
   end)
+  NS.MaybeShowSkinPicker = realShow
+  if not okAll then error(errAll, 0) end
 end)
 
 test("Reset all settings discards no history and logs no [Data] line", function()

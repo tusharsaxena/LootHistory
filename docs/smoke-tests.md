@@ -32,13 +32,13 @@ free number in its theme.
 | LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
-| DEGRADED-1 to 14 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
+| DEGRADED-1 to 15 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
 | LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
-| SKIN-1 to 42 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be |
-| SIM-1 to 12 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip |
+| SKIN-1 to 54 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview |
+| SIM-1 to 13 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -981,21 +981,23 @@ screen (pushed up if needed), on History and on Holdings. Result: pass (owner, 2
 
 **HIST-43. The window chrome follows the skin (LH-02; SK-LH-WINDOW, SK-01, SK-03).** On **Ka0s
 Default**, `/lh show` and open **Export** from the filter bar → both windows look exactly as before
-the skinning run: the dark window with its black edge and gray inner line, the gold title, the gray
-line under the title bar, the gray close mark (red under the pointer), the gold active tab with its
-gold underline and gray idle tabs, the dropdowns and Search box, the four bar buttons (white words,
+the skinning run: the dark window with its black edge and gray inner line, the gold title, the gray close mark (red under the pointer), the tabs on a dark backing
+(lighter on the active one), the gold active tab with its gold underline and gray idle tabs, the dropdowns and Search box, the four bar buttons (white words,
 gold under the pointer, each tooltip), the gray footer lines, and in Export the gold **Export
 History** title, the Data Set dropdown and **Export to CSV** with its spreadsheet mark. With both
 windows open, pick **Obsidian** on Settings → General → **Skin** → with no reload, every one of
-those surfaces repaints in Obsidian's colors (the window, both titles, the title-bar line, the close
+those surfaces repaints in Obsidian's colors (the window, both titles, the close
 mark, the tabs and underline, the dropdowns and Search box, the bar buttons and their hover, the
 footer, the Export modal and its button); click another tab and back → the tabs keep the new colors.
 Walk the other seven skins (Azeroth, Glass, High Contrast, Ember, WoW Default, WoW Midnight, WoW
 Forever) the same way: the title stays centered, every word stays readable, nothing moves. Pick
 **Ka0s Default** again → the first look comes back exactly. The History table, Insights, Timeline and
-Holdings repaint in later items (LH-03, LH-04), so their look is not part of this check. Fail: a
-surface that keeps the old skin until `/reload`, a missing divider line under the title bar, a
-changed look on Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
+Holdings repaint in later items (LH-03, LH-04), so their look is not part of this check. (Amended by
+FS-LH-FIX, 2026-11-01: the tabs' backing is new on Ka0s Default, cause A1, and Export's title bar is
+30 high, cause L9. Amended by R4-SEP, 2026-11-03: the gray line under the title bar is gone in every
+skin, and SKIN-49 checks it.) Fail: a
+surface that keeps the old skin until `/reload`, a
+changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **HIST-44. The History table follows the skin (LH-03; SK-LH-TABLE, SK-06).** On **Ka0s Default**,
 `/lh show` with some history (or `/lh test`) → the table looks exactly as before the skinning run:
@@ -1003,8 +1005,8 @@ gold column labels, gold Bound lock and gold sort arrow, the faint stripe on eve
 gold wash under the pointer, white-gray cell text, quality-colored item names, class-colored
 characters, the five padlock colors (gray, off-white, green, blue, orange; hover the Bound header for
 the legend), and with **Group** set, gold group rows with a gold chevron and a gray count. Right-click
-a row → the dark menu with its muted gold edge, gold wash under the pointer, gray disabled entries and
-a red **Delete**; on the Holdings tab the same menu with a red **Forget this character**. Hover a
+a row → the dark menu with its muted gold edge, gold wash under the pointer, marks in gray (white before
+FS-LH-FIX, cause L6), gray disabled entries and a red **Delete**; on the Holdings tab the same menu with a red **Forget this character**. Hover a
 column header and a row → the tooltip lines read as before. Pick **Azeroth** on Settings → General →
 **Skin** with the window open → with no reload the labels, arrow, lock, stripes, hover, padlocks,
 group rows, cell text and scroll bar take Azeroth's colors; scroll the table so rows leave and come
@@ -1013,7 +1015,7 @@ old stripe or hover), **Delete** in Azeroth's red. Walk the other skins the same
 black, white and yellow, Doris PP text, the hovered row highlighted; there is no selected-row
 state, so no outline): every word and padlock stays readable, nothing moves. Pick **Ka0s Default**
 again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
-until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
+until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1153,7 +1155,7 @@ and the tooltips take Azeroth's look, and every number and label stays readable;
 dropdown so sections come and go (bars return from the pool) → nothing keeps the old skin. Walk the
 other skins the same way. Pick **Ka0s Default** again → the first look comes back exactly, palette
 included. Fail: a card, bar or strip that keeps the old skin until `/reload`, a changed look on
-Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
+Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Filter lists
 
@@ -1392,7 +1394,7 @@ and the checkbox is ticked; `/lh debug` again → the console closes and the che
 it once more and close it with Esc or its ✕ → the checkbox unticks. `/reload` → unticked. Result: pass (owner-marked 2026-10-10)
 
 **DIAG-10. Console chrome.** Open `/lh debug` → a flat 1px black border with a lighter inner line, a
-gold title, a gray divider, and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
+gold title, no line under the title bar (amended by R4-SEP, 2026-11-03; SKIN-49 checks it), and three same-size icon buttons top-right (✕, copy, clear) evenly spaced;
 the copy window takes the same ✕. It matches every other Ka0s console. Fail: a thin × with the words
 "Copy" and "Clear", meaning `core/DebugLogSetup.lua` stopped passing `addonName`. Result: pass (owner-marked 2026-10-10)
 
@@ -1638,14 +1640,15 @@ which the mono face draws; it was ⇄, a box.) Result: Owner reported pass, 2026
 
 **LED-13. Holdings follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
 show` → **Holdings** with gold on two characters and the Warband (or `/lh test`) → it looks exactly
-as before the skinning run: gold column labels and sort arrow, the faint stripe and the gold hover,
+as before the skinning run, with the History table's faint header band behind the labels (new here
+with FS-LH-FIX, cause A1): gold column labels and sort arrow, the faint stripe and the gold hover,
 white cells, quality-colored names, a character's holder line in its class color and the Warband's in
 its light blue, totals and fresh ages light gray, a day-old age dark gray, the gray container split,
 and with **Group** set, gold group rows with a gold chevron and a gray count. Pick **Azeroth** with
 the tab open → with no reload every one of those takes Azeroth's look; expand and collapse a thing
 so rows come back from the pool → none keeps the old stripe or hover. Pick **Ka0s Default** again →
 the first look comes back exactly. Fail: a row or arrow that keeps the old skin until `/reload`, a
-changed look on Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
+changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 **LED-12. History gold amounts and the Gold tooltip (P5).** With **Record gold** ticked, open History
 on rows that include gold gains and losses (a large one if you have it, six or seven digits of gold).
@@ -1921,14 +1924,15 @@ Result: pass (owner-marked 2026-10-10)
 **TL-18. The Timeline follows the skin (LH-04; SK-LH-INSIGHTS, SK-03).** On **Ka0s Default**, `/lh
 show` → **Timeline** on Gold with Character on **All**, a Warband line and two characters → it
 looks exactly as before the skinning run: the gold title and gray hint, the **Total only** button
-(dark box, white label, gold under the pointer, a gold tick in its gray box while on), the gold
+(dark box, white label, gold under the pointer, a gold tick in its gray box while on, the box 12 px
+with a thin gray edge since FS-LH-FIX, cause A1), the gold
 Total line, class-colored character lines and the blue Warband line, the green and red strip about
 its gray axis, the dimmed entry of a hidden line, and the hover, strip and legend tooltips as before
 (gold titles, white values, green **Gained**, red **Lost**). Pick **Azeroth** with the tab open →
 with no reload the button, title, hint, axes, grid, crosshair, Total and Warband lines, strip and
 tooltips take Azeroth's look; the class colors stay the class colors. Pick **Ka0s Default** again →
 the first look comes back exactly. Fail: a line, button or strip that keeps the old skin until
-`/reload`, a changed look on Ka0s Default, or a Lua error. Result: pass (owner-marked 2026-10-30)
+`/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Simulator
 
@@ -2020,6 +2024,23 @@ and every tab's pane starts under the strip. Hover the strip → its tooltip is 
 `/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
+**SIM-13. The Master controls Sim mode checkbox (R6-SIM; Ka0sAddonsCommonTasks
+`docs/2026-11-03-SMOKE_ROUND6/`, LibKa0s compose minor 19).** Open **Settings → AddOns → Ka0s Loot
+History → General → Master controls** → a **Sim mode** checkbox opens the line below Minimap button |
+Test mode, unticked; hover it → the library's tooltip, then *Ticking it is a bare /lh sim: the status
+line and the sim panel, where you pick a scenario; the box ticks once one starts.* Tick it → exactly
+what a bare `/lh sim` does: the `Simulation: idle.` status line and usage, and the sim panel opens;
+the box goes back to unticked because no scenario runs. Pick **loot** in the panel and start it → the
+box ticks with the page still open. Untick it → the simulation stops (`Simulation stopped.`, the cyan
+strip goes). With the page open, type `/lh sim start loot` → the box ticks at once; `/lh sim stop` →
+it unticks. Close Settings, `/lh sim start loot`, reopen the page → the box is ticked. Enter combat
+with the sim running → the sim stops itself and the box unticks; tick it in combat → it stays
+unticked. With the sim running, press **Reset all settings** and confirm → the sim stops and the box
+reads unticked; with no sim running, Reset all settings starts none. Start a sim, then `/reload` → the
+box is unticked. Right-click the minimap button → its **Sim mode** entry agrees with the box. Fail: a
+missing box, a box that starts a scenario of its own, a box that stays ticked after the sim stopped (or
+unticked while it runs), a reset that starts a sim, or a Lua error. Result:
+
 ## Skins
 
 The skinning run's checks, leg 1 (Ka0sAddonsCommonTasks `docs/2026-10-25-SKINNING/`, its
@@ -2041,9 +2062,13 @@ status bar. Since LibKa0s v1.81.0 the strings the library draws for this addon's
 windows are Oxanium too where they read Friz Quadrata before: the filter bar's dropdown menus, the
 Search suggestions, the Timeline chart's tick labels, the test-mode and simulation strips' line, the
 debug console's title-bar words, the perf panel's columns and the sim
-panel's labels; the strips' line keeps its gold, and the AH list's drag ghost keeps the game's face. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
+panel's labels; the strips' line keeps its gold, and the AH list's drag ghost keeps the game's face.
+Since LibKa0s v1.85.0 (FS-LH-RV, FS-LH-FIX, 2026-11-01) these also move on Ka0s Default: scroll bars show
+Ka0s chevrons in gold, the window tabs a dark backing, the Holdings header a faint band, the row menu's
+marks gray, Export, the debug console and the copy window 30 high title bars, and the sim panel a 30 high
+title band; SKIN-43 to SKIN-46 check them. (Amended by LH-01, 2026-10-28: LibKa0s#63 gave the bars of data the skin's bar texture, and
 SO-06 gave Ka0s Default the Oxanium face and its own Ka0s Default bar; by LH-02 of the skin library
-follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result: pass (owner-marked 2026-10-30)
+follow-ups, 2026-10-30, D-13: the newly fonted strings.) Result: Passed (owner, 2026-11-02)
 
 **SKIN-2. The Skin tab (SK-02; LH-01).** Settings → General → **Skin** → it sits second to
 last, just before Keybindings, and shows **Skin source**, the nine skins with their swatches under a
@@ -2081,14 +2106,15 @@ in yellow. Result: pass (owner-marked 2026-10-30)
 **SKIN-7. Fonts (SK-07; LK fonts; R5-03; SO-06).** On an English client each skin draws its own family,
 body and titles alike, with no fallback squares: Ka0s Default Prototype, Obsidian Expressway, Azeroth
 Open Sans Semibold (titles Open Sans Bold), Glass Avant Garde, High Contrast Doris PP, Ember Emblem, WoW
-Midnight Segoe UI Semibold (titles Segoe UI Bold), WoW Forever Fira Sans, WoW Default Ka0s Friz Quadrata
-TT, so Ka0s Default and WoW Default no longer read alike (D-01). Each skin's titles are its body family;
+Midnight Segoe UI Semibold (titles Segoe UI Bold), WoW Forever Fira Sans, WoW Default Ka0s Ubuntu
+(LibKa0s R3-L6; Ka0s Friz Quadrata TT before), so Ka0s Default and WoW Default no longer read alike (D-01). Each skin's titles are its body family;
 Glass, High Contrast, Ember and WoW Default have one weight, so their titles are the same face larger.
 `/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Open Sans Semibold")` and
-`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Friz Quadrata TT")` each print `true`. Fail: a
+`/dump LibStub("LibSharedMedia-3.0"):IsValid("font","Ka0s Ubuntu")` each print `true`. Fail: a
 title in a family its body text does not share, two skins in the same face, or an empty square where a
 letter should be. (Rewritten by LH-F01, 2026-10-31, D-01 and D-06: LibKa0s v1.83.0's faces; re-opened.)
-Result: Owner reported pass, 2026-10-31
+(Re-opened by R3-FRIZ, 2026-11-02: WoW Default draws Ka0s Ubuntu; fully restart the client first.)
+Result: not run
 
 **SKIN-8. The tool windows follow the skin (SK-08; LH-05, SK-LH-TOOLS).** With a non-default skin
 (Azeroth reads clearest), open the debug console (`/lh debug`) and its **Copy** window, the perf panel
@@ -2245,6 +2271,10 @@ picker onto the middle of the screen. Fail: the History window over the picker, 
 when the eye is pressed. (Amended by LH-01, 2026-10-28: the addon raises the picker after the eye
 opens the window. Amended again by LH-01 the same day, LibKa0s PK-03: the library keeps the picker
 above it, a DIALOG window raised after the eye returns, and the addon no longer raises it itself.)
+Amended by R6-PV, 2026-11-04 (LibKa0s OptionsSkinPicker 11): with the History window closed the picker now
+opens it in test mode itself and the eye toggles test mode, so "press the eye" reads "open the picker
+with the window closed, or press the eye off and on"; SKIN-54 checks the toggle and the restore, and
+this result stands for the layering.
 Result: pass (owner-marked 2026-10-30)
 
 **SKIN-30. The picker's gear (LH-01; LibKa0s#64, PK-02).** On a fresh profile, preview **Obsidian**
@@ -2370,6 +2400,39 @@ Transfer row reads `↔ Transfer`, a two-headed arrow in gray, never a box; hove
 header → "Item quality (Poor to Legendary)."; and ▲ Gain / ▼ Loss still draw. Fail: a box, a missing
 character, or the old `≈`, `⇄` or `→`. Result: Owner reported pass, 2026-10-31
 
+**SKIN-43. The window tabs and header bands (FS-LH-FIX; cause A1).** `/lh show`. On **Ka0s Default** the
+tabs sit on a dark backing, the active one a little lighter with its gold underline and gold label, and
+the Holdings header wears the same faint band as the History header. Pick **Azeroth** and **Ember** →
+with no reload each tab's backing, label and edge take the skin's colors and both header bands repaint;
+click another tab → the selection moves and the colors stay. **Obsidian** and **Glass** draw no idle tab
+backing by design, so their tabs read as labels with an underline. Fail: an unreadable tab label in any
+skin, a Holdings header with no band, or a tab that keeps the old skin until `/reload`. Result: Passed (owner, 2026-11-02)
+
+**SKIN-44. The Total only box (FS-LH-FIX; cause A1).** Timeline tab, with a thing charted. On each of
+Ka0s Default, Azeroth and Ember the **Total only** box shows a thin edge and fills with the skin's check
+color; tick and untick it by clicking anywhere on the button → the tick shows and hides, and hovering
+the box still shows the button's tooltip and gold hover. Fail: a box that swallows the click or the
+hover, a tick that stays, a box with no edge, or a label overlapping the box. Result: Passed (owner, 2026-11-02)
+
+**SKIN-45. The row menu's marks, the grip and the Export title (FS-LH-FIX; causes L6, L8, L9).**
+Right-click a History row under Ka0s Default → the marks are gray, not white; pick Azeroth and right-click
+again → they take Azeroth's icon tint. Labels stay readable in every skin (no shipped skin sets
+`menu.text` apart from its body text, so they read as they did). Under Azeroth the window's resize grip
+at the bottom right is tinted; under Ka0s Default it stays the client's art. Open **Export** → its title
+bar is as tall as the History window's, the title centered and the close mark clear of it. Timeline
+tick labels read in the skin's face. Fail: a white mark on Azeroth, a stock grip on Azeroth, a clipped
+title, or a Data Set dropdown crowding the bar. Result: Passed (owner, 2026-11-02)
+
+**SKIN-46. What arrived with LibKa0s v1.85.0 (FS-LH-RV).** Under Azeroth: the scroll bars' up and down
+buttons on History, Insights, Holdings and the copy window are Ka0s chevrons in the skin's arrow color,
+brighter under the pointer; the minimap tooltip's lines take the skin's colors, the Yes and No words
+included; `/lh test` shows the strip's info mark in the skin's tint, and `/lh sim` a 30 high **Steps**
+title band with its title and close mark on the middle and a tooltip title in the skin's color; the
+debug console and copy window have 30 high title bars. Settings with **Ignore settings panel** cleared
+→ a tooltip's lines take the skin; deleting a profile on the Profiles page raises a confirmation in the skin, and
+with it ticked stays the client's. Fail: client arrow art on a skinned bar, a blank icon anywhere (a pruned
+mark), or a tooltip title that keeps the client's gold under Azeroth. Result: Passed (owner, 2026-11-02)
+
 ## Vendored icons
 
 Since LibKa0s v1.75.0 the vendored copy ships only the icons `CLAUDE.md`'s `LibKa0s icons:` line
@@ -2398,6 +2461,23 @@ spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 **ICON-6. Settings marks.** Settings → AH price tab → each row's leading tick (circle-check, or ban
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
 list shows its info help mark. Result: pass (owner-marked 2026-10-23)
+
+**SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color. Result: Passed (owner, 2026-11-02)
+
+**SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
+
+**SKIN-49. No line under any window's title (R4-SEP, R4-RV2; owner's round 4 sign-off, image 25).** On **Ka0s Default**, `/lh show` → nothing is drawn between the title bar and the tab strip: the tabs sit where they sat, with no gray line above them (compare the Skin Tester's `/skintester` showroom, which has none). Open **Export** from the filter bar, then **Export to CSV** → neither the export modal nor its copy window has a line under its title. `/lh debug` → the console has no line under its title bar (the status rule above its footer stays); its copy button's window has none either. `/lh skin` → the skin picker has none. Pick **Obsidian**, then **Azeroth** → still no line under any of those titles, and nothing moves. The Insights LOOT, CURRENCY and GAINS & LOSSES rules, the active tab's underline and the settings pages' gold header rule stay. Fail: a 1px line under any window title in any skin, the tab strip shifted up or down, or a Lua error. Result:
+
+**SKIN-50. The R4-L4 library re-cut changes nothing in this addon (R4-RV3; R4_ADDENDUM_HUD_ICON_EDGE.md).** LibKa0s v1.85.0 (third round 4 re-cut) adds `S.IconBorder`'s `hud` option, and this addon has no HUD and draws no icon through `S.IconBorder`. On **Ka0s Default**, `/lh show` → the History window, the filter bar, the tab strip and the title bar look as they did under SKIN-49. `/lh skin` → the picker's eye, settings and reset marks are unchanged; pick **Glass**, then **Ka0s Default** again → nothing else moves. `/lh debug` → the console opens as before. Fail: any icon edge that changed color or thickness, a missing mark, or a Lua error. Result:
+
+**SKIN-51. The round 5 library re-cut (R5-RV; Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND5/`, R5-L1 to R5-L5).** LibKa0s v1.85.0 (round 5 re-cut). On **Ka0s Default**, `/lh show` → the History window's title band is darker than round 4, still a gold gradient with the gold title on it, and nothing else in the window moved. `/lh debug` → the console now has the same title band at its top, flush inside the edge, with its title and its buttons centered on it; its copy button's window has the band too. `/lh perf` and `/lh sim` → each panel has the band, title and close centered on it. `/lh skin` → the picker has the band, its title and close centered on it; open the skin list, then press the window body → the list closes; open it again and press the game world → it closes; open it again and press the **Font** dropdown → the list closes and Font opens. Pick **WoW Midnight** → every one of those headers is still centered, the band 1 px lower. Back on **Ka0s Default**, with **Ignore settings panel** off on the Skin tab, `/lh config` → General → **Filters** → **Blacklist** with an item on it: each entry's icon shows no bevel at its rim and a 1 px gray outline (`icon.outline`); type part of an item name in the add box → each suggestion's icon looks the same. **Currency blacklist** → the same for a currency on it. Turn **Ignore settings panel** on → the icons stay cropped with no outline. Fail: a window with no band or two, a title or close above or below the band's middle, a skin list that stays open after an outside press, an id-list or suggestion icon with a bevel or with no outline on a skinned page, or a Lua error. Result:
+
+**SKIN-52. Every header centered on the title band (R5-WIN; Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND5/`, items 2 and 5).** On **Ka0s Default**, `/lh show` → the title band sits flush inside the 1 px edge with no strip of body color between them, the title is centered on the band left to right and top to bottom, and the close mark's middle is level with the title's; turn Test mode on → the TEST MODE badge (on a degraded install only) or the strip shows, and nothing in the header moves. Open **Export** from the filter bar → the same: band flush inside the edge, title and close level on its middle. Drag each window by its title band → it moves. Switch to **WoW Midnight** (the 2 px edge), then **Glass**, **EllesmereUI** if installed, and back to **Ka0s Default** → in every skin both headers stay centered on their band (under WoW Midnight the band and its header sit 1 px lower; under EllesmereUI the band is its 25 px bar, flush at the top), the tab strip stays just under the band and moves with it (1 px lower under WoW Midnight, about 6 px higher under EllesmereUI), and the filter bar and the Data Set dropdown keep their places. Fail: a title or close visibly above or below the band's middle in any skin, a gap between the edge and the band, a tab strip that overlaps the band or the filter bar, a title bar that no longer drags, or a Lua error. Result:
+
+**SKIN-53. The round 6 library re-cut (R6-RV; Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`, R6-L1).** LibKa0s v1.85.0 (round 6 re-cut) moves only the skin picker, to minor 11. On **Ka0s Default**, `/lh skin` → the picker opens with its band, title, skin list, eye, gear and close where SKIN-51 left them; pick **Glass** and press **Apply** → the skin applies and the picker closes; `/lh skin` again, pick **Ka0s Default** and press Escape → the picker closes and the skin goes back to the one it opened with. Fail: a missing control, a picker that does not open or close, or a Lua error. The eye's preview is SKIN-54. Result:
+
+**SKIN-54. The picker's preview is test mode (R6-PV; Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`, the lead's calls 1 and 2, the owner's images 62, 63 and 66).** With test mode off and the History window closed, `/lh skin` → test mode turns on, the History window opens with its sample rows and the TEST MODE strip, and the picker stays in front of it; the eye is lit, and its tooltip says test mode is on. Click the eye → test mode turns off and the History window closes, the eye dims and its tooltip says off; click it again → test mode and the window come back. Press **Escape** → the picker closes, test mode is off and the History window is closed. Repeat with each other close: the close mark, **Apply**, the gear (the settings panel opens; test mode is off and the History window closed), and `/lh disable` while the picker is up (then `/lh enable`) → each time back as it was. While the picker is up, `/lh config` → General → the Master controls **Test mode** box follows the eye, and the minimap button's tooltip says the same. Then `/lh show` (test mode off) and `/lh skin` → test mode stays off and the eye is dim; click the eye on and off → the History window stays open; close the picker → the window is still open, test mode off. Then `/lh test` (on) and `/lh skin` → test mode stays on, the eye lit; click the eye (off) and close the picker → test mode is on again. Then, with test mode on, close the History window, `/lh skin` → the window stays closed; click the eye (off) and close the picker → test mode is on again and the History window is closed (R6-PV review fix). Then, with both off, `/lh skin` (test mode on, the window open), enter combat while the picker is up (test mode ends), close the picker → the History window closes. Fail: test mode or the History window left on after any close, a window the player had open closed by the picker, an eye that only ever turns test mode on, a picker under the History window, the checkbox or the minimap tooltip disagreeing with the eye, or a Lua error. Result:
+
 
 ## Degraded install
 
@@ -2463,6 +2543,10 @@ title. `/lh test` again → the word goes. (No simulation can run without the li
 
 **DEGRADED-14. Insights without the library.** `/lh show`, Insights tab → one line saying the library
 is missing and the Insights charts are unavailable, no cards and no Lua error. Result:
+
+**DEGRADED-15. The tabs and toggle without the library (FS-LH-FIX).** `/lh show` → the tabs have no
+backing, the active one gold with its gold underline and the others gray; Timeline's **Total only** shows
+a dark box and a small gold tick that follows a click. No Lua error. Result: Passed (owner, 2026-11-02)
 
 ## Non-English client
 
@@ -2545,3 +2629,17 @@ Added by the LibKa0s v1.84.0 adoption (2026-11-01), awaiting the owner: INS-24 a
 keeps its result: it recorded the rotated strip labels, and INS-24 records the level ones.
 
 Added by the v1.84.0 re-cut (2026-11-01), awaiting the owner: PANEL-27.
+
+Added or re-opened by the full skinning run (LibKa0s v1.85.0, 2026-11-01), awaiting the owner: SKIN-1,
+HIST-43, HIST-44, INS-23, LED-13 and TL-18, whose Ka0s Default look moved, and SKIN-43 to SKIN-46 and
+DEGRADED-15, new. INS-23 moves only by the scroll bars' step buttons.
+
+Owed from the owner's third smoke round (Ka0sAddonsCommonTasks `docs/2026-11-02-SMOKE_ROUND3/`, R3-FRIZ): SKIN-48, and SKIN-7, whose WoW Default face is now Ka0s Ubuntu, so its pass mark came off.
+
+Added or amended by the owner's fourth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND4/`, R4-SEP), awaiting the owner: SKIN-49, new, and SKIN-50 (R4-RV3), new. HIST-43 and DIAG-10 lose the line under the title bar from their wording and keep their results; SKIN-49 checks its absence.
+
+Added by the owner's fifth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND5/`), awaiting the owner: SKIN-51 (R5-RV) and SKIN-52 (R5-WIN), new.
+
+Added by the owner's sixth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`), awaiting the owner: SKIN-53 (R6-RV), SKIN-54 (R6-PV) and SIM-13 (R6-SIM), new. SKIN-29's eye, which opened test mode, is now the toggle SKIN-54 checks.
+
+On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.

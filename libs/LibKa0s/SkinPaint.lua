@@ -119,7 +119,23 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- outlines the mono role: every skin now states OUTLINE for `font.outline` (SkinDefs minor 17), which
 -- the body and title roles take as the owner's "Font outline" leaves it (Skin minor 9), and the mono
 -- face's small digits (the debug console, the perf tables) stay unoutlined. Still 13: P.color (LK-14).
-local PAINT_MINOR = 13
+-- Minors 14 to 16 (causes L3 and L7 and FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING):
+-- P.unpaint gives back S.Tab's `opts.glow` gradient (P.asColor exported) and a bar's step buttons, its
+-- saved-state loops in restoreSaved for CCN 15.
+-- Minor 17 (FS-FIX of the same bundle): a box's `noBg` holds on a frame with no backdrop, where
+-- regionBox re-read `spec.fill` and drew it anyway: S.TitleBar's fill over a Shell's band, in WhatGroup,
+-- Premade Groups Filter Extension and Drop Watcher. It hides a fill an earlier paint made. No function
+-- is added, so the census's window-block peel stays unfired. Then (R3-DR-1 of Ka0sAddonsCommonTasks
+-- docs/2026-11-02-SMOKE_ROUND3, still minor 17, not yet shipped): P.font and P.unfont hold the face
+-- they hand over through SkinPaintExtras' P.holdFace, since a string's own SetFont beats any font
+-- object in the client. No function is added here.
+-- Minor 18 (R5-L2 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5, feedback item 3): on a backdrop
+-- window Shell's top band is BACKGROUND P.BAND_SUB, over the backdrop's Center (BACKGROUND 0), which hid
+-- the -5 band in every skin (DpsRace's windows, every library window); the bottom bar, the gradient and
+-- the art keep their sublevels. A bare Shell call (Core.ApplySkin's) on a frame its owner painted with
+-- opts keeps those opts, so a host that paints twice keeps one band. Then (R5-L3, still minor 18): Shell
+-- lays S.Band's holder (SkinPaintExtras minor 17's P.layBand) on every paint. No function is added.
+local PAINT_MINOR = 18
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -209,6 +225,7 @@ local function asColor(c)
   if type(CreateColor) == "function" then return CreateColor(c[1], c[2], c[3], c[4] or 1) end
   return { r = c[1], g = c[2], b = c[3], a = c[4] or 1 }
 end
+P.asColor = asColor
 
 --- A LibSharedMedia path for `key` of `kind`, or nil. A key that already is a path answers itself.
 function P.media(kind, key)
@@ -340,6 +357,9 @@ function P.under(rec, frame) return holderAt(rec, frame, "under", -1) end
 --- target draws itself (a host's own art starts at sublevel 0, and -8 is the client's floor): the
 --- fill, then a gradient over it; a list row's stripe, hover and selection, stacked in that order.
 P.SUB = { fill = -8, grad = -7, stripe = -8, hover = -7, sel = -6, wash = -8 }
+--- A backdrop window's top band (minor 18): above the backdrop's Center (BACKGROUND 0) and a box
+--- gradient (1), under the host's own regions in BORDER and up.
+P.BAND_SUB = 3
 
 --- The region `key` of the record as a texture of `frame` itself at BACKGROUND `sublevel`, made once,
 --- its alpha put back to 1 (a fader that does not know Ka0s's regions may have faded it).
@@ -519,6 +539,7 @@ function P.unfont(rec, fs)
   local obj = namedFont(fs, s.obj)
   if obj then
     fs:SetFontObject(obj)
+    if P.holdFace then P.holdFace(fs, s.path, s.size, s.flags) end   -- the face it showed, not ours
   elseif s.path and type(s.size) == "number" and s.size > 0 then   -- never a height SetFont refuses
     fs:SetFont(s.path, s.size, s.flags)
     if s.shadowOffset and type(fs.SetShadowOffset) == "function" then
@@ -587,6 +608,7 @@ function P.font(owner, rec, fs, role, color)
   local obj = ownerFont(owner, role, path, size, flags, T["font.shadow"] ~= false and not darkColor(color))
   if obj then
     fs:SetFontObject(obj)
+    if P.holdFace then P.holdFace(fs, obj:GetFont()) end   -- a string's own SetFont beats the object
   else
     fs:SetFont(path, size, flags)
   end
@@ -739,9 +761,10 @@ local function boxTokens(T, spec, opts)
 end
 
 -- A box on a frame with no backdrop: the fill as a region of the target (at P.SUB.fill, under
--- everything it draws, for an extra), the border on the holder.
-local function regionBox(rec, frame, T, spec, border, style, size)
-  local t = spec.fill and (spec.extra and P.subTex(rec, "fill", frame, P.SUB.fill)
+-- everything it draws, for an extra), the border on the holder. `noBg` draws no fill (minor 17).
+local function regionBox(rec, frame, T, spec, border, style, size, noBg)
+  if noBg then P.hide(rec, "fill") end
+  local t = spec.fill and not noBg and (spec.extra and P.subTex(rec, "fill", frame, P.SUB.fill)
     or P.tex(rec, "fill", frame, "BACKGROUND", 0))
   if t then
     t:SetAllPoints(frame)
@@ -763,7 +786,7 @@ function P.box(rec, frame, T, spec, opts)
     P.hide(rec, "fill"); P.hide(rec, "grad")
     return P.hideEdges(rec, frame)
   end
-  if not P.hasBackdrop(frame) then return regionBox(rec, frame, T, spec, border, style, size) end
+  if not P.hasBackdrop(frame) then return regionBox(rec, frame, T, spec, border, style, size, opts.noBg) end
   if spec.extra and hasGradient(T, spec.fill) then fill = CLEAR end
   P.backdrop(rec, frame, fill, flat and border or nil, flat and size or 1, spec.insets)
   boxGradient(rec, frame, T, spec)
@@ -789,22 +812,35 @@ local function restoreColors(rec, method)
   end
 end
 
---- Undo everything a primitive did to a target: faded art back to its alpha, fonts, text and vertex
---- colors, text alignment (minor 12) and a backdrop back to what they were, every Ka0s region and
---- both holders hidden. The regions are kept for reuse.
-function P.unpaint(rec, frame)
+--- The saved alpha, text alignment, gradient, fonts and texcoords (S.IconBorder's zoom) back, in that order (P.unpaint's first step,
+--- out of it at minor 16 so it stays under CCN 15).
+local function restoreSaved(rec)
   local s = rec.regions.saved or {}
   for region, a in pairs(s.alpha or {}) do region:SetAlpha(a) end
   s.alpha = nil
   for fs, align in pairs(s.justify or {}) do fs:SetJustifyH(align) end
   s.justify = nil
+  for tex, g in pairs(s.glow or {}) do tex:SetGradient("VERTICAL", g.bottom, g.top) end
+  s.glow = nil
   for fs in pairs(s.font or {}) do P.unfont(rec, fs) end
+  for tex, c in pairs(s.coords or {}) do
+    if c[1] then tex:SetTexCoord(unpack(c)) end
+  end
+  s.coords = nil
+end
+
+--- Undo everything a primitive did to a target: faded art back to its alpha, fonts, text and vertex
+--- colors, text alignment (minor 12) and a backdrop back to what they were, every Ka0s region and
+--- both holders hidden. The regions are kept for reuse.
+function P.unpaint(rec, frame)
+  restoreSaved(rec)
   restoreColors(rec, "SetTextColor")
   restoreColors(rec, "SetVertexColor")
   restoreColors(rec, "SetBackdropBorderColor")
   restoreColors(rec, "SetDesaturated")
   if P.hasBackdrop(frame) then restoreBackdrop(rec, frame) end
   P.hideEdges(rec, frame)
+  if rec.regions.stepped then P.unstep(rec, frame) end
   for key, r in pairs(rec.regions) do
     if key ~= "holder" and lib.__ours[r] then r:Hide() end
   end
@@ -902,6 +938,7 @@ end
 local function band(rec, frame, key, sublevel, inset, height, bottom)
   local t = P.tex(rec, key, frame, "BACKGROUND", sublevel)
   if not t then return nil end
+  if type(t.SetDrawLayer) == "function" then t:SetDrawLayer("BACKGROUND", sublevel) end
   t:ClearAllPoints()
   if bottom then
     t:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", inset, inset)
@@ -936,7 +973,8 @@ local function shellBands(rec, frame, T, opts, inset)
   end
   local h = T["title.height"] or 30
   if not opts.noTopBar and (T["title.bg"] or T["title.bgTop"]) then
-    P.fill(rec, band(rec, frame, "top", -5, inset, h), T, "title.bg")
+    local sub = P.hasBackdrop(frame) and P.BAND_SUB or -5   -- over a backdrop's Center (minor 18)
+    P.fill(rec, band(rec, frame, "top", sub, inset, h), T, "title.bg")
   else
     P.hide(rec, "top")
   end
@@ -954,10 +992,17 @@ local function shellRegions(rec, frame, T)
   P.fill(rec, t, T, "win.bg")
 end
 
--- A frame with a backdrop: Core.ApplySkin with the skin's table, its edge clear (shellEdges draws it).
-local function shellBackdrop(owner, frame, T, style)
+-- The window's body and title face. A frame with a backdrop: Core.ApplySkin with the skin's table, its
+-- edge clear (shellEdges draws it); a frame with none: the fill region. Then `frame.title`'s font.
+local function shellBody(owner, rec, frame, T, style)
   local c = core()
-  if c and type(c.ApplySkin) == "function" then c.ApplySkin(frame, shellSkin(owner, T, style == "flat")) end
+  if not P.hasBackdrop(frame) then
+    shellRegions(rec, frame, T)
+  elseif c and type(c.ApplySkin) == "function" then
+    c.ApplySkin(frame, shellSkin(owner, T, style == "flat"))
+  end
+  local title = rawget(frame, "title")
+  if P.isFS(title) then P.font(owner, rec, title, "title") end
 end
 
 -- The slots `opts.tokens` remaps on a window (minor 11), and the fill slots among every box's.
@@ -975,9 +1020,13 @@ P.FILL_SLOTS = FILL_SLOTS   -- Panel and Inset's too (SkinPaintExtras.lua since 
 --- its gradient pair), `border` (`win.border`), `inner` (`win.inner`), `top` (the top bar's
 --- `title.bg`), `bottom` (the bottom bar's `foot.bg`), `text` (`title.text`), `divider` (`divider`).
 --- A template-built window has its art (`NineSlice` and the textures `opts.stock` names) faded under
---- every skin, Ka0s Default included. Draws no Media icon.
+--- every skin, Ka0s Default included. On a backdrop frame the top bar sits over the backdrop's fill
+--- (minor 18); a call with no opts on a frame its owner painted with opts repeats them. Draws no Media icon.
 prim.Shell = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
+  local prev = opts == nil and lib.painted[frame]
+  local call = prev and prev.owner == owner and prev.calls.Shell
+  if call and type(call[1]) == "table" then opts = call[1] end   -- a bare call keeps them (minor 18)
   local rec = P.track(owner, frame, "Shell", opts)
   opts = type(opts) == "table" and opts or {}
   P.markStock(rec, frame, opts)
@@ -988,15 +1037,9 @@ prim.Shell = function(owner, frame, opts)
   T = P.remap(owner, T, opts.tokens, SHELL_SLOTS, FILL_SLOTS, "Shell")
   local style = T["win.borderStyle"] or "flat"
   if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
-  if P.hasBackdrop(frame) then
-    shellBackdrop(owner, frame, T, style)
-  else
-    shellRegions(rec, frame, T)
-  end
+  shellBody(owner, rec, frame, T, style)
   shellEdges(rec, frame, T, opts, style)
-  local inset = style == "flat" and T["win.borderSize"] or 1
-  shellBands(rec, frame, T, opts, inset or 1)
-  local title = rawget(frame, "title")
-  if P.isFS(title) then P.font(owner, rec, title, "title") end
+  shellBands(rec, frame, T, opts, style == "flat" and T["win.borderSize"] or 1)
+  if P.layBand then P.layBand(owner, rec, frame, T) end   -- S.Band's holder (SkinPaintExtras minor 17)
 end
 

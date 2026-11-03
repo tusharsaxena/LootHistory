@@ -11,7 +11,12 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 11
+local PANEL_MINOR = 13
+-- Minor 13 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned panel's title and
+-- close mark are anchored to the band S.Shell lays (the facade's Header) at y 0, so they stay on its
+-- middle under a 2 px edge and EllesmereUI's 25 px bar. An unowned panel is as it was.
+-- Minor 12 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title band is 30 high, the
+-- skin's `title.height` and what S.Shell paints, not 24, with the title and the close mark on its middle.
 -- Minor 9: the panel is toplevel and re-raises a shown StaticPopup on show (frame-layering-§4).
 -- Minor 10: the panel follows its skin owner (THE SKIN OWNER below; LK-09 of Ka0sAddonsCommonTasks
 -- docs/2026-10-25-SKINNING).
@@ -47,7 +52,9 @@ local DOT_X, DOT = 8, 8        -- column 1: status dot
 local LABEL_X   = 26           -- column 2: step name
 local CMD_PAD   = 10           -- column 3: slash command, right-aligned
 local LABEL_GAP = 8            -- the label stops this far short of the command column
-local TITLE_H = 24
+-- `title.height`, which every skin carries at one value (tests/test_title_shape.lua pins the two
+-- equal; a panel draws one with no Skin major too).
+local TITLE_H = 30
 local PAD = 8
 
 -- Per-state color, used for both the row's text and its status dot. `busy` deliberately shares the
@@ -251,7 +258,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
 
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", frame, "TOP", 0, -6)
+    title:SetPoint("CENTER", frame, "TOP", 0, -(1 + TITLE_H / 2))
     title:SetText(P.title .. tr("PANEL_TITLE_SUFFIX"))
     frame.title = title
 
@@ -276,7 +283,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     else
       local close = core.MakeCloseButton(frame, P.HidePanel, d.addonName or d.name)
       if close then
-        close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(TITLE_H - 18) / 2)
+        close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(1 + (TITLE_H - 18) / 2))
         frame.closeButton = close
       end
     end
@@ -291,6 +298,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
 
     if S then
       core.ApplySkin(frame, nil, owner)
+      if S.Header then S.Header(frame, { title = title, right = { frame.closeButton } }) end   -- minor 13
       -- After the facade replayed the window: the rows' colors, and the command column's.
       S.OnLooksChanged(function()
         fillPalette(pal, S)

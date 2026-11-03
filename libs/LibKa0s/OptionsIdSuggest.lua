@@ -19,7 +19,9 @@ local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib or not lib.__idsKit then return end
 
 -- Minor 1: the suggestion half, moved here unchanged from OptionsIds.lua (its minor 6).
-local SUGGEST_MINOR = 1
+-- Minor 2 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a row's icon is cropped 0.07
+-- a side on every fill, hidden with no icon, and on an owned page edged in `icon.outline`.
+local SUGGEST_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own: see OptionsScroll.lua.
 if lib.__suggestMinor and lib.__suggestMinor >= SUGGEST_MINOR
   and lib.__suggestShellMinor == lib.MINOR then return end
@@ -53,6 +55,9 @@ local SUGGEST_INDEX_CAP = 2000
 local SUGGEST_DEBOUNCE = 0.1
 -- The client's own small icon for a crafted or reagent quality tier, inline.
 local QUALITY_ATLAS = "|A:Professions-Icon-Quality-Tier%d-Small:14:14|a"
+-- The icon rule (docs/api/README.md's *Icon art*): the crop, and the window edge's options.
+local ICON_CROP = 0.07
+local ICON_EDGE = { fromSkin = true }
 
 --- Every item id in the backpack and the equipped bags (the reagent bag too, where the client has
 --- one), slot by slot.
@@ -462,6 +467,8 @@ function lib.__AttachIdSuggest(O, h)
     row.labelText = suggestLabel(k, entry)
     row.label:SetText(row.labelText)
     row.icon:SetTexture(entry.icon)
+    row.icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
+    row.icon:SetShown(entry.icon ~= nil)
     row:Show()
   end
 
@@ -510,6 +517,7 @@ function lib.__AttachIdSuggest(O, h)
       -- The rows and the more line (minor 5): the owner's roles, or given back as they were.
       for _, row in ipairs(f.rows) do
         O.__chromePaint("Text", row.label, "menu.text")
+        O.__chromePaint("IconBorder", row.icon, ICON_EDGE)
         if O.__hoverArt then O.__hoverArt(row.__ka0sHover) end
       end
       O.__chromePaint("Text", f.more.label, "disabled")

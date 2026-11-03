@@ -60,8 +60,8 @@ local GD = NS.defaults.global
 -- `widget`, `wide`, `invert`, `sessionOnly`, `fmt`, `get`, `set` and `onChange` stay this addon's.
 -- ── The Master controls tab (options-ui-§15) ───────────────────────────────────────────────────
 --
--- COMPOSED, never hand-written. `O.MasterControls` emits the canonical eight in the canonical
--- order from one declaration, which is what stops nine addons drifting into nine orders; the tab
+-- COMPOSED, never hand-written. `O.MasterControls` emits the canonical rows (nine here) in the
+-- canonical order from one declaration, which is what stops nine addons drifting into nine orders; the tab
 -- name is the literal `Master controls` and it is simultaneously the rows' `group`, the strip's
 -- first label and the `afterGroup` key the closing button pair hangs off (settings/Panel.lua).
 --
@@ -82,6 +82,14 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- a session-only `Test mode` checkbox on its own line below Lock frame / Debug console
   -- (options-ui-§15, preview-mode; LibKa0s compose minor 6). Verbatim, like the console path.
   testModePath     = "state.testMode",
+  -- SIM MODE (LibKa0s compose minor 19, R6-SIM; options-ui-§15). This addon has a simulation, so the
+  -- composer draws a session-only `Sim mode` box at `state.sim`, opening the line after Test mode.
+  -- The SAME pair the launcher's Sim mode entry carries (core/LauncherSetup.lua), so the box, the
+  -- menu entry and `/lh sim` are one act. The row's own get/set are the library's; the seam honors
+  -- them as it does the console's. modules/Sim.lua's listener refreshes the box when the sim starts
+  -- or ends from anywhere else.
+  isSimMode        = NS.IsSimMode,
+  toggleSim        = NS.ToggleSim,
   -- THE HOST'S ONE SENTENCE AFTER THE COMPOSED WORDS (compose minor 9, options-ui-§15; item 020,
   -- LOO-L19). The composer is the only writer of a Master controls row's label and tooltip; the
   -- canonical Test mode text is generic, and `notes` is how this addon says what its test mode
@@ -89,6 +97,7 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- names.
   notes = {
     testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline.",
+    simMode  = "Ticking it is a bare /lh sim: the status line and the sim panel, where you pick a scenario; the box ticks once one starts.",
   },
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
@@ -122,6 +131,9 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
     -- Session-only too, and off at every load. `false` is what lets a reset end it: the row walk
     -- behind `/lh resetall` restores each row to this value (options-ui-§15).
     testMode = false,
+    -- Session-only as well, and the composer's own default: a reset stops a running sim and never
+    -- starts one.
+    simMode = false,
   },
   -- Its own button now, over the window geometry carve-out. It used to be folded into the General
   -- page's Defaults handler, where a player asking for "defaults" also got their window recentered
@@ -251,6 +263,9 @@ stamp(MASTER_ROWS, {
   -- only when the value differs and goes through BrowserTable:SetTestMode, the one switch the box,
   -- `/lh test` and the combat start share; that refreshes the panel on every start and stop, so a
   -- refused start (window not allowed on screen, or in combat) redraws the box unticked.
+  -- Session-only too (R6-SIM): its value IS NS.IsSimMode(), and its get/set are the composer's own,
+  -- built over the launcher's pair (compose minor 19), so only the widget is stamped here.
+  ["state.sim"] = { widget = "CheckBox" },
   ["state.testMode"] = {
     widget = "CheckBox",
     -- No `tooltip` here: the words are the composer's, with the host note passed above.
@@ -1235,7 +1250,8 @@ NS.COMMANDS = gateFeatureVerbs{
   -- The in-game simulator (LootHistory#37, LibKa0s-Sim-1.0's H7): one feature-verb row, so the gate
   -- above refuses it while the addon is disabled (it is NOT on LIVE_WHILE_DISABLED). The grammar is
   -- the library's (start, run, step, pause, resume, restart, stop, status, panel; no help verb) plus
-  -- the host verb `loot [n]` (modules/Sim.lua). Slash-only: no launcher entry, no key binding. With
+  -- the host verb `loot [n]` (modules/Sim.lua). No key binding; the launcher menu's Sim mode entry and
+  -- the Master controls Sim mode box (R6-SIM) reach this same verb through NS.ToggleSim. With
   -- no LibKa0s the session stub answers "The simulator needs LibKa0s-Sim-1.0.".
   { "sim", NS.L["In-game simulator: /lh sim start <scenario>"], function(rest)
       NS.Sim:RunVerb(rest or "")

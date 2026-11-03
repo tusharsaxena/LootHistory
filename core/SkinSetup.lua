@@ -117,6 +117,7 @@ NS.SKIN_FALLBACK = {
   -- The History window's chrome (LH-02): the tab labels and underline, the flat buttons, the plain
   -- search box, the footer and the strip tooltips' lines.
   ["tab.onText"]    = { 1, 0.82, 0, 1 },
+  ["menu.text"]     = { 0.9, 0.9, 0.9, 1 },
   ["tab.text"]      = { 0.7, 0.7, 0.72, 1 },
   ["tab.onLine"]    = { 1, 0.82, 0, 1 },
   ["btn.bg"]        = { 0.1, 0.1, 0.12, 0.9 },
@@ -132,6 +133,7 @@ NS.SKIN_FALLBACK = {
   -- hover, the cells' default text, the row menu (its edge is the muted-gold borderAlt), the
   -- tooltips' title and hint lines, the padlock's five bind states and the destructive entry.
   ["list.header.text"] = { 1, 0.82, 0, 1 },
+  ["list.header.arrow"] = { 1, 0.82, 0, 1 },
   ["list.stripe"]   = { 1, 1, 1, 0.03 },
   ["list.hover"]    = { 1, 0.82, 0, 0.10 },
   ["text.body"]     = { 0.9, 0.9, 0.9, 1 },
@@ -372,8 +374,20 @@ end
 -- preview is worn without a host re-apply. A profile event still takes the picker down FIRST
 -- (NS.OnProfileEvent), before the new profile's skin is applied, so the new profile's whole pair
 -- (exceptions and overrides with it) is what NS.ApplySkinChoice leaves worn, and a new or reset
--- profile then shows it fresh. The eye leaves the picker up: the library's window is DIALOG and
--- raised after onPreview returns (PK-03), so the HIGH History window it opens cannot cover it.
+-- profile then shows it fresh.
+--
+-- THE PREVIEW MODE (R6-PV, LibKa0s OptionsSkinPicker minor 11's spec.preview; Ka0sAddonsCommonTasks
+-- docs/2026-11-03-SMOKE_ROUND6, the lead's call 2). This addon previews in its test mode, so every
+-- skinned surface of the History window has rows on it. A picker that shows with the window hidden
+-- and test mode off turns test mode on (the start opens the window); the eye toggles it; every close
+-- (Apply, Apply to all, the gear, the close control, Escape, NS.HideSkinPicker) puts back the mode the
+-- picker opened with. Each switch is BrowserTable:SetTestMode, the one switch `/lh test`, the
+-- launcher and the Master controls box share, so they all read the same state and its refusals (a
+-- running sim, combat, the General visibility setting) still apply: a refused start moves nothing
+-- and the library then undoes nothing. A stop never hides the window, so the exit hides it itself,
+-- and only when this preview's own start opened it (previewOpenedWindow): a window the player had
+-- open stays. The library's window is DIALOG and raised after each call, so the HIGH History window
+-- cannot cover it.
 --
 -- COMBAT. The library's queue waits out combat before it shows the NEXT owner's picker (PK-03), but
 -- a first O.SkinPicker call with nothing up shows at once, whatever the lockdown, so this addon's
@@ -387,23 +401,54 @@ local PICKER_PATH = "settings.appearance.pickerSeen"
 local pickerTarget       -- the one-shot PLAYER_REGEN_ENABLED target, while a start is held
 local quietClose = false -- true while NS.HideSkinPicker takes the picker down
 
---- The eye: the History window in test mode, so the player sees the skin on this addon's frames;
---- the library raises the picker over it once this returns. SetTestMode's start opens the window
---- itself; a mode already on only needs the window shown. A refused start (the window not allowed
---- on screen) prints its own line.
-local function previewSkin()
+local previewOpenedWindow = false -- true while the preview's own start opened the History window
+
+local function historyShown()
+  local f = NS.Browser and NS.Browser.GetWindow and NS.Browser:GetWindow()
+  return (f ~= nil and f:IsShown()) and true or false
+end
+
+--- spec.preview's enter: test mode on through the one switch. Answers false for a refused start
+--- (it prints its own line), so the library records no change to undo.
+local function previewEnter()
   local BT = NS.BrowserTable
-  if not (BT and BT.SetTestMode) then return end
-  if BT.testMode then
-    if NS.Browser and NS.Browser.Show then NS.Browser:Show() end
-  else
-    BT:SetTestMode(true, "skin picker")
+  if not (BT and BT.SetTestMode) then return false end
+  local hidden = not historyShown()
+  if not BT:SetTestMode(true, "skin picker") then return false end
+  if hidden and historyShown() then previewOpenedWindow = true end
+end
+
+--- spec.preview's exit: test mode off, and the History window hidden again when the preview opened it.
+local function previewExit()
+  local BT = NS.BrowserTable
+  if not (BT and BT.SetTestMode) then return false end
+  BT:SetTestMode(false, "skin picker")
+  if previewOpenedWindow then
+    previewOpenedWindow = false
+    if NS.Browser and NS.Browser.Hide then NS.Browser:Hide() end
   end
 end
+
+--- spec.preview: the picker's test mode (the Launcher descriptor's isTestMode / isWindowShown reads).
+local PICKER_PREVIEW = {
+  mode = "test",
+  enter = previewEnter,
+  exit = previewExit,
+  isActive = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
+  isShown = historyShown,
+}
 
 --- The player's close: the picker seen, and nothing else. The library's put-back already wears the
 --- stored choice (PK-03 reads `get` at the close), so the skin is not this callback's to move.
 local function pickerClosed()
+  -- The library's restore has run. A window the preview opened that is still up was hidden when the
+  -- picker showed: the restore's own start reopened it (test mode on over a closed window, stopped by
+  -- the eye), or combat ended the mode without the exit (EndTestModeForCombat). Hide it again; the
+  -- next showing starts afresh.
+  if previewOpenedWindow then
+    previewOpenedWindow = false
+    if historyShown() and NS.Browser and NS.Browser.Hide then NS.Browser:Hide() end
+  end
   if quietClose then return end
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
@@ -417,7 +462,7 @@ function NS.SkinPickerSpec()
     -- own subcategory, not the landing page), then O.SelectTab("General", "Appearance"), the Skin
     -- tab's key on this addon's one schema page (settings/Panel.lua).
     page = "General", tab = "Appearance",
-    onPreview = previewSkin, onClose = pickerClosed,
+    preview = PICKER_PREVIEW, onClose = pickerClosed,
   }
 end
 
@@ -479,6 +524,51 @@ function NS.MaybeShowSkinPicker()
   return O.SkinPicker(NS.SkinPickerSpec())
 end
 
+-- ── the one-time skin notice (LibKa0s OptionsSkinPicker minor 9, SG-L3) ────────────────────────
+-- A release that wants every account to learn skins exist raises lib.SKIN_NOTICE_VERSION. The first
+-- addon to ask in a session claims the notice and shows the picker; every other addon records the
+-- version and stays quiet. The record is `db.global.skinNotice`, a number: account-wide, so a profile
+-- switch never shows it twice. In combat nothing is claimed; it asks again every NOTICE_RETRY seconds until combat ends.
+local NOTICE_RETRY = 5   -- seconds between asks while the player is in combat
+local noticeWaiting = false
+
+local function noticeGlobal()
+    local d = NS.db or (NS.addon and NS.addon.db)
+    return d and d.global or nil
+end
+
+local noticeStore = {
+    get = function() local g = noticeGlobal(); return g and g.skinNotice or nil end,
+    set = function(v) local g = noticeGlobal(); if g then g.skinNotice = v end end,
+}
+
+function NS.MaybeShowSkinNotice()
+    local O = NS.Options
+    if not (O and type(O.SkinNotice) == "function" and noticeGlobal()) then return nil, "unavailable" end
+    if NS.IsStoodDown and NS.IsStoodDown() then
+        -- A stood-down addon shows nothing, but a seen record still silences the rest (SG-L3).
+        O.SkinNotice(nil, noticeStore, true)
+        return nil, "standdown"
+    end
+    local spec = NS.SkinPickerSpec()
+    local frame, why = O.SkinNotice(spec, noticeStore)
+    if why == "combat" and not noticeWaiting and type(_G.C_Timer) == "table" and _G.C_Timer.After then
+        noticeWaiting = true
+        _G.C_Timer.After(NOTICE_RETRY, function()
+            noticeWaiting = false
+            NS.MaybeShowSkinNotice()
+        end)
+    end
+    return frame, why
+end
+
+local pickerFirstRun = NS.MaybeShowSkinPicker
+function NS.MaybeShowSkinPicker()
+    local frame, why = NS.MaybeShowSkinNotice()
+    if frame or why == "queued" then return frame, why end
+    return pickerFirstRun()
+end
+
 -- AceGUI keeps ONE callback per event name (options-ui-§19). Without the library's chain there is
 -- no skin restore to share the release with, so the host's work takes the callback, as it did
 -- before the skin engine.
@@ -510,7 +600,13 @@ if not Skin then
     "GetAccentColor", "GetPanelColor", "GetFont",
     "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
     "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
-    "BarTexture", "FontFlags", "HudFontSize",
+    "BarTexture", "FontFlags", "HudFontSize", "Mark",
+    -- LibKa0s v1.85.0: this addon has no HUD and reads none of these, but the facade answers every
+    -- VOCAB name. Nil is each getter's degraded answer, and with no skin there is no gloss.
+    "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HoverArt",
+    -- LibKa0s v1.85.0 round 5 (Skin minor 16, R5-L3): the band holder answers nil and the header
+    -- placement does nothing, so each window keeps the anchors it set before calling them.
+    "Band", "Header",
   }) do S[name] = noop end
 
   S.Token = function(name)
@@ -521,6 +617,66 @@ if not Skin then
   S.Resolve = function(kind, value, fromSkin)
     if fromSkin or value == S.FROM_SKIN then return S.Token(kind) end
     return value
+  end
+  -- LibKa0s v1.85.0 (SkinPaintExtras minor 9): a string a caller concatenates, so never nil. The
+  -- same markup in the art's own color, there being no tint to read.
+  S.MarkText = function(path, size)
+    size = size or 14
+    return ("|T%s:%d:%d|t"):format(path, size, size)
+  end
+  -- A picked flag as stored, "OUTLINE" for the sentinel, and a size above 0 or 12. Nothing here draws
+  -- HUD text; these two are what HudFont below owes (Options doc, Moving to, section 7).
+  S.FontFlags = function(stored)
+    if stored == S.FROM_SKIN then return "OUTLINE" end
+    return stored or ""
+  end
+  S.HudFontSize = function(size)
+    local n = tonumber(size)
+    return (n and n > 0) and n or 12
+  end
+  -- The one member that must draw (SkinPaintExtras minor 14). A stored shadow does not draw with
+  -- the library absent, and both arms are written, so turning the row off clears it.
+  S.HudFont = function(fs, opts)
+    opts = type(opts) == "table" and opts or {}
+    local face = opts.face
+    if type(face) ~= "string" or face == "" then face = STANDARD_TEXT_FONT end
+    if type(face) ~= "string" then return nil end
+    fs:SetFont(face, S.HudFontSize(opts.size), S.FontFlags(opts.flags))
+    local on = opts.shadow and true or false
+    fs:SetShadowColor(0, 0, 0, on and 1 or 0)
+    fs:SetShadowOffset(on and 1 or 0, on and -1 or 0)
+  end
+  -- No skin to defer to, so the stored style, show and size stand (SkinPaintExtras minor 16).
+  S.BarBorder = function(style, show, size)
+    return style, show, size
+  end
+  -- The History window's tab (modules/Browser.lua): its label and a 2px underline, the look it had
+  -- before the skin engine; no backing, as there is no skin to draw one.
+  local tabs = setmetatable({}, { __mode = "k" })
+  S.SetTabSelection = function(tab, selected)
+    local t = tabs[tab]
+    if not t then return end
+    t.fs:SetTextColor(color(selected and "tab.onText" or "tab.text"))
+    t.line:SetShown(selected == true)
+  end
+  S.Tab = function(tab, opts)
+    if not (type(tab) == "table" and tab.CreateTexture and type(opts) == "table") then return end
+    local line = tab:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(color("tab.onLine")); line:SetHeight(2)
+    line:SetPoint("BOTTOMLEFT", 8, 0); line:SetPoint("BOTTOMRIGHT", -8, 0)
+    tabs[tab] = { fs = opts.text, line = line }
+    S.SetTabSelection(tab, opts.selected)
+  end
+  -- The Timeline's toggle box (modules/Timeline.lua): check.bg, and a 6px check.mark tick shown
+  -- while the button is checked.
+  S.Checkbox = function(cb)
+    if not (type(cb) == "table" and cb.CreateTexture) then return end
+    local box = cb:CreateTexture(nil, "ARTWORK")
+    box:SetAllPoints(cb); box:SetColorTexture(color("check.bg"))
+    local tick = cb:CreateTexture(nil, "OVERLAY")
+    tick:SetSize(6, 6); tick:SetPoint("CENTER", cb, "CENTER", 0, 0)
+    tick:SetColorTexture(color("check.mark")); tick:Hide()
+    hooksecurefunc(cb, "SetChecked", function(self) tick:SetShown(self:GetChecked() and true or false) end)
   end
   S.OnLooksChanged = function(fn) return fn end   -- the skin never changes without the library
   S.IsEnabled = function() return false end
@@ -537,8 +693,8 @@ if not Skin then
     local r, g, b, a = color(role == "title" and "title.text" or ("text." .. tostring(role)))
     if r and fs and fs.SetTextColor then fs:SetTextColor(r, g, b, a) end
   end
-  -- A rule: a texture colored in place, or a frame given one texture filling it (made once). The
-  -- History window's divider is a frame (modules/Browser.lua), so a degraded install still draws it.
+  -- A rule: a texture colored in place, or a frame given one texture filling it (made once). No
+  -- window of this addon calls it under its title (R4-SEP); it stays for facade parity.
   local rules = setmetatable({}, { __mode = "k" })
   S.Divider = function(target, opts)
     if type(target) ~= "table" then return end

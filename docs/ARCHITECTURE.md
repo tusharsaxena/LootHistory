@@ -84,7 +84,7 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Thirty-one rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Thirty-two rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
 Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
 `Appearance`) holds eight: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
@@ -159,7 +159,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. The run turns session logging on first when it is off (standard v2.71.0), and the console's **Diagnostics** link runs the same call. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the five in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
 | `test` | Toggle a synthetic preview dataset for the table, Insights, Holdings and the Timeline (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it) |
-| `sim` | The in-game simulator, `LibKa0s-Sim-1.0`'s verb grammar (`NS.Sim:RunVerb`): bare prints status and usage and opens the panel; `start <scenario>`, `run` / `step` / `pause` / `resume` / `restart`, `stop`, `status`, `panel`, and the host verb `loot [n]`. A feature verb: refused while the addon is disabled. No launcher entry and no key binding. See [§ The simulator](#the-simulator) |
+| `sim` | The in-game simulator, `LibKa0s-Sim-1.0`'s verb grammar (`NS.Sim:RunVerb`): bare prints status and usage and opens the panel; `start <scenario>`, `run` / `step` / `pause` / `resume` / `restart`, `stop`, `status`, `panel`, and the host verb `loot [n]`. A feature verb: refused while the addon is disabled. No key binding; the launcher menu's **Sim mode** entry and the Master controls **Sim mode** checkbox run the same verb through `NS.ToggleSim` (R6-SIM). See [§ The simulator](#the-simulator) |
 | `purge` | Delete ALL loot history (confirm dialog). Refused while a simulation runs |
 | `help` | Print the generated command index |
 
@@ -299,7 +299,7 @@ The library's host contract, and where this addon meets each point:
 | H4 | Session-only storage for every capture-path write, proven byte-identical | `NS.SimStores` and one accessor per store ([§ Data model](#data-model)); `tests/test_sim_store.lua` |
 | H5 | The refusal covers stood-down, test mode and the world; test mode refuses while a simulation runs | `NS.SimHost.Refusal` (`modules/Sim.lua`) and `testModeRefusal` (`modules/BrowserTable.lua`) |
 | H6 | The stand-down stops it first; host reasons stop it | `call("SimStop")` first in `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua`); `NS.OnProfileEvent` (`profile`); the world watch (`group`, `instance`, `combat`); real interference (`world`) |
-| H7 | One feature-verb row, `sim`, refused while disabled, no launcher entry | `settings/Schema.lua`'s `NS.COMMANDS` row, not in `LIVE_WHILE_DISABLED`; no launcher entry and no key binding |
+| H7 | One feature-verb row, `sim`, refused while disabled, no launcher entry | `settings/Schema.lua`'s `NS.COMMANDS` row, not in `LIVE_WHILE_DISABLED`; no key binding. The launcher's Sim mode entry and the Master controls Sim mode box (R6-SIM, LibKa0s compose minor 19) are the same verb through the one `NS.IsSimMode` / `NS.ToggleSim` pair |
 | H8 | A preview-mode marker, a diagnostics section and a debug tag | The cyan simulation strip (one strip per mode; the `SIMULATION` title badge only as the degraded fallback) and the footer (`modules/Browser.lua`, [browser.md](browser.md)); the `sim` diagnostics section (`modules/Diagnostics.lua`); the `Sim` tag ([debug.md](debug.md)) |
 | H9 | An inert stub without the library, with surface parity | `NS.SimHost.NewSeamStub` / `NewSimStub` (`core/SimSeam.lua`); `tests/test_surface_parity.lua` |
 | H10 | The panel's position | Session-only by the owner's ruling (OWNER_SCOPE C.11): held in the library instance's memory, never a window-state key and never a schema row, so a simulation writes nothing to SavedVariables |
@@ -372,7 +372,11 @@ facade with this addon as its **owner**.
   so does another Ka0s addon's **Apply to all Ka0s addons** for this picker while it is queued
   (one picker is up at a time across Ka0s addons; a queued call answers `nil, "queued"`).
   `NS.HideSkinPicker` (the stand-down, and first on every profile event, so the put-back lands
-  before the new profile's skin) takes it down without setting it. Its eye turns test mode on.
+  before the new profile's skin) takes it down without setting it. Its preview is test mode (`spec.preview`, LibKa0s
+  OptionsSkinPicker 11, R6-PV): opened with the History window hidden and test mode off, the picker
+  turns test mode on through `BrowserTable:SetTestMode` (the start opens the window); the eye toggles
+  it; every close puts back the mode it opened with, and hides the window again when the preview
+  opened it.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
   event (`core/LootHistory.lua`), applying the stored Scope, overrides and Font outline with the stored skin, and
   from each Skin tab row with only its own half. It calls
@@ -407,23 +411,21 @@ facade with this addon as its **owner**.
   page never mixes stock and skinned. No dropdown, search box, strip, chart or autocomplete of this
   addon sits on the settings panel, so none passes `panel = true`. *Ignore fonts* reaches every string
   the library paints; this addon has no HUD.
-- **The color gate.** `tests/test_skin_literals.lua` fails on a numeric literal in a color position
-  (r, g or b) of `SetTextColor`, `SetColorTexture`, `SetVertexColor`, `SetBackdropColor`,
-  `SetBackdropBorderColor`, `AddLine` and `AddDoubleLine`, and on any `|cff` escape in code, in every
-  tracked file under `core/`, `modules/` and `settings/`, outside `core/SkinSetup.lua` and the
-  allow-list below. An allow-list entry that matches nothing also fails.
+- **The typed-value gate.** The kit's `test_skin_values` (revision 50, `Kit.skinValues` in
+  `tests/run.lua`) fails on a typed color or a client texture path in every tracked file under
+  `core/`, `modules/` and `settings/`, outside the kit's shared categories and a host's allow rows. It
+  reads the kit's color calls and this addon's three paint helpers, `NS.SkinBar`, `setCell` and
+  `NS.IconMarkup`. A row that matches nothing fails.
+- **The switch test.** The kit's `test_skin_switch` (`Kit.skinSwitch`) flips each surface
+  `tests/skin_surfaces.lua` declares to a probe skin and fails one that draws the same. A surface is
+  one painted object, because the kit counts a change anywhere under what `build` answers.
 
 ### Intentional exceptions
 
-The gate's allow-list, each with its reason:
-
-| File | What | Why it is not chrome |
-|---|---|---|
-| `core/Constants.lua` | `qualityHex(q)` in the Minimum quality option labels | An item quality's client color, passed through |
-| `core/Namespace.lua` | `NS.PREFIX`, the cyan `[LH]` | Chat output; the chat frame is not a skinned surface |
-| `settings/Slash.lua` | `\|cffffd100` in the ledger reset prompt | A Blizzard `StaticPopup`, which stays stock |
-| `settings/Slash.lua` | `\|cFFFFFF00` in the get/set echo and the disabled-line fallback | Chat output; the fallback is the library's string, pinned byte for byte |
-| `modules/SimWorld.lua` | The fixture item and currency links | Hyperlinks colored as the client colors them |
+**No allow row.** The five rows the addon's own color gate carried went when the kit's check replaced it,
+because a kit category takes each of them: the item quality's client color (`qualityHex`), chat output
+(`NS.PREFIX` and the get/set echo), StaticPopup text in the ledger reset prompt and the simulator's
+fixture hyperlinks.
 
 Outside the gate's reach, also on purpose:
 
@@ -444,13 +446,13 @@ Outside the gate's reach, also on purpose:
   `GameFont*` templates' Friz Quadrata; with **Ignore fonts** on,
   every string keeps its own face and size and the skin still colors it. Two strings stay on their own face: the row's
   direction glyph (the mono font, for its arrows) and the close button's mark. The browser's top tabs
-  read the text roles (`muted`, `accent` when selected) rather than `tab.text` / `tab.onText`, which
-  are colored for a tab's own backing and these tabs have none (Azeroth's cream `tab.text` vanished
-  on its parchment); on Ka0s Default the two are the same gray and gold.
-- **The minimap button and the broker tooltip** stay stock: LibDBIcon gives every addon's button one
-  look, and the LDB tooltip's backdrop and the library's lines (including Launcher's semantic
-  green/red status escapes, `libs/LibKa0s/Launcher.lua`) are the library's. The host's one line, the
-  record count (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
+  are the skin's `S.Tab`, so their labels read `tab.text` / `tab.onText` on the backing it draws
+  ([browser.md](browser.md#tabs)).
+- **The minimap button and the broker tooltip's frame** stay stock: LibDBIcon gives every addon's button
+  one look, and the LDB tooltip's frame and backdrop are the client's. The lines follow the skin: the
+  library paints its title, status and hint lines from `gtip.title`, `gtip.line`, `gtip.on` and
+  `gtip.off` (`libs/LibKa0s/Launcher.lua`), and the host's one line, the record count
+  (`core/LauncherSetup.lua`), takes `gtip.subtle` (the .7 gray it drew).
 - **`GameTooltip`'s backdrop is never restyled.** Host tooltip lines take `gtip.*` tokens through
   `core/Compat.lua`'s Show* helpers; the frame is Blizzard's.
 - **Stock Blizzard dialogs and pickers**: the reset and purge `StaticPopup`s and `ColorPickerFrame`.

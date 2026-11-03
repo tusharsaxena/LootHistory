@@ -103,7 +103,11 @@ if not lib then return end
 -- Minor 10 (LK-M2-68 of the same run, LibKa0s#68): the measurer's host takes the strip's effective
 -- scale for each measure (dhMatchScale), the measured text is written fresh, and a fitted strip
 -- fits again on show (THE SHOW above). A strip at UIParent's scale measures what it did.
-local DRAG_MINOR = 10
+-- Minor 11 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an owned strip with no
+-- host art draws the Ka0s `info` and `close` icons on its marks, live on a repaint (dhMarkArt).
+-- Minor 12 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an owned strip wears the
+-- skin's body face over a host's `spec.labelFont`, which is what Ignore fonts gives back.
+local DRAG_MINOR = 12
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -226,6 +230,11 @@ local CLOSE_FALLBACK = "Interface\\Buttons\\UI-StopButton"
 -- response and the click register or decline together.
 local HELP_TINT      = { 0.7, 0.7, 0.72 }
 local HELP_TINT_OVER = { 1, 1, 1 }
+
+--- One mark's art: the host's, an owned strip's Ka0s icon (minor 11), else the client rung.
+local function dhMarkArt(handle, spec, field, name, fallback)
+  return spec[field] or lib.__ownedMark(spec.owner, name, handle.__panel) or fallback
+end
 
 -- The strip's colors as one palette (minor 6): these for a strip with no skin owner, the owner's
 -- tokens for one with (dhPalette). Every paint reads the handle's palette, never a literal.
@@ -576,7 +585,7 @@ local function dhBuildHelp(handle, spec)
   if icon and icon.SetTexture then
     icon:SetSize(D.HELP, D.HELP)
     icon:SetPoint("CENTER", help, "CENTER", 0, 0)
-    icon:SetTexture(spec.helpIcon or HELP_FALLBACK)
+    icon:SetTexture(dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK))
     dhTint(icon, handle.__pal.tint)
     help.icon = icon
   end
@@ -634,7 +643,7 @@ local function dhBuildClose(handle, spec)
   if icon and icon.SetTexture then
     icon:SetSize(D.HELP, D.HELP)
     icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
-    icon:SetTexture(spec.closeIcon or CLOSE_FALLBACK)
+    icon:SetTexture(dhMarkArt(handle, spec, "closeIcon", "close", CLOSE_FALLBACK))
     dhTint(icon, handle.__pal.tint)
     btn.icon = icon
   end
@@ -686,11 +695,12 @@ local function dhBuildChrome(handle, spec)
 end
 
 --- The label's face (minor 7): the skin's body face while the strip is skinned, the template back
---- otherwise; a host's `spec.labelFont` is never touched.
+--- otherwise. A host's `spec.labelFont` is that template (minor 12).
 local function dhFontLabel(handle, owner, Skin)
   local skinFont = lib.__skinFont
-  if not handle.label or handle.__hostFace or type(skinFont) ~= "function" then return end
-  skinFont(handle.label, owner, handle.__pal ~= DH_PAL and Skin or nil, LABEL_FONT_DEFAULT)
+  if not handle.label or type(skinFont) ~= "function" then return end
+  skinFont(handle.label, owner, handle.__pal ~= DH_PAL and Skin or nil,
+    handle.__labelFont or LABEL_FONT_DEFAULT)
 end
 
 --- THE RE-FIT (minor 8): the host's `spec.onRefit(handle)` under pcall where it passed one, else
@@ -703,6 +713,15 @@ local function dhRefit(handle)
     return
   end
   if handle.__fitted then handle:ApplyWidth(handle.__fitFloor) end
+end
+
+--- The marks' art again, for a panel-scoped strip: its Scope may have moved since the build (minor 11).
+local function dhMarksArt(handle)
+  local spec = handle.__markSpec
+  if not spec then return end
+  local h, c = handle.help and handle.help.icon, handle.close and handle.close.icon
+  if h then h:SetTexture(dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK)) end
+  if c then c:SetTexture(dhMarkArt(handle, spec, "closeIcon", "close", CLOSE_FALLBACK)) end
 end
 
 --- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch, then
@@ -719,6 +738,7 @@ local function dhRepaint(handle, owner)
   if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
   if handle.help then dhTint(handle.help.icon, pal.tint) end
   if handle.close then dhTint(handle.close.icon, pal.tint) end
+  dhMarksArt(handle)
   dhRefit(handle)
 end
 
@@ -947,7 +967,8 @@ end
 ---                                 band colors too from minor 7 (`gtip.title`, `gtip.value`,
 ---                                 `gtip.footer`). Not a tooltip owner -- that is `tooltipOwner` and
 ---                                 a descriptor's own `owner`. From minor 7 the label is drawn and
----                                 measured in that skin's body face unless `labelFont` names one.
+---                                 measured in that skin's body face; `labelFont` is then its
+---                                 template, which Ignore fonts gives back (minor 12).
 ---   panel       boolean|nil       minor 7. true: the strip sits on the owner's settings page, so
 ---                                 while the owner ignores its settings panel it is minor 5's.
 ---   onRefit     function|nil      minor 8. onRefit(handle), called under pcall after every repaint
@@ -963,8 +984,9 @@ function lib.DragHandle(parent, spec)
   if not (handle and handle.SetHeight) then return nil end
   handle:SetHeight(lib.DRAG_HANDLE.HEIGHT)
   local Skin
-  handle.__panel, handle.__hostFace = spec.panel == true, spec.labelFont ~= nil
+  handle.__panel, handle.__labelFont = spec.panel == true, spec.labelFont
   handle.__onRefit = type(spec.onRefit) == "function" and spec.onRefit or nil
+  handle.__markSpec = handle.__panel and spec or nil
   handle.__pal, Skin = dhPalette(spec.owner, handle.__panel)
   -- Before anything is built on it: the marks are born at the handle's level + 1.
   dhLevel(handle, spec, parent)

@@ -335,7 +335,7 @@ BrowserTable.sortAsc = false
 -- the pair is REBUILT on a skin change (Reskin, below) before the header is repainted.
 local ARROW_ASC, ARROW_DESC
 local function buildArrows()
-  local r, g, b = headerRGB()
+  local r, g, b = NS.SkinColor("list.header.arrow")
   ARROW_ASC  = " " .. NS.IconMarkup("sort-up", "Interface\\Buttons\\Arrow-Up-Up", 0, r, g, b)
   ARROW_DESC = " " .. NS.IconMarkup("sort-down", "Interface\\Buttons\\Arrow-Down-Up", 0, r, g, b)
 end
@@ -667,8 +667,7 @@ function BrowserTable:Attach(pane)
   header:SetPoint("TOPRIGHT", -24, 0)
   header:SetHeight(HEADER_H)
   self.headerFrame = header
-  -- The header band: list.header.bg behind the labels, which Ka0s Default leaves unset (no band, as
-  -- before). The labels, the lock and the arrows take list.header.text here, not through the
+  -- The header band: list.header.bg behind the labels. The labels, the lock and the arrows take list.header.text here, not through the
   -- primitive, so each keeps the call it always made.
   NS.Skin.SortHeaderBar(header)
 
@@ -1069,9 +1068,9 @@ function BrowserTable:ShowMenu(anchor, items)
     -- FontStrings and a nil from the seam then costs nothing: the prefix is simply empty and the
     -- row reads exactly as it did before.
     local mark = item.icon and NS.Icon and NS.Icon(item.icon)
-    b.fs:SetText((mark and ("|T" .. mark .. ":14:14|t ") or "") .. item.label)
+    b.fs:SetText((mark and (NS.Skin.MarkText(mark, 14) .. " ") or "") .. item.label)
     if item.enabled then
-      b.fs:SetTextColor(NS.SkinColor("text.body"))
+      b.fs:SetTextColor(NS.SkinColor("menu.text"))
       b:EnableMouse(true)
       b:SetScript("OnClick", function() m:Hide(); item.fn() end)
     else

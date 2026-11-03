@@ -11,9 +11,10 @@
 --
 -- Start(frame, style, knobs, key, frameLevel) -> boolean and Stop(frame, style, key). The style
 -- vocabulary is closed: "button", "proc", "pixel", "autocast"; anything else is a quiet no-op.
--- `knobs` carries `color` and the thirteen named knobs (docs/api/Glow/version-1-docs.md); fields it
+-- `knobs` carries `color` and the thirteen named knobs (docs/api/Glow/version-2-docs.md); fields it
 -- does not name are ignored, so a host passes its whole config table. No defaults: a nil knob
--- reaches LCG as nil and LCG's own value applies.
+-- reaches LCG as nil and LCG's own value applies. One exception, from minor 2: `knobs.owner`, a
+-- registered skin owner, gives a nil `color` that skin's `glow.color`; a host's color wins.
 --
 -- ── THE SEVEN TRAPS ──────────────────────────────────────────────────────────────────────────
 --
@@ -32,7 +33,7 @@
 --
 -- ── WHAT IT DELIBERATELY IS NOT ──────────────────────────────────────────────────────────────
 --
--- Each with the trigger that would reopen it (docs/api/Glow/version-1-docs.md, "What is not here"):
+-- Each with the trigger that would reopen it (docs/api/Glow/version-2-docs.md, "What is not here"):
 --   * no knob defaults          — never: the owner's decision; they live in each host's profile;
 --   * no ranges, no knob catalog — a fourth host copies the knob table, or one host edits a range
 --                                  the others do not;
@@ -47,13 +48,14 @@
 -- presence-checked: the payload cannot carry a consumer-vendored lib, so there is no floor on it.
 --
 -- Depends on LibStub and LibKa0s-Core-1.0. No Core member is called; the gate keeps the payload's
--- presence a single question.
+-- presence a single question. LibKa0s-Skin-1.0 is optional, resolved at the call that names an owner.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Glow-1.0", 1
+-- Minor 2 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): `knobs.owner`.
+local MAJOR, MINOR = "LibKa0s-Glow-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -65,7 +67,8 @@ lib.MODULES.Glow = MINOR
 local LCG = "LibCustomGlow-1.0"
 local NONE = {}   -- nil or non-table knobs: read nothing, allocate nothing
 
-local function lcg() return LibStub and LibStub(LCG, true) end   -- CALL time, every call
+local function resolve(major) return LibStub and LibStub(major, true) end   -- CALL time, every call
+local function lcg() return resolve(LCG) end
 
 local function num(v) if type(v) == "number" then return v end end
 local function len(v) if type(v) == "number" and v > 0 then return v end end
@@ -101,11 +104,24 @@ local STOP_FN = {
 }
 local ORDER = { "button", "pixel", "autocast", "proc" }   -- stop-all order
 
+--- `knobs` with `owner`'s `glow.color` over a nil `color`, on a table of its own (trap 4: the button
+--- style keeps the color by reference); `knobs` itself otherwise. Never writes the host's table.
+local function skinned(knobs)
+  local owner = knobs.owner
+  if knobs.color ~= nil or type(owner) ~= "string" then return knobs end
+  local Skin = resolve("LibKa0s-Skin-1.0")
+  if not (Skin and type(Skin.IsOwner) == "function" and Skin:IsOwner(owner)) then return knobs end
+  local r, g, b, a = Skin:For(owner).GlowColor()
+  if not r then return knobs end
+  return setmetatable({ color = { r, g, b, a } }, { __index = knobs })
+end
+
 --- Start one style's glow on `frame`. Never stops anything first.
 ---
 --- @param frame table|nil      the frame the effect is drawn around
 --- @param style string         "button" | "proc" | "pixel" | "autocast"
---- @param knobs table|nil      color and the named knobs; other fields ignored
+--- @param knobs table|nil      color and the named knobs; `owner` (minor 2) a skin owner for a nil
+---                             color; other fields ignored
 --- @param key string|nil       the caller's identity, passed through (unused by "button")
 --- @param frameLevel number|nil relative to frame; nil is LCG's own
 --- @return boolean  true when LCG's _Start for the style was called
@@ -115,7 +131,7 @@ function lib.Start(frame, style, knobs, key, frameLevel)
   local L = lcg()
   local fn = L and L[START_FN[style]]
   if type(fn) ~= "function" then return false end
-  start(fn, frame, type(knobs) == "table" and knobs or NONE, key, frameLevel)
+  start(fn, frame, skinned(type(knobs) == "table" and knobs or NONE), key, frameLevel)
   return true
 end
 

@@ -21,6 +21,9 @@
 -- the stored-skin put-back over from this addon: a close that moves no skin of the host's own, and a
 -- picker queued behind another addon's waiting out combat.
 --
+-- And, since OptionsSkinPicker 11 (R6-PV): the preview in test mode (spec.preview), entered at show
+-- with the History window hidden, toggled by the eye, put back by every close route.
+--
 -- After test_skin_overrides; leaves the harness on `Default`, the picker down and marked unseen.
 
 local T = _G.LH_TEST
@@ -105,7 +108,13 @@ test("Skin picker: the spec names this owner, its seams, the Skin tab and the ey
   assertEqual(spec.tab, "Appearance", "the Skin tab's key")
   assertTrue(NS.Panel.general ~= nil and rawequal(O.__panelFor("General"), NS.Panel.general),
     "\"General\" is the page O.SelectTab finds")
-  assertEqual(type(spec.onPreview), "function")
+  assertEqual(spec.onPreview, nil, "the one-shot eye is gone: spec.preview replaces it")
+  local h = spec.preview
+  assertTrue(type(h) == "table", "spec.preview is the eye's mode (LibKa0s OptionsSkinPicker 11)")
+  assertEqual(h.mode, "test", "this addon previews in its test mode (00_PLAN.md call 2)")
+  for _, k in ipairs({ "enter", "exit", "isActive", "isShown" }) do
+    assertEqual(type(h[k]), "function", "spec.preview." .. k)
+  end
   assertEqual(type(spec.onClose), "function")
 end)
 
@@ -233,22 +242,6 @@ test("Skin picker: a profile that has seen it takes a shown picker down, unmarke
   NS.db.profile.settings.appearance.pickerSeen = true
   NS.MaybeShowSkinPicker()
   assertFalse(f:IsShown(), "the picker stayed up on a profile that has seen it")
-end))
-
-test("Skin picker: the eye opens the History window in test mode", clean(function()
-  local BT, B = NS.BrowserTable, NS.Browser
-  local ok, err = pcall(function()
-    quietly(function() NS.SkinPickerSpec().onPreview() end)
-    assertTrue(BT.testMode == true, "the eye did not start test mode")
-    local f = B:GetWindow()
-    assertTrue(f ~= nil and f:IsShown(), "the eye did not show the History window")
-    B:Hide()
-    quietly(function() NS.SkinPickerSpec().onPreview() end)
-    assertTrue(B:GetWindow():IsShown(), "with test mode already on, the eye still shows the window")
-  end)
-  quietly(function() if BT.testMode then BT:SetTestMode(false) end end)
-  B:Hide()
-  if not ok then error(err, 0) end
 end))
 
 -- ── preview, Apply, close and the gear (PK-02: a pick previews, Apply saves) ─────────────────
@@ -454,10 +447,11 @@ end))
 
 test("Skin picker: the eye raises the picker over the History window it opens", onWindow(function(f)
   -- The History window is HIGH and toplevel, and the client raises a toplevel frame it shows. The
-  -- library's eye (PK-03) raises its DIALOG window after onPreview returns; this pins that the host's
-  -- onPreview shows the window synchronously, before that raise. red under: a previewSkin that
+  -- library raises its DIALOG window after each preview call (OptionsSkinPicker 11); this pins that
+  -- the host's enter shows the window synchronously, before that raise. The picker opened with the
+  -- window hidden, so test mode is on: the eye turns it off, then on again. red under: an enter that
   -- defers the window past its return, or a library that never raises after it.
-  local BT, B = NS.BrowserTable, NS.Browser
+  local B = NS.Browser
   local raisedOver
   rawset(f, "Raise", function()
     local w = B:GetWindow()
@@ -466,13 +460,12 @@ test("Skin picker: the eye raises the picker over the History window it opens", 
   local ok, err = pcall(function()
     pickRow(f, "obsidian")
     f.preview:__fire("OnClick")
+    f.preview:__fire("OnClick")
     assertTrue(B:GetWindow():IsShown(), "the eye did not show the History window")
     assertEqual(raisedOver, true, "the picker was not raised after the History window showed")
     assertTrue(f:IsShown(), "the eye leaves the picker up")
   end)
   rawset(f, "Raise", nil)
-  if BT.testMode then BT:SetTestMode(false) end
-  B:Hide()
   if not ok then error(err, 0) end
 end))
 
@@ -562,5 +555,180 @@ test("Skin picker: a picker queued behind another addon's waits for combat to en
   if OptionsLib.__parkedPanels and #OptionsLib.__parkedPanels > 0 then
     pcall(OptionsLib.__OnParkEvent, "PLAYER_REGEN_ENABLED")
   end
+  if not ok then error(err, 0) end
+end))
+
+-- ── the preview mode (R6-PV; LibKa0s OptionsSkinPicker 11, spec.preview) ─────────────────────
+-- Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND6, the lead's call 2: this addon previews in its
+-- test mode. A picker that shows with the History window hidden and test mode off turns it on (the
+-- start opens the window); the eye toggles it; every close puts back the state the picker opened
+-- with, the window hidden again when the preview opened it. Each switch is BrowserTable:SetTestMode,
+-- the one switch /lh test, the launcher and the Master controls box share.
+
+local BT, B = NS.BrowserTable, NS.Browser
+local function windowShown()
+  local w = B:GetWindow()
+  return (w ~= nil and w:IsShown()) and true or false
+end
+
+--- Run `fn` from test mode off and the History window hidden, both put back whatever it raised.
+local function fromHidden(fn)
+  return clean(function()
+    local ok, err = pcall(function()
+      quietly(function()
+        if BT.testMode then BT:SetTestMode(false) end
+        B:Hide()
+        fn()
+      end)
+    end)
+    quietly(function()
+      NS.HideSkinPicker()
+      if BT.testMode then BT:SetTestMode(false) end
+      B:Hide()
+    end)
+    if not ok then error(err, 0) end
+  end)
+end
+
+--- `/lh skin`'s picker, asserted up.
+local function openVerb()
+  local f = NS.RunSkinVerb()
+  assertTrue(f ~= nil and f:IsShown(), "/lh skin did not show the picker")
+  return f
+end
+
+test("Skin preview: /lh skin with the window hidden turns test mode on and shows the window", fromHidden(function()
+  -- red under: a spec with no preview hook (nothing enters at show), or an isShown that reads the
+  -- window shown when it is not.
+  local f = openVerb()
+  assertTrue(BT.testMode == true, "the picker did not turn test mode on")
+  assertTrue(windowShown(), "the start did not show the History window")
+  assertEqual(NS.Schema:Get("state.testMode"), true, "the Master controls box reads the same switch")
+  assertEqual(f.preview.lit, true, "the eye is lit while test mode is on")
+  assertTrue(f:IsShown(), "the picker stays up")
+end))
+
+test("Skin preview: the eye turns test mode off and on, the window it opened with it", fromHidden(function()
+  -- red under: the old enter-only eye (a second click would leave test mode on), or an exit that
+  -- leaves the window the preview opened on screen.
+  local f = openVerb()
+  f.preview:__fire("OnClick")
+  assertFalse(BT.testMode == true, "the eye did not turn test mode off")
+  assertFalse(windowShown(), "the window the preview opened stayed up")
+  assertFalse(f.preview.lit == true, "the eye is dimmed while test mode is off")
+  assertTrue(f:IsShown(), "the eye leaves the picker up")
+  f.preview:__fire("OnClick")
+  assertTrue(BT.testMode == true, "the eye did not turn test mode back on")
+  assertTrue(windowShown(), "and the window with it")
+  assertEqual(f.preview.lit, true)
+end))
+
+-- Every close route the library has, each from the picker open in the mode it entered.
+local ROUTES = {
+  { "the close control", function(f) f.close:__fire("OnClick") end },
+  { "Escape", function(f) f:Hide(); f:__fire("OnHide") end },
+  { "Apply", function(f) f.apply:__fire("OnClick") end },
+  { "the gear", function(f) f.settings:__fire("OnClick"); PS.homeTab(NS.Panel.general) end },
+  { "the stand-down's NS.HideSkinPicker", function() NS.HideSkinPicker() end },
+}
+
+for _, route in ipairs(ROUTES) do
+  test("Skin preview: " .. route[1] .. " turns test mode off and hides the window again", fromHidden(function()
+    -- red under: no restore at the close (test mode and the window left on after the picker), or
+    -- one route that skips it.
+    local f = openVerb()
+    assertTrue(BT.testMode == true and windowShown(), "the picker entered test mode")
+    route[2](f)
+    assertFalse(f:IsShown(), route[1] .. " did not close the picker")
+    assertFalse(BT.testMode == true, route[1] .. " left test mode on")
+    assertFalse(windowShown(), route[1] .. " left the History window up")
+  end))
+end
+
+test("Skin preview: the eye turned off, a close changes nothing more", fromHidden(function()
+  local f = openVerb()
+  f.preview:__fire("OnClick")
+  f.close:__fire("OnClick")
+  assertFalse(BT.testMode == true, "a close turned test mode back on")
+  assertFalse(windowShown(), "a close showed the window")
+end))
+
+test("Skin preview: a History window already shown is left alone", fromHidden(function()
+  -- red under: an isShown that always answers false (the picker would push the player's own
+  -- window into test mode), or an exit that hides a window the preview did not open.
+  B:Show()
+  assertTrue(windowShown())
+  local f = openVerb()
+  assertFalse(BT.testMode == true, "the picker turned test mode on over a shown window")
+  assertFalse(f.preview.lit == true, "the eye is dimmed")
+  f.preview:__fire("OnClick")
+  assertTrue(BT.testMode == true, "the eye still turns test mode on")
+  f.preview:__fire("OnClick")
+  assertFalse(BT.testMode == true, "and off")
+  assertTrue(windowShown(), "the player's window stays up through the eye's stop")
+  f.preview:__fire("OnClick")
+  f.close:__fire("OnClick")
+  assertFalse(BT.testMode == true, "the close turned the eye's test mode off")
+  assertTrue(windowShown(), "the close hid a window the player had open")
+end))
+
+test("Skin preview: test mode already on stays on; stopped by the eye, a close turns it back on", fromHidden(function()
+  BT:SetTestMode(true)
+  local f = openVerb()
+  assertTrue(BT.testMode == true)
+  assertEqual(f.preview.lit, true)
+  f.preview:__fire("OnClick")
+  assertFalse(BT.testMode == true, "the eye did not stop test mode")
+  assertTrue(windowShown(), "the eye hid a window the preview did not open")
+  f.close:__fire("OnClick")
+  assertTrue(BT.testMode == true, "the close did not put test mode back on")
+  assertTrue(windowShown())
+end))
+
+test("Skin preview: test mode on with the window closed: the close that turns it back on hides the window again", fromHidden(function()
+  -- Test mode outlives its window (the close control and Escape leave it on). The picker shows over
+  -- a hidden window with the mode on, so it enters nothing; the eye stops the mode; the close's
+  -- restore enter("picker") starts it again, and a start opens the window. red under: a restore that
+  -- leaves open a window that was hidden when the picker showed.
+  BT:SetTestMode(true)
+  B:Hide()
+  local f = openVerb()
+  assertTrue(BT.testMode == true)
+  assertFalse(windowShown(), "the picker opened a window over a mode already on")
+  f.preview:__fire("OnClick")
+  assertFalse(BT.testMode == true, "the eye did not stop test mode")
+  f.close:__fire("OnClick")
+  assertTrue(BT.testMode == true, "the close did not put test mode back on")
+  assertFalse(windowShown(), "the restore left open a window that was hidden when the picker showed")
+end))
+
+test("Skin preview: combat ends the mode under the picker; the close still hides the window the preview opened", fromHidden(function()
+  -- EndTestModeForCombat stops the mode without the preview's exit, so the library owes no restore.
+  -- red under: a window the preview opened that outlives the picker because the stop was not its own.
+  local f = openVerb()
+  assertTrue(BT.testMode == true and windowShown())
+  BT:EndTestModeForCombat()
+  assertFalse(BT.testMode == true)
+  f.close:__fire("OnClick")
+  assertFalse(windowShown(), "the close left open the window the preview opened")
+end))
+
+test("Skin preview: a refused start (combat) moves nothing, and the close undoes nothing", fromHidden(function()
+  -- SetTestMode refuses a start in combat with one line and answers false. red under: an enter
+  -- that opens the window anyway, or a host flag set by a start that never happened.
+  local C = NS.Compat
+  local real = C.PlayerInCombat
+  C.PlayerInCombat = function() return true end
+  local ok, err = pcall(function()
+    local f = openVerb()
+    assertFalse(BT.testMode == true, "test mode started in combat")
+    assertFalse(windowShown(), "a refused start opened the window")
+    assertTrue(f:IsShown(), "the picker is still up")
+    C.PlayerInCombat = real
+    B:Show()
+    f.close:__fire("OnClick")
+    assertTrue(windowShown(), "the close hid a window the player opened after the refusal")
+  end)
+  C.PlayerInCombat = real
   if not ok then error(err, 0) end
 end))

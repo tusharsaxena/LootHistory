@@ -36,7 +36,7 @@
 --
 -- An owned chart draws its tick labels in the skin's body face (the shell's THE SCOPE SWITCHES;
 -- Oxanium under Ka0s Default, D-13), so "Ignore fonts" gives them the template back, live. A host's
--- `opts.font` is the host's and is never touched. `opts.panel = true` puts the chart on its owner's
+-- `opts.font` is that template (minor 6). `opts.panel = true` puts the chart on its owner's
 -- settings page: while that owner ignores its settings panel the chart reads `lib.LINE_CHART` and the
 -- template face, live both ways. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
 --
@@ -48,7 +48,10 @@ if not lib then return end
 
 -- Minor 4: the skin owner (the header's THE SKIN OWNER).
 -- Minor 5: the tick labels' face and `opts.panel` (the header's THE SCOPE SWITCHES).
-local CHART_MINOR = 5
+-- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a host's `opts.font` is the
+-- labels' template, with an owned chart's skin face over it.
+-- Minor 6, same release (SF-L8, #70): `series[i].fill`, an area fill under a line.
+local CHART_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -60,6 +63,8 @@ lib.__chartShellMinor = lib.MINOR
 lib.MODULES = lib.MODULES or {}
 lib.MODULES.WidgetsLineChart = CHART_MINOR
 
+local LABEL_FONT = "GameFontDisableSmall"
+
 local floor, ceil, max, min, abs, sqrt = math.floor, math.ceil, math.max, math.min, math.abs, math.sqrt
 local log10 = math.log10
 local DAY = 86400
@@ -69,7 +74,7 @@ local DAY = 86400
 --- the host too.
 lib.LINE_CHART = {
   PAD_LEFT = 52, PAD_RIGHT = 8, PAD_TOP = 8, PAD_BOTTOM = 18,
-  PX_PER_POINT = 2, DASH = 4, GAP = 3, Y_TICKS = 5, X_TICKS = 6, LABEL_GAP = 4,
+  PX_PER_POINT = 2, FILL_ALPHA = 0.25, FILL_STEP = 2, DASH = 4, GAP = 3, Y_TICKS = 5, X_TICKS = 6, LABEL_GAP = 4,
   AXIS = { 0.45, 0.45, 0.5, 0.8 }, GRID = { 1, 1, 1, 0.07 }, CROSSHAIR = { 1, 1, 1, 0.35 },
   MARKER = { 0.8, 0.8, 0.8, 0.6 }, LINE = { 0.4, 0.6, 0.95, 1 },
 }
@@ -339,16 +344,16 @@ local function acquireLabel(c)
   local fs = c.__labelPool[c.__labelUsed]
   if not fs then
     -- Created WITH a template: a FontString with no face raises on its first SetText in the client.
-    fs = c:CreateFontString(nil, "OVERLAY", c.__opts.font or "GameFontDisableSmall")
+    fs = c:CreateFontString(nil, "OVERLAY", c.__opts.font or LABEL_FONT)
     c.__labelPool[c.__labelUsed] = fs
   end
   local label = c.__pal and c.__pal.LABEL
   if label then fs:SetTextColor(label[1], label[2], label[3]) end
   -- Minor 5: an owned chart's label in the skin's body face, or the template back; a host's face
-  -- stays the host's.
+  -- is the template (minor 6).
   local skinFont = lib.__skinFont
-  if not c.__opts.font and type(skinFont) == "function" then
-    skinFont(fs, c.__opts.owner, c.__pal and c.__skin or nil, "GameFontDisableSmall")
+  if type(skinFont) == "function" then
+    skinFont(fs, c.__opts.owner, c.__pal and c.__skin or nil, c.__opts.font or LABEL_FONT)
   end
   fs:ClearAllPoints()
   fs:Show()
@@ -457,9 +462,41 @@ local function seriesColor(c, sr)
   return colors(c).LINE
 end
 
+-- ── the area fill (minor 6, #70) ──
+--
+-- `series[i].fill`: true fills under the line in the series color at `LC.FILL_ALPHA`; a number is
+-- that alpha; an RGBA table is the fill's own color. Drawn as one vertical Line per FILL_STEP pixels
+-- from the baseline (zero, held inside the plot) to the line, under the line itself.
+local function fillColor(sr, color)
+  local f = sr.fill
+  if type(f) == "table" then return f end
+  local a = type(f) == "number" and f or LC.FILL_ALPHA
+  return { color[1], color[2], color[3], a }
+end
+
+local function lineYAt(px, py, i, x)
+  local x0, x1 = px[i], px[i + 1]
+  if x1 == x0 then return py[i + 1] end
+  return py[i] + (py[i + 1] - py[i]) * (x - x0) / (x1 - x0)
+end
+
+local function drawFill(c, s, sr, pts, color)
+  if not sr.fill or #pts < 2 then return end
+  local fc, px, py = fillColor(sr, color), {}, {}
+  for i, p in ipairs(pts) do px[i], py[i] = xToPixel(s, p.x), yToPixel(s, p.y) end
+  local base = max(s.bottom, min(s.bottom + s.h, yToPixel(s, 0)))
+  local i, step = 1, LC.FILL_STEP
+  for x = max(s.left, px[1]) + step / 2, min(s.left + s.w, px[#px]), step do
+    while i < #px - 1 and px[i + 1] < x do i = i + 1 end
+    local y = max(s.bottom, min(s.bottom + s.h, lineYAt(px, py, i, x)))
+    if abs(y - base) >= 0.5 then seg(c, x, base, x, y, fc, step) end
+  end
+end
+
 local function drawSeries(c, s, sr)
   local pts = Math.Downsample(sr.points or {}, Math.Budget(s.w, c.__opts.pxPerPoint))
   local color, th = seriesColor(c, sr), sr.thickness or 1.5
+  drawFill(c, s, sr, pts, color)
   if #pts == 1 then
     local x, y = xToPixel(s, pts[1].x), yToPixel(s, pts[1].y)
     -- The tick only for a point on the plot, for the reason drawSegment clips.
@@ -566,8 +603,8 @@ local function chartRepaint(c, owner)
   local pal, Skin = chartPalette(owner, c.__opts.panel == true)
   if Skin then c.__pal = pal end
   local skinFont = lib.__skinFont
-  if not pal and not c.__opts.font and type(skinFont) == "function" then
-    for _, fs in ipairs(c.__labelPool) do skinFont(fs, owner, nil, "GameFontDisableSmall") end
+  if not pal and type(skinFont) == "function" then
+    for _, fs in ipairs(c.__labelPool) do skinFont(fs, owner, nil, c.__opts.font or LABEL_FONT) end
   end
   local x = colors(c).CROSSHAIR
   c.__cross:SetColorTexture(x[1], x[2], x[3], x[4])

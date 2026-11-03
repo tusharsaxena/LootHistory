@@ -40,7 +40,9 @@ if not lib then return end
 -- decisions D-13 and D-14).
 -- Minor 6: the suggestion half moved out, unchanged, to OptionsIdSuggest.lua (LK-M2-PEEL of
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named).
-local IDS_MINOR = 6
+-- Minor 7 (cause L5 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the status line's colors
+-- through O.__tipColor (`sem.warn`, `text.strong`), the literals while the chrome is not skinned.
+local IDS_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__idsMinor and lib.__idsMinor >= IDS_MINOR
@@ -549,7 +551,9 @@ function lib.__AttachIds(O, w)
     local noun, plural = kindWords(idKind(spec.kind))
     showStatus(parts, idText(spec, reason, { noun = noun, plural = plural, text = typed,
                                              hint = idText(spec, "nameHint") }))
-    if parts.status.SetColor then parts.status:SetColor(ID_WARN_R, ID_WARN_G, ID_WARN_B) end
+    if parts.status.SetColor then
+      parts.status:SetColor(O.__tipColor("sem.warn", ID_WARN_R, ID_WARN_G, ID_WARN_B))
+    end
     if reason == "ambiguous" then offerRanks(parts, typed) end
   end
 
@@ -669,7 +673,9 @@ function lib.__AttachIds(O, w)
     end
     local noun, plural = kindWords(idKind(spec.kind))
     showStatus(parts, idText(spec, "looking", { noun = noun, plural = plural, text = sub.typed }))
-    if parts.status.SetColor then parts.status:SetColor(ID_NEUTRAL_R, ID_NEUTRAL_G, ID_NEUTRAL_B) end
+    if parts.status.SetColor then
+      parts.status:SetColor(O.__tipColor("text.strong", ID_NEUTRAL_R, ID_NEUTRAL_G, ID_NEUTRAL_B))
+    end
     return true
   end
 

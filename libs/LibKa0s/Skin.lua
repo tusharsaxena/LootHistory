@@ -118,7 +118,16 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named). No
 -- behavior moves: RegisterOwner and `__Tokens` reach it through `lib.__takeTokens` and
 -- `lib.__withOwnTokens`, and `lib.__tokenHelpers` hands it the three locals it shares with this file.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 11
+-- Minors 12 to 14 (L6, FS-T1 and FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): VOCAB
+-- gains Mark, MarkText, HudTextColor, HudLabelColor, BarFillColor, HudShadow, BarGloss and HudFont; Ignore
+-- fonts reaches `hud.shadow*` as it reaches `hud.outline`; FollowOnce, the record gate every host wrote.
+-- Minor 15 (FS-FIX of the same bundle, the owner's rulings of 2026-11-01): a skin's None `bar.borderStyle`
+-- defers in Resolve; VOCAB gains BarBorder and HoverArt, SkinPaintExtras minor 16's; a path's numeric
+-- segment reaches a list entry, which ResetToSkin and FollowOnce skipped with no word. Then (R3-L7): a
+-- font override naming a retired shipped face (`RETIRED_FONTS`, SkinDefsOthers) lands as its successor.
+-- Minor 16 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): VOCAB gains Band and Header,
+-- SkinPaintExtras minor 17's, the title band as a frame and every header child centered on it.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -144,7 +153,9 @@ lib.VOCAB = {
   "GetAccentColor", "GetPanelColor", "GetFont",
   "TitleBar", "Divider", "Footer", "Card", "Slider", "NavItem", "Drawer", "ListRow", "MenuFrame",
   "Tooltip", "Strip", "Cover", "Text", "ChartStyle", "BarStyle", "IconBorder", "GlowColor",
-  "BarTexture", "FontFlags", "HudFontSize",
+  "BarTexture", "FontFlags", "HudFontSize", "Mark", "MarkText",
+  "HudTextColor", "HudLabelColor", "BarFillColor", "HudShadow", "BarGloss", "HudFont", "BarBorder", "HoverArt",
+  "Band", "Header",
 }
 
 local WEAK_KEYS = { __mode = "k" }
@@ -297,6 +308,12 @@ local function mediaKey(v)
   return nil
 end
 
+--- A font override's stored form: mediaKey's, with a retired shipped face moved to its successor.
+local function fontKey(v)
+  v = mediaKey(v)
+  return v and lib.RETIRED_FONTS and lib.RETIRED_FONTS[v] or v
+end
+
 local function fnOr(v, old)
   if type(v) == "function" then return v end
   return old
@@ -390,7 +407,7 @@ function lib:WriteChoice(owner, source, skin, ignore, media)
   if type(ignore) == "table" then ignore = { panel = ignore.panel == true, fonts = ignore.fonts == true }
   else ignore = nil end
   if type(media) == "table" then
-    media = { font = mediaKey(media.font) or false, texture = mediaKey(media.texture) or false,
+    media = { font = fontKey(media.font) or false, texture = mediaKey(media.texture) or false,
               outline = OUTLINE_OK[media.outline] and media.outline or nil }
   else media = nil end
   local ok, err = pcall(o.set, cleanSource(source), cleanSkin(skin), ignore, media)
@@ -563,10 +580,11 @@ function lib:__FontsIgnored(owner)
   return o ~= nil and o.ignoreFonts == true
 end
 
--- The HUD's two font tokens: while the owner ignores fonts, the stored value wins for them in
--- `Resolve` and `Token` (minor 8, R-1). `hud.fontSize` is out of scope; `__Tokens` is unchanged,
+-- The HUD's font tokens: while the owner ignores fonts, the stored value wins for them in
+-- `Resolve` and `Token` (minor 8, R-1; the shadow's three since minor 13). `hud.fontSize` is out of scope; `__Tokens` is unchanged,
 -- since P.font already hands every painted string back through `__FontsIgnored`.
-local HUD_FONT = { ["hud.font"] = true, ["hud.outline"] = true }
+local HUD_FONT = { ["hud.font"] = true, ["hud.outline"] = true, ["hud.shadow"] = true,
+                   ["hud.shadowX"] = true, ["hud.shadowY"] = true }
 
 local function hudFontIgnored(self, owner, name)
   return HUD_FONT[name] == true and self:__FontsIgnored(owner)
@@ -634,10 +652,10 @@ function lib:GetOverride(owner)
   return o.font, o.texture
 end
 
---- One half of SetOverride: nil keeps `old`, false or "" clears it, a string key sets it.
-local function nextOverride(v, old)
+--- One half of SetOverride: nil keeps `old`, false or "" clears it, a string key sets it (`key`'s form).
+local function nextOverride(v, old, key)
   if v == nil then return old end
-  return mediaKey(v)
+  return (key or mediaKey)(v)
 end
 
 --- Set `owner`'s font and texture overrides (the Appearance tab's "Font and texture"); nil keeps
@@ -653,7 +671,7 @@ function lib:SetOverride(owner, font, texture)
   requireOwner(owner, "SetOverride")
   local o = self.owners[owner]
   if not o then return false end
-  font, texture = nextOverride(font, o.font), nextOverride(texture, o.texture)
+  font, texture = nextOverride(font, o.font, fontKey), nextOverride(texture, o.texture)
   if font == o.font and texture == o.texture then return false end
   o.font, o.texture = font, texture
   if not o.pendingReload then
@@ -835,7 +853,8 @@ end
 
 --- The owner's resolved token `name` (from `__Tokens`): a color is `{ r, g, b, a }`, shared, never
 --- written to. An unregistered owner reads Ka0s Default. nil for a token the skin leaves alone,
---- which `hud.font` and `hud.outline` are while the owner ignores fonts (minor 8, R-1).
+--- which `hud.font`, `hud.outline` and the HUD shadow's three are while the owner ignores fonts
+--- (minor 8, R-1; the shadow since minor 13).
 function lib:Token(owner, name)
   if hudFontIgnored(self, owner, name) then return nil end
   return self:__Tokens(owner)[name]
@@ -853,30 +872,45 @@ function lib.IsFromSkin(value)
   return value == lib.FROM_SKIN
 end
 
+-- The two tokens a skin's None hands back to the player (minor 15).
+local BAR_EDGE = { ["bar.borderStyle"] = true, ["bar.borderSize"] = true }
+
 --- `value`, or the owner's token `kind` when `value` is the FROM_SKIN sentinel or `fromSkin` (a
---- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`
---- and `hud.outline` answer the stored `value` whatever the companion says, and nil for a stored
---- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands.
+--- setting's companion "follow the skin" bool) is true. While the owner ignores fonts, `hud.font`,
+--- `hud.outline` and the shadow's three answer the stored `value` whatever the companion says, and nil for a stored
+--- FROM_SKIN, which names no face of its own (minor 8, R-1): the host's own setting stands. A skin's
+--- None `bar.borderStyle` is no border of its own, so `bar.borderStyle` and `bar.borderSize` answer a
+--- stored `value` under it, and a real style wins (minor 15). `S.BarBorder` adds Show border.
 function lib:Resolve(owner, kind, value, fromSkin)
   if hudFontIgnored(self, owner, kind) then
     if value == self.FROM_SKIN then return nil end
     return value
   end
-  if value == self.FROM_SKIN or fromSkin == true then return self:Token(owner, kind) end
-  return value
+  if value ~= self.FROM_SKIN and fromSkin ~= true then return value end
+  local defers = value ~= nil and value ~= self.FROM_SKIN and BAR_EDGE[kind]
+    and self:Token(owner, "bar.borderStyle") == "None"
+  if defers then return value end
+  return self:Token(owner, kind)
 end
 
---- Walk a dotted path ("font.face") to the table holding its last segment.
+--- The key `seg` names in `t`: itself, else the number it spells where that is a list entry (minor 15).
+local function segKey(t, seg)
+  local n = t[seg] == nil and tonumber(seg) or nil
+  if n ~= nil and t[n] ~= nil then return n end
+  return seg
+end
+
+--- Walk a dotted path ("font.face", "windows.1.font") to the table holding its last segment.
 local function walk(t, path)
   local segs = {}
   for seg in path:gmatch("[^%.]+") do segs[#segs + 1] = seg end
   if #segs == 0 then return nil end
   local parent = t
   for i = 1, #segs - 1 do
-    parent = parent[segs[i]]
+    parent = parent[segKey(parent, segs[i])]
     if type(parent) ~= "table" then return nil end
   end
-  return parent, segs[#segs]
+  return parent, segKey(parent, segs[#segs])
 end
 
 --- Put every listed key of `profile` back on the skin (the owner's ruling R3). A key whose name
@@ -885,7 +919,8 @@ end
 --- beside it (OptionsCompose's `fromSkin` pickers, minor 3), keeps its value and gets the companion
 --- set to true; with `opts.companions` every listed key does, stored or not (minor 8); any other
 --- bool key is set to true; any other key takes the FROM_SKIN sentinel. Keys may be dotted paths
---- into nested tables; a path whose table does not exist is skipped. Answers how many keys it set.
+--- into nested tables, a segment naming a list entry by its number too (minor 15); a path whose
+--- table does not exist is skipped. Answers how many keys it set.
 --- Called as `Skin.ResetToSkin(p, keys[, opts])`.
 function lib.ResetToSkin(profile, keys, opts, extra)
   if profile == lib then profile, keys, opts = keys, opts, extra end
@@ -896,7 +931,7 @@ function lib.ResetToSkin(profile, keys, opts, extra)
     local parent, leaf = walk(profile, tostring(path))
     if type(parent) == "table" then
       local v = parent[leaf]
-      if leaf:match("FromSkin$") then
+      if tostring(leaf):match("FromSkin$") then
         parent[leaf] = true
       elseif companions or type(v) == "table" or parent[leaf .. "FromSkin"] ~= nil then
         parent[leaf .. "FromSkin"] = true
@@ -909,6 +944,22 @@ function lib.ResetToSkin(profile, keys, opts, extra)
     end
   end
   return n
+end
+
+--- The one step onto the skin, per profile (minor 14). The stamp is per account and following the
+--- skin leaves no shape to read, so the profile carries its own record, `skin.fullSkinReset`. Already
+--- true: nothing moves, so a companion turned off since stays off, and it answers false. Otherwise
+--- `ResetToSkin(profile, keys, opts)`, the record written (the `skin` table is the one table this may
+--- create), and true. A bad profile or no `keys` answers false and writes no record. Called as
+--- `Skin.FollowOnce(p, keys[, opts])`.
+function lib.FollowOnce(profile, keys, opts, extra)
+  if profile == lib then profile, keys, opts = keys, opts, extra end
+  if type(profile) ~= "table" or type(keys) ~= "table" then return false end
+  if type(profile.skin) == "table" and profile.skin.fullSkinReset == true then return false end
+  lib.ResetToSkin(profile, keys, opts)
+  if type(profile.skin) ~= "table" then profile.skin = {} end
+  profile.skin.fullSkinReset = true
+  return true
 end
 
 -- ── the frame registry and the repaint ───────────────────────────────────────────────────────

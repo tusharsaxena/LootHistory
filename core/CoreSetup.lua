@@ -227,8 +227,8 @@ if not lib then
   -- Its values are the skin's Ka0s Default tokens, read from core/SkinSetup.lua's host copy
   -- (NS.SKIN_FALLBACK, which tests/test_surface_parity.lua holds to the library's values) at CALL
   -- time: that file loads after this one, and every window is built long after both. Each call
-  -- keeps the arity it always had: four components for the backdrop, the edge, the inner rule and
-  -- the divider, three for the title.
+  -- keeps the arity it always had: four components for the backdrop, the edge and the inner rule,
+  -- three for the title.
   local WHITE = "Interface\\Buttons\\WHITE8X8"
   local function tok(name)
     local c = NS.SKIN_FALLBACK[name]
@@ -256,7 +256,9 @@ if not lib then
       local r, g, b = tok("title.text")
       f.title:SetTextColor(r, g, b)
     end
-    if f.divider then f.divider:SetColorTexture(tok("divider")) end
+    -- No line under a window's title (R4-SEP): hidden, never tinted, as Core.ApplySkin does.
+    local d = f.divider
+    if type(d) == "table" and type(d.Hide) == "function" then d:Hide() end
   end
 
   NS.MakeCloseButton = fallbackCloseButton

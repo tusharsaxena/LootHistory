@@ -22,7 +22,7 @@
 -- Minor 14: MakeResizable's `opts.owner`, a registered skin owner whose `icon.grip` tints the grip's
 -- art, live (LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5);
 -- any other call is minor 13's.
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 14
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 15
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -81,8 +81,9 @@ end
 -- ── the window chrome seam ─────────────────────────────────────────────────────────────────
 
 -- The one skin every Ka0s window wears: a flat 1px BLACK outer edge with a 1px light-gray highlight
--- synthesized just inside it (the "double edge"), a gold title, and a gray divider under the title
--- bar. Every color travels in the same table as the backdrop fields because they are one decision:
+-- synthesized just inside it (the "double edge") and a gold title. Until R4-SEP (Ka0sAddonsCommonTasks
+-- docs/2026-11-03-SMOKE_ROUND4, still minor 15) it also drew a gray divider under the title bar; no
+-- Ka0s window draws a line under its header now, so ApplySkin hides `frame.divider` (hideHeaderRule). Every color travels in the same table as the backdrop fields because they are one decision:
 -- a copy that took the backdrop but not the colors is exactly the drift this exists to prevent.
 -- WoW's backdrop system reads only the fields it knows, so the extra keys are inert when the table
 -- is handed to SetBackdrop.
@@ -107,18 +108,28 @@ lib.SKIN = {
   -- frame, a FontString tint and a texture color are CALLS — which is why `ApplySkin` grew to make
   -- them rather than the table growing to describe them.
   innerBorder = { 0.24, 0.24, 0.27, 0.85 },
+  -- The rule color Ka0s Default's `divider` token equals. ApplySkin no longer draws it (R4-SEP): it is
+  -- kept for a host or a primitive that draws a body rule in it.
   divider     = { 0.24, 0.24, 0.27, 0.85 },
   title       = { 1.0, 0.82, 0.0 },
 }
 
--- The two accents that are not backdrop fields and not the inner border: a FontString tint and a
--- texture color. Described as data rather than written out twice so the type-not-truthiness guard
--- below exists exactly once. `n` is the argument COUNT and is not cosmetic — a title takes three
--- components and a divider takes four, and collapsing them to one arity drops the divider's alpha.
+-- The accent that is not a backdrop field and not the inner border: a FontString tint. Described as
+-- data so the type-not-truthiness guard below exists exactly once. `n` is the argument COUNT. The
+-- divider was the second accent (a texture color, four components) until R4-SEP: the line under a
+-- title is gone from every window, so it is hidden, never colored (hideHeaderRule).
 local ACCENTS = {
   { key = "title",   method = "SetTextColor",    n = 3 },
-  { key = "divider", method = "SetColorTexture", n = 4 },
 }
+
+-- No line under a window's title (R4-SEP, the owner's "no separator line below header", every window
+-- of every addon, like the Skin Tester's showroom): a `frame.divider` texture, the convention this
+-- seam colored until now, is hidden on every call, whoever built it. Hidden rather than left
+-- unpainted, which would show the texture's own white. Same type-not-truthiness rule as below.
+local function hideHeaderRule(frame)
+  local d = frame.divider
+  if type(d) == "table" and type(d.Hide) == "function" then d:Hide() end
+end
 
 -- The backdrop proper: the table itself, then the two colors it carries. Guarded on the key being
 -- a table so a caller passing a plain WoW backdrop table (no `bg`, no `border`) gets a plain
@@ -170,8 +181,7 @@ local function applyInnerBorder(frame, skin)
   end
 end
 
--- Both accents are optional on the FRAME, not just in the skin: the copy window and the perf panel
--- carry a title and no divider, and a bare frame carries neither. Same type-not-truthiness rule as
+-- The accent is optional on the FRAME, not just in the skin: a bare frame carries no title. Same type-not-truthiness rule as
 -- the inner border, for the same reason.
 local function applyAccents(frame, skin)
   for _, a in ipairs(ACCENTS) do
@@ -226,6 +236,7 @@ function lib.ApplySkin(frame, skin, owner)
   applyBackdrop(frame, skin)
   applyInnerBorder(frame, skin)
   applyAccents(frame, skin)
+  hideHeaderRule(frame)
   if S then S.Shell(frame) end
 end
 
@@ -723,18 +734,45 @@ local function skinGrip(grip, owner)
   if type(S.OnLooksChanged) == "function" then S.OnLooksChanged(function() paintGrip(grip, S) end) end
 end
 
+-- ── anchors kept through a drag (minor 15, #72) ──
+--
+-- StartSizing re-anchors a frame to the screen. A window anchored to UIParent wants that; a frame
+-- anchored to another frame (a cell, a parent) must not lose it, so those anchors are read before the
+-- drag and put back after it, with the size the drag made.
+local function savedAnchors(frame)
+  if type(frame.GetNumPoints) ~= "function" or type(frame.GetPoint) ~= "function" then return nil end
+  local n = frame:GetNumPoints()
+  if type(n) ~= "number" then return nil end
+  local out, onFrame = {}, false
+  for i = 1, n do
+    local point, rel, relPoint, x, y = frame:GetPoint(i)
+    if type(rel) == "table" and rel ~= UIParent then onFrame = true end
+    out[i] = { point, rel, relPoint, x, y }
+  end
+  return onFrame and out or nil
+end
+
+local function restoreAnchors(frame, anchors)
+  if not anchors or type(frame.SetPoint) ~= "function" or type(frame.ClearAllPoints) ~= "function" then return end
+  local w, h = readSize(frame)
+  frame:ClearAllPoints()
+  for _, a in ipairs(anchors) do frame:SetPoint(a[1], a[2], a[3], a[4], a[5]) end
+  if w and h and type(frame.SetSize) == "function" then frame:SetSize(w, h) end
+end
+
 -- The two mouse handlers. Sizing that never started (a right-click, a mouse-down `canResize`
 -- refused, or a mouse-up that arrives without a mouse-down) is not stopped, so a stray mouse-up
 -- cannot rewrite the user-placed flag, and runs neither `relayout` nor `onStop`. `canResize` is
 -- asked at every mouse-down and never at mouse-up: a drag already under way finishes even if the
 -- answer flips while it lasts.
 local function wireGrip(grip, frame, relayout, canResize, onStop)
-  local sizing, wasPlaced = false, false
+  local sizing, wasPlaced, anchors = false, false, nil
   grip:SetScript("OnMouseDown", function(_, button)
     if button ~= nil and button ~= "LeftButton" then return end
     if canResize and not canResize(frame) then return end
     wasPlaced = isUserPlaced(frame)
     sizing = true
+    anchors = savedAnchors(frame)
     frame:StartSizing("BOTTOMRIGHT")
   end)
   grip:SetScript("OnMouseUp", function()
@@ -742,6 +780,7 @@ local function wireGrip(grip, frame, relayout, canResize, onStop)
     sizing = false
     frame:StopMovingOrSizing()
     if type(frame.SetUserPlaced) == "function" then frame:SetUserPlaced(wasPlaced) end
+    restoreAnchors(frame, anchors)
     relayout(readSize(frame))
     if onStop then onStop(readSize(frame)) end
   end)
