@@ -1,0 +1,1 @@
+ka0s-review R6-SIM follow-up (independent adversarial reviewer, 2026-11-04): reviewer's own fix; docs citations re-pointed by a difflib line map from 4dede61 to HEAD, every target spot-checked. Gate 1975/0/1, luacheck 0/0.
