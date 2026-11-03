@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-1954%2F1954_passing-green)
+![Tests](https://img.shields.io/badge/Tests-1967%2F1967_passing-green)
 
 Ka0s Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -62,7 +62,7 @@ Want to see how a session would record without playing one? `/lh sim start loot`
 
 What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
-How it looks is up to you too. The addon's windows wear a skin, and the **Skin** tab in the settings has nine to pick from. The Font and Texture dropdowns there draw each choice in its own face or bar so you can see it before you take it, and **Font outline** sets whether all text gets an outline, only the HUD text, or none. `/lh skin` brings back the **Choose a skin** window with those same options, and its eye button shows your pick on sample rows in the History window.
+How it looks is up to you too. The addon's windows wear a skin, and the **Skin** tab in the settings has nine to pick from. The Font and Texture dropdowns there draw each choice in its own face or bar so you can see it before you take it, and **Font outline** sets whether all text gets an outline, only the HUD text, or none. `/lh skin` brings back the **Choose a skin** window with those same options, Opened while the History window is closed, it turns test mode on so you see your pick on sample rows there; its eye button turns test mode off and on, and closing it puts things back as they were.
 
 Everything else is on the addon's page under Settings > AddOns, which `/lh` (or `/loothistory`) opens on its own, and `/lh help` lists every command.
 

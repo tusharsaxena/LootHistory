@@ -374,8 +374,20 @@ end
 -- preview is worn without a host re-apply. A profile event still takes the picker down FIRST
 -- (NS.OnProfileEvent), before the new profile's skin is applied, so the new profile's whole pair
 -- (exceptions and overrides with it) is what NS.ApplySkinChoice leaves worn, and a new or reset
--- profile then shows it fresh. The eye leaves the picker up: the library's window is DIALOG and
--- raised after onPreview returns (PK-03), so the HIGH History window it opens cannot cover it.
+-- profile then shows it fresh.
+--
+-- THE PREVIEW MODE (R6-PV, LibKa0s OptionsSkinPicker minor 11's spec.preview; Ka0sAddonsCommonTasks
+-- docs/2026-11-03-SMOKE_ROUND6, the lead's call 2). This addon previews in its test mode, so every
+-- skinned surface of the History window has rows on it. A picker that shows with the window hidden
+-- and test mode off turns test mode on (the start opens the window); the eye toggles it; every close
+-- (Apply, Apply to all, the gear, the close control, Escape, NS.HideSkinPicker) puts back the mode the
+-- picker opened with. Each switch is BrowserTable:SetTestMode, the one switch `/lh test`, the
+-- launcher and the Master controls box share, so they all read the same state and its refusals (a
+-- running sim, combat, the General visibility setting) still apply: a refused start moves nothing
+-- and the library then undoes nothing. A stop never hides the window, so the exit hides it itself,
+-- and only when this preview's own start opened it (previewOpenedWindow): a window the player had
+-- open stays. The library's window is DIALOG and raised after each call, so the HIGH History window
+-- cannot cover it.
 --
 -- COMBAT. The library's queue waits out combat before it shows the NEXT owner's picker (PK-03), but
 -- a first O.SkinPicker call with nothing up shows at once, whatever the lockdown, so this addon's
@@ -389,23 +401,47 @@ local PICKER_PATH = "settings.appearance.pickerSeen"
 local pickerTarget       -- the one-shot PLAYER_REGEN_ENABLED target, while a start is held
 local quietClose = false -- true while NS.HideSkinPicker takes the picker down
 
---- The eye: the History window in test mode, so the player sees the skin on this addon's frames;
---- the library raises the picker over it once this returns. SetTestMode's start opens the window
---- itself; a mode already on only needs the window shown. A refused start (the window not allowed
---- on screen) prints its own line.
-local function previewSkin()
+local previewOpenedWindow = false -- true while the preview's own start opened the History window
+
+local function historyShown()
+  local f = NS.Browser and NS.Browser.GetWindow and NS.Browser:GetWindow()
+  return (f ~= nil and f:IsShown()) and true or false
+end
+
+--- spec.preview's enter: test mode on through the one switch. Answers false for a refused start
+--- (it prints its own line), so the library records no change to undo.
+local function previewEnter()
   local BT = NS.BrowserTable
-  if not (BT and BT.SetTestMode) then return end
-  if BT.testMode then
-    if NS.Browser and NS.Browser.Show then NS.Browser:Show() end
-  else
-    BT:SetTestMode(true, "skin picker")
+  if not (BT and BT.SetTestMode) then return false end
+  local hidden = not historyShown()
+  if not BT:SetTestMode(true, "skin picker") then return false end
+  if hidden and historyShown() then previewOpenedWindow = true end
+end
+
+--- spec.preview's exit: test mode off, and the History window hidden again when the preview opened it.
+local function previewExit()
+  local BT = NS.BrowserTable
+  if not (BT and BT.SetTestMode) then return false end
+  BT:SetTestMode(false, "skin picker")
+  if previewOpenedWindow then
+    previewOpenedWindow = false
+    if NS.Browser and NS.Browser.Hide then NS.Browser:Hide() end
   end
 end
+
+--- spec.preview: the picker's test mode (the Launcher descriptor's isTestMode / isWindowShown reads).
+local PICKER_PREVIEW = {
+  mode = "test",
+  enter = previewEnter,
+  exit = previewExit,
+  isActive = function() return NS.BrowserTable ~= nil and NS.BrowserTable.testMode == true end,
+  isShown = historyShown,
+}
 
 --- The player's close: the picker seen, and nothing else. The library's put-back already wears the
 --- stored choice (PK-03 reads `get` at the close), so the skin is not this callback's to move.
 local function pickerClosed()
+  previewOpenedWindow = false -- the library's restore has run; the next showing starts afresh
   if quietClose then return end
   local S = NS.Schema
   if not (NS.db and S and S.Set) then return end
@@ -419,7 +455,7 @@ function NS.SkinPickerSpec()
     -- own subcategory, not the landing page), then O.SelectTab("General", "Appearance"), the Skin
     -- tab's key on this addon's one schema page (settings/Panel.lua).
     page = "General", tab = "Appearance",
-    onPreview = previewSkin, onClose = pickerClosed,
+    preview = PICKER_PREVIEW, onClose = pickerClosed,
   }
 end
 

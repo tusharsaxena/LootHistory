@@ -1545,7 +1545,7 @@ Total.
 - Skin outline: the stored mode is applied with the skin
 - Skin outline: a profile switch applies the incoming profile's mode, and back
 
-### test_skin_picker.lua (25)
+### test_skin_picker.lua (35)
 
 - Skin picker: pickerSeen defaults to false, a skip-render row on the Skin tab
 - Skin picker: the spec names this owner, its seams, the Skin tab and the eye
@@ -1557,7 +1557,6 @@ Total.
 - Skin picker: a new profile and a reset profile show it again
 - Skin picker: the player's close marks it seen; this addon's own hide does not
 - Skin picker: a profile that has seen it takes a shown picker down, unmarked
-- Skin picker: the eye opens the History window in test mode
 - Skin picker: the title is "Choose a skin" and the owner line names this addon
 - Skin picker: a pick previews, unsaved; Apply saves it and marks the picker seen
 - Skin picker: the close control puts the old skin back, saves nothing, and marks it seen
@@ -1572,6 +1571,17 @@ Total.
 - Skin picker: the stand-down takes a queued picker out of the queue, unseen
 - Skin picker: a close leaves the put-back to the library; the host moves no skin
 - Skin picker: a picker queued behind another addon's waits for combat to end
+- Skin preview: /lh skin with the window hidden turns test mode on and shows the window
+- Skin preview: the eye turns test mode off and on, the window it opened with it
+- Skin preview: the close control turns test mode off and hides the window again
+- Skin preview: Escape turns test mode off and hides the window again
+- Skin preview: Apply turns test mode off and hides the window again
+- Skin preview: the gear turns test mode off and hides the window again
+- Skin preview: the stand-down's NS.HideSkinPicker turns test mode off and hides the window again
+- Skin preview: the eye turned off, a close changes nothing more
+- Skin preview: a History window already shown is left alone
+- Skin preview: test mode already on stays on; stopped by the eye, a close turns it back on
+- Skin preview: a refused start (combat) moves nothing, and the close undoes nothing
 
 ### test_skin_verb.lua (4)
 
@@ -2301,7 +2311,7 @@ Total.
 | test_skinsetup.lua | 13 |
 | test_skin_overrides.lua | 10 |
 | test_skin_outline.lua | 10 |
-| test_skin_picker.lua | 25 |
+| test_skin_picker.lua | 35 |
 | test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 11 |
 | test_skin_table.lua | 8 |
@@ -2339,4 +2349,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1957** |
+| **Total** | **1967** |

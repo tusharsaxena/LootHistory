@@ -372,7 +372,11 @@ facade with this addon as its **owner**.
   so does another Ka0s addon's **Apply to all Ka0s addons** for this picker while it is queued
   (one picker is up at a time across Ka0s addons; a queued call answers `nil, "queued"`).
   `NS.HideSkinPicker` (the stand-down, and first on every profile event, so the put-back lands
-  before the new profile's skin) takes it down without setting it. Its eye turns test mode on.
+  before the new profile's skin) takes it down without setting it. Its preview is test mode (`spec.preview`, LibKa0s
+  OptionsSkinPicker 11, R6-PV): opened with the History window hidden and test mode off, the picker
+  turns test mode on through `BrowserTable:SetTestMode` (the start opens the window); the eye toggles
+  it; every close puts back the mode it opened with, and hides the window again when the preview
+  opened it.
 - **Repaint flow.** `NS.ApplySkinChoice` runs right after `NS:InitDB` and first on every profile
   event (`core/LootHistory.lua`), applying the stored Scope, overrides and Font outline with the stored skin, and
   from each Skin tab row with only its own half. It calls
