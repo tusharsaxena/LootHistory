@@ -1,0 +1,12 @@
+R6-PV independent review (2026-11-04, round 6 M2 reviewer): PASS after fix ad06580.
+Mode test matches 00_PLAN.md (LootHistory: test, BrowserTable:SetTestMode). enter/exit go through the
+one switch (refreshes the panel, keeps the combat/sim/visibility refusals); isActive reads
+BrowserTable.testMode, isShown the History window (the Launcher's reads). Refused start in combat moves
+nothing (pinned). The 11 new cases fail with core/SkinSetup.lua reverted to 8a46aa3 (verified).
+Defect found and fixed in ad06580: pickerClosed dropped previewOpenedWindow without acting on it, so
+(a) test mode on over a closed window, eye off, close -> the restore's enter reopened the window and
+left it up; (b) combat ending the mode under the picker left the preview-opened window up. Fix hides
+it in pickerClosed; two red-first cases. That exposed test_slash reset cases leaning on the residue
+open window; isolated them. Gate after fix: 1969 passed / 0 failed / 1 skipped; luacheck 0/0.
+Note for the lead: a profile switch to a new profile or /lh resetall now shows the first-run picker
+and, with the window closed, starts test mode (owner's rule; builder note 3).
