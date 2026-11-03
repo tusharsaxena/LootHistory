@@ -881,7 +881,7 @@ test("v1.78.0: the vendored minors and the kit revision match the release", func
   assertTrue(options.OptionsIds >= 4) -- 5 since v1.81.0, pinned there
   assertTrue(options.OptionsIdList >= 6) -- 7 since v1.81.0, pinned there
   assertTrue(options.OptionsTabs >= 10) -- 11 since v1.81.0, pinned there
-  assertEqual(options.OptionsCombat, 3)
+  assertTrue(options.OptionsCombat >= 3) -- 4 since v1.85.0, pinned there
   assertTrue(options.OptionsCompose >= 12) -- 13 since v1.80.0, pinned there
   assertTrue(options.OptionsScroll >= 8) -- 9 since v1.81.0, pinned there
   assertTrue(options.OptionsNav >= 3) -- 4 since v1.81.0, pinned there
@@ -1154,6 +1154,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsAppearance, 6)
   assertEqual(options.OptionsSkinPicker, 9)
   assertEqual(options.OptionsMedia, 4)
+  assertEqual(options.OptionsCombat, 4)
   local perf = modules("LibKa0s-Perf-1.0")
   assertEqual(perf.PerfPanel, 12)
   local sim = modules("LibKa0s-Sim-1.0")
