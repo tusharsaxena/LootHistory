@@ -60,8 +60,8 @@ local GD = NS.defaults.global
 -- `widget`, `wide`, `invert`, `sessionOnly`, `fmt`, `get`, `set` and `onChange` stay this addon's.
 -- ── The Master controls tab (options-ui-§15) ───────────────────────────────────────────────────
 --
--- COMPOSED, never hand-written. `O.MasterControls` emits the canonical eight in the canonical
--- order from one declaration, which is what stops nine addons drifting into nine orders; the tab
+-- COMPOSED, never hand-written. `O.MasterControls` emits the canonical rows (nine here) in the
+-- canonical order from one declaration, which is what stops nine addons drifting into nine orders; the tab
 -- name is the literal `Master controls` and it is simultaneously the rows' `group`, the strip's
 -- first label and the `afterGroup` key the closing button pair hangs off (settings/Panel.lua).
 --
