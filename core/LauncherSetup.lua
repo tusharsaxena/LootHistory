@@ -98,19 +98,56 @@ end)
 -- and `/lh sim` are one act and cannot drift into two spellings. Above the degraded exit because
 -- the settings spec reads it whether or not the launcher library loaded. NS.Sim is looked up at
 -- CALL time: modules/Sim.lua builds it after this file, and a test may swap in the stub.
+--
+-- THE OWNER'S RULE (R7-SIM, Ka0sAddonsCommonTasks docs/2026-11-04-SMOKE_ROUND7 call 2): Sim mode is
+-- ticked while the sim window is shown OR a simulation runs, and unticked when neither. So the pair
+-- reads both, and ToggleSim's two branches are "off" (the bare verb, which opens the window, so the
+-- box stays ticked) and "on" (stop a running sim, then close the window, so one untick or one click
+-- on the launcher's entry leaves it unticked). modules/SimPanel.lua refreshes an open settings page
+-- on the window's OnShow and OnHide; modules/Sim.lua's listener does so on the sim's start and stop.
 
---- Whether a simulation runs: NS.Sim:IsActive(), false while there is no session object.
+--- Whether Sim mode is on: a simulation runs, or its window (the library's step panel) is shown.
+--- False while there is no session object.
 function NS.IsSimMode()
   local s = NS.Sim
-  return type(s) == "table" and type(s.IsActive) == "function" and s:IsActive() == true
+  if type(s) ~= "table" then return false end
+  if type(s.IsActive) == "function" and s:IsActive() == true then return true end
+  return type(s.IsPanelShown) == "function" and s:IsPanelShown() == true
 end
 
---- The typed verb's own acts: stop a running sim, otherwise the bare `/lh sim` (status and the sim
---- panel, where the player picks a scenario). It never starts a scenario of its own.
+--- From off, the bare `/lh sim` (status and the sim window, where the player picks a scenario); it
+--- never starts a scenario of its own, and its refusals are the session's. From on, `/lh sim stop`
+--- when a sim runs, then the window closed.
 function NS.ToggleSim()
   local s = NS.Sim
   if type(s) ~= "table" or type(s.RunVerb) ~= "function" then return end
-  s:RunVerb(s:IsActive() and "stop" or "")
+  if not NS.IsSimMode() then return s:RunVerb("") end
+  if s:IsActive() then s:RunVerb("stop") end
+  if type(s.HidePanel) == "function" then s:HidePanel() end
+end
+
+-- THE BOX FOLLOWS THE WINDOW. An open settings page re-reads Sim mode on the sim window's OnShow and
+-- OnHide, whichever route opened or closed it: the slash verb, the launcher, the box, or the window's
+-- own close button and Escape, which hide the frame directly and never go through HidePanel. The
+-- frame is the library's, built on its first show and published under `<name>SimPanel` (Sim:New's
+-- `name`, modules/Sim.lua). Here rather than in modules/Sim*.lua, whose static gate
+-- (tests/test_sim_seam.lua) keeps every hook call out of the simulator. The launcher's menu needs
+-- nothing: it asks isSimMode on every open.
+local simWindowHooked = false
+local function refreshSettings()
+  local O = NS.Options
+  if O and O.RefreshScalars then O.RefreshScalars() end
+end
+
+--- Hook the sim window's OnShow and OnHide to the settings refresh, once, as soon as its frame
+--- exists. modules/SimPanel.lua calls it from the panel's anchorTo, asked on every show.
+function NS.WatchSimWindow()
+  if simWindowHooked then return end
+  local frame = LootHistorySimPanel
+  if type(frame) ~= "table" or type(frame.HookScript) ~= "function" then return end
+  simWindowHooked = true
+  frame:HookScript("OnShow", refreshSettings)
+  frame:HookScript("OnHide", refreshSettings)
 end
 
 -- The labels Options -> Keybindings shows (launcher-§6, standard v2.88.0). Every <Binding> in
