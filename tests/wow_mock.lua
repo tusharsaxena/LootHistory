@@ -359,7 +359,7 @@ return function()
     if name ~= nil then
       M.__namedFrames[name] = f
       -- And published under its name where a sandboxed bare global resolves, as the client
-      -- publishes it to _G: modules/SimPanel.lua reaches the library's LootHistorySimPanel that way
+      -- publishes it to _G: core/LauncherSetup.lua reaches the library's LootHistorySimPanel that way
       -- (R7-SIM). Never over a name the mock already answers.
       if rawget(M, name) == nil then M[name] = f end
     end
