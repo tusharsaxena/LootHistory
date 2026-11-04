@@ -2045,7 +2045,7 @@ stops, the panel closes and the box reads unticked; with no sim running and the 
 settings starts none and opens nothing. Start a sim, then `/reload` → the box is unticked. Right-click
 the minimap button → its **Sim mode** entry agrees with the box. Fail: a missing box, a box that starts
 a scenario of its own, a box unticked while the panel is open or a sim runs, a box ticked with neither,
-a reset that starts a sim, or a Lua error. Result:
+a reset that starts a sim, or a Lua error. Result: Passed (owner, 2026-11-04)
 
 **SIM-14. The Sim mode box follows the sim window (R7-SIM; Ka0sAddonsCommonTasks
 `docs/2026-11-04-SMOKE_ROUND7/` call 2, the owner's "checked while the sim window is open and/or a sim
@@ -2059,7 +2059,7 @@ unticks. With the panel open and idle, right-click the minimap button → its **
 ticked; click it → the panel closes, and the next right-click shows it unticked. Start a run, close
 the panel, right-click the minimap button → the entry is ticked. Fail: the box or the entry unticked
 while the panel is open or a sim runs, ticked with neither, an untick that leaves the panel open, a box
-that lags a close by the panel's own button or Escape, or a Lua error. Result:
+that lags a close by the panel's own button or Escape, or a Lua error. Result: Passed (owner, 2026-11-04)
 
 ## Skins
 
@@ -2663,5 +2663,7 @@ Added by the owner's fifth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-S
 Added by the owner's sixth smoke round (Ka0sAddonsCommonTasks `docs/2026-11-03-SMOKE_ROUND6/`), awaiting the owner: SKIN-53 (R6-RV), SKIN-54 (R6-PV) and SIM-13 (R6-SIM), new. SKIN-29's eye, which opened test mode, is now the toggle SKIN-54 checks.
 
 Added or amended by the owner's seventh smoke round (Ka0sAddonsCommonTasks `docs/2026-11-04-SMOKE_ROUND7/`, R7-SIM), awaiting the owner: SIM-14, new, and SIM-13, amended. SIM-13 said a tick goes back to unticked because no scenario runs; the box now stays ticked while the sim panel is open or a sim runs, and an untick also closes the panel.
+
+On 2026-11-04 the owner reported that every check of the seventh smoke round (Ka0sAddonsCommonTasks `docs/2026-11-04-SMOKE_ROUND7/`, R7-SMOKE) passed. Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-04)`: SIM-13 and SIM-14.
 
 On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.
