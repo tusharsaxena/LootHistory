@@ -1,0 +1,1 @@
+R7 independent review (2026-11-04): PASS. Usage names /lh skin and now says hover/select previews, Apply keeps it, test mode under the eye when the History window is closed. True to core/SkinSetup.lua PICKER_PREVIEW (mode test, enter only with the surface hidden per OptionsSkinPicker). No command table, voice kept, R6-NAME display name kept.
