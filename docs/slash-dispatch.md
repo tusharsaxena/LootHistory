@@ -90,7 +90,7 @@ the grammar, the lines and the help are the library's and the panel's clicks run
 
 **It is a feature verb.** It is not in `LIVE_WHILE_DISABLED`, so `gateFeatureVerbs` refuses it with
 the disabled line while the addon is off, and the host refusal's first check (`NS.IsStoodDown()`,
-answered with `NS.RefusalLine()`) refuses a start under the perf hold, which that gate does not see. It has **no key binding**. The launcher menu's **Sim mode** entry and the Master controls **Sim mode** checkbox (R6-SIM) run the same verb through `NS.ToggleSim` (`core/LauncherSetup.lua`): a stop while a sim runs, otherwise the bare verb.
+answered with `NS.RefusalLine()`) refuses a start under the perf hold, which that gate does not see. It has **no key binding**. The launcher menu's **Sim mode** entry and the Master controls **Sim mode** checkbox (R6-SIM) run the same verb through `NS.ToggleSim` (`core/LauncherSetup.lua`). Sim mode is on while the sim panel is shown or a sim runs (R7-SIM): from off the toggle is the bare verb, which opens the panel; from on it is a stop while a sim runs, then the panel closed.
 
 **On a library-less install** `NS.Sim` is `NS.SimHost.NewSimStub` (`core/SimSeam.lua`), whose
 `RunVerb` prints `The simulator needs LibKa0s-Sim-1.0.` and does nothing else.

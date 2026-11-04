@@ -99,8 +99,12 @@ F.stepLabel = Host.StepLabel
 F.stepTip = Host.StepTip
 F.startTip = START_TIP
 F.stopTip = STOP_TIP
--- The window while it is shown, so the panel docks beside it and never beside a hidden frame.
+-- The window while it is shown, so the panel docks beside it and never beside a hidden frame. The
+-- library asks this on every show, after building its frame and before showing it, so it is also
+-- where the Sim mode box's window watch goes on (NS.WatchSimWindow, core/LauncherSetup.lua, R7-SIM),
+-- in time for the first OnShow.
 F.anchorTo = function()
+  if NS.WatchSimWindow then NS.WatchSimWindow() end
   local w = NS.Browser and NS.Browser:GetWindow()
   if w and w:IsShown() then return w end
   return nil

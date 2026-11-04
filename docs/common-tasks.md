@@ -100,7 +100,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   once — AceDB defaults, the panel widgets, the slash `get`/`set`/`list`/`reset` verbs, and the
   Defaults/Reset-all resets. Add a row and all four gain the setting; never write a parallel
   mutator for a field that already has a row.
-- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:906`),
+- **Every setting mutation routes through `Schema:Set(path, value)`** (`settings/Schema.lua:908`),
   a one-line delegate to the **`LibKa0s-Schema-1.0`** runtime (`NS.SchemaRuntime`). That seam is:
   look the row up → run its optional `validate` → write a **deep copy** of the value → fire the
   row's `onChange`. The deep copy is load-bearing: without it a reset would alias the DB to a shared
@@ -109,7 +109,7 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`tests/test_schema.lua` pins it, on both builds).
 - **Paths resolve against the active profile, `NS.db.profile`** — every setting but two is per
   profile, so `Schema:Get`/`:Set` read and write `NS.db.profile` (the descriptor's `resolveRoot`,
-  `settings/Schema.lua:868`, asked at call time so a profile switch retargets it). Only the loot
+  `settings/Schema.lua:870`, asked at call time so a profile switch retargets it). Only the loot
   history, its repair bookkeeping, the schema stamp, the retention (`retentionDays`, owner decision
   D6: the setting that governs the recorded data, reached through its row's own `get`/`set`) and
   LibDBIcon's `minimap` table live in `NS.db.global` ([profiles.md](profiles.md)). A new setting that
@@ -192,11 +192,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
   (`core/DebugLogSetup.lua:165`), which is also where `NS.DebugLog` is instantiated.
 - The flag is independent of the console window's visibility. `/lh debug` toggles the window only;
   `/lh debug on|off` set the logging flag (capture runs even with the window closed,
-  `settings/Schema.lua:1208`); the header's `Debug: ON`/`OFF` control flips the same flag
+  `settings/Schema.lua:1210`); the header's `Debug: ON`/`OFF` control flips the same flag
   (the title-bar toggle's `onToggleClick`, built in `EnsureFrame` in `libs/LibKa0s/DebugLog.lua`). The flag stays the **host's** throughout — the descriptor hands
   the library `isEnabled`/`setEnabled` closures over `NS.State.debug` (`core/DebugLogSetup.lua:117-118`)
   so the slash verb, the panel and the console header all read one truth. The window's *visibility*
-  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:227`).
+  is the separate `state.debugConsole` session-only schema row (`settings/Schema.lua:229`).
 - All debug output goes through `NS.Debug(tag, fmt, ...)` and renders in the tagged format
   `<ts> | [<tag>] <content>` (`lib.FormatPlain` in `libs/LibKa0s/DebugLog.lua`; the colored console
   variant is `lib.FormatColored`). `tag` is one short word, printed verbatim — no padding,

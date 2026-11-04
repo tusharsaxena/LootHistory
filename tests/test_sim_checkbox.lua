@@ -10,6 +10,12 @@ local H = dofile("tests/sim_support.lua").new(T)
 -- are one act; modules/Sim.lua's listener calls O.RefreshScalars when the sim starts or ends, so a
 -- sim started anywhere else shows on an open page.
 --
+-- The owner's seventh smoke round (R7-SIM, Ka0sAddonsCommonTasks docs/2026-11-04-SMOKE_ROUND7 call
+-- 2): "checked while the sim window is open and/or a sim is running", unchecked when neither. So
+-- NS.IsSimMode answers window shown OR sim running; ticking opens the sim window as a bare `/lh sim`
+-- does, so the box stays ticked; unticking stops a running sim and hides the window; and the
+-- window's OnShow and OnHide refresh the page, as the sim's start and stop do.
+--
 -- This slot runs after tests/test_sim_slash.lua, with the whole addon brought up; every case stops
 -- the session it starts and closes the panel.
 
@@ -81,29 +87,96 @@ test("sim checkbox: the row is the composed session-only Sim mode, opening the l
   assertFalse(S.VetoedFromResetAll(row), "Reset all settings walks the row")
 end)
 
-test("sim checkbox: ticking acts exactly as a bare `/lh sim`; the box ticks once a scenario starts", function()
+test("sim checkbox: ticking acts exactly as a bare `/lh sim`, and the open window keeps it ticked", function()
+  -- red under: NS.IsSimMode answering the session alone (R6-SIM's rule), which read unticked here.
   clean(function()
+    Sim:HidePanel()
+    assertEqual(NS.Schema:Get(PATH), false, "no window and no sim: the box reads unticked")
     NS.Schema:Set(PATH, true)
     -- The bare verb's own acts: the status line and the panel, never a scenario the box picked.
     assertTrue(printed("Simulation: idle."), "the bare verb's status: " .. table.concat(M.__printed(), " | "))
     assertTrue(Sim:IsPanelShown(), "the sim panel opens, as `/lh sim` opens it")
     assertFalse(Sim:IsActive(), "the box starts no scenario of its own")
-    assertEqual(NS.Schema:Get(PATH), false, "the box re-reads the sim: unticked until a scenario runs")
+    assertEqual(NS.Schema:Get(PATH), true, "the sim window is open, so the box stays ticked (R7-SIM)")
+    assertTrue(NS.IsSimMode(), "the launcher's Sim mode entry reads the same pair")
     NS.Slash:OnSlash("sim start loot")
     assertEqual(NS.Schema:Get(PATH), true, "a running sim reads ticked")
   end)
 end)
 
-test("sim checkbox: unticking stops the sim; an untick while idle does nothing", function()
+test("sim checkbox: the window open and idle reads ticked; closing it unticks the box (R7-SIM)", function()
+  clean(function()
+    NS.Slash:OnSlash("sim")
+    assertTrue(Sim:IsPanelShown(), "`/lh sim` opens the window")
+    assertFalse(Sim:IsActive(), "idle")
+    assertEqual(NS.Schema:Get(PATH), true, "window open, idle: the box reads ticked")
+    -- The window's own close button and Escape hide the frame directly, never through HidePanel.
+    local frame = M.__namedFrames.LootHistorySimPanel
+    assertTrue(frame ~= nil, "the library's LootHistorySimPanel frame")
+    frame:Hide()
+    assertFalse(Sim:IsPanelShown(), "the frame hid")
+    assertEqual(NS.Schema:Get(PATH), false, "no window and no sim: the box reads unticked")
+    assertFalse(NS.IsSimMode(), "and so does the launcher's entry")
+  end)
+end)
+
+test("sim checkbox: a running sim with its window hidden reads ticked (R7-SIM)", function()
+  clean(function()
+    NS.Slash:OnSlash("sim start loot")
+    Sim:HidePanel()
+    assertFalse(Sim:IsPanelShown(), "the window is hidden")
+    assertTrue(Sim:IsActive(), "hiding the window does not stop the sim")
+    assertEqual(NS.Schema:Get(PATH), true, "running: the box reads ticked with the window hidden")
+    assertTrue(NS.IsSimMode(), "and so does the launcher's entry")
+  end)
+end)
+
+test("sim checkbox: unticking over an open, idle window closes it (R7-SIM)", function()
+  -- red under: NS.ToggleSim running the bare verb again from on, which leaves the window open.
+  clean(function()
+    NS.Slash:OnSlash("sim")
+    assertEqual(NS.Schema:Get(PATH), true, "window open: ticked")
+    M.__resetPrinted()
+    NS.Schema:Set(PATH, false)
+    assertFalse(Sim:IsPanelShown(), "unticking closes the sim window")
+    assertFalse(printed("Simulation: idle."), "and does not run the bare verb again")
+    assertEqual(NS.Schema:Get(PATH), false, "the box reads unticked")
+  end)
+end)
+
+test("sim checkbox: the sim window's OnShow and OnHide refresh the settings page (R7-SIM)", function()
+  -- red under: dropping NS.WatchSimWindow's frame hooks (core/LauncherSetup.lua, called from
+  -- modules/SimPanel.lua's anchorTo), so a window opened from the slash verb or
+  -- the launcher, or closed with its own close button or Escape, left an open page stale.
+  clean(function()
+    NS.Slash:OnSlash("sim")
+    local frame = M.__namedFrames.LootHistorySimPanel
+    assertTrue(frame ~= nil, "the library's LootHistorySimPanel frame")
+    countingRefresh(function(count)
+      local before = count()
+      frame:__fire("OnShow")
+      assertTrue(count() > before, "OnShow refreshes the page")
+      local shown = count()
+      frame:Hide()
+      frame:__fire("OnHide")
+      assertTrue(count() > shown, "OnHide refreshes the page")
+    end)
+  end)
+end)
+
+test("sim checkbox: unticking stops the sim and closes its window; an untick while off does nothing", function()
   clean(function()
     NS.Slash:OnSlash("sim start loot")
     assertTrue(Sim:IsActive(), "started")
+    Sim:ShowPanel()
     NS.Schema:Set(PATH, false)
     assertFalse(Sim:IsActive(), "unticking stops it")
     assertTrue(printed("Simulation stopped."), "the stop verb's own line")
+    assertFalse(Sim:IsPanelShown(), "and closes the sim window, so one untick leaves the box unticked (R7-SIM)")
+    assertEqual(NS.Schema:Get(PATH), false, "unticked")
     M.__resetPrinted()
     NS.Schema:Set(PATH, false)
-    assertEqual(#M.__printed(), 0, "idle and unticked: no toggle, no line (Reset all settings never starts one)")
+    assertEqual(#M.__printed(), 0, "off and unticked: no toggle, no line (Reset all settings never starts one)")
     assertFalse(Sim:IsPanelShown(), "and no panel")
   end)
 end)

@@ -86,8 +86,10 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- composer draws a session-only `Sim mode` box at `state.sim`, opening the line after Test mode.
   -- The SAME pair the launcher's Sim mode entry carries (core/LauncherSetup.lua), so the box, the
   -- menu entry and `/lh sim` are one act. The row's own get/set are the library's; the seam honors
-  -- them as it does the console's. modules/Sim.lua's listener refreshes the box when the sim starts
-  -- or ends from anywhere else.
+  -- them as it does the console's. Since R7-SIM the pair reads "sim window shown or sim running", so
+  -- the box stays ticked after a tick (the window is open) and an untick stops the sim and closes the
+  -- window. modules/Sim.lua's listener refreshes the box when the sim starts or ends from anywhere
+  -- else, and NS.WatchSimWindow (core/LauncherSetup.lua) when the window shows or hides.
   isSimMode        = NS.IsSimMode,
   toggleSim        = NS.ToggleSim,
   -- THE HOST'S ONE SENTENCE AFTER THE COMPOSED WORDS (compose minor 9, options-ui-§15; item 020,
@@ -97,7 +99,7 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- names.
   notes = {
     testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline.",
-    simMode  = "Ticking it is a bare /lh sim: the status line and the sim panel, where you pick a scenario; the box ticks once one starts.",
+    simMode  = "Ticked while the sim panel is open or a simulation runs. Ticking it is a bare /lh sim: the status line and the sim panel, where you pick a scenario; unticking it stops a running simulation and closes the panel.",
   },
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
   -- two session paths above -- but for a different reason: those live outside the store entirely,
@@ -1251,7 +1253,8 @@ NS.COMMANDS = gateFeatureVerbs{
   -- above refuses it while the addon is disabled (it is NOT on LIVE_WHILE_DISABLED). The grammar is
   -- the library's (start, run, step, pause, resume, restart, stop, status, panel; no help verb) plus
   -- the host verb `loot [n]` (modules/Sim.lua). No key binding; the launcher menu's Sim mode entry and
-  -- the Master controls Sim mode box (R6-SIM) reach this same verb through NS.ToggleSim. With
+  -- the Master controls Sim mode box (R6-SIM) reach this verb through NS.ToggleSim, which from on
+  -- (the sim window shown or a sim running, R7-SIM) stops the sim and closes the window. With
   -- no LibKa0s the session stub answers "The simulator needs LibKa0s-Sim-1.0.".
   { "sim", NS.L["In-game simulator: /lh sim start <scenario>"], function(rest)
       NS.Sim:RunVerb(rest or "")

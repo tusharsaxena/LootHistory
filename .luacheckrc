@@ -122,7 +122,13 @@ files["tests/"] = {
 -- BINDING_HEADER_<header> global, so core/LauncherSetup.lua assigns it; granted to that one file
 -- and nowhere else. The binding's own BINDING_NAME_ global carries a space and a colon, so it is
 -- set through rawset(_G, ...) and needs no entry.
-files["core/LauncherSetup.lua"] = { globals = { "BINDING_HEADER_LOOTHISTORY" } }
+-- The same file also READS the simulator's window, which LibKa0s-Sim-1.0 builds and names
+-- `<name>SimPanel`, to hook its OnShow and OnHide to the settings refresh (R7-SIM, NS.WatchSimWindow).
+files["core/LauncherSetup.lua"] = {
+  globals = { "BINDING_HEADER_LOOTHISTORY" },
+  read_globals = { "LootHistorySimPanel" },
+}
+
 
 -- The AceAddon object's own lifecycle hooks. AceAddon calls `addon:OnInitialize()` itself, and
 -- `OnEnterWorld` is registered on the AceEvent mixin the same object carries.
