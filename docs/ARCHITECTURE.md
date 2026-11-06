@@ -512,7 +512,7 @@ and registered below.
 | Doc | Status | Trigger |
 |---|---|---|
 | `slash-dispatch.md` | Present | The verbs in `NS.COMMANDS` |
-| `midnight-quirks.md` | Present | Bind-state and currency-API behavior the addon works around |
+| `midnight-quirks.md` | Present | Always: carries the vendored client-quirks catalog (client-quirks-§1), then the addon's own bind-state and currency-API behavior it works around |
 | `compat-layer.md` | Present | The shims `grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua` counts, addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Present | Every setting but the retention is per profile and a Profiles page ships (`settings/Profiles.lua`); the page says what a profile holds, what stays account-wide (the history and its retention, D6), the adopt path and the v9 and v10 moves |
