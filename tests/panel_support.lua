@@ -132,7 +132,7 @@ end
 --- Run `fn` with every AceGUI ScrollFrame's CONTENT widened to `px`, then put the fixture back.
 ---
 --- THE HARNESS'S CANVAS IS A FIXTURE, NOT A MODEL. The kit's AceGUI fake gives every ScrollFrame's
---- content a flat `original_width = 400` (tests/_kit/mock_base.lua:1318) and LibKa0s's
+--- content a flat `original_width = 400` (tests/_kit/mock_base.lua, `makeWidget`) and LibKa0s's
 --- always-shown-scrollbar patch then takes its 20px gutter off it (GUTTER in libs/LibKa0s/OptionsScroll.lua),
 --- so every list in this suite measures 380px of content. Nothing in the kit claims that is what
 --- Blizzard's settings canvas hands a page; it is a number a fake made up.
