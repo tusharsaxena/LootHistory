@@ -34,7 +34,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- window's title band as a frame Shell lays and keeps (EllesmereUI's 25 px bar under that source), and
 -- S.Header, which anchors every header child LEFT, CENTER or RIGHT to it at y 0, the title by
 -- `title.align` or the caller's `align`. S.TitleBar's `opts.place` takes the same title anchor.
-local EXTRAS_MINOR = 17
+-- Minor 18 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): P.px and the
+-- pixel watch are Core minor 16's, shared with Widgets; P.pxEdge sizes a non-flat edge P.box draws
+-- on a frame Core keeps pixel-exact in physical pixels.
+local EXTRAS_MINOR = 18
 if lib.__extrasMinor and lib.__extrasMinor >= EXTRAS_MINOR
   and lib.__extrasShellMinor == lib.MINOR then return end
 lib.__extrasMinor      = EXTRAS_MINOR
@@ -564,25 +567,22 @@ prim.FadeRegions = function(owner, frame, ...)
   end
 end
 
---- `n` physical pixels (1 by default) in the UI units of `frame`, a frame: the client's PixelUtil
---- factor over its effective scale, so a 1 px edge is one pixel at any UI scale (R3-L2, R3-L3). `n`
---- itself where the client has no PixelUtil or the frame no scale.
+local function pxCore() return LibStub and LibStub("LibKa0s-Core-1.0", true) end
+
+--- `n` physical pixels (1 by default) in the UI units of `frame`, a frame, so a 1 px edge is one
+--- pixel at any UI scale (R3-L2, R3-L3): Core's `__PixelSize` since Core minor 16 (SF1-L1), the one
+--- mechanism Widgets shares. `n` itself under a Core without it.
 function P.px(frame, n)
-  n = type(n) == "number" and n or 1
-  local pu = PixelUtil
-  local scale = P.isFrame(frame) and type(frame.GetEffectiveScale) == "function" and frame:GetEffectiveScale()
-  if type(pu) ~= "table" or type(pu.GetPixelToUIUnitFactor) ~= "function" or type(scale) ~= "number"
-    or scale <= 0 then return n end
-  return n * pu.GetPixelToUIUnitFactor() / scale
+  local c = pxCore()
+  if c and type(c.__PixelSize) == "function" then return c.__PixelSize(frame, n) end
+  return type(n) == "number" and n or 1
 end
 
 -- Pixel edges stay one pixel (R3-FIX of docs/2026-11-02-SMOKE_ROUND3): each is recorded weakly and
--- re-sized, never repainted, when UIParent's size moves (a UI scale or display size change) and on a
--- SetScale of the holder or an ancestor, UIParent's included, that moves the scale (DpsRace's HUD,
--- WhatGroup's and MultiMeters' windows). Hooks, never an event: a library-wide registration would
--- outlive every host's stand-down.
+-- re-sized, never repainted, when Core's pixel watch fires (Core minor 16, SF1-L1): UIParent's size moves
+-- (a UI scale or display size change), or a SetScale of the holder or an ancestor moves the scale
+-- (DpsRace's HUD, WhatGroup's and MultiMeters' windows). Hooks, never an event.
 lib.__pxSized = lib.__pxSized or setmetatable({}, { __mode = "k" })    -- target -> { h, prim, prefix, n }
-lib.__pxScales = lib.__pxScales or setmetatable({}, { __mode = "k" })  -- hooked frame -> last scale
 local PX_SIDES = { Top = "SetHeight", Bottom = "SetHeight", Left = "SetWidth", Right = "SetWidth" }
 
 --- Re-size every recorded pixel edge whose primitive still paints its target.
@@ -604,38 +604,27 @@ local function refreshLive()
   if live and live.__RefreshPixels then live:__RefreshPixels() end
 end
 
-local function pxScreen()
-  local ui = UIParent
-  if lib.__pxScreenHooked or type(ui) ~= "table" or type(ui.HookScript) ~= "function" then return end
-  lib.__pxScreenHooked = true
-  ui:HookScript("OnSizeChanged", refreshLive)
-end
-
---- Post-hook SetScale on `h` and each ancestor, once each, so a scale that moves re-sizes the edges;
---- the same scale again costs one comparison.
-local function hookScales(h)
-  if type(hooksecurefunc) ~= "function" then return end
-  local f, guard = h, 0
-  while P.isFrame(f) and guard < 32 do
-    if lib.__pxScales[f] == nil and type(f.SetScale) == "function" then
-      lib.__pxScales[f] = type(f.GetScale) == "function" and f:GetScale() or 1
-      hooksecurefunc(f, "SetScale", function(self, s)
-        local scales = lib.__pxScales
-        if scales[self] == s then return end
-        scales[self] = s
-        refreshLive()
-      end)
-    end
-    f, guard = type(f.GetParent) == "function" and f:GetParent() or nil, guard + 1
-  end
-end
-
 --- Record `target`'s pixel edge for the refresh: primitive `name` paints it, its four regions are
---- `prefix .. side` on holder `h`, `n` physical pixels wide.
+--- `prefix .. side` on holder `h`, `n` physical pixels wide; Core watches `h`'s scale.
 function P.pxWatch(target, h, name, prefix, n)
   lib.__pxSized[target] = { h = h, prim = name, prefix = prefix, n = n }
-  pxScreen()
-  hookScales(h)
+  local c = pxCore()
+  if not (c and type(c.__WatchPixels) == "function") then return end
+  c.__OnPixelScale("LibKa0s-Skin-1.0", refreshLive)
+  c.__WatchPixels(h)
+end
+
+--- The size P.box draws a non-flat edge at (SF1-L1): on a frame Core keeps pixel-exact (Widgets'
+--- dropdown, search box and menus) `size` physical pixels on the holder, watched; on any other
+--- frame, and for a nine-slice's art, `size` as given.
+function P.pxEdge(rec, frame, style, size)
+  local c = pxCore()
+  local pixel = c and type(c.__pxBackdrops) == "table" and c.__pxBackdrops[frame]
+  if not pixel or (type(style) == "string" and style:find("^nine:")) then return size end
+  local h = P.holder(rec, frame)
+  if not h then return size end
+  P.pxWatch(frame, h, rec.order and rec.order[1], "edge", size)
+  return P.px(h, size)
 end
 
 -- FadeNineSlice's edge, four regions of its own on the holder (R3-L2): the faded art leaves the frame

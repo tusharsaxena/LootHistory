@@ -135,6 +135,12 @@ local LIB_FILES = {
   -- New in v1.83.0: the media pickers (OptionsMedia 1, the Ka0sMedia_* AceGUI types), a sixteenth
   -- file of LibKa0s-Options-1.0.
   "libs/LibKa0s/OptionsMedia.lua",
+  -- New in v1.86.0: LibKa0s-IconBrowser-1.0 (IconBrowserSources 1, IconBrowserWindow 1, IconBrowser 1),
+  -- in XML order. This addon offers no icon chooser and wires nothing from it; the client loads
+  -- every file of the XML, so the suite must too.
+  "libs/LibKa0s/IconBrowserSources.lua",
+  "libs/LibKa0s/IconBrowserWindow.lua",
+  "libs/LibKa0s/IconBrowser.lua",
   "libs/LibKa0s/Perf.lua",
   -- New in v1.66.0: the capture (PerfSampler 1) and the command surface (PerfCommands 1) peel
   -- out of Perf.lua, in that XML order. This addon wires no Perf module; the client loads them.
@@ -1099,7 +1105,7 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   assertEqual(modules("LibKa0s-Schema-1.0").Schema, 3)
   assertEqual(modules("LibKa0s-Slash-1.0").Slash, 21)
   assertTrue(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle >= 10) -- 12 since v1.85.0, pinned there
-  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 6)
+  assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics >= 6) -- 7 since v1.89.0, pinned there
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 9) -- 10 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanelRender >= 1) -- 2 since v1.85.0, pinned there
   local charts = modules("LibKa0s-Charts-1.0")
@@ -1116,26 +1122,26 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.85.0")
     return lib.MODULES
   end
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 15)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 15) -- 16 since v1.90.0 (pixel edges), pinned there
   local glow = modules("LibKa0s-Glow-1.0")
   assertEqual(glow.Glow, 2)
   local toast = modules("LibKa0s-Toast-1.0")
-  assertEqual(toast.Toast, 3) -- 3 since R5-L2 (toasts opt out of the band)
+  assertTrue(toast.Toast >= 3) -- 4 since v1.89.0 (the stack), pinned there
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 16) -- 16 since R5-L3 (VOCAB gains Band, Header)
+  assertTrue(skin.Skin >= 16) -- 17 since v1.90.0 (keepScope), pinned there
   assertEqual(skin.SkinDefs, 27) -- 27 since R5-L1 (a darker title band)
   assertEqual(skin.SkinDefsOthers, 8)
-  assertEqual(skin.SkinPaint, 18) -- 18 since R5-L2 (the band over the fill)
-  assertEqual(skin.SkinPaintExtras, 17) -- 17 since R5-L3 (S.Band, S.Header)
+  assertTrue(skin.SkinPaint >= 18) -- 19 since v1.90.0 (pixel edges), pinned there
+  assertTrue(skin.SkinPaintExtras >= 17) -- 18 since v1.90.0 (P.pxEdge), pinned there
   assertEqual(skin.SkinPaintControls, 17) -- 17 since R4-L4 (opts.hud)
   assertEqual(skin.SkinEUI, 4)
   assertEqual(skin.SkinAce, 9)
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 22) -- 22 since R5-L5 (W.IconText)
-  assertEqual(widgets.WidgetsReorder, 5)
-  assertEqual(widgets.WidgetsDragHandle, 12)
+  assertTrue(widgets.Widgets >= 22) -- 23 since v1.89.0 (cascading menus), pinned there
+  assertTrue(widgets.WidgetsReorder >= 5) -- 6 since v1.90.0 (pixel row boxes, SF2-L1), pinned there
+  assertTrue(widgets.WidgetsDragHandle >= 12) -- 13 since v1.90.0 (pixel strips, SF2-L1), pinned there
   assertEqual(widgets.WidgetsLineChart, 6)
-  assertEqual(widgets.WidgetsAutocomplete, 7) -- 7 since R5-L5
+  assertTrue(widgets.WidgetsAutocomplete >= 7) -- 8 since v1.90.0 (pixel edges), pinned there
   assertEqual(widgets.WidgetsCopyWindow, 5) -- 5 since R5-L3
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertEqual(debugLog.DebugLogWindow, 4) -- 4 since R5-L3
@@ -1151,7 +1157,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsNav, 5)
   assertEqual(options.OptionsDrawer, 5)
   assertEqual(options.OptionsKeybinds, 7)
-  assertEqual(options.OptionsAppearance, 6)
+  assertTrue(options.OptionsAppearance >= 6) -- 7 since v1.90.0 (keepScope copy), pinned there
   assertEqual(options.OptionsSkinPicker, 11) -- 11 since R6-L1 (spec.preview)
   assertEqual(options.OptionsIdSuggest, 2) -- 2 since R5-L5
   assertEqual(options.OptionsMedia, 4)
@@ -1161,5 +1167,51 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   local sim = modules("LibKa0s-Sim-1.0")
   assertEqual(sim.SimPanel, 10)
   assertEqual(sim.SimPanelRender, 3) -- 3 since R5-L3
-  assertEqual(T.KIT_VERSION, 50)
+  assertTrue(T.KIT_VERSION >= 50) -- 51 since v1.89.0, pinned there
+end)
+-- v1.89.0 (Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89/, item V89-LH): from v1.85.0,
+-- the new major LibKa0s-IconBrowser-1.0 (v1.86.0), DebugLogDiagnostics 7 (the report names
+-- IconBrowser), Widgets 23 (cascading W.ContextMenu rows, v1.87.0), Toast 4 (the opt-in stack,
+-- v1.88.0) and kit revision 51 (v1.89.0). This addon raises no toast, opens no W.ContextMenu of its
+-- own and offers no icon chooser, so it takes all of it on the copy alone.
+test("v1.89.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.89.0")
+    return lib.MODULES
+  end
+  local browser = modules("LibKa0s-IconBrowser-1.0")
+  assertEqual(browser.IconBrowserSources, 1)
+  assertEqual(browser.IconBrowserWindow, 1)
+  assertEqual(browser.IconBrowser, 1)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 7)
+  assertTrue(modules("LibKa0s-Widgets-1.0").Widgets >= 23) -- 25 since v1.90.0 (pixel edges, then SF2-L1's lines), pinned there
+  assertEqual(modules("LibKa0s-Toast-1.0").Toast, 4)
+  assertEqual(T.KIT_VERSION, 51)
+end)
+-- v1.90.0 (Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89/SF1_SMOKE_FEEDBACK.md, item
+-- SF1-RV-LH): Core 16, Widgets 24 (25 after SF2-L1) and WidgetsAutocomplete 8 draw every library control edge in
+-- physical pixels (SF1-L1); Skin 17 and OptionsAppearance 7 add RegisterOwner's keepScope (SF1-L2);
+-- SkinPaint 19 and SkinPaintExtras 18 call Core's pixel mechanism. The refreshed tag (SF2-L1) moves Widgets
+-- to 25, WidgetsReorder to 6 and WidgetsDragHandle to 13: the menu divider, the row boxes and the drag
+-- strips in physical pixels too. This addon owes nothing: it takes
+-- the pixel edges on the copy and does not opt into keepScope. The kit stays at revision 51.
+test("v1.90.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.90.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 16)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 25)
+  assertEqual(widgets.WidgetsReorder, 6)
+  assertEqual(widgets.WidgetsDragHandle, 13)
+  assertEqual(widgets.WidgetsAutocomplete, 8)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 17)
+  assertEqual(skin.SkinPaint, 19)
+  assertEqual(skin.SkinPaintExtras, 18)
+  assertEqual(modules("LibKa0s-Options-1.0").OptionsAppearance, 7)
+  assertEqual(T.KIT_VERSION, 51)
 end)

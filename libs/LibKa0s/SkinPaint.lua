@@ -135,7 +135,8 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- the art keep their sublevels. A bare Shell call (Core.ApplySkin's) on a frame its owner painted with
 -- opts keeps those opts, so a host that paints twice keeps one band. Then (R5-L3, still minor 18): Shell
 -- lays S.Band's holder (SkinPaintExtras minor 17's P.layBand) on every paint. No function is added.
-local PAINT_MINOR = 18
+-- Minor 19 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): P.box's non-flat edge at P.pxEdge's size.
+local PAINT_MINOR = 19
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -788,10 +789,12 @@ function P.box(rec, frame, T, spec, opts)
   end
   if not P.hasBackdrop(frame) then return regionBox(rec, frame, T, spec, border, style, size, opts.noBg) end
   if spec.extra and hasGradient(T, spec.fill) then fill = CLEAR end
-  P.backdrop(rec, frame, fill, flat and border or nil, flat and size or 1, spec.insets)
+  local edge, width = border, size
+  if not flat then edge, width = nil, 1 end   -- a non-flat edge is the holder's, below
+  P.backdrop(rec, frame, fill, edge, width, spec.insets)
   boxGradient(rec, frame, T, spec)
   if flat then return P.hideEdges(rec, frame) end
-  P.edges(rec, frame, border, style, size)
+  P.edges(rec, frame, border, style, P.pxEdge and P.pxEdge(rec, frame, style, size) or size)
 end
 
 --- Recolor a backdrop the target already wears (its own art kept): fill four components, edge as

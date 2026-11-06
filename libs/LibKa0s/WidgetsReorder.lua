@@ -46,7 +46,10 @@ if not lib then return end
 -- `handleIcon` draws the Ka0s `move` icon, not the client's sort arrow.
 -- Minor 5 (cause L8 of the same bundle): the carried copy's text in the skin's body face and its mark
 -- in `list.ghostIcon`, unless the row names a color.
-local REORDER_MINOR = 5
+-- Minor 6 (SF2-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): a row box's four
+-- edges are `ROW_BOX.EDGE_SIZE` PHYSICAL pixels at any UI scale, re-sized on a scale change, through
+-- the shell's lib.__pixelLine (Widgets minor 25), where they were that many UI units.
+local REORDER_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a list that
 -- attached to an older shell would publish `lib.ReorderList` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -148,7 +151,7 @@ lib.ROW_BOX = {
   FILL_DIM  = { 1, 1, 1, 0.03 },
   EDGE      = { 1, 1, 1, 0.12 },   -- 1px, all four sides; the border nobody had
   EDGE_DIM  = { 1, 1, 1, 0.06 },
-  EDGE_SIZE = 1,
+  EDGE_SIZE = 1,                   -- physical pixels (minor 6); UI units before it
   HANDLE_W  = 30,                  -- the left gutter the handle owns; row contents start beyond it
 }
 
@@ -342,6 +345,17 @@ end
 -- Four edges rather than `SetBackdrop`, because a backdrop needs `BackdropTemplate` at CreateFrame
 -- time and a template is a client-version dependency. Four rectangles are not.
 
+--- Size a box's four edges `ROW_BOX.EDGE_SIZE` physical pixels thick on the box (minor 6), again on
+--- each paint, since a pooled box may serve a row at another scale. In UI units under a shell older
+--- than Widgets minor 25.
+local function sizeRowBox(box)
+  local n, line = lib.ROW_BOX.EDGE_SIZE, lib.__pixelLine
+  for _, tex in ipairs(box.edges or {}) do
+    if type(line) == "function" then line(tex, box, tex.__horizontal, n)
+    elseif tex.__horizontal then tex:SetHeight(n) else tex:SetWidth(n) end
+  end
+end
+
 --- Build one box's five textures, once, when the frame is first made.
 local function buildRowBox(box)
   box.fill = box.CreateTexture and box:CreateTexture(nil, "BACKGROUND")
@@ -364,9 +378,10 @@ local function buildRowBox(box)
     local tex = box:CreateTexture(nil, "BORDER")
     tex:SetPoint(e[1], box, e[1], 0, 0)
     tex:SetPoint(e[2], box, e[2], 0, 0)
-    if e[3] then tex:SetHeight(lib.ROW_BOX.EDGE_SIZE) else tex:SetWidth(lib.ROW_BOX.EDGE_SIZE) end
+    tex.__horizontal = e[3]
     box.edges[i] = tex
   end
+  sizeRowBox(box)
 end
 
 --- Paint one box for the row it is serving THIS render. Separate from building it because a pooled
@@ -381,6 +396,7 @@ local function paintRowBox(box, dimmed, colors)
   for _, tex in ipairs(box.edges or {}) do
     tex:SetColorTexture(edge[1], edge[2], edge[3], edge[4])
   end
+  sizeRowBox(box)
 end
 
 -- ── the drag, hoisted out of the controller ───────────────────────────────────────────────────

@@ -1,4 +1,4 @@
--- testkit/mock_ace.lua — the Ace fakes of the universal mock (revision 47): CallbackHandler-1.0,
+-- testkit/mock_ace.lua — the Ace fakes of the universal mock (revision 51): CallbackHandler-1.0,
 -- AceEvent-3.0's event half, AceConsole-3.0's print mixins, AceTimer-3.0, AceConsole-3.0, AceEvent-3.0
 -- and AceAddon-3.0.
 --
@@ -6,6 +6,12 @@
 -- docs/2026-10-31-FINDINGS_REMEDIATION), on the seam CLAUDE.md's band census named: that file sat 35
 -- lines from `layout-§1`'s cap. Its fidelity rules bind this file. AceGUI stays there, inside the
 -- builder, because it closes over the frames that file tracks.
+--
+-- Revision 51: `Callbacks:unregister` and `Callbacks:unregisterAll` clear a registration only where
+-- one exists, as CallbackHandler's `if callbacks[self] then` does. Through revision 50 they assigned
+-- nil to the key unconditionally, and in Lua 5.1 that inserts an ABSENT key and can rehash the list,
+-- so an unregister of a target with no registration, made while a dispatch walked that list, raised
+-- "invalid key to 'next'" or skipped a registrant, depending on the hash order of the run.
 --
 -- Loaded by `mock_base.lua` from its own folder, like `mock_record.lua`, and not opt-in for the same
 -- reason: every suite reads these fakes. Answers the seven names the builder calls; each `make*`
@@ -96,9 +102,9 @@ function Callbacks:unregister(target, eventname)
     error("Usage: " .. self.names[2] .. "(eventname): 'eventname' - string expected.", 3)
   end
   local list = self.events[eventname]
-  if list then list[target] = nil end
+  if list and list[target] ~= nil then list[target] = nil end
   local queued = self.queue and self.queue[eventname]
-  if queued then queued[target] = nil end
+  if queued and queued[target] ~= nil then queued[target] = nil end
 end
 
 --- CallbackHandler's UnregisterAll takes any number of targets (`t:UnregisterAllMessages()` passes
@@ -113,8 +119,12 @@ function Callbacks:unregisterAll(...)
   end
   for i = 1, n do
     local target = select(i, ...)
-    for _, list in pairs(self.events) do list[target] = nil end
-    for _, list in pairs(self.queue or {}) do list[target] = nil end
+    for _, list in pairs(self.events) do
+      if list[target] ~= nil then list[target] = nil end
+    end
+    for _, list in pairs(self.queue or {}) do
+      if list[target] ~= nil then list[target] = nil end
+    end
   end
 end
 

@@ -30,7 +30,7 @@ settings canvas with its tab strip and Master-controls composer, the settings sc
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
 the flat dropdowns, the Timeline's line chart and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because eighteen of its nineteen majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because twenty of its twenty-one majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---

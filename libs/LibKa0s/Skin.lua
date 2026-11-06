@@ -115,9 +115,7 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- picks All text. A stored mode stays. `__StoredOutline` tells a stored mode from the default, so a
 -- font or texture write does not store the default as if the player had chosen it.
 -- Minor 11: the owner-token block moved out, unchanged, to SkinOwnerTokens.lua (LK-M2-PEEL of
--- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION, the seam CLAUDE.md's census named). No
--- behavior moves: RegisterOwner and `__Tokens` reach it through `lib.__takeTokens` and
--- `lib.__withOwnTokens`, and `lib.__tokenHelpers` hands it the three locals it shares with this file.
+-- Ka0sAddonsCommonTasks docs/2026-10-31-FINDINGS_REMEDIATION), reached through `lib.__takeTokens`.
 -- Minors 12 to 14 (L6, FS-T1 and FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): VOCAB
 -- gains Mark, MarkText, HudTextColor, HudLabelColor, BarFillColor, HudShadow, BarGloss and HudFont; Ignore
 -- fonts reaches `hud.shadow*` as it reaches `hud.outline`; FollowOnce, the record gate every host wrote.
@@ -127,7 +125,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- font override naming a retired shipped face (`RETIRED_FONTS`, SkinDefsOthers) lands as its successor.
 -- Minor 16 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): VOCAB gains Band and Header,
 -- SkinPaintExtras minor 17's, the title band as a frame and every header child centered on it.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 16
+-- Minor 17 (SF1-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): RegisterOwner's
+-- `opts.keepScope`, a Scope another addon's skin copy never writes.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 17
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -324,6 +324,7 @@ local function takeHooks(o, opts, owner)
   o.reloads = o.reloads or {}
   o.get, o.set, o.log = fnOr(opts.get, o.get), fnOr(opts.set, o.set), fnOr(opts.log, o.log)
   o.label = type(opts.label) == "string" and opts.label or o.label or owner
+  if opts.keepScope ~= nil then o.keepScope = opts.keepScope == true end
 end
 
 -- ── owner tokens ─────────────────────────────────────────────────────────────────────────────
@@ -348,7 +349,8 @@ function lib:__Remap(_, T) return T end
 --- token. A name carries the owner's namespace and a dot, never a library token family's (`text`,
 --- `sem`, ...); a bad name or definition is refused and logged once (`opts.log`, else the client's error handler), and the
 --- rest still land. A second call adds its tokens and replaces a name it repeats; it does not repaint,
---- so register them at file load, before the first paint.
+--- so register them at file load, before the first paint. `opts.keepScope` (minor 17), true: another
+--- addon's skin copy brings this owner skin and media, never its Scope (`owners[owner].keepScope`).
 function lib:RegisterOwner(owner, opts)
   requireOwner(owner, "RegisterOwner")
   opts = type(opts) == "table" and opts or {}
