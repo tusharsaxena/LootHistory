@@ -1,0 +1,1 @@
+SF2 verify (lead, scripted): tests/_kit identical and libs/LibKa0s identical but undeclared icons vs v1.90.0 at 1ba5fa2; provenance v1.90.0; tree clean; gate in 06_REFRESH_1.md (luacheck 0/0, 0 failed)
