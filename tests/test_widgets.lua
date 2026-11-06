@@ -154,7 +154,11 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- Minor 22 (LibKa0s v1.85.0 round 5 re-cut, R5-L5) adds `lib.IconText`, inline icon markup cropped
   -- by the icon rule. No member or opts field of Dropdown, CloseMenu or CopyWindow moves; this addon
   -- draws no icon markup through Widgets, so nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 22, "this adoption is written against Widgets minor 22")
+  --
+  -- Minor 23 (LibKa0s v1.87.0, carried at v1.89.0) adds cascading `W.ContextMenu` rows (`submenu`,
+  -- `radio`, `selected`, `opts.check`). A dropdown ignores all three and CloseMenu still closes every
+  -- level; this addon opens no W.ContextMenu of its own, so nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 23, "this adoption is written against Widgets minor 23")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

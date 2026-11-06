@@ -30,9 +30,10 @@
 -- ── WHAT IT DELIBERATELY IS NOT ───────────────────────────────────────────────────────────────
 --
 -- The dropdown's menu has no search box inside it (the filter bar's search box beside it is
--- `lib.SearchBox`, below), no keyboard navigation, no scrolling for a long list, no sub-menus. None
--- of those is wanted by a shipped consumer, and each is reachable later without a major bump. Row
--- options and a public open arrived with the hosts that needed them (minor 21).
+-- `lib.SearchBox`, below), no keyboard navigation and no scrolling for a long list. Neither is
+-- wanted by a shipped consumer, and each is reachable later without a major bump. Row options and a
+-- public open arrived with the hosts that needed them (minor 21), and cascading sub-menus with the
+-- one that needed them (minor 23, W.ContextMenu only; a dropdown's rows are its values).
 --
 -- Two flat controls were censused with the search box at minor 13 (#52) and REJECTED:
 --
@@ -105,7 +106,10 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- the row; the dropdown's label is one line.
 -- Minor 22 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): `lib.IconText`, inline icon
 -- markup cropped by the icon rule.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 22
+-- Minor 23 (G4 of OutfitterReborn docs/superpowers/specs/2026-11-05-smoke-round-2-design.md): cascading
+-- menus. A W.ContextMenu row's `submenu = rows` opens a child menu beside the row, one pooled frame
+-- per depth, the parent kept; the row options `radio` and `selected` draw a tick column.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -130,6 +134,9 @@ local SKIN = {
 -- that "what does a host with no LibKa0s-Media draw?" is answerable by reading two lines.
 local CHEVRON_FALLBACK = "Interface\\Buttons\\Arrow-Down-Up"
 local CHECK_FALLBACK   = "Interface\\Buttons\\UI-CheckBox-Check"
+-- A submenu row's arrow (minor 23): the client's own menus draw this one beside a row that opens
+-- another (wow-ui-source@297d7aa Interface/AddOns/Blizzard_Menu/MenuVariants.lua:36).
+local SUBMENU_ARROW    = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 
 -- The gray the search box's icon wears without a skin, and again while a panel-scoped one is given
 -- back (minor 17).
@@ -238,6 +245,22 @@ local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 
 -- No addon registers this name, so its facade reads Ka0s Default: the menu is given back through it.
 local DEFAULT_OWNER = MAJOR
 
+--- True for a row that opens a child menu (minor 23): only a W.ContextMenu's, whose context says so.
+local function hasSubmenu(dd, opt)
+  return dd.__nest == true and type(opt.submenu) == "table" and #opt.submenu > 0
+end
+
+--- True for a row that keeps a tick column (minor 23): a W.ContextMenu row with `radio` or `selected`.
+local function tickColumn(dd, opt)
+  return dd.__tick ~= nil and (opt.radio == true or opt.selected ~= nil)
+end
+
+--- A tick-column row's state: `selected`, true or a predicate of the row, read on every paint.
+local function rowTicked(opt)
+  if type(opt.selected) == "function" then return opt.selected(opt) and true or false end
+  return opt.selected == true
+end
+
 -- Never narrower than the button it drops from, but grown to the widest label it must show:
 -- a class icon plus a Name-Realm outruns the 140px Character button. Measured with a spare
 -- FontString in the row font (inline icon markup counts toward GetStringWidth), + the 8px
@@ -252,7 +275,9 @@ local function menuWidth(menu, dd, opts)
   lib.__skinFont(menu.measure, menu.__fontOwner, menu.__fontSkin, "GameFontHighlightSmall")
   for _, opt in ipairs(opts) do
     menu.measure:SetText((dd.multi and dd.__check or "") .. (opt.label or ""))
-    local pad = opt.glyph and 38 or 24   -- a glyphed row indents its text by a further 14px
+    -- A glyphed or ticked row indents its text by a further 14px, a submenu row's arrow takes 10.
+    local pad = (opt.glyph or tickColumn(dd, opt)) and 38 or 24
+    if hasSubmenu(dd, opt) then pad = pad + 10 end
     w = math.max(w, math.min(320, (menu.measure:GetStringWidth() or 0) + pad))
   end
   return w
@@ -294,6 +319,31 @@ local function makeMenuRow(menu)
   b.__rule:SetPoint("TOPLEFT", 8, -4)
   b.__rule:SetPoint("BOTTOMRIGHT", -8, 3)
   return b
+end
+
+--- A row's tick column (minor 23), the menu's check markup in a string of its own, so a radio wears
+--- the multi-select tick. Built the first time a row needs one, from a template for the reason the
+--- glyph is: a flat menu's rows never carry it.
+local function rowTick(b)
+  if b.__tick then return b.__tick end
+  local t = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  t:SetPoint("LEFT", 6, 0)
+  t:SetWidth(16)
+  t:SetJustifyH("CENTER")
+  b.__tick = t
+  return t
+end
+
+--- A submenu row's arrow (minor 23), built the first time a row needs one.
+local function rowArrow(b)
+  if b.__sub then return b.__sub end
+  local a = b:CreateTexture(nil, "OVERLAY")
+  a:SetSize(10, 10)
+  a:SetPoint("RIGHT", -4, 0)
+  a:SetTexture(SUBMENU_ARROW)
+  a:SetVertexColor(0.7, 0.7, 0.72)
+  b.__sub = a
+  return a
 end
 
 --- True for a row that takes no click: a title, a divider, or a disabled row (`disabled`, true or a
@@ -342,29 +392,50 @@ end
 
 --- A row's shape and tooltip (minor 21), every field written for the pool's sake, as below. An inert
 --- row takes the mouse too: the menu has none of its own and `__OutsideClick` exempts a press by
---- geometry, so a press let through keeps the menu open and lands on whatever is under it.
-local function paintRowKind(b, dd, opt, pal)
+--- geometry, so a press let through keeps the menu open and lands on whatever is under it. `hover`
+--- (minor 23) is a cascading level's pointer handler, nil on a flat menu, which keeps no OnEnter.
+local function paintRowKind(b, dd, opt, pal, hover)
   local tip = opt.tooltip
   b:SetHeight(opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
   b.__rule:SetShown(opt.divider == true)
   if opt.divider then b.__rule:SetColorTexture(pal.rule[1], pal.rule[2], pal.rule[3], pal.rule[4]) end
   b.__hl:SetShown(not rowInert(dd, opt))
   b:EnableMouse(true)
-  b:SetScript("OnEnter", tip and function(self) lib.__rowTip(self, opt, pal) end or nil)
+  if hover then
+    b:SetScript("OnEnter", function(self)
+      hover(self)
+      if tip then lib.__rowTip(self, opt, pal) end
+    end)
+  else
+    b:SetScript("OnEnter", tip and function(self) lib.__rowTip(self, opt, pal) end or nil)
+  end
   b:SetScript("OnLeave", tip and function() lib.__rowTipOff() end or nil)
+end
+
+--- A row's tick column and submenu arrow (minor 23), and the label's two insets around them. Each is
+--- written whenever the row has one, for the pool's sake.
+local function paintRowMarks(b, dd, opt)
+  local col, sub = tickColumn(dd, opt), hasSubmenu(dd, opt)
+  if col or b.__tick then
+    local t = rowTick(b)
+    t:SetText(col and rowTicked(opt) and dd.__tick or "")
+    t:SetShown(col)
+  end
+  if sub or b.__sub then rowArrow(b):SetShown(sub) end
+  -- A glyphed or ticked row indents its text to clear the column; every other row starts at the margin.
+  b.fs:ClearAllPoints()
+  b.fs:SetPoint("LEFT", (opt.glyph or col) and 22 or 8, 0)
+  b.fs:SetPoint("RIGHT", sub and -18 or -8, 0)
 end
 
 -- Repaint one row from its option. EVERY field is written on every pass, including the blank ones:
 -- the rows are pooled across dropdowns, so a field left alone leaks the previous menu's glyph or
 -- color onto this one.
-local function paintMenuRow(b, dd, opt, selected, pal, glyphFace)
+local function paintMenuRow(b, dd, opt, selected, pal, glyphFace, hover)
   local check = (dd.multi and selected) and dd.__check or ""
-  paintRowKind(b, dd, opt, pal)
+  paintRowKind(b, dd, opt, pal, hover)
   b.fs:SetText(check .. (opt.label or ""))
-  -- A glyphed row indents its text to clear the glyph; every other row starts at the margin.
-  b.fs:ClearAllPoints()
-  b.fs:SetPoint("LEFT", opt.glyph and 22 or 8, 0)
-  b.fs:SetPoint("RIGHT", -8, 0)
+  paintRowMarks(b, dd, opt)
   -- FONT SET ON EVERY PAINT, not once at creation, and that is the one thing this widget does
   -- differently from the version it was lifted out of. The row pool is shared across every dropdown
   -- in the process, which now spans addons — and two hosts need not name the same monospace face.
@@ -408,23 +479,47 @@ function lib.__rowTipOff()
   lib.__tipUp = nil
 end
 
+-- The menu frames, one per depth (minor 23). `menus[1]` is the shared menu every dropdown and every
+-- W.ContextMenu opens, `menu` below; a deeper one is a cascading level, pooled like the rows.
+local menus = {}
+local menu
+
+--- Hide every level from `depth` down. A level's OnHide does the same in the client; this walk is
+--- for a level closed while its parent stays (a sibling submenu, a hovered plain row) and for CloseMenu.
+local function closeFrom(depth)
+  for d = depth, #menus do
+    if menus[d]:IsShown() then menus[d]:Hide() end
+  end
+end
+
+--- After a keepOpen row's callback (minor 23): repaint its level and every level above it, each only
+--- while it is still shown and still wears the context it was opened with.
+local function repaintChain(frame, dd)
+  while frame and dd do
+    if not (frame:IsShown() and frame.__dd == dd) then return end
+    frame:Populate(dd)
+    frame, dd = frame.__up, dd.__parent
+  end
+end
+
 -- One row's click handler. The menu hides BEFORE the callback, which is contract (minor 21): a
 -- callback may open another menu, and hiding after it would close that one. `keepOpen` holds the menu
 -- and repaints it after the callback, so a toggle row shows its new state, unless that callback closed
--- the menu or opened another: the shared frame's rows then belong to someone else.
-local function rowOnClick(menu, dd, opt)
+-- the menu or opened another: the shared frame's rows then belong to someone else. From minor 23 a
+-- pick in a cascading level hides every level, and a keepOpen one repaints every level above it too.
+local function rowOnClick(frame, dd, opt)
   return function()
     if dd.multi then
       -- Toggle in place and keep the menu open, so several can be picked in one visit.
       dd:ToggleSelected(opt.value)
-      menu:Populate(dd)
+      frame:Populate(dd)
       if dd.onMultiSelect then dd.onMultiSelect(dd._selected) end
       return
     end
     dd:SetValue(opt.value, opt.label)
-    if not opt.keepOpen then menu:Hide() end
+    if not opt.keepOpen then closeFrom(1) end
     if dd.onSelect then dd.onSelect(opt.value, opt) end
-    if opt.keepOpen and menu:IsShown() and menu.__dd == dd then menu:Populate(dd) end
+    if opt.keepOpen then repaintChain(frame, dd) end
   end
 end
 
@@ -454,18 +549,144 @@ local function skinMenu(m, dd)
   if Skin and type(Skin.For) == "function" then Skin:For(DEFAULT_OWNER).MenuFrame(m) end
 end
 
-local menu
-local function EnsureMenu()
-  if menu then return menu end
-  menu = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-  menu:SetFrameStrata("FULLSCREEN_DIALOG")
+local function noop() end
+
+--- A W.ContextMenu's context (minor 21), or a cascading level's (minor 23, `parent` the level above):
+--- what Populate reads off a dropdown, for rows a host passed. `tick` is the tick column's markup.
+local function menuContext(rows, opts, parent, tick)
+  local ctx = { _options = rows, _selected = {}, __check = "", __owner = opts.owner, __panel = opts.panel == true,
+                __glyphFont = opts.glyphFont, __tick = tick, __nest = true, __parent = parent, SetValue = noop }
+  ctx._value = ctx   -- no row's value: a row with none is not the selection (rowSelected)
+  local width = tonumber(opts.width) or 90
+  function ctx.GetWidth() return width end
+  function ctx.onSelect(value, row)
+    if type(row.onClick) == "function" then row.onClick(value, row) end
+  end
+  return ctx
+end
+
+--- Place level `c` beside `row`: to its right, its first row level with the row, or to its left when
+--- the right would leave the screen; clamped either way. A rect not resolved yet (nil) goes right.
+local function placeBeside(c, row)
+  local right, edge, w = row:GetRight(), UIParent:GetRight(), c:GetWidth()
+  if type(right) == "number" and type(edge) == "number" and type(w) == "number" and right + w > edge then
+    c:SetPoint("TOPRIGHT", row, "TOPLEFT", 0, 4)
+  else
+    c:SetPoint("TOPLEFT", row, "TOPRIGHT", 0, 4)
+  end
+  c:SetClampedToScreen(true)
+end
+
+local EnsureMenu
+
+--- Open `opt.submenu` as the level below `parent` (minor 23), beside `row`. The level already showing
+--- exactly that is left alone; any other at that depth or deeper closes first, so opening a sibling's
+--- submenu closes the levels under the last one.
+local function openSub(parent, dd, row, opt)
+  local depth = parent.__depth + 1
+  local c = menus[depth]
+  if c and c:IsShown() and c.__row == row and c.__src == opt then return end
+  closeFrom(depth)
+  c = EnsureMenu(depth)
+  local ctx = menuContext(opt.submenu, { owner = dd.__owner, panel = dd.__panel, glyphFont = dd.__glyphFont },
+    dd, dd.__tick)
+  c.__dd, c.__up, c.__row, c.__src = ctx, parent, row, opt
+  parent.__child = c
+  skinMenu(c, ctx)
+  local level = parent:GetFrameLevel()
+  if type(level) == "number" then c:SetFrameLevel(level + 10) end
+  c:Populate(ctx)
+  c:ClearAllPoints()
+  placeBeside(c, row)
+  c:Show()
+end
+
+--- A cascading level's pointer handler for one row (minor 23): a live submenu row opens its level,
+--- any other closes the levels below its own.
+local function rowHover(frame, dd, opt)
+  if hasSubmenu(dd, opt) and not rowInert(dd, opt) then
+    return function(row) openSub(frame, dd, row, opt) end
+  end
+  return function() closeFrom(frame.__depth + 1) end
+end
+
+--- One row's click: none for an inert row, its level for a submenu row (minor 23), else the pick.
+local function rowClick(frame, dd, opt)
+  if rowInert(dd, opt) then return nil end
+  if hasSubmenu(dd, opt) then return function(row) openSub(frame, dd, row, opt) end end
+  return rowOnClick(frame, dd, opt)
+end
+
+--- True when a row of `dd` opens a level: only then do its rows answer the pointer, so a flat menu's
+--- rows keep no OnEnter but a tooltip's.
+local function levelNests(dd)
+  if not dd.__nest then return false end
+  for _, opt in ipairs(dd._options or {}) do
+    if hasSubmenu(dd, opt) then return true end
+  end
+  return false
+end
+
+--- Lay out a level's rows for `dd` (a dropdown, or a W.ContextMenu's context).
+local function populate(self, dd)
+  for _, b in ipairs(self.buttons) do b:Hide() end
+  local opts = dd._options or {}
+  local w = menuWidth(self, dd, opts)
+  local glyphFace = menuGlyphFace(self, dd)
+  local nests = levelNests(dd)
+  local y = 4
+  for i, opt in ipairs(opts) do
+    local b = self.buttons[i]
+    if not b then
+      b = makeMenuRow(self)
+      self.buttons[i] = b
+    end
+    -- Minor 17: the opener's face on every open, or the template back; the rows are pooled.
+    lib.__skinFont(b.fs, self.__fontOwner, self.__fontSkin, "GameFontHighlightSmall")
+    b:SetWidth(w)
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", 0, -y)
+    y = y + (opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
+    paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL, glyphFace,
+      nests and rowHover(self, dd, opt) or nil)
+    b:SetScript("OnClick", rowClick(self, dd, opt))
+    b:Show()
+  end
+  self:SetSize(w, y + 4)
+end
+
+--- A level closing takes the levels below it, and any row tooltip, with it.
+local function levelOnHide(self)
+  self:UnregisterEvent("GLOBAL_MOUSE_DOWN")
+  lib.__rowTipOff()
+  closeFrom(self.__depth + 1)
+end
+
+--- One menu frame for `depth`: the shared menu at depth 1, a cascading level below it (minor 23).
+local function newMenuFrame(depth)
+  local f = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+  f:SetFrameStrata("FULLSCREEN_DIALOG")
   -- Minor 15: a dropdown near the bottom or right edge would otherwise drop rows off the screen.
-  menu:SetClampedToScreen(true)
-  menu:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-  menu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
-  menu:SetBackdropBorderColor(0, 0, 0, 1)
-  menu:Hide()
-  menu.buttons = {}
+  f:SetClampedToScreen(true)
+  f:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+  f:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
+  f:SetBackdropBorderColor(0, 0, 0, 1)
+  f:Hide()
+  f.buttons, f.__depth = {}, depth
+  f:SetScript("OnHide", levelOnHide)
+  f.Populate = populate
+  return f
+end
+
+--- The menu frame for `depth` (1 when nil), built the first time it is asked for. Only depth 1 listens
+--- for the outside press, and it answers for every level.
+EnsureMenu = function(depth)
+  depth = depth or 1
+  if menus[depth] then return menus[depth] end
+  local f = newMenuFrame(depth)
+  menus[depth] = f
+  if depth > 1 then return f end
+  menu = f
 
   -- ── HOW AN OUTSIDE CLICK CLOSES THIS, AND WHY IT IS NOT A CATCHER ──────────────────────────
   --
@@ -482,12 +703,8 @@ local function EnsureMenu()
   -- that would otherwise run on every mouse press for the session, in every host.
   -- The button that was pressed arrives as the next argument and is deliberately not read: no
   -- button is enumerated anywhere in this widget, so a mouse with more of them behaves the same.
-  menu:SetScript("OnEvent", function(self, event)
+  f:SetScript("OnEvent", function(self, event)
     if event == "GLOBAL_MOUSE_DOWN" then self:__OutsideClick() end
-  end)
-  menu:SetScript("OnHide", function(self)
-    self:UnregisterEvent("GLOBAL_MOUSE_DOWN")
-    lib.__rowTipOff()
   end)
 
   -- Two presses are NOT outside, and both exemptions are load-bearing:
@@ -499,44 +716,24 @@ local function EnsureMenu()
   --     impossible to close by the button that opened it. Only the OWNER is exempt: a press on a
   --     different dropdown closes this menu, and that dropdown's OnClick then opens its own, which
   --     is how exactly one menu stays open across the process.
-  function menu:__OutsideClick()
-    if self:IsMouseOver() then return end
+  --
+  -- From minor 23 a press on ANY shown level is on the menu, and an outside press closes them all.
+  function f:__OutsideClick()
+    for _, level in ipairs(menus) do
+      if level:IsShown() and level:IsMouseOver() then return end
+    end
     local owner = self._owner
     if owner and owner.IsMouseOver and owner:IsMouseOver() then return end
-    self:Hide()
+    closeFrom(1)
   end
-
-  function menu:Populate(dd)
-    for _, b in ipairs(self.buttons) do b:Hide() end
-    local opts = dd._options or {}
-    local w = menuWidth(self, dd, opts)
-    local glyphFace = menuGlyphFace(self, dd)
-    local y = 4
-    for i, opt in ipairs(opts) do
-      local b = self.buttons[i]
-      if not b then
-        b = makeMenuRow(self)
-        self.buttons[i] = b
-      end
-      -- Minor 17: the opener's face on every open, or the template back; the rows are pooled.
-      lib.__skinFont(b.fs, self.__fontOwner, self.__fontSkin, "GameFontHighlightSmall")
-      b:SetWidth(w)
-      b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", 0, -y)
-      y = y + (opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
-      paintMenuRow(b, dd, opt, rowSelected(dd, opt), self.__pal or MENU_PAL, glyphFace)
-      b:SetScript("OnClick", not rowInert(dd, opt) and rowOnClick(self, dd, opt) or nil)
-      b:Show()
-    end
-    self:SetSize(w, y + 4)
-  end
-  return menu
+  return f
 end
 
 --- Open the shared menu for `dd`, placed by `place(menu)`, as `owner`'s: a press on `owner` is no
---- outside press.
+--- outside press. The levels of a cascade the menu wore close first (minor 23).
 local function openMenu(owner, dd, place)
   local m = EnsureMenu()
+  closeFrom(2)
   m._owner, m.__dd = owner, dd
   skinMenu(m, dd)
   m:Populate(dd)
@@ -749,28 +946,21 @@ function lib.Dropdown(parent, width, opts)
   return MakeDropdown(parent, width, opts)
 end
 
-local function noop() end
-
 --- Open the shared popup menu on `rows` (minor 21), a dropdown's options, each with its row options
---- (`title`, `divider`, `disabled`, `tooltip`, `keepOpen`) and `onClick(value, row)`, from `anchor`, a
---- press on which is no outside press. A second call on it closes the menu, as a dropdown's second
---- click does, unless `opts.cursor` opens at the pointer. `opts`: { owner, panel, glyphFont, width,
---- cursor }. Answers the menu, or nil with no anchor or no rows. docs/api/Widgets has the table.
+--- (`title`, `divider`, `disabled`, `tooltip`, `keepOpen`; minor 23: `submenu`, `radio`, `selected`)
+--- and `onClick(value, row)`, from `anchor`, a press on which is no outside press. A second call on it
+--- closes the menu, as a dropdown's second click does, unless `opts.cursor` opens at the pointer.
+--- `opts`: { owner, panel, glyphFont, width, cursor, check }. Answers the menu, or nil with no anchor
+--- or no rows. docs/api/Widgets has the table.
 function lib.ContextMenu(anchor, rows, opts)
   if type(anchor) ~= "table" or type(rows) ~= "table" or #rows == 0 then return nil end
   opts = type(opts) == "table" and opts or {}
   local m = EnsureMenu()
   if m:IsShown() and m._owner == anchor and not opts.cursor then
-    m:Hide()
+    closeFrom(1)
     return m
   end
-  local ctx = { _options = rows, _selected = {}, __check = "", __owner = opts.owner, __panel = opts.panel == true,
-                __glyphFont = opts.glyphFont, SetValue = noop }
-  ctx._value = ctx   -- no row's value: a row with none is not the selection (rowSelected)
-  function ctx.GetWidth() return tonumber(opts.width) or 90 end
-  function ctx.onSelect(value, row)
-    if type(row.onClick) == "function" then row.onClick(value, row) end
-  end
+  local ctx = menuContext(rows, opts, nil, dropdownCheck(opts))
   return openMenu(anchor, ctx, opts.cursor and placeAtCursor or function(frame)
     frame:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -1)
   end)
@@ -789,6 +979,7 @@ end
 --- every such path. The outside-press close (minor 5) cannot help: no click happened.
 function lib.CloseMenu()
   if menu and menu:IsShown() then menu:Hide() end
+  closeFrom(2)   -- minor 23: every cascading level, which OnHide closes too in the client
 end
 
 -- ── the search box (minor 13) ───────────────────────────────────────────────────────────────
