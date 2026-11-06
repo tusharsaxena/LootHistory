@@ -107,7 +107,10 @@ if not lib then return end
 -- host art draws the Ka0s `info` and `close` icons on its marks, live on a repaint (dhMarkArt).
 -- Minor 12 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an owned strip wears the
 -- skin's body face over a host's `spec.labelFont`, which is what Ignore fonts gives back.
-local DRAG_MINOR = 12
+-- Minor 13 (SF2-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the strip's own
+-- four edges are one PHYSICAL pixel at any UI scale, re-sized on a scale change, through the shell's
+-- lib.__pixelLine (Widgets minor 25), where they were one UI unit. A host's `spec.edge` is unchanged.
+local DRAG_MINOR = 13
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -395,8 +398,10 @@ end
 --- attached to another frame the strip's size can read secret, and SetBackdrop does arithmetic on
 --- the size on every set and every resize. Four rectangles read nothing. A host that has its own
 --- edge painter passes it as `spec.edge` and gets its own pixels. Answers the strips it drew
---- (minor 6), so a skinned strip recolors them rather than drawing four more.
+--- (minor 6), so a skinned strip recolors them rather than drawing four more. `size` is PHYSICAL
+--- pixels (minor 13) through the shell's lib.__pixelLine; UI units under a shell without it.
 local function dhDrawEdge(frame, size, r, g, b, a)
+  local line = lib.__pixelLine
   if not frame.CreateTexture then return end
   local out = {}
   local plan = {
@@ -410,7 +415,8 @@ local function dhDrawEdge(frame, size, r, g, b, a)
     if not (tex and tex.SetColorTexture) then return end
     tex:SetPoint(e[1], frame, e[1], 0, 0)
     tex:SetPoint(e[2], frame, e[2], 0, 0)
-    if e[3] then tex:SetHeight(size) else tex:SetWidth(size) end
+    if type(line) == "function" then line(tex, frame, e[3], size)
+    elseif e[3] then tex:SetHeight(size) else tex:SetWidth(size) end
     tex:SetColorTexture(r, g, b, a)
     out[#out + 1] = tex
   end

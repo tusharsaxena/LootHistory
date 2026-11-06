@@ -162,7 +162,7 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- Minor 24 (LibKa0s v1.90.0, SF1-L1) lays the dropdown's, search box's, menus' and autocomplete
   -- list's backdrop edge in physical pixels. No member, option or row field moves, and GetBackdrop
   -- answers the table as given, so nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 24, "this adoption is written against Widgets minor 24")
+  assertEqual(lib.MODULES.Widgets, 25, "this adoption is written against Widgets minor 25")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

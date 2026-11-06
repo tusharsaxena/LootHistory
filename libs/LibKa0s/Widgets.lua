@@ -111,7 +111,10 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- per depth, the parent kept; the row options `radio` and `selected` draw a tick column.
 -- Minor 24 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the dropdown, the
 -- search box and every menu level draw a one-PHYSICAL-pixel edge at any UI scale (lib.__pixelEdged).
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 24
+-- Minor 25 (SF2-L1 of the same bundle): lib.__pixelLine. A menu's divider rule, at every cascade depth,
+-- is one physical pixel high at any UI scale and re-sized on a scale change, and the row boxes and the
+-- drag-handle strips of this major's secondaries are drawn through it.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 25
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -154,6 +157,47 @@ local function pixelEdged(f)
   return f
 end
 lib.__pixelEdged = pixelEdged
+
+-- A texture line one PHYSICAL pixel thick (minor 25, SF2-L1): Core minor 16's `__PixelSize` for the
+-- size and its pixel watch for the re-size, the mechanism pixelEdged uses, so a UI scale or display
+-- size change, or a SetScale of the holder or an ancestor, re-sizes every line recorded here. Hooks,
+-- never an event. Recorded weakly: texture -> { holder, horizontal, n }.
+lib.__pxLines = lib.__pxLines or setmetatable({}, { __mode = "k" })
+
+--- Size one recorded line on its holder, now.
+local function pxLineApply(tex, e)
+  local size = type(core.__PixelSize) == "function" and core.__PixelSize(e.holder, e.n) or e.n
+  if e.horizontal then tex:SetHeight(size) else tex:SetWidth(size) end
+  return size
+end
+
+local function pxLinesRefresh()
+  for tex, e in pairs(lib.__pxLines) do pxLineApply(tex, e) end
+end
+
+--- Core's pixel-scale listener for this major: the live copy's refresh, so a newer one replaces it.
+local function pxLinesListener()
+  local live = LibStub and LibStub(MAJOR, true) or lib
+  if live.__RefreshPixelLines then live.__RefreshPixelLines() end
+end
+
+--- Make `tex` a line `n` physical pixels (1 by default) thick on `holder`: its height where
+--- `horizontal`, else its width, sized now and again on every pixel-scale change. Under a Core older
+--- than minor 16 it is `n` UI units, as before minor 25. Answers the size it laid.
+local function pixelLine(tex, holder, horizontal, n)
+  local e = lib.__pxLines[tex] or {}
+  e.holder, e.horizontal, e.n = holder, horizontal == true, type(n) == "number" and n or 1
+  lib.__pxLines[tex] = e
+  local size = pxLineApply(tex, e)
+  if type(tex.SetSnapToPixelGrid) == "function" then tex:SetSnapToPixelGrid(true) end
+  if type(core.__WatchPixels) == "function" and type(core.__OnPixelScale) == "function" then
+    core.__OnPixelScale(MAJOR, pxLinesListener)
+    core.__WatchPixels(holder)
+  end
+  return size
+end
+lib.__pixelLine = pixelLine
+lib.__RefreshPixelLines = pxLinesRefresh
 
 -- ── the skin owner (minor 16; the header's SKIN OWNERS) ──────────────────────────────────────
 
@@ -326,9 +370,11 @@ local function makeMenuRow(menu)
   hl:SetColorTexture(1, 0.82, 0, 0.15)
   -- Minor 16: kept, with the color it wears, so a skinned open repaints it (Populate).
   b.__hl, b.__hlc = hl, MENU_PAL.hover
-  b.__rule = b:CreateTexture(nil, "ARTWORK")   -- a divider row's line (minor 21), 1 high on its 8
+  -- A divider row's line (minor 21), 4 down its 8. One physical pixel high (minor 25), sized on
+  -- each paint (paintRowKind), where it was one UI unit, BOTTOMRIGHT -8, 3.
+  b.__rule = b:CreateTexture(nil, "ARTWORK")
   b.__rule:SetPoint("TOPLEFT", 8, -4)
-  b.__rule:SetPoint("BOTTOMRIGHT", -8, 3)
+  b.__rule:SetPoint("TOPRIGHT", -8, -4)
   return b
 end
 
@@ -409,7 +455,10 @@ local function paintRowKind(b, dd, opt, pal, hover)
   local tip = opt.tooltip
   b:SetHeight(opt.divider and MENU_DIVIDER_H or MENU_ROW_H)
   b.__rule:SetShown(opt.divider == true)
-  if opt.divider then b.__rule:SetColorTexture(pal.rule[1], pal.rule[2], pal.rule[3], pal.rule[4]) end
+  if opt.divider then
+    b.__rule:SetColorTexture(pal.rule[1], pal.rule[2], pal.rule[3], pal.rule[4])
+    pixelLine(b.__rule, b, true)
+  end
   b.__hl:SetShown(not rowInert(dd, opt))
   b:EnableMouse(true)
   if hover then

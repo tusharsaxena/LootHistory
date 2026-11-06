@@ -1138,8 +1138,8 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(skin.SkinAce, 9)
   local widgets = modules("LibKa0s-Widgets-1.0")
   assertTrue(widgets.Widgets >= 22) -- 23 since v1.89.0 (cascading menus), pinned there
-  assertEqual(widgets.WidgetsReorder, 5)
-  assertEqual(widgets.WidgetsDragHandle, 12)
+  assertTrue(widgets.WidgetsReorder >= 5) -- 6 since v1.90.0 (pixel row boxes, SF2-L1), pinned there
+  assertTrue(widgets.WidgetsDragHandle >= 12) -- 13 since v1.90.0 (pixel strips, SF2-L1), pinned there
   assertEqual(widgets.WidgetsLineChart, 6)
   assertTrue(widgets.WidgetsAutocomplete >= 7) -- 8 since v1.90.0 (pixel edges), pinned there
   assertEqual(widgets.WidgetsCopyWindow, 5) -- 5 since R5-L3
@@ -1185,14 +1185,16 @@ test("v1.89.0: the vendored minors and the kit revision match the release", func
   assertEqual(browser.IconBrowserWindow, 1)
   assertEqual(browser.IconBrowser, 1)
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 7)
-  assertTrue(modules("LibKa0s-Widgets-1.0").Widgets >= 23) -- 24 since v1.90.0 (pixel edges), pinned there
+  assertTrue(modules("LibKa0s-Widgets-1.0").Widgets >= 23) -- 25 since v1.90.0 (pixel edges, then SF2-L1's lines), pinned there
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 4)
   assertEqual(T.KIT_VERSION, 51)
 end)
 -- v1.90.0 (Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89/SF1_SMOKE_FEEDBACK.md, item
--- SF1-RV-LH): Core 16, Widgets 24 and WidgetsAutocomplete 8 draw every library control edge in
+-- SF1-RV-LH): Core 16, Widgets 24 (25 after SF2-L1) and WidgetsAutocomplete 8 draw every library control edge in
 -- physical pixels (SF1-L1); Skin 17 and OptionsAppearance 7 add RegisterOwner's keepScope (SF1-L2);
--- SkinPaint 19 and SkinPaintExtras 18 call Core's pixel mechanism. This addon owes nothing: it takes
+-- SkinPaint 19 and SkinPaintExtras 18 call Core's pixel mechanism. The refreshed tag (SF2-L1) moves Widgets
+-- to 25, WidgetsReorder to 6 and WidgetsDragHandle to 13: the menu divider, the row boxes and the drag
+-- strips in physical pixels too. This addon owes nothing: it takes
 -- the pixel edges on the copy and does not opt into keepScope. The kit stays at revision 51.
 test("v1.90.0: the vendored minors and the kit revision match the release", function()
   local function modules(major)
@@ -1202,7 +1204,9 @@ test("v1.90.0: the vendored minors and the kit revision match the release", func
   end
   assertEqual(modules("LibKa0s-Core-1.0").Core, 16)
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 24)
+  assertEqual(widgets.Widgets, 25)
+  assertEqual(widgets.WidgetsReorder, 6)
+  assertEqual(widgets.WidgetsDragHandle, 13)
   assertEqual(widgets.WidgetsAutocomplete, 8)
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 17)
