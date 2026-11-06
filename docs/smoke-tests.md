@@ -77,9 +77,9 @@ free number in its theme.
 - Media or art (`core/MediaSetup.lua`, an `NS.Icon` call site, `libs/LibKa0s/media/`): HIST-5 to
   HIST-11, HIST-13, HIST-15, HIST-17 to HIST-19, HIST-22, HIST-23, INS, PANEL-18, DIAG-10, DIAG-11
   and ICON; a LibKa0s re-vendor or a change to the `LibKa0s icons:` line in `CLAUDE.md` runs ICON.
-- Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/Widgets.lua`):
+- Dropdowns or the filter bar (`core/WidgetsSetup.lua`, `B:BuildFilterBar`, `libs/LibKa0s/WidgetsDropdown.lua`):
   HIST (HIST-12 always: the first click is where this widget broke), COMBAT-1, COMBAT-2, INSTALL-8
-  and DIAG-28 (the copy windows are this file's `CopyWindow`).
+  and DIAG-28 (the copy windows are the library's `CopyWindow`, `libs/LibKa0s/WidgetsCopyWindow.lua`).
 - LibKa0s re-vendor or `core/*Setup.lua` / `settings/Slash.lua` / `settings/OptionsSetup.lua`:
   DEGRADED (always), PANEL (PANEL-6 after every re-vendor), SLASH, DIAG, HIST-2, HIST-3, HIST-5,
   HIST-12 to HIST-23, HIST-28 to HIST-34, STATE-12, COMBAT-2 to COMBAT-5, STATE-3, STATE-5, STATE-6, CAP-25 to
