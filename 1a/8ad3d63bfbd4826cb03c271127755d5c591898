@@ -1,0 +1,1 @@
+V89 verify: independent verifier passed every check except the eol test (bundle files written LF, declared crlf). Lead re-checked them out through the filter, no commit amended; re-gate: 0 warnings / 0 errors;1980 passed, 0 failed, 1 skipped, 1981 total;
