@@ -33,12 +33,13 @@ local B = NS.Browser
 
 -- ── reaching the library's process-wide popup ────────────────────────────────────────────────
 --
--- The menu is a file-local singleton inside libs/LibKa0s/Widgets.lua, parented to UIParent and
--- deliberately unreachable from a host (that is the whole reason CloseMenu exists). A suite still
--- has to see it, so it is caught on the way past: CreateFrame is wrapped for the duration of the
--- click and the created frame that carries a `buttons` table is the menu. Nothing is read off a
--- ROW that the library did not paint onto it -- rows are pooled across every dropdown in the
--- process and stashing state on one is the documented way to corrupt another addon's menu.
+-- The menu is a file-local singleton inside libs/LibKa0s/WidgetsDropdown.lua (Widgets.lua until
+-- v1.91.0), parented to UIParent and deliberately unreachable from a host (that is the whole reason
+-- CloseMenu exists). A suite still has to see it, so it is caught on the way past: CreateFrame is
+-- wrapped for the duration of the click and the created frame that carries a `buttons` table is the
+-- menu. Nothing is read off a ROW that the library did not paint onto it -- rows are pooled across
+-- every dropdown in the process and stashing state on one is the documented way to corrupt another
+-- addon's menu.
 local function clickAndCaptureMenu(dd)
   local created = {}
   local stock = T.mocks.CreateFrame
@@ -162,7 +163,10 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- Minor 24 (LibKa0s v1.90.0, SF1-L1) lays the dropdown's, search box's, menus' and autocomplete
   -- list's backdrop edge in physical pixels. No member, option or row field moves, and GetBackdrop
   -- answers the table as given, so nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 25, "this adoption is written against Widgets minor 25")
+  --
+  -- Minor 26 (LibKa0s v1.91.0, FU-L2) moves Dropdown, ContextMenu and CloseMenu, unchanged, to
+  -- WidgetsDropdown.lua. No member, option or row field moves, so nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 26, "this adoption is written against Widgets minor 26")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end
