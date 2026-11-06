@@ -109,7 +109,9 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 23 (G4 of OutfitterReborn docs/superpowers/specs/2026-11-05-smoke-round-2-design.md): cascading
 -- menus. A W.ContextMenu row's `submenu = rows` opens a child menu beside the row, one pooled frame
 -- per depth, the parent kept; the row options `radio` and `selected` draw a tick column.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 23
+-- Minor 24 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the dropdown, the
+-- search box and every menu level draw a one-PHYSICAL-pixel edge at any UI scale (lib.__pixelEdged).
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 24
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -143,6 +145,15 @@ local SUBMENU_ARROW    = "Interface\\ChatFrame\\ChatFrameExpandArrow"
 local SEARCH_ICON_TINT = { 0.7, 0.7, 0.72 }
 
 local MENU_ROW_H, MENU_DIVIDER_H = 16, 8
+
+--- Make `f`'s backdrop edge one physical pixel at any UI scale and sub-pixel position, under every
+--- skin and with none (minor 24): Core minor 16's pixel edges, where the live Core has them. A
+--- backdrop of `edgeSize = 1` is one UI unit, which drew 1 or 2 px (SF1-L1). Answers `f`.
+local function pixelEdged(f)
+  if type(core.__PixelBackdrop) == "function" then core.__PixelBackdrop(f) end
+  return f
+end
+lib.__pixelEdged = pixelEdged
 
 -- ── the skin owner (minor 16; the header's SKIN OWNERS) ──────────────────────────────────────
 
@@ -671,6 +682,7 @@ local function newMenuFrame(depth)
   f:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
   f:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
   f:SetBackdropBorderColor(0, 0, 0, 1)
+  pixelEdged(f)
   f:Hide()
   f.buttons, f.__depth = {}, depth
   f:SetScript("OnHide", levelOnHide)
@@ -829,6 +841,7 @@ local function MakeDropdown(parent, width, opts)
                    insets = { left = 1, right = 1, top = 1, bottom = 1 } })
   dd:SetBackdropColor(unpack(SKIN.fill))
   dd:SetBackdropBorderColor(unpack(SKIN.line))
+  pixelEdged(dd)
 
   -- The tick a multi-select dropdown puts in front of every chosen row. INLINE |T…|t markup,
   -- resolved per dropdown so a degraded install appends the Blizzard string it always did rather
@@ -1037,6 +1050,7 @@ function lib.SearchBox(parent, width, opts)
     box:SetBackdropColor(unpack(SKIN.fill))
   end
   paintSearchBorder(box, SKIN.line)
+  pixelEdged(box)
   box:SetFontObject("GameFontHighlightSmall")
   box:SetAutoFocus(false)
 

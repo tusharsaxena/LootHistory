@@ -88,7 +88,10 @@ if not lib then return end
 -- reads the applied state, the picker previews by moving it, and the tab's copy reads it too.
 -- Minor 6 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the EllesmereUI gate's
 -- marks are the Ka0s `confirm` and `close` icons in `sem.good` and `sem.bad` while the chrome is skinned.
-local APPEARANCE_MINOR = 6
+--- Minor 7 (SF1-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the Skin tab's copy
+--- and the skin picker's Apply to all (lib.__copySkinTo) leave the Scope of an owner registered with
+--- `keepScope` alone, and carry it skin and media.
+local APPEARANCE_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__appearanceMinor and lib.__appearanceMinor >= APPEARANCE_MINOR
   and lib.__appearanceShellMinor == lib.MINOR then return end
@@ -428,8 +431,11 @@ end
 --- carries the target's applied font and texture and its stored outline, so a setter that stores every half it is
 --- given keeps what it has (minor 4); with no `media`, a reset the move made is written the same
 --- way, so the target's profile matches what it wears. Answers the reload flag SetChoice answered.
---- Internal; the caller refuses combat.
+--- A target registered with `keepScope` (Skin minor 17, minor 7 here) takes no `ignore`: its Scope is
+--- never written, live or in its profile. Internal; the caller refuses combat.
 function lib.__copySkinTo(Skin, name, source, skin, ignore, media)
+  local o = type(Skin.owners) == "table" and Skin.owners[name]
+  if type(o) == "table" and o.keepScope == true then ignore = nil end
   pickerCall("__pickerSettle", name)
   local _, reload, cleared = lib.__chooseSkin(Skin, name, source, skin)
   if ignore and type(Skin.SetIgnore) == "function" then Skin:SetIgnore(name, ignore.panel, ignore.fonts) end

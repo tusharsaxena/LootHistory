@@ -1122,17 +1122,17 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.85.0")
     return lib.MODULES
   end
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 15)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 15) -- 16 since v1.90.0 (pixel edges), pinned there
   local glow = modules("LibKa0s-Glow-1.0")
   assertEqual(glow.Glow, 2)
   local toast = modules("LibKa0s-Toast-1.0")
   assertTrue(toast.Toast >= 3) -- 4 since v1.89.0 (the stack), pinned there
   local skin = modules("LibKa0s-Skin-1.0")
-  assertEqual(skin.Skin, 16) -- 16 since R5-L3 (VOCAB gains Band, Header)
+  assertTrue(skin.Skin >= 16) -- 17 since v1.90.0 (keepScope), pinned there
   assertEqual(skin.SkinDefs, 27) -- 27 since R5-L1 (a darker title band)
   assertEqual(skin.SkinDefsOthers, 8)
-  assertEqual(skin.SkinPaint, 18) -- 18 since R5-L2 (the band over the fill)
-  assertEqual(skin.SkinPaintExtras, 17) -- 17 since R5-L3 (S.Band, S.Header)
+  assertTrue(skin.SkinPaint >= 18) -- 19 since v1.90.0 (pixel edges), pinned there
+  assertTrue(skin.SkinPaintExtras >= 17) -- 18 since v1.90.0 (P.pxEdge), pinned there
   assertEqual(skin.SkinPaintControls, 17) -- 17 since R4-L4 (opts.hud)
   assertEqual(skin.SkinEUI, 4)
   assertEqual(skin.SkinAce, 9)
@@ -1141,7 +1141,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(widgets.WidgetsReorder, 5)
   assertEqual(widgets.WidgetsDragHandle, 12)
   assertEqual(widgets.WidgetsLineChart, 6)
-  assertEqual(widgets.WidgetsAutocomplete, 7) -- 7 since R5-L5
+  assertTrue(widgets.WidgetsAutocomplete >= 7) -- 8 since v1.90.0 (pixel edges), pinned there
   assertEqual(widgets.WidgetsCopyWindow, 5) -- 5 since R5-L3
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertEqual(debugLog.DebugLogWindow, 4) -- 4 since R5-L3
@@ -1157,7 +1157,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsNav, 5)
   assertEqual(options.OptionsDrawer, 5)
   assertEqual(options.OptionsKeybinds, 7)
-  assertEqual(options.OptionsAppearance, 6)
+  assertTrue(options.OptionsAppearance >= 6) -- 7 since v1.90.0 (keepScope copy), pinned there
   assertEqual(options.OptionsSkinPicker, 11) -- 11 since R6-L1 (spec.preview)
   assertEqual(options.OptionsIdSuggest, 2) -- 2 since R5-L5
   assertEqual(options.OptionsMedia, 4)
@@ -1185,7 +1185,29 @@ test("v1.89.0: the vendored minors and the kit revision match the release", func
   assertEqual(browser.IconBrowserWindow, 1)
   assertEqual(browser.IconBrowser, 1)
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 7)
-  assertEqual(modules("LibKa0s-Widgets-1.0").Widgets, 23)
+  assertTrue(modules("LibKa0s-Widgets-1.0").Widgets >= 23) -- 24 since v1.90.0 (pixel edges), pinned there
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 4)
+  assertEqual(T.KIT_VERSION, 51)
+end)
+-- v1.90.0 (Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89/SF1_SMOKE_FEEDBACK.md, item
+-- SF1-RV-LH): Core 16, Widgets 24 and WidgetsAutocomplete 8 draw every library control edge in
+-- physical pixels (SF1-L1); Skin 17 and OptionsAppearance 7 add RegisterOwner's keepScope (SF1-L2);
+-- SkinPaint 19 and SkinPaintExtras 18 call Core's pixel mechanism. This addon owes nothing: it takes
+-- the pixel edges on the copy and does not opt into keepScope. The kit stays at revision 51.
+test("v1.90.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.90.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 16)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 24)
+  assertEqual(widgets.WidgetsAutocomplete, 8)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.Skin, 17)
+  assertEqual(skin.SkinPaint, 19)
+  assertEqual(skin.SkinPaintExtras, 18)
+  assertEqual(modules("LibKa0s-Options-1.0").OptionsAppearance, 7)
   assertEqual(T.KIT_VERSION, 51)
 end)

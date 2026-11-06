@@ -69,7 +69,9 @@ if not lib then return end
 -- edge come from the skin, and a host's `opts.font` is the rows' template, with the skin's face over it.
 -- Minor 7 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a row's icon is cropped 0.07 a
 -- side, and an owned list's is edged in `icon.outline` (edgeIcon).
-local AUTOCOMPLETE_MINOR = 7
+-- Minor 8 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the list's edge is
+-- one physical pixel at any UI scale, as the box's is (Widgets minor 24's lib.__pixelEdged).
+local AUTOCOMPLETE_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is.
 if lib.__autocompleteMinor and lib.__autocompleteMinor >= AUTOCOMPLETE_MINOR
   and lib.__autocompleteShellMinor == lib.MINOR then return end
@@ -222,6 +224,7 @@ local function ensureList(h)
   list:EnableMouse(true)
   -- Set once: the pieces never change. Only the colors follow the box, in skin().
   if list.SetBackdrop then list:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 }) end
+  if lib.__pixelEdged then lib.__pixelEdged(list) end   -- minor 8: one physical pixel (SF1-L1)
   list:Hide()
   h.__list = list
   return list
