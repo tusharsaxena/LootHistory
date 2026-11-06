@@ -13,17 +13,20 @@ or a documented command. Nothing is listed on a hunch.
 ## 1. Runtime (in-game) — what a player needs
 
 **World of Warcraft (Retail), interface 120105 — Midnight 12.1.5.** Evidence:
-`LootHistory.toc:1` (`## Interface: 120105`), mirrored by the README's `[wow]` badge
-(`README.md:3`).
+`LootHistory.toc`'s first line (`## Interface: 120105`), mirrored by the README's `[wow]` badge
+in its badge row.
 
 **Nothing else.** Every library the addon uses is **vendored** under `libs/` and committed, so the
-player installs one addon and no dependencies. `LootHistory.toc:8` declares
-`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0`
+player installs one addon and no dependencies. `LootHistory.toc` declares
+`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI`
 — that line exists only to fix **load order** when a player happens to have those libraries as
-standalone addons; the copies under `libs/` (loaded at `LootHistory.toc:16-29`) are what the addon
+standalone addons; the copies under `libs/` (loaded by the TOC's `# Libraries` block) are what the addon
 actually uses (`library-stack`). The Ace3 set includes AceConfig-3.0 (with its Registry, Cmd and
 Dialog parts) and AceDBOptions-3.0, which only the Profiles settings page uses (`options-ui-§3`,
 `settings/Profiles.lua`), copied from the same Ace3 release the rest of the collection vendors.
+EllesmereUI is the exception on that line: a separate addon, never vendored and never required,
+listed so it loads first when the player has it, because the Skin tab offers it as a skin source
+(`core/SkinSetup.lua`).
 There is no `## Dependencies` line, and there must not be one.
 
 ### Optional in-game integrations (addons, not tooling)
@@ -33,11 +36,11 @@ skipped if not. Each is presence-gated at the call site, so none of them is requ
 
 | Addon | Global probed | Evidence |
 |-------|---------------|----------|
-| Auctionator | `Auctionator.API.v1` | `modules/AuctionPrice.lua:14`, `:133` |
-| TradeSkillMaster | `TSM_API.GetCustomPriceValue` / `.ToItemString` | `modules/AuctionPrice.lua:24`, `:135` |
-| OribosExchange | `OEMarketInfo` | `modules/AuctionPrice.lua:36`, `:137` |
+| Auctionator | `Auctionator.API.v1` | `modules/AuctionPrice.lua`, `fetchAuctionator` and `AuctionPrice:IsProviderAvailable` |
+| TradeSkillMaster | `TSM_API.GetCustomPriceValue` / `.ToItemString` | `modules/AuctionPrice.lua`, `fetchTSM` and `AuctionPrice:IsProviderAvailable` |
+| OribosExchange | `OEMarketInfo` | `modules/AuctionPrice.lua`, `fetchOribos` and `AuctionPrice:IsProviderAvailable` |
 
-All three are whitelisted in `.luacheckrc:40` as `read_globals` with the comment "third-party
+All three are whitelisted in `.luacheckrc`'s `read_globals` with the comment "third-party
 AH-pricing addon globals (presence-gated)". Each fetch is `pcall`-guarded, so a broken provider is
 skipped rather than fatal. They are deliberately **not** in the TOC's `## OptionalDeps` — the addon
 never touches them at load, only when a price is gathered.
@@ -48,13 +51,13 @@ never touches them at load, only when a price is gathered.
 
 | Tool | Version | Why it is needed | Verify |
 |------|---------|------------------|--------|
-| **Lua** | **5.1 — a hard requirement** | The headless harness `setfenv`s every loaded chunk into a mock environment (`tests/_kit/loader.lua:72`, `:91`; the Lua-5.1 soundness argument is written out at `:45`). `setfenv` was **removed in Lua 5.2**, so the suite does not run on 5.2+ — this is a requirement, not a preference. It also matches the client: WoW runs Lua 5.1 (`docs/testing.md:3`). | `lua -v` → `Lua 5.1.x` |
-| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md:228`). Config is `.luacheckrc`. | `luacheck --version` |
+| **Lua** | **5.1 — a hard requirement** | The headless harness `setfenv`s every loaded chunk into a mock environment (`tests/_kit/loader.lua`, `Loader.load` and `Loader.loadSource`; the Lua-5.1 soundness argument is written out in the comment above `Loader.uncache`). `setfenv` was **removed in Lua 5.2**, so the suite does not run on 5.2+ — this is a requirement, not a preference. It also matches the client: WoW runs Lua 5.1 (`docs/testing.md`, *Testing*). | `lua -v` → `Lua 5.1.x` |
+| **luacheck** | any recent (developed against 1.2.0) | The lint gate, `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .`, must report 0 warnings / 0 errors before every commit (`docs/testing.md`, *The green gate*). Config is `.luacheckrc`. | `luacheck --version` |
 | **`ka0s-bounded`** | installed with the dev-copilot plugin | `~/.claude/dev-copilot/bin/ka0s-bounded`, the bounded runner. `luacheck` loads no kit, so the lint gate runs through it, and long Lua runs can too. Exit 124 is its time limit and 137 a kill. | `ls ~/.claude/dev-copilot/bin/ka0s-bounded` |
 | **lizard** | any recent (developed against 1.24.0) | Drives the `complexity` suite of the automated-test run at release (`automated-tests`; see "The complexity report" in [`docs/testing.md`](docs/testing.md)). **Optional** — its absence means the committed report is stale, not that the addon is broken. | `lizard --version` |
-| **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua:422` shells out to `git -C ../LibKa0s …` (and `:463` for the `cat-file --batch` bulk read, `:496` for `ls-tree -r`) to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. The commit gate itself needs it, though: the doc, lint-config, line-ending and layout-cap suites read the git index (`tests/test_doc_structure.lua:120`, `tests/test_lintconfig.lua:224`, `tests/_kit/test_eol.lua:130`, `tests/_kit/test_layout_cap.lua:171`) and fail rather than skip without it. | `git --version` |
-| **A POSIX shell with `find`** | any | `localNames` (`tests/_kit/vendor_sync.lua:130-156`) lists a directory by shelling out through `io.popen` — `find` under every shell this suite is actually run under, `dir /b /s` for `cmd.exe` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). Under WSL2 the `find` path is the one taken. | `find --version` |
-| **bash** | **4.0+ — a hard requirement** | `tests/_kit/run-automated-tests.sh` is `#!/usr/bin/env bash` and declares associative arrays (`declare -A ST DUR NOTE`, `:336`), which `sh`/`dash` cannot parse; `:123` additionally prefers bash 5.0's `EPOCHREALTIME` for millisecond timing and falls back cleanly below it. Only the automated-test **bundle** needs it — `lua tests/run.lua` and `luacheck .` do not. | `bash --version` |
+| **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua`'s `gitOut` shells out to `git -C ../LibKa0s …` (and `gitShowMany` for the `cat-file --batch` bulk read, `shippedNames` for `ls-tree -r`) to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. The commit gate itself needs it, though: the doc, lint-config, line-ending and layout-cap suites read the git index (`tests/test_doc_structure.lua`'s `trackedMarkdown`, `tests/test_lintconfig.lua`'s `trackedLua`, `tests/_kit/test_eol.lua`'s `trackedAttrs`, `tests/_kit/test_layout_cap.lua`'s `trackedFiles`) and fail rather than skip without it. | `git --version` |
+| **A POSIX shell with `find`** | any | `localNames` (`tests/_kit/vendor_sync.lua`) lists a directory by shelling out through `io.popen` — `find` under every shell this suite is actually run under, `dir /b /s` for `cmd.exe` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). Under WSL2 the `find` path is the one taken. | `find --version` |
+| **bash** | **4.0+ — a hard requirement** | `tests/_kit/run-automated-tests.sh` is `#!/usr/bin/env bash` and declares associative arrays (`declare -A ST DUR NOTE`), which `sh`/`dash` cannot parse; its timing setup additionally prefers bash 5.0's `EPOCHREALTIME` for millisecond timing and falls back cleanly below it. Only the automated-test **bundle** needs it — `lua tests/run.lua` and `luacheck .` do not. | `bash --version` |
 | **`../LibKa0s` checked out beside this repo** | matching the tag `CLAUDE.md` names | Not a package — a **sibling git checkout**. Two of the four vendor-gate diffs and the `test_vendor_sync` suite compare `libs/LibKa0s/` and `tests/_kit/` against it (`tests/test_vendor_sync.lua`, `docs/testing.md` → "The vendor gate"). Everything else passes without it. | `ls ../LibKa0s/LibKa0s` |
 
 ### Install (WSL2 / Ubuntu)
@@ -106,7 +109,7 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
 **Nothing extra.** There is no build step, no bundler, no code generation, and no asset pipeline:
 
 - Packaging is done by the **CurseForge packager** from `.pkgmeta`, which pulls no externals —
-  `.pkgmeta:3-4` states plainly that libraries are vendored in-tree and shipped as-is. Nothing is
+  `.pkgmeta`'s header comment states plainly that libraries are vendored in-tree and shipped as-is. Nothing is
   fetched or compiled at package time.
 - The art under `media/` (`media/logos/*.tga|jpg`, `media/screenshots/*.png`, and the skin screenshots and showcases under
   `media/screenshots/skins/`, made with LibKa0s's `tools/skin_gallery.py`) is committed
@@ -114,7 +117,7 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
   ships **no font and no icons of its own** — both arrive inside the vendored LibKa0s payload
   (`libs/LibKa0s/media/`), whose provenance and licenses are that library's to carry.
 - The generated docs are produced by tools already listed above —
-  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md:220`) and the `lizard`
+  `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md`, *Keeping the inventory & badge in sync*) and the `lizard`
   invocation in `performance-§10`.
 
 **Python is not a dependency of this addon.** Two things on disk suggest otherwise and both are
