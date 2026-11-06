@@ -19,6 +19,11 @@ local test, assertEqual, assertTrue, assertFalse =
 
 local LIB_FILES = {
   "libs/LibKa0s/Core.lua",
+  -- New in v1.91.0, the peels (FU-L2), each a pure move in XML order: the pixel edges out of Core.lua
+  -- (CorePixel 1), the HUD looks and the AceConfig confirmation box out of SkinPaintExtras.lua
+  -- (SkinPaintHud 1, SkinAceConfirm 1) and the dropdown and its shared menu out of Widgets.lua
+  -- (WidgetsDropdown 1). No member moves; the client loads every file of the XML, so the suite must too.
+  "libs/LibKa0s/CorePixel.lua",
   "libs/LibKa0s/Env.lua",
   -- New in v1.55.0: LibKa0s-Compat-1.0. core/Compat.lua wires its GetSpellName.
   "libs/LibKa0s/Compat.lua",
@@ -56,10 +61,13 @@ local LIB_FILES = {
   "libs/LibKa0s/SkinDefsOthers.lua",
   "libs/LibKa0s/SkinPaint.lua",
   "libs/LibKa0s/SkinPaintExtras.lua",
+  "libs/LibKa0s/SkinPaintHud.lua",
+  "libs/LibKa0s/SkinAceConfirm.lua",
   "libs/LibKa0s/SkinPaintControls.lua",
   "libs/LibKa0s/SkinEUI.lua",
   "libs/LibKa0s/SkinAce.lua",
   "libs/LibKa0s/Widgets.lua",
+  "libs/LibKa0s/WidgetsDropdown.lua",
   -- New in v1.66.0: ReorderList PEELS out of Widgets.lua into its own file and its own minor
   -- (WidgetsReorder 1), with no member change; NS.MakeReorderList still calls W.ReorderList.
   "libs/LibKa0s/WidgetsReorder.lua",
@@ -1140,7 +1148,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertTrue(widgets.Widgets >= 22) -- 23 since v1.89.0 (cascading menus), pinned there
   assertTrue(widgets.WidgetsReorder >= 5) -- 6 since v1.90.0 (pixel row boxes, SF2-L1), pinned there
   assertTrue(widgets.WidgetsDragHandle >= 12) -- 13 since v1.90.0 (pixel strips, SF2-L1), pinned there
-  assertEqual(widgets.WidgetsLineChart, 6)
+  assertTrue(widgets.WidgetsLineChart >= 6) -- 7 since v1.91.0 (physical-pixel lines), pinned there
   assertTrue(widgets.WidgetsAutocomplete >= 7) -- 8 since v1.90.0 (pixel edges), pinned there
   assertEqual(widgets.WidgetsCopyWindow, 5) -- 5 since R5-L3
   local debugLog = modules("LibKa0s-DebugLog-1.0")
@@ -1202,16 +1210,41 @@ test("v1.90.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.90.0")
     return lib.MODULES
   end
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 16)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 16) -- 17 since v1.91.0 (the CorePixel peel), pinned there
   local widgets = modules("LibKa0s-Widgets-1.0")
-  assertEqual(widgets.Widgets, 25)
+  assertTrue(widgets.Widgets >= 25) -- 26 since v1.91.0 (the WidgetsDropdown peel), pinned there
   assertEqual(widgets.WidgetsReorder, 6)
   assertEqual(widgets.WidgetsDragHandle, 13)
   assertEqual(widgets.WidgetsAutocomplete, 8)
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.Skin, 17)
   assertEqual(skin.SkinPaint, 19)
-  assertEqual(skin.SkinPaintExtras, 18)
+  assertTrue(skin.SkinPaintExtras >= 18) -- 19 since v1.91.0 (the HUD and confirm peels), pinned there
   assertEqual(modules("LibKa0s-Options-1.0").OptionsAppearance, 7)
+  assertEqual(T.KIT_VERSION, 51)
+end)
+-- v1.91.0 (Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91/, item FU-RV-LH): WidgetsLineChart 7 draws
+-- the chart's axis, grid, markers and crosshair one physical pixel, and reads a series thickness
+-- (this addon's C.TIMELINE.TOTAL_W and LINE_W) as physical pixels (FU-L1). Four peels, each a pure
+-- move (FU-L2): Core 17 with CorePixel 1, Widgets 26 with WidgetsDropdown 1, and SkinPaintExtras 19
+-- with SkinPaintHud 1 and SkinAceConfirm 1. This addon owes nothing beyond loading the new files. The
+-- kit stays at revision 51.
+test("v1.91.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.91.0")
+    return lib.MODULES
+  end
+  local core = modules("LibKa0s-Core-1.0")
+  assertEqual(core.Core, 17)
+  assertEqual(core.CorePixel, 1)
+  local widgets = modules("LibKa0s-Widgets-1.0")
+  assertEqual(widgets.Widgets, 26)
+  assertEqual(widgets.WidgetsDropdown, 1)
+  assertEqual(widgets.WidgetsLineChart, 7)
+  local skin = modules("LibKa0s-Skin-1.0")
+  assertEqual(skin.SkinPaintExtras, 19)
+  assertEqual(skin.SkinPaintHud, 1)
+  assertEqual(skin.SkinAceConfirm, 1)
   assertEqual(T.KIT_VERSION, 51)
 end)

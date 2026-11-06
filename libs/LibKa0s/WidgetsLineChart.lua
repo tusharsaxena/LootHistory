@@ -40,6 +40,16 @@
 -- settings page: while that owner ignores its settings panel the chart reads `lib.LINE_CHART` and the
 -- template face, live both ways. LK-06a of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS.
 --
+-- -- PHYSICAL PIXELS (minor 7) --------------------------------------------------------------------
+--
+-- A Line's thickness is read as PHYSICAL pixels: the axis, the grid, the markers and the crosshair
+-- are one, a series 1.5 unless the host passes `thickness`, which is pixels too. Core minor 16's
+-- `__PixelSize` turns them into the chart's UI units, and its pixel watch (`__WatchPixels`,
+-- `__OnPixelScale`; hooks, never an event) re-sizes every pooled Line and the crosshair of every chart
+-- on a UI scale, display size or ancestor SetScale change, with no render. The area fill's columns
+-- are a spacing (`FILL_STEP`) and stay in UI units. Feature-detected: under a Core older than minor
+-- 16 a thickness is UI units, as before. FU-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91.
+--
 -- Depends on LibStub and on the Widgets shell, and on no addon framework. Reads the client's
 -- `date` and `time` for the time axis.
 
@@ -51,7 +61,9 @@ if not lib then return end
 -- Minor 6 (cause L8 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a host's `opts.font` is the
 -- labels' template, with an owned chart's skin face over it.
 -- Minor 6, same release (SF-L8, #70): `series[i].fill`, an area fill under a line.
-local CHART_MINOR = 6
+-- Minor 7 (FU-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): every Line is drawn in
+-- physical pixels and re-sized on a pixel-scale change (the header's PHYSICAL PIXELS).
+local CHART_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -64,6 +76,8 @@ lib.MODULES = lib.MODULES or {}
 lib.MODULES.WidgetsLineChart = CHART_MINOR
 
 local LABEL_FONT = "GameFontDisableSmall"
+local core = LibStub("LibKa0s-Core-1.0", true)
+local PX_KEY = "LibKa0s-Widgets-1.0/LineChart"
 
 local floor, ceil, max, min, abs, sqrt = math.floor, math.ceil, math.max, math.min, math.abs, math.sqrt
 local log10 = math.log10
@@ -324,9 +338,54 @@ local function acquireLine(c)
   return l
 end
 
-local function seg(c, x1, y1, x2, y2, color, thickness)
+-- ── physical pixels (minor 7; the header's PHYSICAL PIXELS) ──
+
+--- `n` physical pixels in `c`'s UI units; `n` itself under a Core older than minor 16.
+local function pxOf(c, n)
+  local size = core and core.__PixelSize
+  return type(size) == "function" and size(c, n) or n
+end
+
+--- Lay `l`'s thickness: `n` physical pixels, or `n` UI units where `ui` (the fill's columns). The
+--- pixel count is kept on the Line so a pixel-scale change can lay it again.
+local function thick(c, l, n, ui)
+  l.__pxN = not ui and n or nil
+  l:SetThickness(ui and n or pxOf(c, n))
+end
+
+lib.__pxCharts = lib.__pxCharts or setmetatable({}, { __mode = "k" })   -- chart -> true
+
+--- Lay every pooled Line and the crosshair of every live chart again at its scale now.
+local function chartsRefresh()
+  for c in pairs(lib.__pxCharts) do
+    for _, l in ipairs(c.__linePool) do
+      if l.__pxN then l:SetThickness(pxOf(c, l.__pxN)) end
+    end
+    c.__cross:SetThickness(pxOf(c, 1))
+  end
+end
+
+--- Core's pixel-scale listener for the chart: the live copy's refresh, so a newer one replaces it.
+local function chartsListener()
+  local live = LibStub("LibKa0s-Widgets-1.0", true) or lib
+  if live.__RefreshChartLines then live.__RefreshChartLines() end
+end
+lib.__RefreshChartLines = chartsRefresh
+
+--- Record `c` for the re-size and watch its scale (again on each render: a chart may be re-parented).
+local function watchChart(c)
+  lib.__pxCharts[c] = true
+  if core and type(core.__WatchPixels) == "function" and type(core.__OnPixelScale) == "function" then
+    core.__OnPixelScale(PX_KEY, chartsListener)
+    core.__WatchPixels(c)
+  end
+end
+
+--- One Line from `(x1, y1)` to `(x2, y2)`, `thickness` physical pixels (1 by default), or UI units
+--- where `ui`.
+local function seg(c, x1, y1, x2, y2, color, thickness, ui)
   local l = acquireLine(c)
-  l:SetThickness(thickness or 1)
+  thick(c, l, thickness or 1, ui)
   l:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
   l:SetStartPoint("BOTTOMLEFT", c, x1, y1)
   l:SetEndPoint("BOTTOMLEFT", c, x2, y2)
@@ -489,7 +548,7 @@ local function drawFill(c, s, sr, pts, color)
   for x = max(s.left, px[1]) + step / 2, min(s.left + s.w, px[#px]), step do
     while i < #px - 1 and px[i + 1] < x do i = i + 1 end
     local y = max(s.bottom, min(s.bottom + s.h, lineYAt(px, py, i, x)))
-    if abs(y - base) >= 0.5 then seg(c, x, base, x, y, fc, step) end
+    if abs(y - base) >= 0.5 then seg(c, x, base, x, y, fc, step, true) end
   end
 end
 
@@ -526,6 +585,7 @@ local function render(c, w, h)
   c.__lastW, c.__lastH = w, h   -- minor 4: a skin switch re-renders at the last size drawn
   c.__lineUsed, c.__labelUsed = 0, 0
   c.__hoverStale = true
+  watchChart(c)
   local d = c.__data
   if d and d.xMin and d.xMax and w > 0 and h > 0 then
     local s, ticks = scaleFor(d, w, h)
@@ -624,10 +684,11 @@ function lib.LineChart(parent, opts)
   -- It lives outside the pool so a render never hands it out or hides it mid-hover, and suites
   -- (and any host that inspects the chart's lines) rely on that order: keep it first.
   local cross = c:CreateLine(nil, "OVERLAY")
-  cross:SetThickness(1)
+  cross:SetThickness(pxOf(c, 1))
   cross:SetColorTexture(X[1], X[2], X[3], X[4])
   cross:Hide()
   c.__cross = cross
+  watchChart(c)
   attachMethods(c)
   c:EnableMouse(true)
   c:SetScript("OnEnter", function(self) self:SetScript("OnUpdate", hoverTick) end)

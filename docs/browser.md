@@ -304,7 +304,7 @@ close) and the export modal's `OnHide`. A frame's own `Hide()` cannot reach a po
 The popup does **not** intercept the click that dismisses it. Since LibKa0s v1.13.0 (Widgets minor 5)
 it registers `GLOBAL_MOUSE_DOWN` while shown and hides on a press that is neither over itself nor
 over the dropdown that dropped it, so one press both closes the menu and reaches whatever is under
-the cursor (`libs/LibKa0s/Widgets.lua`). Through minor 4 it was a full-screen `Button` at
+the cursor (`libs/LibKa0s/WidgetsDropdown.lua`; `Widgets.lua` until v1.91.0). Through minor 4 it was a full-screen `Button` at
 `FULLSCREEN` whose lack of `RegisterForClicks` took `LeftButtonUp` and nothing else — and this addon
 is where that was found, because a right-click on a history row with a filter menu open simply did
 nothing.

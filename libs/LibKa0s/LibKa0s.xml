@@ -1,5 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 	<Script file="Core.lua"/>
+	<Script file="CorePixel.lua"/>
 	<Script file="Env.lua"/>
 	<Script file="Compat.lua"/>
 	<Script file="Lifecycle.lua"/>
@@ -19,10 +20,13 @@
 	<Script file="SkinDefsOthers.lua"/>
 	<Script file="SkinPaint.lua"/>
 	<Script file="SkinPaintExtras.lua"/>
+	<Script file="SkinPaintHud.lua"/>
+	<Script file="SkinAceConfirm.lua"/>
 	<Script file="SkinPaintControls.lua"/>
 	<Script file="SkinEUI.lua"/>
 	<Script file="SkinAce.lua"/>
 	<Script file="Widgets.lua"/>
+	<Script file="WidgetsDropdown.lua"/>
 	<Script file="WidgetsReorder.lua"/>
 	<Script file="WidgetsDragHandle.lua"/>
 	<Script file="WidgetsLineChart.lua"/>
