@@ -1999,7 +1999,7 @@ Total.
 - sim marker: while a session runs the window wears the sim strip and the footer, no badge
 - sim marker: the stop takes the badge, the strip and the footer line down
 - sim marker: test mode and the simulation never show together
-- sim marker: degraded (no sim strip), a session wears SIMULATION in cyan beside the title
+- sim marker: degraded (no sim strip), a session wears SIM in cyan beside the title
 - sim window: `/lh sim start` opens the History window
 - sim window: the panel's Start row and the picker's Start button open it too
 - sim window: a panel floating before the start docks beside the window the start opened

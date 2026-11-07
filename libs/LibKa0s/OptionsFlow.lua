@@ -20,7 +20,7 @@ if not lib or not lib.__widgetsKit then return end
 -- Minor 1: the flow engine, moved here unchanged from OptionsWidgets.lua (its minor 39).
 -- Minor 2 (LibKa0s#59, ruling U-14): RenderRows' `opts.beforeGroup` and `opts.afterSubgroup`, which
 -- RenderSchema now takes too, and the schema `note` row, drawn by O.__renderNote.
-local FLOW_MINOR = 2
+local FLOW_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own: see OptionsScroll.lua.
 if lib.__flowMinor and lib.__flowMinor >= FLOW_MINOR
   and lib.__flowShellMinor == lib.MINOR then return end
@@ -389,6 +389,7 @@ function lib.__AttachFlow(O, d, h)
   end
 
   function O.RenderRows(ctx, rows, afterGroup, pairWith, opts)
+    rows = lib.__GateClients(rows)   -- minor 3: a row for another client is never built
     local scroll = O.EnsureScroll(ctx)
     if not scroll then return end
     -- `opts.disabled` (minor 16) holds `ctx.__renderDisabled` for exactly this call: every maker
@@ -416,7 +417,7 @@ function lib.__AttachFlow(O, d, h)
   --- stays only for a partial copy without that file, where every row renders with its headings
   --- and `opts` is ignored. Returns the group names, as the real one does.
   function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith)
-    local rows, groups, seen = d.rowsForPage(pageKey, ctx.unit) or {}, {}, {}
+    local rows, groups, seen = lib.__GateClients(d.rowsForPage(pageKey, ctx.unit) or {}), {}, {}
     for _, row in ipairs(rows) do
       if row.group and not seen[row.group] then seen[row.group] = true; groups[#groups + 1] = row.group end
     end

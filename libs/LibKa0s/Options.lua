@@ -49,7 +49,7 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- older copy whose call to it is unguarded raises at load under this copy, until it re-vendors.
 -- Minor 34: lib:New attaches OptionsSkinPicker.lua, the first-run skin picker (LibKa0s#64). One
 -- attach line, no member: O.SkinPicker and O.HideSkinPicker are that file's.
-local MAJOR, MINOR = "LibKa0s-Options-1.0", 37
+local MAJOR, MINOR = "LibKa0s-Options-1.0", 38
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -929,7 +929,9 @@ function lib:New(d)
     -- controls tab is refused at the button, like every library-drawn button.
     if O.__combatRefused("defaults", pageKey) then return end
     runBulk("reset", pageKey, function(write)
-      for _, row in ipairs(d.rowsForPage(pageKey) or {}) do
+      -- Minor 38: only the rows this client draws. A row gated out is never created, so its
+      -- set/onChange never runs here, which is also what the CLI's resetall does.
+      for _, row in ipairs(lib.__GateClients(d.rowsForPage(pageKey) or {})) do
         write(row)
       end
     end)
@@ -977,7 +979,7 @@ function lib:New(d)
     local profileReset = type(resetProfile) == "function"
 
     runBulk("reset", "all", function(write, info)
-      for _, row in ipairs(d.allRows() or {}) do
+      for _, row in ipairs(lib.__GateClients(d.allRows() or {})) do
         local skip = false
         -- The narrowing comes FIRST, so a host that supplies both does not have to make its veto
         -- agree with a rule the library is already applying.

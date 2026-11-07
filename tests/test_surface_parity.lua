@@ -203,6 +203,8 @@ test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires",
     -- the major adds later is in neither list and fails this case until the addon decides.
     "IsSecret", "CanAccess", "IsSafeKey", "GetSpellInfo", "GetSpellTexture", "GetSpellCooldown",
     "GetSpecialization", "GetSpecializationInfo",
+    -- LibKa0s v1.92.0 (Compat minor 2) added these four client helpers. No caller here until the Forever port.
+    "IsForever", "IsRetail", "ClientKey", "ForClient",
   })
 end)
 

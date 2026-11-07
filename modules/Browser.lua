@@ -613,8 +613,8 @@ end
 -- the simulation's own cyan for both.
 local TEST_MARK = { badge = "TEST MODE", color = { 1, 0.15, 0.15 }, kind = "test",
   strip = "TEST MODE: a sample loot history, not yours. Combat ends it." }
-local SIM_MARK = { badge = "SIMULATION", color = { 0.3, 0.8, 1 }, kind = "sim",
-  strip = "SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it." }
+local SIM_MARK = { badge = "SIM", color = { 0.3, 0.8, 1 }, kind = "sim",
+  strip = "SIM: an invented world drives the real capture. Nothing is saved. /lh sim stop ends it." }
 
 -- The strip that marks a mode: the simulation's own strip, or test mode's. nil on a degraded install.
 local function modeStripFor(sim)
@@ -912,7 +912,7 @@ local function testTip()
 end
 
 local function simTip()
-  GameTooltip:SetText(L["Simulation"])
+  GameTooltip:SetText(L["SIM"])
   tipLine(L["Shows: what the real capture recorded from an invented world, this session only"])
   tipLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"])
 end
@@ -984,7 +984,7 @@ local function EnsureFrame()
   title:SetText("Ka0s Loot History")
   frame.title = title
 
-  -- The badge beside the title: bright-red TEST MODE or cyan SIMULATION, shown only while that mode
+  -- The badge beside the title: bright-red TEST MODE or cyan SIM, shown only while that mode
   -- is on and its strip does not exist (a degraded install); otherwise the strip is the marker.
   local testBadge = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   testBadge:SetPoint("LEFT", title, "RIGHT", 10, 0)

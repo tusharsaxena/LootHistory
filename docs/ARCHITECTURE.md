@@ -300,7 +300,7 @@ The library's host contract, and where this addon meets each point:
 | H5 | The refusal covers stood-down, test mode and the world; test mode refuses while a simulation runs | `NS.SimHost.Refusal` (`modules/Sim.lua`) and `testModeRefusal` (`modules/BrowserTable.lua`) |
 | H6 | The stand-down stops it first; host reasons stop it | `call("SimStop")` first in `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua`); `NS.OnProfileEvent` (`profile`); the world watch (`group`, `instance`, `combat`); real interference (`world`) |
 | H7 | One feature-verb row, `sim`, refused while disabled, no launcher entry | `settings/Schema.lua`'s `NS.COMMANDS` row, not in `LIVE_WHILE_DISABLED`; no key binding. The launcher's Sim mode entry and the Master controls Sim mode box (R6-SIM, LibKa0s compose minor 19) are the same verb through the one `NS.IsSimMode` / `NS.ToggleSim` pair; since R7-SIM the pair reads the sim window shown or a sim running, and `NS.WatchSimWindow` refreshes the box on the window's OnShow and OnHide |
-| H8 | A preview-mode marker, a diagnostics section and a debug tag | The cyan simulation strip (one strip per mode; the `SIMULATION` title badge only as the degraded fallback) and the footer (`modules/Browser.lua`, [browser.md](browser.md)); the `sim` diagnostics section (`modules/Diagnostics.lua`); the `Sim` tag ([debug.md](debug.md)) |
+| H8 | A preview-mode marker, a diagnostics section and a debug tag | The cyan simulation strip (one strip per mode; the `SIM` title badge only as the degraded fallback) and the footer (`modules/Browser.lua`, [browser.md](browser.md)); the `sim` diagnostics section (`modules/Diagnostics.lua`); the `Sim` tag ([debug.md](debug.md)) |
 | H9 | An inert stub without the library, with surface parity | `NS.SimHost.NewSeamStub` / `NewSimStub` (`core/SimSeam.lua`); `tests/test_surface_parity.lua` |
 | H10 | The panel's position | Session-only by the owner's ruling (OWNER_SCOPE C.11): held in the library instance's memory, never a window-state key and never a schema row, so a simulation writes nothing to SavedVariables |
 
@@ -433,7 +433,7 @@ Outside the gate's reach, also on purpose:
   the ledger half and the Timeline strip) are the surface's opacity, the same under every skin.
 - **`SOURCE_COLOR`** in `modules/AnalyticsFormat.lua`: a loot source's identity across skins; no token
   names it (LH-04).
-- **The TEST MODE / SIMULATION badge colors** in `modules/Browser.lua`: drawn only on a degraded
+- **The TEST MODE / SIM badge colors** in `modules/Browser.lua`: drawn only on a degraded
   install, where no skin exists and the badge stands in for the strip.
 - **Fonts.** The skin's face reaches every text the addon shows. The facade's primitives draw their
   own (title bars, buttons, edit boxes, dropdowns, `S.Text`, the AceGUI controls), and the addon's own

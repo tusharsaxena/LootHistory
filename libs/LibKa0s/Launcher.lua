@@ -59,7 +59,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 7
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -154,6 +154,19 @@ local ENTRIES = {
   { key = "MENU_SHOW_WINDOW", get = "isWindowShown", set = "toggleWindow",   gated = true  },
 }
 
+--- Whether the menu entry named `field` (a descriptor toggle's name, or `openSkinPicker`) is for this
+--- client (minor 8). `d.entryClients[field]` is the value `LibKa0s-Compat-1.0`'s `ForClient` takes;
+--- an entry with none is for every client, and a payload without Compat gates nothing. An entry the
+--- client is not in is not built, so the menu has no row, checkbox or action for it.
+local function entryForClient(d, field)
+  local map = d.entryClients
+  local clients = type(map) == "table" and map[field] or nil
+  if clients == nil then return true end
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if not (compat and compat.ForClient) then return true end
+  return compat.ForClient(clients)
+end
+
 --- One tooltip line, in `c` (a color token) or, with none, the client's color.
 local function addLine(tt, line, c)
   if c then return tt:AddLine(line, c[1], c[2], c[3]) end
@@ -246,6 +259,11 @@ end
 ---   openSkinPicker function  optional, since minor 6 (SF-F2). Opens the addon's skin picker (the
 ---                            act of its `/<slash> skin` verb). With it, and while `owner` is a
 ---                            registered skin owner, the menu ends with "Open skin selector".
+---   entryClients   table     optional, since minor 8 (WFP-LK-04). Keyed by a menu entry's toggle name
+---                            (setEnabled, toggleLock, toggleTestMode, toggleSim, toggleWindow) or
+---                            `openSkinPicker`; each value is what LibKa0s-Compat-1.0's ForClient takes
+---                            (nil or "both", or an array of "retail" / "forever"). An entry the running
+---                            client is not in is not built. No declaration means every client.
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
 ---
 --- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
@@ -264,6 +282,18 @@ function lib:New(d)
   end
   if type(d.openSettings) ~= "function" then
     error(MAJOR .. ":New requires descriptor.openSettings — left-click ALWAYS opens the panel", 2)
+  end
+
+  -- Minor 9: an `entryClients` token is checked once, here, so a typo raises at the host's
+  -- registration naming the entry, not when the menu first opens.
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if compat and compat.ForClient and type(d.entryClients) == "table" then
+    for field, clients in pairs(d.entryClients) do
+      local ok, err = pcall(compat.ForClient, clients)
+      if not ok then
+        error(MAJOR .. ":New: entryClients." .. tostring(field) .. " has invalid clients: " .. tostring(err), 2)
+      end
+    end
   end
 
   local strings = type(d.L) == "table" and d.L or nil
@@ -413,7 +443,8 @@ function lib:New(d)
   local function suppliedEntries()
     local out = {}
     for _, entry in ipairs(ENTRIES) do
-      if type(d[entry.get]) == "function" and type(d[entry.set]) == "function" then
+      if type(d[entry.get]) == "function" and type(d[entry.set]) == "function"
+        and entryForClient(d, entry.set) then
         out[#out + 1] = entry
       end
     end
@@ -423,7 +454,7 @@ function lib:New(d)
   --- Whether the menu offers the skin selector (minor 6): the host passed `openSkinPicker` and its
   --- owner is a registered skin owner, asked on every open.
   local function skinEntry()
-    if type(d.openSkinPicker) ~= "function" then return false end
+    if type(d.openSkinPicker) ~= "function" or not entryForClient(d, "openSkinPicker") then return false end
     local Skin = LibStub and LibStub(SKIN_MAJOR, true)
     return Skin ~= nil and type(Skin.IsOwner) == "function" and Skin:IsOwner(d.owner or name) and true or false
   end

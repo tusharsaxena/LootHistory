@@ -19,7 +19,7 @@ local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
 -- Minor 21 (LibKa0s#59): /list and resetall skip a schema `note` row.
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 21
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -236,6 +236,18 @@ function lib.SplitVerb(rest)
   return (verb or ""):lower(), remainder or ""
 end
 
+--- Whether a command entry's `clients` (minor 22; the value `LibKa0s-Compat-1.0`'s `ForClient` takes)
+--- includes this client. An entry with none is for every client, and a payload without Compat gates
+--- nothing. An entry the client is not in is not a verb here: it is not dispatched, not listed in the
+--- help or on a landing page, and typing it answers the dispatcher's unknown-verb line.
+local function clientOk(entry)
+  local clients = type(entry) == "table" and entry.clients or nil
+  if clients == nil then return true end
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if not (compat and compat.ForClient) then return true end
+  return compat.ForClient(clients)
+end
+
 --- Find one entry in an ordered { name, description, handler } array, or nil.
 ---
 --- The same row shape the `commands` descriptor field has always taken, so a sub level reuses this
@@ -244,7 +256,7 @@ end
 function lib.FindCommand(list, name)
   if type(list) ~= "table" then return nil end
   for _, entry in ipairs(list) do
-    if entry[1] == name then return entry end
+    if entry[1] == name and clientOk(entry) then return entry end
   end
 end
 
@@ -257,7 +269,7 @@ function lib.CommandRows(prefix, commands, indent)
   local out = {}
   if type(commands) ~= "table" then return out end
   for _, entry in ipairs(commands) do
-    out[#out + 1] = indent .. lib.FormatRow(prefix .. " " .. entry[1], entry[2])
+    if clientOk(entry) then out[#out + 1] = indent .. lib.FormatRow(prefix .. " " .. entry[1], entry[2]) end
   end
   return out
 end
@@ -357,6 +369,20 @@ local function checkDescriptor(d)
   if type(d.commands) ~= "table" then
     error(MAJOR .. ":New requires descriptor.commands — the host's own verb table", 3)
   end
+  -- Minor 23: a `clients` token is checked once, here, so a typo raises at the host's registration
+  -- naming the verb, not on the first help or landing page that draws the entry.
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if compat and compat.ForClient then
+    for i, entry in ipairs(d.commands) do
+      if type(entry) == "table" and entry.clients ~= nil then
+        local ok, err = pcall(compat.ForClient, entry.clients)
+        if not ok then
+          error(MAJOR .. ":New: command \"" .. tostring(entry[1] or i) .. "\" has invalid clients: "
+            .. tostring(err), 3)
+        end
+      end
+    end
+  end
   if type(d.isEnabled) == "function" and (type(d.brandName) ~= "string" or d.brandName == "") then
     -- Refused at construction rather than rendered as "nil is disabled" at the one moment a
     -- confused player is reading the line. `brandName` is the plain-text `Ka0s <Name>` a host
@@ -375,7 +401,9 @@ end
 --- Descriptor:
 ---   slash        string    required. The command prefix, with its slash: "/at". Every usage line
 ---                          and every help row is composed from it.
----   commands     table     required. The HOST's ordered { name, description, handler } triples.
+---   commands     table     required. The HOST's ordered { name, description, handler } triples; a
+---                          triple may carry `clients = { "retail" }` (minor 22), and is then no verb
+---                          at all on a client it does not list.
 ---                          Passed in rather than owned, so the host's own About page can render
 ---                          the same table without that page's library depending on this one.
 ---   slashAliases table     optional. Other chat commands that reach the same dispatcher, named in
@@ -570,8 +598,21 @@ function lib:New(d)
 
   -- ── the schema verbs ─────────────────────────────────────────────────────────────────────
 
+  -- Minor 22: a schema row carrying `clients` for another client is not here at all. The CLI reads
+  -- every row through these two, so a gated row is not listed, and `get`, `set` and `reset` on its
+  -- path answer exactly as they do for a key that does not exist.
   local function rowFor(path)
-    return type(d.findRow) == "function" and d.findRow(path) or nil
+    local row = type(d.findRow) == "function" and d.findRow(path) or nil
+    if row ~= nil and not clientOk(row) then return nil end
+    return row
+  end
+
+  local function liveRows()
+    local out = {}
+    for _, row in ipairs(type(d.allRows) == "function" and d.allRows() or {}) do
+      if clientOk(row) then out[#out + 1] = row end
+    end
+    return out
   end
 
   -- Spelled out rather than folded into an `and`/`or` chain. A stored `false` is a perfectly good
@@ -583,7 +624,7 @@ function lib:New(d)
   end
 
   function Sl:BuildListLines()
-    local all = type(d.allRows) == "function" and d.allRows() or {}
+    local all = liveRows()
 
     local out = { self:Text("LIST_HEADER") }
     -- Grouped in the order the rows were declared, not alphabetically: a schema's own order is the
@@ -721,7 +762,7 @@ function lib:New(d)
   --- Bracketed as act "reset", scope "all" (minor 8). The acknowledgment is printed after the
   --- bracket closes, and not at all if the walk raised.
   function Sl:CliResetAll()
-    local all = type(d.allRows) == "function" and d.allRows() or {}
+    local all = liveRows()
     runBulk("reset", "all", function(write)
       for _, row in ipairs(all) do write(row) end
     end)
@@ -803,7 +844,7 @@ function lib:New(d)
 
   local function findCommand(name)
     for _, entry in ipairs(d.commands) do
-      if entry[1] == name then return entry end
+      if entry[1] == name and clientOk(entry) then return entry end
     end
   end
 

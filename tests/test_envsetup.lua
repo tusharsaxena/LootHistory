@@ -73,7 +73,7 @@ end)
 -- Read off disk rather than through NS.Meta: out of game the mock deliberately exposes no manifest
 -- reader (that NOTE in tests/_kit/mock_base.lua, and `withTOC` above stands one up only for the two cases
 -- that need it), and a stub here would feed the assertion a version this file typed. The CR strip
--- is the CRLF pin in .gitattributes; tests/_kit/loader.lua:120 strips it the same way, for the same
+-- is the CRLF pin in .gitattributes; tests/_kit/loader.lua:136 strips it the same way, for the same
 -- reason.
 local function tocVersion()
   for line in Loader.readFile("LootHistory.toc"):gmatch("[^\n]+") do

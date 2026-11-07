@@ -9,7 +9,7 @@ local _, NS = ...
 -- NS.SimHost.PANEL is the Sim:New descriptor's `panel` (modules/Sim.lua creates the table and
 -- passes it; this file fills it in place at load, the way modules/SimScenario.lua fills the
 -- scenarios; the library reads each field when it draws, so nothing is captured early):
---   title      `Ka0s Loot History - Simulation`
+--   title      `Ka0s Loot History - SIM`
 --   stepLabel  the step's own label (`Kill: Rookery Bat`, `Merchant: sell 3`), which the library
 --              also prints in its `Simulation step 2 of 7: ...` line
 --   stepTip    what the step injects, and once it has run, the rows it recorded
@@ -21,7 +21,7 @@ local _, NS = ...
 -- nothing to SavedVariables.
 --
 -- The marker (preview-mode, H8): a Sim listener repaints the History window's title badge, strip
--- and footer on every transition (start, ready, step, run, pause, stop), so `SIMULATION` shows
+-- and footer on every transition (start, ready, step, run, pause, stop), so `SIM` shows
 -- from the start to the stop and goes with it (modules/Browser.lua, B:UpdateTestStrip and
 -- B:UpdateFooter).
 
@@ -94,7 +94,7 @@ function Host.StepTip(step, i)
   return lines
 end
 
-F.title = function() return L["%s - Simulation"]:format(NS.BRAND) end
+F.title = function() return L["%s - SIM"]:format(NS.BRAND) end
 F.stepLabel = Host.StepLabel
 F.stepTip = Host.StepTip
 F.startTip = START_TIP

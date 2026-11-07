@@ -59,7 +59,7 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- section heading, a text row and a note keep the skin's face with the Scope cleared.
 -- Minor 44 (cause L5 of the same bundle): a landing page's command rows take `text.command` and
 -- `text.strong` while the chrome is skinned; anywhere else they stay as LibKa0s-Slash-1.0 typed them.
-local WIDGETS_MINOR = 44
+local WIDGETS_MINOR = 45
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -321,10 +321,11 @@ end
 --- spacer here would double that gap. ctx.lastGroup is advanced for the same reason RenderRows
 --- advances it: it is what puts SECTION_TOP_SPACER above the SECOND heading and not above the first.
 local function landingSections(O, ctx, spec)
-  for _, section in ipairs(spec.sections or {}) do
+  -- Minor 45: a section, and a line in one, whose `clients` exclude this client is not drawn.
+  for _, section in ipairs(lib.__GateClients(spec.sections or {})) do
     O.Section(ctx, section.heading)
     ctx.lastGroup = section.heading
-    for _, line in ipairs(section.rows and section.rows() or {}) do
+    for _, line in ipairs(lib.__GateClients(section.rows and section.rows() or {})) do
       O.TextRow(ctx, landingRow(O, line))
     end
   end
