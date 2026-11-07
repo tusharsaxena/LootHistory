@@ -1,0 +1,1 @@
+WFP M4 review (2026-11-07): ACE-LH = Ace3 ac3d1225, tree-equal to the pinned SHA (controller check), ACE-00 proof PASS; RV-LH = LibKa0s v1.92.0 payload + kit equal to the tag, standard v2.103.1, README clients sentence, Ace3 provenance; review spec ✅, 1 Important (AM loader citations) fixed; gates green, 0 failed, luacheck 0/0.
