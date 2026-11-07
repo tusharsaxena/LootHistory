@@ -1098,7 +1098,7 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   assertTrue(skin.SkinDefsOthers >= 1) -- 6 since v1.85.0, pinned there
   assertTrue(skin.SkinAce >= 6) -- 9 since v1.85.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.Options, 37)
+  assertTrue(options.Options >= 37) -- 38 since v1.93.0, pinned there
   assertTrue(options.OptionsWidgets >= 41) -- 44 since v1.85.0, pinned there
   assertTrue(options.OptionsFlow >= 2) -- 3 since v1.92.0, pinned there
   assertTrue(options.OptionsIds >= 6) -- 7 since v1.85.0, pinned there
@@ -1163,7 +1163,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertTrue(options.OptionsTabs >= 15) -- 16 since v1.92.0, pinned there
   assertEqual(options.OptionsCompose, 19) -- 19 since R6-SIM-L (the Sim mode checkbox)
   assertEqual(options.OptionsScroll, 13)
-  assertEqual(options.OptionsNav, 5)
+  assertTrue(options.OptionsNav >= 5) -- 6 since v1.93.0, pinned there
   assertEqual(options.OptionsDrawer, 5)
   assertTrue(options.OptionsKeybinds >= 7) -- 8 since v1.92.0, pinned there
   assertTrue(options.OptionsAppearance >= 6) -- 7 since v1.90.0 (keepScope copy), pinned there
@@ -1256,11 +1256,11 @@ test("v1.92.0: the vendored minors and the kit revision match the release", func
     assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.92.0")
     return lib.MODULES
   end
-  assertEqual(modules("LibKa0s-Compat-1.0").Compat, 2)
+  assertTrue(modules("LibKa0s-Compat-1.0").Compat >= 2) -- 3 since v1.93.0, pinned there
   local slash = modules("LibKa0s-Slash-1.0")
-  assertEqual(slash.Slash, 22)
+  assertTrue(slash.Slash >= 22) -- 23 since v1.93.0, pinned there
   assertEqual(slash.SlashParse, 2)
-  assertEqual(modules("LibKa0s-Launcher-1.0").Launcher, 8)
+  assertTrue(modules("LibKa0s-Launcher-1.0").Launcher >= 8) -- 9 since v1.93.0, pinned there
   local perf = modules("LibKa0s-Perf-1.0")
   assertEqual(perf.Perf, 16)
   assertEqual(perf.PerfSampler, 1)
@@ -1279,7 +1279,12 @@ end)
 test("v1.93.0: the vendored minors and the kit revision match the release", function()
   local lib = T.mocks.LibStub("LibKa0s-Options-1.0", true)
   assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Options-1.0 missing: re-vendor v1.93.0")
+  assertEqual(lib.MODULES.Options, 38)
+  assertEqual(lib.MODULES.OptionsNav, 6)
   assertEqual(lib.MODULES.OptionsTabs, 17)
   assertEqual(lib.MODULES.OptionsHeader, 1)
+  assertEqual(T.mocks.LibStub("LibKa0s-Compat-1.0", true).MODULES.Compat, 3)
+  assertEqual(T.mocks.LibStub("LibKa0s-Slash-1.0", true).MODULES.Slash, 23)
+  assertEqual(T.mocks.LibStub("LibKa0s-Launcher-1.0", true).MODULES.Launcher, 9)
   assertEqual(T.KIT_VERSION, 53)
 end)

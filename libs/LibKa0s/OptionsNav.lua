@@ -33,7 +33,7 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- `list.hoverArt` (S.NavItem's `hover`); every dress puts the art back on the client's first, so a
 -- pooled entry drawn for no owner never keeps another owner's tint.
 -- Minor 5 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an entry's tooltip body through O.__tipColor (`gtip.line`).
-local NAV_MINOR = 5
+local NAV_MINOR = 6
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__navMinor and lib.__navMinor >= NAV_MINOR
   and lib.__navShellMinor == lib.MINOR then return end
@@ -259,7 +259,7 @@ function lib.__AttachNav(O)
     ctx.__railPool = ctx.__railPool or Pool.New()
     Pool.ReleaseAll(ctx.__railPool)
     ctx.__railKids = {}
-    local entries = type(spec) == "table" and spec.entries
+    local entries = type(spec) == "table" and lib.__GateClients(spec.entries)   -- minor 6: `clients`
     if type(entries) ~= "table" or #entries == 0 then
       ctx.railWidth = 0
       if ctx.__railFrame then ctx.__railFrame:Hide() end

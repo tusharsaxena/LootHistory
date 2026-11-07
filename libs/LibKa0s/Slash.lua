@@ -19,7 +19,7 @@ local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
 -- Minor 21 (LibKa0s#59): /list and resetall skip a schema `note` row.
-local MAJOR, MINOR = "LibKa0s-Slash-1.0", 22
+local MAJOR, MINOR = "LibKa0s-Slash-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -368,6 +368,20 @@ local function checkDescriptor(d)
   end
   if type(d.commands) ~= "table" then
     error(MAJOR .. ":New requires descriptor.commands — the host's own verb table", 3)
+  end
+  -- Minor 23: a `clients` token is checked once, here, so a typo raises at the host's registration
+  -- naming the verb, not on the first help or landing page that draws the entry.
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if compat and compat.ForClient then
+    for i, entry in ipairs(d.commands) do
+      if type(entry) == "table" and entry.clients ~= nil then
+        local ok, err = pcall(compat.ForClient, entry.clients)
+        if not ok then
+          error(MAJOR .. ":New: command \"" .. tostring(entry[1] or i) .. "\" has invalid clients: "
+            .. tostring(err), 3)
+        end
+      end
+    end
   end
   if type(d.isEnabled) == "function" and (type(d.brandName) ~= "string" or d.brandName == "") then
     -- Refused at construction rather than rendered as "nil is disabled" at the one moment a

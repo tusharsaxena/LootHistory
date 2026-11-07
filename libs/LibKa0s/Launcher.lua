@@ -59,7 +59,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 8
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 9
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -282,6 +282,18 @@ function lib:New(d)
   end
   if type(d.openSettings) ~= "function" then
     error(MAJOR .. ":New requires descriptor.openSettings — left-click ALWAYS opens the panel", 2)
+  end
+
+  -- Minor 9: an `entryClients` token is checked once, here, so a typo raises at the host's
+  -- registration naming the entry, not when the menu first opens.
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if compat and compat.ForClient and type(d.entryClients) == "table" then
+    for field, clients in pairs(d.entryClients) do
+      local ok, err = pcall(compat.ForClient, clients)
+      if not ok then
+        error(MAJOR .. ":New: entryClients." .. tostring(field) .. " has invalid clients: " .. tostring(err), 2)
+      end
+    end
   end
 
   local strings = type(d.L) == "table" and d.L or nil

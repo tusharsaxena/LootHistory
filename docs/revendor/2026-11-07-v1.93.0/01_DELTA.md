@@ -1,6 +1,6 @@
 Delta: LibKa0s v1.92.0 -> v1.93.0
 
-Recorded before anything was committed. Payload taken from the tag, never the sibling tree: `git -C ../LibKa0s archive v1.93.0 LibKa0s testkit tools` (tag commit 60c2f41, local annotated tag, not yet pushed). Run under the WoW Forever port, item WFP-RV2-LH.
+Recorded before anything was committed. Payload taken from the tag, never the sibling tree: `git -C ../LibKa0s archive v1.93.0 LibKa0s testkit tools` (tag commit 07ef4d2, local annotated tag, not yet pushed). Run under the WoW Forever port, item WFP-RV2-LH.
 
 ## 3a Base
 - `grep -ioE 'Bundles \[LibKa0s\]\(...\) v...' CLAUDE.md` named v1.92.0 before the roll.

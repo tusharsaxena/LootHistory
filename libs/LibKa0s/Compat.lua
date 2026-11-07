@@ -89,7 +89,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Compat-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Compat-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -144,7 +144,8 @@ end
 
 --- Whether a `clients` declaration includes this client.
 ---
---- `clients` is nil (both), the string `"both"`, or an array of `"retail"` / `"forever"`. On a client
+--- `clients` is nil (both), the string `"both"`, or an array of `"retail"` / `"forever"` / `"both"`
+--- (`{ "both" }` means both clients, as the bare string does). On a client
 --- that is neither, only nil and `"both"` answer true. An unknown token raises at call time, from any
 --- client and before any match, so a misspelling cannot sit unnoticed behind a client that does not
 --- list it.
@@ -157,13 +158,13 @@ function lib.ForClient(clients)
     error('ForClient: unknown client "' .. tostring(clients) .. '"', 2)
   end
   for _, token in ipairs(clients) do
-    if token ~= "retail" and token ~= "forever" then
+    if token ~= "retail" and token ~= "forever" and token ~= "both" then
       error('ForClient: unknown client "' .. tostring(token) .. '"', 2)
     end
   end
   local key = clientKey()
   for _, token in ipairs(clients) do
-    if token == key then return true end
+    if token == "both" or token == key then return true end
   end
   return false
 end
