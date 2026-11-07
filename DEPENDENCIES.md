@@ -28,6 +28,7 @@ EllesmereUI is the exception on that line: a separate addon, never vendored and 
 listed so it loads first when the player has it, because the Skin tab offers it as a skin source
 (`core/SkinSetup.lua`).
 There is no `## Dependencies` line, and there must not be one.
+Ace3: WoWUIDev/Ace3@ac3d1225 (untagged master; LibKa0s#76).
 
 ### Optional in-game integrations (addons, not tooling)
 
