@@ -34,7 +34,7 @@ local lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 local NEEDS_LIFECYCLE = 1
 if not lifecycle or (lifecycle.MINOR or 0) < NEEDS_LIFECYCLE then return end   -- module absent
 
-local MAJOR, MINOR = "LibKa0s-Perf-1.0", 15
+local MAJOR, MINOR = "LibKa0s-Perf-1.0", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -418,16 +418,18 @@ end
 --- where neither is there — the shape `Env.lua`'s C_AddOns shim models, applied here because the
 --- spec reader moved the same way. The global still answers on today's client, which is exactly why
 --- this was easy to miss: the day it stops, every saved record names the spec "?" and a record is
---- read weeks later, when there is nothing left to go and look at. `GetSpecializationInfo` keeps its
---- own guard on the global rather than being paired with a namespaced rung, because the reader that
---- moved is the INDEX one and this shim claims no more than it has checked.
+--- read weeks later, when there is nothing left to go and look at. From minor 16 the name reader has
+--- its own namespaced rung, `C_SpecializationInfo.GetSpecializationInfo`, ahead of the bare global,
+--- guarded the same way: a client with no global (Forever) answers only the namespace, and Perf
+--- recorded the spec as "?" there. No floor rises and nothing here reads `LibKa0s-Compat-1.0`.
 local function specName()
-    local specIndex = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization
-        or GetSpecialization
-    if not (specIndex and GetSpecializationInfo) then return nil end
+    local ns = C_SpecializationInfo
+    local specIndex = ns and ns.GetSpecialization or GetSpecialization
+    local specInfo = ns and ns.GetSpecializationInfo or GetSpecializationInfo
+    if not (specIndex and specInfo) then return nil end
     local index = specIndex()
     if not index then return nil end
-    local _, name = GetSpecializationInfo(index)
+    local _, name = specInfo(index)
     return name
 end
 

@@ -62,7 +62,7 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- the band's one row, placed against the chrome's width and re-placed when it changes.
 -- Minor 14 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): a tab's tooltip body through O.__tipColor (`gtip.line`).
 --- Minor 15 (cause L3 of the same bundle): a tab's paint names its two glows, for `tab.glow`.
-local TABS_MINOR = 15
+local TABS_MINOR = 16
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__tabsMinor and lib.__tabsMinor >= TABS_MINOR
@@ -1019,6 +1019,7 @@ function lib.__AttachTabs(O, d)
   --- `spec` = { tabs = { { key, label, tooltip } }, value, onSelect }. Returns the buttons in
   --- tab order, or nil having drawn nothing.
   function O.TabStrip(ctx, spec)
+    spec = lib.__GateTabSpec(spec)   -- minor 16: tabs for another client are never built
     if not (ctx and ctx.chrome and spec and type(spec.tabs) == "table" and #spec.tabs > 0) then
       return nil
     end
@@ -1248,6 +1249,7 @@ function lib.__AttachTabs(O, d)
   --- category and back remembers the subject you were on and a stale pointer heals per category.
   --- Session state either way, and never persisted (options-ui-§13).
   function O.SubTabStrip(ctx, parent, spec)
+    spec = lib.__GateTabSpec(spec)
     if not (ctx and parent and spec and type(spec.tabs) == "table" and #spec.tabs > 0) then
       return nil
     end

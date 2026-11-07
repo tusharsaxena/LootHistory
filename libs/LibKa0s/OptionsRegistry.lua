@@ -33,7 +33,7 @@ if not lib then return end
 -- it is a category, else the main category's subcategory of the page's registered name), so the
 -- skin picker's gear lands on the page and not on the landing page (PK-02). No page key, or one
 -- that names no built page, opens the main category as before.
-local REGISTRY_MINOR = 4
+local REGISTRY_MINOR = 5
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__registryMinor and lib.__registryMinor >= REGISTRY_MINOR
@@ -43,6 +43,48 @@ lib.__registryShellMinor = lib.MINOR
 
 lib.MODULES = lib.MODULES or {}
 lib.MODULES.OptionsRegistry = REGISTRY_MINOR
+
+-- ── the clients gate (minor 5) ─────────────────────────────────────────────────────────────
+--
+-- A page, tab, row or landing section descriptor may carry `clients`, the value
+-- `LibKa0s-Compat-1.0`'s `ForClient` takes (nil, "both", or an array of "retail" / "forever"). An
+-- entry the running client is not in is dropped BEFORE anything is built from it: no category, no
+-- tab button, no widget out of the AceGUI pool. These two are the one choke point every consumer
+-- file calls, at call time, so a copy of any of them is as good as the newest. A payload without
+-- Compat gates nothing, and an unknown token raises, as `ForClient` does.
+
+--- Whether a `clients` declaration includes this client. nil is always true.
+function lib.__ClientOk(clients)
+  if clients == nil then return true end
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if not (compat and compat.ForClient) then return true end
+  return compat.ForClient(clients)
+end
+
+--- `list` without the entries whose `clients` exclude this client. The very same table when nothing
+--- is dropped, so an ungated page costs nothing; never mutates `list`.
+function lib.__GateClients(list)
+  if type(list) ~= "table" then return list end
+  local out
+  for i, entry in ipairs(list) do
+    if type(entry) == "table" and not lib.__ClientOk(entry.clients) then
+      if not out then
+        out = {}
+        for j = 1, i - 1 do out[j] = list[j] end
+      end
+    elseif out then
+      out[#out + 1] = entry
+    end
+  end
+  return out or list
+end
+
+--- `spec` with its `tabs` gated (OptionsTabs minor 16's two strips): a view over the host's spec, so
+--- neither it nor its tabs table is mutated. A spec with no tabs table comes back as it was.
+function lib.__GateTabSpec(spec)
+  if not (spec and type(spec.tabs) == "table") then return spec end
+  return setmetatable({ tabs = lib.__GateClients(spec.tabs) }, { __index = spec })
+end
 
 -- ── the registration park (minor 24) ────────────────────────────────────────────────────────
 --
@@ -121,6 +163,8 @@ function lib.__AttachRegistry(O, d)
   --- @param builder  function(mainCategory) -> subcategory | nil. Called once at
   ---                 CreateOptionsPanel time, after the db is ready. nil means the page opted out
   ---                 (an optional dependency the host did not find).
+  --- @param opts     optional (minor 5). `opts.clients` gates the page per client; one this client
+  ---                 is not in is never queued and its builder never runs.
   --- Build one page, reporting rather than propagating. The key is in the message because a
   --- builder's own stack rarely names the page a user would recognize.
   local function buildPage(page)
@@ -136,7 +180,8 @@ function lib.__AttachRegistry(O, d)
     return false
   end
 
-  function O.RegisterOptionsPage(key, name, builder)
+  function O.RegisterOptionsPage(key, name, builder, opts)
+    if type(opts) == "table" and not lib.__ClientOk(opts.clients) then return end
     local page = { key = key, name = name, builder = builder }
     -- A page registered AFTER the build is built immediately rather than queued behind a drain
     -- that has already happened — otherwise it silently never appears.

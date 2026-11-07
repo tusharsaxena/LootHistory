@@ -9,7 +9,21 @@ local Loader = {}
 -- Set by the consuming tests/run.lua before loading addon files. Library-only repos leave it nil.
 Loader.addonName = nil
 
+-- The client profile (testkit/mock_client.lua) is stamped on a mock set the first time an
+-- environment is built over it, so every suite sees `WOW_PROJECT_*` and `GetBuildInfo` of the active
+-- profile with no wiring of its own. Weak-keyed: a set that is dropped takes its mark with it.
+local function dirOfThisFile()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  return info and tostring(info.source or ""):match("^@(.*[/\\])") or ""
+end
+local MockClient = dofile(dirOfThisFile() .. "mock_client.lua")
+local profiled = setmetatable({}, { __mode = "k" })
+
 local function makeEnv(mocks)
+  if not profiled[mocks] then
+    profiled[mocks] = true
+    MockClient.apply(mocks)
+  end
   return setmetatable({}, {
     __index = function(_, k)
       local v = mocks[k]
@@ -24,6 +38,7 @@ local function makeEnv(mocks)
 end
 
 Loader.makeEnv = makeEnv
+Loader.MockClient = MockClient
 
 -- ── the chunk cache ─────────────────────────────────────────────────────────────
 --

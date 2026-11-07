@@ -17,7 +17,7 @@ if not lib then return end
 
 -- Minor 1: the tabbed page, moved here unchanged from OptionsTabs.lua (its minor 12).
 -- Minor 2 (LibKa0s#59): `opts.beforeGroup` and `opts.afterSubgroup`, handed to the flow.
-local TABBED_MINOR = 2
+local TABBED_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own: see OptionsScroll.lua.
 if lib.__tabbedMinor and lib.__tabbedMinor >= TABBED_MINOR
   and lib.__tabbedShellMinor == lib.MINOR then return end
@@ -98,7 +98,8 @@ function lib.__AttachTabbed(O, d, h)
         index[name] = tabs[#tabs]
       end
     end
-    for _, t in ipairs(type(hostTabs) == "table" and hostTabs or NO_OPTS) do
+    -- Minor 3: a host tab whose `clients` exclude this client is not a tab.
+    for _, t in ipairs(lib.__GateClients(type(hostTabs) == "table" and hostTabs or NO_OPTS)) do
       if isHostTab(t) then
         bespoke[t.key] = t
         local own = index[t.key]
@@ -225,7 +226,7 @@ function lib.__AttachTabbed(O, d, h)
   --- Otherwise a tab click re-renders with the same `opts`. All four are off by default.
   function O.RenderTabbedSchema(ctx, pageKey, afterGroup, pairWith, opts)
     opts = type(opts) == "table" and opts or NO_OPTS
-    local rows = d.rowsForPage(pageKey, ctx.unit) or {}
+    local rows = lib.__GateClients(d.rowsForPage(pageKey, ctx.unit) or {})
     local groups, byGroup, drawable = partition(rows)
     if not O.AceGUI then return {}, {} end
 

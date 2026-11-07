@@ -15,7 +15,8 @@
 --
 -- -- WHY IT IS NARROW --------------------------------------------------------------------------
 --
--- Nine members, not the union of nine files. `LibKa0s/Env.lua` records that the WIDE extraction was
+-- Thirteen members (nine at minor 1, four client helpers at minor 2), not the union of nine files.
+-- `LibKa0s/Env.lua` records that the WIDE extraction was
 -- measured and rejected, and that record stays true: a container reader is BankLedger's, a mail
 -- decoder is LootHistory's, and a damage-meter reader is MultiMeters'. A member is here only when
 -- two or more addons have a PRODUCTION caller for it and every copy agrees on what the right answer
@@ -32,6 +33,13 @@
 --     formatter constructor are each one presence guard -- the optional-object-guard shape
 --     library-stack-§7 names as what NOT to promote;
 --   * one consumer: everything else in the nine files.
+--
+-- The four client helpers of minor 2 (IsForever, IsRetail, ClientKey, ForClient) are the one place a
+-- member is here for a different reason: every addon in the collection must ask "which client is
+-- this" and the standard's `clients` section (clients-§3) rules that the question is answered ONLY
+-- here, from WOW_PROJECT_ID against the project constants, never by an interface number and never
+-- by `== WOW_PROJECT_MAINLINE` alone (Forever reports MAINLINE too). The owner's ruling of
+-- 2026-11-07 (the WoW Forever port) is what makes them narrow-by-decision rather than by count.
 --
 -- -- THE RULES EVERY MEMBER OBEYS --------------------------------------------------------------
 --
@@ -81,7 +89,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Compat-1.0", 1
+local MAJOR, MINOR = "LibKa0s-Compat-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -89,6 +97,76 @@ lib.MAJOR, lib.MINOR = MAJOR, MINOR
 
 lib.MODULES = lib.MODULES or {}
 lib.MODULES.Compat = MINOR
+
+-- -- the client ---------------------------------------------------------------------------------
+
+-- Both project constants are read BARE and at call time (rule 1). WOW_PROJECT_CAMELOT is nil on
+-- Retail, so `WOW_PROJECT_ID == WOW_PROJECT_CAMELOT` alone would be true on a harness that defines
+-- neither constant (nil == nil); the nil guard is what keeps that from reading as Forever.
+local function isForever()
+  return WOW_PROJECT_CAMELOT ~= nil and WOW_PROJECT_ID == WOW_PROJECT_CAMELOT
+end
+
+local function isRetail()
+  return WOW_PROJECT_MAINLINE ~= nil and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and not isForever()
+end
+
+local function clientKey()
+  if isForever() then return "forever" end
+  if isRetail() then return "retail" end
+  return nil
+end
+
+--- Whether this is a WoW Forever client (`WOW_PROJECT_ID == WOW_PROJECT_CAMELOT`).
+---
+--- False on Retail, where the constant does not exist, and false on a harness that defines no
+--- project constants at all.
+---
+--- @return boolean
+function lib.IsForever()
+  return isForever()
+end
+
+--- Whether this is a Retail client: the mainline project id and NOT Forever. Forever also reports
+--- `WOW_PROJECT_MAINLINE`, so a bare comparison with it is not a Retail test.
+---
+--- @return boolean
+function lib.IsRetail()
+  return isRetail()
+end
+
+--- The client's key: `"retail"`, `"forever"`, or nil when the project constants say neither.
+---
+--- @return string|nil
+function lib.ClientKey()
+  return clientKey()
+end
+
+--- Whether a `clients` declaration includes this client.
+---
+--- `clients` is nil (both), the string `"both"`, or an array of `"retail"` / `"forever"`. On a client
+--- that is neither, only nil and `"both"` answer true. An unknown token raises at call time, from any
+--- client and before any match, so a misspelling cannot sit unnoticed behind a client that does not
+--- list it.
+---
+--- @param clients nil|string|string[]
+--- @return boolean
+function lib.ForClient(clients)
+  if clients == nil or clients == "both" then return true end
+  if type(clients) ~= "table" then
+    error('ForClient: unknown client "' .. tostring(clients) .. '"', 2)
+  end
+  for _, token in ipairs(clients) do
+    if token ~= "retail" and token ~= "forever" then
+      error('ForClient: unknown client "' .. tostring(token) .. '"', 2)
+    end
+  end
+  local key = clientKey()
+  for _, token in ipairs(clients) do
+    if token == key then return true end
+  end
+  return false
+end
 
 -- -- the secret seam ---------------------------------------------------------------------------
 

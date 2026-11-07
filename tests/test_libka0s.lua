@@ -738,7 +738,7 @@ test("v1.75.0: the vendored minors and the kit revision match the release", func
   -- O.Drawer attaches to each instance lib:New builds, not to the module table LibStub answers.
   assertTrue(type(NS.Options.Drawer) == "function", "O.Drawer missing: OptionsDrawer did not attach")
   local perf = modules("LibKa0s-Perf-1.0")
-  assertEqual(perf.Perf, 15)
+  assertTrue(perf.Perf >= 15) -- 16 since v1.92.0, pinned there
   assertTrue(perf.PerfPanel >= 7) -- 8 since v1.76.0 (LK-91), pinned there
   local sim, S = modules("LibKa0s-Sim-1.0")
   -- Sim 2 / SimTimeline 2: the local v1.75.0 tag moved to carry LK-26 (Start reads scenarios live).
@@ -936,7 +936,7 @@ test("v1.79.0: the vendored minors and the kit revision match the branch", funct
   assertTrue(modules("LibKa0s-Toast-1.0").Toast >= 1) -- 2 since v1.85.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
   assertTrue(options.Options >= 34) -- 37 since v1.84.0, pinned there
-  assertEqual(options.OptionsRegistry, 4)
+  assertTrue(options.OptionsRegistry >= 4) -- 5 since v1.92.0, pinned there
   assertTrue(options.OptionsAppearance >= 3) -- 4 since v1.82.0, pinned there
   assertTrue(options.OptionsSkinPicker >= 1) -- 2 since v1.81.0, pinned there
   assertTrue(type(NS.Options.SkinPicker) == "function", "O.SkinPicker missing: OptionsSkinPicker did not attach")
@@ -1099,11 +1099,11 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   local options = modules("LibKa0s-Options-1.0")
   assertEqual(options.Options, 37)
   assertTrue(options.OptionsWidgets >= 41) -- 44 since v1.85.0, pinned there
-  assertEqual(options.OptionsFlow, 2)
+  assertTrue(options.OptionsFlow >= 2) -- 3 since v1.92.0, pinned there
   assertTrue(options.OptionsIds >= 6) -- 7 since v1.85.0, pinned there
   assertTrue(options.OptionsIdSuggest >= 1) -- 2 since v1.85.0, pinned there
   assertTrue(options.OptionsTabs >= 13) -- 15 since v1.85.0, pinned there
-  assertEqual(options.OptionsTabbed, 2)
+  assertTrue(options.OptionsTabbed >= 2) -- 3 since v1.92.0, pinned there
   assertTrue(options.OptionsCompose >= 16) -- 17 since v1.85.0, pinned there
   assertTrue(options.OptionsScroll >= 10) -- 13 since v1.85.0, pinned there
   assertTrue(options.OptionsMedia >= 3) -- 4 since v1.85.0, pinned there
@@ -1111,7 +1111,7 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   assertTrue(options.OptionsSkinPicker >= 5) -- 7 since v1.85.0, pinned there
   assertEqual(options.OptionsSkinPickerRows, 1)
   assertEqual(modules("LibKa0s-Schema-1.0").Schema, 3)
-  assertEqual(modules("LibKa0s-Slash-1.0").Slash, 21)
+  assertTrue(modules("LibKa0s-Slash-1.0").Slash >= 21) -- 22 since v1.92.0, pinned there
   assertTrue(modules("LibKa0s-Widgets-1.0").WidgetsDragHandle >= 10) -- 12 since v1.85.0, pinned there
   assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics >= 6) -- 7 since v1.89.0, pinned there
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanel >= 9) -- 10 since v1.85.0, pinned there
@@ -1154,17 +1154,17 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   local debugLog = modules("LibKa0s-DebugLog-1.0")
   assertEqual(debugLog.DebugLogWindow, 4) -- 4 since R5-L3
   local launcher = modules("LibKa0s-Launcher-1.0")
-  assertEqual(launcher.Launcher, 7)
+  assertTrue(launcher.Launcher >= 7) -- 8 since v1.92.0, pinned there
   local options = modules("LibKa0s-Options-1.0")
-  assertEqual(options.OptionsWidgets, 44)
+  assertTrue(options.OptionsWidgets >= 44) -- 45 since v1.92.0, pinned there
   assertEqual(options.OptionsIds, 7)
   assertEqual(options.OptionsIdList, 9) -- 9 since R5-L5
-  assertEqual(options.OptionsTabs, 15)
+  assertTrue(options.OptionsTabs >= 15) -- 16 since v1.92.0, pinned there
   assertEqual(options.OptionsCompose, 19) -- 19 since R6-SIM-L (the Sim mode checkbox)
   assertEqual(options.OptionsScroll, 13)
   assertEqual(options.OptionsNav, 5)
   assertEqual(options.OptionsDrawer, 5)
-  assertEqual(options.OptionsKeybinds, 7)
+  assertTrue(options.OptionsKeybinds >= 7) -- 8 since v1.92.0, pinned there
   assertTrue(options.OptionsAppearance >= 6) -- 7 since v1.90.0 (keepScope copy), pinned there
   assertEqual(options.OptionsSkinPicker, 11) -- 11 since R6-L1 (spec.preview)
   assertEqual(options.OptionsIdSuggest, 2) -- 2 since R5-L5
@@ -1195,7 +1195,7 @@ test("v1.89.0: the vendored minors and the kit revision match the release", func
   assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 7)
   assertTrue(modules("LibKa0s-Widgets-1.0").Widgets >= 23) -- 25 since v1.90.0 (pixel edges, then SF2-L1's lines), pinned there
   assertEqual(modules("LibKa0s-Toast-1.0").Toast, 4)
-  assertEqual(T.KIT_VERSION, 51)
+  assertTrue(T.KIT_VERSION >= 51) -- 52 since v1.92.0, pinned there
 end)
 -- v1.90.0 (Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89/SF1_SMOKE_FEEDBACK.md, item
 -- SF1-RV-LH): Core 16, Widgets 24 (25 after SF2-L1) and WidgetsAutocomplete 8 draw every library control edge in
@@ -1221,7 +1221,7 @@ test("v1.90.0: the vendored minors and the kit revision match the release", func
   assertEqual(skin.SkinPaint, 19)
   assertTrue(skin.SkinPaintExtras >= 18) -- 19 since v1.91.0 (the HUD and confirm peels), pinned there
   assertEqual(modules("LibKa0s-Options-1.0").OptionsAppearance, 7)
-  assertEqual(T.KIT_VERSION, 51)
+  assertTrue(T.KIT_VERSION >= 51) -- 52 since v1.92.0, pinned there
 end)
 -- v1.91.0 (Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91/, item FU-RV-LH): WidgetsLineChart 7 draws
 -- the chart's axis, grid, markers and crosshair one physical pixel, and reads a series thickness
@@ -1246,5 +1246,31 @@ test("v1.91.0: the vendored minors and the kit revision match the release", func
   assertEqual(skin.SkinPaintExtras, 19)
   assertEqual(skin.SkinPaintHud, 1)
   assertEqual(skin.SkinAceConfirm, 1)
-  assertEqual(T.KIT_VERSION, 51)
+  assertTrue(T.KIT_VERSION >= 51) -- 52 since v1.92.0, pinned there
+end)
+
+test("v1.92.0: the vendored minors and the kit revision match the release", function()
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.92.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Compat-1.0").Compat, 2)
+  local slash = modules("LibKa0s-Slash-1.0")
+  assertEqual(slash.Slash, 22)
+  assertEqual(slash.SlashParse, 2)
+  assertEqual(modules("LibKa0s-Launcher-1.0").Launcher, 8)
+  local perf = modules("LibKa0s-Perf-1.0")
+  assertEqual(perf.Perf, 16)
+  assertEqual(perf.PerfSampler, 1)
+  assertEqual(perf.PerfCommands, 1)
+  assertEqual(perf.PerfPanel, 13)
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(options.OptionsRegistry, 5)
+  assertEqual(options.OptionsWidgets, 45)
+  assertEqual(options.OptionsFlow, 3)
+  assertEqual(options.OptionsTabs, 16)
+  assertEqual(options.OptionsTabbed, 3)
+  assertEqual(options.OptionsKeybinds, 8)
+  assertEqual(T.KIT_VERSION, 52)
 end)

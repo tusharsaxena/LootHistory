@@ -67,7 +67,9 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 -- Minor 6: the key button's tooltip title through O.__tipColor (`gtip.value`; OptionsScroll minor 9)
 -- (LK-06d of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS).
 -- Minor 7 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the key button's tooltip lines through O.__tipColor (`gtip.line`).
-local KEYBINDS_MINOR = 7
+-- Minor 8 (WFP-LK-04): a binding in `spec.bindings` carrying `clients` is no row on a client it does
+-- not list, and `O.KeybindingsTab`'s `spec.clients` gates the whole tab (through the tabbed page).
+local KEYBINDS_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__keybindsMinor and lib.__keybindsMinor >= KEYBINDS_MINOR
   and lib.__keybindsShellMinor == lib.MINOR then return end
@@ -653,6 +655,7 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     local S = mergeStrings(spec.strings)
     return {
       key = spec.key or "Keybindings", label = S.TAB_LABEL, tooltip = S.TAB_TIP, before = spec.before,
+      clients = spec.clients,
       render = function(ctx) O.KeybindRows(ctx, spec) end,
     }
   end
@@ -851,7 +854,7 @@ function lib.__AttachKeybinds(O, d) -- luacheck: no unused args
     view.status = O.AceGUI:Create("Label")
     view.status:SetFullWidth(true)
     view.status:SetText("")
-    drawRows(view, type(spec.bindings) == "table" and spec.bindings or {})
+    drawRows(view, lib.__GateClients(type(spec.bindings) == "table" and spec.bindings or {}))
 
     view.setLine = O.AceGUI:Create("Label")
     view.setLine:SetFullWidth(true)
