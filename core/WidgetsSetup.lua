@@ -98,7 +98,7 @@
 -- gold focus line.
 --
 -- NS.MakeTestStrip answers nil for the same reason, and the mode is still marked: the badge beside
--- the window title (red TEST MODE, or cyan SIMULATION) does not depend on the library. It marks a mode
+-- the window title (red TEST MODE, or cyan SIM) does not depend on the library. It marks a mode
 -- only on such a degraded install, where the window draws no strip and reserves no space for one
 -- (NS.TestStripReserve answers 0); while a strip exists the strip is the marker and the badge stays
 -- hidden (the preview-mode header-word rule, standard v2.87.0).

@@ -1946,9 +1946,9 @@ count (`/run print(#LootHistoryDB.global.history)`) for SIM-5. A check fails on 
 docked beside the History window, titled *Ka0s Loot History - Simulation*; one chat line reads
 *Simulation started (loot): nothing is saved; your history and holdings are not touched.*; the
 History window's strip under the filter bar reads
-*SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it.*, and
+*SIM: an invented world drives the real capture. Nothing is saved. /lh sim stop ends it.*, and
 the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the strip and
-footer prefix go (procedure amended by LH-10, 2026-10-23: no `SIMULATION` title badge; SIM-12); the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
+footer prefix go (procedure amended by LH-10, 2026-10-23: no `SIM` title badge; SIM-12); the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
 
 **SIM-2. Refusals.** Each of these prints its own one line and starts nothing: `/lh sim start loot`
 in combat (a target dummy); inside an instance; in a group; with `/lh test` on; with the mailbox
@@ -2018,8 +2018,8 @@ plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimP
 SM-LH-01, SM-LH-02) Result: pass (owner-marked 2026-10-23)
 
 **SIM-12. The simulation's own cyan strip; no title word.** `/lh sim start loot` → a **cyan** strip
-(not amber) under the filter bar reads *SIMULATION: an invented world drives the real capture;
-nothing is saved. /lh sim stop ends it.*, there is **no** `SIMULATION` word beside the window title,
+(not amber) under the filter bar reads *SIM: an invented world drives the real capture;
+nothing is saved. /lh sim stop ends it.*, there is **no** `SIM` word beside the window title,
 and every tab's pane starts under the strip. Hover the strip → its tooltip is titled `Simulation`.
 `/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
@@ -2559,7 +2559,7 @@ resize. No Lua error. Result: pass (owner-marked 2026-10-10)
 **DEGRADED-13. The title badge marks test mode when there is no strip.** `/lh test` → no strip under
 the window's header, nothing shifted down, and the bright-red **TEST MODE** word beside the window
 title. `/lh test` again → the word goes. (No simulation can run without the library, so the cyan
-`SIMULATION` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result: pass (owner, 2026-10-23)
+`SIM` word is pinned by the headless suite only.) (LH-10; SM-LH-13) Result: pass (owner, 2026-10-23)
 
 **DEGRADED-14. Insights without the library.** `/lh show`, Insights tab → one line saying the library
 is missing and the Insights charts are unavailable, no cards and no Lua error. Result:

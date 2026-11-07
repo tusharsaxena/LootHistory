@@ -10,7 +10,7 @@ local H = dofile("tests/sim_support.lua").new(T)
 -- built frame (`LootHistorySimPanel`, filed by tests/wow_mock.lua under M.__namedFrames) and assert
 -- what is LootHistory's: the descriptor's fields, rows that track the timeline, the click-ahead
 -- through the ledger gate, a typed step repainting, the run controls and the picker, a position
--- that never reaches NS.db, and the SIMULATION marker on the History window.
+-- that never reaches NS.db, and the SIM marker on the History window.
 --
 -- This slot runs after tests/test_sim_store.lua, with the whole addon brought up; every case stops
 -- the session it starts and leaves the History window and the panel closed.
@@ -310,7 +310,7 @@ end)
 
 -- ── the marker on the History window (preview-mode, H8) ──────────────────────────────────────
 
-local SIM_STRIP = "SIMULATION: an invented world drives the real capture; nothing is saved. /lh sim stop ends it."
+local SIM_STRIP = "SIM: an invented world drives the real capture. Nothing is saved. /lh sim stop ends it."
 
 -- The pane's TOPLEFT y offset, from the mock's recorded anchors (the last TOPLEFT wins).
 local function paneTop(pane)
@@ -365,7 +365,7 @@ test("sim marker: test mode and the simulation never show together", function()
     start("loot")
     BT:SetTestMode(true)
     assertFalse(BT.testMode, "test mode is refused while a simulation runs")
-    assertEqual(f.testBadge:GetText(), "SIMULATION")
+    assertEqual(f.testBadge:GetText(), "SIM")
     Sim:Stop("stop")
     assertTrue(BT:SetTestMode(true), "test mode starts once the simulation is over")
     assertEqual(f.testBadge:GetText(), "TEST MODE", "the badge is test mode's")
@@ -382,7 +382,7 @@ test("sim marker: test mode and the simulation never show together", function()
   end)
 end)
 
-test("sim marker: degraded (no sim strip), a session wears SIMULATION in cyan beside the title", function()
+test("sim marker: degraded (no sim strip), a session wears SIM in cyan beside the title", function()
   clean(function()
     B:Show()
     local f = B:GetWindow()
@@ -391,7 +391,7 @@ test("sim marker: degraded (no sim strip), a session wears SIMULATION in cyan be
     local ok, err = pcall(function()
       start("loot")
       assertTrue(f.testBadge:IsShown(), "no strip for the mode: the badge marks it")
-      assertEqual(f.testBadge:GetText(), "SIMULATION")
+      assertEqual(f.testBadge:GetText(), "SIM")
       local r, g, b = f.testBadge:GetTextColor()
       assertEqual(("%.1f,%.1f,%.1f"):format(r, g, b), "0.3,0.8,1.0", "in its own color")
       assertFalse(f.testStrip:IsShown(), "and never the test strip")

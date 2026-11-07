@@ -21,7 +21,7 @@ local _, NS = ...
 -- nothing to SavedVariables.
 --
 -- The marker (preview-mode, H8): a Sim listener repaints the History window's title badge, strip
--- and footer on every transition (start, ready, step, run, pause, stop), so `SIMULATION` shows
+-- and footer on every transition (start, ready, step, run, pause, stop), so `SIM` shows
 -- from the start to the stop and goes with it (modules/Browser.lua, B:UpdateTestStrip and
 -- B:UpdateFooter).
 

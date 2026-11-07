@@ -181,7 +181,7 @@ local SUITES = {
   -- byte-identical (LootHistory#37, H4). After test_sim_e2e.
   "test_sim_store",
   -- modules/SimPanel.lua and the History window's simulation marker (LootHistory#37): the panel
-  -- descriptor, the library's panel driven through it, and the SIMULATION badge, strip and footer.
+  -- descriptor, the library's panel driven through it, and the SIM badge, strip and footer.
   -- After test_sim_store, with the addon brought up; every case stops its session.
   "test_sim_panel",
   -- `/lh sim` (LootHistory#37): every verb, the host verb `loot [n]`, the disabled refusal and the
