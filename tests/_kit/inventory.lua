@@ -224,6 +224,7 @@ return function(Kit, fail)
     test_lizard_sighted = "automated-tests-§3",
     test_skin_values = "skinning-§1",
     test_skin_switch = "skinning-§1",
+    test_client_globals = "clients-§6",
   }
 
   --- Where a repository keeps its `## Documented deviations` register (`documentation-§3`): an addon

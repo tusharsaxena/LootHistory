@@ -217,6 +217,7 @@ local SUITES = {
   -- Kit.skinSwitch, below, are this addon's facts.
   { name = "test_skin_values", dir = "tests/_kit/" },
   { name = "test_skin_switch", dir = "tests/_kit/" },
+  { name = "test_client_globals", dir = "tests/_kit/" },
   -- Takes down the fixture the switch test's last surface left standing, and reads the declaration.
   "test_skin_surfaces",
   -- The kit's diagnostics contract (revision 34, debug-logging-14): the dispatcher half of the

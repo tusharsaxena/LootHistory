@@ -115,6 +115,7 @@ local LIB_FILES = {
   -- caller here changed. It is listed because the client loads it and the suite must too.
   "libs/LibKa0s/OptionsTabs.lua",
   "libs/LibKa0s/OptionsTabbed.lua",
+  "libs/LibKa0s/OptionsHeader.lua",
   "libs/LibKa0s/OptionsCombat.lua",
   -- New in v1.24.0: the schema COMPOSERS, which settings/Schema.lua calls at file load for its
   -- Master controls block. A file listed in LibKa0s.xml and missing from tests/run.lua's explicit
@@ -1269,8 +1270,16 @@ test("v1.92.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsRegistry, 5)
   assertEqual(options.OptionsWidgets, 45)
   assertEqual(options.OptionsFlow, 3)
-  assertEqual(options.OptionsTabs, 16)
+  assertTrue(options.OptionsTabs >= 16) -- 17 since v1.93.0, pinned there
   assertEqual(options.OptionsTabbed, 3)
   assertEqual(options.OptionsKeybinds, 8)
-  assertEqual(T.KIT_VERSION, 52)
+  assertTrue(T.KIT_VERSION >= 52) -- 53 since v1.93.0, pinned there
+end)
+
+test("v1.93.0: the vendored minors and the kit revision match the release", function()
+  local lib = T.mocks.LibStub("LibKa0s-Options-1.0", true)
+  assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Options-1.0 missing: re-vendor v1.93.0")
+  assertEqual(lib.MODULES.OptionsTabs, 17)
+  assertEqual(lib.MODULES.OptionsHeader, 1)
+  assertEqual(T.KIT_VERSION, 53)
 end)
