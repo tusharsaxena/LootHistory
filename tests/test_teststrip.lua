@@ -135,7 +135,7 @@ test("test strip: each mode strip hangs under the filter bar and explains its ow
     end)
     rawset(tip, "SetText", stockSet)
     if not ok then error(err, 0) end
-    assertEqual(table.concat(titles, "|"), "Simulation|Test mode", "each strip's tooltip names its mode")
+    assertEqual(table.concat(titles, "|"), "SIM|Test mode", "each strip's tooltip names its mode")
   end)
 end)
 

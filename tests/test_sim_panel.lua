@@ -93,7 +93,7 @@ test("sim panel: the descriptor carries LootHistory's presentation fields and no
   table.sort(keys)
   -- No button, no tooltip (OWNER_SCOPE C.7) and no store (C.11).
   assertEqual(table.concat(keys, ","), "anchorTo,check,startTip,stepLabel,stepTip,stopTip,title")
-  assertEqual(Host.PANEL.title(), "Ka0s Loot History - Simulation")
+  assertEqual(Host.PANEL.title(), "Ka0s Loot History - SIM")
   assertEqual(Host.PANEL.check, NS.Icon("confirm"), "the done tick is the catalog's confirm icon")
 end)
 
@@ -167,7 +167,7 @@ test("sim panel: `/lh sim` opens it with LootHistory's title; `/lh sim panel` to
   clean(function()
     slash("sim")
     assertTrue(Sim:IsPanelShown(), "the bare verb opens the panel")
-    assertEqual(panel().title:GetText(), "Ka0s Loot History - Simulation")
+    assertEqual(panel().title:GetText(), "Ka0s Loot History - SIM")
     slash("sim panel")
     assertFalse(Sim:IsPanelShown())
     slash("sim panel")

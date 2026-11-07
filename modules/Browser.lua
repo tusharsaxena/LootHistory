@@ -912,7 +912,7 @@ local function testTip()
 end
 
 local function simTip()
-  GameTooltip:SetText(L["Simulation"])
+  GameTooltip:SetText(L["SIM"])
   tipLine(L["Shows: what the real capture recorded from an invented world, this session only"])
   tipLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"])
 end
