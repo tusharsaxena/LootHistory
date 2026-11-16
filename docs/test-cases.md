@@ -1604,7 +1604,7 @@ Total.
 - skin chrome: the degraded facade draws a tab and a checkbox, and MarkText keeps its markup
 - skin chrome: the degraded window edge hides a frame's divider, as Core.ApplySkin does (R4-SEP)
 - skin chrome: the degraded facade draws the flat button and the divider today's way
-- skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)
+- skin chrome: both windows' headers sit on the title band, and every title-bar control has its tooltip and colors, in every skin (R5-WIN; SR-L2, SR-L3)
 
 ### test_skin_table.lua (8)
 

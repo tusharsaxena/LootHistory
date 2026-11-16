@@ -40,7 +40,8 @@ if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 -- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
 -- Minor 23: the buffer holds each message stripped of its escapes, so Copy is plain text, and a
 -- private `__view` keeps the colored message for an owned console's skin-switch rebuild; the report
--- seam's pointer string (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS).
+-- seam's pointer string (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS);
+-- the title bar's tooltip strings (SR-L2 of the same bundle, smoke round 1).
 local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
@@ -150,6 +151,14 @@ lib.STRINGS = {
   -- The one chat line `D:Report` prints (minor 23, DebugLogDiagnostics.lua minor 11): the report's
   -- title, then the lines written, its header included. The same shape as DIAG_WRITTEN's.
   REPORT_WRITTEN   = "%s: %d lines written to the debug console. Use Copy to share it.",
+  -- The console's title-bar tooltips (minor 23; SR-L2 of the same bundle, smoke round 1, ruling 3):
+  -- one each for the toggle, the Diagnostics link, Copy, Clear and settings, saying what it does.
+  -- The close says Core's CLOSE_STRINGS / CloseTip, the owner's words for every close it draws.
+  TOGGLE_TIP       = "Turn debug logging on or off",
+  DIAGNOSTICS_TIP  = "Write a diagnostics report to this console",
+  COPY_TIP         = "Copy the log",
+  CLEAR_TIP        = "Clear the log",
+  SETTINGS_TIP     = "Open settings",
 }
 
 -- ── the formatters ─────────────────────────────────────────────────────────────────────────

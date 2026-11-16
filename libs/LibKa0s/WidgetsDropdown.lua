@@ -290,12 +290,12 @@ local function paintMenuRow(b, dd, opt, selected, pal, glyphFace, hover)
   if opt.color then b.glyph:SetTextColor(opt.color[1], opt.color[2], opt.color[3]) end
 end
 
---- Place a shown GameTooltip beside `row`'s menu (minor 2), else attached below the row.
+--- Place a shown GameTooltip beside `row`'s menu (minor 2), else attached above the row (SR-L1).
 local function placeRowTip(tip, row)
   local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
   if Tip and Tip.PlaceBeside(tip, row, row.__menu) then return end
   tip:ClearAllPoints()
-  tip:SetPoint("TOP", row, "BOTTOM", 0, -2)
+  tip:SetPoint("BOTTOM", row, "TOP", 0, 2)
 end
 
 --- A row's tooltip: a string, or the host's renderer `fn(rowFrame, opt)`, on GameTooltip either way.

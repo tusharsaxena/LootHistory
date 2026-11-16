@@ -29,7 +29,8 @@
 -- Minor 18 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the
 -- settings-opener registry (RegisterSettingsOpener, HasSettings, OpenSettings), which
 -- LibKa0s-Launcher-1.0's New fills and every library window's settings mark reads; any other call
--- is minor 17's.
+-- is minor 17's. Also minor 18 (SR-L2, the same bundle's smoke round 1, ruling 3): MakeCloseButton's
+-- close carries a "Close" tooltip, LibKa0s-Tooltip-1.0's AttachTitleTip with its CloseTip(owner).
 local MAJOR, MINOR = "LibKa0s-Core-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
@@ -258,6 +259,9 @@ local CLOSE_ART  = 12
 -- Gray at rest, red under the pointer. The × has read this way since minor 1 and the texture keeps
 -- it: a close control is the one button in a window whose hover state should say "this one ends
 -- what you are looking at".
+-- The gray is Ka0s Default's `icon.tint`, the rest of every title-bar control (minor 18, SR-L3 of
+-- Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, smoke round 1's ruling 4); every
+-- skin's `close.rest` is its `icon.tint` from then, and the red is `close.hot`.
 local CLOSE_REST = { 0.7, 0.7, 0.72 }
 local CLOSE_HOT  = { 1, 0.3, 0.3 }
 
@@ -324,6 +328,10 @@ function lib.MakeCloseButton(parent, onClick, addonName)
   -- colors above. Any other name was answered above, unchanged.
   local S = lib.__SkinFacade(addonName)
   if S then S.CloseButton(b, { own = true }) end
+
+  -- Minor 18 (SR-L2): "Close" above it, hooked AFTER the skin, whose hover pair is SetScript'd.
+  local Tip = LibStub and LibStub("LibKa0s-Tooltip-1.0", true)
+  if Tip and Tip.AttachTitleTip then Tip.AttachTitleTip(b, function() return Tip.CloseTip(addonName) end, addonName) end
 
   b:SetScript("OnClick", onClick)
   return b

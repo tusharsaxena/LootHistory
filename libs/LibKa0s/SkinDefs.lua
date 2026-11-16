@@ -204,6 +204,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- off the window against ~10 for every other skin), `list.hover` gold .16 (was .10) and `list.sel`
 -- gold .26 (was .18), so a hovered row still stands off a striped one and a selected row off a
 -- hovered one. Every skin is held to the L* floors in tests/test_skin_defs.lua.
+-- Then (SR-L4 of the same bundle, smoke round 1's ruling 5, still minor 28): `list.header.bg`, a
+-- section header's band, is black .35, Skill Master's block header (`sm.headerBg`), where white .04
+-- sat between the plain row and the .08 stripe and read as one more row.
 local DEFS_MINOR = 28
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
@@ -514,7 +517,7 @@ local KA0S = {
   ["tab.border"] = false, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
   ["tab.onBg"] = { 0.18, 0.18, 0.18, 0.9 }, ["tab.texture"] = false, ["tab.onTexture"] = false,
   ["nav.borderSize"] = 1, ["nav.borderStyle"] = false, ["nav.selBar"] = false,
-  ["list.header.bg"] = { 1, 1, 1, 0.04 }, ["list.sel"] = { 1, 0.82, 0, 0.26 }, ["list.selOutline"] = false,
+  ["list.header.bg"] = { 0, 0, 0, 0.35 }, ["list.sel"] = { 1, 0.82, 0, 0.26 }, ["list.selOutline"] = false,
   ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = false,
   ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
   ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },

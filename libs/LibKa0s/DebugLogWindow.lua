@@ -77,8 +77,9 @@ local WINDOW_MINOR = 5
 -- LibKa0s-Widgets-1.0's `Footer` (minor 27), 24 px, where minor 4 drew a 16 px line by hand. See
 -- THE FOOTER below.
 -- Also minor 5 (LibKa0s#86, LK-86): the title bar's marks are LibKa0s-Widgets-1.0's HeaderButtons,
--- left to right Copy, Clear, settings, close, with no tooltip on any of them. Settings opens the
--- addon's settings (Core's registry by `addonName`, or the descriptor's `onSettings`).
+-- left to right Copy, Clear, settings, close. Settings opens the addon's settings (Core's registry by
+-- `addonName`, or the descriptor's `onSettings`). Every title-bar control carries a tooltip, the
+-- toggle and the Diagnostics link included, each above its control (SR-L2, smoke round 1, ruling 3).
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -127,11 +128,13 @@ local CONSOLE_W, CONSOLE_H = 700, 344
 -- The header toggle's slot, at the bar's left edge. Named because the minimum width reads it.
 local TOGGLE_X, TOGGLE_W = 8, 80
 
--- The Diagnostics link (minor 16): its gap after the toggle's label, and its orange at rest and
--- under the pointer, so it reads as an action beside a state word. Plain text, like that label.
+-- The Diagnostics link (minor 16): its gap after the toggle's label, and its color under the
+-- pointer. Plain text, like that label. From minor 5 (SR-L3 of Ka0sAddonsCommonTasks
+-- docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, smoke round 1's ruling 4) it is a title-bar control like
+-- every other: REST (`icon.tint`) at rest and the orange it rested in before (`text.link`) under the
+-- pointer, where it was that orange at rest and `text.linkHot` hot.
 local DIAG_GAP  = 10
-local DIAG_REST = { 1, 0.5, 0 }
-local DIAG_HOT  = { 1, 0.72, 0.28 }
+local DIAG_HOT  = { 1, 0.5, 0 }
 
 -- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
 -- title bar does not change temperature just because its controls changed shape.
@@ -148,7 +151,8 @@ local TITLE_CHAR_W = 7
 -- Every color the console draws outside the skin's window primitives, as `name = { token,
 -- constant }`. The constant is what the console has drawn since the minor that added it, and what
 -- every console without a registered owner draws; Ka0s Default's token is the same value: REST and
--- HOT for the text and icon controls, the Diagnostics link's two oranges, the toggle's green ON and
+-- HOT for the text and icon controls, the Diagnostics link's gray rest and orange hover (minor 5,
+-- SR-L3; the toggle's hover keeps HOT, `text.accent`, and its state colors), the toggle's green ON and
 -- red OFF, the line counter, and the log line's stamp, tag and message. The counter is `text.muted`
 -- from minor 5, the footer's text color, where it was `log.count` (Ka0s Default's 0.6 gray). The
 -- footer's hairline is not here: Widgets draws it in Ka0s Default's `divider`, and an owned console
@@ -157,8 +161,8 @@ local PALETTE = {
   rest    = { "text.muted",   REST },
   icon    = { "icon.tint",    REST },
   hot     = { "text.accent",  HOT },
-  diag    = { "text.link",    DIAG_REST },
-  diagHot = { "text.linkHot", DIAG_HOT },
+  diag    = { "icon.tint",    REST },
+  diagHot = { "text.link",    DIAG_HOT },
   on      = { "sem.on",       { 0.30, 0.85, 0.30 } },
   off     = { "sem.off",      { 0.90, 0.30, 0.30 } },
   count   = { "text.muted",   REST },
@@ -182,6 +186,15 @@ end
 
 local function setText(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
 
+--- A title-bar control's tooltip (SR-L2): the module string `key`, read through D:Text on each hover
+--- (so a host's L reaches it, rawget-keyed), shown by LibKa0s-Tooltip-1.0's AttachTitleTip, in the
+--- owner's `gtip.title` for an owned console. Guarded: without that major the control has none.
+local function titleTip(b, D, key, owner)
+  local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
+  if not (b and Tip and type(Tip.AttachTitleTip) == "function") then return end
+  Tip.AttachTitleTip(b, function() return D:Text(key) end, owner)
+end
+
 --- An owned console's label in its skin's body face (minor 2): the facade's `Font`, which records
 --- the paint, so a switch and "Ignore fonts" reach it. `S` nil (no owner) touches nothing.
 local function skinFont(S, fs)
@@ -192,10 +205,11 @@ end
 --- LibKa0s#86): left to right Copy, Clear, settings, close, one size and one pitch, the art out of
 --- the host's copy where `addonName` answers it, else the COPY and CLEAR words and the settings glyph.
 ---
---- NO TOOLTIP ON ANY OF THEM (`tips = false`). Minor 9 of the shell gave Copy and Clear a label shown
---- under the control, which put it on top of the first line of the log -- the thing the window exists
---- to show -- every time the pointer crossed the title bar, and the chrome rule's tooltip sits in the
---- same place (research note R9 C2). The words are still drawn where the art is missing.
+--- EACH CARRIES A TOOLTIP, a module string (COPY_TIP, CLEAR_TIP, SETTINGS_TIP; the close's is Core's
+--- CloseTip). Minor 9 of the shell gave Copy and Clear one shown UNDER the control, on top of the
+--- first line of the log, the thing the window exists to show; the chrome rule now attaches every
+--- title-bar tooltip ABOVE its control (SR-L1), so smoke round 1's ruling 3 (SR-L2) gave them back.
+--- The words are still drawn where the art is missing.
 ---
 --- Settings opens the addon's settings through Core's registry (the launcher's opener, keyed by
 --- `addonName`), or the descriptor's `onSettings`. Without HeaderButtons (a payload missing the file)
@@ -203,7 +217,7 @@ end
 ---
 --- @param titleBar table
 --- @param spec table  { addonName, close = f(parent,onClick,addonName), onClose, onClear, onCopy,
----                      onSettings, clearLabel, copyLabel, frame }
+---                      onSettings, clearLabel, copyLabel, copyTip, clearTip, settingsTip, frame }
 --- @return table  HeaderButtons' answer: { close, settings, extras = { copy, clear }, offsets, right }
 local function buildTitleControls(titleBar, spec)
   local W = LibStub("LibKa0s-Widgets-1.0", true)
@@ -213,11 +227,11 @@ local function buildTitleControls(titleBar, spec)
     return { close = close, extras = {}, offsets = { close = -PAD }, right = { close and { frame = close, x = PAD } } }
   end
   return W.HeaderButtons(titleBar, {
-    owner = spec.addonName, makeClose = spec.close, close = spec.onClose, tips = false, frame = spec.frame,
-    settings = type(spec.onSettings) == "function" and spec.onSettings or true,
+    owner = spec.addonName, makeClose = spec.close, close = spec.onClose, frame = spec.frame,
+    settings = type(spec.onSettings) == "function" and spec.onSettings or true, settingsTip = spec.settingsTip,
     extras = {
-      { key = "copy", icon = "copy", label = spec.copyLabel, width = COPY_W, onClick = spec.onCopy },
-      { key = "clear", icon = "clear", label = spec.clearLabel, width = CLEAR_W, onClick = spec.onClear },
+      { key = "copy", icon = "copy", label = spec.copyLabel, width = COPY_W, onClick = spec.onCopy, tip = spec.copyTip },
+      { key = "clear", icon = "clear", label = spec.clearLabel, width = CLEAR_W, onClick = spec.onClear, tip = spec.clearTip },
     },
   })
 end
@@ -455,6 +469,9 @@ local function buildTitleBar(f, D, ctx, pal, S)
     onSettings = d.onSettings,
     clearLabel = D:Text("CLEAR"),
     copyLabel  = D:Text("COPY"),
+    clearTip   = D:Text("CLEAR_TIP"),
+    copyTip    = D:Text("COPY_TIP"),
+    settingsTip = D:Text("SETTINGS_TIP"),
     frame      = f,
   })
   f.headerButtons = hb
@@ -477,11 +494,15 @@ local function buildTitleBar(f, D, ctx, pal, S)
   toggleBtn:SetScript("OnLeave", function() D:RefreshHeader() end)
   local function onToggleClick() D:SetEnabled(not D:IsEnabled()) end
   toggleBtn:SetScript("OnClick", onToggleClick)
+  -- The toggle's and the link's tooltips (SR-L2), in an owned console's `gtip.title`.
+  local tipOwner = S and d.addonName or nil
+  titleTip(toggleBtn, D, "TOGGLE_TIP", tipOwner)
   f.debugToggle = toggleFS
   f.debugToggleBtn = toggleBtn
   -- The Diagnostics link beside it (minor 16), recorded as clearButton and copyButton are.
   local linkReach
   f.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal, S)
+  titleTip(f.diagnosticsButton, D, "DIAGNOSTICS_TIP", tipOwner)
   D._toggleClickForTest = onToggleClick   -- test seam (a headless mock stubs GetScript)
   return title, hb, linkReach
 end

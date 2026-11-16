@@ -86,7 +86,8 @@ local SIM_PANEL_MINOR = 11
 -- title is the string PANEL_TITLE, "%s - SIM" (was the literal name .. " - Simulation"), so a host's d.L
 -- overrides it like every other panel string. Still minor 11 (LK-92B of the same bundle, LibKa0s#92): a
 -- control's or a row's tooltip opens beside the panel's window group (LibKa0s-Tooltip-1.0's body rule),
--- where it owned at ANCHOR_RIGHT on the control; unreadable geometry attaches it below the control.
+-- where it owned at ANCHOR_RIGHT on the control; unreadable geometry attaches it above the control
+-- (SR-L1 of the same bundle's smoke round 1; it was below).
 -- Paired on the SHELL's minor as well as this file's own, as SimTimeline.lua is.
 if lib.__panelMinor and lib.__panelMinor >= SIM_PANEL_MINOR
   and lib.__panelShellMinor == lib.MINOR then return end
@@ -379,7 +380,7 @@ local function showTip(owner, row, pal)
   local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
   if not (Tip and Tip.PlaceBeside(tip, owner)) then
     tip:ClearAllPoints()
-    tip:SetPoint("TOP", owner, "BOTTOM", 0, -2)
+    tip:SetPoint("BOTTOM", owner, "TOP", 0, 2)
   end
 end
 

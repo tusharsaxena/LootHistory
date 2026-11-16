@@ -477,8 +477,8 @@ end
 
 --- Place `tip`, already filled and shown, for `owner` (minor 2): beside the window group
 --- (`host.group`, else the group `owner` sits in) through LibKa0s-Tooltip-1.0's PlaceBeside, else,
---- with unreadable geometry or no Tooltip major, attached below `owner`. Answers the placer's side
---- ("right", "left", "below", "above"), or "attached" for that fallback.
+--- with unreadable geometry or no Tooltip major, attached above `owner` (SR-L1). Answers the
+--- placer's side ("right", "left", "above", "below"), or "attached" for that fallback.
 --- @param tip table a shown tooltip
 --- @param owner table the hovered mark
 --- @return string
@@ -487,7 +487,7 @@ function Ctx:PlaceTip(tip, owner)
   local side = Tip and Tip.PlaceBeside(tip, owner, self.group)
   if side then return side end
   tip:ClearAllPoints()
-  tip:SetPoint("TOP", owner, "BOTTOM", 0, -2)
+  tip:SetPoint("BOTTOM", owner, "TOP", 0, 2)
   return "attached"
 end
 

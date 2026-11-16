@@ -443,7 +443,59 @@ local function assertHeader(frame, bar, title, close, key, what)
   assertEqual(points(close)[1][4], -6, what .. ": the close is 6 px in from the band's right")
 end
 
-test("skin chrome: both windows' headers sit on the title band in every skin (R5-WIN)", function()
+-- ── the title-bar controls (SR-LH, smoke round 1's rulings 3 and 4) ─────────────────────────────
+--
+-- Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS/SR1_SMOKE_ROUND1.md: every title-bar
+-- control on every window shows a tooltip on hover, in the owner's gtip.title, and rests in the
+-- skin's icon.tint; a close X lights close.hot under the pointer. This addon's two windows carry one
+-- title-bar control each, the close, built by Core.MakeCloseButton with this owner (core/CoreSetup.lua),
+-- so the library's AttachTitleTip and CloseButton paint are what this holds. A control added to
+-- either title bar joins its window's list below, or the window is not covered.
+local TITLE_CONTROLS = {
+  { what = "History", controls = function(win) return { close = win.closeButton } end },
+  { what = "export", controls = function(_, exp) return { close = exp.closeButton } end },
+}
+
+-- Hover `b` and answer what the tooltip was given: { text, color } or nil, and whether leave hid it.
+local function hoverTip(b)
+  local tip, got = mocks.GameTooltip, nil
+  local stock = rawget(tip, "SetText")
+  rawset(tip, "SetText", function(self, text, r, g, bl)
+    got = { text = text, c = rgba({ r, g, bl }) }
+    return self
+  end)
+  local ok, err = pcall(function() b:__fire("OnEnter") end)
+  local hot = b.icon and rgba(rawget(b.icon, "__vertex"))
+  b:__fire("OnLeave")
+  rawset(tip, "SetText", stock)
+  if not ok then error(err, 0) end
+  return got, hot, not tip:IsShown()
+end
+
+-- Every title-bar control of both windows under the skin worn now: a non-empty tooltip in gtip.title that
+-- leave hides, icon.tint at rest, the hover token under the pointer, and icon.tint again after. Run in
+-- the every-skin header case below rather than in cases of its own: each fresh build of the two windows
+-- keeps about 1 MB this suite's leak gate (256 MB) has no room left for.
+local function assertTitleControls(win, exp, key)
+  assertTrue(tokenOf("icon.tint") ~= tokenOf("close.hot"), key .. ": rest and hover are one color")
+  for _, w in ipairs(TITLE_CONTROLS) do
+    for name, b in pairs(w.controls(win, exp)) do
+      local label = ("%s %s, %s"):format(w.what, name, key)
+      assertTrue(b ~= nil and b.icon ~= nil, label .. ": the control draws its mark")
+      assertEqual(rgba(rawget(b.icon, "__vertex")), tokenOf("icon.tint"), label .. ": at rest")
+      local got, hot, hidden = hoverTip(b)
+      assertTrue(got ~= nil and type(got.text) == "string" and got.text ~= "", label .. ": no tooltip")
+      assertEqual(got.c, tokenOf("gtip.title"), label .. ": the tooltip in gtip.title")
+      assertTrue(hidden, label .. ": leave hides the tooltip")
+      -- A close lights close.hot; any other control would light text.link.
+      assertEqual(hot, tokenOf(name == "close" and "close.hot" or "text.link"), label .. ": under the pointer")
+      assertEqual(rgba(rawget(b.icon, "__vertex")), tokenOf("icon.tint"), label .. ": at rest again")
+    end
+  end
+end
+
+test("skin chrome: both windows' headers sit on the title band, and every title-bar control has its tooltip"
+  .. " and colors, in every skin (R5-WIN; SR-L2, SR-L3)", function()
   withFreshWindows(function(win, exp)
     assertTrue(exp.closeButton ~= nil, "the export modal keeps its close control")
     spyAllPoints(win.titleBar); spyAllPoints(exp.titleBar)
@@ -453,6 +505,7 @@ test("skin chrome: both windows' headers sit on the title band in every skin (R5
       Skin:SetChoice(OWNER, "ka0s", def.key)
       assertHeader(win, win.titleBar, win.title, win.closeButton, def.key, def.key .. ": History")
       assertHeader(exp, exp.titleBar, exp.titleFS, exp.closeButton, def.key, def.key .. ": export")
+      assertTitleControls(win, exp, def.key)
       local badge = points(win.testBadge)
       assertEqual(#badge, 1, def.key .. ": the badge has one anchor")
       local point, rel, relPoint, _, y = unpack(badge[1])

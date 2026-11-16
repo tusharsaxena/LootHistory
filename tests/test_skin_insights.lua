@@ -123,7 +123,9 @@ local TODAY = {
   ["card.bg"] = { 0.1, 0.1, 0.12, 0.85 }, ["card.border"] = { 0.24, 0.24, 0.27, 0.9 },
   ["panel.bg"] = { 0.08, 0.08, 0.10, 0.6 }, ["panel.border"] = { 0.24, 0.24, 0.27, 0.7 },
   ["text.heading"] = { 1, 0.82, 0 }, ["text.disabled"] = { 0.5, 0.5, 0.5 },
-  ["list.header.bg"] = { 1, 1, 1, 0.04 },
+  -- list.header.bg moved on purpose too: SkinDefs minor 28's SR-L4 (the re-cut v1.105.0, smoke round
+  -- 1's ruling 5) made Ka0s Default's section band black .35 (was white .04), so it stands off a stripe.
+  ["list.header.bg"] = { 0, 0, 0, 0.35 },
   ["section.rule"] = { 1, 0.82, 0, 0.35 }, ["chart.track"] = { 1, 1, 1, 0.06 },
   ["chart.bar"] = { 0.40, 0.60, 0.95, 0.9 }, ["text.muted"] = { 0.7, 0.7, 0.72 },
   ["text.value"] = { 0.8, 0.8, 0.82 }, ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 },

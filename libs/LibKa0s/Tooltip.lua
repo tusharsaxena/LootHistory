@@ -18,11 +18,13 @@
 --       edge: TOPLEFT at the group's right edge + TIP_GAP when the tooltip fits on the right, else
 --       TOPRIGHT at its left edge - TIP_GAP; the top level with the element's top, clamped on
 --       screen. A companion panel's own tooltips prefer its side away from the main window. When
---       neither side fits, the chrome rule below the element (flipping above at the bottom).
---   PlaceAttached(tip, el, zone, opts)  the CHROME rule. Centered on the element: TOP on its
---       BOTTOM - TIP_GAP for the top chrome ("top", the default; a modal's controls too), BOTTOM on
---       its TOP + TIP_GAP for the bottom chrome ("bottom"); flipped only when the screen has no
---       room; clamped sideways.
+--       neither side fits, the chrome rule above the element (flipping below at the top).
+--   PlaceAttached(tip, el, opts)        the CHROME rule, one rule for every attached tooltip (top
+--       chrome, footer, a HUD strip, a modal's controls). Centered on the element, ABOVE it: BOTTOM
+--       on its TOP + TIP_GAP; flipped BELOW (TOP on its BOTTOM - TIP_GAP) only when the screen has
+--       no room above; clamped sideways. The pointer hangs down from its hotspot, so above is the
+--       side it never covers (smoke round 1 of LIBKA0S_ISSUES_75_PLUS, ruling 2, SR-L1, which
+--       retired the third argument, the "top" / "bottom" zone that once chose the side).
 --   PlaceLauncher(tip, button, opts)    the LAUNCHER rule. Toward the screen's center by the button
 --       center's screen half (upper: below the button) and third (right: right edges level; left:
 --       left edges; middle: centered), TIP_GAP off the button.
@@ -61,7 +63,16 @@
 --   3. Globals (UIParent, issecretvalue) are read bare at call time, so a suite's fake screen moves
 --      them after load.
 --
+-- -- THE TITLE-BAR TOOLTIP (still minor 1: SR-L2, the same bundle's smoke round 1, ruling 3) ------
+--
+-- Every control on a library window's title bar carries a tooltip, the close included (whose
+-- docblock said "none, as it has always been"). `AttachTitleTip(btn, words, owner)` hooks one onto a
+-- control: the game tooltip owned by it at ANCHOR_NONE, one line in the owner's `gtip.title`, placed
+-- by PlaceAttached above it, hidden on leave. Core.MakeCloseButton gives every close one, with
+-- `CloseTip(owner)`: CLOSE_STRINGS' "Close", or the owner's own words (SetCloseTip).
+--
 -- Depends on LibStub only. No frames of its own, no events, no addon framework, no SavedVariables.
+-- A title-bar tooltip reads LibKa0s-Core-1.0's skin facade at hover time when it is there.
 
 local MAJOR, MINOR = "LibKa0s-Tooltip-1.0", 1
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
@@ -149,7 +160,7 @@ end
 --- The body rule's side and point. `gl`, `gr`: the group's outer edges; `elemTop`: the hovered
 --- element's top; the tooltip's size; the screen's; the gap; `prefer` "right" (the default) or
 --- "left". Answers `side, point, x, y` (x, y in screen units from the screen's bottom-left), or nil
---- when neither side fits (the caller falls back to the chrome rule below the element).
+--- when neither side fits (the caller falls back to the chrome rule, above the element).
 function lib.__solveBeside(gl, gr, elemTop, tipW, tipH, screenW, screenH, gap, prefer)
   local fitsRight = gr + gap + tipW <= screenW
   local fitsLeft  = gl - gap - tipW >= 0
@@ -175,22 +186,16 @@ local function centerX(el, er, tipW, screenW)
 end
 
 --- The chrome rule's side and point. The element's left, bottom, right and top; the tooltip's size;
---- the screen's; the gap; `zone` "top" (the default) or "bottom". Answers `side, point, x, y`:
---- "below" with the tooltip's TOP at the element's bottom - gap, or "above" with its BOTTOM at the
---- element's top + gap. A top-chrome element goes below unless the screen's bottom has no room and
---- its top has; a bottom-chrome element the mirror. When neither has room, its own side.
-function lib.__solveAttached(el, eb, er, et, tipW, tipH, screenW, screenH, gap, zone)
+--- the screen's; the gap. Answers `side, point, x, y`: "above" with the tooltip's BOTTOM at the
+--- element's top + gap, or "below" with its TOP at the element's bottom - gap. Above unless the
+--- screen's top has no room and its bottom has; with room on neither, above. A tenth argument (the
+--- retired zone) is ignored.
+function lib.__solveAttached(el, eb, er, et, tipW, tipH, screenW, screenH, gap)
   local x = centerX(el, er, tipW, screenW)
   local belowY, aboveY = eb - gap, et + gap
   local roomBelow = belowY - tipH >= 0
   local roomAbove = aboveY + tipH <= screenH
-  local below
-  if zone == "bottom" then
-    below = (not roomAbove) and roomBelow
-  else
-    below = roomBelow or not roomAbove
-  end
-  if below then return "below", "TOP", x, belowY end
+  if roomBelow and not roomAbove then return "below", "TOP", x, belowY end
   return "above", "BOTTOM", x, aboveY
 end
 
@@ -363,16 +368,19 @@ function lib.Own(tip, element, opts)
   return tip
 end
 
---- The chrome rule on a shown tooltip. `zone` "top" (the default; a modal's controls) or "bottom".
---- Answers "below" or "above", or nil with nothing placed when the geometry cannot be read.
-function lib.PlaceAttached(tip, element, zone, opts)
+--- The chrome rule on a shown tooltip: above `element`, below only when there is no room above.
+--- `opts.rect` as PlaceBeside's. Answers "above" or "below", or nil with nothing placed when the
+--- geometry cannot be read. The zone this slot once took is retired: a string here is no table, so
+--- it is read as no opts and chooses nothing.
+function lib.PlaceAttached(tip, element, opts)
   if type(tip) ~= "table" then return nil end
-  remember(tip, "PlaceAttached", element, zone, opts)
+  if type(opts) ~= "table" then opts = nil end
+  remember(tip, "PlaceAttached", element, opts)
   local sw, sh = screenSize()
   local tw, th = tipSize(tip)
   local el, eb, er, et = rectOf(element, opts)
   if not (sw and tw and el) then return nil end
-  local side, point, x, y = lib.__solveAttached(el, eb, er, et, tw, th, sw, sh, TIP_GAP, zone)
+  local side, point, x, y = lib.__solveAttached(el, eb, er, et, tw, th, sw, sh, TIP_GAP)
   pin(tip, point, x, y)
   return side
 end
@@ -380,7 +388,7 @@ end
 --- The body rule on a shown tooltip. `group`: a frame, a list of frames (main first), `{ main = f,
 --- panels = {...} }`, a function answering one, or nil (`GroupOf(element)`). `opts`: `prefer`
 --- ("right" | "left"), `comparisons` (false skips SetAnchorType), `rect`. Answers "right", "left",
---- or the fallback's "below" / "above"; nil with nothing placed when the geometry cannot be read.
+--- or the fallback's "above" / "below"; nil with nothing placed when the geometry cannot be read.
 function lib.PlaceBeside(tip, element, group, opts)
   if type(tip) ~= "table" then return nil end
   local sw, sh = screenSize()
@@ -396,7 +404,7 @@ function lib.PlaceBeside(tip, element, group, opts)
     side, point, x, y = lib.__solveBeside(gl, gr, et, tw, th, sw, sh, TIP_GAP, prefer)
   end
   if not side then
-    local result = lib.PlaceAttached(tip, element, "top", opts)
+    local result = lib.PlaceAttached(tip, element, opts)
     remember(tip, "PlaceBeside", element, group, opts)
     return result
   end
@@ -430,4 +438,79 @@ function lib.Replace(tip)
   local last = type(tip) == "table" and rawget(tip, "__ka0sTip")
   if type(last) ~= "table" or not lib[last.kind] then return nil end
   return lib[last.kind](tip, last.a, last.b, last.c)
+end
+
+-- -- the title-bar tooltip (SR-L2) ---------------------------------------------------------------
+
+--- The close's words, keyed for a host override (rawget, as every library string).
+lib.CLOSE_STRINGS = { CLOSE_TIP = "Close" }
+
+-- An owner's own words for its close (SetCloseTip). Kept across a minor upgrade, as the groups are.
+lib.__closeTips = lib.__closeTips or {}
+
+--- Record `words` as what `owner`'s close controls say (a translation): every close built with that
+--- owner reads it on each hover, so one call reaches the ones already built. nil or "" clears it.
+--- @return boolean  whether it was recorded or cleared (a non-empty owner string)
+function lib.SetCloseTip(owner, words)
+  if type(owner) ~= "string" or owner == "" then return false end
+  lib.__closeTips[owner] = type(words) == "string" and words ~= "" and words or nil
+  return true
+end
+
+--- What `owner`'s close says: its own words (SetCloseTip), else CLOSE_STRINGS.CLOSE_TIP.
+function lib.CloseTip(owner)
+  local v = type(owner) == "string" and rawget(lib.__closeTips, owner)
+  if type(v) == "string" then return v end
+  return lib.CLOSE_STRINGS.CLOSE_TIP
+end
+
+local function titleWords(b)
+  local w = rawget(b, "__titleTip")
+  if type(w) == "function" then w = w(b) end
+  return type(w) == "string" and w ~= "" and w or nil
+end
+
+--- `owner`'s `gtip.title`, through Core's facade (a registered skin owner only), or nil.
+local function titleColor(owner)
+  local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
+  local S = core and type(core.__SkinFacade) == "function" and core.__SkinFacade(owner)
+  local c = S and type(S.Token) == "function" and S.Token("gtip.title")
+  return type(c) == "table" and c or nil
+end
+
+local function showTitle(b)
+  local tip, words = GameTooltip, titleWords(b)
+  if not (words and tip and tip.SetOwner) then return end
+  tip:SetOwner(b, "ANCHOR_NONE")
+  local c = titleColor(rawget(b, "__titleTipOwner"))
+  if c then tip:SetText(words, c[1], c[2], c[3], 1, true) else tip:SetText(words, nil, nil, nil, nil, true) end
+  tip:Show()
+  if lib.PlaceAttached(tip, b) then return end
+  tip:ClearAllPoints()
+  tip:SetPoint("BOTTOM", b, "TOP", 0, TIP_GAP)
+end
+
+local function hideTitle(b)
+  local tip = GameTooltip
+  if not (tip and tip.Hide) then return end
+  if type(tip.IsOwned) == "function" and not tip:IsOwned(b) then return end
+  tip:Hide()
+end
+
+--- Give title-bar control `btn` its tooltip: `words`, a string or a function(btn) read on each
+--- hover, in `owner`'s `gtip.title` (a registered skin owner; else the tooltip's own color), above
+--- the control (PlaceAttached; unreadable geometry, above by a relative point). Hooked
+--- (HookScript), so the control's own hover pair keeps running; a second call replaces only the
+--- words and the owner. For a control a window builds outside Widgets' HeaderButton, whose marks
+--- show their own `tip` the same way.
+--- @return table|nil  `btn`, or nil where it is not a frame that takes scripts
+function lib.AttachTitleTip(btn, words, owner)
+  if type(btn) ~= "table" or type(btn.HookScript) ~= "function" then return nil end
+  local hooked = rawget(btn, "__titleTip") ~= nil
+  rawset(btn, "__titleTip", words or false)
+  rawset(btn, "__titleTipOwner", owner)
+  if hooked then return btn end
+  btn:HookScript("OnEnter", showTitle)
+  btn:HookScript("OnLeave", hideTitle)
+  return btn
 end

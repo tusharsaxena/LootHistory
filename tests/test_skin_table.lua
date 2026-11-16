@@ -206,7 +206,7 @@ test("skin table: on Ka0s Default every table surface draws the value it drew be
     -- the band lands there, not on a region; the scroll bar takes its track, as under every skin
     -- (LibKa0s SkinPaintControls minor 4).
     assertTrue(recorded(BT.headerFrame, "SortHeaderBar"), "the header is the skin's SortHeaderBar")
-    assertEqual(rgba(rawget(BT.headerFrame, "__backdropColor")), rgba({ 1, 1, 1, 0.04 }), "Ka0s Default's band")
+    assertEqual(rgba(rawget(BT.headerFrame, "__backdropColor")), rgba({ 0, 0, 0, 0.35 }), "Ka0s Default's band (black .35 since SR-L4 of v1.105.0)")
     local sb = rawget(BT.scroll, "ScrollBar")
     assertTrue(recorded(sb, "ScrollBar"), "the scroll bar is the skin's ScrollBar")
     assertTrue(#(rawget(sb, "__paintRegions") or {}) > 0, "Ka0s Default lays the track under the bar")

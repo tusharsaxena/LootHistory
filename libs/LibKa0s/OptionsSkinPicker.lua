@@ -150,7 +150,7 @@ if not lib then return end
 -- Minor 12: the queue's section and its header notes moved out, unchanged, to
 -- OptionsSkinPickerQueue.lua (LK-P1 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS,
 -- the seam CLAUDE.md's band census named); this file reads it through lib.__pickerQueueKit. Still 12
--- (LK-92B, LibKa0s#92): the toolbar's tips attach below their control (LibKa0s-Tooltip-1.0), not above.
+-- (LK-92B, LibKa0s#92; SR-L1): the toolbar's tips attach above their control (LibKa0s-Tooltip-1.0).
 local PICKER_MINOR = 12
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
@@ -397,8 +397,8 @@ local function attachTip(btn, text, P)
       GameTooltip:SetText(self.__tip or "", nil, nil, nil, nil, true)
     end
     GameTooltip:Show()
-    local Tip = LibStub("LibKa0s-Tooltip-1.0", true)   -- top chrome: attached below; else the same by hand
-    if not (Tip and Tip.PlaceAttached(GameTooltip, self, "top")) then GameTooltip:ClearAllPoints(); GameTooltip:SetPoint("TOP", self, "BOTTOM", 0, -2) end
+    local Tip = LibStub("LibKa0s-Tooltip-1.0", true)   -- attached above; else the same by hand
+    if not (Tip and Tip.PlaceAttached(GameTooltip, self)) then GameTooltip:ClearAllPoints(); GameTooltip:SetPoint("BOTTOM", self, "TOP", 0, 2) end
   end)
   btn:SetScript("OnLeave", function()
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end

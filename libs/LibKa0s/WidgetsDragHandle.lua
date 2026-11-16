@@ -113,13 +113,15 @@ if not lib then return end
 -- Minor 14 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): the
 -- tooltip half (the descriptor's bands, its owner and the placement hook) peeled, unchanged, to
 -- WidgetsDragHandleTip.lua, read through lib.__dragTipKit at hover time; then the strip's tooltip, and
--- its marks', attaches centered below the strip through LibKa0s-Tooltip-1.0 (a HUD strip is top
--- chrome), owned by UIParent, and `tooltipOwner`, `tooltipAnchor` and a descriptor's `owner` and
+-- its marks', attaches centered above the strip through LibKa0s-Tooltip-1.0 (below only without
+-- room above: SR-L1 of the same bundle's smoke round 1), owned by UIParent, and `tooltipOwner`, `tooltipAnchor` and a descriptor's `owner` and
 -- `anchor` are retired (accepted, not read). WidgetsDragHandleTip.lua's WHERE IT OPENS.
 -- Also minor 14 (LK-86 of the same run, LibKa0s#86): `spec.settings` (true, or a function) opts the
 -- strip into a settings mark, the close mark's twin, left of the X (else of the "?"), opening
 -- `spec.onSettings` or the function, else the owner's registered opener (Core minor 18's
 -- OpenSettings). Opt-in for this run: a third mark on every HUD strip would widen it at re-vendor.
+-- Also minor 14 (SR-L2, smoke round 1, ruling 3): a mark with no host descriptor shows the library's
+-- words (WidgetsDragHandleTip.lua's lib.DRAG_HANDLE_STRINGS, `spec.L`).
 local DRAG_MINOR = 14
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
@@ -436,8 +438,9 @@ end
 --- The tooltip half lives in WidgetsDragHandleTip.lua (peeled at minor 14), read at call time
 --- through lib.__dragTipKit so the newest copy of that file is this handle's. A shell whose copy
 --- has not attached it shows no tooltip. `DH_PAL` is the bands' palette for a handle with none.
-local function dhShowTooltip(handle, frame, spec, t)
+local function dhShowTooltip(handle, frame, spec, t, key)
   local kit = lib.__dragTipKit
+  if not t and key and kit and kit.default then t = kit.default(spec, key) end   -- minor 14, SR-L2
   if kit then kit.show(handle, frame, spec, t, DH_PAL) end
 end
 
@@ -503,7 +506,7 @@ local function dhBuildHelp(handle, spec)
   -- the next hover.
   help:SetScript("OnEnter", function()
     dhTint(help.icon, spec.onRightClick and handle.__pal.over or handle.__pal.tint)
-    dhShowTooltip(handle, help, spec, spec.helpTooltip or spec.tooltip)
+    dhShowTooltip(handle, help, spec, spec.helpTooltip or spec.tooltip, "HELP_TIP")
   end)
   help:SetScript("OnLeave", function()
     dhTint(help.icon, handle.__pal.tint)
@@ -553,7 +556,7 @@ local function dhBuildClose(handle, spec)
   end
   btn:SetScript("OnEnter", function()
     dhTint(btn.icon, handle.__pal.over)
-    dhShowTooltip(handle, btn, spec, spec.closeTooltip or spec.tooltip)
+    dhShowTooltip(handle, btn, spec, spec.closeTooltip or spec.tooltip, "CLOSE_TIP")
   end)
   btn:SetScript("OnLeave", function()
     dhTint(btn.icon, handle.__pal.tint)
@@ -614,7 +617,7 @@ local function dhBuildSettings(handle, spec)
   end
   btn:SetScript("OnEnter", function()
     dhTint(btn.icon, handle.__pal.over)
-    dhShowTooltip(handle, btn, spec, spec.settingsTooltip or spec.tooltip)
+    dhShowTooltip(handle, btn, spec, spec.settingsTooltip or spec.tooltip, "SETTINGS_TIP")
   end)
   btn:SetScript("OnLeave", function()
     dhTint(btn.icon, handle.__pal.tint)
@@ -895,9 +898,10 @@ end
 ---   onSettings  function|nil      minor 14. What the settings mark opens, with `settings = true`.
 ---   settingsOwner string|nil      minor 14. The registry key, where it is not `owner`.
 ---   settingsIcon string|nil       minor 14. Resolved texture path for the mark; nil falls back.
----   settingsTooltip table|nil     minor 14. The mark's own descriptor; `tooltip` without it.
+---   settingsTooltip table|nil     minor 14. The mark's own descriptor; `tooltip` without it, and
+---                                 DRAG_HANDLE_STRINGS.SETTINGS_TIP without either.
 ---   closeTooltip table|nil        a descriptor of the tooltip shape, shown by the X alone; the X
----                                 shows `tooltip` without it.
+---                                 shows `tooltip` without it, else Tooltip's CloseTip (minor 14).
 ---   tooltip     table|nil         the descriptor the STRIP shows, and the mark's too unless
 ---                                 `helpTooltip` says otherwise:
 ---                                   { title, body = {…}, footer = {…}, owner, anchor, place }
@@ -905,21 +909,21 @@ end
 ---                                 every band entry may be a string, a function called on each
 ---                                 hover whose nil return drops the line, or a
 ---                                 { <either>, r, g, b } table carrying its own color. No tooltip
----                                 without this.
+---                                 on the strip without this (its marks: DRAG_HANDLE_STRINGS).
 ---   helpTooltip table|nil         a SECOND descriptor, of the same shape, shown by the help mark
 ---                                 alone. A host with one tooltip for both frames writes only
 ---                                 `tooltip` and this stays absent; ConsumableMaster titles its
 ---                                 strip "Consumable Master" and its mark "Macro bar", with
 ---                                 different bodies and different anchors, and writes both.
 ---   tooltipOwner string|nil       RETIRED at minor 14 (accepted, not read). Every tooltip is owned
----                                 by UIParent at ANCHOR_NONE and attached centered below the strip
+---                                 by UIParent at ANCHOR_NONE and attached centered above the strip
 ---                                 (LibKa0s-Tooltip-1.0's PlaceAttached; WidgetsDragHandleTip.lua).
 ---   tooltipAnchor string|nil      RETIRED at minor 14, as `tooltipOwner`.
 ---   tooltipPlace function|nil     minor 4. tooltipPlace(tip, frame) -> true when it placed the
 ---                                 tooltip. The tooltip is owned by UIParent at ANCHOR_NONE,
 ---                                 drawn, shown, and then handed to this under pcall with the
 ---                                 frame hovered. A raise or any answer but `true` falls back to the
----                                 library's attached placement below the strip (minor 14; the
+---                                 library's attached placement above the strip (minor 14; the
 ---                                 cursor before). A descriptor's own `place` wins; a value that is
 ---                                 not a function is ignored.
 ---   edge        function|nil      the host's own 1px edge painter, called as
@@ -947,6 +951,7 @@ end
 ---                                 of the owner's skin INSTEAD of the default re-fit (ApplyWidth
 ---                                 with the host's last floor), for a host that sizes or shortens
 ---                                 the strip itself. Never called on an owner-less strip.
+---   L           table|nil         minor 14 (SR-L2): HELP_TIP, CLOSE_TIP, SETTINGS_TIP, rawget.
 --- @return table|nil handle  nil with no parent and nil in a process with no CreateFrame
 function lib.DragHandle(parent, spec)
   spec = spec or {}

@@ -68,7 +68,7 @@ if not lib then return end   -- the shell refused (no Core or Media): nothing to
 -- Minor 2 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): the
 -- tooltips go through LibKa0s-Tooltip-1.0 (WowAddonStandards standalone-windows, *Tooltip
 -- placement*): a cell's beside the browser window (the body rule), a toolbar control's attached
--- and centered below it (top chrome), where they owned at ANCHOR_RIGHT. THE TOOLTIPS, below.
+-- and centered above it (SR-L1: below only without room), where they owned at ANCHOR_RIGHT.
 local BROWSER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__browserMinor and lib.__browserMinor >= BROWSER_MINOR
@@ -299,18 +299,18 @@ local function drawStatus(b)
 end
 
 -- THE TOOLTIPS (minor 2). Owned at ANCHOR_NONE, filled, shown, then placed by LibKa0s-Tooltip-1.0,
--- read at call time: a cell's beside the browser window, a toolbar control's below the control.
--- Unreadable geometry (or no Tooltip major) attaches the tooltip below its element instead, never
+-- read at call time: a cell's beside the browser window, a toolbar control's above the control.
+-- Unreadable geometry (or no Tooltip major) attaches the tooltip above its element instead, never
 -- at the cursor.
 local function placeTip(tip, el, group)
   local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
   local side
   if Tip then
-    if group then side = Tip.PlaceBeside(tip, el, group) else side = Tip.PlaceAttached(tip, el, "top") end
+    if group then side = Tip.PlaceBeside(tip, el, group) else side = Tip.PlaceAttached(tip, el) end
   end
   if side then return end
   tip:ClearAllPoints()
-  tip:SetPoint("TOP", el, "BOTTOM", 0, -2)
+  tip:SetPoint("BOTTOM", el, "TOP", 0, 2)
 end
 
 -- A cell's hover tooltip: its icon's name and what a click does.
@@ -544,7 +544,7 @@ local function place(b, widget, point, x, y)
 end
 
 --- A toolbar control's tooltip (minor 2): AttachTooltip's lines in its colors (the host Options
---- instance's `__tipColor`), placed below the control, which sits in the window's top chrome.
+--- instance's `__tipColor`), placed above the control (SR-L1; below only without room above).
 local function tip(b, widget, titleKey, bodyKey)
   local anchor = widget.frame or widget
   local title, body = text(b, titleKey), text(b, bodyKey)

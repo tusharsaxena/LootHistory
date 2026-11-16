@@ -52,7 +52,7 @@ if not lib then return end
 -- Minor 7 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): the
 -- handle's tooltip opens beside the window the list sits in (LibKa0s-Tooltip-1.0's body rule, the
 -- group `GroupOf` finds), where it owned at ANCHOR_RIGHT on the handle; unreadable geometry attaches
--- it below the handle.
+-- it above the handle (SR-L1 of the same bundle's smoke round 1; it was below).
 local REORDER_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a list that
 -- attached to an older shell would publish `lib.ReorderList` beside a `lib.MODULES` the shell owns,
@@ -696,7 +696,7 @@ function lib.ReorderList(opts)
         local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
         if not (Tip and Tip.PlaceBeside(GameTooltip, self)) then
           GameTooltip:ClearAllPoints()
-          GameTooltip:SetPoint("TOP", self, "BOTTOM", 0, -2)
+          GameTooltip:SetPoint("BOTTOM", self, "TOP", 0, 2)
         end
       end
     end)
