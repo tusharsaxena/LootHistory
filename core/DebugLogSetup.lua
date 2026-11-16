@@ -74,6 +74,17 @@ if not lib then
       return { lines = {}, dropped = 0, capped = false, capsHit = false }
     end,
     DebugVerb = function() return false end,
+    -- The report and its serializer (DebugLog 23, LibKa0s v1.105.0, LibKa0s#79). With no console the
+    -- report streams to chat with no pointer, the ruling's library-absent arm; a serialize answers one
+    -- line. Carried for surface parity; no verb here routes through them yet (adoption is owed).
+    Report = function(_, _, _, fn)
+      local n = 0
+      if type(fn) == "function" then
+        fn(function(line) n = n + 1; if NS.Print then NS.Print(NS.SafeToString(line)) end end)
+      end
+      return n
+    end,
+    Serialize = function(_, v) return { NS.SafeToString(type(v) == "table" and "<table>" or v) } end,
     -- The change gates and the at-enable queue (DebugLogGates 1, LibKa0s v1.65.0). With no console
     -- there is nothing to write to, so each answers nothing, as the stub NS.Debug below does.
     DebugOnce     = function() end,

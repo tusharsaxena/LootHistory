@@ -128,7 +128,7 @@ local ATLAS_SIZES = {
 -- rather than over a module-level list that would mix two builds' frames together. Optional,
 -- because a consumer's own mock may call the published `M.__stubFrame` (which supplies it) or this
 -- function through some older path (which does not, and whose frames are then simply not surveyed).
-local function stubFrame(track)
+local function stubFrame(track, events)
   local f = { __shown = true, __scripts = {} }
   -- Track shown state so IsShown/Toggle behave (a debug console's visibility checkbox reads it).
   -- A new frame starts SHOWN, as `CreateFrame` hands one back in the client (kit revision 26; it
@@ -233,11 +233,22 @@ local function stubFrame(track)
   -- to hand back the frame -- truthy for every event, registered or not.
   f.__frameEvents = {}
   f.__unitEvents = {}
-  function f:RegisterEvent(event) self.__frameEvents[event] = true; return self end
-  function f:UnregisterEvent(event) self.__frameEvents[event] = nil; return self end
+  -- `events` is the build's hold (kit revision 57, `mock_events.lua`): a registration holds the
+  -- frame and the last unregistration lets go. It is one table per build, reached from these
+  -- closures, so the hold adds no closure per frame (a suite can make tens of thousands).
+  function f:RegisterEvent(event)
+    self.__frameEvents[event] = true; if events then events.hold(self) end; return self
+  end
+  function f:UnregisterEvent(event)
+    self.__frameEvents[event] = nil; if events then events.release(self) end; return self
+  end
   function f:IsEventRegistered(event) return self.__frameEvents[event] == true end
-  function f:RegisterUnitEvent(event, ...) self.__unitEvents[event] = { ... }; return self end
-  function f:UnregisterAllEvents() self.__frameEvents, self.__unitEvents = {}, {}; return self end
+  function f:RegisterUnitEvent(event, ...)
+    self.__unitEvents[event] = { ... }; if events then events.hold(self) end; return self
+  end
+  function f:UnregisterAllEvents()
+    self.__frameEvents, self.__unitEvents = {}, {}; if events then events.release(self) end; return self
+  end
 
   setmetatable(f, { __index = function(_, k)
     if type(k) == "string" and k:match("^%u") then
@@ -266,7 +277,8 @@ return function()
     frameSet[f] = true
     return f
   end
-  local function newFrame() return stubFrame(trackFrame) end
+  local frameEvents = Events.frameHooks(M)
+  local function newFrame() return stubFrame(trackFrame, frameEvents) end
 
   -- Exposed so an addon's own mock can build extra frame-shaped objects (GameTooltip stand-ins,
   -- StopwatchFrame, …) without duplicating the stub. It hands back a TRACKED frame, so a stand-in

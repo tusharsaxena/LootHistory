@@ -166,7 +166,12 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   --
   -- Minor 26 (LibKa0s v1.91.0, FU-L2) moves Dropdown, ContextMenu and CloseMenu, unchanged, to
   -- WidgetsDropdown.lua. No member, option or row field moves, so nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 26, "this adoption is written against Widgets minor 26")
+  --
+  -- Minor 27 (LibKa0s v1.103.0, carried at v1.105.0) adds `W.Footer`, `W.FOOTER` and the strip's
+  -- docking, and v1.105.0 adds `W.HeaderButtons` and `W.Bar` in files of their own; WidgetsDropdown
+  -- minor 2 (LibKa0s#92) opens an entry's tooltip beside its menu where it owned at ANCHOR_RIGHT on the
+  -- row. No Dropdown, ContextMenu or CloseMenu member, option or row field moves, so nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 27, "this adoption is written against Widgets minor 27")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

@@ -199,7 +199,12 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 --- R5_SIGNOFF.md): Ka0s Default's band is darker, #262006 over #141103, its blend #1D1805, and the
 --- picker's second swatch with it. It moves although v1.85.0 is a local cut: minor 26 copies already
 --- sit in vendored trees, and of two copies at one minor the first loaded wins.
-local DEFS_MINOR = 27
+-- Minor 28 (LibKa0s#84, Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, design 3.4,
+-- the owner's call D-5): Ka0s Default's rows read apart. `list.stripe` is white at .08 (was .03, 3 L*
+-- off the window against ~10 for every other skin), `list.hover` gold .16 (was .10) and `list.sel`
+-- gold .26 (was .18), so a hovered row still stands off a striped one and a selected row off a
+-- hovered one. Every skin is held to the L* floors in tests/test_skin_defs.lua.
+local DEFS_MINOR = 28
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
 lib.__defsMinor      = DEFS_MINOR
@@ -406,9 +411,10 @@ local KA0S = {
   -- A suggestion list's fill and edge (minor 23, cause L8): the skinned box it hung from, at the alpha
   -- floor WidgetsAutocomplete keeps.
   ["menu.suggestBg"] = { CTL_FILL[1], CTL_FILL[2], CTL_FILL[3], 0.95 }, ["menu.suggestBorder"] = CTL_LINE,
-  -- Lists and cards: BrowserTable / HoldingsTab rows, Analytics KPI cards and list panels.
-  ["list.header.text"] = GOLD, ["list.header.arrow"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.03 },
-  ["list.hover"] = { 1, 0.82, 0, 0.10 },
+  -- Lists and cards: BrowserTable / HoldingsTab rows, Analytics KPI cards and list panels. The
+  -- stripe, hover and selection rose off those rows' constants at minor 28 (LibKa0s#84).
+  ["list.header.text"] = GOLD, ["list.header.arrow"] = GOLD, ["list.stripe"] = { 1, 1, 1, 0.08 },
+  ["list.hover"] = { 1, 0.82, 0, 0.16 },
   -- The settings chrome's hover art (minor 16, LK-06c): `false`, the client's ADD highlight art
   -- as it draws it (the drawer head, the nav entry, the id list entry, the suggestion row).
   ["list.hoverArt"] = false,
@@ -508,7 +514,7 @@ local KA0S = {
   ["tab.border"] = false, ["tab.borderSize"] = 1, ["tab.borderStyle"] = "flat",
   ["tab.onBg"] = { 0.18, 0.18, 0.18, 0.9 }, ["tab.texture"] = false, ["tab.onTexture"] = false,
   ["nav.borderSize"] = 1, ["nav.borderStyle"] = false, ["nav.selBar"] = false,
-  ["list.header.bg"] = { 1, 1, 1, 0.04 }, ["list.sel"] = { 1, 0.82, 0, 0.18 }, ["list.selOutline"] = false,
+  ["list.header.bg"] = { 1, 1, 1, 0.04 }, ["list.sel"] = { 1, 0.82, 0, 0.26 }, ["list.selOutline"] = false,
   ["popup.border"] = CTL_LINE, ["popup.borderSize"] = 1, ["popup.borderStyle"] = false,
   ["tooltip.bg"] = { 0.05, 0.05, 0.08, 0.95 }, ["tooltip.border"] = CTL_LINE,
   ["bar.bg"] = { 0, 0, 0, 0.5 }, ["bar.border"] = { 0, 0, 0, 1 }, ["icon.border"] = { 0, 0, 0, 1 },

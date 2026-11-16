@@ -1,5 +1,6 @@
 -- testkit/client_globals.lua -- the static missing-globals scanner behind tests/_kit/test_client_globals.lua
--- (kit revision 53, WFP-LK-06, LibKa0s#77).
+-- (kit revision 53, WFP-LK-06, LibKa0s#77). Kit revision 54 (QFE-LK2) splits strip, scan and judge
+-- into file-local helpers so no function is over CCN 15; no behavior change.
 --
 -- THE QUESTION. Does this addon call a global function the client does not have? Retail's mock
 -- hides the answer: `SetDesaturation(x, true)` is absent from both clients' API, a headless suite
@@ -64,41 +65,61 @@ local function ownDir()
 end
 local OWN = ownDir()
 
+--- `s` with every character but a newline blanked to a space.
+local function blank(s) return (s:gsub("[^\n]", " ")) end
+
+--- The comment that starts at `i` (`--`, short or long), blanked, and the index after it.
+local function stripComment(src, i, n)
+  local eq = src:match("^%-%-%[(=*)%[", i)
+  local stop
+  if eq then
+    local _, e = src:find("]" .. eq .. "]", i, true)
+    stop = e or n
+  else
+    stop = (src:find("\n", i, true) or n + 1) - 1
+  end
+  return blank(src:sub(i, stop)), stop + 1
+end
+
+--- The quoted string that starts at `i` (quote `c`), its body blanked and its quotes kept, and the
+--- index after it. An unclosed string stops at the end of its line.
+local function stripQuoted(src, i, n, c)
+  local j = i + 1
+  while j <= n do
+    local d = src:sub(j, j)
+    if d == "\\" then j = j + 2
+    elseif d == c or d == "\n" then break
+    else j = j + 1 end
+  end
+  return c .. blank(src:sub(i + 1, j - 1)) .. (src:sub(j, j) == c and c or ""), j + 1
+end
+
+--- The long string that starts at `i` (`[[`, `[=[`, ...), blanked, and the index after it.
+local function stripLong(src, i, n)
+  local eq = src:match("^%[(=*)%[", i)
+  local _, e = src:find("]" .. eq .. "]", i, true)
+  e = e or n
+  return blank(src:sub(i, e)), e + 1
+end
+
+--- One piece of `src` from `i`, as `strip` writes it, and the index after it: a comment or a string
+--- blanked, or the code up to the next character that could open one, as it is.
+local function stripPiece(src, i, n)
+  local c = src:sub(i, i)
+  if c == "-" and src:sub(i + 1, i + 1) == "-" then return stripComment(src, i, n) end
+  if c == '"' or c == "'" then return stripQuoted(src, i, n, c) end
+  if c == "[" and src:match("^%[=*%[", i) then return stripLong(src, i, n) end
+  local j = src:find("[%-\"'%[]", i + 1) or n + 1
+  return src:sub(i, j - 1), j
+end
+
 --- `src` with every comment and string body blanked to spaces, newlines kept, so line numbers hold.
 function CG.strip(src)
   local out, i, n = {}, 1, #src
-  local function blank(s) return (s:gsub("[^\n]", " ")) end
   while i <= n do
-    local c = src:sub(i, i)
-    if c == "-" and src:sub(i + 1, i + 1) == "-" then
-      local eq = src:match("^%-%-%[(=*)%[", i)
-      local stop
-      if eq then
-        local _, e = src:find("]" .. eq .. "]", i, true)
-        stop = e or n
-      else
-        stop = (src:find("\n", i, true) or n + 1) - 1
-      end
-      out[#out + 1] = blank(src:sub(i, stop)); i = stop + 1
-    elseif c == '"' or c == "'" then
-      local j = i + 1
-      while j <= n do
-        local d = src:sub(j, j)
-        if d == "\\" then j = j + 2
-        elseif d == c or d == "\n" then break
-        else j = j + 1 end
-      end
-      out[#out + 1] = c .. blank(src:sub(i + 1, j - 1)) .. (src:sub(j, j) == c and c or "")
-      i = j + 1
-    elseif c == "[" and src:match("^%[=*%[", i) then
-      local eq = src:match("^%[(=*)%[", i)
-      local _, e = src:find("]" .. eq .. "]", i, true)
-      e = e or n
-      out[#out + 1] = blank(src:sub(i, e)); i = e + 1
-    else
-      local j = src:find("[%-\"'%[]", i + 1) or n + 1
-      out[#out + 1] = src:sub(i, j - 1); i = j
-    end
+    local piece
+    piece, i = stripPiece(src, i, n)
+    out[#out + 1] = piece
   end
   return table.concat(out)
 end
@@ -213,43 +234,66 @@ local function callsOf(text)
   end
 end
 
---- Every finding in `files` (`{ { path, src }, ... }`), as `{ file, line, name, client }`, for both
---- clients (the caller picks which count). `sets` is CG.sets's answer.
-function CG.scan(files, sets)
+--- Every file stripped, with what it declares: the stripped code and the locals per file, and the
+--- globals every file shares.
+local function prepare(files)
   local stripped, locals, globals = {}, {}, {}
   for i, f in ipairs(files) do
     stripped[i] = CG.strip(f[2])
     locals[i] = {}
     CG.declare(stripped[i], locals[i], globals)
   end
-  local found, seen = {}, {}
-  for i, f in ipairs(files) do
-    local code, guard, line = stripped[i], {}, 0
-    local function guarded(name, root)
-      local key = name
-      if guard[key] == nil then
-        guard[key] = referenced(code, name, false) or (root ~= nil and referenced(code, root, false))
-      end
-      return guard[key]
+  return stripped, locals, globals
+end
+
+--- One file's guard test, `guarded(name, root)`, cached by name over that file's stripped `code`.
+local function guardOf(code)
+  local guard = {}
+  return function(name, root)
+    local key = name
+    if guard[key] == nil then
+      guard[key] = referenced(code, name, false) or (root ~= nil and referenced(code, root, false))
     end
-    for text in (code .. "\n"):gmatch("([^\n]*)\n") do
-      line = line + 1
-      for _, call in ipairs(callsOf(text)) do
-        local root, member = call[1], call[2]
-        local name = member and (root .. "." .. member) or root
-        if not locals[i][root] and not globals[root] and not (member and not sets.roots[root]) then
-          for _, client in ipairs({ "live", "forever" }) do
-            local key = f[1] .. ":" .. line .. ":" .. name .. ":" .. client
-            if not sets[client][name] and not seen[key] and not guarded(name, member and root) then
-              seen[key] = true
-              found[#found + 1] = { file = f[1], line = line, name = name, client = client }
-            end
-          end
-        end
+    return guard[key]
+  end
+end
+
+--- Record `call`, on `line` of `path`, once for each client whose set lacks it, unless the file guards
+--- it. `ctx` carries `sets`, `found` and `seen` (the keys already recorded, across every file).
+local function recordCall(ctx, path, line, call, guarded)
+  local root, member = call[1], call[2]
+  local name = member and (root .. "." .. member) or root
+  for _, client in ipairs({ "live", "forever" }) do
+    local key = path .. ":" .. line .. ":" .. name .. ":" .. client
+    if not ctx.sets[client][name] and not ctx.seen[key] and not guarded(name, member and root) then
+      ctx.seen[key] = true
+      ctx.found[#ctx.found + 1] = { file = path, line = line, name = name, client = client }
+    end
+  end
+end
+
+--- Every finding in one stripped file, line by line: a call is checked when the addon does not
+--- declare its root and, for a member, when its root is a namespace some client knows.
+local function scanFile(ctx, path, code, fileLocals)
+  local guarded, line = guardOf(code), 0
+  for text in (code .. "\n"):gmatch("([^\n]*)\n") do
+    line = line + 1
+    for _, call in ipairs(callsOf(text)) do
+      local root, member = call[1], call[2]
+      if not fileLocals[root] and not ctx.globals[root] and not (member and not ctx.sets.roots[root]) then
+        recordCall(ctx, path, line, call, guarded)
       end
     end
   end
-  return found
+end
+
+--- Every finding in `files` (`{ { path, src }, ... }`), as `{ file, line, name, client }`, for both
+--- clients (the caller picks which count). `sets` is CG.sets's answer.
+function CG.scan(files, sets)
+  local stripped, locals, globals = prepare(files)
+  local ctx = { sets = sets, globals = globals, found = {}, seen = {} }
+  for i, f in ipairs(files) do scanFile(ctx, f[1], stripped[i], locals[i]) end
+  return ctx.found
 end
 
 --- The tracked `.lua` of the repo at `root`, `tests/` and any `skip` prefix left out, as `{ { path, src }, ... }`, and the
@@ -298,6 +342,25 @@ local function rowTakes(row, hit)
   return row.name == hit.name and (row.path == nil or hit.file:sub(1, #row.path) == row.path)
 end
 
+--- Whether an addon allowlist row is malformed: no name, no reason, or a path that is no string.
+local function badRow(row)
+  return type(row.name) ~= "string" or row.name == "" or type(row.reason) ~= "string" or row.reason == ""
+    or (row.path ~= nil and type(row.path) ~= "string")
+end
+
+--- Whether any row, built-in or the addon's, takes `hit`; every addon row that does is marked in
+--- `used`, so the stale check sees it.
+local function takenBy(hit, allow, used)
+  local taken = false
+  for _, row in ipairs(CG.BUILTIN) do
+    if rowTakes(row, hit) then taken = true end
+  end
+  for i, row in ipairs(allow) do
+    if rowTakes(row, hit) then used[i] = true; taken = true end
+  end
+  return taken
+end
+
 --- Sort findings against the kit's built-in rows and the addon's own: answers `bad` (findings in
 --- `clients` no row takes), `problems` (a row with no name or no reason) and `stale` (an addon row
 --- no finding in EITHER client reaches). An addon row is `{ name, reason }` with an optional `path`
@@ -306,20 +369,12 @@ function CG.judge(found, allow, clients)
   local want, used, bad, problems, stale = {}, {}, {}, {}, {}
   for _, c in ipairs(clients) do want[c] = true end
   for i, row in ipairs(allow) do
-    if type(row.name) ~= "string" or row.name == "" or type(row.reason) ~= "string" or row.reason == ""
-      or (row.path ~= nil and type(row.path) ~= "string") then
+    if badRow(row) then
       problems[#problems + 1] = ("allowlist row %d needs a name and a reason (and a string path, if any)"):format(i)
     end
   end
   for _, hit in ipairs(found) do
-    local taken = false
-    for _, row in ipairs(CG.BUILTIN) do
-      if rowTakes(row, hit) then taken = true end
-    end
-    for i, row in ipairs(allow) do
-      if rowTakes(row, hit) then used[i] = true; taken = true end
-    end
-    if not taken and want[hit.client] then
+    if not takenBy(hit, allow, used) and want[hit.client] then
       bad[#bad + 1] = ("%s:%d %s %s"):format(hit.file, hit.line, hit.name, hit.client)
     end
   end

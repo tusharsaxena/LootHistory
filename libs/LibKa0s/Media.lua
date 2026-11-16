@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 12
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 13
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -162,8 +162,8 @@ lib.ICONS = {
 -- THE MASK IS PER FACE (minor 6; minor 5 had one for all). LibSharedMedia refuses a font whose mask
 -- lacks the client's locale bit, which is the point: a face that draws a player's text as boxes does
 -- not belong in their dropdown. The mask is read off each shipped file's cmap: JetBrains Mono and the
--- families with Cyrillic (Expressway and Ubuntu among them) are western + ruRU; Atkinson, Prototype,
--- Emblem and Doris PP have none and are western only.
+-- families with Cyrillic (Expressway, Ubuntu and Russo One among them) are western + ruRU; Atkinson,
+-- Prototype, Emblem, Doris PP and Bebas Neue have none and are western only.
 -- None has Hangul or Han, and on such a client the skin falls back to the client's own font.
 --
 -- PROTOTYPE IS KA0S DEFAULT'S FACE (minor 10; the owner's ruling of 2026-10-30), for body, titles
@@ -213,6 +213,14 @@ lib.ICONS = {
 -- once WoW Default draws Ubuntu, and the owner ruled it out of the payload. Skin.lua's RETIRED_FONTS
 -- moves a stored pick of the key to Ka0s Ubuntu. LibSharedMedia's own "Friz Quadrata TT", the client's
 -- face, is not ours and is untouched.
+--
+-- THE CALLOUT FACES (minor 13; the owner's choice of 2026-11-13 for LibKa0s-Callout-1.0's big
+-- countdown and call-out text, beside Oxanium): Bebas Neue and Russo One, each SIL OFL 1.1 and each
+-- google/fonts' static file, unchanged. Russo One reserves its name, so it is never instanced or
+-- renamed. `tools/artwork/fonts.py` pins both. Russo One has the Russian alphabet, so western + ruRU;
+-- Bebas Neue has no Cyrillic. Orbitron, the third face planned, stays out on the owner's ruling of
+-- 2026-11-13: its Bold lacks 28 characters of the glyph safe set (the middle dot, the plus-minus sign,
+-- the guillemets among them), which every consumer's prose would have lost.
 local WEST_RU = { "western", "ruRU" }
 lib.FONTS = {
   ["JetBrains Mono"]          = { file = "JetBrainsMono-Regular.ttf", license = "JetBrainsMono-OFL.txt",
@@ -261,6 +269,9 @@ lib.FONTS = {
   ["Ka0s Doris PP"]           = { file = "DorisPP-Bold.ttf", license = "FONTS.md", langmask = { "western" } },
   ["Ka0s Avant Garde"]        = { file = "AvantGarde-Regular.ttf", license = "FONTS.md", langmask = WEST_RU },
   ["Ka0s Ubuntu"]             = { file = "Ubuntu-Regular.ttf", license = "Ubuntu-UFL.txt", langmask = WEST_RU },
+  ["Ka0s Bebas Neue"]         = { file = "BebasNeue-Regular.ttf", license = "BebasNeue-OFL.txt",
+                                  langmask = { "western" } },
+  ["Ka0s Russo One"]          = { file = "RussoOne-Regular.ttf", license = "RussoOne-OFL.txt", langmask = WEST_RU },
 }
 
 -- Every statusbar texture in `media/textures/`, keyed by the LSM name it registers under -- which is

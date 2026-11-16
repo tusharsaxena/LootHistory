@@ -255,6 +255,10 @@ local function unregisterAllEvents(self)
   -- reason that has nothing to do with the addon under test.
   if type(self.__frameEvents) == "table" then self.__frameEvents = {} end
   if type(self.__unitEvents) == "table" then self.__unitEvents = {} end
+  -- And the frame's raw registrations were what held it (kit revision 57, `mock_events.lua`), so
+  -- the hold goes with them, or the frame would stay held with nothing registered.
+  local release = build and build.M and build.M.__releaseFrame
+  if release then release(self) end
   return self
 end
 

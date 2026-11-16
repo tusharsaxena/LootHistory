@@ -26,8 +26,13 @@ local core = LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE or type(lib.__dropdownKit) ~= "table" then return end
 
-local DROPDOWN_MINOR = 1
+local DROPDOWN_MINOR = 2
 -- Minor 1: the dropdown and the shared menu, moved here unchanged from Widgets.lua (its minor 26).
+-- Minor 2 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): an
+-- entry's tooltip opens beside its menu (LibKa0s-Tooltip-1.0's body rule; WowAddonStandards
+-- standalone-windows, *Tooltip placement*: "menu entries use the menu frame as the group"), where it
+-- owned at ANCHOR_RIGHT on the row. A host renderer still draws its own lines; a tooltip it shows,
+-- owned by the row, is then placed the same way. `row.__menu` is the level a pooled row sits in.
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__dropdownMinor and lib.__dropdownMinor >= DROPDOWN_MINOR
   and lib.__dropdownShellMinor == lib.MINOR then return end
@@ -102,6 +107,7 @@ end
 -- reuses these, which is why paintMenuRow repaints every last field of one.
 local function makeMenuRow(menu)
   local b = CreateFrame("Button", nil, menu)
+  b.__menu = menu
   b:SetHeight(MENU_ROW_H)
   local fs = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   fs:SetPoint("RIGHT", -8, 0)
@@ -284,14 +290,32 @@ local function paintMenuRow(b, dd, opt, selected, pal, glyphFace, hover)
   if opt.color then b.glyph:SetTextColor(opt.color[1], opt.color[2], opt.color[3]) end
 end
 
+--- Place a shown GameTooltip beside `row`'s menu (minor 2), else attached below the row.
+local function placeRowTip(tip, row)
+  local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
+  if Tip and Tip.PlaceBeside(tip, row, row.__menu) then return end
+  tip:ClearAllPoints()
+  tip:SetPoint("TOP", row, "BOTTOM", 0, -2)
+end
+
 --- A row's tooltip: a string, or the host's renderer `fn(rowFrame, opt)`, on GameTooltip either way.
+--- A renderer's tooltip is placed when it showed one owned by the row (minor 2).
 function lib.__rowTip(row, opt, pal)
-  if type(GameTooltip) ~= "table" then return end
+  local tip = GameTooltip
+  if type(tip) ~= "table" then return end
   lib.__tipUp = true
-  if type(opt.tooltip) == "function" then return opt.tooltip(row, opt) end
-  GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-  GameTooltip:SetText(tostring(opt.tooltip), pal.text[1], pal.text[2], pal.text[3], 1, true)
-  GameTooltip:Show()
+  if type(opt.tooltip) == "function" then
+    local r1, r2 = opt.tooltip(row, opt)
+    if type(tip.IsShown) == "function" and tip:IsShown() == true and type(tip.IsOwned) == "function"
+      and tip:IsOwned(row) == true then
+      placeRowTip(tip, row)
+    end
+    return r1, r2
+  end
+  tip:SetOwner(row, "ANCHOR_NONE")
+  tip:SetText(tostring(opt.tooltip), pal.text[1], pal.text[2], pal.text[3], 1, true)
+  tip:Show()
+  placeRowTip(tip, row)
 end
 
 function lib.__rowTipOff()

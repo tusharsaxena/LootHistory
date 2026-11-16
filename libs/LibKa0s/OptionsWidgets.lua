@@ -59,7 +59,12 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- section heading, a text row and a note keep the skin's face with the Scope cleared.
 -- Minor 44 (cause L5 of the same bundle): a landing page's command rows take `text.command` and
 -- `text.strong` while the chrome is skinned; anywhere else they stay as LibKa0s-Slash-1.0 typed them.
-local WIDGETS_MINOR = 45
+-- Minor 46 (L0 of Skill Master docs/superpowers/plans/2026-11-14-feedback-round9.md, the owner's
+-- screenshot of a slider box reading "1.5awd"): a number row's slider box takes no junk. AceGUI's
+-- Slider ignores an Enter on text that is not a number and never re-reads the box when it loses
+-- focus, so what was typed stayed on screen beside a value it never stored. makeSlider now puts the
+-- box back to the slider's value on such an Enter and on every focus loss (sliderBoxGuard, below).
+local WIDGETS_MINOR = 46
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__widgetsMinor and lib.__widgetsMinor >= WIDGETS_MINOR
@@ -169,6 +174,47 @@ end
 ---
 --- The set runs after the widget's paint and past its SetFontObject hook, so the skin is told: the
 --- font becomes the stock one, and the skin's face goes back over it at that font's size.
+-- ── THE SLIDER'S BOX (minor 46) ──────────────────────────────────────────────────────────────
+--
+-- AceGUI's Slider (AceGUIWidget-Slider.lua) draws an edit box under the bar. Its Enter handler
+-- reads `tonumber` of the text and does nothing when that is nil, and it has no focus-loss handler,
+-- so "1.5awd" stays in the box while the setting keeps its old value. The box is AceGUI's and is
+-- not patched: a post-hook, set once per pooled box (`lib.__sliderBoxes`, kept across minors so a
+-- newer copy adds none), puts the text back to the widget's own value (`w:SetValue(w.value)`, which
+-- rewrites the box the way AceGUI does). It acts only for a widget this library made, marked in the
+-- widget's `userdata`, which AceGUI clears on Release, so a pooled box another addon acquires next is
+-- left as AceGUI ships it. A percent slider's Enter on junk raises inside AceGUI's own handler
+-- (`tonumber(value) / 100`), before any post-hook runs; its focus loss is still put back.
+lib.__sliderBoxes = lib.__sliderBoxes or setmetatable({}, { __mode = "k" })
+local BOX_MARK = "__lkNumericBox"
+
+--- The number the box's `text` says, read as AceGUI reads it (a trailing % on a percent slider).
+local function boxNumber(w, text)
+  if type(text) ~= "string" then return nil end
+  if w.ispercent then text = text:gsub("%%", "") end
+  return tonumber(text)
+end
+
+--- Put the box under `frame` back to its widget's value: always on a focus loss, and on an Enter
+--- only when the text is not a number (a number's Enter is AceGUI's commit).
+local function revertSliderBox(frame, always)
+  local w = frame.obj
+  if type(w) ~= "table" or type(w.userdata) ~= "table" or not w.userdata[BOX_MARK] then return end
+  if not always and boxNumber(w, frame:GetText()) then return end
+  if type(w.value) == "number" and type(w.SetValue) == "function" then w:SetValue(w.value) end
+end
+
+--- Mark slider widget `s` as this library's and hook its box once.
+local function sliderBoxGuard(s)
+  local eb = s.editbox
+  if type(s.userdata) ~= "table" or type(eb) ~= "table" or type(eb.HookScript) ~= "function" then return end
+  s.userdata[BOX_MARK] = true
+  if lib.__sliderBoxes[eb] then return end
+  lib.__sliderBoxes[eb] = true
+  eb:HookScript("OnEnterPressed", function(frame) revertSliderBox(frame, false) end)
+  eb:HookScript("OnEditFocusLost", function(frame) revertSliderBox(frame, true) end)
+end
+
 local function applyLabelFont(widget, fontName)
   if not fontName then return end
   local fs = widget.label
@@ -649,6 +695,7 @@ function lib.__AttachWidgets(O, d)
     -- Read from the row rather than hardcoded: a 0-1 ratio row renders as a percentage, which is
     -- the whole reason the field exists in the schema.
     s:SetIsPercent(row.isPercent and true or false)
+    sliderBoxGuard(s)   -- minor 46: no junk left in the box
     applyWidth(s, relativeWidth)
 
     local applyDisabled = bindDisabled(ctx, row, s)

@@ -110,7 +110,17 @@ if not lib then return end
 -- Minor 13 (SF2-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the strip's own
 -- four edges are one PHYSICAL pixel at any UI scale, re-sized on a scale change, through the shell's
 -- lib.__pixelLine (Widgets minor 25), where they were one UI unit. A host's `spec.edge` is unchanged.
-local DRAG_MINOR = 13
+-- Minor 14 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): the
+-- tooltip half (the descriptor's bands, its owner and the placement hook) peeled, unchanged, to
+-- WidgetsDragHandleTip.lua, read through lib.__dragTipKit at hover time; then the strip's tooltip, and
+-- its marks', attaches centered below the strip through LibKa0s-Tooltip-1.0 (a HUD strip is top
+-- chrome), owned by UIParent, and `tooltipOwner`, `tooltipAnchor` and a descriptor's `owner` and
+-- `anchor` are retired (accepted, not read). WidgetsDragHandleTip.lua's WHERE IT OPENS.
+-- Also minor 14 (LK-86 of the same run, LibKa0s#86): `spec.settings` (true, or a function) opts the
+-- strip into a settings mark, the close mark's twin, left of the X (else of the "?"), opening
+-- `spec.onSettings` or the function, else the owner's registered opener (Core minor 18's
+-- OpenSettings). Opt-in for this run: a third mark on every HUD strip would widen it at re-vendor.
+local DRAG_MINOR = 14
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -423,129 +433,17 @@ local function dhDrawEdge(frame, size, r, g, b, a)
   return out
 end
 
---- One tooltip entry, EVALUATED NOW rather than captured at build time, with the color it asked
---- for. Three shapes, and the third is the reason there is a shape at all:
----
----   "text"                    used as it stands, in its band's color
----   function() -> string|nil  called on every hover; a nil return drops the line entirely
----   { <either>, r, g, b }     the same, in a color of its own rather than its band's
----
---- The function form is what lets ConsumableMaster's footer say "Locked. Unlock the bar…" or
---- "Lock the bar…" from the same handle. The colored form is what lets AuraMaster keep its
---- conditional "Attached — set its offsets on the Layout page." line GOLD where it sits today: it
---- is a body line, in a white band, and a shape whose bands were each one color would have
---- recolored it on adoption or pushed it into the gray footer with a blank line above it.
---- @return string|nil text, number|nil r, number|nil g, number|nil b
-local function dhEntry(v)
-  local r, g, b
-  if type(v) == "table" then v, r, g, b = v[1], v[2], v[3], v[4] end
-  if type(v) == "function" then v = v() end
-  if v == nil then return nil end
-  return v, r, g, b
-end
-
---- The lines of one band that survive this hover, in order, each carrying the color it will be
---- drawn in. Nothing is drawn here, because whether the footer's blank spacer is drawn at all
---- depends on how many came back.
-local function dhBand(entries, r, g, b)
-  local out
-  for _, entry in ipairs(entries or {}) do
-    local s, er, eg, eb = dhEntry(entry)
-    if s then
-      out = out or {}
-      out[#out + 1] = { s, er or r, eg or g, eb or b }
-    end
-  end
-  return out
-end
-
---- Own the tooltip for THIS hover, by the frame actually under the cursor.
----
---- The OWNER is the host's call and it is a correctness knob, not a style one. AuraMaster's anchor
---- inherits DisableUntrustedLayoutScriptsTemplate and the restriction reaches every frame under it,
---- so the client refuses SetOwner on the strip or the mark ("Anchoring disallowed as dependent
---- object would inherit forbidden aspects"); it must own by UIParent at the cursor. ConsumableMaster
---- owns by the hovered frame -- ANCHOR_TOP off the strip, ANCHOR_TOPRIGHT off the mark, which is
---- why the descriptor may carry its own `owner` and `anchor` and not only the spec.
-local function dhOwnTooltip(tip, frame, spec, t)
-  local owner = t.owner or spec.tooltipOwner
-  if owner == "cursor" then
-    tip:SetOwner(UIParent, "ANCHOR_CURSOR")
-  else
-    tip:SetOwner(frame, t.anchor or spec.tooltipAnchor or "ANCHOR_TOP")
-  end
-end
-
---- The host's placement hook for this descriptor, or nil (minor 4). The descriptor's own `place`
---- wins over `spec.tooltipPlace`, as `owner` and `anchor` win over theirs. A value that is not a
---- function is ignored rather than called, so a typo costs the hook and not the tooltip's owner.
-local function dhPlacer(spec, t)
-  if type(t.place) == "function" then return t.place end
-  if type(spec.tooltipPlace) == "function" then return spec.tooltipPlace end
-  return nil
-end
-
---- The three-band shape both copies built out of different text, EVALUATED ONCE for this hover: a
---- gold title, white wrapped body lines, then -- only when at least one survives -- gray footer
---- lines. Evaluated apart from the drawing so a placement fallback (dhShowPlaced) redraws the same
---- lines rather than calling a host's line functions a second time. The band colors are `pal`'s, the
---- handle's palette at this hover (minor 7), so an owned strip's tooltip follows its skin's switches.
-local function dhTooltipLines(t, pal)
-  local title, tr, tg, tb = dhEntry(t.title)
-  local pt, pb, pf = pal.title, pal.body, pal.footer
-  return {
-    title  = { title or "", tr or pt[1], tg or pt[2], tb or pt[3] },
-    body   = dhBand(t.body, pb[1], pb[2], pb[3]) or {},
-    footer = dhBand(t.footer, pf[1], pf[2], pf[3]),
-  }
-end
-
---- Draw evaluated lines into an owned tooltip and show it. The blank spacer before the footer is
---- drawn only when a footer line survived.
-local function dhDrawTooltip(tip, lines)
-  local title = lines.title
-  tip:SetText(title[1], title[2], title[3], title[4])
-  for _, l in ipairs(lines.body) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
-  if lines.footer then
-    tip:AddLine(" ")
-    for _, l in ipairs(lines.footer) do tip:AddLine(l[1], l[2], l[3], l[4], true) end
-  end
-  tip:Show()
-end
-
---- THE HOST PLACES IT (minor 4). Owned by UIParent at ANCHOR_NONE -- the owner AuraMaster's
---- restricted anchor allows -- drawn and SHOWN first, so the host's placement can read the
---- tooltip's measured size, then handed to `place(tip, frame)` under pcall. Only a literal `true`
---- means placed. A raise or any other answer falls back to the cursor owner, re-owned and redrawn
---- from the same evaluated lines, because SetOwner clears the tooltip.
-local function dhShowPlaced(tip, frame, lines, place)
-  tip:SetOwner(UIParent, "ANCHOR_NONE")
-  dhDrawTooltip(tip, lines)
-  local ok, placed = pcall(place, tip, frame)
-  if ok and placed == true then return end
-  tip:SetOwner(UIParent, "ANCHOR_CURSOR")
-  dhDrawTooltip(tip, lines)
-end
-
---- Show the descriptor's tooltip for `frame`, which is the frame hovered and therefore the frame
---- a non-cursor owner owns by and the frame a placement hook is handed. Without a hook the calls
---- are minor 3's, in minor 3's order: own, evaluate and draw, Show. `handle` is the strip, whose
---- palette colors the bands (minor 7).
+--- The tooltip half lives in WidgetsDragHandleTip.lua (peeled at minor 14), read at call time
+--- through lib.__dragTipKit so the newest copy of that file is this handle's. A shell whose copy
+--- has not attached it shows no tooltip. `DH_PAL` is the bands' palette for a handle with none.
 local function dhShowTooltip(handle, frame, spec, t)
-  local tip = GameTooltip
-  if not (t and tip and tip.SetOwner and tip.SetText) then return end
-  local pal = handle.__pal or DH_PAL
-  local place = dhPlacer(spec, t)
-  if place then
-    dhShowPlaced(tip, frame, dhTooltipLines(t, pal), place)
-    return
-  end
-  dhOwnTooltip(tip, frame, spec, t)
-  dhDrawTooltip(tip, dhTooltipLines(t, pal))
+  local kit = lib.__dragTipKit
+  if kit then kit.show(handle, frame, spec, t, DH_PAL) end
 end
 
 local function dhHideTooltip()
-  if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
+  local kit = lib.__dragTipKit
+  if kit then kit.hide() end
 end
 
 --- NO CLICK REGISTRATION AT ALL without a handler, on either frame. ConsumableMaster's strip has
@@ -676,13 +574,70 @@ local function dhBuildClose(handle, spec)
   return btn
 end
 
+-- The settings mark's last rung (minor 14), as CLOSE_FALLBACK is the X's.
+local SETTINGS_FALLBACK = "Interface\\Buttons\\UI-OptionsButton"
+
+--- The settings mark's click: `spec.settings` when it is a function, else `spec.onSettings`, else the
+--- owner's registered opener (Core minor 18), each under pcall.
+local function dhOpenSettings(spec)
+  local fn = type(spec.settings) == "function" and spec.settings or spec.onSettings
+  if type(fn) == "function" then
+    local ok, err = pcall(fn)
+    if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
+    return
+  end
+  local core = LibStub("LibKa0s-Core-1.0", true)
+  if core and type(core.OpenSettings) == "function" then core.OpenSettings(spec.settingsOwner or spec.owner) end
+end
+
+--- The settings mark (minor 14), built only for a host that passes `spec.settings`: the X's twin in
+--- frame, art size, tint, drag scripts and right-click pass-through, anchored left of the X (else of
+--- the "?", else the corner). Its tooltip is `spec.settingsTooltip`, falling back to `spec.tooltip`.
+local function dhBuildSettings(handle, spec)
+  if not spec.settings then return nil end
+  local D = lib.DRAG_HANDLE
+  local btn = CreateFrame("Button", nil, handle)
+  if not (btn and btn.SetSize) then return nil end
+  btn:SetSize(D.HELP_HIT, D.HELP_HIT)
+  local beside = handle.close or handle.help
+  if beside then btn:SetPoint("RIGHT", beside, "LEFT", -D.CLOSE_GAP, 0) else btn:SetPoint("RIGHT", handle, "RIGHT", -D.HELP_INSET, 0) end
+  btn:RegisterForDrag("LeftButton")
+  btn:SetScript("OnDragStart", handle:GetScript("OnDragStart"))
+  btn:SetScript("OnDragStop", handle:GetScript("OnDragStop"))
+  local icon = btn.CreateTexture and btn:CreateTexture(nil, "OVERLAY")
+  if icon and icon.SetTexture then
+    icon:SetSize(D.HELP, D.HELP)
+    icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    icon:SetTexture(dhMarkArt(handle, spec, "settingsIcon", "settings", SETTINGS_FALLBACK))
+    dhTint(icon, handle.__pal.tint)
+    btn.icon = icon
+  end
+  btn:SetScript("OnEnter", function()
+    dhTint(btn.icon, handle.__pal.over)
+    dhShowTooltip(handle, btn, spec, spec.settingsTooltip or spec.tooltip)
+  end)
+  btn:SetScript("OnLeave", function()
+    dhTint(btn.icon, handle.__pal.tint)
+    dhHideTooltip()
+  end)
+  if spec.onRightClick then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") else btn:RegisterForClicks("LeftButtonUp") end
+  btn:SetScript("OnClick", function(_, button)
+    if button == "LeftButton" then return dhOpenSettings(spec) end
+    if button == "RightButton" and spec.onRightClick then spec.onRightClick() end
+  end)
+  return btn
+end
+
 --- What each side of the label keeps clear on THIS strip: RESERVE, plus the close mark's frame and
---- its gap when the host asked for one. Read by dhBuildLabel and by Measure, so the bound the label
---- truncates at and the width the strip is given cannot disagree.
+--- its gap when the host asked for one, and the settings mark's the same (minor 14). Read by
+--- dhBuildLabel and by Measure, so the bound the label truncates at and the width the strip is given
+--- cannot disagree.
 local function dhReserve(spec)
   local D = lib.DRAG_HANDLE
-  if spec.onClose then return D.RESERVE + D.HELP_HIT + D.CLOSE_GAP end
-  return D.RESERVE
+  local r = D.RESERVE
+  if spec.onClose then r = r + D.HELP_HIT + D.CLOSE_GAP end
+  if spec.settings then r = r + D.HELP_HIT + D.CLOSE_GAP end
+  return r
 end
 
 --- The strip's own chrome: a dark fill and a 1px gold edge, both guarded on the ANSWER rather than
@@ -728,6 +683,8 @@ local function dhMarksArt(handle)
   local h, c = handle.help and handle.help.icon, handle.close and handle.close.icon
   if h then h:SetTexture(dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK)) end
   if c then c:SetTexture(dhMarkArt(handle, spec, "closeIcon", "close", CLOSE_FALLBACK)) end
+  local g = handle.settings and handle.settings.icon
+  if g then g:SetTexture(dhMarkArt(handle, spec, "settingsIcon", "settings", SETTINGS_FALLBACK)) end
 end
 
 --- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch, then
@@ -744,6 +701,7 @@ local function dhRepaint(handle, owner)
   if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
   if handle.help then dhTint(handle.help.icon, pal.tint) end
   if handle.close then dhTint(handle.close.icon, pal.tint) end
+  if handle.settings then dhTint(handle.settings.icon, pal.tint) end
   dhMarksArt(handle)
   dhRefit(handle)
 end
@@ -929,11 +887,21 @@ end
 ---                                 calls this on its left click. Without it no X is built and the
 ---                                 strip is exactly minor 2's.
 ---   closeIcon   string|nil        resolved texture path for the X; nil falls back.
+---   settings    true|function|nil minor 14 (LibKa0s#86). Builds the settings mark left of the X (else
+---                                 of the "?"); a left click calls the function, else `onSettings`,
+---                                 else LibKa0s-Core-1.0's OpenSettings(`settingsOwner` or `owner`),
+---                                 the opener the addon's launcher registered. Opt-in: without it the
+---                                 strip is exactly minor 13's.
+---   onSettings  function|nil      minor 14. What the settings mark opens, with `settings = true`.
+---   settingsOwner string|nil      minor 14. The registry key, where it is not `owner`.
+---   settingsIcon string|nil       minor 14. Resolved texture path for the mark; nil falls back.
+---   settingsTooltip table|nil     minor 14. The mark's own descriptor; `tooltip` without it.
 ---   closeTooltip table|nil        a descriptor of the tooltip shape, shown by the X alone; the X
 ---                                 shows `tooltip` without it.
 ---   tooltip     table|nil         the descriptor the STRIP shows, and the mark's too unless
 ---                                 `helpTooltip` says otherwise:
 ---                                   { title, body = {…}, footer = {…}, owner, anchor, place }
+---                                 (`owner` and `anchor` retired at minor 14: accepted, not read)
 ---                                 every band entry may be a string, a function called on each
 ---                                 hover whose nil return drops the line, or a
 ---                                 { <either>, r, g, b } table carrying its own color. No tooltip
@@ -943,19 +911,17 @@ end
 ---                                 `tooltip` and this stays absent; ConsumableMaster titles its
 ---                                 strip "Consumable Master" and its mark "Macro bar", with
 ---                                 different bodies and different anchors, and writes both.
----   tooltipOwner string|nil       the default for both descriptors: "cursor" owns by UIParent at
----                                 ANCHOR_CURSOR; anything else owns by the FRAME HOVERED -- the
----                                 strip on the strip, the mark on the mark. A descriptor's own
----                                 `owner` wins. See dhOwnTooltip -- this is correctness.
----   tooltipAnchor string|nil      the default "self" anchor point, overridden by a descriptor's
----                                 own `anchor`. Defaults to "ANCHOR_TOP".
+---   tooltipOwner string|nil       RETIRED at minor 14 (accepted, not read). Every tooltip is owned
+---                                 by UIParent at ANCHOR_NONE and attached centered below the strip
+---                                 (LibKa0s-Tooltip-1.0's PlaceAttached; WidgetsDragHandleTip.lua).
+---   tooltipAnchor string|nil      RETIRED at minor 14, as `tooltipOwner`.
 ---   tooltipPlace function|nil     minor 4. tooltipPlace(tip, frame) -> true when it placed the
----                                 tooltip. Set, the tooltip is owned by UIParent at ANCHOR_NONE,
+---                                 tooltip. The tooltip is owned by UIParent at ANCHOR_NONE,
 ---                                 drawn, shown, and then handed to this under pcall with the
----                                 frame hovered; the owner and anchor fields are not read. A raise
----                                 or any answer but `true` falls back to the "cursor" owner, with
----                                 the same lines redrawn. A descriptor's own `place` wins; a value
----                                 that is not a function is ignored. See dhShowPlaced.
+---                                 frame hovered. A raise or any answer but `true` falls back to the
+---                                 library's attached placement below the strip (minor 14; the
+---                                 cursor before). A descriptor's own `place` wins; a value that is
+---                                 not a function is ignored.
 ---   edge        function|nil      the host's own 1px edge painter, called as
 ---                                 edge(frame, size, r, g, b, a). Defaults to four strips of ours.
 ---   number      function|nil      number(v, fallback) -- a secret-safe numeric guard.
@@ -1011,6 +977,7 @@ function lib.DragHandle(parent, spec)
 
   handle.help = dhBuildHelp(handle, spec)
   handle.close = dhBuildClose(handle, spec)
+  handle.settings = dhBuildSettings(handle, spec)
   dhAttachMethods(handle, spec)
   dhFitOnShow(handle)
   handle:SetLabel(spec.label)

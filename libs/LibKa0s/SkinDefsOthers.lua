@@ -49,7 +49,16 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- `icon.outline` through HUD_LOOK's `outline` (SkinDefs minor 26), the window icon outline the owner
 -- signed off (option 2): Glass white at 0.35, Ember #8A3C1C, WoW Midnight #7A6532, WoW Forever
 -- #5A5048, and every other skin its `icon.border`. `icon.border`, the HUD hosts' edge, does not move.
-local OTHERS_MINOR = 8
+-- Minor 9 (LibKa0s plan 2026-11-13-callout, L2): `__FACE_SIZES` rows for the Callout's two display
+-- faces (Media minor 13), Ka0s Bebas Neue and Ka0s Russo One, measured by the same script. No skin
+-- draws either; a font override of one now draws at Ka0s Default's width.
+-- Minor 10 (LibKa0s#82, Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, design 3.4):
+-- a mark goes hot visibly in every skin, 10 L* off its rest and off `text.heading`
+-- (tests/test_skin_defs.lua). `icon.hot`: Obsidian #A6DAFF, Azeroth #FFE7A6, Glass #D8CCFF, High
+-- Contrast white, Ember #FFE0B8, WoW Default, WoW Midnight and WoW Forever white. `icon.tint`: Glass
+-- #9AA2B3 and High Contrast #A0A0A0, whose hot stands 9.3 off its yellow heading by the owner's named
+-- exemption. No stripe or hover of the eight moves.
+local OTHERS_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
   and lib.__othersShellMinor == lib.MINOR then return end
@@ -335,6 +344,7 @@ lib.__FACE_SIZES = {
   ["Ka0s Atkinson"]            = { 12, 14, 12 },
   ["Ka0s Atkinson Bold"]       = { 11, 13, 11 },
   ["Ka0s Avant Garde"]         = { 11, 13, 11 },
+  ["Ka0s Bebas Neue"]          = { 15.5, 18, 15.5 },
   ["Ka0s Bitter"]              = { 11.5, 13, 11.5 },
   ["Ka0s Bitter Bold"]         = { 11, 12.5, 11 },
   ["Ka0s Doris PP"]            = { 10.5, 12.5, 10.5 },
@@ -357,6 +367,7 @@ lib.__FACE_SIZES = {
   ["Ka0s Philosopher"]         = { 12.5, 14, 12.5 },
   ["Ka0s Philosopher Bold"]    = { 12, 13.5, 12 },
   ["Ka0s Prototype"]           = { 12, 14, 12 },
+  ["Ka0s Russo One"]           = { 10.5, 12, 10.5 },
   ["Ka0s Segoe UI"]            = { 12, 14, 12 },
   ["Ka0s Segoe UI Bold"]       = { 11, 13, 11 },
   ["Ka0s Segoe UI Light"]      = { 12.5, 14.5, 12.5 },
@@ -431,6 +442,8 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
     ["panel.bg"] = hex("#070708"), ["panel.border"] = hex("#1c1c20"),
     ["scroll.thumbOn"] = rgba(77, 184, 255, 0.9), ["scroll.thumbOff"] = hex("#3a3a42"),
     ["tab.glow"] = rgba(255, 255, 255, 0.06),
+    -- Its accent lifted, so a mark goes hot visibly from its rest (minor 10, LibKa0s#82).
+    ["icon.hot"] = hex("#A6DAFF"),
   })
 
 -- ── Azeroth ── mockup `azeroth`, reworked dark (SkinDefs minor 8, the owner's ruling of 2026-10-26:
@@ -478,6 +491,8 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
     ["card.bg"] = hex("#3a2614"), ["card.border"] = AZ_EDGE,
     ["panel.bg"] = rgba(0, 0, 0, 0.2), ["panel.border"] = AZ_EDGE,
     ["scroll.thumbOn"] = hex("#8a6a36"), ["tab.glow"] = rgba(255, 255, 255, 0.10),
+    -- Pale gold, off its gold heading (minor 10, LibKa0s#82).
+    ["icon.hot"] = hex("#FFE7A6"),
   })
 
 -- ── Glass ── mockup `glass`. Manrope in the mockup; Avant Garde, the owner's pick, stands for it
@@ -530,7 +545,9 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
     ["card.bg"] = rgba(255, 255, 255, 0.06), ["card.border"] = rgba(255, 255, 255, 0.14),
     ["panel.bg"] = rgba(255, 255, 255, 0.04), ["panel.border"] = rgba(255, 255, 255, 0.12),
     ["scroll.thumbOn"] = rgba(255, 255, 255, 0.6), ["scroll.thumbOff"] = rgba(255, 255, 255, 0.25),
-    ["icon.hot"] = hex("#FFFFFF"),
+    -- Its heading is white, so hot cannot go above it: the rest drops and the hot is a pale lilac
+    -- (minor 10, LibKa0s#82). `icon.grip` and `list.ghostIcon` FOLLOW the rest.
+    ["icon.tint"] = hex("#9AA2B3"), ["icon.hot"] = hex("#D8CCFF"),
   })
 
 -- ── High Contrast ── mockup `contrast`: black, white 2px edges, yellow focus, Doris PP (minor 18,
@@ -585,6 +602,9 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
     ["icon.dim"] = hex("#B0B0B0"), ["sem.unknown"] = hex("#B0B0B0"), ["gtip.subtle"] = hex("#E0E0E0"),
     -- A heavier HUD shadow (minor 6, cause D6): white text over its yellow bar fill needs the edge.
     ["hud.shadowX"] = 2, ["hud.shadowY"] = -2,
+    -- A dimmer rest under a white hot (minor 10, LibKa0s#82). Its yellow heading is near the lightness
+    -- ceiling, so the hot stands 9.3 L* off it: the owner's named exemption (Q2).
+    ["icon.tint"] = hex("#A0A0A0"), ["icon.hot"] = HC_WHITE,
   })
 
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Emblem for body and titles alike (minor
@@ -629,7 +649,7 @@ register("ember", "Ember", "Charred browns lit by an orange accent, Emblem type.
     ["drawer.summarySet"] = hex("#FFCF9A"),
     ["card.bg"] = rgba(42, 20, 12, 0.85), ["card.border"] = hex("#5a2a16"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#5a2a16"),
-    ["icon.hot"] = hex("#FFB45A"), ["scroll.thumbOn"] = rgba(255, 122, 51, 0.9),
+    ["icon.hot"] = hex("#FFE0B8"), ["scroll.thumbOn"] = rgba(255, 122, 51, 0.9),
     ["scroll.thumbOff"] = hex("#8a3c1c"),
   })
 
@@ -694,6 +714,8 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     -- The client's own resize grip and hover art, as the client draws them (minor 16): FOLLOW
     -- would tint them.
     ["icon.grip"] = false, ["list.hoverArt"] = false,
+    -- White, as the client's own hovered icon is (minor 10, LibKa0s#82).
+    ["icon.hot"] = hex("#FFFFFF"),
   })
 
 -- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 2px
@@ -743,7 +765,7 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     ["drawer.summarySet"] = hex("#F6D27A"),
     ["card.bg"] = rgba(26, 23, 48, 0.85), ["card.border"] = hex("#4a3d1e"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#4a3d1e"),
-    ["icon.hot"] = hex("#F6D27A"), ["scroll.thumbOn"] = hex("#F6D27A"),
+    ["icon.hot"] = hex("#FFFFFF"), ["scroll.thumbOn"] = hex("#F6D27A"),
     ["scroll.thumbOff"] = MN_GOLD,
   })
 
@@ -792,4 +814,6 @@ register("forever", "WoW Forever", "Warm charcoal, black title bars with centere
     ["card.bg"] = hex("#1c1a17"), ["card.border"] = hex("#2e2a26"),
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#2e2a26"),
     ["scroll.thumbOn"] = FV_TAN, ["scroll.thumbOff"] = hex("#6e5a46"),
+    -- White, as its titles and body are (minor 10, LibKa0s#82): its tan stood 3.4 L* off its rest.
+    ["icon.hot"] = hex("#FFFFFF"),
   })

@@ -61,6 +61,9 @@ if not lib then
     -- O.Drawer (LibKa0s v1.73.0, OptionsDrawer 1). No page here draws a drawer; a library-absent
     -- build draws no panel, so the no-op is all the surface owes.
     Drawer = noop,
+    -- O.SideTabs (LibKa0s v1.100.0, OptionsNav 7), the nav rail's look inside a page. No page here
+    -- draws one; a library-absent build draws no panel, so the no-op is all the surface owes.
+    SideTabs = noop,
     RegisterOptionsPage = noop, CreateOptionsPanel = noop,
     -- The live one takes an optional page key since OptionsRegistry minor 4 (LibKa0s v1.79.0);
     -- without the library there is no page to open either way.

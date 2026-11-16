@@ -19,7 +19,11 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local COPY_MINOR = 5
+local COPY_MINOR = 6
+-- Minor 6 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the
+-- title bar's marks are HeaderButtons' (WidgetsHeader.lua): settings beside the close, its click
+-- hiding this window FIRST (it is FULLSCREEN, so the settings panel would open under it), then the
+-- descriptor's `onSettings`, else the addon's registered opener (Core minor 18, by `addonName`).
 -- Minor 5 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): a skinned window's header is
 -- on the band S.Shell lays (the facade's Header): the drag bar takes its rect, and the title and the
 -- close mark are anchored to it at y 0. `f.titleBar` and `f.closeButton` are recorded. An unskinned
@@ -116,6 +120,8 @@ local function copyDescriptor(d)
     -- minor 12 converged its copy window onto this member, a hardcoded Core x here would have
     -- quietly narrowed a contract a host had already been told it could rely on.
     makeCloseButton = d.makeCloseButton,
+    -- Optional, minor 6: what the settings mark opens, in place of the addon's registered opener.
+    onSettings = d.onSettings,
   }
   out.editWidth = d.editWidth or (out.width - 50)
   return out
@@ -154,7 +160,8 @@ local function skinCopy(f, d, owner)
   local S = Skin:For(owner)
   local sb = rawget(f.scroll, "ScrollBar")
   if type(sb) == "table" then S.ScrollBar(sb) end
-  if S.Header then S.Header(f, { title = f.title, bars = { f.titleBar }, right = { f.closeButton } }) end   -- minor 5
+  local right = f.headerButtons and f.headerButtons.right or { f.closeButton }   -- minor 6: every mark
+  if S.Header then S.Header(f, { title = f.title, bars = { f.titleBar }, right = right }) end   -- minor 5
   f.__copyDesc = d
   if type(lib.__onSkin) == "function" then lib.__onSkin(Skin, owner, f, copyDense) end
   copyDense(f, owner)
@@ -217,7 +224,12 @@ local function buildCopyFrame(d)
   -- easier to keep than two.
   local coreLib = LibStub and LibStub("LibKa0s-Core-1.0", true)
   local makeClose = d.makeCloseButton or (coreLib and coreLib.MakeCloseButton)
-  if makeClose then
+  if type(lib.HeaderButtons) == "function" then   -- minor 6: settings, then close, in the corner
+    local hb = lib.HeaderButtons(bar, { owner = d.addonName, makeClose = makeClose, frame = f,
+      close = function() f:Hide() end, hideOnSettings = f,
+      settings = type(d.onSettings) == "function" and d.onSettings or true })
+    f.closeButton, f.settingsButton = hb.close, hb.settings
+  elseif makeClose then
     local close = makeClose(bar, function() f:Hide() end, d.addonName)
     if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
     f.closeButton = close

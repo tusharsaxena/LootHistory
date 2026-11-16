@@ -109,12 +109,14 @@ test("the console's palette follows a skin switch without a reload", function()
   local pal = rawget(f, "__palette")
   assertTrue(type(pal) == "table", "the console keeps its palette on the frame")
   local before = rgba(pal.count)
-  assertEqual(before, rgba(Skin:Token(OWNER, "log.count")), "Ka0s Default: the counter's own token")
+  -- The counter is the console's footer line since DebugLogWindow minor 5 (LibKa0s v1.105.0,
+  -- LibKa0s#90), drawn in the footer's text.muted; log.count stays skin data the console no longer reads.
+  assertEqual(before, rgba(Skin:Token(OWNER, "text.muted")), "Ka0s Default: the counter is the footer's text.muted")
   local wasShown = shownPages()
   local ok, err = pcall(function()
     NS.ApplySkinChoice("ka0s", "azeroth")
     for _, name in ipairs({ "count", "ts", "tag", "text" }) do
-      local want = Skin:Token(OWNER, "log." .. name)
+      local want = Skin:Token(OWNER, name == "count" and "text.muted" or "log." .. name)
       assertEqual(rgba(pal[name]), rgba(want), "the console's " .. name .. " color after a switch")
     end
     assertTrue(rgba(pal.text) ~= "1.000,1.000,1.000,1.000",

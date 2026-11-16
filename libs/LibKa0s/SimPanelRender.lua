@@ -22,7 +22,11 @@ local NEEDS_CORE = 9
 if not core or (core.MINOR or 0) < NEEDS_CORE or not W or not lib.__panelKit then return end
 
 -- Minor 1: the renderer section, moved here unchanged from SimPanel.lua (its minor 9).
-local RENDER_MINOR = 3
+local RENDER_MINOR = 4
+-- Minor 4 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the title
+-- band's marks are LibKa0s-Widgets-1.0's HeaderButtons: settings beside the close (or in the corner
+-- under `d.close == false`), opening the addon's registered opener (Core minor 18's OpenSettings, by
+-- `addonName`, the Sim descriptor's `name`).
 -- Minor 3 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned panel's title and
 -- close mark are anchored to the band S.Shell lays (the facade's Header) at y 0. An unowned panel is
 -- as it was.
@@ -170,6 +174,12 @@ local function buildChrome(frame, d, panel, showClose)
   frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   frame.title:SetPoint("CENTER", frame, "TOP", 0, -(1 + TITLE_H / 2))
   frame.title:SetText(readTitle(d))
+  if type(W.HeaderButtons) == "function" then   -- minor 4: settings, then close, on the band's middle
+    local hb = W.HeaderButtons(frame, { owner = d.addonName, point = "TOPRIGHT", y = -(1 + (TITLE_H - 18) / 2),
+      close = showClose and panel.Hide or false })
+    frame.closeButton, frame.settingsButton = hb.close, hb.settings
+    return
+  end
   if not showClose then return end
   -- The third argument is the addon FOLDER the close icon's path is built from; without it
   -- MakeCloseButton falls back to the multiplication sign (Perf panel minor 3's bug).
@@ -312,7 +322,8 @@ local function StepPanel(d)
   --- An owned panel: the window through the facade; each switch refills, recolors and repaints.
   local function adopt(S)
     core.ApplySkin(frame, nil, d.addonName)
-    if S.Header then S.Header(frame, { title = frame.title, right = { frame.closeButton } }) end   -- minor 3
+    local right = frame.headerButtons and frame.headerButtons.right or { frame.closeButton }   -- minor 4
+    if S.Header then S.Header(frame, { title = frame.title, right = right }) end   -- minor 3
     S.OnLooksChanged(function()
       fillPalette(pal, S)
       for _, b in ipairs(buttons) do setColor(b.cmd, pal.cmd) end

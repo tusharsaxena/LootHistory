@@ -75,6 +75,20 @@
 -- name must not be able to vouch for it. No line at all is read as `all`, so a consumer that has
 -- not declared yet is gated exactly as it was before this revision.
 --
+-- THE SECOND CARVE-OUT: `media/sounds/` (kit revision 55, `library-stack-§7` *The sound subset*
+-- from standard v2.108.0). LibKa0s v1.96.0 ships the Callout's voice packs as
+-- `media/sounds/callout/<voice>/`, and a consumer declares the packs it ships on one line directly
+-- under its `LibKa0s icons:` line:
+--
+--   LibKa0s sounds: none.                        -- no sound file at all
+--   LibKa0s sounds: all.                         -- every pack (bare: no reason, unlike icons)
+--   LibKa0s sounds: callout/female-kathleen.     -- exactly these packs, each whole
+--
+-- and the gate holds `libs/LibKa0s/media/sounds/` to exactly those packs' files, each pack's
+-- license and credits included, byte-identical to the tag. NO LINE MEANS NONE, the opposite of the
+-- icons line: only a Callout consumer with a bundled voice needs a pack, and no earlier tag carried
+-- the folder, so there is no transition to keep green. A pack is checked against the TAG's folders.
+--
 -- USAGE, from a consuming `tests/test_vendor_sync.lua`:
 --
 --   local VendorSync = dofile("tests/_kit/vendor_sync.lua")
@@ -100,8 +114,10 @@ local DEFAULT_PAIRS = {
     tag     = "LibKa0s",
     local_  = "libs/LibKa0s",
     label   = "the library repo",
-    -- The one subfolder held to the `LibKa0s icons:` declaration rather than copied whole.
-    icons   = "media/icons" },
+    -- The two subfolders held to a declaration rather than copied whole: the `LibKa0s icons:`
+    -- line's (kit revision 40) and the `LibKa0s sounds:` line's (kit revision 55).
+    icons   = "media/icons",
+    sounds  = "media/sounds" },
   -- Markdown included in the compared file set: the file that actually diverged in
   -- this collection WAS a README, so a check restricted to *.lua would have caught
   -- nothing.
@@ -275,17 +291,25 @@ local function nextNonBlank(lines, at)
     return nil
 end
 
-function VendorSync.iconDeclaration(doc, opts)
-    opts = opts or {}
-    local provenance = opts.provenancePattern or DEFAULT_PATTERN
-    local marker = opts.iconsPattern or DEFAULT_ICONS_PATTERN
-    local found, provAt, lines = {}, nil, {}
+--- A provenance document's lines (CR stripped), the line numbers matching `marker`, and the first
+--- line matching `anchor` (nil when none does). One reader for both declarations, so the icons line
+--- and the sounds line are found the same way.
+local function scanDoc(doc, marker, anchor)
+    local found, anchorAt, lines = {}, nil, {}
     for line in (tostring(doc or "") .. "\n"):gmatch("([^\n]*)\n") do
         line = line:gsub("\r$", "")
         lines[#lines + 1] = line
         if line:match(marker) then found[#found + 1] = #lines end
-        if not provAt and line:match(provenance) then provAt = #lines end
+        if not anchorAt and line:match(anchor) then anchorAt = #lines end
     end
+    return lines, found, anchorAt
+end
+
+function VendorSync.iconDeclaration(doc, opts)
+    opts = opts or {}
+    local provenance = opts.provenancePattern or DEFAULT_PATTERN
+    local marker = opts.iconsPattern or DEFAULT_ICONS_PATTERN
+    local lines, found, provAt = scanDoc(doc, marker, provenance)
     if #found == 0 then return nil, nil end
     if #found > 1 then
         return nil, ("the `LibKa0s icons:` line appears %d times (lines %s); declare once")
@@ -354,8 +378,9 @@ end
 
 --- The icons LibKa0s itself draws on a host's behalf (kit revision 48, docs/releasing.md's
 --- *Library-drawn icons*): every listed host declares them. A pruned icon raises nothing and draws
---- blank, so this list is the one thing that makes the omission loud.
-VendorSync.LIBRARY_MARKS = { "chevron-down", "chevron-up", "close", "confirm", "info", "move", "reset", "volume-high" }
+--- blank, so this list is the one thing that makes the omission loud. `settings` joins at revision 57:
+--- every library window's header carries the settings mark from LibKa0s v1.105.0 (LibKa0s#86).
+VendorSync.LIBRARY_MARKS = { "chevron-down", "chevron-up", "close", "confirm", "info", "move", "reset", "settings", "volume-high" }
 
 --- The library-drawn names a list declaration leaves out, sorted. `none` ships no icons and `all`
 --- ships every one, so neither has any to miss. A name the catalog does not carry cannot be
@@ -369,6 +394,134 @@ function VendorSync.missingMarks(decl, cat)
         if cat.names[name] and not declared[name] then missing[#missing + 1] = name end
     end
     return missing
+end
+
+-- ── the sound declaration (kit revision 55) ───────────────────────────────────────────────────
+--
+-- The second carve-out (`library-stack-§7`, *The sound subset*, standard v2.108.0; testing-§11):
+-- `media/sounds/callout/<voice>/`, the voice packs `LibKa0s-Callout-1.0` speaks with, each folder
+-- holding its `.ogg` lines and its own license and credits files. A consumer declares them on ONE
+-- line directly under its `LibKa0s icons:` line:
+--
+--   LibKa0s sounds: none.                                   -- no sound file at all
+--   LibKa0s sounds: all.                                    -- every pack; no reason, unlike icons
+--   LibKa0s sounds: callout/female-kathleen.                -- exactly these packs, whole
+--
+-- NO LINE MEANS NONE, the opposite of the icons line and on purpose: almost no consumer plays a
+-- voice, and v1.96.0 is the first tag carrying `media/sounds/`, so there is no transition to keep
+-- green. A pack is declared whole, so its license and credits travel with it. Pure functions, again
+-- published so `tools/prune-icons.lua` reads the line with this code.
+
+local DEFAULT_SOUNDS_PATTERN = "^[%s%-%*]*LibKa0s sounds:%s*(.-)%s*$"
+
+--- Parse a sounds declaration's body (everything after `LibKa0s sounds:`) into
+---   { mode = "all", names = {} } | { mode = "none", names = {} }
+---   | { mode = "list", names = { "callout/female-kathleen", ... } }   -- sorted
+--- or nil and the reason it is malformed. Stricter than the icons parser where testing-§11 is: a
+--- bare `all` only, and a duplicate name is malformed rather than dropped.
+function VendorSync.parseSoundLine(body)
+    local s = tostring(body or ""):match("^%s*(.-)%s*$")
+    if s:sub(-1) ~= "." then
+        return nil, "the `LibKa0s sounds:` line must end with a period"
+    end
+    s = s:sub(1, -2):match("^(.-)%s*$")
+    if s == "" then
+        return nil, "the `LibKa0s sounds:` line names nothing: write `none.`, `all.` or a "
+            .. "comma-separated list of voice packs such as `callout/female-kathleen.`"
+    end
+    if s == "none" then return { mode = "none", names = {} } end
+    if s == "all" then return { mode = "all", names = {} } end
+    if s:match("^all[%s%(]") then
+        return nil, "`all` takes no parenthesized reason on the `LibKa0s sounds:` line: write `all.`"
+    end
+    local names, seen = {}, {}
+    for item in (s .. ","):gmatch("([^,]*),") do
+        local name = item:match("^%s*(.-)%s*$")
+        if name == "" then
+            return nil, "the `LibKa0s sounds:` list has an empty entry (two commas, or a trailing one)"
+        end
+        if name == "all" or name == "none" then
+            return nil, ("`%s` stands alone on the `LibKa0s sounds:` line, never as a list item")
+                :format(name)
+        end
+        if not name:match("^[%w_%-]+/[%w_%-]+$") then
+            return nil, ("`%s` is not a voice pack: name its folder under media/sounds/, such as "
+                .. "`callout/female-kathleen` (comma-separated)"):format(name)
+        end
+        if seen[name] then
+            return nil, ("`%s` is declared twice on the `LibKa0s sounds:` line"):format(name)
+        end
+        seen[name] = true
+        names[#names + 1] = name
+    end
+    table.sort(names)
+    return { mode = "list", names = names }
+end
+
+--- Find and parse the sounds declaration in a provenance document's text.
+---
+--- Returns `decl` (see parseSoundLine); with NO `LibKa0s sounds:` line at all that is
+--- `{ mode = "none", names = {}, implicit = true }`, never nil, because no line means none. Returns
+--- `nil, reason` when the line is malformed, declared twice, or not the first non-blank line after
+--- the `LibKa0s icons:` line (which must therefore exist).
+---
+--- opts: `iconsPattern` (DEFAULT_ICONS_PATTERN), `soundsPattern` (DEFAULT_SOUNDS_PATTERN).
+function VendorSync.soundDeclaration(doc, opts)
+    opts = opts or {}
+    local icons = opts.iconsPattern or DEFAULT_ICONS_PATTERN
+    local marker = opts.soundsPattern or DEFAULT_SOUNDS_PATTERN
+    local lines, found, iconsAt = scanDoc(doc, marker, icons)
+    if #found == 0 then return { mode = "none", names = {}, implicit = true } end
+    if #found > 1 then
+        return nil, ("the `LibKa0s sounds:` line appears %d times (lines %s); declare once")
+            :format(#found, table.concat(found, ", "))
+    end
+    local at = found[1]
+    if nextNonBlank(lines, iconsAt) ~= at then
+        return nil, ("the `LibKa0s sounds:` line (line %d) must sit directly under the "
+            .. "`LibKa0s icons:` line"):format(at)
+    end
+    return VendorSync.parseSoundLine(lines[at]:match(marker))
+end
+
+--- The packs a sounds folder answers, from its file paths RELATIVE to that folder:
+---   packs = { ["callout/female-kathleen"] = { "callout/female-kathleen/go.ogg", ... } }
+---   loose = { ... }  -- a file in no pack folder: shipped only under `all`
+--- A pack is the first two path segments, so its license and credits are in it by construction.
+function VendorSync.soundCatalog(paths)
+    local cat = { packs = {}, loose = {} }
+    for _, path in ipairs(paths) do
+        local pack = path:match("^([^/]+/[^/]+)/")
+        if pack then
+            local list = cat.packs[pack] or {}
+            list[#list + 1] = path
+            cat.packs[pack] = list
+        else
+            cat.loose[#cat.loose + 1] = path
+        end
+    end
+    return cat
+end
+
+--- The paths under the sounds folder a declaration requires, sorted, and the declared packs the
+--- catalog does not carry (sorted). `all` answers every path in `paths`; `none` answers nothing.
+function VendorSync.requiredSounds(decl, cat, paths)
+    local want, unknown = {}, {}
+    if decl.mode == "all" then
+        for _, p in ipairs(paths) do want[#want + 1] = p end
+    else
+        for _, name in ipairs(decl.names or {}) do
+            local files = cat.packs[name]
+            if files then
+                for _, p in ipairs(files) do want[#want + 1] = p end
+            else
+                unknown[#unknown + 1] = name
+            end
+        end
+    end
+    table.sort(want)
+    table.sort(unknown)
+    return want, unknown
 end
 
 --- Split `names` (paths relative to the payload) into those under `dir/` -- returned RELATIVE to
@@ -396,7 +549,8 @@ local function resolveOpts(opts)
         opts.provenancePattern or opts.readmePattern or DEFAULT_PATTERN,
         opts.runner or DEFAULT_RUNNER,
         opts.runnerCase or DEFAULT_RUNNER_CASE,
-        opts.iconsPattern or DEFAULT_ICONS_PATTERN
+        opts.iconsPattern or DEFAULT_ICONS_PATTERN,
+        opts.soundsPattern or DEFAULT_SOUNDS_PATTERN
 end
 
 --- Register the gate's cases on the consumer's test table.
@@ -411,11 +565,14 @@ end
 ---   runner        = "tests/_kit/run-automated-tests.sh",  -- the runner, relative to root
 ---   runnerCase    = "the automated-test runner is recorded executable (100755)",
 ---   iconsPattern  = "^[%s%-%*]*LibKa0s icons:%s*(.-)%s*$", -- the icon declaration line, anchored (rev 40)
+---   soundsPattern = "^[%s%-%*]*LibKa0s sounds:%s*(.-)%s*$", -- the sound declaration line, anchored (rev 55)
 --- }
 ---
 --- A pair's `icons` names the subfolder of its payload held to the `LibKa0s icons:` declaration
 --- rather than compared whole; the default library pair carries `icons = "media/icons"` (kit
---- revision 40). A pair without the field is compared whole, as every pair was before.
+--- revision 40). Its `sounds` names the subfolder held to the `LibKa0s sounds:` declaration, and
+--- the default library pair carries `sounds = "media/sounds"` (kit revision 55): with no sounds
+--- line that folder must hold nothing. A pair without either field is compared whole.
 ---
 --- Besides one case per pair, it registers ONE more, named by `runnerCase`: the runner's recorded
 --- mode in the consuming repo's git index (kit revision 16). That case needs no sibling checkout.
@@ -432,7 +589,8 @@ function VendorSync.register(T, opts)
             .. "re-vendor tests/_kit/ from a LibKa0s tag that ships testkit/vendor_sync.lua", 0)
     end
 
-    local ROOT, SIBLING, PROBE, FILE, PATTERN, RUNNER, RUNNER_CASE, ICONS_PATTERN = resolveOpts(opts)
+    local ROOT, SIBLING, PROBE, FILE, PATTERN, RUNNER, RUNNER_CASE, ICONS_PATTERN, SOUNDS_PATTERN =
+        resolveOpts(opts)
 
     --- Run a command in the sibling library repo and return stdout, or nil if it
     --- produced nothing. `nil` means "could not answer" — never "matched".
@@ -556,6 +714,15 @@ function VendorSync.register(T, opts)
         return decl
     end
 
+    --- The sound declaration this repo's provenance doc carries; with no line it is `none` (kit
+    --- revision 55: no line means none, never a transition). A malformed line FAILS, naming why.
+    local function soundDecl()
+        local decl, err = VendorSync.soundDeclaration(readBytes(ROOT .. "/" .. FILE) or "",
+            { iconsPattern = ICONS_PATTERN, soundsPattern = SOUNDS_PATTERN })
+        T.assertTrue(err == nil, ("%s: %s"):format(FILE, tostring(err)))
+        return decl
+    end
+
     --- The paths in `have` that `want` does not hold, sorted.
     local function minus(have, want)
         local inWant, out = {}, {}
@@ -569,14 +736,9 @@ function VendorSync.register(T, opts)
 
     local compareBlobs   -- defined below; both comparison shapes end in it
 
-    --- The declared shape (kit revision 40): everything outside `iconsDir` whole, and under it
-    --- exactly what the declaration requires. Only the required blobs are read, so `none` or a
-    --- short list costs one `ls-tree` and a few dozen blobs, not 5,836.
-    local function assertDeclared(tag, subdir, localDir, label, shipped, mine, iconsDir, decl)
-        local tagIcons, tagRest = splitUnder(shipped, iconsDir)
-        local myIcons, myRest = splitUnder(mine, iconsDir)
-        T.assertEqual(table.concat(myRest, ", "), table.concat(tagRest, ", "),
-            ("%s holds the same files as %s at %s outside %s/"):format(localDir, label, tag, iconsDir))
+    --- What the icon declaration requires of the TAG's icon files, after failing on a library-drawn
+    --- mark left out and on a name the tag's catalog does not carry.
+    local function iconWant(tag, label, tagIcons, decl)
         local cat = VendorSync.iconCatalog(tagIcons)
         local want, unknown = VendorSync.requiredIcons(decl, cat, tagIcons)
         local marks = VendorSync.missingMarks(decl, cat)
@@ -587,29 +749,80 @@ function VendorSync.register(T, opts)
         T.assertTrue(#unknown == 0,
             ("%s declares %d icon name(s) %s at %s does not carry in lib.ICONS: %s")
                 :format(FILE, #unknown, label, tag, cappedList(unknown)))
-        local extra, missing = minus(myIcons, want), minus(want, myIcons)
-        T.assertTrue(#extra == 0,
-            ("%d undeclared file(s) ship under %s/%s/ -- the `LibKa0s icons:` line does not require "
-                .. "them: %s. Remove them with `lua tools/prune-icons.lua <this repo>` from the "
-                .. "LibKa0s checkout, or declare the icons you draw")
-                :format(#extra, localDir, iconsDir, cappedList(extra)))
-        T.assertTrue(#missing == 0,
-            ("%d declared file(s) are missing from %s/%s/: %s. Re-copy the folder from %s, then "
-                .. "prune")
-                :format(#missing, localDir, iconsDir, cappedList(missing), tag))
+        return want
+    end
+
+    --- What the sound declaration requires of the TAG's sound files, after failing on a pack the
+    --- tag does not carry.
+    local function soundWant(tag, label, tagSounds, decl)
+        local want, unknown = VendorSync.requiredSounds(decl, VendorSync.soundCatalog(tagSounds), tagSounds)
+        T.assertTrue(#unknown == 0,
+            ("%s declares %d voice pack(s) %s at %s does not carry under media/sounds/: %s")
+                :format(FILE, #unknown, label, tag, cappedList(unknown)))
+        return want
+    end
+
+    --- The declared shape (kit revisions 40 and 55): everything outside the carved folders whole,
+    --- and under each exactly what its declaration requires. Only the required blobs are read, so
+    --- `none` or a short list costs one `ls-tree` and a few dozen blobs, not 5,836.
+    ---
+    --- `carves` is a list of `{ dir, line, what, want = function(tagFiles) -> paths }`, each `dir`
+    --- relative to the payload and each answer relative to its `dir`.
+    local function assertDeclared(tag, subdir, localDir, label, shipped, mine, carves)
+        local tagRest, myRest, tagIn, myIn, dirs = shipped, mine, {}, {}, {}
+        for i, c in ipairs(carves) do
+            tagIn[i], tagRest = splitUnder(tagRest, c.dir)
+            myIn[i], myRest = splitUnder(myRest, c.dir)
+            dirs[i] = c.dir .. "/"
+        end
+        T.assertEqual(table.concat(myRest, ", "), table.concat(tagRest, ", "),
+            ("%s holds the same files as %s at %s outside %s")
+                :format(localDir, label, tag, table.concat(dirs, " and ")))
         local compare = {}
         for _, name in ipairs(tagRest) do compare[#compare + 1] = name end
-        for _, p in ipairs(want) do compare[#compare + 1] = iconsDir .. "/" .. p end
+        for i, c in ipairs(carves) do
+            local want = c.want(tagIn[i])
+            local extra, missing = minus(myIn[i], want), minus(want, myIn[i])
+            T.assertTrue(#extra == 0,
+                ("%d undeclared file(s) ship under %s/%s/ -- the `%s` line%s does not require "
+                    .. "them: %s. Remove them with `lua tools/prune-icons.lua <this repo>` from the "
+                    .. "LibKa0s checkout, or declare the %s")
+                    :format(#extra, localDir, c.dir, c.line, c.note or "", cappedList(extra), c.what))
+            T.assertTrue(#missing == 0,
+                ("%d declared file(s) are missing from %s/%s/: %s. Re-copy the folder from %s, then "
+                    .. "prune")
+                    :format(#missing, localDir, c.dir, cappedList(missing), tag))
+            for _, p in ipairs(want) do compare[#compare + 1] = c.dir .. "/" .. p end
+        end
         compareBlobs(tag, subdir, localDir, label, compare)
     end
 
-    local function assertVendorSync(tag, subdir, localDir, label, iconsDir)
+    --- The carved folders a pair's declarations call for: icons under a list or `none` (no line
+    --- or `all` compares the folder whole), sounds under anything but `all` (no line is `none`).
+    local function carvesFor(tag, label, pair)
+        local carves = {}
+        local icons = pair.icons and iconDecl()
+        if icons and icons.mode ~= "all" then
+            carves[#carves + 1] = { dir = pair.icons, line = "LibKa0s icons:", what = "icons you draw",
+                want = function(files) return iconWant(tag, label, files, icons) end }
+        end
+        local sounds = pair.sounds and soundDecl()
+        if sounds and sounds.mode ~= "all" then
+            carves[#carves + 1] = { dir = pair.sounds, line = "LibKa0s sounds:",
+                what = "voice packs you play",
+                note = sounds.implicit and " (there is no such line, and no line means none)" or "",
+                want = function(files) return soundWant(tag, label, files, sounds) end }
+        end
+        return carves
+    end
+
+    local function assertVendorSync(tag, subdir, localDir, label, pair)
         local shipped = shippedNames(tag, subdir)
         local mine    = localNames(localDir)
         T.assertTrue(#shipped > 0, ("%s %s carries %s/"):format(label, tag, subdir))
-        local decl = iconsDir and iconDecl()
-        if decl and decl.mode ~= "all" then
-            return assertDeclared(tag, subdir, localDir, label, shipped, mine, iconsDir, decl)
+        local carves = carvesFor(tag, label, pair)
+        if #carves > 0 then
+            return assertDeclared(tag, subdir, localDir, label, shipped, mine, carves)
         end
         -- The file SET first: a file added on one side and not the other is invisible
         -- to a byte comparison that only walks the names it already knows about.
@@ -644,7 +857,7 @@ function VendorSync.register(T, opts)
         T.test(pair.case, function()
             local tag = siblingTag()
             assertVendorSync(tag, pair.tag, ROOT .. "/" .. pair.local_,
-                pair.label or "the library repo", pair.icons)
+                pair.label or "the library repo", pair)
         end)
     end
 

@@ -46,9 +46,20 @@
 -- tooltip option (three hosts, three renderers; a host enables the mouse and hooks OnEnter), no color
 -- option (the sameness is the point: test and sim are the library's), no wrap, measuring or
 -- `Height()` (one host wraps, and one must never measure), no test-mode state (the host decides),
--- no placement or body shift (host layout, around `TEST_STRIP.HEIGHT`), and no icon fallback (with no
--- icon the text moves to the left edge). Re-check trigger for all six: a consumer needs a different
--- color, a tooltip renderer or a measured height with the same semantics as another.
+-- and no icon fallback (with no icon the text moves to the left edge). Re-check trigger for all five:
+-- a consumer needs a different color, a tooltip renderer or a measured height with the same
+-- semantics as another. Placement was a sixth rejection ("host layout, around TEST_STRIP.HEIGHT")
+-- until minor 27, when the owner's 2026-11-15 rulings put every window's strip directly under its
+-- title bar and every HUD's on its top edge: the docking (`opts.dock`, `lib.DockTestStrip`, THE
+-- DOCKING below) is the library's, so no host anchors one by hand. Showing it stays the host's.
+--
+-- ── THE FOOTER (minor 27) ─────────────────────────────────────────────────────────────────────
+--
+-- `lib.Footer` is the band along a window's bottom edge, in the look the owner ruled on 2026-11-15
+-- (Ka0s Combat Trail's HUD and race windows): no fill, a one-pixel hairline in `divider` along its
+-- top, a left and an optional right line in `text.muted`, an optional slot of catalog marks on the
+-- right, and the resize grip's corner. `FOOTER.HEIGHT` (24) is skin-invariant, like the title bar's
+-- `title.height`. Every string and every mark's action stay the host's.
 --
 -- ── SKIN OWNERS (minor 16) ────────────────────────────────────────────────────────────────────
 --
@@ -117,7 +128,11 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 26 (FU-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): the dropdown and the shared
 -- menu it drops (its cascade, lib.ContextMenu and lib.CloseMenu) moved, unchanged, to WidgetsDropdown.lua
 -- (layout-§1); the shell hands it lib.__dropdownKit. No member and no behavior changes.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 26
+-- Minor 27 (the owner's 2026-11-15 window-chrome rulings, WowAddonStandards v2.110.0): lib.Footer and
+-- lib.FOOTER (THE FOOTER), and the strip's docking: `opts.dock` / lib.DockTestStrip under a title bar
+-- or on a HUD's top edge, flipped under its bottom edge when the top would leave the screen, with
+-- `strip:Place()`, `strip:BodyOffset()` and `strip:IsFlipped()`. An undocked strip is minor 26's.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 27
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -449,14 +464,17 @@ end
 --- (`kind = "sim"`, cyan). It draws itself and nothing else.
 ---
 --- Born HIDDEN, UNANCHORED and `TEST_STRIP.HEIGHT` tall, with the mouse never enabled. After this
---- returns the strip never anchors, shows, hides, re-measures or changes its height or its text's
---- anchors, so a host's later `SetHeight`, `strip.text:SetWordWrap` and `strip.text:SetText`
---- stick. The icon art is HOST-PASSED, a resolved path or a fileID (the host's `info` icon),
+--- returns an undocked strip never anchors, shows, hides, re-measures or changes its height or its
+--- text's anchors, so a host's later `SetHeight`, `strip.text:SetWordWrap` and `strip.text:SetText`
+--- stick. A docked one (`opts.dock`, minor 27, THE DOCKING) anchors itself and nothing more: it is
+--- still born hidden, and the host still shows and hides it. The icon art is HOST-PASSED, a resolved path or a fileID (the host's `info` icon),
 --- because this file cannot call Media (the header): a host that passes one declares that icon's
 --- name. The fill and the icon are stored as `__fill` / `__icon`, which are not the contract.
 ---
 --- @param parent table     the frame to parent it to
---- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel, sim, onEnd, L }; text is the host's
+--- @param opts table|nil   { text, icon, kind = 'test'|'sim'|nil, owner, panel, sim, onEnd, L, and from
+---                         minor 27 the docking fields: dock = 'title'|'hud', titleBar, window, inset,
+---                         onOffset, target, gap, clear (lib.DockTestStrip's spec) }; text is the host's
 ---                         localized line ('' when absent), no icon puts the text at LEFT+6, any
 ---                         kind but exactly "sim" (nil, a non-string, "Sim", "preview") is "test",
 ---                         and `owner` (minor 16) is a registered skin owner whose skin the wash
@@ -534,9 +552,356 @@ function lib.TestStrip(parent, opts)
     end
   end
 
-  stripMenu(s, opts)
-  s:Hide()   -- born unanchored: hidden, so it never flashes at the parent's center
+  -- A HUD's strip takes no mouse (THE DOCKING), so it never wires the menu.
+  if opts.dock ~= "hud" then stripMenu(s, opts) end
+  s:Hide()   -- born hidden, so it never flashes at the parent's center
+  if opts.dock ~= nil then lib.DockTestStrip(s, opts) end
   return s
+end
+
+-- ── THE DOCKING (minor 27) ────────────────────────────────────────────────────────────────────
+--
+-- The owner's 2026-11-15 rulings (WowAddonStandards v2.110.0, preview-mode's *Where the strip sits*):
+--
+--   * dock = "title": in a window, directly under its title bar, full width, above tabs, a filter bar
+--     and the body. Everything below the title bar moves down by `strip:BodyOffset()` while it shows
+--     (the strip's height; 0 while hidden), and `spec.onOffset(offset, strip)` is told on each show
+--     and hide, so the host relays its body without anchoring the strip. `spec.window`: while the
+--     title bar is hidden (a headerless layout that still draws its body) the strip sits on the
+--     window's top edge instead. `spec.inset` pulls both sides in (default 0).
+--   * dock = "hud": on a HUD display's top edge, OUTSIDE it, where a header would be, spanning its
+--     width, `spec.gap` (default 0) above it, and flipped under its bottom edge while the top would
+--     leave the screen. It takes no mouse, takes the display's strata one chrome level above it
+--     (frame-layering-§2), and moves with it. `spec.clear` is a frame (the display's drag handle)
+--     the strip stacks beyond while that frame shows, so it never overlaps it.
+--
+-- The strip re-places itself when it shows, when the title bar, the window, the display or the clear
+-- frame shows, hides or resizes; a host that MOVES a display calls `strip:Place()` after the move,
+-- since a move fires no script. The strip never shows or hides itself.
+
+local STRIP_HUD_LEVEL = 5   -- the display's chrome band: this many levels over the display
+
+local function num(v) return type(v) == "number" and v or nil end
+local function shown(f) return type(f) == "table" and type(f.IsShown) == "function" and f:IsShown() == true end
+
+local function call(f, method, ...)
+  local fn = type(f) == "table" and f[method]
+  if type(fn) == "function" then return fn(f, ...) end
+  return nil
+end
+
+--- The screen's top in screen pixels, and `f`'s top and bottom in the same units, or nil.
+local function screenEdges(f)
+  local scale = num(call(f, "GetEffectiveScale")) or 1
+  local top, bottom = num(call(f, "GetTop")), num(call(f, "GetBottom"))
+  return top and top * scale, bottom and bottom * scale, scale
+end
+
+local function screenTop()
+  local ui = UIParent
+  local top = num(call(ui, "GetTop"))
+  return top and top * (num(call(ui, "GetEffectiveScale")) or 1)
+end
+
+local function stripHeight(s)
+  return num(call(s, "GetHeight")) or STRIP_H
+end
+
+--- How far past the display's top (or bottom, `below`) the clear frame reaches while it shows, in
+--- the strip's units; 0 when it does not show or cannot say.
+local function clearReach(s, d, below)
+  if not shown(d.clear) then return 0 end
+  local tTop, tBottom = screenEdges(d.target)
+  local cTop, cBottom = screenEdges(d.clear)
+  local scale = num(call(s, "GetEffectiveScale")) or 1
+  local reach
+  if below then reach = tBottom and cBottom and (tBottom - cBottom) else reach = cTop and tTop and (cTop - tTop) end
+  if not reach or reach <= 0 then return 0 end
+  return reach / scale
+end
+
+--- True while the strip on the display's top edge would reach past the screen's top.
+local function wouldLeaveTop(s, d, lift)
+  local sTop = screenTop()
+  local tTop = screenEdges(d.target)
+  if not (sTop and tTop) then return false end
+  local scale = num(call(s, "GetEffectiveScale")) or 1
+  return tTop + (lift + stripHeight(s)) * scale > sTop + 0.5
+end
+
+local function placeHud(s, d)
+  local t = d.target
+  local gap = num(d.gap) or 0
+  local up = gap + clearReach(s, d, false)
+  local flip = wouldLeaveTop(s, d, up)
+  s:ClearAllPoints()
+  if flip then
+    local down = gap + clearReach(s, d, true)
+    s:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -down)
+    s:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, -down)
+  else
+    s:SetPoint("BOTTOMLEFT", t, "TOPLEFT", 0, up)
+    s:SetPoint("BOTTOMRIGHT", t, "TOPRIGHT", 0, up)
+  end
+  s.__flipped = flip
+  local strata = call(t, "GetFrameStrata")
+  if type(strata) == "string" then call(s, "SetFrameStrata", strata) end
+  local level = num(call(t, "GetFrameLevel"))
+  if level then call(s, "SetFrameLevel", level + STRIP_HUD_LEVEL) end
+end
+
+local function placeTitle(s, d)
+  local inset = num(d.inset) or 0
+  local bar = d.titleBar
+  s:ClearAllPoints()
+  if type(d.window) == "table" and not shown(bar) then
+    s:SetPoint("TOPLEFT", d.window, "TOPLEFT", inset, -inset)
+    s:SetPoint("TOPRIGHT", d.window, "TOPRIGHT", -inset, -inset)
+  else
+    s:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", inset, 0)
+    s:SetPoint("TOPRIGHT", bar, "BOTTOMRIGHT", -inset, 0)
+  end
+  s.__flipped = false
+end
+
+--- Anchor a docked strip where its dock puts it, now. A no-op on an undocked strip.
+local function place(s)
+  local d = s.__dock
+  if not d then return end
+  if d.dock == "hud" then placeHud(s, d) else placeTitle(s, d) end
+end
+
+--- The strip's height while a title-docked strip shows, else 0: what the host moves its body by.
+local function bodyOffset(s)
+  local d = s.__dock
+  if not d or d.dock ~= "title" or not shown(s) then return 0 end
+  return stripHeight(s)
+end
+
+local function tellOffset(s)
+  local d = s.__dock
+  if d and type(d.onOffset) == "function" then d.onOffset(bodyOffset(s), s) end
+end
+
+--- Hook `frame`'s `scripts` once per strip, each re-placing the strip while it is docked.
+local function watch(s, frame, scripts)
+  if type(frame) ~= "table" or type(frame.HookScript) ~= "function" then return end
+  s.__dockHooked = s.__dockHooked or setmetatable({}, { __mode = "k" })
+  if s.__dockHooked[frame] then return end
+  s.__dockHooked[frame] = true
+  for _, name in ipairs(scripts) do
+    frame:HookScript(name, function() place(s) end)
+  end
+end
+
+local RELAYOUT = { "OnShow", "OnHide", "OnSizeChanged" }
+
+--- Read a dock spec into the strip's record, or nil when it names no usable dock.
+local function dockOf(spec)
+  if spec.dock == "title" and type(spec.titleBar) == "table" then
+    return { dock = "title", titleBar = spec.titleBar, window = spec.window, inset = spec.inset,
+             onOffset = spec.onOffset }
+  end
+  if spec.dock == "hud" and type(spec.target) == "table" then
+    return { dock = "hud", target = spec.target, gap = spec.gap, clear = spec.clear }
+  end
+  return nil
+end
+
+local function wireStrip(s)
+  if s.__dockWired then return end
+  s.__dockWired = true
+  s:HookScript("OnShow", function(self) place(self); tellOffset(self) end)
+  s:HookScript("OnHide", tellOffset)
+end
+
+--- Dock `strip` (a `lib.TestStrip`) by `spec`: { dock = "title", titleBar, window, inset, onOffset }
+--- or { dock = "hud", target, gap, clear } (THE DOCKING). Anchors it now, re-places it on every
+--- show, and gives it `strip:Place()`, `strip:BodyOffset()` and `strip:IsFlipped()`. A HUD's strip
+--- has its mouse turned off and its menu unwired. A spec with no usable dock changes nothing and
+--- answers nil; otherwise answers the strip. Never shows or hides it. Docking again replaces the dock.
+--- @param strip table
+--- @param spec table
+--- @return table|nil
+function lib.DockTestStrip(strip, spec)
+  if type(strip) ~= "table" or type(spec) ~= "table" then return nil end
+  local d = dockOf(spec)
+  if not d then return nil end
+  strip.__dock = d
+  strip.Place = place
+  strip.BodyOffset = bodyOffset
+  strip.IsFlipped = function(self) return self.__flipped == true end
+  if d.dock == "hud" then
+    strip:EnableMouse(false)
+    strip:SetScript("OnMouseUp", nil)
+    watch(strip, d.target, RELAYOUT)
+    watch(strip, d.clear, RELAYOUT)
+  else
+    watch(strip, d.titleBar, RELAYOUT)
+    watch(strip, d.window, RELAYOUT)
+  end
+  if type(strip.HookScript) == "function" then wireStrip(strip) end
+  place(strip)
+  return strip
+end
+
+-- ── the footer (minor 27; the header's THE FOOTER) ──────────────────────────────────────────
+
+-- The figures, file-local like STRIP_H, so a write to lib.FOOTER moves no footer. GRIP is the right
+-- inset that clears Core.MakeResizable's grip (16 px, 1 px in from the corner) with a gap, the
+-- figure DebugLogWindow's line counter clears it by.
+local FOOT_H, FOOT_PAD, FOOT_GRIP = 24, 8, 22
+local FOOT_MARK, FOOT_MARK_ART, FOOT_MARK_GAP = 16, 12, 4
+-- Ka0s Default's `divider` (Core.SKIN.divider), `text.muted` and the marks' `icon.tint` / `icon.hot`,
+-- for a footer with no registered owner.
+local FOOT_LINE  = { 0.24, 0.24, 0.27, 0.85 }
+local FOOT_TEXT  = { 0.7, 0.7, 0.72 }
+local MARK_REST  = { 0.7, 0.7, 0.72 }
+local MARK_HOT   = { 1, 1, 1 }
+
+--- Read-only layout figures (the TEST_STRIP precedent): the footer's height, its side padding, the
+--- right inset that clears the resize grip, and a mark's slot, art and pitch. Skin-invariant.
+lib.FOOTER = { HEIGHT = FOOT_H, PAD = FOOT_PAD, GRIP = FOOT_GRIP,
+               MARK = FOOT_MARK, MARK_ART = FOOT_MARK_ART, MARK_GAP = FOOT_MARK_GAP }
+
+local function footText(foot, justify)
+  local fs = foot:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetJustifyH(justify)
+  fs:SetWordWrap(false)
+  fs:SetText("")
+  if not foot.__skin then fs:SetTextColor(FOOT_TEXT[1], FOOT_TEXT[2], FOOT_TEXT[3]) end
+  return fs
+end
+
+--- A mark's tint at rest or under the pointer: the owner's `icon.tint` / `icon.hot`, else Ka0s Default's.
+local function tintMark(foot, tex, hot)
+  local Skin = foot.__skin
+  if Skin then
+    Skin:For(foot.__owner).Mark(tex, hot and { token = "icon.hot" } or nil)
+  else
+    local c = hot and MARK_HOT or MARK_REST
+    tex:SetVertexColor(c[1], c[2], c[3])
+  end
+end
+
+--- One mark of the control slot: a Button FOOTER.MARK square, its art FOOTER.MARK_ART, host-passed.
+local function footMark(foot, spec)
+  local b = CreateFrame("Button", nil, foot)
+  b:SetSize(FOOT_MARK, FOOT_MARK)
+  local tex = b:CreateTexture(nil, "ARTWORK")
+  tex:SetSize(FOOT_MARK_ART, FOOT_MARK_ART)
+  tex:SetPoint("CENTER", b, "CENTER", 0, 0)
+  if type(spec.icon) == "string" or type(spec.icon) == "number" then tex:SetTexture(spec.icon) end
+  b.icon = tex
+  tintMark(foot, tex, false)
+  local onEnter, onLeave, onClick = spec.onEnter, spec.onLeave, spec.onClick
+  b:SetScript("OnEnter", function(self)
+    tintMark(foot, tex, true)
+    if type(onEnter) == "function" then onEnter(self) end
+  end)
+  b:SetScript("OnLeave", function(self)
+    tintMark(foot, tex, false)
+    if type(onLeave) == "function" then onLeave(self) end
+  end)
+  b:SetScript("OnClick", function(self, button)
+    if type(onClick) == "function" then onClick(self, button) end
+  end)
+  return b
+end
+
+--- Lay the footer's right side from its corner in: the grip's inset (or the padding), the marks
+--- outermost first, then the right line; the left line runs up to the right line.
+local function footLayout(foot)
+  local edge = foot.__grip and FOOT_GRIP or FOOT_PAD
+  local anchor, point, x = foot, "RIGHT", -edge
+  for _, b in ipairs(foot.marks) do
+    b:ClearAllPoints()
+    b:SetPoint("RIGHT", anchor, point, x, 0)
+    anchor, point, x = b, "LEFT", -FOOT_MARK_GAP
+  end
+  if anchor ~= foot then x = -FOOT_PAD end
+  foot.right:ClearAllPoints()
+  foot.right:SetPoint("RIGHT", anchor, point, x, 0)
+  foot.left:ClearAllPoints()
+  foot.left:SetPoint("LEFT", foot, "LEFT", FOOT_PAD, 0)
+  foot.left:SetPoint("RIGHT", foot.right, "LEFT", -FOOT_PAD, 0)
+end
+
+local function footSet(fs, text) fs:SetText(type(text) == "string" and text or "") end
+
+--- A registered owner's footer: the hairline in `divider` and both lines in `text.muted`, recorded,
+--- so they follow its skin switches. A window's footer: neither Ignore switch's panel half applies.
+local function skinFooter(foot)
+  local S = foot.__skin:For(foot.__owner)
+  S.Divider(foot.line)
+  S.Text(foot.left, "muted")
+  S.Text(foot.right, "muted")
+end
+
+--- `opts.resize`: Core.MakeResizable on `parent` with the grip built on the footer (`gripParent`),
+--- so it sits in the footer's bottom-right corner, which is the window's. A copy of the host's
+--- table: `gripParent` and `owner` default to the footer and the footer's owner.
+local function footResize(foot, parent, resize, owner)
+  local core1 = LibStub and LibStub("LibKa0s-Core-1.0", true)
+  if not (core1 and type(core1.MakeResizable) == "function") then return nil end
+  local o = {}
+  for k, v in pairs(resize) do o[k] = v end
+  if o.gripParent == nil then o.gripParent = foot end
+  if o.owner == nil then o.owner = owner end
+  return core1.MakeResizable(parent, o)
+end
+
+--- Build a window's footer (minor 27): a bare Frame `FOOTER.HEIGHT` (24) tall across `parent`'s
+--- bottom edge, BORN SHOWN and anchored, with no fill. It draws a one-physical-pixel hairline along
+--- its top, `opts.inset` (1) in from each side so it meets the window's edge; `foot.left` (the
+--- status line, LEFT at PAD) and `foot.right` (RIGHT, clear of the marks), both one line, in
+--- `text.muted`; the control slot, `opts.marks` laid right to left from the corner, outermost first;
+--- and, with `opts.grip` or `opts.resize`, the right inset that clears the resize grip's corner.
+---
+--- The host owns every string (`foot:SetLeft`, `foot:SetRight`), every mark's art, action and
+--- tooltip, and when the footer shows; a host that hides it gives `FOOTER.HEIGHT` back to its body.
+--- Mark art is HOST-PASSED, a resolved path or a fileID (this file cannot call Media, the header),
+--- and the host declares each name.
+---
+--- @param parent table     the window
+--- @param opts table|nil   { left, right, marks = { { icon, onClick(btn, button), onEnter(btn),
+---                         onLeave(btn) }, ... }, grip = bool, resize = Core.MakeResizable opts,
+---                         inset = number, owner = string }; `owner` a registered skin owner
+--- @return table  the Frame, with `foot.line` (Texture), `foot.left`, `foot.right` (FontStrings),
+---                `foot.marks` (Buttons, each with `.icon`), `foot.grip` (the grip `opts.resize`
+---                made, or nil), and `foot:SetLeft(text)`, `foot:SetRight(text)`, `foot:SetGrip(on)`
+function lib.Footer(parent, opts)
+  opts = type(opts) == "table" and opts or {}
+  local foot = CreateFrame("Frame", nil, parent)
+  foot:SetHeight(FOOT_H)   -- the local, not lib.FOOTER: a host write cannot move it
+  foot:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+  foot:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
+  foot.__skin, foot.__owner = skinOf(opts.owner), opts.owner
+
+  local inset = num(opts.inset) or 1
+  local line = foot:CreateTexture(nil, "ARTWORK")
+  line:SetPoint("TOPLEFT", foot, "TOPLEFT", inset, 0)
+  line:SetPoint("TOPRIGHT", foot, "TOPRIGHT", -inset, 0)
+  line:SetColorTexture(FOOT_LINE[1], FOOT_LINE[2], FOOT_LINE[3], FOOT_LINE[4])
+  pixelLine(line, foot, true)
+  foot.line = line
+
+  foot.left, foot.right = footText(foot, "LEFT"), footText(foot, "RIGHT")
+  footSet(foot.left, opts.left)
+  footSet(foot.right, opts.right)
+  foot.marks = {}
+  for _, spec in ipairs(type(opts.marks) == "table" and opts.marks or {}) do
+    if type(spec) == "table" then foot.marks[#foot.marks + 1] = footMark(foot, spec) end
+  end
+  if foot.__skin then skinFooter(foot) end
+
+  foot.SetLeft = function(self, text) footSet(self.left, text) end
+  foot.SetRight = function(self, text) footSet(self.right, text) end
+  foot.SetGrip = function(self, on) self.__grip = on and true or nil; footLayout(self) end
+  foot.__grip = (opts.grip == true or type(opts.resize) == "table") or nil
+  footLayout(foot)
+  if type(opts.resize) == "table" then foot.grip = footResize(foot, parent, opts.resize, opts.owner) end
+  return foot
 end
 
 -- ── inline icon markup (minor 22) ────────────────────────────────────────────────────────────

@@ -26,7 +26,11 @@
 -- one mechanism Widgets and the Skin major share; any other call is minor 15's.
 -- Minor 17 (FU-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): the pixel edges section
 -- moved, unchanged, to CorePixel.lua (layout-§1); no member and no behavior changes.
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 17
+-- Minor 18 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the
+-- settings-opener registry (RegisterSettingsOpener, HasSettings, OpenSettings), which
+-- LibKa0s-Launcher-1.0's New fills and every library window's settings mark reads; any other call
+-- is minor 17's.
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -347,6 +351,39 @@ function lib.RaiseStaticPopups()
     end
   end
   return raised
+end
+
+-- ── the settings opener (minor 18) ────────────────────────────────────────────────────────
+
+-- Every library window carries a settings mark (LibKa0s#86) and none of them is told how its addon's
+-- settings open: only the launcher's descriptor holds that (`openSettings`, required, launcher-§1).
+-- So the launcher registers it here, keyed by the addon's folder name, and a window's mark asks by
+-- its own `addonName`. Kept across minors: a newer Core copy keeps the openers an older one held.
+lib.__settingsOpeners = lib.__settingsOpeners or {}
+
+--- Record `fn` as how `owner`'s settings open (LibKa0s-Launcher-1.0's New calls this with the
+--- addon's folder name). A later call for the same owner replaces it.
+--- @return boolean  whether it was recorded (a non-empty string and a function)
+function lib.RegisterSettingsOpener(owner, fn)
+  if type(owner) ~= "string" or owner == "" or type(fn) ~= "function" then return false end
+  lib.__settingsOpeners[owner] = fn
+  return true
+end
+
+--- Whether `owner` has a registered settings opener.
+function lib.HasSettings(owner)
+  return type(owner) == "string" and lib.__settingsOpeners[owner] ~= nil
+end
+
+--- Open `owner`'s settings through its registered opener, under pcall: a raise goes to the error
+--- handler, never into the click that asked. A combat refusal is the opener's own.
+--- @return boolean  true when an opener ran without raising
+function lib.OpenSettings(owner, ...)
+  local fn = type(owner) == "string" and lib.__settingsOpeners[owner] or nil
+  if not fn then return false end
+  local ok, err = pcall(fn, ...)
+  if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
+  return ok
 end
 
 -- ── the stored-color reader ────────────────────────────────────────────────────────────────

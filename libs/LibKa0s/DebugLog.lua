@@ -38,7 +38,10 @@ if not widgets or (widgets.MINOR or 0) < NEEDS_WIDGETS then return end
 -- Minor 22: the window peeled to DebugLogWindow.lua, and it follows the console's skin owner, the
 -- descriptor's `addonName` once that addon registered with LibKa0s-Skin-1.0 (LK-09 of
 -- Ka0sAddonsCommonTasks docs/2026-10-25-SKINNING).
-local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 22
+-- Minor 23: the buffer holds each message stripped of its escapes, so Copy is plain text, and a
+-- private `__view` keeps the colored message for an owned console's skin-switch rebuild; the report
+-- seam's pointer string (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS).
+local MAJOR, MINOR = "LibKa0s-DebugLog-1.0", 23
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -144,6 +147,9 @@ lib.STRINGS = {
   -- like every string here; the report BODY is English diagnostic text and never goes through `L`.
   DIAG_WRITTEN     = "Diagnostic report written to the debug console: %d lines. " ..
     "Use Copy to share it.",
+  -- The one chat line `D:Report` prints (minor 23, DebugLogDiagnostics.lua minor 11): the report's
+  -- title, then the lines written, its header included. The same shape as DIAG_WRITTEN's.
+  REPORT_WRITTEN   = "%s: %d lines written to the debug console. Use Copy to share it.",
 }
 
 -- ── the formatters ─────────────────────────────────────────────────────────────────────────
@@ -164,6 +170,36 @@ end
 function lib.FormatColored(ts, tag, msg)
   return ("|cff6f8faf%s|r || |cffc9a66b[%s]|r %s"):format(
     tostring(ts), tostring(tag or ""), tostring(msg))
+end
+
+-- ── plain text (minor 23) ──────────────────────────────────────────────────────────────────
+--
+-- One strip for the whole major, internal and paired by the shell's minor like every secondary
+-- file's pieces: `Add` keeps the buffer's copy of a message plain with it, and the diagnostics report
+-- strips every line it writes with it (DebugLogDiagnostics.lua, which carried its own copy through
+-- its minor 10). It removes color (`|cAARRGGBB`, `|r`), texture (`|T...|t`), atlas (`|A...|a`) and
+-- key (`|K...|k`) escapes, unwraps a hyperlink to its text, and turns `|n` into a space. `||`, WoW's
+-- escaped pipe, is protected first and put back after: it is how a value whose escapes are the
+-- evidence is shown, and a strip that ate half of it would turn `||cff` back into a live code.
+--
+-- `flatten` also turns raw newlines into spaces, which the report wants (one line per line) and
+-- `Add` does not: a raw newline in a logged message is kept, so what a perf dump pastes is unchanged
+-- (decision D5). A message with no pipe at all is returned as it came, so the common trace line pays
+-- one plain `find` and no allocation.
+local PIPE = "\1"
+
+function lib.__stripEscapes(s, flatten)
+  if not s:find("|", 1, true) then
+    if flatten then return (s:gsub("[\r\n]+", " ")) end
+    return s
+  end
+  s = s:gsub("||", PIPE)
+  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  s = s:gsub("|H.-|h(.-)|h", "%1")
+  s = s:gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|K.-|k", "")
+  s = s:gsub("|n", " ")
+  if flatten then s = s:gsub("[\r\n]+", " ") end
+  return (s:gsub(PIPE, "||"))
 end
 
 local DEFAULT_FONT_SIZE = 10
@@ -228,6 +264,10 @@ end
 ---                         more than a backdrop (an inner-border child frame, a title tint, a
 ---                         divider tint); `skin` is a table and can only reach backdrop fields.
 ---                         Called on the fully-built frame, after the Hide and the Esc wiring.
+---   onSettings  function  optional, minor 23 (LibKa0s#86). What BOTH windows' settings mark opens,
+---                         in place of the addon's registered opener (LibKa0s-Core-1.0's
+---                         OpenSettings by `addonName`, which the launcher fills). Rarely needed:
+---                         every addon's launcher registers its settings panel.
 ---   makeCloseButton function optional, minor 4. function(parent, onClick) -> button or nil.
 ---                         Overrides Core's x on BOTH windows. May answer nil, as Core's own
 ---                         does. The Copy/Clear offsets are derived from the returned button's
@@ -267,6 +307,11 @@ function lib:New(d)
   local frame, rearm, flushAtEnable   -- DebugLogGates.lua's gate reset and queue flush, or nil
 
   D.buffer = {}
+  -- Minor 23: the colored message of each buffered line that carried an escape, at the same index,
+  -- `false` where the line is plain (so the array stays dense beside `buffer`). Private: only the
+  -- window's skin-switch rebuild reads it (DebugLogWindow.lua minor 5), and a host test pins a color
+  -- through the view itself, a recorder on the message frame's AddMessage.
+  D.__view = {}
   D.FormatPlain, D.FormatColored = lib.FormatPlain, lib.FormatColored
   D.MakeCloseButton = lib.MakeCloseButton
 
@@ -396,6 +441,7 @@ function lib:New(d)
       -- Forwarded so this library's own `makeCloseButton` field keeps covering BOTH windows, as it
       -- has since minor 4. Nothing in the collection passes it today, but the contract is published.
       makeCloseButton = makeCloseButton,
+      onSettings = type(d.onSettings) == "function" and d.onSettings or nil,   -- minor 23 (LibKa0s#86)
       -- BEHAVIOR GAINED, not preserved. The hand-rolled window anchored once at build, so it
       -- opened wherever it was last dragged however far the console had since moved. CopyWindow
       -- re-anchors on every show, which is what its three other callers already do — the popup
@@ -409,7 +455,12 @@ function lib:New(d)
 
   --- The append itself, without the repaint. Add is this plus one scrollbar and status update; the
   --- diagnostics report (minor 14) writes up to DIAG_MAX_LINES lines through this and repaints once
-  --- at the end, rather than repainting the status line once per line.
+  --- at the end, rather than repainting the status line once per line, and so does a report (minor
+  --- 23's D:Report, DebugLogDiagnostics.lua).
+  ---
+  --- Minor 23: the view gets the message as given and the buffer gets it stripped of its escapes
+  --- (`lib.__stripEscapes`), so Copy and every buffer reader see plain text where the console shows
+  --- color; `__view` keeps the colored message beside a line that had one.
   local function append(tag, msg)
     -- Through the seam even though the two formatters end in string.format rather than
     -- table.concat: a WoW secret raises inside format just as it does inside concat, and Add is
@@ -426,15 +477,18 @@ function lib:New(d)
         f.log:AddMessage(lib.FormatColored(ts, tag, msg))
       end
     end
-    local buf = D.buffer
-    buf[#buf + 1] = lib.FormatPlain(ts, tag, msg)
-    local n, cap = #buf, lib.MAX_BUFFER
+    local plain = lib.__stripEscapes(msg)
+    local buf, view = D.buffer, D.__view
+    local n = #buf + 1
+    buf[n] = lib.FormatPlain(ts, tag, plain)
+    view[n] = plain ~= msg and msg
+    local cap = lib.MAX_BUFFER
     if n > cap + lib.BUFFER_SLACK then
       -- One pass: the newest `cap` lines move down to 1..cap, then the tail is cleared from the end
-      -- so the array stays dense at every step.
+      -- so the array stays dense at every step. The view moves with them, index for index.
       local drop = n - cap
-      for i = 1, cap do buf[i] = buf[i + drop] end
-      for i = n, cap + 1, -1 do buf[i] = nil end
+      for i = 1, cap do buf[i] = buf[i + drop]; view[i] = view[i + drop] end
+      for i = n, cap + 1, -1 do buf[i] = nil; view[i] = nil end
     end
   end
 
@@ -505,6 +559,7 @@ function lib:New(d)
   function D:Clear()
     if frame and frame.log then frame.log:Clear() end
     for i = #D.buffer, 1, -1 do D.buffer[i] = nil end
+    for i in pairs(D.__view) do D.__view[i] = nil end
     if rearm then rearm() end
     if type(d.onClear) == "function" then
       local ok, err = pcall(d.onClear)
