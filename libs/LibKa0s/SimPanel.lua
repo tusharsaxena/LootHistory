@@ -87,7 +87,9 @@ local SIM_PANEL_MINOR = 11
 -- overrides it like every other panel string. Still minor 11 (LK-92B of the same bundle, LibKa0s#92): a
 -- control's or a row's tooltip opens beside the panel's window group (LibKa0s-Tooltip-1.0's body rule),
 -- where it owned at ANCHOR_RIGHT on the control; unreadable geometry attaches it above the control
--- (SR-L1 of the same bundle's smoke round 1; it was below).
+-- (SR-L1 of the same bundle's smoke round 1; it was below). Still minor 11 (SR2-L3, smoke round 2's
+-- answer 3): a footer button's label lights in the link color, Ka0s Default's orange (HOT_LINK,
+-- `text.link`), where it lit gold; a row still hovers gold (HOVER_GOLD, `text.accent`).
 -- Paired on the SHELL's minor as well as this file's own, as SimTimeline.lua is.
 if lib.__panelMinor and lib.__panelMinor >= SIM_PANEL_MINOR
   and lib.__panelShellMinor == lib.MINOR then return end
@@ -114,12 +116,13 @@ local CMD_COLOR = { 0.45, 0.45, 0.48 }
 
 local HOVER_GOLD   = { 1, 0.82, 0 }
 local HOVER_CANCEL = { 1.00, 0.45, 0.45 }
+local HOT_LINK     = { 1, 0.5, 0 }
 
 local function setColor(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
 
 -- The constants (and the buttons' rest / hot / off labels), for every panel without an owner.
 local DEFAULT = { cmd = CMD_COLOR, hover = HOVER_GOLD, hoverCancel = HOVER_CANCEL,
-  rest = { 0.9, 0.9, 0.92 }, hot = { 1, 0.82, 0 }, off = { 0.45, 0.45, 0.48 },
+  rest = { 0.9, 0.9, 0.92 }, hot = HOT_LINK, off = { 0.45, 0.45, 0.48 },
   tipKey = { 0.9, 0.82, 0.5 }, tipValue = { 1, 1, 1 } }
 for state, c in pairs(COLORS) do DEFAULT[state] = c end
 
@@ -386,7 +389,7 @@ end
 
 -- ── the picker and the controls ─────────────────────────────────────────────────────────────
 
---- The library's minimal button: a Core-skinned box with a centered label, gold under the pointer,
+--- The library's minimal button: a Core-skinned box with a centered label, the link color under the pointer,
 --- and a GameTooltip naming the typed command (`typed()`). There is no d.panel.button (C.7).
 --- Minor 7: `f` is the panel frame (its `__pal` labels, its `__skin` box; THE SKIN OWNER).
 local function makeButton(f, parent, width, text, onClick, typed)

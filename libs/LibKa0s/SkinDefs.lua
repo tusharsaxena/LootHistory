@@ -207,6 +207,11 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- Then (SR-L4 of the same bundle, smoke round 1's ruling 5, still minor 28): `list.header.bg`, a
 -- section header's band, is black .35, Skill Master's block header (`sm.headerBg`), where white .04
 -- sat between the plain row and the .08 stripe and read as one more row.
+-- Then (SR2-L5 of the same bundle, the owner's option C of the SR2-L3 review call, still minor 28):
+-- `btnPrimary.hoverBg` (and its optional gradient pair `btnPrimary.hoverBgTop` / `hoverBgBottom`),
+-- the fill a primary button repaints under the pointer (SkinPaintControls minor 18). Ka0s
+-- Default's is its link orange at half, #804000 at the rest fill's .95. `btnPrimary.hover` stays in
+-- the schema for a host that reads it; no library painter does.
 local DEFS_MINOR = 28
 if lib.__defsMinor and lib.__defsMinor >= DEFS_MINOR
   and lib.__defsShellMinor == lib.MINOR then return end
@@ -239,6 +244,7 @@ local GROUPS = {
     .. "btn.icon:color btn.radius:number btnPrimary.bg:color btnPrimary.bgTop:color? "
     .. "btnPrimary.bgBottom:color? btnPrimary.border:color btnPrimary.borderSize:number? "
     .. "btnPrimary.borderStyle:string? btnPrimary.text:color btnPrimary.hover:color "
+    .. "btnPrimary.hoverBg:color btnPrimary.hoverBgTop:color? btnPrimary.hoverBgBottom:color? "
     .. "btnPrimary.icon:color btnPrimary.radius:number" },
   { "Inputs", "input.bg:color input.border:color input.borderSize:number? "
     .. "input.borderStyle:string? input.text:color? input.placeholder:color? input.focus:color "
@@ -374,6 +380,9 @@ local KA0S = {
   ["btnPrimary.bg"] = { 0.2, 0.16, 0.03, 0.95 }, ["btnPrimary.border"] = { 1, 0.82, 0, 0.8 },
   ["btnPrimary.borderSize"] = 1,
   ["btnPrimary.borderStyle"] = "flat", ["btnPrimary.text"] = GOLD, ["btnPrimary.hover"] = WHITE,
+  -- The fill a primary repaints under the pointer (SR2-L5): the link orange at half, at the rest's
+  -- alpha, 20.2 ΔE00 off the dark gold with the gold label still 5.8:1 on it.
+  ["btnPrimary.hoverBg"] = { 0.5, 0.25, 0, 0.95 },
   ["btnPrimary.icon"] = { 0.85, 0.85, 0.85, 1 }, ["btnPrimary.radius"] = 0,
   -- Inputs: Widgets SKIN (dropdown, SearchBox), LootHistory Timeline's toggle box and tick.
   ["input.bg"] = CTL_FILL, ["input.border"] = CTL_LINE, ["input.borderSize"] = 1,
@@ -503,6 +512,7 @@ local KA0S = {
   ["title.bgBottom"] = { 0x14 / 255, 0x11 / 255, 0x03 / 255, 1 },
   ["title.align"] = "CENTER", ["foot.bg"] = { 0.04, 0.04, 0.05, 0.9 },
   ["btn.bgTop"] = false, ["btn.bgBottom"] = false, ["btnPrimary.bgTop"] = false, ["btnPrimary.bgBottom"] = false,
+  ["btnPrimary.hoverBgTop"] = false, ["btnPrimary.hoverBgBottom"] = false,
   ["input.text"] = BODY, ["input.placeholder"] = DIM,
   ["check.texture"] = false, ["check.markTexture"] = false,
   -- The slider: the thin bar every skin draws (SkinPaintControls minor 3), in Ka0s Default's colors.

@@ -69,6 +69,33 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- #170F09, Glass #02040C .60, Ember #0A0503, WoW Default #0C0B0A and WoW Midnight #050612. High
 -- Contrast's black window leaves nothing darker, so its band is #3D3D3D, above its hover. WoW
 -- Forever's black .35 passed and stays.
+-- Then (SR2-L1, smoke round 2's ruling 1, still minor 10): a title-bar control's hover (`text.link`)
+-- stands at least 20 ΔE00 off its rest (`icon.tint`) in every skin, and 25 in the four the owner marked
+-- bad, whose `muted` leaned toward their own accent (tests/test_skin_defs.lua). `text.link` leaves the
+-- accent there: Azeroth #FFEB33 (bright gold, its `text.linkHot` cream #FFF6C8), Glass #66F0FF (ice
+-- cyan), WoW Midnight #FFC94A (gold) and WoW Forever #FFAA33 (amber). No `icon.tint` moves.
+-- Then (SR2-L2, smoke round 2's ruling 2, still minor 10): a window's edge is one 1px line with no
+-- inner rule, as WoW Forever's is. WoW Midnight's 2px gold over a #3d2f12 rule is 1px gold; Azeroth's
+-- 1px edge takes its rule's gold #8a6a36 (`AZ_EDGE` stays every other edge's), and Ember's the amber
+-- #955727 its #c98a3a .45 rule read as over #6a2e17. No popup, menu or tooltip edge moves.
+-- Then (SR2-L3, smoke round 2's answer 3, still minor 10): a footer button's hovered label stands at
+-- least 20 ΔE00 off its rest label, legible on its fill (tests/test_footer_button_hover.lua). Azeroth's
+-- `btn.hover` is #FFF800, its link's saturated twin (white stood 15.1 off its cream, the link 19.1);
+-- WoW Midnight's `btnPrimary.hover` is its link #FFC94A (it was the white label, 0.0). Obsidian,
+-- Glass, Ember and WoW Forever kept their primary hover: an accent fill no palette label clears (an
+-- exemption SR2-L5 ended).
+-- Then (SR2-L4, smoke round 2's owner answer of 2026-11-17, still minor 10): every flat popup, menu
+-- and tooltip edge is 1px too. Azeroth's popup, menu and tooltip edges and WoW Midnight's popup and
+-- menu edges were 2px; WoW Default's tooltip edge was declared 2px, though a tooltip's edge size is
+-- read in no skin (`tipBorder` feeds `tooltip.border`, a color, and S.Tooltip recolors the frame's
+-- own backdrop), so its declaration now says what draws. No color moves; the nine-slice edges of
+-- Glass and WoW Default are untouched.
+-- Then (SR2-L5, the owner's option C of the SR2-L3 review call, still minor 10): a primary button
+-- hovers by its fill, not its label (SkinPaintControls minor 18). Each skin's `btnPrimary.hoverBg`
+-- (PRIMARY_HOVER below) is a step of its own primary fill, a gradient pair where that fill is one,
+-- at least 20 ΔE00 off it with `btnPrimary.text` reading on it at least as well as at rest, or
+-- 4.5:1 (tests/test_footer_button_hover.lua). `btnPrimary.hover` keeps its value for a host that
+-- reads it; no library painter does.
 local OTHERS_MINOR = 10
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
@@ -200,19 +227,20 @@ local function blend(a, b)
   return { (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, (a[3] + b[3]) / 2, ((a[4] or 1) + (b[4] or 1)) / 2 }
 end
 
---- Write one value. A gradient writes its two stops to `<stem>.bgTop` / `<stem>.bgBottom` where
---- the schema has them, and their blend to the flat token; a flat fill clears the stops Ka0s
---- Default sets (`false`), so its tab gradient never shows through another skin's flat tabs.
+--- Write one value. A gradient writes its two stops to `<name>Top` / `<name>Bottom` (a fill token,
+--- `<stem>.bg` or, SR2-L5, `<stem>.hoverBg`) where the schema has them, and their blend to the flat
+--- token; a flat fill clears the stops Ka0s Default sets (`false`), so its tab gradient never shows
+--- through another skin's flat tabs.
 local function put(out, name, v)
-  local stem = name:match("^(.+)%.bg$")
-  local top = stem and stem .. ".bgTop"
+  local fill = name:match("%.bg$") or name:match("%.hoverBg$")
+  local top, bottom = fill and name .. "Top", fill and name .. "Bottom"
   if type(v) == "table" and v.top then
     out[name] = blend(v.top, v.bottom)
-    if top and lib.__schemaIndex[top] then out[top], out[stem .. ".bgBottom"] = v.top, v.bottom end
+    if top and lib.__schemaIndex[top] then out[top], out[bottom] = v.top, v.bottom end
     return
   end
   out[name] = v
-  if top and KA0S[top] ~= nil then out[top], out[stem .. ".bgBottom"] = false, false end
+  if top and KA0S[top] ~= nil then out[top], out[bottom] = false, false end
 end
 
 local function putRow(out, row, v)
@@ -296,6 +324,23 @@ local HUD_SIZE = {
 local HUD_SHADOW = {
   obsidian = hex("#000000"), azeroth = hex("#1a110a"), glass = rgba(0, 0, 0, 0.6), contrast = hex("#000000"),
   ember = hex("#140a07"), wow = hex("#000000"), midnight = hex("#08091a"), forever = hex("#0a0908"),
+}
+
+-- Each skin's primary hover fill (SR2-L5): a step of its own `btnPrimary.bg`, typed as that is (a
+-- gradient pair where the fill is one, each stop stepped alike), at least 20 ΔE00 off the rest fill
+-- (a gradient read as the mean of its stops) with `btnPrimary.text` reading on it at least as well as
+-- at rest, or 4.5:1. A bright fill under a white label steps darker, since a lighter one loses the
+-- label (Obsidian's blue, Ember's orange, WoW Forever's tan); Glass's lavender under its dark label
+-- steps lighter, High Contrast's black to a gray; the deep reds and violet step darker still.
+local PRIMARY_HOVER = {
+  obsidian = hex("#184E79"),
+  azeroth = grad(hex("#330B08"), hex("#1D0503")),
+  glass = hex("#EAE2FF"),
+  contrast = hex("#4D4D4D"),
+  ember = grad(hex("#773616"), hex("#58200A")),
+  wow = grad(hex("#551109"), hex("#320603")),
+  midnight = grad(hex("#2E2251"), hex("#181133")),
+  forever = hex("#594632"),
 }
 
 -- Palette colors several tables below share (hoisted at minor 7 for HUD_LOOK).
@@ -396,6 +441,9 @@ lib.RETIRED_FONTS = { ["Ka0s Friz Quadrata TT"] = "Ka0s Ubuntu" }
 
 local function register(key, label, desc, swatches, mock, extra)
   local tokens = translate(mock, extra)
+  if tokens["btnPrimary.hoverBg"] == nil and PRIMARY_HOVER[key] then
+    put(tokens, "btnPrimary.hoverBg", PRIMARY_HOVER[key])
+  end
   if tokens["hud.font"] == nil then tokens["hud.font"] = HUD_FACE[key] end
   if tokens["hud.fontSize"] == nil then tokens["hud.fontSize"] = HUD_SIZE[key] end
   if tokens["hud.shadow"] == nil then tokens["hud.shadow"] = HUD_SHADOW[key] end
@@ -458,18 +506,19 @@ register("obsidian", "Obsidian", "True black and flat, hairline edges, one cool 
   })
 
 -- ── Azeroth ── mockup `azeroth`, reworked dark (SkinDefs minor 8, the owner's ruling of 2026-10-26:
--- "the light background is not going to work"). Dark tooled leather under a leather edge and a gold
--- inner rule, parchment text, gold headings and accent, Open Sans Semibold under Open Sans Bold titles
+-- "the light background is not going to work"). Dark tooled leather under a 1px gold #8a6a36 edge
+-- (SR2-L2: the gold its inner rule drew, under a #6b4a22 leather edge until then), parchment text, gold headings and accent, Open Sans Semibold under Open Sans Bold titles
 -- (minor 18, D-06; Vollkorn from minor 11, Cinzel titles over an Atkinson body until then); leather buttons, and
 -- the red wax seal kept for the primary button and the selected tab. As a dark skin it inherits Ka0s
--- Default's semantic, quality, tooltip and chart colors.
+-- Default's semantic, quality, tooltip and chart colors. Its popups, menus and tooltips wear a 1px
+-- leather #6b4a22 edge (SR2-L4; 2px until then).
 local AZ_LEATHER = hex("#2B1D12")
 local AZ_TEXT, AZ_WAX = hex("#E9DDBC"), grad(hex("#a3241a"), hex("#5e1009"))
 register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a red wax seal, Open Sans type.",
   { "#2b1d12", "#6b4a22", "#e2b659", "#8e1b10" }, {
     font = "Ka0s Open Sans Semibold", fs = 11, tfont = "Ka0s Open Sans Bold", titleSize = 12,
     barTex = "Ka0s Parchment",
-    win = AZ_LEATHER, winBorder = edge(1, "flat", AZ_EDGE), winInner = hex("#8a6a36"), radius = 0,
+    win = AZ_LEATHER, winBorder = edge(1, "flat", hex("#8a6a36")), winInner = false, radius = 0,
     titleBg = hex("#1a110a"), titleColor = hex("#F5C542"), divider = AZ_EDGE,
     text = AZ_TEXT, muted = hex("#B8A07A"), accent = AZ_GOLD,
     btnBg = grad(hex("#5a3d1d"), hex("#3a2614")), btnBorder = edge(1, "flat", hex("#24160a")),
@@ -489,14 +538,14 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
     navBg = rgba(0, 0, 0, 0.25), navBorder = edge(1, "flat", AZ_EDGE), navText = AZ_GOLD,
     navSelBg = hex("#7a1a10"), navSelText = hex("#FFE7A8"), navSelBar = CLEAR,
     drawerBg = hex("#3a2614"), drawerBorder = edge(1, "flat", AZ_EDGE), drawerText = AZ_TEXT,
-    popBg = AZ_LEATHER, popBorder = edge(2, "flat", AZ_EDGE), popRadius = 0,
-    tipBg = hex("#1c130b"), tipBorder = edge(2, "flat", AZ_EDGE), tipText = AZ_TEXT,
+    popBg = AZ_LEATHER, popBorder = edge(1, "flat", AZ_EDGE), popRadius = 0,
+    tipBg = hex("#1c130b"), tipBorder = edge(1, "flat", AZ_EDGE), tipText = AZ_TEXT,
     tipLevel = hex("#F5C542"), tipMuted = hex("#B8A07A"),
     footBg = hex("#1a110a"),
   }, {
     ["text.heading"] = AZ_GOLD, ["text.headingAlt"] = hex("#D4A84A"),
-    ["text.disabled"] = hex("#8A7A60"), ["text.linkHot"] = hex("#FFD866"),
-    ["btn.hover"] = hex("#FFFFFF"), ["btnPrimary.hover"] = hex("#FFFFFF"), ["close.hot"] = hex("#FF6B4A"),
+    ["text.disabled"] = hex("#8A7A60"), ["text.linkHot"] = hex("#FFF6C8"),
+    ["btnPrimary.hover"] = hex("#FFFFFF"), ["close.hot"] = hex("#FF6B4A"),
     ["drawer.bgOpen"] = hex("#4a3018"), ["drawer.boxBg"] = hex("#1c130b"),
     ["drawer.summarySet"] = AZ_GOLD, ["drawer.textSet"] = AZ_GOLD,
     ["card.bg"] = hex("#3a2614"), ["card.border"] = AZ_EDGE,
@@ -504,6 +553,12 @@ register("azeroth", "Azeroth", "Dark tooled leather, parchment text, gold and a 
     ["scroll.thumbOn"] = hex("#8a6a36"), ["tab.glow"] = rgba(255, 255, 255, 0.10),
     -- Pale gold, off its gold heading (minor 10, LibKa0s#82).
     ["icon.hot"] = hex("#FFE7A6"),
+    -- Its gold accent sat 12.9 ΔE00 off its tan rest: the hover is a brighter gold, the link's own
+    -- hover its cream (SR2-L1).
+    ["text.link"] = hex("#FFEB33"),
+    -- A push button's white hover sat 15.1 ΔE00 off its cream label, and the link 19.1: the hover is
+    -- the link's saturated twin (SR2-L3).
+    ["btn.hover"] = hex("#FFF800"),
   })
 
 -- ── Glass ── mockup `glass`. Manrope in the mockup; Avant Garde, the owner's pick, stands for it
@@ -558,6 +613,9 @@ register("glass", "Glass", "Translucent frosted panels with rounded corners and 
     -- Its heading is white, so hot cannot go above it: the rest drops and the hot is a pale lilac
     -- (minor 10, LibKa0s#82). `icon.grip` and `list.ghostIcon` FOLLOW the rest.
     ["icon.tint"] = hex("#9AA2B3"), ["icon.hot"] = hex("#D8CCFF"),
+    -- Its lilac sat 14.6 ΔE00 off its blue-gray rest and no lilac clears 25: the hover is ice cyan,
+    -- the frost of its blue swatch, far from `close.hot`'s red (SR2-L1).
+    ["text.link"] = hex("#66F0FF"),
   })
 
 -- ── High Contrast ── mockup `contrast`: black, white 2px edges, yellow focus, Doris PP (minor 18,
@@ -618,13 +676,14 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
   })
 
 -- ── Ember ── mockup `ember`: charred brown, orange accent, Emblem for body and titles alike (minor
--- 18, D-06; Bitter from minor 11, Cinzel titles over the client body until then).
+-- 18, D-06; Bitter from minor 11, Cinzel titles over the client body until then). A 1px amber #955727
+-- window edge (SR2-L2: its #c98a3a .45 inner rule composited over the #6a2e17 edge it replaced).
 register("ember", "Ember", "Charred browns lit by an orange accent, Emblem type.",
   { "#1a0e0a", "#6a2e17", "#c98a3a", "#ff7a33" }, {
     font = "Ka0s Emblem", fs = 11, tfont = "Ka0s Emblem", titleSize = 12.5,
     barTex = "Ka0s Forge",
-    win = rgba(26, 14, 10, 0.95), winBorder = edge(1, "flat", hex("#6a2e17")),
-    winInner = rgba(201, 138, 58, 0.45), radius = 0,
+    win = rgba(26, 14, 10, 0.95), winBorder = edge(1, "flat", hex("#955727")),
+    winInner = false, radius = 0,
     titleBg = grad(hex("#3a1a0f"), hex("#24100a")), titleColor = hex("#FFB45A"),
     divider = hex("#6a2e17"),
     text = hex("#F4E7DC"), muted = hex("#C7A993"), accent = hex("#FF7A33"),
@@ -704,7 +763,7 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     drawerText = hex("#FFD100"),
     popBg = hex("#1e1c19"), popBorder = edge(16, "nine:Blizzard Dialog", hex("#FFFFFF")),
     popRadius = 0,
-    tipBg = rgba(0, 0, 16, 0.92), tipBorder = edge(2, "flat", hex("#9a9a9a")),
+    tipBg = rgba(0, 0, 16, 0.92), tipBorder = edge(1, "flat", hex("#9a9a9a")),
     tipMuted = hex("#B8B8B8"),
     footBg = rgba(0, 0, 0, 0.3),
   }, {
@@ -726,18 +785,19 @@ register("wow", "WoW Default", "The vanilla client: dialog-box border, red butto
     ["icon.hot"] = hex("#FFFFFF"),
   })
 
--- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 2px
--- #b08a3e window edge and the gradient tokens; no Blizzard art. Segoe UI Semibold under Segoe UI Bold
+-- ── WoW Midnight ── mockup `midnight`: night blue and violet under gold. Flat WHITE8x8 with a 1px
+-- #b08a3e window edge and no inner rule (SR2-L2; 2px over a #3d2f12 rule until then), the gradient tokens; no Blizzard art. Segoe UI Semibold under Segoe UI Bold
 -- titles, the titles centered (minor 18, D-06; Philosopher from minor 11, Cinzel titles over the
 -- client body until then). Minor 7 (the
 -- owner's 2026-10-26 notes): the buttons leave WoW Default's red for night violet under a gold edge,
--- and the primary button is the brighter violet of the accent.
+-- and the primary button is the brighter violet of the accent. Popups and menus wear the window's
+-- 1px gold edge (SR2-L4; 2px until then).
 local MN_BG = grad(hex("#171a2e"), hex("#0f1020"))
 register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, centered Segoe UI titles.",
   { "#171a2e", "#b08a3e", "#2a2347", "#b48cff" }, {
     font = "Ka0s Segoe UI Semibold", fs = 11.5, tfont = "Ka0s Segoe UI Bold", titleSize = 13,
     barTex = "Ka0s Satin",
-    win = MN_BG, winBorder = edge(2, "flat", MN_GOLD), winInner = hex("#3d2f12"), radius = 0,
+    win = MN_BG, winBorder = edge(1, "flat", MN_GOLD), winInner = false, radius = 0,
     titleBg = grad(hex("#2a2347"), hex("#17142b")), titleColor = hex("#F6D27A"),
     titleAlign = "CENTER", divider = hex("#4a3d1e"),
     text = hex("#F2EEF8"), muted = hex("#B4AFC8"), accent = hex("#B48CFF"),
@@ -761,7 +821,7 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     navSelBar = hex("#B48CFF"),
     drawerBg = hex("#1a1730"), drawerBorder = edge(1, "flat", hex("#5a4a26")),
     drawerText = hex("#F6D27A"),
-    popBg = MN_BG, popBorder = edge(2, "flat", MN_GOLD), popRadius = 0,
+    popBg = MN_BG, popBorder = edge(1, "flat", MN_GOLD), popRadius = 0,
     tipBg = rgba(10, 10, 26, 0.95), tipBorder = edge(1, "flat", MN_GOLD), tipLevel = hex("#F6D27A"),
     tipMuted = hex("#B4AFC8"),
     footBg = rgba(0, 0, 0, 0.3),
@@ -774,6 +834,10 @@ register("midnight", "WoW Midnight", "Night blue and violet under a gold edge, c
     ["panel.bg"] = rgba(0, 0, 0, 0.3), ["panel.border"] = hex("#4a3d1e"),
     ["icon.hot"] = hex("#FFFFFF"), ["scroll.thumbOn"] = hex("#F6D27A"),
     ["scroll.thumbOff"] = MN_GOLD,
+    -- Its violet sat 18.5 ΔE00 off its lavender rest: the hover is its gold (SR2-L1).
+    ["text.link"] = hex("#FFC94A"),
+    -- A primary button's hover was its white label (0.0 ΔE00): it lights in the link's gold (SR2-L3).
+    ["btnPrimary.hover"] = hex("#FFC94A"),
   })
 
 -- ── WoW Forever ── mockup `forever`, the EllesmereUI-on-WoW-Forever look (OWNER_SCOPE R4): warm
@@ -823,4 +887,7 @@ register("forever", "WoW Forever", "Warm charcoal, black title bars with centere
     ["scroll.thumbOn"] = FV_TAN, ["scroll.thumbOff"] = hex("#6e5a46"),
     -- White, as its titles and body are (minor 10, LibKa0s#82): its tan stood 3.4 L* off its rest.
     ["icon.hot"] = hex("#FFFFFF"),
+    -- Its tan sat 14.8 ΔE00 off its warm gray rest: the hover is amber, between the tan and its gold
+    -- heading (SR2-L1).
+    ["text.link"] = hex("#FFAA33"),
   })
