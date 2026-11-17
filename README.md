@@ -47,7 +47,7 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording. A small **Choose a skin** window comes up once on each new profile. Pick a look or close it, and after that all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip below the filter bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
+There's nothing to set up. Install it, log in, and it's already recording. A small **Choose a skin** window comes up once on each new profile. Pick a look or close it, and after that all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip directly below the title bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
 
 Reading back your loot happens in the History window, in this order:
 
