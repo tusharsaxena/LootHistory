@@ -1073,8 +1073,12 @@ against the screen's right edge and hover a row again → the tooltip opens outs
 edge, and Shift-compare further left. With `/lh test` on, hover a sample row → its sample tooltip
 opens beside the window too, and hover the mode strip under the title bar → its *Test mode* tooltip is
 **centered above the strip**. Hover the filter bar's **Export**, **Clear**, **Save** and **Reset** →
-each tooltip is centered above its button. Fail: a tooltip at the cursor, one on top of the window, one hanging off a corner of
-its button, or a comparison tooltip covering the row tooltip. Result:
+each tooltip is centered above its button. Drag the window to the screen's bottom edge, `/reload`, and
+hover the lowest row of an item you have not looked at this session (its data is not cached yet) →
+the tooltip may grow a moment after it opens, and when it does it stays whole on the screen, moved up
+rather than running off the bottom. Fail: a tooltip at the cursor, one on top of the window, one hanging off a corner of
+its button, a grown tooltip cut off by the screen's bottom edge, or a comparison tooltip covering the
+row tooltip. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left

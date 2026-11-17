@@ -624,9 +624,33 @@ end
 -- never the cursor, never a corner of the element. The answer is the side it landed on.
 local TIP_GAP = 2
 
+-- LATE GROWTH (the Tooltip docs' step 4). An item or currency tooltip whose data was not cached grows
+-- after Show (the client refills it when the data arrives), and the placers write one absolute point,
+-- so it grows away from that point and can run off the screen. So once the library has placed a
+-- tooltip for an element, an OnSizeChanged hook (one per tooltip object, client-agnostic: the refill
+-- re-sizes it on every client) runs the library's Replace, the same placer with the same arguments,
+-- re-clamped. Only while that element still owns the shown tooltip: another addon's hover, a hidden
+-- tooltip or this addon's plain attach (no library placement to repeat) is never placed again.
+local placedFor = setmetatable({}, { __mode = "k" })   -- tooltip -> the element the library placed it for
+local hooked = setmetatable({}, { __mode = "k" })
+
+local function replaceOnGrowth(tt)
+  if hooked[tt] or type(tt.HookScript) ~= "function" then return end
+  hooked[tt] = true
+  tt:HookScript("OnSizeChanged", function(self)
+    local owner = placedFor[self]
+    if owner == nil then return end
+    if type(self.GetOwner) == "function" and self:GetOwner() ~= owner then return end
+    if type(self.IsShown) == "function" and not self:IsShown() then return end
+    local Tip = LibStub and LibStub("LibKa0s-Tooltip-1.0", true)
+    if Tip and type(Tip.Replace) == "function" then Tip.Replace(self) end
+  end)
+end
+
 function Compat.OwnTooltip(owner)
   local tt = tooltip("SetOwner")
   if not tt then return nil end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   return tt
 end
@@ -642,6 +666,7 @@ function Compat.PlaceTooltip(owner, place)
   local tt = tooltip()
   if not tt then return nil end
   local side
+  placedFor[tt] = nil
   if type(place) == "function" then
     side = place(tt, owner)
   else
@@ -652,6 +677,10 @@ function Compat.PlaceTooltip(owner, place)
       -- The library's own fallback order (Tooltip docs, *Unreadable geometry*): PlaceAttached,
       -- then the plain attach below.
       side = Tip.PlaceBeside(tt, owner, nil) or Tip.PlaceAttached(tt, owner)
+    end
+    if side then
+      placedFor[tt] = owner
+      replaceOnGrowth(tt)
     end
   end
   return side or attachAbove(tt, owner)
@@ -667,6 +696,7 @@ end
 function Compat.ShowItemTooltip(owner, link, place)
   local tt = tooltip("SetHyperlink")
   if not (tt and link) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   tt:SetHyperlink(link)
   return showPlaced(tt, owner, place)
@@ -675,6 +705,7 @@ end
 function Compat.ShowCurrencyTooltip(owner, currencyID, place)
   local tt = tooltip("SetCurrencyByID")
   if not (tt and currencyID) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   tt:SetCurrencyByID(currencyID)
   return showPlaced(tt, owner, place)
@@ -698,6 +729,7 @@ end
 function Compat.ShowTextTooltip(owner, title, body, place)
   local tt = tooltip("AddLine")
   if not (tt and title) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   local r, g, b = tip("gtip.title")
   tt:AddLine(title, r, g, b)
@@ -714,6 +746,7 @@ end
 function Compat.ShowLineTooltip(owner, text, token, place)
   local tt = tooltip("AddLine")
   if not (tt and text and text ~= "") then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   local r, g, b = tip(token or "gtip.value")
   tt:AddLine(text, r, g, b)
@@ -725,6 +758,7 @@ end
 function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, place)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   if rgb then tt:AddLine(title, rgb[1], rgb[2], rgb[3]) else tt:AddLine(title, tip("gtip.title")) end
   local lr, lg, lb = tip("gtip.body")
@@ -740,6 +774,7 @@ end
 function Compat.ShowLinesTooltip(owner, title, rows, place)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   tt:AddLine(title, tip("gtip.title"))
   local wr, wg, wb = tip("gtip.value")
@@ -756,6 +791,7 @@ end
 function Compat.ShowTintedTooltip(owner, lines, place)
   local tt = tooltip("AddLine")
   if not (tt and lines and lines[1]) then return false end
+  placedFor[tt] = nil
   tt:SetOwner(owner, "ANCHOR_NONE")
   local wr, wg, wb = tip("gtip.value")
   for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or wr, l[3] or wg, l[4] or wb) end

@@ -92,6 +92,40 @@ test("tooltip placement: a function place (the Charts host's ctx:PlaceTip) place
   end)
 end)
 
+-- Late growth (the Tooltip docs' step 4): an item whose data was not cached grows its tooltip after
+-- Show, and the placement is one absolute TOPLEFT point, so it grows downward. Each time the tooltip
+-- changes size while the element it was placed for still owns it, core/Compat.lua runs the library's
+-- Replace, which re-runs the same placer and re-clamps. red under: a placement made once and never
+-- again (the bottom runs off the screen), or a re-place of a tooltip someone else now owns.
+test("tooltip placement: a tooltip that grows after Show is placed again, only while still ours", function()
+  onScreen(function(scr, tip)
+    local win = scr.frame{ left = 100, bottom = 10, width = 600, height = 400 }
+    local row = scr.frame{ left = 100, bottom = 30, width = 600, height = 20, parent = win }
+    assertTrue(NS.Compat.ShowItemTooltip(row, "|Hitem:7|h[Apple]|h"), "the item tooltip drew")
+    local _, b, _, t = scr.rectOf(tip)
+    assertEqual(t, 80, "first placed with its 80 px clamped onto the screen, its bottom on 0")
+    assertEqual(b, 0)
+    tip:__size(200, 300)
+    tip:__fire("OnSizeChanged", 200, 300)
+    _, b, _, t = scr.rectOf(tip)
+    assertEqual(b, 0, "grown to 300 px: placed again, its bottom kept on the screen")
+    assertEqual(t, 300, "and its top moved up to make room")
+    -- Owned by something else now (another addon's hover): its growth is not ours to place.
+    local other = scr.frame{ left = 900, bottom = 500, width = 20, height = 20 }
+    tip:SetOwner(other, "ANCHOR_NONE")
+    local before = #tip.__log
+    tip:__size(200, 400)
+    tip:__fire("OnSizeChanged", 200, 400)
+    assertEqual(#tip.__log, before, "a tooltip another owner holds is left where that owner put it")
+    -- Ours again, then hidden: nothing to place either.
+    assertTrue(NS.Compat.ShowItemTooltip(row, "|Hitem:7|h[Apple]|h"), "the item tooltip drew again")
+    tip:Hide()
+    before = #tip.__log
+    tip:__fire("OnSizeChanged", 200, 400)
+    assertEqual(#tip.__log, before, "a hidden tooltip is not placed")
+  end)
+end)
+
 -- The fallback: unreadable geometry, or no Tooltip major at all (a degraded install). red under: the
 -- cursor, a corner anchor, or nothing placed at all.
 test("tooltip placement: unreadable geometry or no Tooltip major attaches it above the element", function()

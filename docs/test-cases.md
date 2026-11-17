@@ -274,13 +274,14 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 
-### test_tooltip_place.lua (8)
+### test_tooltip_place.lua (9)
 
 - tooltip placement: LibKa0s-Tooltip-1.0 is loaded for core/Compat.lua to place through
 - tooltip placement: a body tooltip opens right of the window, level with the row, 2 px off
 - tooltip placement: with no room on the right a body tooltip opens left of the window
 - tooltip placement: a chrome tooltip is centered 2 px above its control, below only at the top
 - tooltip placement: a function place (the Charts host's ctx:PlaceTip) places it instead
+- tooltip placement: a tooltip that grows after Show is placed again, only while still ours
 - tooltip placement: unreadable geometry or no Tooltip major attaches it above the element
 - tooltip placement: every Compat Show* helper owns at ANCHOR_NONE and places after Show
 - tooltip placement: no shipped file anchors a tooltip at a corner or the cursor
@@ -2326,7 +2327,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 74 |
 | test_compat_routing.lua | 2 |
-| test_tooltip_place.lua | 8 |
+| test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 24 |
@@ -2413,4 +2414,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2015** |
+| **Total** | **2016** |

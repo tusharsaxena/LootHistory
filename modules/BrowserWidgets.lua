@@ -268,7 +268,8 @@ function B.MakeFlatButton(parent, text, width, height, onClick, opts)
   b.text = fs
   local tooltip = opts.tooltip
   if tooltip then
-    -- A filter-bar (or modal) button is CHROME: attached and centered above it (AD-92-LH).
+    -- A filter-bar button is CHROME: attached and centered above it (AD-92-LH). The export
+    -- modal's buttons pass no tooltip (modules/Export.lua makeButton), so they have none to place.
     b:SetScript("OnEnter", function(self2)
       NS.Compat.OwnTooltip(self2)
       local r, g, bl = NS.SkinColor("gtip.body")

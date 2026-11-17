@@ -346,13 +346,17 @@ the same way, taking the caller's `place`:
 | `place` | Element | Placer | Where it opens |
 |---|---|---|---|
 | nil / `"body"` | a **body** element: a History row, a column header (History and Holdings), a Holdings row, a Timeline strip column, legend entry and the plot's hover, an Insights gains-vs-losses bar | `PlaceBeside(tip, el, nil)`, the group being `GroupOf`: the History window | beside the window, right when it fits else left, its top level with the element's, 2 px off; an item tooltip's Shift-compare opens further out on the same side |
-| `"chrome"` | a **chrome** element: the mode strip under the title bar, a filter-bar button (Export, Clear, Save, Reset) and the export modal's button, the Timeline's **Total only** toggle on the tab's header band | `PlaceAttached(tip, el)` | centered above the element, below it only with no room above |
+| `"chrome"` | a **chrome** element: the mode strip under the title bar, a filter-bar button (Export, Clear, Save, Reset), the Timeline's **Total only** toggle on the tab's header band | `PlaceAttached(tip, el)` | centered above the element, below it only with no room above |
 | a function | an Insights chart mark (bar, segment, list row, legend chip, strip column) | the Charts host's `ctx:PlaceTip(tip, owner)` (Charts minor 2), handed to `showTip` as its fourth argument | beside the window group, level with the mark |
 
 With unreadable geometry a body tooltip tries `PlaceAttached`, and when no placer places it (or a
 degraded install has no Tooltip major) it is attached above the element (`BOTTOM` on its `TOP`, 2 px):
 never the cursor, never a corner. The History window registers no companions; `GroupOf` answers the
-window itself, its docked mode strip and footer being its children. `ShowCursorTooltip` (Insights'
+window itself, its docked mode strip and footer being its children. A tooltip the library placed
+is placed again when it grows after Show (an uncached item or currency whose data arrives late: the
+Tooltip docs' step 4): a one-time `OnSizeChanged` hook on `GameTooltip` runs `Tip.Replace` while the
+element it was placed for still owns the shown tooltip, so a late-growing tooltip near the screen's
+bottom is re-clamped rather than running off it. The export modal's buttons carry no tooltip. `ShowCursorTooltip` (Insights'
 cursor-pinned line) is retired, and the ledger bars' and Timeline's `ANCHOR_CURSOR`, the headers' and
 filter-bar buttons' `ANCHOR_BOTTOM`, the legend's `ANCHOR_TOP` and the rows' `ANCHOR_RIGHT` are gone.
 `tests/test_tooltip_place.lua` pins the seam on the kit's fake screen, each surface's suite pins its
