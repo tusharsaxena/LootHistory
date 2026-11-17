@@ -334,6 +334,46 @@ dismissed by `GLOBAL_MOUSE_DOWN` with no click catcher, closed by the window's `
 disable ladder). It writes no frame level; the library's grip (+10) is the only explicit band in a
 window. `tests/test_layers.lua` pins all of it through the kit's layer recorder.
 
+## Tooltip placement
+
+Every tooltip this addon places itself opens where the hovered element sits in its window, never at
+the pointer (standalone-windows' *Tooltip placement*, adopted by AD-92-LH, LibKa0s#92). The one host
+seam is `core/Compat.lua`: `Compat.OwnTooltip(owner)` owns `GameTooltip` at `ANCHOR_NONE`, and
+`Compat.PlaceTooltip(owner, place)` places it, after it is filled and shown, through
+`LibKa0s-Tooltip-1.0` read at call time. Every `Show*` helper there owns, fills, shows, then places
+the same way, taking the caller's `place`:
+
+| `place` | Element | Placer | Where it opens |
+|---|---|---|---|
+| nil / `"body"` | a **body** element: a History row, a column header (History and Holdings), a Holdings row, a Timeline strip column, legend entry and the plot's hover, an Insights gains-vs-losses bar | `PlaceBeside(tip, el, nil)`, the group being `GroupOf`: the History window | beside the window, right when it fits else left, its top level with the element's, 2 px off; an item tooltip's Shift-compare opens further out on the same side |
+| `"chrome"` | a **chrome** element: the mode strip under the title bar, a filter-bar button (Export, Clear, Save, Reset) and the export modal's button, the Timeline's **Total only** toggle on the tab's header band | `PlaceAttached(tip, el)` | centered above the element, below it only with no room above |
+| a function | an Insights chart mark (bar, segment, list row, legend chip, strip column) | the Charts host's `ctx:PlaceTip(tip, owner)` (Charts minor 2), handed to `showTip` as its fourth argument | beside the window group, level with the mark |
+
+With unreadable geometry a body tooltip tries `PlaceAttached`, and when no placer places it (or a
+degraded install has no Tooltip major) it is attached above the element (`BOTTOM` on its `TOP`, 2 px):
+never the cursor, never a corner. The History window registers no companions; `GroupOf` answers the
+window itself, its docked mode strip and footer being its children. `ShowCursorTooltip` (Insights'
+cursor-pinned line) is retired, and the ledger bars' and Timeline's `ANCHOR_CURSOR`, the headers' and
+filter-bar buttons' `ANCHOR_BOTTOM`, the legend's `ANCHOR_TOP` and the rows' `ANCHOR_RIGHT` are gone.
+`tests/test_tooltip_place.lua` pins the seam on the kit's fake screen, each surface's suite pins its
+hover through `tests/tip_spy.lua`, and a static guard fails any `ANCHOR_*` other than `ANCHOR_NONE`, or a
+`GetCursorPosition`, in a shipped file outside the allowlist below.
+
+**Left as they are** (the rule's *What it does not bind*), each in the guard's allowlist or outside
+this addon's code:
+
+- **The AH price tab's (i) marks** (`settings/PanelAuction.lua`, `ANCHOR_RIGHT`): they sit on a
+  Blizzard Settings canvas page, which the rule does not bind.
+- **The minimap button and the broker row** (`core/LauncherSetup.lua` fills one line): the launcher
+  library places the minimap tooltip (`PlaceLauncher`, Launcher minor 11, launcher-§7), and a broker
+  display places its own.
+- **The filter bar's dropdown menus and the row context menu**: the library's dropdown entries are
+  the library's to place, and the row menu's entries carry no tooltip.
+- **The library's own windows** (the debug console, the copy window, the sim panel, the skin picker)
+  and the title-bar marks (`W.HeaderButtons`, `AttachTitleTip`): placed by LibKa0s v1.105.0.
+- **`AnalyticsCharts.lua`'s `ANCHOR_TOP`**: not a placement. It is the legacy anchor the Charts library
+  still hands a host's `tip` for a strip column, read only to pick that column's line token.
+
 ---
 
 ## Skins

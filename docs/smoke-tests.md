@@ -24,7 +24,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 48 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer and the title-bar marks |
+| HIST-1 to 49 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -33,10 +33,10 @@ free number in its theme.
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 15 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
-| LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
+| LED-1 to 14 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin, where Holdings' tooltips open |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
+| TL-1 to 19 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | SKIN-1 to 54 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview |
 | SIM-1 to 14 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
@@ -1063,6 +1063,19 @@ addon's settings open, with nothing left over them. Open the modal again and clo
 it closes as before. Fail: no gear, the modal left drawn over the settings panel, or a gear that opens
 nothing. Result:
 
+**HIST-49. Where the History window's tooltips open (AD-92-LH, LibKa0s#92; standalone-windows'
+*Tooltip placement*).** `/lh show` with the window in the screen's middle. Hover an item row, a
+currency row and a gold row → each tooltip opens **beside the window**, outside its right edge with a
+2 px gap, its top level with the row's top, never under the pointer and never over the window; hold
+Shift on an item row with an equippable item → the comparison tooltips open further right, beside the
+item's. Hover a column header → the same, beside the window, level with the header. Drag the window
+against the screen's right edge and hover a row again → the tooltip opens outside the window's left
+edge, and Shift-compare further left. With `/lh test` on, hover a sample row → its sample tooltip
+opens beside the window too, and hover the mode strip under the title bar → its *Test mode* tooltip is
+**centered above the strip**. Hover the filter bar's **Export**, **Clear**, **Save** and **Reset** →
+each tooltip is centered above its button. Fail: a tooltip at the cursor, one on top of the window, one hanging off a corner of
+its button, or a comparison tooltip covering the row tooltip. Result:
+
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
 (about 6 px), with **Export** and **Clear** flush to that margin. Drag the window wider, then
@@ -1158,8 +1171,13 @@ bar-section legend chip → each reads "<full label>:  <value>" matching the row
 glyphs), including an ellipsized label and a clipped value. Only the companion legend chips are
 label-only. Result: pass (owner-marked 2026-10-10)
 
-**INS-18. Tooltip position.** Every Insights tooltip appears just above and right of the cursor.
-Result: pass (owner-marked 2026-10-10)
+**INS-18. Tooltip position (rewritten by AD-92-LH, LibKa0s#92; standalone-windows' *Tooltip
+placement*).** Open **Insights** with the History window in the screen's middle. Hover a bar row, a
+stacked bar's segment, a ranked-list row, a legend chip, a strip column and a GAINS & LOSSES bar → each
+tooltip opens **beside the History window**, outside its right edge with a 2 px gap, its top level
+with the hovered mark's top; moving the pointer along a row does not move it. Drag the window against
+the screen's right edge and hover again → the tooltips open outside its left edge instead. Fail: a
+tooltip at the cursor, one over the window, or one that follows the pointer. Result:
 
 **INS-19. Segment tooltips.** Hover one segment of any stacked bar (Loot By Character × Source,
 Currency By Type × Source, Currency By Character × Type) → "<category>: <value>" (e.g. "Kill: 45").
@@ -1710,6 +1728,14 @@ on rows that include gold gains and losses (a large one if you have it, six or s
 
 Result: pass (owner-marked 2026-10-10)
 
+**LED-14. Where Holdings' tooltips open (AD-92-LH, LibKa0s#92).** `/lh show` → **Holdings**, the window
+in the screen's middle. Hover an item, a currency and Gold → each tooltip opens **beside the window**,
+outside its right edge with a 2 px gap, its top level with the row's top; Shift on an equippable item
+opens the comparison further right. Hover a column header → its title and description open beside
+the window, level with the header, not under it. Drag the window against the screen's right edge →
+they open outside its left edge. Fail: a tooltip at the cursor, one on top of the window, or a
+header's hanging below the header. Result:
+
 ## Ledger capture (timeline ledger Phase 2)
 
 The timeline ledger's Phase 2 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`):
@@ -1938,7 +1964,8 @@ Lua error. Change the thing and the Date range → the hidden lines stay hidden.
 `/reload` → it is still on. The in/out strip never changes with any of this. Result: pass (owner-marked 2026-10-10)
 
 **TL-15. Strip tooltips.** On Gold over **Last 30 days**, hover a day's column in the green/red strip
-under the chart (the gain bar, the loss bar and the gap between them) → a tooltip at the cursor titled
+under the chart (the gain bar, the loss bar and the gap between them) → a tooltip (beside the window
+since AD-92-LH, TL-19) titled
 `<day> · Total` (the hover's date format, e.g. `14 Aug 2026 · Total`) with **Gained** `+<coins>` in
 green, **Lost** `-<coins>` in red and **Net** signed in its sign's color (white `0` on an even day); a
 side with nothing reads `0`. A day with no bars shows nothing. Move off the strip → it hides. Move from
@@ -1979,6 +2006,15 @@ with no reload the button, title, hint, axes, grid, crosshair, Total and Warband
 tooltips take Azeroth's look; the class colors stay the class colors. Pick **Ka0s Default** again →
 the first look comes back exactly. Fail: a line, button or strip that keeps the old skin until
 `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
+
+**TL-19. Where the Timeline's tooltips open (AD-92-LH, LibKa0s#92).** `/lh show` → **Timeline** on Gold
+over **Last 30 days**, the window in the screen's middle. Hover along the plot → the day tooltip opens
+**beside the window**, outside its right edge with a 2 px gap, its top level with the chart's top, and
+it stays there as the crosshair moves from day to day (its lines change, its place does not). Hover a
+day's strip column and a legend entry → each tooltip opens beside the window, level with what you
+hover. Hover **Total only** → its tooltip is **centered above the button**. Drag the window against the
+screen's right edge → the plot, strip and legend tooltips open outside its left edge. Fail: a tooltip
+at the cursor, one over the chart, or the toggle's hanging below its button. Result:
 
 ## Simulator
 
@@ -2663,6 +2699,12 @@ new place and keep their results; HIST-45 checks it.
 Added by the same adoption's wave B (2026-11-17), awaiting the owner: HIST-47 and HIST-48, new
 (AD-86-LH, both windows' title-bar marks through `W.HeaderButtons`, a settings mark beside the close).
 HIST-22 now names the gear and keeps its result.
+
+Added by the same adoption's wave C (2026-11-17), awaiting the owner: HIST-49, TL-19 and LED-14, new
+(AD-92-LH, every tooltip the addon places beside the History window or, on chrome, centered above its
+control, through `LibKa0s-Tooltip-1.0`). INS-18 is rewritten (Insights' tooltips leave the cursor for
+beside the window), so its result is cleared. TL-15 now points at TL-19 for its tooltip's place and
+keeps its result.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

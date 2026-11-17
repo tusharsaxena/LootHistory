@@ -8,6 +8,17 @@ local test, assertEqual, assertTrue, assertFalse =
 
 local B = NS.Browser
 
+-- AD-92-LH (LibKa0s#92): a filter-bar button is CHROME, so B.MakeFlatButton attaches its tooltip
+-- centered above the button, owned at ANCHOR_NONE. red under: the old ANCHOR_BOTTOM.
+test("filter bar: a bar button's tooltip is attached above the button", function()
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, T.mocks)
+  local b = B.MakeFlatButton(T.mocks.CreateFrame("Frame"), "Clear", 60, 20, function() end,
+    { tooltip = "Clear every filter" })
+  T.mocks.GameTooltip:Hide()
+  tipSpy.assertChrome(tipSpy(function() b:GetScript("OnEnter")(b) end), b, "a bar button")
+  b:GetScript("OnLeave")(b)
+end)
+
 local function withFixture(records, fn)
   local savedTest, savedViews = NS.State.testRecords, NS.Util.DeepCopy(NS.db.profile.savedViews)
   local savedFilter, savedDd = B.activeFilter, B._dd

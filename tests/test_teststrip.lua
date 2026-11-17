@@ -194,6 +194,19 @@ local function freshEnv(withLibrary)
   return ns
 end
 
+-- AD-92-LH (LibKa0s#92): a mode strip is CHROME, so its tooltip is attached and centered above the
+-- strip (Compat.PlaceTooltip "chrome"), owned at ANCHOR_NONE. red under: the old ANCHOR_BOTTOM.
+test("test strip: each mode strip's tooltip is attached above the strip, never at a corner", function()
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, T.mocks)
+  withWindow(NS, function(_, f)
+    for _, strip in ipairs({ f.testStrip, f.simStrip }) do
+      T.mocks.GameTooltip:Hide()
+      tipSpy.assertChrome(tipSpy(function() strip:__fire("OnEnter") end), strip, strip.kind .. " strip")
+      strip:__fire("OnLeave")
+    end
+  end)
+end)
+
 test("test strip: the strip text comes from NS.L", function()
   local ns = freshEnv(true)
   ns.L[STRIP_TEXT] = "STRIP override"

@@ -243,8 +243,23 @@ test("skin table: the row menu is the skin's MenuFrame, call for call today's ba
   end)
 end)
 
+-- AD-92-LH: a column header is a BODY element (standalone-windows' *Terms*), so its tooltip opens
+-- beside the window, as a row's does. red under: the header's old ANCHOR_BOTTOM. Checked on the
+-- next case's fresh table (one table for both: each one this suite builds stays parented to
+-- UIParent until the run ends, which the leak gate counts).
+local function assertHeadersBeside()
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, mocks)
+  for _, key in ipairs({ "item", "bound" }) do
+    local b = BT.headerFrame.buttons[key]
+    mocks.GameTooltip:Hide()
+    tipSpy.assertBody(tipSpy(function() b:__fire("OnEnter") end), b, "the " .. key .. " header")
+    b:__fire("OnLeave")
+  end
+end
+
 test("skin table: the header and row tooltips read gtip.*", function()
   withFreshTable(function()
+    assertHeadersBeside()
     local lines = tipLines(function() BT.headerFrame.buttons.item:__fire("OnEnter") end)
     assertEqual(lines[1].c, today("gtip.title"), "the column name")
     assertEqual(lines[2].c, today("gtip.body"), "the column's description")

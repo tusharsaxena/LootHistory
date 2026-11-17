@@ -13,20 +13,21 @@ local Charts = LibStub and LibStub("LibKa0s-Charts-1.0", true)
 Analytics._chartsLib = Charts
 
 -- The hover lines stay core/Compat.lua's, the one place tooltip lines read gtip.*: a bar's label in
--- gtip.title, a legend chip's in gtip.body, a segment's and a list row's in gtip.value, all pinned
--- to the cursor, and a strip column's above the column.
-local function tipToken(owner)
+-- gtip.title, a legend chip's in gtip.body, a segment's, a list row's and a strip column's in
+-- gtip.value. Every mark is a BODY element, so every one is placed by the Charts context
+-- (`ctx:PlaceTip`, Charts minor 2): beside the window group, its top level with the mark's
+-- (AD-92-LH; until then pinned beside the cursor, and a strip column above itself). The legacy
+-- anchor the library still hands a host's `tip` places nothing here: it only names a strip column.
+local function tipToken(owner, anchor)
+  if anchor == "ANCHOR_TOP" then return "gtip.value" end   -- a strip column (ChartsRender)
   if owner.track then return "gtip.title" end
   if owner.sw then return "gtip.body" end
   return "gtip.value"
 end
 
-local function showTip(owner, lines, anchor)
-  if anchor == "ANCHOR_TOP" then
-    NS.Compat.ShowLineTooltip(owner, lines[1], "gtip.value", anchor)
-  else
-    NS.Compat.ShowCursorTooltip(owner, lines[1], tipToken(owner))
-  end
+local function showTip(owner, lines, anchor, ctx)
+  local place = ctx and ctx.PlaceTip and function(tt, o) return ctx:PlaceTip(tt, o) end
+  NS.Compat.ShowLineTooltip(owner, lines[1], tipToken(owner, anchor), place)
 end
 
 local function hideTip() NS.Compat.HideTooltip() end

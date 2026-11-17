@@ -268,11 +268,13 @@ function B.MakeFlatButton(parent, text, width, height, onClick, opts)
   b.text = fs
   local tooltip = opts.tooltip
   if tooltip then
+    -- A filter-bar (or modal) button is CHROME: attached and centered above it (AD-92-LH).
     b:SetScript("OnEnter", function(self2)
-      GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+      NS.Compat.OwnTooltip(self2)
       local r, g, bl = NS.SkinColor("gtip.body")
       GameTooltip:AddLine(tooltip, r, g, bl, true)
       GameTooltip:Show()
+      NS.Compat.PlaceTooltip(self2, "chrome")
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   end

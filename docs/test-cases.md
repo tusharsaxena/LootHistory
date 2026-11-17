@@ -274,6 +274,17 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 
+### test_tooltip_place.lua (8)
+
+- tooltip placement: LibKa0s-Tooltip-1.0 is loaded for core/Compat.lua to place through
+- tooltip placement: a body tooltip opens right of the window, level with the row, 2 px off
+- tooltip placement: with no room on the right a body tooltip opens left of the window
+- tooltip placement: a chrome tooltip is centered 2 px above its control, below only at the top
+- tooltip placement: a function place (the Charts host's ctx:PlaceTip) places it instead
+- tooltip placement: unreadable geometry or no Tooltip major attaches it above the element
+- tooltip placement: every Compat Show* helper owns at ANCHOR_NONE and places after Show
+- tooltip placement: no shipped file anchors a tooltip at a corner or the cursor
+
 ### test_scanner.lua (5)
 
 - Scanner: variants sum by itemID across slots and bags
@@ -759,8 +770,9 @@ Total.
 - Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)
 - Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 px in (AD-86-LH)
 
-### test_browser_filterbar.lua (22)
+### test_browser_filterbar.lua (23)
 
+- filter bar: a bar button's tooltip is attached above the button
 - Browser: date options offer 90 days and 1 year after 30 days
 - Browser: _filterHonored - no set honors everything, a set honors only its keys
 - Browser: a tab grays the controls it does not honor, and History restores them
@@ -784,13 +796,14 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
-### test_teststrip.lua (7)
+### test_teststrip.lua (8)
 
 - test strip: test mode on shows the strip with its L text, moves the body down and hides the badge
 - test strip: test mode off hides the strip and the badge and puts the body back
 - test strip: Show while already in test mode moves the body down
 - test strip: the strip is docked directly under the title bar, and hovering it explains test mode
 - test strip: each mode strip is docked under the title bar and explains its own mode
+- test strip: each mode strip's tooltip is attached above the strip, never at a corner
 - test strip: the strip text comes from NS.L
 - test strip: degraded (no Widgets): no strip, no shift, the badge still shows
 
@@ -801,7 +814,7 @@ Total.
 - footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
 - footer: the resize grip sits in the footer's corner, and the right line clears it
 
-### test_browsertable.lua (85)
+### test_browsertable.lua (86)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -874,6 +887,7 @@ Total.
 - BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
 - BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
 - BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged
+- BrowserTable: every row tooltip is a body tooltip, placed beside the window after Show
 - BrowserTable: group by Direction and by Holder
 - BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically
 - BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type
@@ -1245,7 +1259,7 @@ Total.
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
 
-### test_analytics_layout.lua (11)
+### test_analytics_layout.lua (12)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1257,9 +1271,10 @@ Total.
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 - Insights layout: each widget's hover goes through Compat in its own token
+- Insights layout: a chart mark and a gains-vs-losses bar open their tooltips beside the window
 - Insights layout: without LibKa0s-Charts-1.0 the tab says so and draws nothing
 
-### test_holdingstab.lua (33)
+### test_holdingstab.lua (34)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1284,6 +1299,7 @@ Total.
 - HoldingsTab: columns hide right to left as the pane narrows; Name, Total and Value stay
 - HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold
 - HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels
+- HoldingsTab: a row's and a header cell's tooltips open beside the window
 - HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
 - HoldingsTab group: Quality headers by rank (highest first), N = things in the group
 - HoldingsTab group: Type and SubType headers are alphabetical
@@ -1332,7 +1348,7 @@ Total.
 - Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
 - Timeline tab: one pane resize renders the chart twice (accepted, bounded)
 
-### test_timelinetab.lua (35)
+### test_timelinetab.lua (36)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1354,6 +1370,7 @@ Total.
 - Timeline tab: Total only is remembered in the saved view, the per-line set is not
 - Timeline tab: the hover tooltip lists only the visible lines
 - Timeline tab: hovering a day's strip column shows its Gained / Lost / Net, and OnLeave hides it
+- Timeline tab: strip, legend and chart tooltips open beside the window; the toggle's above it
 - Timeline tab: the strip tooltip stays the Total's with lines hidden
 - Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws
 - Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
@@ -2309,6 +2326,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 74 |
 | test_compat_routing.lua | 2 |
+| test_tooltip_place.lua | 8 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 24 |
@@ -2323,10 +2341,10 @@ Total.
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 77 |
-| test_browser_filterbar.lua | 22 |
-| test_teststrip.lua | 7 |
+| test_browser_filterbar.lua | 23 |
+| test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
-| test_browsertable.lua | 85 |
+| test_browsertable.lua | 86 |
 | test_export.lua | 37 |
 | test_debuglog.lua | 20 |
 | test_layers.lua | 8 |
@@ -2341,10 +2359,10 @@ Total.
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 49 |
-| test_analytics_layout.lua | 11 |
-| test_holdingstab.lua | 33 |
+| test_analytics_layout.lua | 12 |
+| test_holdingstab.lua | 34 |
 | test_timeline.lua | 34 |
-| test_timelinetab.lua | 35 |
+| test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 12 |
 | test_views.lua | 17 |
@@ -2395,4 +2413,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2001** |
+| **Total** | **2015** |

@@ -607,22 +607,77 @@ local function tooltip(method)
   return tt
 end
 
-function Compat.ShowItemTooltip(owner, link, anchor)
-  local tt = tooltip("SetHyperlink")
-  if not (tt and link) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  tt:SetHyperlink(link)
+-- WHERE A TOOLTIP OPENS (AD-92-LH, LibKa0s#92; WowAddonStandards standalone-windows, *Tooltip
+-- placement*). Placed by where the hovered element sits in its window, never by the pointer, through
+-- LibKa0s-Tooltip-1.0, read at CALL time. Every Show* below, and every host site that fills
+-- GameTooltip itself, owns the tooltip at ANCHOR_NONE (Compat.OwnTooltip), fills and shows it, then
+-- places it (Compat.PlaceTooltip) by `place`:
+--   nil or "body"  a BODY element (a row, a cell, a column header, a legend chip, a chart mark):
+--                  PlaceBeside, beside the element's window group (GroupOf: the History window),
+--                  right when it fits else left, its top level with the element's top;
+--   "chrome"       a CHROME element (the mode strip, a filter-bar button, a tab's toolbar toggle):
+--                  PlaceAttached, centered above the element, below it only without room above;
+--   a function     called as place(tt, owner), the Charts host's `ctx:PlaceTip` (Charts minor 2).
+-- A placer that cannot read the geometry places nothing; a body tooltip then tries PlaceAttached,
+-- and with neither placing it (or a function place answering nil) the tooltip is attached above the
+-- element (BOTTOM on its TOP, TIP_GAP), and so it is with no Tooltip major (a degraded install):
+-- never the cursor, never a corner of the element. The answer is the side it landed on.
+local TIP_GAP = 2
+
+function Compat.OwnTooltip(owner)
+  local tt = tooltip("SetOwner")
+  if not tt then return nil end
+  tt:SetOwner(owner, "ANCHOR_NONE")
+  return tt
+end
+
+local function attachAbove(tt, owner)
+  if not (tt.ClearAllPoints and tt.SetPoint and type(owner) == "table") then return nil end
+  tt:ClearAllPoints()
+  tt:SetPoint("BOTTOM", owner, "TOP", 0, TIP_GAP)
+  return "attached"
+end
+
+function Compat.PlaceTooltip(owner, place)
+  local tt = tooltip()
+  if not tt then return nil end
+  local side
+  if type(place) == "function" then
+    side = place(tt, owner)
+  else
+    local Tip = LibStub and LibStub("LibKa0s-Tooltip-1.0", true)
+    if Tip and place == "chrome" then
+      side = Tip.PlaceAttached(tt, owner)
+    elseif Tip then
+      -- The library's own fallback order (Tooltip docs, *Unreadable geometry*): PlaceAttached,
+      -- then the plain attach below.
+      side = Tip.PlaceBeside(tt, owner, nil) or Tip.PlaceAttached(tt, owner)
+    end
+  end
+  return side or attachAbove(tt, owner)
+end
+
+-- Shown, then placed: the placers measure the tooltip's real width and height.
+local function showPlaced(tt, owner, place)
   tt:Show()
+  Compat.PlaceTooltip(owner, place)
   return true
 end
 
-function Compat.ShowCurrencyTooltip(owner, currencyID, anchor)
+function Compat.ShowItemTooltip(owner, link, place)
+  local tt = tooltip("SetHyperlink")
+  if not (tt and link) then return false end
+  tt:SetOwner(owner, "ANCHOR_NONE")
+  tt:SetHyperlink(link)
+  return showPlaced(tt, owner, place)
+end
+
+function Compat.ShowCurrencyTooltip(owner, currencyID, place)
   local tt = tooltip("SetCurrencyByID")
   if not (tt and currencyID) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetOwner(owner, "ANCHOR_NONE")
   tt:SetCurrencyByID(currencyID)
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
 -- THE ONE PLACE THE HOST'S TOOLTIP LINES TAKE THEIR COLORS (skinning, LH-04). Every line this addon
@@ -640,71 +695,52 @@ local function tip(token)
 end
 
 -- A plain tooltip: a title, then an optional wrapped body line.
-function Compat.ShowTextTooltip(owner, title, body, anchor)
+function Compat.ShowTextTooltip(owner, title, body, place)
   local tt = tooltip("AddLine")
   if not (tt and title) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetOwner(owner, "ANCHOR_NONE")
   local r, g, b = tip("gtip.title")
   tt:AddLine(title, r, g, b)
   if body and body ~= "" then
     r, g, b = tip("gtip.body")
     tt:AddLine(body, r, g, b, true)
   end
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
--- One line in one gtip.* token (`token`, default gtip.value): Insights' strip bars.
-function Compat.ShowLineTooltip(owner, text, token, anchor)
-  local tt = tooltip("AddLine")
-  if not (tt and text and text ~= "") then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
-  local r, g, b = tip(token or "gtip.value")
-  tt:AddLine(text, r, g, b)
-  tt:Show()
-  return true
-end
-
--- One line pinned just above and right of the cursor (+5, +5) rather than anchored to the owner's
--- edge (Insights' bars, segments, list rows and legend chips, whose owners run the pane's width).
--- GetCursorPosition answers physical pixels, so it is divided by UIParent's scale before placing.
-function Compat.ShowCursorTooltip(owner, text, token)
+-- One line in one gtip.* token (`token`, default gtip.value): Insights' hovers, every chart mark's
+-- line (a bar's label in gtip.title, a legend chip's in gtip.body, the rest in gtip.value). Until
+-- AD-92-LH most of them were pinned beside the cursor (ShowCursorTooltip, retired with it).
+function Compat.ShowLineTooltip(owner, text, token, place)
   local tt = tooltip("AddLine")
   if not (tt and text and text ~= "") then return false end
   tt:SetOwner(owner, "ANCHOR_NONE")
-  local scale = UIParent:GetEffectiveScale()
-  local cx, cy = GetCursorPosition()
-  tt:ClearAllPoints()
-  tt:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", cx / scale + 5, cy / scale + 5)
-  tt:ClearLines()
   local r, g, b = tip(token or "gtip.value")
   tt:AddLine(text, r, g, b)
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
 -- An amount tooltip (BankLedger's gold-row shape): a colored title, one "label .... value" double
 -- line, then an optional hint. `rgb` is the title color ({ r, g, b }); nil = gtip.title.
-function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, anchor)
+function Compat.ShowAmountTooltip(owner, title, rgb, label, value, hint, place)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetOwner(owner, "ANCHOR_NONE")
   if rgb then tt:AddLine(title, rgb[1], rgb[2], rgb[3]) else tt:AddLine(title, tip("gtip.title")) end
   local lr, lg, lb = tip("gtip.body")
   local vr, vg, vb = tip("gtip.value")
   tt:AddDoubleLine(label or "", value or "", lr, lg, lb, vr, vg, vb)
   if hint and hint ~= "" then tt:AddLine(hint, tip("gtip.muted")) end
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
 -- A title over several "label .... value" lines, each pair in its row's color (the Timeline strip's
 -- Gained / Lost / Net, and the chart's hover). `rows` is { { label, text, color = { r, g, b },
 -- valueColor = { r, g, b } }, ... }: a nil color reads gtip.value, a nil valueColor the row's color.
-function Compat.ShowLinesTooltip(owner, title, rows, anchor)
+function Compat.ShowLinesTooltip(owner, title, rows, place)
   local tt = tooltip("AddDoubleLine")
   if not (tt and title) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetOwner(owner, "ANCHOR_NONE")
   tt:AddLine(title, tip("gtip.title"))
   local wr, wg, wb = tip("gtip.value")
   for _, r in ipairs(rows or {}) do
@@ -712,20 +748,18 @@ function Compat.ShowLinesTooltip(owner, title, rows, anchor)
     local v = r.valueColor or c
     tt:AddDoubleLine(r.label or "", r.text or "", c[1], c[2], c[3], v[1], v[2], v[3])
   end
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
 -- Plain lines, each in its own color (test mode's History rows, which carry no item link): `lines`
 -- is { { text, r, g, b }, ... }, the first being the title; a nil color reads gtip.value.
-function Compat.ShowTintedTooltip(owner, lines, anchor)
+function Compat.ShowTintedTooltip(owner, lines, place)
   local tt = tooltip("AddLine")
   if not (tt and lines and lines[1]) then return false end
-  tt:SetOwner(owner, anchor or "ANCHOR_RIGHT")
+  tt:SetOwner(owner, "ANCHOR_NONE")
   local wr, wg, wb = tip("gtip.value")
   for _, l in ipairs(lines) do tt:AddLine(l[1] or "", l[2] or wr, l[3] or wg, l[4] or wb) end
-  tt:Show()
-  return true
+  return showPlaced(tt, owner, place)
 end
 
 function Compat.HideTooltip()

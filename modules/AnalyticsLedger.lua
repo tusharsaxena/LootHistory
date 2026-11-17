@@ -112,7 +112,7 @@ local function makeBar(parent)
   bar.right = bar:CreateTexture(nil, "ARTWORK")
   bar:EnableMouse(true)
   bar:SetScript("OnEnter", function(self)
-    NS.Compat.ShowTextTooltip(self, self._fullLabel or "", self._info, "ANCHOR_CURSOR")
+    NS.Compat.ShowTextTooltip(self, self._fullLabel or "", self._info)   -- body: beside the window
   end)
   bar:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   return bar

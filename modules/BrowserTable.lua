@@ -543,7 +543,8 @@ function BrowserTable:BuildRow()
   -- advertises the click interactions. A gold row has no link to hover, so it gets BankLedger's
   -- hand-built tooltip: a gold "Gold" title, the signed amount as "Amount", and the menu hint (gold
   -- rows carry no link, so there is nothing to shift-click). A link-less test-mode row gets the
-  -- sample tooltip (ShowSampleTooltip above).
+  -- sample tooltip (ShowSampleTooltip above). A row is a BODY element: every one of these opens
+  -- beside the History window, its top level with the row's (Compat.PlaceTooltip; AD-92-LH).
   row:SetScript("OnEnter", function(self2)
     local e = self2.entry
     if not (e and e.kind == "row") then return end
@@ -553,11 +554,11 @@ function BrowserTable:BuildRow()
       NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, NS.SkinRGB("sem.gold"), "Amount",
         NS.LedgerFormat.QtyText(r), "Right-click for options")
     elseif r.itemLink then
-      GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
+      NS.Compat.OwnTooltip(self2)
       GameTooltip:SetHyperlink(r.itemLink)
       shown = true
     elseif r.currencyID and GameTooltip.SetCurrencyByID then
-      GameTooltip:SetOwner(self2, "ANCHOR_RIGHT")
+      NS.Compat.OwnTooltip(self2)
       GameTooltip:SetCurrencyByID(r.currencyID)
       shown = true
     elseif BrowserTable.testMode then
@@ -570,6 +571,7 @@ function BrowserTable:BuildRow()
       end
       GameTooltip:AddLine("Shift-click to link · right-click for options", mr, mg, mb)
       GameTooltip:Show()
+      NS.Compat.PlaceTooltip(self2)
     end
   end)
   row:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
@@ -728,8 +730,9 @@ function BrowserTable:MakeHeaderButton(col)
     fs:SetTextColor(headerRGB())
     btn.fs = fs
   end
+  -- A column header is a BODY element (standalone-windows' *Terms*): beside the window (AD-92-LH).
   btn:SetScript("OnEnter", function(self2)
-    GameTooltip:SetOwner(self2, "ANCHOR_BOTTOM")
+    NS.Compat.OwnTooltip(self2)
     local tr, tg, tb = NS.SkinColor("gtip.title")
     GameTooltip:AddLine(col.label ~= "" and col.label or "Bound", tr, tg, tb)
     if col.icon then
@@ -739,6 +742,7 @@ function BrowserTable:MakeHeaderButton(col)
       GameTooltip:AddLine(col.desc, r, g, b, true)
     end
     GameTooltip:Show()
+    NS.Compat.PlaceTooltip(self2)
   end)
   btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   btn:SetScript("OnClick", function() BrowserTable:SetSort(col.key) end)

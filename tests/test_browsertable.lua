@@ -1106,6 +1106,36 @@ test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows 
   if not ok then error(err, 0) end
 end)
 
+-- AD-92-LH (LibKa0s#92): a History row is a BODY element, so every one of its tooltips (an item's,
+-- a currency's, a gold row's, a test-mode sample's) opens beside the window through
+-- Compat.PlaceTooltip, owned at ANCHOR_NONE. red under: the row's old ANCHOR_RIGHT, a corner of the
+-- row as wide as the window, or a placement before Show.
+test("BrowserTable: every row tooltip is a body tooltip, placed beside the window after Show", function()
+  local BT, M = NS.BrowserTable, T.mocks
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, M)
+  local row, savedMode = BT:BuildRow(), BT.testMode
+  -- A link-less sample row, written out (BuildTestData's whole set is heap the leak gate counts).
+  local sample = { itemName = "Sword", quality = 4, itemType = "Weapon", itemSubType = "Daggers", quantity = 1 }
+  local ok, err = pcall(function()
+    local cases = {
+      { "an item row", { itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 } },
+      { "a currency row", { itemName = "Crest", currencyID = 3008, quantity = 5 } },
+      { "a gold row", { kind = "GOLD", itemName = "Gold", quantity = 1234567, dir = "OUT" } },
+      { "a test-mode sample row", sample, true },
+    }
+    for i, c in ipairs(cases) do
+      BT.testMode = c[3] or false
+      BT:BindRow(row, dataEntry(c[2]), i)
+      M.GameTooltip:Hide()
+      local got = tipSpy(function() row:GetScript("OnEnter")(row) end)
+      tipSpy.assertBody(got, row, c[1])
+    end
+  end)
+  BT.testMode = savedMode
+  M.GameTooltip:Hide()
+  if not ok then error(err, 0) end
+end)
+
 test("BrowserTable: group by Direction and by Holder", function()
   local BT = NS.BrowserTable
   local saved = BT.groupBy

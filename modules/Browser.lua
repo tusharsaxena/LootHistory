@@ -983,10 +983,12 @@ local function buildModeStrip(mark, tip)
   local strip = NS.MakeTestStrip(frame, L[mark.strip], mark.kind, dock)
   if not strip then return nil end
   strip:EnableMouse(true)
+  -- The strip is CHROME: its tooltip attached and centered above it (AD-92-LH).
   strip:HookScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+    NS.Compat.OwnTooltip(self)
     tip()
     GameTooltip:Show()
+    NS.Compat.PlaceTooltip(self, "chrome")
   end)
   strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
   return strip
