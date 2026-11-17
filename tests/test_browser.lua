@@ -1069,3 +1069,35 @@ test("Browser: the History settings mark opens this addon's settings and keeps t
     if not ok then error(err, 0) end
   end)
 end)
+
+test("Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 px in (AD-86-LH)", function()
+  -- red under: the fallback leaves the close unanchored, sets a settings mark, or answers a `right`
+  -- list S.Header cannot read (anything but { close }).
+  local real = NS.MakeHeaderButtons
+  NS.MakeHeaderButtons = function() return nil end
+  local ok, err = pcall(function()
+    local bar = T.mocks.CreateFrame("Frame")
+    local win = T.mocks.CreateFrame("Frame")
+    local closed = 0
+    local right = B:MakeTitleMarks(bar, win, function() closed = closed + 1 end)
+    local close = win.closeButton
+    assertTrue(close ~= nil, "the close mark is built")
+    assertTrue(win.settingsButton == nil, "no settings mark without W.HeaderButtons")
+    assertEqual(type(right), "table", "a right list for S.Header")
+    assertEqual(#right, 1, "the close alone")
+    assertTrue(right[1] == close, "the right list is { close }")
+    -- Only the anchors made against the bar: the mock's CreateTexture answers the frame itself, so the
+    -- close art's own SetPoint("CENTER") is recorded on the button too (tests/wow_mock.lua).
+    local pts = {}
+    for _, q in ipairs(close.__points or {}) do if q.relativeTo == bar then pts[#pts + 1] = q end end
+    assertEqual(#pts, 1, "the close is anchored to the bar once")
+    local p = pts[1]
+    assertEqual(p.point, "RIGHT"); assertTrue(p.relativeTo == bar, "anchored to the bar")
+    assertEqual(p.relativePoint, "RIGHT"); assertEqual(p.x, -6, "6 px in from the bar's right")
+    assertEqual(p.y, 0)
+    close:__fire("OnClick", "LeftButton")
+    assertEqual(closed, 1, "the close still runs its handler")
+  end)
+  NS.MakeHeaderButtons = real
+  if not ok then error(err, 0) end
+end)
