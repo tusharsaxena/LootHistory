@@ -24,7 +24,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 46 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar and the library footer |
+| HIST-1 to 48 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer and the title-bar marks |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -855,7 +855,8 @@ filters until they have no rows → the button still reads their name, never "Ch
 Result: pass (owner-marked 2026-10-10)
 
 **HIST-22. Window and button marks.** The title-bar close is the collection's ✕ mark, and the export
-modal and copy window wear the same; the modal's **Export to CSV** carries a spreadsheet mark; the
+modal and copy window wear the same; the History window and the export modal carry the gear mark
+beside it (AD-86-LH, HIST-47); the modal's **Export to CSV** carries a spreadsheet mark; the
 filter bar's **Export**, **Clear**, **Reset** and **Save** carry no mark, only their word. Fail:
 a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); a thin text ×
 in place of the close mark means the library did not load (DEGRADED-11). Result: pass (owner-marked 2026-10-10)
@@ -1044,6 +1045,23 @@ and **Azeroth** → the hairline and both lines take each skin's colors with no 
 simulation (`/lh sim start loot`) → the left line leads with *Simulating: loot · step k/n* as before.
 Fail: a filled band behind the footer, a line cut off or overlapping the grip, or a row drawn under
 the hairline. Result:
+
+**HIST-47. The History title bar reads settings · close (AD-86-LH; standalone-windows' *Title-bar
+controls*, standard v2.113.0).** `/lh show` → the title bar's right end carries two same-size marks, a
+gear and then the ✕ in the corner, evenly spaced, both gray at rest and centered on the title bar.
+Hover the gear → it lights the skin's link color and an *Open settings* tooltip opens centered above
+it; hover the ✕ → it lights red and says *Close*. Click the gear → this addon's settings open (the
+Ka0s Loot History page), and the History window stays open. Click the ✕ → the window closes as before.
+Pick **Obsidian** → both marks repaint with no reload and keep their places. Fail: no gear, the gear on
+the right of the ✕, a mark off the title bar's middle, a gear that opens nothing or another addon's
+settings, or the window closing on the gear. Result:
+
+**HIST-48. The export modal's title bar reads settings · close (AD-86-LH).** `/lh show`, click the
+filter bar's **Export** → the modal's title bar carries the gear and then the ✕ in the corner, as
+HIST-47. Hover each → the same tooltips and colors. Click the gear → the modal closes first and this
+addon's settings open, with nothing left over them. Open the modal again and close it with the ✕ →
+it closes as before. Fail: no gear, the modal left drawn over the settings panel, or a gear that opens
+nothing. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -2641,6 +2659,10 @@ Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting
 HIST-46, new (AD-88-LH, the mode strip docked directly under the title bar; AD-89-LH, the History
 footer as the library's `W.Footer`). STATE-13, STATE-15, STATE-17, SIM-1 and SIM-12 now name the strip's
 new place and keep their results; HIST-45 checks it.
+
+Added by the same adoption's wave B (2026-11-17), awaiting the owner: HIST-47 and HIST-48, new
+(AD-86-LH, both windows' title-bar marks through `W.HeaderButtons`, a settings mark beside the close).
+HIST-22 now names the gear and keeps its result.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

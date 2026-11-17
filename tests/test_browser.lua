@@ -1016,3 +1016,56 @@ test("Browser: group options offer Direction and Holder", function()
   for _, o in ipairs(B._groupOptions) do seen[o.value] = true end
   assertTrue(seen.dir and seen.holder)
 end)
+
+-- ── The title-bar marks (AD-86-LH, LibKa0s#86) ─────────────────────────────────────────────────
+-- standalone-windows *Title-bar controls* (standard v2.113.0): every window's title bar reads
+-- extras · settings · close through W.HeaderButtons, the settings mark opening this addon's settings
+-- through the opener its launcher registered for the folder (Core.OpenSettings).
+
+--- Click `win`'s settings mark with NS.Panel:Open spied, and answer how many times it was reached.
+local function clickSettings(win)
+  local P, opened = NS.Panel, 0
+  local real = P.Open
+  P.Open = function() opened = opened + 1 end
+  local ok, err = pcall(function() win.settingsButton:__fire("OnClick", "LeftButton") end)
+  P.Open = real
+  if not ok then error(err, 0) end
+  return opened
+end
+
+test("Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)", function()
+  -- red under: the title bar's marks built by hand (the close alone, no settings mark).
+  withSettings({ visibility = "always" }, function()
+    B:Show()
+    local f = B:GetWindow()
+    local ok, err = pcall(function()
+      local hb = f.headerButtons
+      assertTrue(hb ~= nil, "the History window's marks are not W.HeaderButtons'")
+      assertEqual(table.concat(hb.order, ","), "settings,close", "left to right settings · close")
+      assertTrue(f.settingsButton ~= nil and f.settingsButton == hb.settings, "the settings mark")
+      assertTrue(f.closeButton ~= nil and f.closeButton == hb.close, "the close mark")
+      assertEqual(hb.offsets.close, -6, "the close 6 px in from the corner")
+      assertEqual(hb.offsets.settings, -(6 + f.closeButton:GetWidth() + 6),
+        "settings the close's width and a 6 px gap inward of it")
+      assertEqual(rawget(f.settingsButton, "__owner"), "LootHistory", "the mark is this addon's")
+      assertTrue(f.settingsButton.icon ~= nil, "the settings mark draws the catalog's settings icon")
+      assertTrue(hb.optOut == nil, "the History window does not opt out of settings")
+    end)
+    B:Hide()
+    if not ok then error(err, 0) end
+  end)
+end)
+
+test("Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)", function()
+  -- red under: no settings mark, or one whose click does not reach the launcher's registered opener.
+  withSettings({ visibility = "always" }, function()
+    B:Show()
+    local f = B:GetWindow()
+    local ok, err = pcall(function()
+      assertEqual(clickSettings(f), 1, "the settings mark did not open the settings panel")
+      assertTrue(f:IsShown(), "the History window (HIGH, under the panel) stays up")
+    end)
+    B:Hide()
+    if not ok then error(err, 0) end
+  end)
+end)

@@ -310,6 +310,8 @@ return function(NS, mocks)
     { name = "the window's edge", build = function() return edgeOf((windows())) end },
     { name = "the window's title", build = function() return (windows()).title end },
     { name = "the close control", build = function() return (windows()).closeButton end },
+    -- The settings mark beside it (AD-86-LH, W.HeaderButtons): painted through the facade's Mark.
+    { name = "the settings mark", build = function() return (windows()).settingsButton end },
     { name = "the selected tab's label", build = function() return (windows()).tabs.History.label end },
     { name = "an unselected tab's label", build = function() return (windows()).tabs.Insights.label end },
     { name = "the record footer", build = function() windows(); return NS.Browser._footer end },
@@ -323,6 +325,9 @@ return function(NS, mocks)
     end },
     { name = "the export modal's title", build = function()
       local _, exp = windows(); return exp.titleFS
+    end },
+    { name = "the export modal's settings mark", build = function()
+      local _, exp = windows(); return exp.settingsButton
     end },
     { name = "the export modal's CSV button", build = function()
       local _, exp = windows(); return csvButton(exp)

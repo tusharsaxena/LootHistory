@@ -386,3 +386,22 @@ function NS.MakeFooter(parent, opts)
   o.owner = addonName
   return W.Footer(parent, o)
 end
+
+--- A window's title-bar marks (the library's W.HeaderButtons, WidgetsHeader minor 1; standalone-windows'
+--- *Title-bar controls*, standard v2.113.0, LibKa0s#86): right-aligned, left to right `spec.extras`,
+--- settings, close. `owner` is always this addon's folder, which is also the launcher descriptor's
+--- `name` (core/LauncherSetup.lua), so the settings mark's click reaches the opener the launcher
+--- registered for it (Core.OpenSettings). `spec.makeClose` is the host's close factory (this addon's
+--- one wrapper, B:MakeCloseButton). Answers nil with no library (or a Widgets older than v1.105.0),
+--- and the caller builds its close alone, as before.
+---
+--- @param bar table   the title bar the marks sit on
+--- @param spec table  W.HeaderButtons' spec (close, makeClose, settings, hideOnSettings, extras, frame, ...)
+--- @return table|nil  W.HeaderButtons' answer: { close, settings, extras, order, offsets, right, optOut }
+function NS.MakeHeaderButtons(bar, spec)
+  if not (W and type(W.HeaderButtons) == "function") then return nil end
+  local o = {}
+  for k, v in pairs(spec or {}) do o[k] = v end
+  o.owner = addonName
+  return W.HeaderButtons(bar, o)
+end

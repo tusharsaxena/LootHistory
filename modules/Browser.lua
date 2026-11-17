@@ -85,6 +85,29 @@ function B:MakeCloseButton(parent, onClick)
   return NS.MakeCloseButton(parent, onClick)
 end
 
+-- The title-bar marks of every window this addon owns, the History browser and the export modal
+-- (AD-86-LH, LibKa0s#86; standalone-windows *Title-bar controls*, standard v2.113.0): W.HeaderButtons
+-- through core/WidgetsSetup.lua's NS.MakeHeaderButtons, left to right settings · close, the close
+-- still B:MakeCloseButton's (the one wrapper) and the settings mark opening this addon's settings
+-- through the launcher's registered opener. `hideOnSettings` is the window to hide first, for one
+-- that would cover the settings panel (the DIALOG-strata export modal). On a degraded install (no
+-- HeaderButtons) the close alone, 6 px in from the bar's right, as before. Sets `win.closeButton`,
+-- `win.settingsButton` and answers the S.Header `right` list (outermost first).
+function B:MakeTitleMarks(bar, win, onClose, hideOnSettings)
+  local hb = NS.MakeHeaderButtons and NS.MakeHeaderButtons(bar, {
+    close = onClose, frame = win, hideOnSettings = hideOnSettings,
+    makeClose = function(parent, onClick) return B:MakeCloseButton(parent, onClick) end,
+  })
+  if hb then
+    win.closeButton, win.settingsButton = hb.close, hb.settings
+    return hb.right
+  end
+  local close = B:MakeCloseButton(bar, onClose)
+  if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
+  win.closeButton = close
+  return { close }
+end
+
 -- ── Window position/size persistence ──────────────────────────────────────────
 -- settings.window = { point, x, y, w, h } relative to UIParent.
 --
@@ -1044,20 +1067,17 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.dividerBar = divider
 
-  -- ElvUI-style thin × close glyph (class-colored on hover). Anchored to the title bar's
-  -- vertical center so it lines up with the CENTER-anchored title.
-  local close = B:MakeCloseButton(titleBar, function() B:Hide() end)
-  close:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
-  frame.closeButton = close
+  -- The title-bar marks, settings · close (AD-86-LH): B:MakeTitleMarks above. The History window is
+  -- HIGH strata, the settings panel's own, so it stays up when settings opens.
+  local marks = B:MakeTitleMarks(titleBar, frame, function() B:Hide() end)
 
   -- The header on the window's title band (R5-WIN of Ka0sAddonsCommonTasks
   -- docs/2026-11-03-SMOKE_ROUND5, items 2 and 5): S.Band is the band at Shell's own inset and
   -- title.height in every skin, and S.Header gives the title bar its rect and anchors the title by
-  -- title.align and the close 6 px in from the right, each at the band's vertical middle. Recorded,
-  -- so a skin switch places them again. The anchors above are the degraded install's, whose facade
-  -- Header does nothing.
-  NS.Skin.Header(frame, { title = title, right = { close }, bars = { titleBar } })
-  -- (Settings gear removed; open the options panel with /lh config.)
+  -- title.align and the marks at W.HeaderButtons' offsets (the close 6 px in from the right,
+  -- settings the close's width and 6 px further in), each at the band's vertical middle. Recorded, so a skin switch places them again.
+  -- The anchors HeaderButtons laid are the degraded install's, whose facade Header does nothing.
+  NS.Skin.Header(frame, { title = title, right = marks, bars = { titleBar } })
 
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
   -- footer below them. Layout from the top: title bar · mode strip (while one shows) · tab strip ·

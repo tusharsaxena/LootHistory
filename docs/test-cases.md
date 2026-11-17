@@ -679,7 +679,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (74)
+### test_browser.lua (76)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -755,6 +755,8 @@ Total.
 - Browser: the default view floors items at the minimum-quality setting
 - Browser: the Quality 'all' option names the floor
 - Browser: group options offer Direction and Holder
+- Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
+- Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)
 
 ### test_browser_filterbar.lua (22)
 
@@ -886,7 +888,7 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (35)
+### test_export.lua (37)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -923,6 +925,8 @@ Total.
 - Export: CSV ledger columns follow wowheadLink and default for legacy rows
 - Export: InsightsCSV appends Ledger sections only when the range has losses
 - Export: InsightsCSV writes a negative copper value with a leading minus
+- Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
+- Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)
 
 ### test_debuglog.lua (20)
 
@@ -2115,7 +2119,7 @@ Total.
 - skin values: no typed value outside the kit's categories and the host's rows
 - skin values: the check is falsifiable, a planted value of each shape is reported
 
-### test_skin_switch.lua (103)
+### test_skin_switch.lua (107)
 
 - skin switch: the check is falsifiable, a surface that redraws a literal is reported
 - skin switch: the window's edge changes
@@ -2124,6 +2128,8 @@ Total.
 - skin switch: the window's title changes with the Scope ignored
 - skin switch: the close control changes
 - skin switch: the close control changes with the Scope ignored
+- skin switch: the settings mark changes
+- skin switch: the settings mark changes with the Scope ignored
 - skin switch: the selected tab's label changes
 - skin switch: the selected tab's label changes with the Scope ignored
 - skin switch: an unselected tab's label changes
@@ -2144,6 +2150,8 @@ Total.
 - skin switch: the export modal's edge changes with the Scope ignored
 - skin switch: the export modal's title changes
 - skin switch: the export modal's title changes with the Scope ignored
+- skin switch: the export modal's settings mark changes
+- skin switch: the export modal's settings mark changes with the Scope ignored
 - skin switch: the export modal's CSV button changes
 - skin switch: the export modal's CSV button changes with the Scope ignored
 - skin switch: the test strip changes
@@ -2313,12 +2321,12 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 74 |
+| test_browser.lua | 76 |
 | test_browser_filterbar.lua | 22 |
 | test_teststrip.lua | 7 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 85 |
-| test_export.lua | 35 |
+| test_export.lua | 37 |
 | test_debuglog.lua | 20 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
@@ -2379,11 +2387,11 @@ Total.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_skin_values.lua | 3 |
-| test_skin_switch.lua | 103 |
+| test_skin_switch.lua | 107 |
 | test_client_globals.lua | 3 |
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1992** |
+| **Total** | **2000** |
