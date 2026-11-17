@@ -224,8 +224,12 @@ test("the console's title bar is three icon controls, which is the folder name a
   local offsets = frame.titleBarOffsets
   assertTrue(offsets ~= nil, "the library must record the computed offsets; an anchor cannot be read back")
   assertEqual(offsets.close, -6, "PAD; the close button hugs the bar's right edge")
-  assertEqual(offsets.clear - offsets.copy, 24,
-    "ICON_W + PAD. 48 means Clear fell back to a text button: no addonName reached the library")
+  -- Since DebugLogWindow minor 5 (LibKa0s v1.105.0, LibKa0s#86) the marks are Widgets' HeaderButtons,
+  -- which measure each built mark (GetWidth) rather than adding a constant. The mock reports an icon
+  -- mark at its 12px art (the alias above), so the icon gap here is 12 + 6 = 18 (24 in the client);
+  -- the word fallback still measures its 42px button, 48.
+  assertEqual(offsets.clear - offsets.copy, 18,
+    "ART + GAP under the mock. 48 means Clear fell back to a text button: no addonName reached the library")
   assertTrue(frame.clearButton.icon ~= nil, "Clear must be an icon control, not the word \"Clear\"")
   assertTrue(frame.copyButton.icon ~= nil, "Copy must be an icon control, not the word \"Copy\"")
 end)

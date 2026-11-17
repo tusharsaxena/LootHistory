@@ -19,8 +19,15 @@
 --   host.pool     a pool API, New() / Acquire(pool, factory) / ReleaseAll(pool); LibKa0s-Pool-1.0's
 --                 when left out. With neither, New raises
 --   host.panel    function(parent) -> a bordered frame, for list panels and cards
---   host.tip      function(owner, lines, anchor): show `lines` (a title, then strings)
+--   host.tip      function(owner, lines, anchor, ctx): show `lines` (a title, then strings).
+--                 `anchor` is the legacy client anchor (unchanged since minor 1); `ctx`, from minor 2,
+--                 is the context, whose `ctx:PlaceTip(tip, owner)` places a shown tooltip the
+--                 library's way
 --   host.hideTip  function()
+--   host.group    minor 2. The window group a mark's tooltip opens beside: a frame, a list of
+--                 frames (the main window first), `{ main = f, panels = {...} }`, or a function
+--                 answering one (LibKa0s-Tooltip-1.0's PlaceBeside); left out, the group the content
+--                 sits in (`GroupOf`)
 --   host.colors   { body, value, muted, heading, caption, rule, track, bar, axis, tipTitle, tipBody },
 --                 each { r, g, b[, a] } or a function answering one
 --   host.fonts    { label, axis, heading, divider, panelTitle, caption, figure }: font object names
@@ -74,7 +81,13 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Charts-1.0", 1
+-- Minor 2 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92;
+-- WowAddonStandards standalone-windows, *Tooltip placement*): the default tooltip opens beside the
+-- chart's window group through LibKa0s-Tooltip-1.0, where it followed the cursor
+-- (ANCHOR_CURSOR_RIGHT, anti-pattern #119). Additive for a host with its own `tip`: it is still
+-- called with the legacy anchor, plus the context as a fourth argument, whose new `PlaceTip`
+-- places the host's shown tooltip the same way; `host.group` names the group.
+local MAJOR, MINOR = "LibKa0s-Charts-1.0", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -299,16 +312,19 @@ local function plainPanel(parent)
   return CreateFrame("Frame", nil, parent, "BackdropTemplate")
 end
 
+--- The library's tooltip (minor 2): owned at ANCHOR_NONE, filled, shown, then placed beside the
+--- window group (Ctx:PlaceTip). The legacy anchor is a host seam's argument, not read here.
 local function plainTip(ctx)
-  return function(owner, lines, anchor)
+  return function(owner, lines)
     local tip, title, body = GameTooltip, ctx.colors.tipTitle, ctx.colors.tipBody
     if not tip then return end
-    tip:SetOwner(owner, anchor)
+    tip:SetOwner(owner, "ANCHOR_NONE")
     tip:SetText(lines[1], title[1], title[2], title[3], 1, true)
     for i = 2, #lines do
       tip:AddLine(tostring(lines[i]), body[1], body[2], body[3], true)
     end
     tip:Show()
+    ctx:PlaceTip(tip, owner)
   end
 end
 local function plainHideTip()
@@ -396,7 +412,7 @@ function lib:New(content, host)
     colors = {}, givenColors = type(host.colors) == "table" and host.colors or {},
     fonts = mergedFonts(host.fonts), skin = skinOf(host.owner), onReskin = host.onReskin,
     paint = host.paint or plainPaint, fill = host.fill or plainFill,
-    hideTip = host.hideTip or plainHideTip,
+    hideTip = host.hideTip or plainHideTip, group = host.group,
     paletteOf = type(host.palette) == "function" and host.palette or nil,
     paletteList = validPalette(host.palette) and host.palette or nil,
   }, Ctx)
@@ -456,7 +472,23 @@ function Ctx:showTip(owner, tip, anchor)
   if tip == nil or tip == "" then return end
   if type(tip) ~= "table" then tip = { tostring(tip) } end
   if tip[1] == nil then return end
-  self.tip(owner, tip, anchor or "ANCHOR_CURSOR_RIGHT")
+  self.tip(owner, tip, anchor or "ANCHOR_CURSOR_RIGHT", self)
+end
+
+--- Place `tip`, already filled and shown, for `owner` (minor 2): beside the window group
+--- (`host.group`, else the group `owner` sits in) through LibKa0s-Tooltip-1.0's PlaceBeside, else,
+--- with unreadable geometry or no Tooltip major, attached above `owner` (SR-L1). Answers the
+--- placer's side ("right", "left", "above", "below"), or "attached" for that fallback.
+--- @param tip table a shown tooltip
+--- @param owner table the hovered mark
+--- @return string
+function Ctx:PlaceTip(tip, owner)
+  local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
+  local side = Tip and Tip.PlaceBeside(tip, owner, self.group)
+  if side then return side end
+  tip:ClearAllPoints()
+  tip:SetPoint("BOTTOM", owner, "TOP", 0, 2)
+  return "attached"
 end
 
 --- The palette color at 1-based `rank` (cycles). Read at every draw, so a skin switch moves it.

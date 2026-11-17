@@ -134,8 +134,8 @@ NS.SKIN_FALLBACK = {
   -- tooltips' title and hint lines, the padlock's five bind states and the destructive entry.
   ["list.header.text"] = { 1, 0.82, 0, 1 },
   ["list.header.arrow"] = { 1, 0.82, 0, 1 },
-  ["list.stripe"]   = { 1, 1, 1, 0.03 },
-  ["list.hover"]    = { 1, 0.82, 0, 0.10 },
+  ["list.stripe"]   = { 1, 1, 1, 0.08 },
+  ["list.hover"]    = { 1, 0.82, 0, 0.16 },
   ["text.body"]     = { 0.9, 0.9, 0.9, 1 },
   ["menu.bg"]       = { 0.06, 0.06, 0.08, 0.98 },
   ["menu.border"]   = { 0, 0, 0, 1 },

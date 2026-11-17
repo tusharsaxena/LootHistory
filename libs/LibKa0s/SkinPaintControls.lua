@@ -83,7 +83,9 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- `opts.hud` draws the HUD's `icon.border` and never `icon.outline`, so an icon a HUD edges through
 -- it keeps the owner's black edge under Ka0s Default. Bumped though v1.85.0 is a local cut: minor 16
 -- copies already sit in vendored trees, and the same minor would let the first loaded one win.
-local CONTROLS_MINOR = 17
+-- Minor 18 (SR2-L5 of docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, option C): a primary Button hovers by
+-- its fill, `btnPrimary.hoverBg` (SkinDefs minor 28), its label kept; `opts.tokens` takes `hoverBg`.
+local CONTROLS_MINOR = 18
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -106,6 +108,7 @@ local CHECKED_GETTERS = { "GetCheckedTexture", "GetDisabledCheckedTexture" }
 local BTN = { fill = "btn.bg", border = "btn.border", style = "btn.borderStyle", size = "btn.borderSize" }
 local BTN_PRIMARY = { fill = "btnPrimary.bg", border = "btnPrimary.border",
                       style = "btnPrimary.borderStyle", size = "btnPrimary.borderSize" }
+local BTN_PRIMARY_HOT = setmetatable({ fill = "btnPrimary.hoverBg" }, { __index = BTN_PRIMARY })
 local INPUT = { fill = "input.bg", border = "input.border", style = "input.borderStyle",
                 size = "input.borderSize" }
 
@@ -147,7 +150,8 @@ for _, base in ipairs({ "btn", "btnPrimary" }) do
   BUTTON_SLOTS[base] = { bg = base .. ".bg", border = base .. ".border", text = base .. ".text",
                          hover = base .. ".hover", icon = base .. ".icon", disabled = "text.disabled" }
 end
-local BUTTON_FILLS = { bg = true }
+BUTTON_SLOTS.btnPrimary.hoverBg = "btnPrimary.hoverBg"   -- minor 18: a primary's hover fill
+local BUTTON_FILLS = { bg = true, hoverBg = true }
 
 --- The owner's tokens as the button's record remaps them (minor 9): its `opts.tokens`, kept on its
 --- regions by its last Button call. The view is cached on the regions, keyed by the token table,
@@ -168,7 +172,7 @@ local function enabled(btn)
 end
 
 --- The label's color for the button's state: `text.disabled` while disabled, else the hover or
---- rest color.
+--- rest color. A primary's label keeps its rest color under the pointer (minor 18: its fill hovers).
 local function buttonLabel(btn, rec, hot)
   local T = buttonTokens(rec.owner, rec)
   local base = buttonBase(rec)
@@ -177,19 +181,32 @@ local function buttonLabel(btn, rec, hot)
   if not enabled(btn) then
     c = T["text.disabled"]
   else
-    c = T[base .. (hot and ".hover" or ".text")]
+    c = T[base .. ((hot and base == "btn") and ".hover" or ".text")]
   end
   if fs and c then paintColor(fs, "SetTextColor", c) end
 end
 
-local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on) end
+--- A boxed primary's fill (minor 18): `btnPrimary.hoverBg` while hovered and enabled, unless a remapped
+--- `bg` has no `hoverBg` of its own; else `btnPrimary.bg`. Repainted only when the state moves.
+local function primaryFill(btn, rec, hot)
+  local r, T = rec.regions, buttonTokens(rec.owner, rec)
+  if not r.btnBox then return end
+  local tk = r.btnTokens
+  local lit = hot and enabled(btn) and T["btnPrimary.hoverBg"] ~= nil and not (tk and tk.bg and not tk.hoverBg)
+  if r.btnLit == (lit or false) then return end
+  r.btnLit = lit or false
+  P.box(rec, btn, T, lit and BTN_PRIMARY_HOT or BTN_PRIMARY, r.btnBox)
+end
+
+local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on); primaryFill(btn, rec, on) end
 
 --- S.Button(btn, keepKeys | opts): a push button. The flat-control box from `btn.*` (or
 --- `btnPrimary.*` with `opts.primary`): backdrop, gradient, non-flat edge on the holder; the stock
 --- textures faded unless kept (`keepKeys == true` or `opts.keep`); the label in `btn.text` and the
 --- body font, `btn.hover` under the pointer; `btn.icon` (a texture) in `btn.icon`, under every
---- skin, Ka0s Default included. `opts.tokens` (minor 9) remaps `bg`, `border`, `text`,
---- `hover`, `icon` and `disabled` to a library or owner token by NAME (a danger button), for the
+--- skin, Ka0s Default included; a primary's label stays put and its fill hovers (minor 18). `opts.tokens`
+--- (minor 9) remaps `bg`, `border`, `text`, `hover`, `icon`, `disabled` (and a primary's `hoverBg`,
+--- minor 18) to a library or owner token by NAME (a danger button), for the
 --- first paint, every repaint and the hover and enable hooks. Draws no Media icon.
 prim.Button = function(owner, btn, a)
   if not P.isFrame(btn) then return end
@@ -199,6 +216,8 @@ prim.Button = function(owner, btn, a)
   rec.regions.primary = opts.primary == true
   rec.regions.btnTokens = type(opts.tokens) == "table" and opts.tokens or nil
   local T = buttonTokens(owner, rec)
+  rec.regions.btnBox = (opts.primary and not opts.keep) and opts or nil
+  rec.regions.btnLit = false
   if not opts.keep then
     P.fadeAll(rec, P.stockRegions(btn, opts))
     P.box(rec, btn, T, opts.primary and BTN_PRIMARY or BTN, opts)
@@ -213,8 +232,8 @@ prim.Button = function(owner, btn, a)
   if icon then P.tint(rec, icon, T, base .. ".icon", "SetVertexColor") end
   P.hook(rec, btn, "OnEnter", function(self, r) buttonHover(self, r, true) end)
   P.hook(rec, btn, "OnLeave", function(self, r) buttonHover(self, r, false) end)
-  P.hook(rec, btn, "OnEnable", function(self, r) buttonLabel(self, r, false) end)
-  P.hook(rec, btn, "OnDisable", function(self, r) buttonLabel(self, r, false) end)
+  P.hook(rec, btn, "OnEnable", function(self, r) buttonHover(self, r, false) end)
+  P.hook(rec, btn, "OnDisable", function(self, r) buttonHover(self, r, false) end)
   if not enabled(btn) then buttonLabel(btn, rec, false) end
 end
 

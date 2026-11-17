@@ -1,4 +1,5 @@
--- testkit/mock_events.lua — the client's event surfaces beyond AceEvent (revision 26).
+-- testkit/mock_events.lua — the client's event surfaces beyond AceEvent (revision 26; the hold,
+-- revision 57).
 --
 -- Three things the kit did not model, each of which let a consumer suite pass over a case the
 -- client fails:
@@ -20,6 +21,17 @@
 --
 -- `M.__badEvents` is read at CALL time on every path, so a test that swaps the table is heard.
 --
+-- Revision 57 (LibKa0s#75): a frame is HELD while it has a raw registration. The client never frees a
+-- frame, so a frame an addon registered and then dropped keeps hearing its events. The kit's only
+-- other reference to such a frame is `mock_base.lua`'s weak `frameSet`, so through revision 56 the
+-- next collection freed it and `M.__fire` silently stopped reaching it. The hold is a strong set PER
+-- BUILD, on `M` and never in this module: a module-level one would outlive every build and keep each
+-- one alive through the frames' closures, the revision 22 leak `tests/test_mock_base.lua` pins. It
+-- lets go when the frame's last raw and per-unit registration is gone, through `UnregisterEvent`,
+-- `UnregisterAllEvents`, or `mock_ace.lua`'s embedded-frame `UnregisterAllEvents`, which replaces the
+-- frame's own and calls `M.__releaseFrame`. A frame that never registers is not held, so `frameSet`
+-- still lets go of a frame nobody holds. `M.__heldFrame(f)` answers whether `f` is held.
+--
 -- Loaded by `mock_base.lua` from its own folder, like `mock_record.lua`, and for the same reason it
 -- is a file of its own: `mock_base.lua` sits near `layout-§1`'s 1500-line cap. It answers two
 -- functions: `decorateFrame(M, f)`, which every tracked frame passes through as it is made, and
@@ -37,8 +49,33 @@ local function unknownEvent(event)
   return "Attempt to register unknown event \"" .. tostring(event) .. "\""
 end
 
+-- The build's hold: [frame] = true while the frame has a raw registration. Made once per build, on
+-- `M`, so it lives and dies with the build. `mock_base.lua`'s frame stub calls `hold` and `release`
+-- from its own Register/Unregister methods, so the hold costs no closure per frame: an earlier cut
+-- wrapped UnregisterEvent and UnregisterAllEvents on every frame, and a consumer suite that makes
+-- about 26,000 frames paid about 6 MB for it (LootHistory's leak gate, 2026-11-16).
+function Events.frameHooks(M)
+  local hooks = rawget(M, "__kitFrameHooks")
+  if hooks then return hooks end
+  local held = {}
+  M.__kitHeldFrames = held
+  M.__heldFrame = function(f) return held[f] == true end
+  -- Drop the hold once nothing raw is registered. Safe on a frame never held or never tracked.
+  M.__releaseFrame = function(f)
+    local frameEvents, unitEvents = rawget(f, "__frameEvents"), rawget(f, "__unitEvents")
+    if (type(frameEvents) ~= "table" or next(frameEvents) == nil)
+      and (type(unitEvents) ~= "table" or next(unitEvents) == nil) then
+      held[f] = nil
+    end
+  end
+  hooks = { hold = function(f) held[f] = true end, release = M.__releaseFrame }
+  M.__kitFrameHooks = hooks
+  return hooks
+end
+
 --- Wrap one frame's RegisterEvent and RegisterUnitEvent so an unknown name raises before anything is
---- recorded. The frame stub's own recording functions run unchanged for every other name.
+--- recorded. The frame stub's own recording functions run unchanged for every other name, and they
+--- hold and release the frame themselves (revision 57, `Events.frameHooks`).
 function Events.decorateFrame(M, f)
   local register, registerUnit = f.RegisterEvent, f.RegisterUnitEvent
   function f.RegisterEvent(self, event, ...)

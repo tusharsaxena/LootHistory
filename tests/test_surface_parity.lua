@@ -205,6 +205,9 @@ test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires",
     "GetSpecialization", "GetSpecializationInfo",
     -- LibKa0s v1.92.0 (Compat minor 2) added these four client helpers. No caller here until the Forever port.
     "IsForever", "IsRetail", "ClientKey", "ForClient",
+    -- LibKa0s v1.94.0 (Compat minor 4) added the four region-unique identity helpers (WoW Forever).
+    -- This addon ships for Retail only, and nothing here calls them.
+    "RegionalNames", "UnitCharacterName", "CharacterKey", "RealmKey",
   })
 end)
 

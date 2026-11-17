@@ -33,7 +33,13 @@ if not Pool or (Pool.MINOR or 0) < NEEDS_POOL then return end
 -- `list.hoverArt` (S.NavItem's `hover`); every dress puts the art back on the client's first, so a
 -- pooled entry drawn for no owner never keeps another owner's tint.
 -- Minor 5 (cause L2 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): an entry's tooltip body through O.__tipColor (`gtip.line`).
-local NAV_MINOR = 6
+-- Minor 6 (WFP-RV2-LK): O.NavRail gates `spec.entries` by `clients`.
+-- Minor 7 (plan row L13 of docs/superpowers/plans/2026-11-13-callout.md): O.SideTabs, the rail's look
+-- drawn INSIDE the page's content, under whatever the page drew above it: a list of tabs on the left
+-- and the selected one's body on the right, both scrolling with the page. The rail is page chrome,
+-- pinned beside the strip; a side-tab group divides one section, so it belongs to the content (the
+-- reason O.SubTabStrip scrolls). The Callout's settings tab draws its Look and Sound with it.
+local NAV_MINOR = 7
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__navMinor and lib.__navMinor >= NAV_MINOR
   and lib.__navShellMinor == lib.MINOR then return end
@@ -220,6 +226,88 @@ local function dressEntry(O, b, entry, selected, onSelect)
   end
 end
 
+-- ── the side tabs' frames (minor 7) ──────────────────────────────────────────────────────────
+--
+-- A side-tab group is an AceGUI SimpleGroup in the page's scroll, laid out by SIDE_LAYOUT: its one
+-- child, the body, starts right of the rail and takes the rest of the width, and the group is as
+-- tall as the body or the rail's entries, whichever is taller. The rail is a plain frame on the
+-- group's frame, pinned to its left edge top to bottom, so it is as tall as the body it sits beside.
+--
+-- The group goes back to AceGUI's pool when the page's scroll is cleared, and its frame with it, so
+-- the rail must not stay on it: the group's OnRelease callback hands the rail back to FREE_RAILS
+-- (its entries to its own pool) and puts the group's layout back to List, AceGUI's default for a
+-- container. A rail is taken from FREE_RAILS before one is built.
+
+local SIDE_LAYOUT = "Ka0sSideTabs"
+local FREE_RAILS = {}
+
+--- AceGUI layout `SIDE_LAYOUT` (content, children): the body right of the rail, full height.
+--- The rail's width and the entries' height are the group's own fields, set by O.SideTabs.
+local function sideLayout(content, children)
+  local obj = content.obj
+  local railW = (obj and obj.__ka0sSideRailW) or RAIL_W
+  local x = railW + RAIL_GAP
+  local width = content.width or (content.GetWidth and content:GetWidth()) or 0
+  local height = 0
+  local body = children[1]
+  if body then
+    local f = body.frame
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", content, "TOPLEFT", x, 0)
+    f:Show()
+    body:SetWidth(math.max(0, width - x))
+    if body.DoLayout then body:DoLayout() end
+    height = f.height or (f.GetHeight and f:GetHeight()) or 0
+  end
+  height = math.max(height, (obj and obj.__ka0sSideMinH) or 0)
+  if obj and obj.LayoutFinished then obj:LayoutFinished(nil, height) end
+end
+
+--- A rail for `group`, from FREE_RAILS or new, pinned to the group's left edge.
+local function sideRail(group, width)
+  local rail = table.remove(FREE_RAILS)
+  if rail then
+    rail:SetParent(group.frame)
+  else
+    rail = CreateFrame("Frame", nil, group.frame, "BackdropTemplate")
+    if rail.SetBackdrop then
+      rail:SetBackdrop(PANE_BACKDROP)
+      rail:SetBackdropColor(PANE_FILL[1], PANE_FILL[2], PANE_FILL[3], PANE_FILL[4])
+      rail:SetBackdropBorderColor(PANE_BORDER[1], PANE_BORDER[2], PANE_BORDER[3])
+    end
+    rail.__ka0sSidePool = Pool.New()
+  end
+  rail:ClearAllPoints()
+  rail:SetPoint("TOPLEFT",    group.frame, "TOPLEFT",    0, 0)
+  rail:SetPoint("BOTTOMLEFT", group.frame, "BOTTOMLEFT", 0, 0)
+  rail:SetWidth(width)
+  rail:Show()
+  return rail
+end
+
+--- The group's OnRelease: the rail off the pooled frame and back on the free list. FREE_RAILS is
+--- shared by every instance, so the rail goes back to client art first (lib.__chromeUnpaint, the
+--- Skin record's saved backdrop, and untracked): a host with no skin that takes it next never draws
+--- another owner's skin on its list, and the old owner's replays no longer reach it.
+local function releaseSideRail(group, rail)
+  if lib.__chromeUnpaint then lib.__chromeUnpaint(rail) end
+  Pool.ReleaseAll(rail.__ka0sSidePool)
+  rail:Hide()
+  rail:ClearAllPoints()
+  rail:SetParent(UIParent)
+  FREE_RAILS[#FREE_RAILS + 1] = rail
+  group.__ka0sSideRailW, group.__ka0sSideMinH = nil, nil
+  if group.SetLayout then group:SetLayout("List") end
+end
+
+--- The selected entry: `value` when a drawn entry has it, else the first (a stale pointer heals).
+local function sideSelected(entries, value)
+  for _, e in ipairs(entries) do
+    if e.key == value then return value end
+  end
+  return entries[1].key
+end
+
 -- ── the instance half ────────────────────────────────────────────────────────────────────────
 
 function lib.__AttachNav(O)
@@ -284,10 +372,88 @@ function lib.__AttachNav(O)
     return buttons
   end
 
+  --- The host's render for the selected tab, with the page's scroll pointed at the body: every
+  --- member that draws into the page (O.RenderRows, O.Section, O.TextRow, O.InlineButtonPair, ...)
+  --- reads ctx.scroll through O.EnsureScroll, so each draws into the body. The section trackers start
+  --- fresh inside it, and the page's scroll and trackers come back whatever the render does.
+  local function drawSideBody(ctx, body, render, key)
+    local scroll, group, subgroup = ctx.scroll, ctx.lastGroup, ctx.lastSubgroup
+    ctx.scroll, ctx.lastGroup, ctx.lastSubgroup = body, nil, nil
+    local ok, err = pcall(render, ctx, key)
+    ctx.scroll, ctx.lastGroup, ctx.lastSubgroup = scroll, group, subgroup
+    if not ok and O.__print then
+      O.__print(lib.STRINGS.RENDER_FAILED:format("side tab " .. tostring(key), tostring(err)))
+    end
+  end
+
+  local function sideEntries(rail, entries, selected, onSelect)
+    local buttons = {}
+    local factory = function() return newEntry(rail) end
+    Pool.ReleaseAll(rail.__ka0sSidePool)
+    for i, entry in ipairs(entries) do
+      local b = Pool.Acquire(rail.__ka0sSidePool, factory)
+      dressEntry(O, b, entry, entry.key == selected, onSelect)
+      b:ClearAllPoints()
+      b:SetPoint("TOPLEFT",  rail, "TOPLEFT",   ENTRY_INSET, entryY(i))
+      b:SetPoint("TOPRIGHT", rail, "TOPRIGHT", -ENTRY_INSET, entryY(i))
+      b:Show()
+      buttons[i] = b
+    end
+    return buttons
+  end
+
+  --- A side-tab group (minor 7): the rail's look INSIDE the page's content, drawn where the page
+  --- has got to, so whatever the page drew first (a preview, a heading) sits above it. A list of
+  --- tabs on the left, the selected tab's body on the right; both scroll with the page.
+  ---
+  --- `spec` = { entries = { { key, label, tooltip, clients } }, value, onSelect, render, width }.
+  --- `render(ctx, key)` draws the selected tab's body: it is called with the page's scroll pointed
+  --- at the body, so O.RenderRows(ctx, rows) and the other members that add to the page draw there.
+  --- Chrome members (O.TabStrip, O.NavRail, O.PageBanner, O.PageHeader) and O.ClearScroll are not
+  --- called from it. The selection is the HOST's state, as O.NavRail's is: `value` names it (a key
+  --- no drawn entry has selects the first, which is the key `render` is handed); a click calls
+  --- `onSelect(key)` and then re-renders the page (O.RefreshPanel(ctx, true), the page's renderer,
+  --- scroll offset kept), refused in combat as a rail click is. `width` is the list's, 120 by
+  --- default; `clients` gates an entry as everywhere else.
+  ---
+  --- Returns the entry buttons in list order, the body (an AceGUI SimpleGroup) and the selected
+  --- key, or nil having drawn nothing (no entry, no render, no AceGUI or no scroll).
+  function O.SideTabs(ctx, spec)
+    if not (ctx and type(spec) == "table" and type(spec.render) == "function") then return nil end
+    local entries = lib.__GateClients(spec.entries)
+    if type(entries) ~= "table" or #entries == 0 then return nil end
+    local AceGUI, scroll = O.AceGUI, O.EnsureScroll(ctx)
+    if not (AceGUI and scroll) then return nil end
+    AceGUI:RegisterLayout(SIDE_LAYOUT, sideLayout)
+    local selected, width = sideSelected(entries, spec.value), tonumber(spec.width) or RAIL_W
+    local group = AceGUI:Create("SimpleGroup")
+    group:SetFullWidth(true)
+    group.__ka0sSideRailW, group.__ka0sSideMinH = width, 2 * ENTRY_TOP + #entries * ENTRY_H
+    group:SetLayout(SIDE_LAYOUT)
+    local body = AceGUI:Create("SimpleGroup")
+    body:SetLayout("List")
+    group:AddChild(body)
+    scroll:AddChild(group)
+    local rail = sideRail(group, width)
+    group:SetCallback("OnRelease", function() releaseSideRail(group, rail) end)
+    local buttons = sideEntries(rail, entries, selected, function(key)
+      if type(spec.onSelect) == "function" then spec.onSelect(key) end
+      O.RefreshPanel(ctx, true)
+    end)
+    if O.__chromePaint then O.__chromePaint("Panel", rail, { nav = true }) end
+    drawSideBody(ctx, body, spec.render, selected)
+    if body.DoLayout then body:DoLayout() end
+    if group.DoLayout then group:DoLayout() end
+    if scroll.DoLayout then scroll:DoLayout() end
+    return buttons, body, selected
+  end
+
   -- Test seams, `__`-prefixed and therefore outside every host's surface parity.
   O.__railInset         = lib.__railInset
   O.__railTop           = function(ctx) return railTop(ctx, activeArtHeight(O)) end
   O.__railEntryY        = entryY
   O.__navArtHeight      = function() return activeArtHeight(O) end
   O.__resetNavArtHeight = resetActiveArtHeight
+  O.__sideLayout        = sideLayout
+  O.__sideFreeRails     = function() return #FREE_RAILS end
 end

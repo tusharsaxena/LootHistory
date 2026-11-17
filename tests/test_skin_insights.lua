@@ -118,10 +118,14 @@ end
 
 -- Today's values, the literals these surfaces drew before the skin engine.
 local TODAY = {
+  -- list.stripe and list.hover moved on purpose: LibKa0s SkinDefs minor 28 (v1.105.0, LibKa0s#84)
+  -- raised Ka0s Default's stripe from .03 to .08 and its hover from .10 to .16, so its rows read apart.
   ["card.bg"] = { 0.1, 0.1, 0.12, 0.85 }, ["card.border"] = { 0.24, 0.24, 0.27, 0.9 },
   ["panel.bg"] = { 0.08, 0.08, 0.10, 0.6 }, ["panel.border"] = { 0.24, 0.24, 0.27, 0.7 },
   ["text.heading"] = { 1, 0.82, 0 }, ["text.disabled"] = { 0.5, 0.5, 0.5 },
-  ["list.header.bg"] = { 1, 1, 1, 0.04 },
+  -- list.header.bg moved on purpose too: SkinDefs minor 28's SR-L4 (the re-cut v1.105.0, smoke round
+  -- 1's ruling 5) made Ka0s Default's section band black .35 (was white .04), so it stands off a stripe.
+  ["list.header.bg"] = { 0, 0, 0, 0.35 },
   ["section.rule"] = { 1, 0.82, 0, 0.35 }, ["chart.track"] = { 1, 1, 1, 0.06 },
   ["chart.bar"] = { 0.40, 0.60, 0.95, 0.9 }, ["text.muted"] = { 0.7, 0.7, 0.72 },
   ["text.value"] = { 0.8, 0.8, 0.82 }, ["chart.axis"] = { 0.45, 0.45, 0.5, 0.8 },
@@ -130,8 +134,8 @@ local TODAY = {
   -- square box in the control fill (the owner's note of 2026-10-26), where the toggle drew .24 gray.
   ["check.bg"] = { 0.1, 0.1, 0.12, 0.9 }, ["check.mark"] = { 1, 0.82, 0, 1 },
   ["btn.bg"] = { 0.1, 0.1, 0.12, 0.9 }, ["btn.border"] = { 0.24, 0.24, 0.27, 0.9 },
-  ["list.header.text"] = { 1, 0.82, 0 }, ["list.stripe"] = { 1, 1, 1, 0.03 },
-  ["list.hover"] = { 1, 0.82, 0, 0.10 }, ["text.highlight"] = { 1, 1, 1 },
+  ["list.header.text"] = { 1, 0.82, 0 }, ["list.stripe"] = { 1, 1, 1, 0.08 },
+  ["list.hover"] = { 1, 0.82, 0, 0.16 }, ["text.highlight"] = { 1, 1, 1 },
   ["text.headingAlt"] = { 0.91, 0.77, 0.42 }, ["text.bodyAlt"] = { 0.86, 0.86, 0.86 },
   ["text.body"] = { 0.9, 0.9, 0.9 }, ["sem.statusOk"] = { 0.30, 0.95, 0.35 },
   ["sem.statusBad"] = { 1, 0.32, 0.32 }, ["sem.statusWarn"] = { 1, 0.82, 0.10 },

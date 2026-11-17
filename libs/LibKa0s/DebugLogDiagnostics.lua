@@ -1,6 +1,7 @@
 -- LibKa0s-DebugLog-1.0 — the diagnostics report: one command that writes everything a maintainer
 -- needs into the debug console, after the trace the player just reproduced, so one Copy carries
--- both.
+-- both. And, from minor 11, every other report: `D:Report`, the seam a host's dumps and lists
+-- write through, and `D:Serialize`, the table serializer they render a table with.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT ELEVEN COPIES ──────────────────────────────────────────────
 --
@@ -46,7 +47,11 @@
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 if not lib then return end
 
-local DIAG_MINOR = 7
+local DIAG_MINOR = 11
+-- Minor 11 (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS): the
+-- report seam `D:Report(tag, title, fn)`, the serializer `lib.Serialize` with its instance
+-- forwarder `D:Serialize`, and the strip read from the shell (`lib.__stripEscapes`, DebugLog minor
+-- 23) rather than kept here as a second copy.
 -- Paired on the SHELL's minor as well as this file's own, exactly as WidgetsDragHandle.lua pairs on
 -- Widgets': a report that attached to an older console would install methods that call private
 -- pieces the shell no longer hands over, and nothing would say the two came from different copies.
@@ -78,11 +83,12 @@ local FLOOR    = 3     -- the smallest cap that still fits the begin marker, tru
 -- libraries it holds (its IterateLibraries is not on every copy), so the names are written down.
 -- A major missing from this client is skipped, not reported as an error. The list is in
 -- tests/majors.lua order, and tests/test_debuglog_diagnostics.lua fails naming the file when a major
--- that file ships is missing here. Minor 7 adds IconBrowser (v1.86.0); minor 6 added Charts
--- (v1.84.0), minor 5 Toast (v1.79.0), minor 4 Skin, minor 3 Glow and Sim.
+-- that file ships is missing here. Minor 11 adds Tooltip (v1.105.0); minor 10 added WaypointArrow (v1.99.0); minor 9 adds Callout (v1.96.0); minor 8 added Role (v1.95.0); minor 7 added IconBrowser (v1.86.0),
+-- minor 6 Charts (v1.84.0), minor 5 Toast (v1.79.0), minor 4 Skin, minor 3 Glow and Sim.
 local MAJORS = {
-  "Core", "Env", "Compat", "Lifecycle", "Bus", "Schema", "Pool", "Item", "Glow", "Toast", "Charts",
-  "Media", "Skin", "Widgets", "DebugLog", "Slash", "Launcher", "Options", "IconBrowser", "Perf", "Sim",
+  "Core", "Tooltip", "Env", "Compat", "Role", "Lifecycle", "Bus", "Schema", "Pool", "Item", "Glow", "Toast", "Callout",
+  "WaypointArrow",
+  "Charts", "Media", "Skin", "Widgets", "DebugLog", "Slash", "Launcher", "Options", "IconBrowser", "Perf", "Sim",
 }
 
 -- The chat line's English, for the one case where the shell's STRINGS table does not carry it.
@@ -92,20 +98,12 @@ local DIAG_WRITTEN =
 -- ── plain text ─────────────────────────────────────────────────────────────────────────────
 --
 -- Every line the report writes is stripped of color, texture, atlas and hyperlink escapes, so the
--- Copy text reads cleanly. `||`, WoW's escaped pipe, is protected first and put back after: it is
--- how `out:escape` renders a value whose escapes are the evidence (a chat format string), and a
--- strip that ate half of it would turn `||cff` back into a live color code.
+-- Copy text reads cleanly, and of newlines, so a line stays one line. `||`, WoW's escaped pipe,
+-- survives: it is how `out:escape` renders a value whose escapes are the evidence (a chat format
+-- string). The strip is the shell's (minor 23), the one `Add` keeps the buffer plain with; read at
+-- call time, and paired by this file's guard on the shell's minor, so it is always the live shell's.
 
-local PIPE = "\1"
-
-local function strip(s)
-  s = s:gsub("||", PIPE)
-  s = s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-  s = s:gsub("|H.-|h(.-)|h", "%1")
-  s = s:gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|K.-|k", "")
-  s = s:gsub("|n", " "):gsub("[\r\n]+", " ")
-  return (s:gsub(PIPE, "||"))
-end
+local function strip(s) return lib.__stripEscapes(s, true) end
 
 --- `fmt` filled with the already-stringified `...`. The format is pcall'd and the fallback is the
 --- one the gated sink uses: a format the stringified arguments cannot satisfy (a `%d` handed the
@@ -383,6 +381,202 @@ local function build(D, ctx, spec)
   return finish(out, brand)
 end
 
+-- ── the table serializer (minor 11) ────────────────────────────────────────────────────────
+--
+-- What a report renders a table with, so no host reaches for DevTools_Dump, which prints to the
+-- chat frame. Ported from Ka0s Consumable Master's `SlashDump.Serialize` (its commit 9d2b26e), the
+-- reference the owner's ruling of 2026-11-08 was built on, line for line where a line can be
+-- compared: keys sorted numbers, then strings, then everything else; identifier keys bare, other
+-- keys bracketed; strings `%q` with the newline escape kept on one line; nested tables two spaces
+-- further in; `{}` for an empty one, `{...}` past the depth cap, `<cycle>` for a table already on
+-- the current path (so a table shared by two branches renders under both), `<function>`,
+-- `<userdata>` and `<thread>` by type, and `... truncated at N lines` past the line cap.
+--
+-- STRICTER ABOUT SECRETS than the original, because it is a library and a host hands it whatever it
+-- holds. A value or key the client calls secret (`issecretvalue`, asked under pcall, and a probe
+-- that raises counts as yes) renders as Core's sentinel and is never formatted, compared or matched,
+-- all of which raise on a secret; a secret TABLE is never walked. Every other scalar is rendered by
+-- the stringifier, which is the console's `safeToString` on an instance, so a concat-hostile value
+-- renders the sentinel too. Tables are read rawly (`next`, `rawget`), so neither a `__pairs` nor an
+-- `__index` runs. The sort is under pcall (a failed sort walks the table in its own order), and the
+-- whole walk is too: a raise keeps the lines so far and adds one `<serialize failed: ...>` line.
+
+local SERIAL_MAX_LINES = 400
+local SERIAL_MAX_DEPTH = 6
+local SERIAL_INDENT    = "  "
+
+local function sentinel()
+  local core = LibStub("LibKa0s-Core-1.0", true)
+  return core and core.SECRET or "<secret>"
+end
+
+local function isSecret(v)
+  if type(issecretvalue) ~= "function" then return false end
+  local ok, secret = pcall(issecretvalue, v)
+  return not ok or secret == true
+end
+
+local function valueText(v, str)
+  if isSecret(v) then return sentinel() end
+  local tv = type(v)
+  if tv == "string" then return (("%q"):format(v):gsub("\\\n", "\\n")) end
+  if tv == "function" or tv == "userdata" or tv == "thread" or tv == "table" then
+    return "<" .. tv .. ">"
+  end
+  return str(v)
+end
+
+local function keyText(k, str)
+  if isSecret(k) then return "[" .. sentinel() .. "]" end
+  if type(k) == "string" and k:match("^[%a_][%w_]*$") then return k end
+  return "[" .. valueText(k, str) .. "]"
+end
+
+-- Numbers, then strings, then any other key by its rendering; a secret key last, never compared.
+local function rankOf(k)
+  if isSecret(k) then return 4 end
+  local t = type(k)
+  if t == "number" then return 1 end
+  if t == "string" then return 2 end
+  return 3
+end
+
+local function keyLess(a, b)
+  if a.rank ~= b.rank then return a.rank < b.rank end
+  if a.rank == 1 or a.rank == 2 then return a.k < b.k end
+  if a.rank == 3 then return a.s < b.s end
+  return false
+end
+
+local function keysOf(tbl, sort)
+  local keys = {}
+  for k in next, tbl do keys[#keys + 1] = k end
+  if not sort then return keys end
+  local entries = {}
+  for i, k in ipairs(keys) do
+    local rank = rankOf(k)
+    entries[i] = { k = k, rank = rank, s = rank == 3 and tostring(k) or nil }
+  end
+  if not pcall(table.sort, entries, keyLess) then return keys end
+  for i, e in ipairs(entries) do keys[i] = e.k end
+  return keys
+end
+
+local function serialOpts(opts)
+  opts = type(opts) == "table" and opts or {}
+  local maxLines = math.max(1, math.floor(tonumber(opts.maxLines) or SERIAL_MAX_LINES))
+  local maxDepth = math.max(1, math.floor(tonumber(opts.maxDepth) or SERIAL_MAX_DEPTH))
+  local indent = type(opts.indent) == "string" and opts.indent or SERIAL_INDENT
+  return maxLines, maxDepth, indent, opts.sort ~= false
+end
+
+--- One nested table's entry: `head` then its rendering, through `emit` and `walk`.
+local function entry(w, head, v, pad, depth)
+  if type(v) ~= "table" or isSecret(v) then return w.emit(head .. valueText(v, w.str)) end
+  if w.open[v] then return w.emit(head .. "<cycle>") end
+  if next(v) == nil then return w.emit(head .. "{}") end
+  if depth >= w.maxDepth then return w.emit(head .. "{...}") end
+  w.open[v] = true
+  w.emit(head .. "{")
+  w.walk(v, pad .. SERIAL_INDENT, depth + 1)
+  w.emit(pad .. "}")
+  w.open[v] = nil
+end
+
+local function serialize(value, opts, str)
+  local maxLines, maxDepth, indent, sort = serialOpts(opts)
+  local lines, truncated = {}, false
+  local w = { open = {}, maxDepth = maxDepth, str = str }
+  function w.emit(line)
+    if #lines >= maxLines then truncated = true; return end
+    lines[#lines + 1] = line
+  end
+  function w.walk(tbl, pad, depth)
+    for _, k in ipairs(keysOf(tbl, sort)) do
+      if truncated then return end
+      entry(w, pad .. keyText(k, str) .. " = ", rawget(tbl, k), pad, depth)
+    end
+  end
+  local ok, err = pcall(function()
+    if type(value) ~= "table" or isSecret(value) then
+      w.emit(indent .. valueText(value, str))
+    elseif next(value) == nil then
+      w.emit(indent .. "{}")
+    else
+      w.open[value] = true
+      w.walk(value, indent, 1)
+    end
+  end)
+  if not ok then
+    local okText, text = pcall(str, err)
+    lines[#lines + 1] = ("%s<serialize failed: %s>"):format(indent, okText and text or "?")
+  elseif truncated then
+    lines[#lines + 1] = ("%s... truncated at %d lines"):format(indent, maxLines)
+  end
+  return lines, truncated
+end
+
+--- `value` as report lines: `lines, truncated`. Writes nothing. `opts`: `maxLines` (400),
+--- `maxDepth` (6), `indent` (the first level's prefix, two spaces) and `sort` (`false` walks a
+--- table in its own order). Values render through Core's SafeToString; an instance's `D:Serialize`
+--- renders them through the console's own `safeToString`.
+function lib.Serialize(value, opts)
+  local core = LibStub("LibKa0s-Core-1.0", true)
+  return serialize(value, opts, core and core.SafeToString or tostring)
+end
+
+-- ── the report seam (minor 11) ─────────────────────────────────────────────────────────────
+--
+-- The owner's ruling of 2026-11-08 (LibKa0s#79): a report, any multi-line read-out a player asks
+-- for, goes to the debug console whether or not trace logging is on, the console opens if it is
+-- hidden, and chat gets exactly one pointer line. Ka0s Consumable Master's `DL.Report` was the
+-- reference, and this is it lifted with the decisions the design recorded: a raising body is caught
+-- and costs one line (D2), a report never touches the logging flag (D7), and the pointer counts the
+-- header (D8). Unlike the diagnostics report, body lines are not stripped as they are written: the
+-- view keeps their colors, and `Add`'s buffer keeps Copy plain (DebugLog minor 23).
+
+local REPORT_TAG = "Report"
+local REPORT_WRITTEN = "%s: %d lines written to the debug console. Use Copy to share it."
+
+--- The body, collected: `lines, ok, err`. `fn(out)`, `out(line)` one line through `safeToString`.
+local function collect(fn, str)
+  local lines = {}
+  if type(fn) ~= "function" then return lines, true end
+  local ok, err = pcall(fn, function(line) lines[#lines + 1] = str(line) end)
+  return lines, ok, err
+end
+
+--- The lines a report writes, header first, capped at the diagnostics cap: the header, as much of
+--- the body as fits, a truncated line when some did not, and the failure line when `fn` raised.
+local function reportLines(ctx, title, body, ok, err)
+  local slash = ctx.d.slash
+  local header = (type(slash) == "string" and slash ~= "") and (slash .. " " .. title) or title
+  local cap = capOf({})
+  local reserve = ok and 0 or 1
+  local room = cap - 1 - reserve
+  local keep, omitted = #body, 0
+  if keep > room then keep, omitted = room - 1, #body - (room - 1) end
+  local out = { header }
+  for i = 1, keep do out[#out + 1] = body[i] end
+  if omitted > 0 then out[#out + 1] = ("%s truncated: %d line(s) omitted"):format(title, omitted) end
+  if not ok then out[#out + 1] = ("%s failed: %s"):format(title, ctx.safeToString(err)) end
+  return out
+end
+
+local function runReport(D, ctx, tag, title, fn)
+  tag = type(tag) == "string" and tag or REPORT_TAG
+  title = type(title) == "string" and title or ctx.safeToString(title)
+  local body, ok, err = collect(fn, ctx.safeToString)
+  if ok and #body == 0 then return 0 end
+  local lines = reportLines(ctx, title, body, ok, err)
+  for _, line in ipairs(lines) do ctx.append(tag, line) end
+  ctx.repaint()
+  if not D:IsShown() then D:Show() end
+  local n = #lines
+  ctx.emit((D:Text("REPORT_WRITTEN") or REPORT_WRITTEN):format(title, n))
+  return n
+end
+
 -- ── installed on every instance ────────────────────────────────────────────────────────────
 
 --- Called by `lib:New` with the instance and the private pieces of it this file needs:
@@ -392,6 +586,21 @@ function lib.__installDiagnostics(D, ctx)
   --- The report as data: `{ lines = { { tag, msg }, ... }, dropped = n, capped = bool,
   --- capsHit = bool }`. Writes nothing, anywhere.
   function D:BuildDiagnostics(spec) return build(D, ctx, spec) end
+
+  --- A report (minor 11): `fn(out)` writes the body, `out(line)` one line (any value, through the
+  --- console's `safeToString`), collected before anything is written. A body that writes nothing
+  --- writes nothing, prints nothing and returns 0: the verb refused in chat itself. Otherwise a
+  --- `<slash> <title>` header (the title alone with no slash) and the body go to the console under
+  --- `tag` (`Report` when it is not a string) through the ungated append, capped at the diagnostics
+  --- cap with a truncated line, then one repaint, the console shown if it was hidden, and one
+  --- `REPORT_WRITTEN` line through the descriptor's `print`. A raising body still writes what it
+  --- collected, plus one `<title> failed: <err>` line, and still points. Never touches the logging
+  --- flag and never clears. Returns the lines written, the header included.
+  function D:Report(tag, title, fn) return runReport(D, ctx, tag, title, fn) end
+
+  --- `value` as report lines, rendered through the console's `safeToString` (minor 11): see
+  --- `lib.Serialize`. A method, so a host's library-absent stub answers it as `Serialize(_, v)`.
+  function D:Serialize(value, opts) return serialize(value, opts, ctx.safeToString) end
 
   --- Build the report and append it to the console: every line through the ungated append, one
   --- repaint at the end, the console shown if it was hidden, and one chat line naming the count.

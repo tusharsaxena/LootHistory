@@ -94,7 +94,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Sim-1.0", 2
+local MAJOR, MINOR = "LibKa0s-Sim-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -288,6 +288,73 @@ for key, line in pairs({
   NOT_RUNNING      = "No simulation is running.",
   NO_TIMELINE      = "The simulator's timeline is not loaded (SimTimeline.lua).",
 }) do lib.STRINGS[key] = line end
+
+-- ── SAMPLE CHARACTERS (minor 3, LibKa0s#87) ──────────────────────────────────────────────────
+--
+-- The collection's one set of named sample characters, the protagonists a test mode, a sim or a
+-- showcase draws, so the same five people appear in every Ka0s addon. The owner's ruling Q4 of
+-- 2026-11-16 (Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS/): the standard owns the
+-- naming convention (preview-mode) and this table is its data. A roster pool (DropWatcher's crowd,
+-- MultiMeters' world) stays the host's, for its seeded determinism.
+--
+-- The convention, which tests/test_sim_sample.lua holds the data to: a name, surname or pet is one
+-- capitalized word of 2-12 letters that starts "Sample" or "Mock"; the realm is "Samplerealm" or
+-- "Mockrealm", never a real one; Retail's identity is "Name-Realm" with a specID of the class;
+-- WoW Forever's is "First Surname" with no realm in it (the standard's client-quirks, section 5),
+-- a class the client has, and a classic talent tree (1-3, LibKa0s-Role-1.0's order) in place of a
+-- spec ID; a pet only on a class that has one. `spec` is an English label for docs and tests; a
+-- host that draws a spec name asks the client for its own. Names are data, never localized.
+--
+-- Read-only by contract: a host reads SAMPLE, or takes its own copy through Sample(client).
+
+local function character(name, realm, classFile, spec, role, extra)
+  local c = { name = name, realm = realm, classFile = classFile, spec = spec, role = role }
+  for k, v in pairs(extra) do c[k] = v end
+  c.fullName = c.surname and (name .. " " .. c.surname) or (name .. "-" .. realm)
+  return c
+end
+
+lib.SAMPLE = {
+  retail = {
+    character("Samplehunter", "Samplerealm", "HUNTER", "Beast Mastery", "DAMAGER", { specID = 253, pet = "Mockfang" }),
+    character("Sampleblade", "Samplerealm", "PALADIN", "Retribution", "DAMAGER", { specID = 70 }),
+    character("Mockflame", "Mockrealm", "MAGE", "Fire", "DAMAGER", { specID = 63 }),
+    character("Samplemender", "Samplerealm", "PRIEST", "Holy", "HEALER", { specID = 257 }),
+    character("Mockshield", "Mockrealm", "WARRIOR", "Protection", "TANK", { specID = 73 }),
+  },
+  forever = {
+    character("Samplehunter", "Samplerealm", "HUNTER", "Beast Mastery", "DAMAGER", { surname = "Mockstride", tree = 1, pet = "Mockfang" }),
+    character("Sampleblade", "Samplerealm", "PALADIN", "Retribution", "DAMAGER", { surname = "Mockvale", tree = 3 }),
+    character("Mockflame", "Mockrealm", "MAGE", "Fire", "DAMAGER", { surname = "Samplewick", tree = 2 }),
+    character("Samplemender", "Samplerealm", "PRIEST", "Holy", "HEALER", { surname = "Mockbrook", tree = 2 }),
+    character("Mockshield", "Mockrealm", "WARRIOR", "Protection", "TANK", { surname = "Sampleforge", tree = 3 }),
+  },
+}
+
+--- A copy of one client's sample set, which the caller owns: an array of character rows
+--- (`name`, `realm`, `fullName`, `classFile`, `spec`, `role`; Retail's `specID`; Forever's
+--- `surname` and `tree`; `pet` where the class has one).
+---
+--- `client` is "retail" or "forever"; nil asks LibKa0s-Compat-1.0's `ClientKey()` at call time and
+--- answers Retail's set where there is no Compat or the client is neither. Anything else raises.
+---
+--- @param client string|nil
+--- @return table[]
+function lib.Sample(client)
+  if client == nil then
+    local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+    client = compat and compat.ClientKey and compat.ClientKey() == "forever" and "forever" or "retail"
+  elseif client ~= "retail" and client ~= "forever" then
+    error('Sample: unknown client "' .. tostring(client) .. '" (expected "retail" or "forever")', 2)
+  end
+  local out = {}
+  for i, row in ipairs(lib.SAMPLE[client]) do
+    local c = {}
+    for k, v in pairs(row) do c[k] = v end
+    out[i] = c
+  end
+  return out
+end
 
 -- The stop reasons with a library line of their own. Every other reason, `standDown` included,
 -- prints STOPPED_REASON unless the host's stopText names it.

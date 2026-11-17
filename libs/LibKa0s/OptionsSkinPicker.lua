@@ -1,7 +1,8 @@
 -- LibKa0s-Options-1.0 -- the skin picker (LibKa0s#64): a small window an addon shows the first time
 -- a profile runs, so the player picks a skin before opening any settings. The instance members
 -- O.SkinPicker and O.HideSkinPicker, attached through lib.__AttachSkinPicker, the words,
--- lib.SKIN_PICKER_STRINGS, and the one queue every Ka0s addon's picker shares, lib.__pickerQueue.
+-- lib.SKIN_PICKER_STRINGS; the one queue every Ka0s addon's picker shares, lib.__pickerQueue, is
+-- OptionsSkinPickerQueue.lua's.
 --
 -- A fourteenth file of the Options major (minor 1), guarded with the same multi-file idiom as
 -- OptionsAppearance.lua; Options minor 34 attaches it. It loads after OptionsAppearance.lua and
@@ -26,7 +27,7 @@
 --   * the eye (Media icon "eye"), shown with `spec.preview` (THE PREVIEW, below) or `spec.onPreview`:
 --     the host's preview mode, so the player sees the skin on the addon's own frames; it keeps
 --     working while a preview is pending, and the window is Raise()d once the host returns;
---   * the gear (Media icon "settings"): saves the pending pick as Apply does, then `spec.onSettings`,
+--   * the gear (in the header from minor 12, LibKa0s#86): saves the pick as Apply does, then `spec.onSettings`,
 --     by default the settings panel opened at `spec.page` (O.OpenOptionsPanel(page), OptionsRegistry
 --     minor 4) and O.SelectTab(page, spec.tab or "Appearance"); then the window closes;
 --   * the Skin tab's rows (LK-A3; see THE ROWS, OptionsSkinPickerRows.lua): under "Font and texture", "Font" and "Texture",
@@ -48,21 +49,9 @@
 -- Apply, Apply to all, the gear and a pick are refused in combat and leave the window up; the close
 -- control and Escape still close it, and the preview put back is no write.
 --
--- ONE WINDOW ACROSS ADDONS. LibStub keeps one copy of this major for the whole client, so its library
--- table is every Ka0s addon's, and lib.__pickerQueue (created if absent, adopted by a newer minor)
--- holds the picker shown now (`current`) and the owners waiting (`waiting`, one entry per owner).
--- While one owner's picker is up, O.SkinPicker for another owner, on any instance, queues it (a
--- repeat call refreshes its spec) and shows nothing; when the shown picker closes, the next one
--- waiting shows. O.HideSkinPicker() on an instance takes its queued owners out of the queue (they were
--- never seen, so no onClose) and hides its window when it is the one up.
---
--- NEVER SHOWN MID-COMBAT BY THE QUEUE. A close under InCombatLockdown() shows no next owner: the
--- queue waits out combat on OptionsRegistry.lua's end-of-combat park (lib.__parkRegistration, its
--- one PLAYER_REGEN_ENABLED frame, registered only while something is parked) and advances when combat
--- ends. While it waits, O.SkinPicker for any other owner queues behind it too. The predicate is the
--- client's InCombatLockdown() alone, as the park's own is: the page lock's flag is cleared by another
--- frame's handler for the same event, which may run after the park's replay. A copy without the park
--- shows the next owner at once, as before.
+-- ONE WINDOW ACROSS ADDONS, and never shown mid-combat by the queue: lib.__pickerQueue, the one
+-- queue every Ka0s addon's picker shares, lives in OptionsSkinPickerQueue.lua (peeled at minor 12),
+-- which this file reads through lib.__pickerQueueKit at call time.
 --
 -- LAYERING (frame-layering §1, §4): a dialog the player answers, T6: DIALOG, toplevel, clamped,
 -- movable by its body. Not T4's HIGH: the eye's onPreview typically shows the addon's own main
@@ -152,16 +141,17 @@ if not lib then return end
 -- Minor 9 (SG-L3 of the same bundle): O.SkinNotice, the one-time announcement that skins exist.
 -- Once per account, keyed by lib.SKIN_NOTICE_VERSION: the first addon to ask in a session claims it
 -- and shows the picker, every other addon records the version in its own store and stays quiet.
--- Minor 10 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the title and the close mark
--- are anchored to the band S.Shell lays (the facade's Header) at y 0, where they sat TOP-anchored at
--- -8 and -6, off the band's middle and font-dependent.
--- Still minor 10, not yet vendored (R5-L4 of the same bundle, the owner's item 6): the open list
--- closes on a press outside it and its dropdown button, the window's own body, title, eye and gear
--- included; see AN OUTSIDE PRESS CLOSES THE LIST, at buildList.
--- Minor 11 (R6-L1 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND6, the owner's images 62, 63
--- and 66): spec.preview, the preview contract; see THE PREVIEW, at the eye. Every minor-10 copy sits
--- in a vendored tree, so the minor moves although v1.85.0 is a local cut.
-local PICKER_MINOR = 11
+-- Minor 10 (R5-L3 and R5-L4, the owner's item 6, of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): the
+-- title and the close mark sit on the band S.Shell lays (the facade's Header) at y 0, not TOP-anchored at -8
+-- and -6; the open list closes on a press outside it and its dropdown button, the window's own body, title,
+-- eye and gear included (AN OUTSIDE PRESS CLOSES THE LIST, at buildList).
+-- Minor 11 (R6-L1 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND6, the owner's images 62, 63, 66):
+-- spec.preview, the preview contract (THE PREVIEW, at the eye); moved within v1.85.0's local cut, as minor 10 was vendored.
+-- Minor 12: the queue's section and its header notes moved out, unchanged, to
+-- OptionsSkinPickerQueue.lua (LK-P1 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS,
+-- the seam CLAUDE.md's band census named); this file reads it through lib.__pickerQueueKit. Still 12
+-- (LK-92B, LibKa0s#92; SR-L1): the toolbar's tips attach above their control (LibKa0s-Tooltip-1.0).
+local PICKER_MINOR = 12
 -- Paired on the SHELL's minor as well as this file's own -- see OptionsScroll.lua for why.
 if lib.__pickerMinor and lib.__pickerMinor >= PICKER_MINOR
   and lib.__pickerShellMinor == lib.MINOR then return end
@@ -288,98 +278,13 @@ end
 
 local function modeOn(h) return ask(h.isActive) and true or false end
 
--- ── the queue (library level) ────────────────────────────────────────────────────────────────
+-- ── the queue ────────────────────────────────────────────────────────────────────────────────
 --
--- `current` is `{ owner, inst, frame }`, the picker shown now; `waiting` the owners queued behind it,
--- oldest first, each `{ owner, inst, spec, show }` (`show(spec)` shows it on its own instance);
--- `parked` is true while the queue waits out combat. Read through queue() at call time, never
--- cached: a newer minor adopts the same table.
+-- Library level, in OptionsSkinPickerQueue.lua (minor 12's peel): read through lib.__pickerQueueKit
+-- at call time, never cached, so a newer copy of that file is the one every picker uses.
 
-local function queue()
-  local q = lib.__pickerQueue
-  if type(q) ~= "table" then
-    q = {}
-    lib.__pickerQueue = q
-  end
-  if type(q.waiting) ~= "table" then q.waiting = {} end
-  return q
-end
-queue()
-
---- The Skin tab is about to write `owner`, and the write reads the applied state: the shown picker's
---- previews go back first (THE ROWS). Internal.
-function lib.__pickerSettle(owner)
-  local cur = queue().current
-  if cur and cur.owner == owner and cur.settle then cur.settle() end
-end
-
---- The Skin tab wrote `owner`: the shown picker measures from what it stored. Internal.
-function lib.__pickerRebase(owner)
-  local cur = queue().current
-  if cur and cur.owner == owner and cur.rebase then cur.rebase() end
-end
-
---- Queue `entry` behind the picker shown now: one entry per owner, a repeat refreshing it in place.
-local function enqueue(entry)
-  local q = queue()
-  for _, e in ipairs(q.waiting) do
-    if e.owner == entry.owner then
-      e.inst, e.spec, e.show = entry.inst, entry.spec, entry.show
-      return
-    end
-  end
-  q.waiting[#q.waiting + 1] = entry
-end
-
---- The client's lockdown, the park's own predicate (see the header: not the page lock's flag).
-local function inLockdown()
-  return (InCombatLockdown ~= nil and InCombatLockdown()) and true or false
-end
-
-local advance
-
---- Park the queue until combat ends (OptionsRegistry.lua's lib.__parkRegistration), once however
---- many closes ask. The replay advances only when nothing came up meanwhile. Answers whether the
---- queue is parked; false without the park, and the caller then shows at once.
-local function waitOutCombat(q)
-  if q.parked then return true end
-  if type(lib.__parkRegistration) ~= "function" then return false end
-  local ok = lib.__parkRegistration(function()
-    local now = queue()
-    now.parked = nil
-    if not now.current then advance() end
-  end)
-  q.parked = ok and true or nil
-  return ok and true or false
-end
-
---- The shown picker closed: the next owner waiting shows, skipping one that can no longer; in combat
---- the queue waits for its end instead.
-function advance()
-  local q = queue()
-  q.current = nil
-  if #q.waiting > 0 and inLockdown() and waitOutCombat(q) then return end
-  while not q.current and #q.waiting > 0 do
-    local e = table.remove(q.waiting, 1)
-    safeCall(e.show, e.spec)
-  end
-end
-
---- Apply to all: every queued picker is dismissed, its onClose run, none shown.
-local function dismissWaiting()
-  local q = queue()
-  local list = q.waiting
-  q.waiting = {}
-  for _, e in ipairs(list) do safeCall(e.spec and e.spec.onClose) end
-end
-
---- O.HideSkinPicker: the instance's queued owners leave the queue, never seen, so no onClose.
-local function dropWaiting(inst)
-  local list = queue().waiting
-  for i = #list, 1, -1 do
-    if list[i].inst == inst then table.remove(list, i) end
-  end
-end
+local function queueKit() return lib.__pickerQueueKit end
+local function inLockdown() return queueKit().inLockdown() end
 
 -- ── the pieces ───────────────────────────────────────────────────────────────────────────────
 
@@ -484,7 +389,7 @@ local function attachTip(btn, text, P)
   btn.__tip = text
   btn:SetScript("OnEnter", function(self)
     if not (GameTooltip and GameTooltip.SetOwner) then return end
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetOwner(self, "ANCHOR_NONE")
     local c = P.Sk and P.Sk.Token("gtip.title")
     if type(c) == "table" and c[1] and c[2] and c[3] then
       GameTooltip:SetText(self.__tip or "", c[1], c[2], c[3], 1, true)
@@ -492,6 +397,8 @@ local function attachTip(btn, text, P)
       GameTooltip:SetText(self.__tip or "", nil, nil, nil, nil, true)
     end
     GameTooltip:Show()
+    local Tip = LibStub("LibKa0s-Tooltip-1.0", true)   -- attached above; else the same by hand
+    if not (Tip and Tip.PlaceAttached(GameTooltip, self)) then GameTooltip:ClearAllPoints(); GameTooltip:SetPoint("BOTTOM", self, "TOP", 0, 2) end
   end)
   btn:SetScript("OnLeave", function()
     if GameTooltip and GameTooltip.Hide then GameTooltip:Hide() end
@@ -965,8 +872,8 @@ function lib.__AttachSkinPicker(O, d)
     revert(p)
     previewRestore(p)
     safeCall(p.spec.onClose)
-    local cur = queue().current
-    if cur and cur.inst == O and cur.owner == p.owner then advance() end
+    local cur = queueKit().queue().current
+    if cur and cur.inst == O and cur.owner == p.owner then queueKit().advance() end
   end
 
   --- Hide the picker shown last and close it, the record caught before Hide() can fire OnHide.
@@ -1009,7 +916,7 @@ function lib.__AttachSkinPicker(O, d)
       if lib.__copySkinTo(Skin, name, source, key, ignore, media) then reloads[#reloads + 1] = ownerLabel(name) end
     end
     if #reloads > 0 then reloadPopup(table.concat(reloads, ", ")) end
-    dismissWaiting()
+    queueKit().dismissWaiting()
     hide()
   end
 
@@ -1172,19 +1079,17 @@ function lib.__AttachSkinPicker(O, d)
     P.Sk.Dropdown(dd)
   end
 
-  --- The dropdown's right edge meets the first icon shown beside it (the eye, else the gear).
+  --- The dropdown's right edge meets the eye while it is shown, else the window's PAD (minor 12: the
+  --- gear is in the header now).
   local function anchorDropdown(f)
-    local beside = f.preview:IsShown() and f.preview or f.settings
     f.dd:ClearAllPoints()
     f.dd:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -DD_TOP)
-    f.dd:SetPoint("RIGHT", beside, "LEFT", -6, 0)
+    if f.preview:IsShown() then f.dd:SetPoint("RIGHT", f.preview, "LEFT", -6, 0) else f.dd:SetPoint("RIGHT", f, "RIGHT", -PAD, 0) end
   end
 
   local function buildButtons(f)
-    f.settings = iconButton(f, "settings", P.S.SETTINGS_GLYPH, P.S.SETTINGS_TIP, openSettings)
-    f.settings:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(DD_TOP + (DD_H - ICON) / 2))
     f.preview = iconButton(f, "eye", P.S.PREVIEW_GLYPH, P.S.PREVIEW_TIP, preview)
-    f.preview:SetPoint("RIGHT", f.settings, "LEFT", -6, 0)
+    f.preview:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -(DD_TOP + (DD_H - ICON) / 2))
     f.apply = textButton(f, P.S.APPLY, P.S.APPLY_TIP, apply, true)
     f.apply:SetWidth(APPLY_W)
     f.apply:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, 10)
@@ -1210,6 +1115,17 @@ function lib.__AttachSkinPicker(O, d)
     return fs
   end
 
+  --- Minor 12 (LibKa0s#86): the gear and the close are the header's marks (HeaderButtons), the gear's
+  --- click the one it had on the dropdown row; without HeaderButtons, the close alone.
+  local function buildMarks(f, title, core)
+    local Wd = LibStub("LibKa0s-Widgets-1.0", true)
+    local hb = Wd and type(Wd.HeaderButtons) == "function" and Wd.HeaderButtons(f, { owner = P.owner, point = "TOPRIGHT",
+      y = -6, close = hide, settingsTip = P.S.SETTINGS_TIP, settings = function() dropFocus(P); openSettings() end })
+    f.close, f.settings = hb and hb.close or (core and core.MakeCloseButton and core.MakeCloseButton(f, hide, P.owner)), hb and hb.settings
+    if f.close and not hb then f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6) end
+    if P.Sk.Header then P.Sk.Header(f, { title = title, right = hb and hb.right or { f.close } }) end   -- minor 10
+  end
+
   local function buildChrome(f)
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 28, -8)
@@ -1229,14 +1145,7 @@ function lib.__AttachSkinPicker(O, d)
     f.scopeLabel = sectionLine(f)
     local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
     if core and type(core.ApplySkin) == "function" then core.ApplySkin(f, nil, P.owner) else P.Sk.Shell(f) end
-    if core and type(core.MakeCloseButton) == "function" then
-      local close = core.MakeCloseButton(f, hide, P.owner)
-      if close then
-        close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
-        f.close = close
-      end
-    end
-    if P.Sk.Header then P.Sk.Header(f, { title = title, right = { f.close } }) end   -- minor 10
+    buildMarks(f, title, core)
   end
 
   -- The Skin tab's rows live in OptionsSkinPickerRows.lua, which answers the three functions the
@@ -1309,7 +1218,8 @@ function lib.__AttachSkinPicker(O, d)
     f.title:SetText(tostring(S.TITLE))
     f.ownerLabel:SetText(tostring(P.Skin:OwnerLabel(P.owner) or P.owner))
     fit(P)
-    f.dd.__tip, f.settings.__tip, f.preview.__tip = S.CHOOSE_TIP, S.SETTINGS_TIP, S.PREVIEW_TIP
+    f.dd.__tip, f.preview.__tip = S.CHOOSE_TIP, S.PREVIEW_TIP
+    if f.settings then f.settings.__tip = S.SETTINGS_TIP end
     f.apply.__tip, f.applyAll.__tip = S.APPLY_TIP, S.APPLY_ALL_TIP
     f.apply.text:SetText(S.APPLY)
     f.applyAll.text:SetText(S.APPLY_ALL)
@@ -1362,7 +1272,7 @@ function lib.__AttachSkinPicker(O, d)
     if core and type(core.RaiseStaticPopups) == "function" then core.RaiseStaticPopups() end
     P.shown = true
     local mine = P
-    queue().current = {
+    queueKit().queue().current = {
       owner = owner, inst = O, frame = f,
       settle = function() revert(mine) end,
       rebase = function()
@@ -1401,13 +1311,9 @@ function lib.__AttachSkinPicker(O, d)
     spec = type(spec) == "table" and spec or {}
     local Skin, owner = pickerTarget(spec)
     if not Skin then return nil end
-    local q = queue()
-    local cur = q.current
-    if (cur and cur.owner ~= owner) or (not cur and q.parked) then
-      enqueue({ owner = owner, inst = O, spec = spec, show = function(s) return show(owner, s, Skin) end })
-      return nil, "queued"
-    end
-    if cur and cur.inst ~= O then return cur.frame end
+    local held, frame = queueKit().admit(owner, O, spec, function(s) return show(owner, s, Skin) end)
+    if held == "queued" then return nil, "queued" end
+    if held then return frame end
     return show(owner, spec, Skin)
   end
 
@@ -1448,7 +1354,7 @@ function lib.__AttachSkinPicker(O, d)
   --- Take this instance's pickers down: its queued owners leave the queue (never seen: no onClose),
   --- and its window, when it is the one up, hides, `spec.onClose` running as for any close.
   function O.HideSkinPicker()
-    dropWaiting(O)
+    queueKit().dropWaiting(O)
     hide()
   end
 

@@ -179,8 +179,10 @@ end
 
 -- Today's values, the literals these surfaces drew before the skin engine.
 local TODAY = {
-  ["list.header.text"] = { 1, 0.82, 0 }, ["list.stripe"] = { 1, 1, 1, 0.03 },
-  ["list.hover"] = { 1, 0.82, 0, 0.10 }, ["text.body"] = { 0.9, 0.9, 0.9 }, ["menu.text"] = { 0.9, 0.9, 0.9 },
+  -- list.stripe and list.hover moved on purpose: LibKa0s SkinDefs minor 28 (v1.105.0, LibKa0s#84)
+  -- raised Ka0s Default's stripe from .03 to .08 and its hover from .10 to .16, so its rows read apart.
+  ["list.header.text"] = { 1, 0.82, 0 }, ["list.stripe"] = { 1, 1, 1, 0.08 },
+  ["list.hover"] = { 1, 0.82, 0, 0.16 }, ["text.body"] = { 0.9, 0.9, 0.9 }, ["menu.text"] = { 0.9, 0.9, 0.9 },
   ["text.disabled"] = { 0.5, 0.5, 0.5 },
   ["menu.bg"] = { 0.06, 0.06, 0.08, 0.98 }, ["menu.borderAlt"] = { 0.62, 0.5, 0.18, 1 },
   ["menu.hover"] = { 1, 0.82, 0, 0.15 },
@@ -204,7 +206,7 @@ test("skin table: on Ka0s Default every table surface draws the value it drew be
     -- the band lands there, not on a region; the scroll bar takes its track, as under every skin
     -- (LibKa0s SkinPaintControls minor 4).
     assertTrue(recorded(BT.headerFrame, "SortHeaderBar"), "the header is the skin's SortHeaderBar")
-    assertEqual(rgba(rawget(BT.headerFrame, "__backdropColor")), rgba({ 1, 1, 1, 0.04 }), "Ka0s Default's band")
+    assertEqual(rgba(rawget(BT.headerFrame, "__backdropColor")), rgba({ 0, 0, 0, 0.35 }), "Ka0s Default's band (black .35 since SR-L4 of v1.105.0)")
     local sb = rawget(BT.scroll, "ScrollBar")
     assertTrue(recorded(sb, "ScrollBar"), "the scroll bar is the skin's ScrollBar")
     assertTrue(#(rawget(sb, "__paintRegions") or {}) > 0, "Ka0s Default lays the track under the bar")

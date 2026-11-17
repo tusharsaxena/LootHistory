@@ -58,14 +58,18 @@
 --
 -- Depends on LibStub, the IconBrowser shell (IconBrowserSources.lua) and its window
 -- (IconBrowserWindow.lua, read at call time), the host's LibKa0s Options instance (`spec.helpers`:
--- CreatePanel, TabStrip, AttachTooltip, AceGUI, CHROME_GAP) and LibKa0s-Core-1.0; reads
--- LibKa0s-Widgets-1.0's CopyWindow and LibKa0s-Media-1.0's Icon at call time.
+-- CreatePanel, TabStrip, __tipColor, AceGUI, CHROME_GAP) and LibKa0s-Core-1.0; reads
+-- LibKa0s-Widgets-1.0's CopyWindow, LibKa0s-Media-1.0's Icon and LibKa0s-Tooltip-1.0 at call time.
 
 local lib = LibStub and LibStub("LibKa0s-IconBrowser-1.0", true)
 if not lib then return end   -- the shell refused (no Core or Media): nothing to attach to
 
 -- Minor 1: the browser, lifted from Quick Comms, a host-configured instance per `New`.
-local BROWSER_MINOR = 1
+-- Minor 2 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): the
+-- tooltips go through LibKa0s-Tooltip-1.0 (WowAddonStandards standalone-windows, *Tooltip
+-- placement*): a cell's beside the browser window (the body rule), a toolbar control's attached
+-- and centered above it (SR-L1: below only without room), where they owned at ANCHOR_RIGHT.
+local BROWSER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__browserMinor and lib.__browserMinor >= BROWSER_MINOR
   and lib.__browserShellMinor == lib.MINOR then return end
@@ -294,10 +298,25 @@ local function drawStatus(b)
   status:Show()
 end
 
+-- THE TOOLTIPS (minor 2). Owned at ANCHOR_NONE, filled, shown, then placed by LibKa0s-Tooltip-1.0,
+-- read at call time: a cell's beside the browser window, a toolbar control's above the control.
+-- Unreadable geometry (or no Tooltip major) attaches the tooltip above its element instead, never
+-- at the cursor.
+local function placeTip(tip, el, group)
+  local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
+  local side
+  if Tip then
+    if group then side = Tip.PlaceBeside(tip, el, group) else side = Tip.PlaceAttached(tip, el) end
+  end
+  if side then return end
+  tip:ClearAllPoints()
+  tip:SetPoint("BOTTOM", el, "TOP", 0, 2)
+end
+
 -- A cell's hover tooltip: its icon's name and what a click does.
 local function tooltip(b, cell)
   if cell.ibIcon == nil or not GameTooltip then return end
-  GameTooltip:SetOwner(cell, "ANCHOR_RIGHT")
+  GameTooltip:SetOwner(cell, "ANCHOR_NONE")
   GameTooltip:SetText(label(b, cell.ibIcon), color(b, "gtip.title"))
   local credit = Src.Credit(cell.ibIcon, b.L)
   if credit then
@@ -307,6 +326,7 @@ local function tooltip(b, cell)
   local r, g, bl = color(b, "gtip.value")
   GameTooltip:AddLine(text(b, "CELL_TIP"), r, g, bl, true)
   GameTooltip:Show()
+  placeTip(GameTooltip, cell, b.frame)
 end
 
 -- The grid is virtualized: a scroll re-dresses the cell under the pointer without a new OnEnter,
@@ -523,8 +543,36 @@ local function place(b, widget, point, x, y)
   return widget
 end
 
+--- A toolbar control's tooltip (minor 2): AttachTooltip's lines in its colors (the host Options
+--- instance's `__tipColor`), placed above the control (SR-L1; below only without room above).
 local function tip(b, widget, titleKey, bodyKey)
-  if b.helpers.AttachTooltip then b.helpers.AttachTooltip(widget, text(b, titleKey), text(b, bodyKey)) end
+  local anchor = widget.frame or widget
+  local title, body = text(b, titleKey), text(b, bodyKey)
+  local function tipColor(token, r, g, bl)
+    local fn = b.helpers.__tipColor
+    if type(fn) == "function" then return fn(token, r, g, bl) end
+    return r, g, bl
+  end
+  local function show()
+    local gt = GameTooltip
+    if not gt then return end
+    gt:SetOwner(anchor, "ANCHOR_NONE")
+    if title and title ~= "" then gt:SetText(title, tipColor("gtip.value", 1, 1, 1)) end
+    if body and body ~= "" then
+      local lr, lg, lb = tipColor("gtip.line")
+      gt:AddLine(body, lr, lg, lb, true)
+    end
+    gt:Show()
+    placeTip(gt, anchor)
+  end
+  local function hide() if GameTooltip then GameTooltip:Hide() end end
+  if widget.SetCallback then
+    widget:SetCallback("OnEnter", show)
+    widget:SetCallback("OnLeave", hide)
+  elseif widget.HookScript then
+    widget:HookScript("OnEnter", show)
+    widget:HookScript("OnLeave", hide)
+  end
 end
 
 local function buildToolbar(b, AceGUI)

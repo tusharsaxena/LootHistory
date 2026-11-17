@@ -66,7 +66,11 @@ local lib = LibStub and LibStub("LibKa0s-IconBrowser-1.0", true)
 if not lib then return end   -- the shell refused (no Core or Media): nothing to attach to
 
 -- Minor 1: the window, the four owner tokens and the window icon edge, lifted from Quick Comms.
-local WINDOW_MINOR = 1
+local WINDOW_MINOR = 2
+-- Minor 2 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): both
+-- chrome paths hand their close to LibKa0s-Widgets-1.0's HeaderButtons, which records it and OPTS OUT
+-- of the settings mark (SETTINGS_OPT_OUT): the browser is opened from a settings row, so the panel is
+-- already beneath it. Nothing is placed by it; the template and S.Header place the close as before.
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__windowMinor and lib.__windowMinor >= WINDOW_MINOR
   and lib.__windowShellMinor == lib.MINOR then return end
@@ -254,6 +258,18 @@ local function bgArt(bg)
   return out
 end
 
+-- Why the browser carries no settings mark (minor 2, standalone-windows' header-button rule).
+W.SETTINGS_OPT_OUT = "opened from a settings row; the panel is already beneath it"
+
+--- Record `close` as the window's header (minor 2): HeaderButtons with the settings opt-out, placing
+--- nothing. Without HeaderButtons (an older Widgets), nothing is recorded.
+local function headerOf(window, close, owner)
+  local Wd = LibStub("LibKa0s-Widgets-1.0", true)
+  if not (Wd and type(Wd.HeaderButtons) == "function") then return end
+  Wd.HeaderButtons(window, { owner = owner, closeButton = close or false, settings = false,
+    settingsOptOut = W.SETTINGS_OPT_OUT, place = false, frame = window })
+end
+
 -- The template's chrome through the facade. Each primitive is recorded, so a skin switch repaints
 -- it with no call here.
 local function skinTemplate(S, chrome)
@@ -363,6 +379,7 @@ function W.Build(spec)
   else
     plainChrome(spec, window, panel, chrome, at)
   end
+  headerOf(window, chrome.close, spec.owner)
   local pg = { window = window, panel = panel, inset = inset, banded = chrome.template and window or chrome.bg }
   layPage(spec.owner, pg)
   -- A skin switch: the dim in the new skin, and the page under its band again (the chrome and the

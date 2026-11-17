@@ -40,10 +40,22 @@ JetBrains Mono, which came with the library from Mythic Meters.
 | `FiraSans-SemiBold.ttf` | Ka0s Fira Sans SemiBold | as above | as above | `FiraSans-OFL.txt` |
 | `AtkinsonHyperlegible-Regular.ttf` | Ka0s Atkinson | <https://www.brailleinstitute.org/freefont/> | Copyright 2020 Braille Institute of America, Inc. | `AtkinsonHyperlegible-OFL.txt` |
 | `AtkinsonHyperlegible-Bold.ttf` | Ka0s Atkinson Bold | as above | as above | `AtkinsonHyperlegible-OFL.txt` |
+| `BebasNeue-Regular.ttf` | Ka0s Bebas Neue | <https://github.com/dharmatype/Bebas-Neue>, version 2.000, unchanged | Copyright 2019 The Bebas Neue Project Authors (https://github.com/dharmatype/Bebas-Neue) | `BebasNeue-OFL.txt` |
+| `RussoOne-Regular.ttf` | Ka0s Russo One | <https://github.com/google/fonts/tree/main/ofl/russoone>, version 1.001, unchanged | Copyright (c) 2011-2012, Jovanny Lemonad (jovanny.ru), with Reserved Font Name "Russo" | `RussoOne-OFL.txt` |
 
 Nunito, Vollkorn, Bitter, Oxanium and Inter are changed from the originals: static instances cut from upstream's
 variable fonts at the weights named, each renamed for its weight, no glyph edited. Their license files
 say so above the license text.
+
+**The Callout faces** (Media minor 13, the owner's choice of 2026-11-13 for `LibKa0s-Callout-1.0`'s
+countdown and call-out text, beside Oxanium) ship unchanged, each google/fonts' static file. Russo One
+reserves its name ("Russo"), and the OFL forbids a modified copy from carrying that name, so it may not be instanced
+or renamed. Bebas Neue and Russo One come from google/fonts' `ofl/bebasneue/` at
+`61f595f96445e9c2316b50d1ba3d79ef91f72b0a` and `ofl/russoone/` at
+`14f3bd097a44db854285fae061ae0fe6eb1a583b`, the last commits to touch each folder. Bebas Neue's
+upstream `OFL.txt` reads "Copyright © 2010 by Dharma Type.", where the face's own name table reads the
+2019 notice above; both are recorded as upstream wrote them. Orbitron, the third face planned, does not
+ship (the owner's ruling of 2026-11-13): its Bold lacks 28 characters of the glyph safe set.
 
 ## Apache License 2.0
 
@@ -130,5 +142,6 @@ Corp. Shipped on the owner's ruling of 2026-10-31.
 
 ## Family notes
 
-Prototype, Atkinson Hyperlegible, Emblem and Doris PP have no Cyrillic, so `Media.lua`
-registers them for western clients only. Every other family has the Russian alphabet, Ubuntu among them.
+Prototype, Atkinson Hyperlegible, Emblem, Doris PP and Bebas Neue have no Cyrillic, so
+`Media.lua` registers them for western clients only. Every other family has the Russian alphabet, Ubuntu
+and Russo One among them.

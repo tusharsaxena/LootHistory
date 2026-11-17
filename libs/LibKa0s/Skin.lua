@@ -127,7 +127,12 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- SkinPaintExtras minor 17's, the title band as a frame and every header child centered on it.
 -- Minor 17 (SF1-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): RegisterOwner's
 -- `opts.keepScope`, a Scope another addon's skin copy never writes.
-local MAJOR, MINOR = "LibKa0s-Skin-1.0", 17
+-- Minor 18 (the owner's ruling of 2026-11-08, Ka0sAddonsCommonTasks docs/2026-11-07-WOW_FOREVER_PORT_STEP5):
+-- the default skin is per client. `CLIENT_DEFAULTS` and `DefaultSkin()` answer WoW Forever on the
+-- Forever client and Ka0s Default on Retail; a choice with no skin, and an unregistered owner, take it.
+-- `DEFAULT` stays Ka0s Default, the base every skin's tokens lay over and the draw fallback for a key
+-- no skin registers.
+local MAJOR, MINOR = "LibKa0s-Skin-1.0", 18
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -139,8 +144,12 @@ lib.MODULES.Skin = MINOR
 --- The stored value that means "take this setting from the skin" (the owner's ruling R3). A
 --- profile key holding it resolves through `Resolve` to the owner's skin token.
 lib.FROM_SKIN = "@skin"
---- The skin every owner wears until it chooses another, and the one an unknown key falls back to.
+--- Ka0s Default: the base every skin's tokens lay over, and the skin a key no skin registers draws.
+--- It is not the default CHOICE on every client; that is `DefaultSkin()` (minor 18).
 lib.DEFAULT = "ka0s"
+--- The skin each client's owners wear until they choose another (minor 18, the owner's ruling of
+--- 2026-11-08): Ka0s Default on Retail, WoW Forever on the Forever client. Keyed by Compat's ClientKey.
+lib.CLIENT_DEFAULTS = { retail = "ka0s", forever = "forever" }
 --- The two skin sources: Ka0s's own skins, or EllesmereUI's (SkinEUI.lua).
 lib.SOURCES = { "ka0s", "eui" }
 
@@ -296,9 +305,22 @@ local function cleanSource(source)
   return "ka0s"
 end
 
+--- The default skin choice on this client (minor 18): `CLIENT_DEFAULTS[ClientKey()]` when that skin
+--- is registered, else `DEFAULT`. Compat is looked up at call time with no floor, so without it, or
+--- on a client that is neither, the answer is Ka0s Default. A host's profile defaults read it, so a
+--- new profile, a reset and a profile with no stored skin all land on the client's default.
+--- @return string
+function lib:DefaultSkin()
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  local key = compat and type(compat.ClientKey) == "function" and compat.ClientKey()
+  local skin = key and lib.CLIENT_DEFAULTS[key]
+  if skin and lib.skins[skin] then return skin end
+  return lib.DEFAULT
+end
+
 local function cleanSkin(skin)
   if type(skin) == "string" and skin ~= "" then return skin end
-  return lib.DEFAULT
+  return lib:DefaultSkin()
 end
 
 --- An override's stored form: a non-empty string key, else nil ("the skin's own"). The FROM_SKIN
@@ -417,10 +439,11 @@ function lib:WriteChoice(owner, source, skin, ignore, media)
   return true
 end
 
---- The owner's applied choice: source, skin. An unregistered owner answers "ka0s", "ka0s".
+--- The owner's applied choice: source, skin. An unregistered owner answers "ka0s" and the client's
+--- default skin (`DefaultSkin`, minor 18).
 function lib:GetChoice(owner)
   local o = self.owners[owner]
-  if not o then return "ka0s", self.DEFAULT end
+  if not o then return "ka0s", self:DefaultSkin() end
   return o.source, o.skin
 end
 

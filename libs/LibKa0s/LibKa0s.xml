@@ -1,8 +1,10 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 	<Script file="Core.lua"/>
 	<Script file="CorePixel.lua"/>
+	<Script file="Tooltip.lua"/>
 	<Script file="Env.lua"/>
 	<Script file="Compat.lua"/>
+	<Script file="Role.lua"/>
 	<Script file="Lifecycle.lua"/>
 	<Script file="Bus.lua"/>
 	<Script file="Schema.lua"/>
@@ -10,6 +12,10 @@
 	<Script file="Item.lua"/>
 	<Script file="Glow.lua"/>
 	<Script file="Toast.lua"/>
+	<Script file="Callout.lua"/>
+	<Script file="CalloutSettings.lua"/>
+	<Script file="WaypointArrow.lua"/>
+	<Script file="WaypointArrowSettings.lua"/>
 	<Script file="Charts.lua"/>
 	<Script file="ChartsRender.lua"/>
 	<Script file="Media.lua"/>
@@ -29,9 +35,12 @@
 	<Script file="WidgetsDropdown.lua"/>
 	<Script file="WidgetsReorder.lua"/>
 	<Script file="WidgetsDragHandle.lua"/>
+	<Script file="WidgetsDragHandleTip.lua"/>
 	<Script file="WidgetsLineChart.lua"/>
 	<Script file="WidgetsAutocomplete.lua"/>
 	<Script file="WidgetsCopyWindow.lua"/>
+	<Script file="WidgetsHeader.lua"/>
+	<Script file="WidgetsBar.lua"/>
 	<Script file="DebugLog.lua"/>
 	<Script file="DebugLogDiagnostics.lua"/>
 	<Script file="DebugLogGates.lua"/>
@@ -57,6 +66,7 @@
 	<Script file="OptionsKeybinds.lua"/>
 	<Script file="OptionsAppearance.lua"/>
 	<Script file="OptionsSkinPicker.lua"/>
+	<Script file="OptionsSkinPickerQueue.lua"/>
 	<Script file="OptionsSkinPickerRows.lua"/>
 	<Script file="OptionsSwitch.lua"/>
 	<Script file="OptionsMedia.lua"/>

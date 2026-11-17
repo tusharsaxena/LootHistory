@@ -54,12 +54,31 @@
 -- settings (on every host, never grayed), and every row follows one rule: a toggle is a checkbox
 -- whose tick is asked live, an action is a plain button, and a gated row grays the same way
 -- whichever kind it is, the note in its label.
+--
+-- Minor 10 (QFE-LK2): `lib:New`'s descriptor checks move to the file-local `checkDescriptor`, so no
+-- function is over CCN 15 (releasing.md's tag gate). No behavior change: the same checks, in the same
+-- order, raising the same messages at the host's line.
+--
+-- Minor 11 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92;
+-- WowAddonStandards launcher-§7 and standalone-windows, *Tooltip placement*): the minimap button's
+-- tooltip opens toward the screen's center, TIP_GAP off the button, through LibKa0s-Tooltip-1.0's
+-- PlaceLauncher, where LibDBIcon's own `getAnchors` put it flush. LibDBIcon is not patched: it owns
+-- its tooltip at ANCHOR_NONE, points it, then calls our OnTooltipShow, and the tooltip is re-placed at
+-- the end of that call, only when it is LibDBIcon's own tooltip owned by THIS addon's button. A broker
+-- display's tooltip and the addon compartment's keep their anchors.
+-- Also minor 11 (LK-86, LibKa0s#86): New registers `d.openSettings` as the addon's settings opener in
+-- Core's registry (Core minor 18), so every library window's settings mark opens it. No instance
+-- member is added.
+-- Also minor 11 (LK-81, LibKa0s#81): an optional descriptor field, `extraEntries`, adds at most two of
+-- the host's own rows to the options menu, after the last toggle and before Open settings, under the
+-- minor 7 row rule. Checked once, at New. One consumer (Ka0s Skill Master's Journal), built by the
+-- owner's ruling of 2026-11-16 (docs/api/Launcher/version-11-docs.md). No instance member is added.
 
 local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 9
+local MAJOR, MINOR = "LibKa0s-Launcher-1.0", 11
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -154,17 +173,27 @@ local ENTRIES = {
   { key = "MENU_SHOW_WINDOW", get = "isWindowShown", set = "toggleWindow",   gated = true  },
 }
 
+--- The most rows a host may add to the options menu through `extraEntries` (minor 11, LibKa0s#81).
+--- Two: Ka0s Skill Master's Journal needs one, and the menu is a short list of the addon's states,
+--- not a second slash help. A third raises at New.
+local MAX_EXTRAS = 2
+
+--- Whether a `clients` declaration (what `LibKa0s-Compat-1.0`'s `ForClient` takes) includes this
+--- client. None is every client, and a payload without Compat gates nothing.
+local function forClient(clients)
+  if clients == nil then return true end
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if not (compat and compat.ForClient) then return true end
+  return compat.ForClient(clients)
+end
+
 --- Whether the menu entry named `field` (a descriptor toggle's name, or `openSkinPicker`) is for this
 --- client (minor 8). `d.entryClients[field]` is the value `LibKa0s-Compat-1.0`'s `ForClient` takes;
 --- an entry with none is for every client, and a payload without Compat gates nothing. An entry the
 --- client is not in is not built, so the menu has no row, checkbox or action for it.
 local function entryForClient(d, field)
   local map = d.entryClients
-  local clients = type(map) == "table" and map[field] or nil
-  if clients == nil then return true end
-  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
-  if not (compat and compat.ForClient) then return true end
-  return compat.ForClient(clients)
+  return forClient(type(map) == "table" and map[field] or nil)
 end
 
 --- One tooltip line, in `c` (a color token) or, with none, the client's color.
@@ -191,6 +220,93 @@ local function minimapTable(d)
   local t = d.minimap
   if type(t) == "function" then t = t() end
   return type(t) == "table" and t or nil
+end
+
+--- What is wrong with `extraEntries[i]`, or nil (minor 11). The label is a plain string, the host's
+--- own words: no lib.STRINGS key, no function.
+local function extraProblem(i, e, compat)
+  local at = "extraEntries[" .. i .. "]"
+  if type(e) ~= "table" then return at .. " must be a table" end
+  if type(e.label) ~= "string" or e.label == "" then return at .. ".label must be a non-empty string" end
+  if type(e.onClick) ~= "function" then return at .. ".onClick must be a function" end
+  if e.checked ~= nil and type(e.checked) ~= "function" then return at .. ".checked must be nil or a function" end
+  if e.gated ~= nil and type(e.gated) ~= "boolean" then return at .. ".gated must be nil or a boolean" end
+  if e.clients ~= nil and compat and compat.ForClient then
+    local ok, err = pcall(compat.ForClient, e.clients)
+    if not ok then return at .. ".clients has invalid clients: " .. tostring(err) end
+  end
+  return nil
+end
+
+--- What is wrong with the `extraEntries` field as a whole, or nil (minor 11).
+local function extrasProblem(list, compat)
+  if list == nil then return nil end
+  if type(list) ~= "table" then return "extraEntries must be a list of entries" end
+  if #list > MAX_EXTRAS then
+    return ("extraEntries holds at most %d entries, not %d"):format(MAX_EXTRAS, #list)
+  end
+  for i = 1, #list do
+    local problem = extraProblem(i, list[i], compat)
+    if problem then return problem end
+  end
+  return nil
+end
+
+--- The checked `extraEntries`, copied at New (minor 11), so a later edit of the host's table cannot
+--- put an unchecked row in the menu. `gated` is resolved here: true unless the host said false.
+local function copyExtras(list)
+  local out = {}
+  if type(list) ~= "table" then return out end
+  for i = 1, #list do
+    local e = list[i]
+    out[i] = { label = e.label, checked = e.checked, onClick = e.onClick,
+      gated = e.gated ~= false, clients = e.clients }
+  end
+  return out
+end
+
+--- The descriptor's checks, run by New before it builds anything (minor 10: lifted out of New so
+--- no function is over CCN 15; the checks and their messages are unchanged). Level 3 is New's
+--- caller, so every error still names the host's line, as New's level 2 did.
+local function checkDescriptor(d)
+  if type(d.name) ~= "string" or d.name == "" then
+    error(MAJOR .. ":New requires descriptor.name — the addon's FOLDER name, e.g. \"BankLedger\"", 3)
+  end
+  if type(d.icon) ~= "string" or d.icon == "" then
+    error(MAJOR .. ":New requires descriptor.icon — the addon's own logo path", 3)
+  end
+  if type(d.openSettings) ~= "function" then
+    error(MAJOR .. ":New requires descriptor.openSettings — left-click ALWAYS opens the panel", 3)
+  end
+
+  -- Minor 9: an `entryClients` token is checked once, here, so a typo raises at the host's
+  -- registration naming the entry, not when the menu first opens.
+  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+  if compat and compat.ForClient and type(d.entryClients) == "table" then
+    for field, clients in pairs(d.entryClients) do
+      local ok, err = pcall(compat.ForClient, clients)
+      if not ok then
+        error(MAJOR .. ":New: entryClients." .. tostring(field) .. " has invalid clients: " .. tostring(err), 3)
+      end
+    end
+  end
+
+  -- Minor 11: `extraEntries` is checked once, here, for the same reason.
+  local problem = extrasProblem(d.extraEntries, compat)
+  if problem then error(MAJOR .. ":New: " .. problem, 3) end
+end
+
+--- Minor 11 (LibKa0s#86): `d.openSettings` becomes the addon's settings opener in Core's registry
+--- (Core minor 18), keyed by `d.name`, the addon's folder, which is every library window's
+--- `addonName`; also by `d.owner` where the host names a different skin owner. Every library window's
+--- settings mark asks there, so it opens what the left click opens. Guarded: an older Core has no
+--- registry and nothing is recorded. The launcher instance gains no member.
+local function registerOpener(d)
+  local core1 = LibStub and LibStub("LibKa0s-Core-1.0", true)
+  if not (core1 and type(core1.RegisterSettingsOpener) == "function") then return end
+  local function open() return d.openSettings("LeftButton") end
+  core1.RegisterSettingsOpener(d.name, open)
+  if type(d.owner) == "string" and d.owner ~= d.name then core1.RegisterSettingsOpener(d.owner, open) end
 end
 
 --- The descriptor documented, then checked.
@@ -264,6 +380,16 @@ end
 ---                            `openSkinPicker`; each value is what LibKa0s-Compat-1.0's ForClient takes
 ---                            (nil or "both", or an array of "retail" / "forever"). An entry the running
 ---                            client is not in is not built. No declaration means every client.
+---   extraEntries   table     optional, since minor 11 (LK-81, LibKa0s#81). At most MAX_EXTRAS (2) of the
+---                            host's own menu rows, drawn after the last toggle and before Open settings,
+---                            in declared order: { { label, onClick, checked, gated, clients }, ... }.
+---                            `label` (a plain, non-empty string, the host's own words) and `onClick`
+---                            (called with no argument) are required. `checked` (a function) makes the
+---                            row a checkbox whose tick is asked live; without it the row is a plain
+---                            button. `gated` (default true) grays the row while the addon is disabled.
+---                            `clients` is what ForClient takes, for this row alone. Each row is a
+---                            secondary window or action the addon already has a slash verb for
+---                            (launcher-§2). Checked and copied at New; the instance gains no member.
 ---   L              table     optional. Locale override, keyed to lib.STRINGS.
 ---
 --- RETIRED at minor 4, with launcher-§2's left-click rungs, and ignored if passed (no error):
@@ -274,31 +400,13 @@ end
 --- @return table  the launcher instance
 function lib:New(d)
   d = type(d) == "table" and d or {}
-  if type(d.name) ~= "string" or d.name == "" then
-    error(MAJOR .. ":New requires descriptor.name — the addon's FOLDER name, e.g. \"BankLedger\"", 2)
-  end
-  if type(d.icon) ~= "string" or d.icon == "" then
-    error(MAJOR .. ":New requires descriptor.icon — the addon's own logo path", 2)
-  end
-  if type(d.openSettings) ~= "function" then
-    error(MAJOR .. ":New requires descriptor.openSettings — left-click ALWAYS opens the panel", 2)
-  end
-
-  -- Minor 9: an `entryClients` token is checked once, here, so a typo raises at the host's
-  -- registration naming the entry, not when the menu first opens.
-  local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
-  if compat and compat.ForClient and type(d.entryClients) == "table" then
-    for field, clients in pairs(d.entryClients) do
-      local ok, err = pcall(compat.ForClient, clients)
-      if not ok then
-        error(MAJOR .. ":New: entryClients." .. tostring(field) .. " has invalid clients: " .. tostring(err), 2)
-      end
-    end
-  end
+  checkDescriptor(d)
 
   local strings = type(d.L) == "table" and d.L or nil
   local emit    = makeEmit(d)
   local name    = d.name
+  local extras  = copyExtras(d.extraEntries)
+  registerOpener(d)
 
   local Lb = {}
   local object          -- the ONE LibDataBroker object, or nil until Register succeeds
@@ -389,6 +497,24 @@ function lib:New(d)
   --- panel and the right one the options menu, in either state (launcher-§2). Since minor 6 the
   --- lines and the words take the host's skin; the frame stays the client's (skinning-§7), and the
   --- host's own lines are the host's to color.
+  --- Re-place `tt` toward the screen's center (minor 11), when it is LibDBIcon's tooltip and its
+  --- owner is this addon's minimap button: GetMinimapButton(name), else a button carrying this
+  --- launcher's data object.
+  local function placeOwnTooltip(tt)
+    local icons = LibStub and LibStub(ICON_MAJOR, true)
+    local Tip = LibStub and LibStub("LibKa0s-Tooltip-1.0", true)
+    if not (icons and Tip and tt == icons.tooltip and type(tt.GetOwner) == "function") then return end
+    local btn = tt:GetOwner()
+    if type(btn) ~= "table" then return end
+    local mine
+    if type(icons.GetMinimapButton) == "function" then
+      mine = icons:GetMinimapButton(name) == btn
+    else
+      mine = object ~= nil and btn.dataObject == object
+    end
+    if mine then Tip.PlaceLauncher(tt, btn) end
+  end
+
   local function drawTooltip(tt)
     if type(tt) ~= "table" or type(tt.AddLine) ~= "function" then return end
     local enabled = enabledNow("tooltip: isEnabled")
@@ -409,6 +535,7 @@ function lib:New(d)
     end
     addLine(tt, text("TOOLTIP_LEFT"):format(text("TOOLTIP_OPEN_SETTINGS")), pal.line)
     addLine(tt, text("TOOLTIP_RIGHT"):format(text("TOOLTIP_OPTIONS_MENU")), pal.line)
+    placeOwnTooltip(tt)
   end
 
   --- The menu's response to a click: close. The next open reads every state afresh, which is
@@ -465,15 +592,55 @@ function lib:New(d)
     return closeMenu()
   end
 
-  --- One action row (a plain button): Open settings, Open skin selector. `gated` rows gray while
-  --- the addon is disabled, with the note in the label, exactly as a gated checkbox does.
-  local function actionRow(root, key, gated, enabled, onClick)
+  --- A row's label, with the gray note when it is grayed.
+  local function rowLabel(label, grayed)
+    if grayed then return text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
+    return label
+  end
+
+  --- Gray a menu element the client handed back, where it can be grayed.
+  local function grayOut(element, grayed)
+    if grayed and type(element) == "table" and type(element.SetEnabled) == "function" then
+      element:SetEnabled(false)
+    end
+  end
+
+  --- One action row (a plain button) labeled `label`: Open settings, Open skin selector, or a host's
+  --- extra row. `gated` rows gray while the addon is disabled, with the note in the label, exactly as
+  --- a gated checkbox does.
+  local function actionRow(root, label, gated, enabled, onClick)
     if type(root.CreateButton) ~= "function" then return end
-    local label, grayed = text(key), gated and not enabled
-    if grayed then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
-    local button = root:CreateButton(label, onClick)
-    if grayed and type(button) == "table" and type(button.SetEnabled) == "function" then
-      button:SetEnabled(false)
+    local grayed = gated and not enabled
+    grayOut(root:CreateButton(rowLabel(label, grayed), onClick), grayed)
+  end
+
+  --- One of the host's extra rows clicked (minor 11): its own `onClick`, once, under the same gate
+  --- and the same pcall as a built-in entry. A raise is MENU_FAILED, named by the row's label.
+  local function chooseExtra(e)
+    if e.gated and not enabledNow("menu: isEnabled") then
+      log("menu: " .. e.label .. " refused while disabled")
+      return closeMenu()
+    end
+    local ok, err = pcall(e.onClick)
+    if not ok then emit(text("MENU_FAILED"):format(name, e.label, tostring(err))) end
+    return closeMenu()
+  end
+
+  --- The host's extra rows (minor 11), in declared order, each built only on its clients: a
+  --- checkbox where it passed `checked` (the tick asked live), else a plain button.
+  local function extraRows(root, enabled)
+    for _, e in ipairs(extras) do
+      if forClient(e.clients) then
+        local function onSelect() return chooseExtra(e) end
+        if e.checked then
+          local grayed = e.gated and not enabled
+          grayOut(root:CreateCheckbox(rowLabel(e.label, grayed),
+            function() return ask(e.checked, "menu: " .. e.label .. " checked") and true or false end,
+            onSelect), grayed)
+        else
+          actionRow(root, e.label, e.gated, enabled, onSelect)
+        end
+      end
     end
   end
 
@@ -485,25 +652,22 @@ function lib:New(d)
 
   --- THE OPTIONS MENU (minor 4, launcher-§2), as a Blizzard menu generator: the title, then one
   --- checkbox per supplied toggle (its tick asked live, so it is never older than the draw), then
-  --- the actions: Open settings on every host, Open skin selector for a skin owner. Gated rows
-  --- gray while the addon is disabled, with the note in the label; Open settings never does.
+  --- the host's extra rows (minor 11), then the actions: Open settings on every host, Open skin
+  --- selector for a skin owner. Gated rows gray while the addon is disabled, with the note in the
+  --- label; Open settings never does.
   local function buildMenu(_, root, entries)
     if type(root) ~= "table" then return end
     if type(root.CreateTitle) == "function" then root:CreateTitle(d.label or name) end
     local enabled = enabledNow("menu: isEnabled")
     for _, entry in ipairs(entries) do
       local grayed = entry.gated and not enabled
-      local label = text(entry.key)
-      if grayed then label = text("MENU_GRAYED"):format(label, text("MENU_NEEDS_ENABLE")) end
-      local box = root:CreateCheckbox(label,
+      grayOut(root:CreateCheckbox(rowLabel(text(entry.key), grayed),
         function() return ask(d[entry.get], "menu: " .. entry.get) and true or false end,
-        function() return choose(entry) end)
-      if grayed and type(box) == "table" and type(box.SetEnabled) == "function" then
-        box:SetEnabled(false)
-      end
+        function() return choose(entry) end), grayed)
     end
-    actionRow(root, "MENU_SETTINGS", false, enabled, chooseSettings)
-    if skinEntry() then actionRow(root, "MENU_SKIN", true, enabled, chooseSkin) end
+    extraRows(root, enabled)
+    actionRow(root, text("MENU_SETTINGS"), false, enabled, chooseSettings)
+    if skinEntry() then actionRow(root, text("MENU_SKIN"), true, enabled, chooseSkin) end
   end
 
   --- The RIGHT click: the client's own context menu (`MenuUtil.CreateContextMenu`, 11.0+),

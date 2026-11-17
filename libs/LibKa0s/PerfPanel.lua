@@ -11,7 +11,12 @@ if not lib then return end
 -- Core is guaranteed present here: Perf.lua refuses to register without it, so reaching this line
 -- at all means the lookup above already succeeded on a Core-backed probe.
 local core = LibStub("LibKa0s-Core-1.0", true)
-local PANEL_MINOR = 13
+local PANEL_MINOR = 14
+-- Minor 14 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): with no
+-- `decorate`, the title band's marks are LibKa0s-Widgets-1.0's HeaderButtons (resolved at build):
+-- settings beside the close, opening the descriptor's `onSettings`, else the addon's registered
+-- opener (Core minor 18, by `addonName` else `name`). `decorate`'s helper table gains
+-- `HeaderButtons`, for a host drawing its own chrome. Without Widgets, the close alone, as before.
 -- Minor 13 (R5-L3 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): an owned panel's title and
 -- close mark are anchored to the band S.Shell lays (the facade's Header) at y 0, so they stay on its
 -- middle under a 2 px edge and EllesmereUI's 25 px bar. An unowned panel is as it was.
@@ -237,6 +242,43 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     })
   end
 
+  --- The header's close (and settings, minor 14): a host's `decorate` first, else HeaderButtons,
+  --- else Core's close alone. See the note at EnsureFrame's call for the folder name's role.
+  local function buildHeader()
+    local W = LibStub("LibKa0s-Widgets-1.0", true)
+    local header = W and type(W.HeaderButtons) == "function" and W.HeaderButtons or nil
+    if decorate then
+      decorate(frame, {
+        Show = P.ShowPanel, Hide = P.HidePanel, Toggle = P.TogglePanel,
+        TITLE_H = TITLE_H, PAD = PAD, ROW_W = ROW_W, HeaderButtons = header,
+      })
+    elseif header then   -- minor 14: settings, then close, on the band's middle
+      local hb = header(frame, { owner = d.addonName or d.name, point = "TOPRIGHT", y = -(1 + (TITLE_H - 18) / 2),
+        close = P.HidePanel, settings = type(d.onSettings) == "function" and d.onSettings or true })
+      frame.closeButton, frame.settingsButton = hb.close, hb.settings
+    else
+      local close = core.MakeCloseButton(frame, P.HidePanel, d.addonName or d.name)
+      if close then
+        close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(1 + (TITLE_H - 18) / 2))
+        frame.closeButton = close
+      end
+    end
+  end
+
+  --- The skin's pass over the built window: the facade's Header, then the rows on every look change.
+  local function skinFrame(title, S)
+    if not S then core.ApplySkin(frame); return end
+    core.ApplySkin(frame, nil, owner)
+    local right = frame.headerButtons and frame.headerButtons.right or { frame.closeButton }   -- minor 14
+    if S.Header then S.Header(frame, { title = title, right = right }) end   -- minor 13
+    -- After the facade replayed the window: the rows' colors, and the command column's.
+    S.OnLooksChanged(function()
+      fillPalette(pal, S)
+      for _, b in pairs(frame.buttons) do b.cmd:SetTextColor(pal.cmd[1], pal.cmd[2], pal.cmd[3]) end
+      P.RefreshPanel()
+    end)
+  end
+
   local function EnsureFrame()
     if frame then return frame end
     if type(CreateFrame) ~= "function" then return nil end
@@ -275,18 +317,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
     -- `decorate` got a perf panel wearing × beside a debug console wearing the mark, with nothing
     -- raised and every suite green. `addonName` is the descriptor's own field; `name` is the
     -- fallback because every host in the collection already passes its folder name there.
-    if decorate then
-      decorate(frame, {
-        Show = P.ShowPanel, Hide = P.HidePanel, Toggle = P.TogglePanel,
-        TITLE_H = TITLE_H, PAD = PAD, ROW_W = ROW_W,
-      })
-    else
-      local close = core.MakeCloseButton(frame, P.HidePanel, d.addonName or d.name)
-      if close then
-        close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -(1 + (TITLE_H - 18) / 2))
-        frame.closeButton = close
-      end
-    end
+    buildHeader()
 
     local S = facadeOf(owner)
     if S then pal = fillPalette({}, S) end
@@ -296,18 +327,7 @@ function lib.__AttachPanel(P, d, tr, runCommand)
       frame.buttons[step.key] = makeStepButton(frame, step, i, S)
     end
 
-    if S then
-      core.ApplySkin(frame, nil, owner)
-      if S.Header then S.Header(frame, { title = title, right = { frame.closeButton } }) end   -- minor 13
-      -- After the facade replayed the window: the rows' colors, and the command column's.
-      S.OnLooksChanged(function()
-        fillPalette(pal, S)
-        for _, b in pairs(frame.buttons) do b.cmd:SetTextColor(pal.cmd[1], pal.cmd[2], pal.cmd[3]) end
-        P.RefreshPanel()
-      end)
-    else
-      core.ApplySkin(frame)
-    end
+    skinFrame(title, S)
 
     frame:Hide()
     -- Esc closes it, like a debug console. Hiding is non-destructive, so this is safe to wire.

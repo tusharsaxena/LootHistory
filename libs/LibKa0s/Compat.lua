@@ -15,7 +15,8 @@
 --
 -- -- WHY IT IS NARROW --------------------------------------------------------------------------
 --
--- Thirteen members (nine at minor 1, four client helpers at minor 2), not the union of nine files.
+-- Seventeen members (nine at minor 1, four client helpers at minor 2, four character-identity
+-- readers at minor 4), not the union of nine files.
 -- `LibKa0s/Env.lua` records that the WIDE extraction was
 -- measured and rejected, and that record stays true: a container reader is BankLedger's, a mail
 -- decoder is LootHistory's, and a damage-meter reader is MultiMeters'. A member is here only when
@@ -89,7 +90,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Compat-1.0", 3
+local MAJOR, MINOR = "LibKa0s-Compat-1.0", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -374,4 +375,94 @@ function lib.GetSpecializationInfo(index)
     return GetSpecializationInfo(index)
   end
   return nil
+end
+
+-- -- character identity (minor 4) ----------------------------------------------------------------
+--
+-- The owner's ruling of 2026-11-08 (Ka0sAddonsCommonTasks docs/2026-11-07-WOW_FOREVER_PORT_STEP5/
+-- W1_FOREVER_NAME_PROBE.md; standard client-quirks-§5): where names are unique per region (WoW
+-- Forever, `RegionalUniqueNamesEnabled()` true), a character is its first name and surname together
+-- and its realm is its ruleset. UnitName answers the SURNAME as its second value there, where Retail
+-- answers the realm. These four mirror AceDB-3.0 minor 40's key block exactly, so an addon's own keys
+-- agree with its profile keys. The test is feature detection, never a client check (clients-§3).
+
+-- AceDB 40's ruleset order: Hardcore first, then RP and PvP together, then each alone, then PvE.
+local function rulesetKey()
+  if not (C_GameRules and C_GameRules.IsGameRuleActive and Enum and Enum.GameRule) then return nil end
+  local R, active = Enum.GameRule, C_GameRules.IsGameRuleActive
+  local function on(rule) return rule ~= nil and active(rule) == true end
+  local isRP, isPVP = on(R.RPRuleset), on(R.PvPRuleset)
+  if on(R.HardcoreRuleset) then return "Hardcore" end
+  if isRP and isPVP then return "RP-PvP" end
+  if isRP then return "RP" end
+  if isPVP then return "PvP" end
+  return "PvE"
+end
+
+local function regionalNames()
+  return RegionalUniqueNamesEnabled ~= nil and RegionalUniqueNamesEnabled() == true
+end
+
+--- Whether character names are unique per region (`RegionalUniqueNamesEnabled()`, true on WoW
+--- Forever): a character is then its first name and surname together, and a realm its ruleset.
+--- False where the function is absent.
+---
+--- @return boolean
+function lib.RegionalNames()
+  return regionalNames()
+end
+
+--- A unit's character name and realm (exactly two values).
+---
+--- With regional names: the first name and surname joined by a space ("Traxex Silentshot") and a nil
+--- realm, since UnitName's second return is the surname there; a unit with no surname answers its
+--- name alone. Otherwise UnitName's own two returns: the name, then the realm (nil or "" on the
+--- player's realm). Nil, nil for no unit or no answer. A secret part is never concatenated: the
+--- name comes back untouched with a nil realm (rule 4).
+---
+--- @param unit string
+--- @return string|nil name, string|nil realm
+function lib.UnitCharacterName(unit)
+  if not unit or not UnitName then return nil, nil end
+  local name, second = UnitName(unit)
+  if name == nil then return nil, nil end
+  if not regionalNames() then return name, second end
+  if isSecret(name) or isSecret(second) or type(second) ~= "string" or second == "" then
+    return name, nil
+  end
+  return name .. " " .. second, nil
+end
+
+--- The player's character key, the one AceDB-3.0 40 keys profiles by: "First Surname" with
+--- regional names, "Name - Realm" otherwise. Read through UnitNameUnmodified, as AceDB does, and
+--- UnitName where it is absent. Nil until the client can answer.
+---
+--- @return string|nil
+function lib.CharacterKey()
+  local read = UnitNameUnmodified or UnitName
+  if not read then return nil end
+  local name, surname = read("player")
+  if type(name) ~= "string" or name == "" then return nil end
+  if regionalNames() then
+    if type(surname) == "string" and surname ~= "" then return name .. " " .. surname end
+    return name
+  end
+  local realm = GetRealmName and GetRealmName()
+  if type(realm) ~= "string" or realm == "" then return nil end
+  return name .. " - " .. realm
+end
+
+--- The player's realm key, the one AceDB-3.0 40 keys realm data by: with regional names the
+--- ruleset ("Hardcore", "RP-PvP", "RP", "PvP" or "PvE", from C_GameRules), otherwise GetRealmName().
+--- Nil until the client can answer.
+---
+--- @return string|nil
+function lib.RealmKey()
+  if regionalNames() then
+    local ruleset = rulesetKey()
+    if ruleset then return ruleset end
+  end
+  local realm = GetRealmName and GetRealmName()
+  if type(realm) ~= "string" or realm == "" then return nil end
+  return realm
 end

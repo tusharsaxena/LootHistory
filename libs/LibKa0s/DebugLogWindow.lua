@@ -1,6 +1,6 @@
 -- LibKa0s-DebugLog-1.0 — the console window: its frame, its title bar (the toggle, the Diagnostics
--- link, Copy, Clear and the close control), the log, its scrollbar and the status line, and the
--- skin it wears.
+-- link, Copy, Clear and the close control), the log, its scrollbar and the footer that holds its
+-- line counter, and the skin it wears.
 --
 -- ── WHY IT IS A FILE OF ITS OWN AND NOT MORE OF DebugLog.lua ─────────────────────────────────
 --
@@ -22,7 +22,7 @@
 -- job and is never skinned over. Every other console is the previous minor's paint, call for call:
 -- the palette below is the constants it drew, and Ka0s Default's tokens are those same constants.
 -- An owned console paints its window through the facade (`Core.ApplySkin(f, nil, owner)`, so
--- `S.Shell`), its scrollbar (`S.ScrollBar`) and its status rule (`S.Divider`), and every color the
+-- `S.Shell`), its scrollbar (`S.ScrollBar`) and its footer's hairline (`S.Divider`), and every color the
 -- title bar, the line counter and the log draw from the palette, refilled from the owner's tokens on
 -- each of its skin switches; the visible log is rebuilt from the buffer in the new colors.
 --
@@ -38,6 +38,21 @@
 -- the owner too (Core minor 14's `opts.owner`). LK-06b of Ka0sAddonsCommonTasks
 -- docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5.
 --
+-- ── THE FOOTER (minor 5) ─────────────────────────────────────────────────────────────────────
+--
+-- The line counter sits on `W.Footer` (Widgets minor 27), built with NO owner and an empty left line,
+-- so the console keeps its own skin job there as everywhere else: the counter keeps the descriptor's
+-- mono face (debug-logging-§11; an owned footer's `S.Text` would put the skin's body face on it at
+-- every switch) and is colored from the palette in `text.muted`, the footer's color (it read
+-- `log.count`, which stays defined as skin data and is no longer read here). An owned console's
+-- hairline goes to `S.Divider`. The resize grip is built on the footer (Core's `gripParent`), and the
+-- footer's grip inset (`FOOTER.GRIP`, 22) keeps the counter clear of it. The window keeps its 700 x
+-- 344 default and its four-line minimum, now over 24 px of footer. `f.lineCount` (the footer's
+-- right line, which the shell's UpdateStatus writes) and `f.statusDivider` (its hairline) stay as
+-- aliases; `f.footer` is the footer. Resolved at call time and guarded: a Widgets without `Footer`
+-- (a load failure, since every payload that carries this file carries Widgets 27) builds a console
+-- with no counter, which the shell already tolerates.
+--
 -- Depends on LibStub, on the DebugLog shell and on LibKa0s-Core-1.0, and on no addon framework. A
 -- payload without this file loads whole and its consoles simply never build a window: `D:Show`
 -- does nothing and logging still lands in the buffer, as on a client with no UI.
@@ -47,7 +62,7 @@ if not lib then return end
 -- Core is guaranteed present here: DebugLog.lua refuses to register without it.
 local core = LibStub("LibKa0s-Core-1.0", true)
 
-local WINDOW_MINOR = 4
+local WINDOW_MINOR = 5
 -- Minor 3 (cause L9 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): the title bar is 30 high, the
 -- skin's `title.height` and the band S.Shell paints, not 26. The console's title stays centered: the
 -- bar's two ends hold its controls.
@@ -55,6 +70,16 @@ local WINDOW_MINOR = 4
 -- header on the band S.Shell lays (the facade's Header): the drag bar takes the band's rect and the
 -- title, Copy, Clear, Close and the toggle are anchored to it at y 0, so they stay on its middle under
 -- a 2 px edge and EllesmereUI's 25 px bar. The title stays centered. An unowned console is as it was.
+-- Minor 5 (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS): the
+-- shell's buffer is plain text from its minor 23, so a skin switch's rebuild takes each colored
+-- message back from the shell's private `__view`, where it still matches its buffered line.
+-- Also minor 5 (LibKa0s#90, LK-90, WowAddonStandards v2.110.0's *The footer*): the status line is
+-- LibKa0s-Widgets-1.0's `Footer` (minor 27), 24 px, where minor 4 drew a 16 px line by hand. See
+-- THE FOOTER below.
+-- Also minor 5 (LibKa0s#86, LK-86): the title bar's marks are LibKa0s-Widgets-1.0's HeaderButtons,
+-- left to right Copy, Clear, settings, close. Settings opens the addon's settings (Core's registry by
+-- `addonName`, or the descriptor's `onSettings`). Every title-bar control carries a tooltip, the
+-- toggle and the Diagnostics link included, each above its control (SR-L2, smoke round 1, ruling 3).
 -- Paired on the SHELL's minor as well as this file's own, as DebugLogGates.lua is: a window built
 -- by one vendored copy for a shell from another would call back into members that shell may not
 -- have, and nothing would say the two came from different copies.
@@ -78,17 +103,14 @@ end
 -- Drag bar height: `title.height`, which every skin carries at one value (SkinDefs.lua's geometry
 -- note). tests/test_title_shape.lua pins the two equal; a window draws one with no Skin major too.
 local TITLE_H  = 30
-local STATUS_H = 16      -- bottom status bar height
+-- The footer's height (minor 5): Widgets' FOOTER.HEIGHT, skin-invariant. Read from Widgets at build
+-- when it says, so the log's bottom edge can never drift from the footer it sits on.
+local FOOTER_H = 24
 local BAR_W    = 8       -- scrollbar gutter width
--- The line counter's right inset. Core.MakeResizable's grip is 16 px square at 1 px in from the
--- bottom-right corner and ten levels above the console, so a counter at the old 10 px drew its last
--- digits under the grip's art; 22 clears the grip's 17 px with a 5 px gap.
-local COUNT_INSET = 22
 
--- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; CLOSE_W is what
--- Core's own close button measures, and is the fallback when a host's button has no width yet.
+-- Title-bar arithmetic. PAD is the one gap between every control and its neighbor; the marks' own
+-- (HeaderButtons') pitch is the same 6, and a mark with no measurable width counts 18 (minor 5).
 local PAD      = 6
-local CLOSE_W  = 18
 local CLEAR_W  = 42
 local COPY_W   = 40
 
@@ -96,7 +118,6 @@ local COPY_W   = 40
 -- has always been, so all three title-bar controls are one size and one rhythm -- where the text
 -- buttons were 42 and 40 wide and only lined up by arithmetic.
 local ICON_W   = 18
-local ICON_ART = 12
 
 -- The console's default size, which is the size it has always opened at (debug-logging-§1). From
 -- minor 15 it is resizable from a bottom-right grip (Core.MakeResizable), and this is still the
@@ -107,11 +128,13 @@ local CONSOLE_W, CONSOLE_H = 700, 344
 -- The header toggle's slot, at the bar's left edge. Named because the minimum width reads it.
 local TOGGLE_X, TOGGLE_W = 8, 80
 
--- The Diagnostics link (minor 16): its gap after the toggle's label, and its orange at rest and
--- under the pointer, so it reads as an action beside a state word. Plain text, like that label.
+-- The Diagnostics link (minor 16): its gap after the toggle's label, and its color under the
+-- pointer. Plain text, like that label. From minor 5 (SR-L3 of Ka0sAddonsCommonTasks
+-- docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, smoke round 1's ruling 4) it is a title-bar control like
+-- every other: REST (`icon.tint`) at rest and the orange it rested in before (`text.link`) under the
+-- pointer, where it was that orange at rest and `text.linkHot` hot.
 local DIAG_GAP  = 10
-local DIAG_REST = { 1, 0.5, 0 }
-local DIAG_HOT  = { 1, 0.72, 0.28 }
+local DIAG_HOT  = { 1, 0.5, 0 }
 
 -- Gray at rest, gold under the pointer -- what the text labels have done since minor 1, kept so the
 -- title bar does not change temperature just because its controls changed shape.
@@ -128,18 +151,21 @@ local TITLE_CHAR_W = 7
 -- Every color the console draws outside the skin's window primitives, as `name = { token,
 -- constant }`. The constant is what the console has drawn since the minor that added it, and what
 -- every console without a registered owner draws; Ka0s Default's token is the same value: REST and
--- HOT for the text and icon controls, the Diagnostics link's two oranges, the toggle's green ON and
--- red OFF, the status rule, the line counter, and the log line's stamp, tag and message.
+-- HOT for the text and icon controls, the Diagnostics link's gray rest and orange hover (minor 5,
+-- SR-L3; the toggle's hover keeps HOT, `text.accent`, and its state colors), the toggle's green ON and
+-- red OFF, the line counter, and the log line's stamp, tag and message. The counter is `text.muted`
+-- from minor 5, the footer's text color, where it was `log.count` (Ka0s Default's 0.6 gray). The
+-- footer's hairline is not here: Widgets draws it in Ka0s Default's `divider`, and an owned console
+-- hands it to S.Divider.
 local PALETTE = {
   rest    = { "text.muted",   REST },
   icon    = { "icon.tint",    REST },
   hot     = { "text.accent",  HOT },
-  diag    = { "text.link",    DIAG_REST },
-  diagHot = { "text.linkHot", DIAG_HOT },
+  diag    = { "icon.tint",    REST },
+  diagHot = { "text.link",    DIAG_HOT },
   on      = { "sem.on",       { 0.30, 0.85, 0.30 } },
   off     = { "sem.off",      { 0.90, 0.30, 0.30 } },
-  rule    = { "divider",      { 0.24, 0.24, 0.27, 0.85 } },
-  count   = { "log.count",    { 0.6, 0.6, 0.62 } },
+  count   = { "text.muted",   REST },
   ts      = { "log.ts",       { 0x6f / 255, 0x8f / 255, 0xaf / 255 } },
   tag     = { "log.tag",      { 0xc9 / 255, 0xa6 / 255, 0x6b / 255 } },
   text    = { "log.text",     { 1, 1, 1 } },
@@ -160,110 +186,54 @@ end
 
 local function setText(fs, c) fs:SetTextColor(c[1], c[2], c[3]) end
 
+--- A title-bar control's tooltip (SR-L2): the module string `key`, read through D:Text on each hover
+--- (so a host's L reaches it, rawget-keyed), shown by LibKa0s-Tooltip-1.0's AttachTitleTip, in the
+--- owner's `gtip.title` for an owned console. Guarded: without that major the control has none.
+local function titleTip(b, D, key, owner)
+  local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
+  if not (b and Tip and type(Tip.AttachTitleTip) == "function") then return end
+  Tip.AttachTitleTip(b, function() return D:Text(key) end, owner)
+end
+
 --- An owned console's label in its skin's body face (minor 2): the facade's `Font`, which records
 --- the paint, so a switch and "Ignore fonts" reach it. `S` nil (no owner) touches nothing.
 local function skinFont(S, fs)
   if S then S.Font(fs) end
 end
 
--- Small flat text button for the title bar (Copy / Clear). The close button comes from Core; this
--- one has no other consumer yet, so it stays private until a second module wants it.
-local function makeTextButton(parent, text, width, onClick, pal, S)
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(width, 18)
-  local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  skinFont(S, fs)
-  fs:SetPoint("CENTER")
-  fs:SetText(text)
-  setText(fs, pal.rest)
-  b:SetScript("OnEnter", function() setText(fs, pal.hot) end)
-  b:SetScript("OnLeave", function() setText(fs, pal.rest) end)
-  b:SetScript("OnClick", onClick)
-  b.label = fs
-  return b
-end
-
---- The same control drawn from `LibKa0s-Media-1.0`'s art, or nil when there is no art to draw.
+--- Build and place the title bar's marks through LibKa0s-Widgets-1.0's HeaderButtons (minor 5,
+--- LibKa0s#86): left to right Copy, Clear, settings, close, one size and one pitch, the art out of
+--- the host's copy where `addonName` answers it, else the COPY and CLEAR words and the settings glyph.
 ---
---- NIL IS THE WHOLE INTERFACE. The caller falls back to the text button above, which is what a host
---- that never passes `addonName` gets and what a host without the Media module gets. A host whose
---- copy lacks the art gets a BLANK control: Media.Icon answers a path and never checks the file
---- exists, so `close, copy, clear` are the host's to declare on its `LibKa0s icons:` line.
+--- EACH CARRIES A TOOLTIP, a module string (COPY_TIP, CLEAR_TIP, SETTINGS_TIP; the close's is Core's
+--- CloseTip). Minor 9 of the shell gave Copy and Clear one shown UNDER the control, on top of the
+--- first line of the log, the thing the window exists to show; the chrome rule now attaches every
+--- title-bar tooltip ABOVE its control (SR-L1), so smoke round 1's ruling 3 (SR-L2) gave them back.
+--- The words are still drawn where the art is missing.
 ---
---- NO TOOLTIP, AND NO LABEL TO PUT IN ONE. Minor 9 took a label and showed it under the control,
---- which put it on top of the first line of the log -- the thing the window exists to show -- every
---- time the pointer crossed the title bar. Anchoring it elsewhere trades one overlap for another on
---- a window that is 700px of text, and the two marks sit beside a close button that has never needed
---- one. The word still exists where it is still drawn: the text-button fallback in the caller.
-local function makeIconButton(parent, addonName, icon, onClick, pal)
-  if not addonName then return nil end
-  local media = LibStub and LibStub("LibKa0s-Media-1.0", true)
-  local path = media and media.Icon and media.Icon(addonName, icon)
-  if not path then return nil end
-
-  local b = CreateFrame("Button", nil, parent)
-  b:SetSize(ICON_W, ICON_W)
-  local tex = b:CreateTexture(nil, "OVERLAY")
-  tex:SetPoint("CENTER")
-  tex:SetSize(ICON_ART, ICON_ART)
-  tex:SetTexture(path)
-  tex:SetVertexColor(pal.icon[1], pal.icon[2], pal.icon[3])
-  b.icon = tex
-
-  b:SetScript("OnEnter", function() tex:SetVertexColor(pal.hot[1], pal.hot[2], pal.hot[3]) end)
-  b:SetScript("OnLeave", function() tex:SetVertexColor(pal.icon[1], pal.icon[2], pal.icon[3]) end)
-  b:SetScript("OnClick", onClick)
-  return b
-end
-
---- Build and place the three title-bar controls, and answer them with the offsets they landed on.
----
---- LIFTED OUT OF `EnsureFrame`, and not for tidiness: adding the icon path took that function to
---- CCN 16, one over the release gate's ceiling of 15 (`automated-tests-§3`). The decisions are all
---- about this one strip -- which shape each control takes, how wide the close button actually is --
---- so this is where they belong anyway, and `EnsureFrame` goes back to assembling a window.
+--- Settings opens the addon's settings through Core's registry (the launcher's opener, keyed by
+--- `addonName`), or the descriptor's `onSettings`. Without HeaderButtons (a payload missing the file)
+--- the bar carries the close alone.
 ---
 --- @param titleBar table
 --- @param spec table  { addonName, close = f(parent,onClick,addonName), onClose, onClear, onCopy,
----                      clearLabel, copyLabel, pal, S (the owner's facade or nil, minor 2) }
---- @return table close, table clear, table copy, table offsets
+---                      onSettings, clearLabel, copyLabel, copyTip, clearTip, settingsTip, frame }
+--- @return table  HeaderButtons' answer: { close, settings, extras = { copy, clear }, offsets, right }
 local function buildTitleControls(titleBar, spec)
-  -- Anchored to the bar's right edge by absolute offset rather than to each other, because a
-  -- close-button factory answers nil where CreateFrame is unavailable and a chain anchored through
-  -- it would break. The offsets reproduce that chain exactly, and they are DERIVED rather than
-  -- hard-coded, which matters as soon as a host supplies a wider button.
-  local close = spec.close(titleBar, spec.onClose, spec.addonName)
-  if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -PAD, 0) end
-
-  -- A frame answers 0 from GetWidth before its first layout pass, and a headless stub answers 0
-  -- forever, so anything not positive falls back to the size Core's own button is.
-  local closeW = CLOSE_W
-  if close and type(close.GetWidth) == "function" then
-    local w = close:GetWidth()
-    if type(w) == "number" and w > 0 then closeW = w end
+  local W = LibStub("LibKa0s-Widgets-1.0", true)
+  if not (W and type(W.HeaderButtons) == "function") then
+    local close = spec.close(titleBar, spec.onClose, spec.addonName)
+    if close then close:SetPoint("RIGHT", titleBar, "RIGHT", -PAD, 0) end
+    return { close = close, extras = {}, offsets = { close = -PAD }, right = { close and { frame = close, x = PAD } } }
   end
-
-  -- ICONS ARE NARROWER THAN WORDS. Each control is built as art first and falls back to its label,
-  -- and the offsets are derived from what was ACTUALLY built -- so the three end up one size and one
-  -- pitch where the art is there, and exactly where they were at minor 8 where it is not.
-  local clear = makeIconButton(titleBar, spec.addonName, "clear", spec.onClear, spec.pal)
-  local copy  = makeIconButton(titleBar, spec.addonName, "copy", spec.onCopy, spec.pal)
-  -- Only CLEAR's width feeds an offset. Copy is the leftmost control and nothing is placed to the
-  -- left of it, so its own width has never entered the arithmetic -- it is a size, not a measurement.
-  local clearW = CLEAR_W
-  if clear then
-    clearW = ICON_W
-  else
-    clear = makeTextButton(titleBar, spec.clearLabel, clearW, spec.onClear, spec.pal, spec.S)
-  end
-  copy = copy or makeTextButton(titleBar, spec.copyLabel, COPY_W, spec.onCopy, spec.pal, spec.S)
-
-  local clearRight = -PAD - closeW - PAD
-  local copyRight  = clearRight - clearW - PAD
-  clear:SetPoint("RIGHT", titleBar, "RIGHT", clearRight, 0)
-  copy:SetPoint("RIGHT", titleBar, "RIGHT", copyRight, 0)
-
-  return close, clear, copy, { close = -PAD, clear = clearRight, copy = copyRight }
+  return W.HeaderButtons(titleBar, {
+    owner = spec.addonName, makeClose = spec.close, close = spec.onClose, frame = spec.frame,
+    settings = type(spec.onSettings) == "function" and spec.onSettings or true, settingsTip = spec.settingsTip,
+    extras = {
+      { key = "copy", icon = "copy", label = spec.copyLabel, width = COPY_W, onClick = spec.onCopy, tip = spec.copyTip },
+      { key = "clear", icon = "clear", label = spec.clearLabel, width = CLEAR_W, onClick = spec.onClear, tip = spec.clearTip },
+    },
+  })
 end
 
 --- What font string `fs` measures holding `text` (set on it): its string width when the client can
@@ -306,19 +276,24 @@ end
 --- PAD between the title and the wider of the two control groups. The title is centered, so it is
 --- the WIDER side that sets the margin on both. Never above the default, so a long title cannot
 --- leave the window smaller than its own minimum on the day it is built. `linkReach` is the
---- Diagnostics link's right edge from the bar's left (0 without the link, minor 16).
-local function consoleMinWidth(offsets, copyBtn, title, titleText, linkReach)
-  local copyW = (type(copyBtn) == "table" and type(copyBtn.icon) == "table") and ICON_W or COPY_W
-  local right = -offsets.copy + copyW
+--- Diagnostics link's right edge from the bar's left (0 without the link, minor 16). The marks'
+--- reach is the leftmost mark's offset plus its width (minor 5: HeaderButtons' `right`).
+local function consoleMinWidth(hb, title, titleText, linkReach)
+  local right = 0
+  for _, e in ipairs(hb.right) do
+    local w = e.frame.GetWidth and e.frame:GetWidth()
+    if type(w) ~= "number" or w <= 0 then w = e.frame.label and COPY_W or ICON_W end
+    right = math.max(right, e.x + w)
+  end
   local left = math.max(TOGGLE_X + TOGGLE_W, linkReach)
   local titleW = textWidth(title, titleText, true)
   local w = 2 * (math.max(left, right) + PAD) + titleW
   return math.min(math.ceil(w), CONSOLE_W)
 end
 
---- How short: the title bar, the status bar and MIN_LINES lines of the log between them.
-local function consoleMinHeight(fontSize)
-  return TITLE_H + 6 + MIN_LINES * (fontSize + 2) + STATUS_H + 4
+--- How short: the title bar, the footer and MIN_LINES lines of the log between them.
+local function consoleMinHeight(fontSize, footerH)
+  return TITLE_H + 6 + MIN_LINES * (fontSize + 2) + footerH + 4
 end
 
 local function escClose(name)
@@ -356,9 +331,20 @@ local function ownedLine(pal)
   end
 end
 
+--- The colored message the shell kept for buffered line `i` (minor 5), or the plain `msg` the buffer
+--- holds. Only while the two still agree: a host suite that rewrote a buffered line in place gets
+--- the text the buffer now holds, never a stale colored one.
+local function viewMsg(D, i, msg)
+  local view = type(D.__view) == "table" and D.__view[i]
+  if type(view) == "string" and lib.__stripEscapes(view) == msg then return view end
+  return msg
+end
+
 --- Put the newest MAX_BUFFER lines of the buffer back into the log in the palette's colors: a skin
 --- switch recolors what is already on screen, which a message frame cannot do in place. The buffer
---- holds FormatPlain's "<ts> | [<tag>] <msg>"; a line that does not read that way lands whole.
+--- holds FormatPlain's "<ts> | [<tag>] <msg>", the message stripped of its escapes since the
+--- shell's minor 23, so each message's own colors come back from the shell's `__view` (minor 5);
+--- a line that does not read that way lands whole.
 local function rebuildLog(f, D)
   local log, line = f.log, f.__logLine
   if not (log and line) then return end
@@ -368,7 +354,7 @@ local function rebuildLog(f, D)
   for i = first, #buf do
     local ts, tag, msg = buf[i]:match("^(.-) | %[(.-)%] (.*)$")
     if ts then
-      log:AddMessage(line(ts, tag, msg))
+      log:AddMessage(line(ts, tag, viewMsg(D, i, msg)))
     else
       local _, r, g, b = line("", "", "")
       log:AddMessage(buf[i], r, g, b)
@@ -378,11 +364,33 @@ end
 
 -- ── the window ─────────────────────────────────────────────────────────────────────────────
 
---- The log, its scrollbar and the status line under them.
+--- The footer under the log (minor 5): Widgets' Footer with no owner and no left text, its right
+--- line the counter in the descriptor's mono face and the palette's `count`. Nil, and nothing built,
+--- where Widgets has no Footer.
+local function buildFooter(f, ctx, pal)
+  local W = LibStub("LibKa0s-Widgets-1.0", true)
+  if not (W and type(W.Footer) == "function") then return nil end
+  local foot = W.Footer(f)
+  local count = foot.right
+  count:SetFont(ctx.d.font, ctx.fontSize, "")
+  setText(count, pal.count)
+  f.footer, f.lineCount, f.statusDivider = foot, count, foot.line
+  return foot
+end
+
+--- The footer's height: Widgets' FOOTER.HEIGHT where it says, else the 24 it is.
+local function footerHeight()
+  local W = LibStub("LibKa0s-Widgets-1.0", true)
+  local h = W and type(W.FOOTER) == "table" and W.FOOTER.HEIGHT
+  return type(h) == "number" and h or FOOTER_H
+end
+
+--- The log, its scrollbar and the footer under them.
 local function buildBody(f, D, ctx, pal)
+  local bottom = footerHeight() + 4
   local log = CreateFrame("ScrollingMessageFrame", nil, f)
   log:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -(TITLE_H + 6))
-  log:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(BAR_W + 8), STATUS_H + 4)
+  log:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(BAR_W + 8), bottom)
   log:SetFont(ctx.d.font, ctx.fontSize, "")
   log:SetJustifyH("LEFT")
   log:SetFading(false)
@@ -402,7 +410,7 @@ local function buildBody(f, D, ctx, pal)
   bar:SetOrientation("VERTICAL")
   bar:SetWidth(BAR_W)
   bar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -(TITLE_H + 6))
-  bar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -6, STATUS_H + 4)
+  bar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -6, bottom)
   bar:SetMinMaxValues(0, 0)
   bar:SetValueStep(1)
   bar:SetObeyStepOnDrag(true)
@@ -425,20 +433,7 @@ local function buildBody(f, D, ctx, pal)
   f.scrollBar = bar
   f.__track, f.__thumb = track, thumb
 
-  local rule = pal.rule
-  local statusDivider = f:CreateTexture(nil, "ARTWORK")
-  statusDivider:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, STATUS_H)
-  statusDivider:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, STATUS_H)
-  statusDivider:SetHeight(1)
-  statusDivider:SetColorTexture(rule[1], rule[2], rule[3], rule[4])
-  f.statusDivider = statusDivider
-
-  local lineCount = f:CreateFontString(nil, "OVERLAY")
-  lineCount:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -COUNT_INSET, 3)
-  lineCount:SetFont(ctx.d.font, ctx.fontSize, "")
-  lineCount:SetJustifyH("RIGHT")
-  setText(lineCount, pal.count)
-  f.lineCount = lineCount
+  buildFooter(f, ctx, pal)
 end
 
 --- The title bar: the drag bar, the centered title, Copy | Clear | Close on the right, the toggle and
@@ -461,26 +456,31 @@ local function buildTitleBar(f, D, ctx, pal, S)
   -- no window draws a line under its header now. `f.divider` is nil, so a host applySkin that tints
   -- it under `if f.divider` finds none. The status rule over the footer stays.
 
-  -- The three title-bar controls read Copy | Clear | Close, left to right. The offsets are DERIVED
-  -- from the close button's width rather than hard-coded, which matters as soon as a host supplies
-  -- its own: Core's is 18 wide, so Clear lands at -30 and Copy at -78, but a 24-wide button would
-  -- have put Clear's right edge (-30) precisely on that button's left edge.
-  local closeBtn, clearBtn, copyBtn, offsets = buildTitleControls(titleBar, {
+  -- The title-bar marks read Copy | Clear | settings | Close, left to right (minor 5, LibKa0s#86). The
+  -- offsets are DERIVED from what was built rather than hard-coded, which matters as soon as a host
+  -- supplies its own close: Core's is 18 wide, so settings lands at -30, Clear at -54 and Copy at -78
+  -- with the art, but a 24-wide button would have put settings' right edge on its left edge.
+  local hb = buildTitleControls(titleBar, {
     addonName  = d.addonName,
     close      = ctx.makeCloseButton,
     onClose    = function() D:Hide() end,
     onClear    = function() D:Clear() end,
     onCopy     = function() D:ShowCopy() end,
+    onSettings = d.onSettings,
     clearLabel = D:Text("CLEAR"),
     copyLabel  = D:Text("COPY"),
-    pal        = pal,
-    S          = S,
+    clearTip   = D:Text("CLEAR_TIP"),
+    copyTip    = D:Text("COPY_TIP"),
+    settingsTip = D:Text("SETTINGS_TIP"),
+    frame      = f,
   })
+  f.headerButtons = hb
   -- Recorded for the same reason `titleText` is: an anchor cannot be read back through the frame
   -- API, so these are the only handle a host's own test has on what its close button did to the
   -- layout, and on which of the two shapes the controls took.
-  f.titleBarOffsets = offsets
-  f.clearButton, f.copyButton, f.closeButton, f.titleBar = clearBtn, copyBtn, closeBtn, titleBar
+  f.titleBarOffsets = hb.offsets
+  f.clearButton, f.copyButton, f.closeButton, f.titleBar = hb.extras.clear, hb.extras.copy, hb.close, titleBar
+  f.settingsButton = hb.settings
 
   -- The header toggle. OnLeave restores the resting color by re-running RefreshHeader, so the
   -- label's color is always the flag's color rather than whatever the last hover left behind.
@@ -494,25 +494,23 @@ local function buildTitleBar(f, D, ctx, pal, S)
   toggleBtn:SetScript("OnLeave", function() D:RefreshHeader() end)
   local function onToggleClick() D:SetEnabled(not D:IsEnabled()) end
   toggleBtn:SetScript("OnClick", onToggleClick)
+  -- The toggle's and the link's tooltips (SR-L2), in an owned console's `gtip.title`.
+  local tipOwner = S and d.addonName or nil
+  titleTip(toggleBtn, D, "TOGGLE_TIP", tipOwner)
   f.debugToggle = toggleFS
   f.debugToggleBtn = toggleBtn
   -- The Diagnostics link beside it (minor 16), recorded as clearButton and copyButton are.
   local linkReach
   f.diagnosticsButton, linkReach = buildDiagnosticsLink(titleBar, toggleBtn, toggleFS, D, pal, S)
+  titleTip(f.diagnosticsButton, D, "DIAGNOSTICS_TIP", tipOwner)
   D._toggleClickForTest = onToggleClick   -- test seam (a headless mock stubs GetScript)
-  return title, offsets, copyBtn, linkReach
+  return title, hb, linkReach
 end
 
 --- Recolor what the palette drew, after it was refilled for a skin switch. The window, the
 --- scrollbar and the status rule are the facade's (replayed by the Skin major before this runs).
+--- The title-bar marks repaint themselves (HeaderButtons records each with the owner).
 local function recolor(f, D, pal)
-  for _, b in ipairs({ f.clearButton, f.copyButton }) do
-    if b.icon then
-      b.icon:SetVertexColor(pal.icon[1], pal.icon[2], pal.icon[3])
-    elseif b.label then
-      setText(b.label, pal.rest)
-    end
-  end
   local link = f.diagnosticsButton
   if link then
     setText(link.label, pal.diag)
@@ -520,27 +518,25 @@ local function recolor(f, D, pal)
     -- "Ignore fonts"), so the link's button stays the width of its word.
     link:SetWidth(textWidth(link.label, D:Text("DIAGNOSTICS")))
   end
-  setText(f.lineCount, pal.count)
+  if f.lineCount then setText(f.lineCount, pal.count) end
   D:RefreshHeader()
   rebuildLog(f, D)
   D:UpdateScrollBar()
 end
 
---- A registered owner's console: its scrollbar and status rule through the facade, its log line in
+--- A registered owner's console: its scrollbar and footer hairline through the facade, its log line in
 --- the palette's colors, and a refill and recolor on each of the owner's skin switches. The window
 --- itself is painted by `ctx.applySkin` (Core.ApplySkin with the owner).
 local function adopt(f, D, S, pal)
   f.__logLine = ownedLine(pal)
   -- Minor 4: the header on the band, at the offsets the controls were built at (minor 4's header note).
-  local o = f.titleBarOffsets
+  -- Minor 5: the marks HeaderButtons laid, at the offsets it laid them (`right`, outermost first).
   if S.Header then S.Header(f, {
-    title = f.title, align = "CENTER", bars = { f.titleBar },
-    right = { { frame = f.closeButton, x = -o.close }, { frame = f.clearButton, x = -o.clear },
-              { frame = f.copyButton, x = -o.copy } },
+    title = f.title, align = "CENTER", bars = { f.titleBar }, right = f.headerButtons.right,
     left = { { frame = f.debugToggleBtn, x = TOGGLE_X } },
   }) end
   S.ScrollBar(f.scrollBar, { track = f.__track, thumb = f.__thumb })
-  S.Divider(f.statusDivider)
+  if f.statusDivider then S.Divider(f.statusDivider) end
   S.OnLooksChanged(function()
     fillPalette(pal, S)
     recolor(f, D, pal)
@@ -574,7 +570,7 @@ function lib.__buildConsole(D, ctx)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
 
-  local title, offsets, copyBtn, linkReach = buildTitleBar(f, D, ctx, pal, S)
+  local title, hb, linkReach = buildTitleBar(f, D, ctx, pal, S)
   -- The other test seam. A headless mock's Show()/Hide() track visibility without firing the
   -- OnShow/OnHide scripts, so the only way to exercise the visibility callback below is to drive
   -- the handler directly. Hooking the frame rather than calling the host from Show()/Hide() is
@@ -597,18 +593,22 @@ function lib.__buildConsole(D, ctx)
   if S then adopt(f, D, S, pal) end
   -- Resizable from minor 15, when the Core under it has the grip (Core minor 9). Resolved through
   -- the table at call time and GUARDED rather than floored: an older Core leaves this exactly the
-  -- fixed 700 x 344 window it was. The message frame, the scrollbar and the status line are
-  -- anchored to the window, so they follow it on their own; what does not is the scrollbar's range
-  -- and the line counter, which the relayout resyncs. The buffer and the scroll position are not
-  -- touched.
+  -- fixed 700 x 344 window it was. The message frame, the scrollbar and the footer are anchored to
+  -- the window, so they follow it on their own; what does not is the scrollbar's range and the line
+  -- counter, which the relayout resyncs. The buffer and the scroll position are not touched.
+  -- Minor 5: the grip is built on the footer (Core minor 10's `gripParent`, which is what the footer's
+  -- own `opts.resize` does), and the footer then insets its counter by FOOTER.GRIP to clear it.
   if type(core.MakeResizable) == "function" then
-    core.MakeResizable(f, {
-      minWidth  = consoleMinWidth(offsets, copyBtn, title, f.titleText, linkReach),
-      minHeight = consoleMinHeight(ctx.fontSize),
-      onResize  = function() D:UpdateScrollBar(); D:UpdateStatus() end,
+    local foot = f.footer
+    local grip = core.MakeResizable(f, {
+      minWidth   = consoleMinWidth(hb, title, f.titleText, linkReach),
+      minHeight  = consoleMinHeight(ctx.fontSize, footerHeight()),
+      onResize   = function() D:UpdateScrollBar(); D:UpdateStatus() end,
       -- Minor 2: the grip wears the console's skin (Core minor 14; an older Core ignores the key).
-      owner     = S and d.addonName or nil,
+      owner      = S and d.addonName or nil,
+      gripParent = foot,
     })
+    if grip and foot then foot:SetGrip(true) end
   end
   D:UpdateScrollBar()
   D:UpdateStatus()
