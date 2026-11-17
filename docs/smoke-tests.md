@@ -24,7 +24,7 @@ free number in its theme.
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 44 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin |
+| HIST-1 to 46 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar and the library footer |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -535,9 +535,11 @@ resize grip → the grip is still drawn, nothing resizes and no size is saved (`
 keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result: pass (owner-marked 2026-10-10)
 
 **STATE-13. The test-mode strip (LootHistory#36).** `/lh test` → an amber strip with the info mark
-reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits under the filter bar,
-the History table starts under it. (Procedure amended by LH-10, 2026-10-23: the red **TEST MODE**
-badge no longer shows beside the title while the strip does; STATE-17 checks that.) Result: pass
+reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits directly under the title
+bar, above the tabs, and the tabs, the filter bar and the History table start under it. (Procedure
+amended by LH-10, 2026-10-23: the red **TEST MODE** badge no longer shows beside the title while the
+strip does; STATE-17 checks that. Amended by AD-88-LH, 2026-11-17: the strip sat under the filter bar;
+HIST-45 checks its new place.) Result: pass
 (owner-marked 2026-10-23)
 
 **STATE-14. Every tab makes room for the strip.** Still in test mode, open **Insights**,
@@ -545,7 +547,7 @@ badge no longer shows beside the title while the strip does; STATE-17 checks tha
 with nothing hidden behind it. Result: pass (owner-marked 2026-10-23)
 
 **STATE-15. The strip goes with test mode.** Enter combat (hit a target dummy) → test mode ends, and
-the strip goes and every tab moves back up under the filter bar. Turn it on again
+the strip goes and the tabs, the filter bar and every pane move back up under the title bar. Turn it on again
 and `/lh test` → the same. Result: pass (owner-marked 2026-10-23)
 
 **STATE-16. The strip's tooltip.** In test mode, hover the strip → a tooltip titled `Test mode`,
@@ -553,7 +555,7 @@ then `Shows: sample loot, holdings and timeline` and `Ended by: combat, /lh test
 menu`; move off → it goes. Result: pass (owner-marked 2026-10-23)
 
 **STATE-17. The strip is the test-mode marker; no title badge.** `/lh test` → the amber strip sits
-under the filter bar and there is **no** red **TEST MODE** beside the window title. Open each tab
+under the title bar (under the filter bar before AD-88-LH) and there is **no** red **TEST MODE** beside the window title. Open each tab
 (History, Insights, Timeline, Holdings) → each pane starts under the strip. Hover the strip → its
 tooltip is titled `Test mode`. (OWNER_SCOPE A; LH-10; SM-LH-10) Result: pass (owner-marked 2026-10-23)
 
@@ -1016,6 +1018,32 @@ black, white and yellow, Doris PP text, the hovered row highlighted; there is no
 state, so no outline): every word and padlock stays readable, nothing moves. Pick **Ka0s Default**
 again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
 until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
+
+**HIST-45. The mode strip sits directly under the title bar (AD-88-LH; preview-mode's *Where the strip
+sits*, standard v2.110.0, LibKa0s v1.105.0).** `/lh show`, then `/lh test` → the amber strip spans the
+window's full width directly under the title bar, above the History / Insights / Timeline / Holdings
+tabs; the tabs, the filter bar and the table all move down by the strip's height, and nothing is
+covered (the first table row and the filter bar's controls are whole). Click each tab → every pane
+starts under the filter bar as before. Hover the strip → its `Test mode` tooltip as before;
+right-click it → its menu ends test mode. `/lh test` again → the strip goes and the tabs, the filter
+bar and the table move back up flush under the title bar. `/lh sim start loot` → the **cyan** strip
+in the same place, the body moved the same way; `/lh sim stop` → it goes. Drag the window and resize
+it with the strip up → the strip stays under the title bar at the window's width. Repeat on one other
+skin (Settings → General → **Skin**). Fail: a strip between the filter bar and the table, a gap or an
+overlap between the strip and the tabs, or a strip narrower than the window. Result:
+
+**HIST-46. The footer is the library's (AD-89-LH; standalone-windows' *The footer*, standard
+v2.110.0).** `/lh show` → along the bottom edge the footer is a little taller than before (24 px) with
+**no dark band**: the window's own background shows through, under a thin hairline across its top.
+The left line reads *Showing X of Y*, the right one *Database ~<size>*, both in the same muted gray,
+both vertically centered in the footer. The resize grip sits in the bottom-right corner, inside the
+footer, and the *Database* line ends clear of it. Scroll the History table to the bottom → the last
+row ends above the hairline, never under it; do the same on Holdings and Insights. Drag the grip →
+the window resizes as before (HIST-34), and the footer stays across the full width. Pick **Obsidian**
+and **Azeroth** → the hairline and both lines take each skin's colors with no reload. Run a
+simulation (`/lh sim start loot`) → the left line leads with *Simulating: loot · step k/n* as before.
+Fail: a filled band behind the footer, a line cut off or overlapping the grip, or a row drawn under
+the hairline. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -1945,7 +1973,7 @@ count (`/run print(#LootHistoryDB.global.history)`) for SIM-5. A check fails on 
 **SIM-1. Start and stop.** `/lh toggle`, then `/lh sim start loot` → the simulation panel opens
 docked beside the History window, titled *Ka0s Loot History - Simulation*; one chat line reads
 *Simulation started (loot): nothing is saved; your history and holdings are not touched.*; the
-History window's strip under the filter bar reads
+History window's strip under the title bar (under the filter bar before AD-88-LH) reads
 *SIM: an invented world drives the real capture. Nothing is saved. /lh sim stop ends it.*, and
 the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the strip and
 footer prefix go (procedure amended by LH-10, 2026-10-23: no `SIM` title badge; SIM-12); the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
@@ -2018,10 +2046,10 @@ plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimP
 SM-LH-01, SM-LH-02) Result: pass (owner-marked 2026-10-23)
 
 **SIM-12. The simulation's own cyan strip; no title word.** `/lh sim start loot` → a **cyan** strip
-(not amber) under the filter bar reads *SIM: an invented world drives the real capture;
+(not amber) under the title bar (under the filter bar before AD-88-LH) reads *SIM: an invented world drives the real capture;
 nothing is saved. /lh sim stop ends it.*, there is **no** `SIM` word beside the window title,
 and every tab's pane starts under the strip. Hover the strip → its tooltip is titled `Simulation`.
-`/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
+`/lh sim stop` → the strip goes and the tabs, the filter bar and the panes move back up. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
 **SIM-13. The Master controls Sim mode checkbox (R6-SIM; Ka0sAddonsCommonTasks
@@ -2608,6 +2636,11 @@ this client → behavior matches English (CAP-18 and CAP-19 read the localized C
 Fail: any Lua error, which here means a localized string reached code that assumed English. Result: pass (owner-marked 2026-10-10)
 
 ## Pending sign-off
+
+Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
+HIST-46, new (AD-88-LH, the mode strip docked directly under the title bar; AD-89-LH, the History
+footer as the library's `W.Footer`). STATE-13, STATE-15, STATE-17, SIM-1 and SIM-12 now name the strip's
+new place and keep their results; HIST-45 checks it.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

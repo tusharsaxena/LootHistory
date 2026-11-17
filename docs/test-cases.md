@@ -783,13 +783,20 @@ Total.
 
 ### test_teststrip.lua (7)
 
-- test strip: test mode on shows the strip with its L text, shifts the panes and hides the badge
-- test strip: test mode off hides the strip and the badge and puts the panes back
-- test strip: Show while already in test mode reserves the space
-- test strip: the strip hangs under the filter bar, and hovering it explains test mode
-- test strip: each mode strip hangs under the filter bar and explains its own mode
+- test strip: test mode on shows the strip with its L text, moves the body down and hides the badge
+- test strip: test mode off hides the strip and the badge and puts the body back
+- test strip: Show while already in test mode moves the body down
+- test strip: the strip is docked directly under the title bar, and hovering it explains test mode
+- test strip: each mode strip is docked under the title bar and explains its own mode
 - test strip: the strip text comes from NS.L
 - test strip: degraded (no Widgets): no strip, no shift, the badge still shows
+
+### test_browser_footer.lua (4)
+
+- footer: the History window's footer is the library's W.Footer across its bottom edge
+- footer: its lines keep their words, the count on the left and the database size on the right
+- footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
+- footer: the resize grip sits in the footer's corner, and the right line clears it
 
 ### test_browsertable.lua (85)
 
@@ -2309,6 +2316,7 @@ Total.
 | test_browser.lua | 74 |
 | test_browser_filterbar.lua | 22 |
 | test_teststrip.lua | 7 |
+| test_browser_footer.lua | 4 |
 | test_browsertable.lua | 85 |
 | test_export.lua | 35 |
 | test_debuglog.lua | 20 |
@@ -2378,4 +2386,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1988** |
+| **Total** | **1992** |

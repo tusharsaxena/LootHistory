@@ -140,8 +140,10 @@ local function assertChrome(win, exp, want, label)
       assertEqual(rgba(rawget(regions.line, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
     end
   end
-  assertEqual(textColor(B._footer), want("text.disabled"), label .. ": the footer")
-  assertEqual(textColor(B._dbFooter), want("text.disabled"), label .. ": the DB-size footer")
+  -- The footer is the library's W.Footer since AD-89-LH (standalone-windows' *The footer*, standard
+  -- v2.110.0): both lines in `text.muted`, where the hand-built footer drew `text.disabled`.
+  assertEqual(textColor(B._footer), want("text.muted"), label .. ": the footer")
+  assertEqual(textColor(B._dbFooter), want("text.muted"), label .. ": the DB-size footer")
   for _, key in ipairs({ "export", "save", "reset", "clear" }) do
     local b = B._barCtl[key]
     assertEqual(rgba(rawget(b, "__backdropColor")), want("btn.bg"), label .. ": " .. key .. " fill")

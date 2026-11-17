@@ -182,8 +182,8 @@ test("every remaining factory seam passes the owner", function()
   assertTrue(perf:find("addonName%s*=%s*addonName") ~= nil, "the Perf descriptor's addonName")
   local w = Loader.readFile("core/WidgetsSetup.lua")
   local _, owners = w:gsub("owner%s*=%s*addonName", "")
-  -- Dropdown, SearchBox, ReorderList, LineChart, Autocomplete, TestStrip.
-  assertEqual(owners, 6, "each Widgets factory seam names the owner")
+  -- Dropdown, SearchBox, ReorderList, LineChart, Autocomplete, TestStrip, Footer (AD-89-LH).
+  assertEqual(owners, 7, "each Widgets factory seam names the owner")
   local export = Loader.readFile("modules/Export.lua")
   assertTrue(export:find("applySkin%s*=") == nil, "modules/Export.lua passes no applySkin")
 end)

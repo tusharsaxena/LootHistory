@@ -60,7 +60,8 @@ end
 -- With no `skin` the frame goes to the skin's Shell (NS.Skin.Shell, LibKa0s-Skin-1.0): the same
 -- Core.ApplySkin call on Ka0s Default, object for object, and the player's skin otherwise; the
 -- frame is recorded for this addon's owner, so a skin switch repaints it live. `opts` is Shell's
--- (`noTopBar` for a window whose title bar paints its own fill, `bottomBar` for a footer band).
+-- (`noTopBar` for a window whose title bar paints its own fill). No window here asks for Shell's
+-- `bottomBar`: the History footer is the library's W.Footer, which has no fill (AD-89-LH).
 -- A caller's own `skin` table still reaches NS.ApplySkin, as before: it overrides the skin.
 -- Degraded, NS.Skin.Shell is core/SkinSetup.lua's, which routes to NS.ApplySkin.
 function B:ApplySkin(f, skin, opts)
@@ -127,7 +128,10 @@ end
 -- own filter state on that one bar (see "Per-tab views" below).
 local tabSpecs, tabOrder = {}, {}
 local lastTab = "History"   -- remembered within a session
-local FILTERBAR_H, FILTER_GAP, FOOTER_H = 46, 8, 18   -- shared chrome heights; panes sit between
+-- Shared chrome heights; panes sit between the filter bar and the footer. The footer's is the
+-- library's FOOTER.HEIGHT (24, NS.FooterHeight), read where it is published, never copied here
+-- (standalone-windows' *Window chrome geometry*, AD-89-LH).
+local FILTERBAR_H, FILTER_GAP = 46, 8
 
 function B:Tabs() local out = {}; for i, n in ipairs(tabOrder) do out[i] = n end; return out end
 function B:ActiveTab() return lastTab end
@@ -138,17 +142,47 @@ local function BuildPane(name)
   if not pane._built then pane._built = true; tabSpecs[name].build(pane) end
 end
 
--- Where a pane sits: between the shared filter bar and the shared footer, and below the mode strip
--- (test or simulation) while one is shown (LootHistory#36). Re-run on every pane by B:UpdateTestStrip.
-local function stripShown(strip) return strip ~= nil and strip:IsShown() end
+-- THE BODY OFFSET (AD-88-LH; preview-mode's *Where the strip sits*, standard v2.110.0). The mode
+-- strip (test or simulation) is docked by the library directly under the title bar, and while one
+-- shows everything below the title bar moves down by that strip's `BodyOffset()` (its own height):
+-- the 1px divider the tab strip hangs from, the filter bar and every pane. 0 while none shows, and
+-- always 0 on a degraded install, which builds no strip.
+local function bodyOffset()
+  for _, strip in ipairs({ frame.testStrip, frame.simStrip }) do
+    if strip and strip:IsShown() and strip.BodyOffset then return strip:BodyOffset() end
+  end
+  return 0
+end
 
+-- Where a pane sits: between the shared filter bar and the shared footer, and `bodyOffset()` lower
+-- while a mode strip shows (LootHistory#36). Re-run on every pane by relayBody.
 local function anchorPane(pane)
-  local shown = stripShown(frame.testStrip) or stripShown(frame.simStrip)
-  local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP
-    + (shown and NS.TestStripReserve() or 0)
+  local top = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + FILTERBAR_H + FILTER_GAP + bodyOffset()
   pane:ClearAllPoints()
   pane:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -top)
-  pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, FOOTER_H)
+  pane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, NS.FooterHeight())
+end
+
+-- Lay every band below the title bar out again at the current body offset: the divider (and the
+-- tab strip under it), the filter bar and the panes. The strips' `onOffset` and B:UpdateTestStrip
+-- call it, so a show or hide of a strip by either path moves the body.
+local function relayBody()
+  if not frame then return end
+  local off = bodyOffset()
+  local divider, titleBar = frame.dividerBar, frame.titleBar
+  if divider and titleBar then
+    divider:ClearAllPoints()
+    divider:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, -off)
+    divider:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, -off)
+  end
+  local host = frame.filterHost
+  if host then
+    local barTop = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap + off
+    host:ClearAllPoints()
+    host:SetPoint("TOPLEFT",  frame, "TOPLEFT",   BAR_INSET, -barTop)
+    host:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -BAR_INSET, -barTop)
+  end
+  for _, pane in pairs(frame.panes or {}) do anchorPane(pane) end
 end
 
 -- One content pane, filling between the shared filter bar and the shared footer.
@@ -622,12 +656,13 @@ local function modeStripFor(sim)
   return frame.testStrip
 end
 
--- The preview marks (preview-mode): one strip per mode under the filter bar (LootHistory#36), the
--- library's amber test flavor or its cyan simulation flavor (LootHistory#37), and the badge beside
--- the window title, which is drawn only when the mode's strip does not exist (a degraded install;
--- the header-word rule, standard v2.87.0). The modes exclude each other (modules/Sim.lua refuses a
--- start in test mode; BrowserTable refuses test mode while one runs), so at most one strip shows. A
--- strip takes room, so every pane is re-anchored below it while it shows and back up when it goes.
+-- The preview marks (preview-mode): one strip per mode docked directly under the title bar
+-- (LootHistory#36, AD-88-LH), the library's amber test flavor or its cyan simulation flavor
+-- (LootHistory#37), and the badge beside the window title, which is drawn only when the mode's strip
+-- does not exist (a degraded install; the header-word rule, standard v2.87.0). The modes exclude each
+-- other (modules/Sim.lua refuses a start in test mode; BrowserTable refuses test mode while one
+-- runs), so at most one strip shows. A strip takes room, so the body below the title bar moves down
+-- by its BodyOffset while it shows and back up when it goes (relayBody).
 -- A Sim listener (modules/SimPanel.lua) calls this on every simulation transition.
 function B:UpdateTestStrip()
   if not (frame and frame.testBadge) then return end
@@ -640,7 +675,7 @@ function B:UpdateTestStrip()
   frame.testBadge:SetShown(on and strip == nil)
   if frame.testStrip then frame.testStrip:SetShown(on and not sim) end
   if frame.simStrip then frame.simStrip:SetShown(on and sim) end
-  for _, pane in pairs(frame.panes) do anchorPane(pane) end
+  relayBody()
 end
 
 -- The char filter is surfaced by two controls — the player toggle (Current/All) and the
@@ -917,13 +952,13 @@ local function simTip()
   tipLine(L["Ended by: /lh sim stop, real loot, a group, an instance, combat"])
 end
 
--- One mode strip of `mark`'s kind and text, hung 2px under the filter bar with `tip` on hover; nil
--- on a degraded install (no Widgets library).
-local function buildModeStrip(filterHost, mark, tip)
-  local strip = NS.MakeTestStrip(frame, L[mark.strip], mark.kind)
+-- One mode strip of `mark`'s kind and text, docked by the library directly under the title bar
+-- (`dock = "title"`, Widgets minor 27; never anchored here), with `tip` on hover; its show and hide
+-- relay the body (`onOffset`). nil on a degraded install (no Widgets library).
+local function buildModeStrip(mark, tip)
+  local dock = { titleBar = frame.titleBar, window = frame, onOffset = function() relayBody() end }
+  local strip = NS.MakeTestStrip(frame, L[mark.strip], mark.kind, dock)
   if not strip then return nil end
-  strip:SetPoint("TOPLEFT",  filterHost, "BOTTOMLEFT",  0, -2)
-  strip:SetPoint("TOPRIGHT", filterHost, "BOTTOMRIGHT", 0, -2)
   strip:EnableMouse(true)
   strip:HookScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -1025,8 +1060,8 @@ local function EnsureFrame()
   -- (Settings gear removed; open the options panel with /lh config.)
 
   -- Shared window chrome (issue #13): one singleton filter bar above both panes, and one shared
-  -- footer below them. Layout from the top: title bar · tab strip · content gap · FILTER BAR ·
-  -- panes · FOOTER. The panes now hold only their view (table / charts).
+  -- footer below them. Layout from the top: title bar · mode strip (while one shows) · tab strip ·
+  -- content gap · FILTER BAR · panes · FOOTER. The panes now hold only their view (table / charts).
   local barTop = SKIN.titleBarH + SKIN.tabStripH + SKIN.contentGap
   frame.panes = {}
   for _, name in ipairs(tabOrder) do CreatePane(name) end   -- one content pane per registered tab
@@ -1040,26 +1075,22 @@ local function EnsureFrame()
   frame.filterHost = filterHost
 
   -- The mode strips (LootHistory#36 #37, LibKa0s#48): one per mode, the library's amber test band
-  -- and its cyan simulation band, each hung 2px under the filter bar and shown by B:UpdateTestStrip
-  -- while its mode is on. nil on a degraded install, where the title badge alone marks the mode.
-  -- The library draws no tooltip, so each strip's is hooked here.
-  frame.testStrip = buildModeStrip(filterHost, TEST_MARK, testTip)
-  frame.simStrip = buildModeStrip(filterHost, SIM_MARK, simTip)
+  -- and its cyan simulation band, each docked directly under the title bar (AD-88-LH) and shown by
+  -- B:UpdateTestStrip while its mode is on. nil on a degraded install, where the title badge alone
+  -- marks the mode. The library draws no tooltip, so each strip's is hooked here.
+  frame.testStrip = buildModeStrip(TEST_MARK, testTip)
+  frame.simStrip = buildModeStrip(SIM_MARK, simTip)
 
-  -- Shared footer: "Showing X of Y" (bottom-left) + estimated DB size (bottom-right). Both track
-  -- the shared filter, so they read the same on either tab. x=-20 keeps the size text left of the
-  -- 16px resize grip (frame BOTTOMRIGHT -1, or -2 on a degraded install) so they never overlap.
-  -- Both in the skin's `text.disabled`, the gray their font object draws on Ka0s Default; the
-  -- band under them is the Shell's bottom bar (B:ApplySkin below).
-  local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 8, 3)
-  NS.Skin.Text(footer, "disabled")
-  B._footer = footer
-  local dbFooter = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  dbFooter:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -20, 3)
-  dbFooter:SetJustifyH("RIGHT")
-  NS.Skin.Text(dbFooter, "disabled")
-  B._dbFooter = dbFooter
+  -- Shared footer (AD-89-LH; standalone-windows' *The footer*, standard v2.110.0): the library's
+  -- W.Footer through NS.MakeFooter, FOOTER.HEIGHT (24) tall, no fill under a hairline in the skin's
+  -- `divider`, both lines in its `text.muted`. "Showing X of Y" is the left line and the estimated
+  -- DB size the right one; both track the shared filter, so they read the same on either tab.
+  -- `grip`: the resize grip below is built on the footer's corner, and the right line starts
+  -- FOOTER.GRIP in, clear of it. Degraded, NS.MakeFooter's bare footer keeps both lines.
+  local foot = NS.MakeFooter(frame, { grip = true })
+  frame.footer = foot
+  B._footer = foot.left
+  B._dbFooter = foot.right
 
   -- Build the shared filter controls, populate their options, and apply the saved view (opens
   -- scoped to the current player). The table/charts attach lazily per tab and pick up this filter.
@@ -1088,6 +1119,7 @@ local function EnsureFrame()
   --     live relayout during a drag is the scroll frames' own OnSizeChanged.
   NS.MakeResizable(frame, {
     owner = addonName,
+    gripParent = foot,   -- in the footer's bottom-right corner, which is the window's (W.Footer)
     minWidth = minW,
     minHeight = minH,
     canResize = function() return not B:IsLocked() end,
@@ -1127,8 +1159,8 @@ local function EnsureFrame()
   end)
 
   -- The window edge through the skin's Shell. `noTopBar`: the title bar paints its own fill
-  -- (TitleBar, above); `bottomBar`: the footer band, FOOTER_H tall (none on Ka0s Default).
-  B:ApplySkin(frame, nil, { noTopBar = true, bottomBar = FOOTER_H })
+  -- (TitleBar, above). No `bottomBar`: the footer has no fill of its own (W.Footer, AD-89-LH).
+  B:ApplySkin(frame, nil, { noTopBar = true })
   RestoreWindow()
   B:ApplyChrome(frame, NS.db and NS.db.profile.settings.windowScale)
   frame:Hide()

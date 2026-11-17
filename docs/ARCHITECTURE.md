@@ -393,7 +393,8 @@ facade with this addon as its **owner**.
   is the library's documented deviation, not this addon's.
 - **Owners on every library surface.** Each LibKa0s factory is handed the owner in the form it reads:
   `opts.owner` for the dropdown (and the shared menu it opens), the search box, its autocomplete
-  list, the mode strips, the line chart and the AH drag list (`core/WidgetsSetup.lua`); the
+  list, the mode strips, the History window's footer (`W.Footer`), the line chart and the AH drag
+  list (`core/WidgetsSetup.lua`); the
   descriptor's `addonName` for the debug console and its copy window (`core/DebugLogSetup.lua`), the
   export copy window (`modules/Export.lua`), the perf panel (`core/PerfSetup.lua`) and every close
   mark (`NS.MakeCloseButton`); the Sim descriptor's `name` for the sim panel (`modules/Sim.lua`); the
