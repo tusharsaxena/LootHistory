@@ -1408,7 +1408,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (12)
+### test_testdata.lua (16)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1422,6 +1422,10 @@ Total.
 - Test mode: a pick of a thing the sample lacks falls back to the default
 - TestData: the seeded sample stores are byte-identical to the pinned build
 - TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
+- Test mode: every History sample character is a sample identity, the shared five by class
+- Test mode: every Holdings sample holder is a sample identity
+- the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail
+- Sim: the stranger the social scenario trades with is a shared sample character
 
 ### test_views.lua (17)
 
@@ -2368,7 +2372,7 @@ Total.
 | test_timeline.lua | 34 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 12 |
+| test_testdata.lua | 16 |
 | test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
@@ -2417,4 +2421,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2019** |
+| **Total** | **2023** |

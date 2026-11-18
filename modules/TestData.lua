@@ -21,9 +21,9 @@ local WARBAND = C.WARBAND_HOLDER
 local SPAN_DAYS = 120
 local GOLD = 10000   -- copper
 
--- The History sample's "mains" (its class weights, top four), keyed as BuildTestData keys a row.
+-- The History sample's "mains" (its class weights, top four), keyed as BuildTestData keys a row:
+-- the sample characters (BrowserTable.TestSample.charKey, LibKa0s#87).
 local CLASSES = { "MAGE", "WARRIOR", "ROGUE", "PRIEST" }
-local function charKey(cls) return cls:sub(1, 1) .. cls:sub(2):lower() .. "-Ravencrest" end
 
 -- One fixed look per sample item: type and quality are functions of the id, never the PRNG stream.
 local TYPES = { "Armor", "Consumable", "Tradegoods", "Weapon", "Quest", "Gem", "Recipe" }
@@ -37,6 +37,7 @@ local CURRENCIES = {
 }
 
 local function sample() return NS.BrowserTable.TestSample end
+local function charKey(cls) return sample().charKey(cls) end
 
 local function itemLook(idBase)
   local ty = TYPES[((idBase - 1) % #TYPES) + 1]

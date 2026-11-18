@@ -189,7 +189,7 @@ function S.new(T)
   -- A holder key as the expectations write it: `me`, `alt` (the session's own alt) or `§warband`.
   local function who(key)
     if key == nil then return "nil" end
-    local me, alt = NS.Util.PlayerKey(), Host.alt or ("Simalt-" .. (NS.Util.PlayerKey():match("%-(.+)$") or ""))
+    local me, alt = NS.Util.PlayerKey(), Host.alt or "Sampleblade-Samplerealm"
     local function lit(x) return (x:gsub("%p", "%%%0")) end
     return (tostring(key):gsub(lit(me), "me"):gsub(lit(alt), "alt"))
   end

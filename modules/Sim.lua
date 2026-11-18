@@ -229,11 +229,12 @@ end
 
 -- ── the start (the descriptor's prepare) ──────────────────────────────────────────────────────
 
--- `Simalt-<realm>`, seeded into the session holdings so Attribution:IsOwnAlt answers true for it
--- (the ALT_MAIL and ALT_TRADE steps). Written through Holdings:Get, which resolves the session store.
+-- The session's own alt, the shared sample set's second character (`Sampleblade-Samplerealm`,
+-- NS.SampleCharacters, LibKa0s#87), seeded into the session holdings so Attribution:IsOwnAlt answers
+-- true for it (the ALT_MAIL and ALT_TRADE steps). Written through Holdings:Get, which resolves the
+-- session store.
 local function seedAlt()
-  local realm = NS.Util.PlayerKey():match("%-(.+)$") or "Unknown"
-  local key = "Simalt-" .. realm
+  local key = NS.SampleCharacters()[2].fullName
   NS.Holdings:Get(key, true)
   return key
 end

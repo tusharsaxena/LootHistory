@@ -20,7 +20,7 @@ free number in its theme.
 | PANEL-1 to 27 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
-| TM-1 to 2 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
+| TM-1 to 3 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
@@ -38,7 +38,7 @@ free number in its theme.
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 19 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | SKIN-1 to 54 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview |
-| SIM-1 to 14 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window |
+| SIM-1 to 14 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -579,6 +579,16 @@ the sample, moved unchanged. `/lh test` → History fills with the sample rows a
 charts; open **Holdings** and **Timeline** → the same sample items appear there; `/lh test` again → your
 own history is back. Fail: an empty window in test mode, a Lua error on `/lh test`, or a Holdings or
 Timeline tab that fails to fill. Result:
+
+**TM-3. Test mode's people are the shared sample characters (AD-87-LH, LibKa0s#87; preview-mode's
+*Sample characters*).** `/lh test`, open the History **Character** dropdown → thirteen characters, one
+per class, each named `Sample…` or `Mock…` on **Samplerealm** or **Mockrealm**: among them
+`Samplehunter-Samplerealm` (Hunter), `Sampleblade-Samplerealm` (Paladin), `Mockflame-Mockrealm` (Mage),
+`Samplemender-Samplerealm` (Priest) and `Mockshield-Mockrealm` (Warrior), each in its class color with
+its class icon. Open **Holdings** → the four characters are `Mockflame-Mockrealm`,
+`Mockshield-Mockrealm`, `Samplemender-Samplerealm` and `Sampleshade-Samplerealm`, plus the Warband; the
+Timeline's legend names the same. Fail: any `-Ravencrest` name, a name that is not `Sample…` or
+`Mock…`, or a class color that does not match the class. Result:
 
 ## Combat
 
@@ -2064,7 +2074,8 @@ row. (SM-LH-23) Result: pass (owner-marked 2026-10-23)
 **SIM-5. Saved data untouched.** After SIM-1 to SIM-4, `/reload` → `/run
 print(#LootHistoryDB.global.history)` prints the count noted before SIM-1, plus only the real rows
 SIM-4 recorded; History, Holdings and the Timeline show your real data and no simulated row
-(no Rookery Bat kill, no Simalt holder). (SM-LH-24) Result: pass (owner-marked 2026-10-23)
+(no Rookery Bat kill, no simulated alt holder: `Sampleblade-Samplerealm`, `Simalt-<realm>` before
+AD-87-LH). (SM-LH-24) Result: pass (owner-marked 2026-10-23)
 
 **SIM-6. The panel.** `/lh sim start vendor` → the panel's rows follow the run as steps play;
 click a row three ahead → the steps in between run in order; during the merchant steps a step waits
@@ -2150,6 +2161,13 @@ ticked; click it → the panel closes, and the next right-click shows it unticke
 the panel, right-click the minimap button → the entry is ticked. Fail: the box or the entry unticked
 while the panel is open or a sim runs, ticked with neither, an untick that leaves the panel open, a box
 that lags a close by the panel's own button or Escape, or a Lua error. Result: Passed (owner, 2026-11-04)
+
+**SIM-15. The simulation's alt and stranger are sample characters (AD-87-LH, LibKa0s#87).** `/lh sim
+start social` and let it play → the alt mail, the alt trade and the currency transfer name your alt as
+`Sampleblade-Samplerealm` (the Character column and the Holdings tab's holders), and those rows read as
+moves to your own alt (Alt mail, Alt trade); the trade with a stranger names `Mockflame-Mockrealm` and
+reads as a plain trade, not an alt move. `/lh sim stop`. Fail: a `Simalt-` or `Stranger-` name, the
+alt's rows read as plain mail or trades, or a Lua error. Result:
 
 ## Skins
 
@@ -2716,6 +2734,8 @@ keeps its result.
 
 Added by the same adoption's wave D (2026-11-18), awaiting the owner: LED-7 is rewritten (AD-79-LH,
 `/lh holdings` writes a report to the debug console with one chat pointer), so its result is cleared.
+TM-3 and SIM-15 are new (AD-87-LH, test mode's and the simulator's made-up people are the shared
+sample characters); SIM-5 names the new alt and keeps its result.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

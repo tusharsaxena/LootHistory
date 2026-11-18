@@ -200,11 +200,11 @@ function OPS.takeMailItem(key)
   return D.TakeMailItem(i, 1)
 end
 
---- Send the first stack of `key` and `money` copper to the session's own alt.
+--- Send the first stack of `key` and `money` copper to the session's own alt, by its full
+--- Name-Realm (the alt is a sample character on Samplerealm, not on the player's realm).
 function OPS.sendAlt(key, money)
   local bagID, slot = slotOf("bags", key)
-  local name = altKey():match("^([^%-]+)")
-  return D.Send(name, bagID and { { bagID, slot } } or {}, money)
+  return D.Send(altKey(), bagID and { { bagID, slot } } or {}, money)
 end
 
 function OPS.trade(target)
@@ -249,6 +249,10 @@ local NPC = { id = 219000, name = "Rookery Bat" }
 local function step(kind, label, tip, calls) return { kind = kind, label = label, tip = tip, calls = calls } end
 
 local STEPS = {}
+
+-- The stranger the social scenario trades with: the shared sample set's Mockflame, from Mockrealm,
+-- never one of the session's holders (NS.SampleCharacters, LibKa0s#87).
+local STRANGER = NS.SampleCharacters()[3].fullName
 
 STEPS.loot = {
   step("kill", L["Kill: %s"]:format(NPC.name),
@@ -353,7 +357,7 @@ STEPS.social = {
   step("trade", L["Trade: with your alt"], { L["TRADE_ACCEPT_UPDATE (1, 1), the bags both ways"] },
     { { "trade", "@alt" }, { "remove", "herb", 2 }, { "receive", "potion", 1 } }),
   step("trade", L["Trade: with a stranger"], { L["TRADE_ACCEPT_UPDATE (1, 1), the bags both ways"] },
-    { { "trade", "Stranger-Realm" }, { "remove", "dust", 1 }, { "receive", "herb", 4 } }),
+    { { "trade", STRANGER }, { "remove", "dust", 1 }, { "receive", "herb", 4 } }),
   step("transfer", L["Currency: transfer to your alt"],
     { L["CURRENCY_DISPLAY_UPDATE, CURRENCY_TRANSFER_LOG_UPDATE"] }, { { "currencyTransfer", CREST, 20 } }),
 }

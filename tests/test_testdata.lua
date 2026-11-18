@@ -140,9 +140,9 @@ test("Test mode: ledger writes go to the real stores, never the sample", functio
     local sampleH = NS.Util.DeepCopy(NS.State.testHoldings)
     local sampleD = NS.Util.DeepCopy(NS.State.testDaily)
     local ts = os.time()
-    NS.Holdings:ApplyMoney("Mage-Ravencrest", 12345, ts)
-    NS.Holdings:ApplyContainer("Mage-Ravencrest", "bags", { [100001] = 3 }, {}, ts)
-    assertEqual(g.holdings["Mage-Ravencrest"].money, 12345, "the write missed the real store")
+    NS.Holdings:ApplyMoney("Mockflame-Mockrealm", 12345, ts)
+    NS.Holdings:ApplyContainer("Mockflame-Mockrealm", "bags", { [100001] = 3 }, {}, ts)
+    assertEqual(g.holdings["Mockflame-Mockrealm"].money, 12345, "the write missed the real store")
     assertTrue(g.daily[NS.Ledger.DayKey(ts)] ~= nil, "the rollup close missed the real store")
     assertTrue(deepEqual(NS.State.testHoldings, sampleH), "a holdings write reached the sample")
     assertTrue(deepEqual(NS.State.testDaily, sampleD), "a rollup write reached the sample")
@@ -318,8 +318,11 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     local h, d = {}, {}
     canon(holdings, h); canon(daily, d)
     local hs, ds = table.concat(h, ","), table.concat(d, ",")
-    assertEqual(#hs .. ":" .. checksum(hs), "3160:2043831815", "holdings")
-    assertEqual(#ds .. ":" .. checksum(ds), "117029:2104532542", "daily")
+    -- Re-pinned by AD-87-LH (was 3160:2043831815 and 117029:2104532542): the holder keys are the
+    -- sample characters now, and the daily walk meets the holders in their sorted-key order, so the
+    -- PRNG reaches each series in a new order. Nothing else about the build moved.
+    assertEqual(#hs .. ":" .. checksum(hs), "3180:521769667", "holdings")
+    assertEqual(#ds .. ":" .. checksum(ds), "118617:161303863", "daily")
   end)
 end)
 
@@ -347,4 +350,84 @@ test("TestData: with no Everlight Crystal the default thing is the item on most 
   end)
   NS.State.testDaily = saved
   if not ok then error(err, 0) end
+end)
+
+-- ── the sample characters (preview-mode "Sample characters", LibKa0s#87, AD-87-LH) ──────────────
+--
+-- Test mode and the simulator draw made-up people, and since the standard's v2.113.0 rule they are
+-- the collection's: the five of LibKa0s-Sim-1.0's SAMPLE.retail for their classes, and for the
+-- classes those five lack, the host's own pool, named to the same convention. Before AD-87-LH every
+-- sample character was `<Class>-Ravencrest`, a real realm.
+
+--- True when `key` is a Retail sample identity under the convention: `Name-Realm`, a name of 2-12
+--- letters starting Sample or Mock, and the realm Samplerealm or Mockrealm.
+local function conventional(key)
+  local name, realm = tostring(key):match("^(%u%l+)%-(%u%l+)$")
+  return name ~= nil and #name <= 12 and (name:find("^Sample") or name:find("^Mock")) ~= nil
+    and (realm == "Samplerealm" or realm == "Mockrealm")
+end
+
+local function sharedByClass()
+  local out = {}
+  for _, c in ipairs(T.mocks.LibStub("LibKa0s-Sim-1.0").Sample("retail")) do out[c.classFile] = c.fullName end
+  return out
+end
+
+test("Test mode: every History sample character is a sample identity, the shared five by class", function()
+  local shared, seen = sharedByClass(), {}
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    -- red under: `<Class>-Ravencrest` (a real realm, no Sample or Mock name).
+    assertTrue(conventional(r.char), "a sample character off the convention: " .. tostring(r.char))
+    if shared[r.classFile] then
+      assertEqual(r.char, shared[r.classFile], "the " .. r.classFile .. " is the shared sample character")
+      seen[r.char] = true
+    end
+    for _, ends in ipairs({ r.from, r.to }) do
+      local holder = ends:match("^(.-)/")
+      assertTrue(holder == WARBAND or conventional(holder), "a move end off the convention: " .. ends)
+    end
+  end
+  local n = 0
+  for _ in pairs(seen) do n = n + 1 end
+  assertEqual(n, 5, "all five shared characters appear in the sample")
+end)
+
+test("Test mode: every Holdings sample holder is a sample identity", function()
+  local holdings = NS.TestData.Build(NS.BrowserTable:BuildTestData(), os.time())
+  local shared, n = sharedByClass(), 0
+  for key, e in pairs(holdings) do
+    if key ~= WARBAND then
+      n = n + 1
+      assertTrue(conventional(key), "a holder off the convention: " .. tostring(key))
+      if shared[e.meta.classFile] then assertEqual(key, shared[e.meta.classFile]) end
+    end
+  end
+  assertEqual(n, 4, "the History sample's four mains hold things")
+end)
+
+test("the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail", function()
+  -- The fallback NS.SampleCharacters answers without the library (core/SimSeam.lua). A copy that
+  -- drifts from the library's rows goes red here, as the skin fallback does in surface parity.
+  local live, copy = T.mocks.LibStub("LibKa0s-Sim-1.0").SAMPLE.retail, NS.SAMPLE_FALLBACK
+  assertEqual(#copy, #live, "five rows")
+  for i, row in ipairs(live) do
+    for _, field in ipairs({ "name", "realm", "classFile", "fullName" }) do
+      assertEqual(copy[i][field], row[field], "row " .. i .. " " .. field)
+    end
+  end
+  local rows = NS.SampleCharacters()
+  assertEqual(rows[1].fullName, live[1].fullName, "with the library, the library's rows")
+  rows[1].fullName = "changed"
+  assertEqual(NS.SampleCharacters()[1].fullName, live[1].fullName, "each call answers a fresh copy")
+end)
+
+test("Sim: the stranger the social scenario trades with is a shared sample character", function()
+  local target
+  for _, st in ipairs(NS.SimHost.SCENARIOS.defs.social.steps) do
+    for _, call in ipairs(st.calls) do
+      if call[1] == "trade" and call[2] ~= "@alt" then target = call[2] end
+    end
+  end
+  -- red under: "Stranger-Realm".
+  assertEqual(target, "Mockflame-Mockrealm")
 end)

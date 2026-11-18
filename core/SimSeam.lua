@@ -76,6 +76,37 @@ Host.GUARDED_KEYS = {}
 for key in pairs(GUARDED) do Host.GUARDED_KEYS[#Host.GUARDED_KEYS + 1] = key end
 table.sort(Host.GUARDED_KEYS)
 
+-- ── the sample characters (preview-mode "Sample characters", LibKa0s#87) ─────────────────────
+--
+-- The made-up people test mode and the simulator draw are the collection's five, LibKa0s-Sim-1.0's
+-- SAMPLE (Sim minor 3, LibKa0s v1.105.0), read for Retail, the one client this addon ships
+-- (WowAddonStandards ADDONS.md): every holder key here is `Name-Realm` (NS.Util.PlayerKey), the
+-- Retail identity shape. Without the library the copy below answers, field for field the library's
+-- names, realms and classes; tests/test_testdata.lua holds it to SAMPLE.retail. Names are data,
+-- never localized. Users: the History sample (modules/BrowserTableTestData.lua) and through it the
+-- Holdings and Timeline samples (modules/TestData.lua), and the simulator's alt and stranger
+-- (modules/Sim.lua, modules/SimScenario.lua).
+NS.SAMPLE_FALLBACK = {
+  { name = "Samplehunter", realm = "Samplerealm", classFile = "HUNTER", fullName = "Samplehunter-Samplerealm" },
+  { name = "Sampleblade", realm = "Samplerealm", classFile = "PALADIN", fullName = "Sampleblade-Samplerealm" },
+  { name = "Mockflame", realm = "Mockrealm", classFile = "MAGE", fullName = "Mockflame-Mockrealm" },
+  { name = "Samplemender", realm = "Samplerealm", classFile = "PRIEST", fullName = "Samplemender-Samplerealm" },
+  { name = "Mockshield", realm = "Mockrealm", classFile = "WARRIOR", fullName = "Mockshield-Mockrealm" },
+}
+
+--- A fresh copy of the five sample characters, the caller's own: the library's Retail set, else the
+--- copy above.
+function NS.SampleCharacters()
+  if Sim and Sim.Sample then return Sim.Sample("retail") end
+  local out = {}
+  for i, row in ipairs(NS.SAMPLE_FALLBACK) do
+    local c = {}
+    for k, v in pairs(row) do c[k] = v end
+    out[i] = c
+  end
+  return out
+end
+
 -- ── the reference stubs (LibKa0s tests/test_sim_stub.lua) ────────────────────────────────────
 
 local NEEDS_LINE = "The simulator needs LibKa0s-Sim-1.0."
