@@ -1627,10 +1627,14 @@ an age far older than the others (it answered `nil`). Either is a valid outcome 
 **records** which one the client does, for spec §5.6's open question and ARCHITECTURE's known
 limitations. It must never show `0` that was not there. Result: pass (owner-marked 2026-10-10)
 
-**LED-7. `/lh holdings <name>`.** `/lh holdings hearthstone` (any item you hold) → up to ten lines
-`<name>: <total>`, each total matching the Holdings tab. A currency name prints the count. `/lh
-holdings zzzz` → `no holdings match 'zzzz'.` With the addon disabled (`/lh disable`), the verb answers
-the one disabled line. Result: pass (owner-marked 2026-10-10)
+**LED-7. `/lh holdings <name>` (rewritten by AD-79-LH, LibKa0s#79: a report).** With debug logging
+off and the console closed, `/lh holdings hearthstone` (any item you hold) → the debug console opens
+and holds a `/lh holdings hearthstone` header then up to ten lines `<name>: <total>`, each total
+matching the Holdings tab (a currency name shows the count); chat prints exactly one line, `[LH]
+holdings hearthstone: N lines written to the debug console. Use Copy to share it.`; the console's
+toggle still reads **Debug: OFF**. **Copy** pastes the lines as plain words. `/lh holdings zzzz` →
+`no holdings match 'zzzz'.` in chat, and nothing is written to the console. With the addon disabled
+(`/lh disable`), the verb answers the one disabled line and writes nothing. Result:
 
 **LED-8. The tracking switch.** Untick **Track holdings and losses**, then `/etrace` (filter on
 `BAG_UPDATE`) → no `BAG_UPDATE` handling by LootHistory, and drinking a potion changes nothing on the
@@ -2709,6 +2713,9 @@ Added by the same adoption's wave C (2026-11-17), awaiting the owner: HIST-49, T
 control, through `LibKa0s-Tooltip-1.0`). INS-18 is rewritten (Insights' tooltips leave the cursor for
 beside the window), so its result is cleared. TL-15 now points at TL-19 for its tooltip's place and
 keeps its result.
+
+Added by the same adoption's wave D (2026-11-18), awaiting the owner: LED-7 is rewritten (AD-79-LH,
+`/lh holdings` writes a report to the debug console with one chat pointer), so its result is cleared.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

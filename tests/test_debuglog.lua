@@ -39,6 +39,26 @@ test("the degraded DebugLog stub's RunDiagnostics prints the placeholder, writes
   assertEqual(degradedNS.DebugLog:DebugVerb("diagnostics"), false, "the stub's DebugVerb leaves the host its fallback")
 end)
 
+-- debug-logging-§15's library-absent arm (LibKa0s#79): with no console a report is the read-out the
+-- player asked for by name, so the stub streams it to chat with NO pointer line, and a body that
+-- writes nothing prints nothing. `/lh holdings` reaches this through NS.DebugLog:Report.
+test("the degraded DebugLog stub's Report streams the report to chat with no pointer", function()
+  local degradedNS, lines = dofile("tests/degraded_env.lua")()
+  local before = #lines
+  local n = degradedNS.DebugLog:Report("Holdings", "holdings x", function(out) out("one"); out("two") end)
+  assertEqual(n, 2, "the stub counts the body lines it printed")
+  local mine = {}
+  for i = before + 1, #lines do
+    if not lines[i]:find("library is missing", 1, true) then mine[#mine + 1] = lines[i] end
+  end
+  -- red under: a stub that writes nothing (the RunDiagnostics arm) or prints a pointer line.
+  assertEqual(#mine, 2, "the two body lines and nothing else: " .. table.concat(mine, " | "))
+  assertTrue(mine[1]:find("one", 1, true) ~= nil and mine[2]:find("two", 1, true) ~= nil, "in order")
+  before = #lines
+  assertEqual(degradedNS.DebugLog:Report("Holdings", "holdings x", function() end), 0)
+  assertEqual(#lines, before, "an empty body prints nothing")
+end)
+
 -- Secret-safe sink (events-frames-taint-§8): a combat "secret" arg must reach string.format only
 -- through NS.SafeToString, so it logs as <secret> instead of raising. Modeled as a table (which
 -- table.concat / string.format reject) — the same shape a real secret trips on.

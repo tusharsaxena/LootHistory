@@ -944,11 +944,12 @@ Total.
 - Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
 - Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)
 
-### test_debuglog.lua (20)
+### test_debuglog.lua (21)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
 - the degraded DebugLog stub's formatters carry no library format string
 - the degraded DebugLog stub's RunDiagnostics prints the placeholder, writes nothing, returns 0
+- the degraded DebugLog stub's Report streams the report to chat with no pointer
 - NS.Debug renders a secret message arg as <secret> without raising
 - NS.Debug formats ordinary args (numbers included) through %s
 - /lh debug on enables state
@@ -1071,7 +1072,7 @@ Total.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_slash_verbs.lua (13)
+### test_slash_verbs.lua (15)
 
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
@@ -1085,7 +1086,9 @@ Total.
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
-- /lh holdings <query> prints the matching name and its account-wide total
+- /lh holdings <query> writes its matches to the console, ungated, with one chat pointer
+- /lh holdings caps its report at ten matches
+- /lh holdings with no match answers in chat and writes no report
 
 ### test_slash_degraded.lua (17)
 
@@ -2347,13 +2350,13 @@ Total.
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 86 |
 | test_export.lua | 37 |
-| test_debuglog.lua | 20 |
+| test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 50 |
-| test_slash_verbs.lua | 13 |
+| test_slash_verbs.lua | 15 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 48 |
@@ -2414,4 +2417,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2016** |
+| **Total** | **2019** |

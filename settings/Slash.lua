@@ -240,15 +240,24 @@ function Sl.FormatSchemaValue(row, v)
 end
 
 --- `/lh holdings <query>`: the top ten account-wide holdings whose name contains the query.
+---
+--- A report (debug-logging-§15, the owner's routing ruling of 2026-11-08, LibKa0s#79): up to ten
+--- lines asked for by name, so they go to the debug console through D:Report, written whatever the
+--- logging flag reads, with the console revealed and one chat pointer. No match is a one-line answer
+--- and stays in chat, before any report opens. Without the library the stub streams the lines to
+--- chat with no pointer (core/DebugLogSetup.lua).
 function Sl:Holdings(query)
   query = query or ""
   local rows = NS.Holdings and NS.Holdings:Search({ text = query }) or {}
   if #rows == 0 then NS.Format("no holdings match '%s'.", query); return end
-  for i = 1, math.min(10, #rows) do
-    local r = rows[i]
-    local total = r.key == "g" and NS.Util.FormatMoney(r.total) or tostring(r.total)
-    NS.Format("%s: %s", r.name, total)
-  end
+  local title = (query == "") and "holdings" or ("holdings " .. query)
+  NS.DebugLog:Report("Holdings", title, function(out)
+    for i = 1, math.min(10, #rows) do
+      local r = rows[i]
+      local total = r.key == "g" and NS.Util.FormatMoney(r.total) or tostring(r.total)
+      out(("%s: %s"):format(NS.SafeToString(r.name), total))
+    end
+  end)
 end
 
 if not lib then

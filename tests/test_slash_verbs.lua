@@ -382,18 +382,76 @@ test("Clear-blacklist confirm and /lh test print their exact lines through the p
   if not ok then error(err, 0) end
 end)
 
-test("/lh holdings <query> prints the matching name and its account-wide total", function()
-  local saved = NS.db.global.holdings
+-- ── `/lh holdings <query>` is a report (debug-logging-§15, LibKa0s#79, AD-79-LH) ─────────────
+--
+-- Up to ten lines asked for by name, so under the owner's routing ruling of 2026-11-08 it is a
+-- report: written to the debug console through D:Report whatever the logging flag reads, the
+-- console revealed, and exactly one chat pointer. The "no holdings match" answer is one line and
+-- stays in chat, writing nothing. Re-pinned from the chat lines it printed before AD-79-LH.
+
+--- Run `fn` with the logging flag off, the console hidden and cleared, and the holdings store
+--- swapped for an empty one that `seed` (nil: none) fills. Returns the chat lines, the console's buffer, whether the console ended up
+--- shown and the flag after the call.
+local function holdingsRun(seed, fn)
+  local saved, savedDebug = NS.db.global.holdings, NS.State.debug
   NS.db.global.holdings = {}
-  NS.Holdings:ApplyContainer("A-Realm", "bags", { [7] = 2 }, { [7] = "|Hitem:7|h[Apple]|h" }, 100)
-  NS.Holdings:ApplyContainer("B-Realm", "bank", { [7] = 9 }, {}, 50)
-  local out = capture(function() Sl:Holdings("item name") end)
-  NS.db.global.holdings = {}
-  local none = capture(function() Sl:Holdings("item name") end)
-  NS.db.global.holdings = saved
+  if seed then seed() end
+  NS.State.debug = false
+  NS.DebugLog:Hide()
+  NS.DebugLog:Clear()
+  local ok, out = pcall(capture, fn)
+  local buffer, shown, flag = {}, NS.DebugLog:IsShown(), NS.State.debug
+  for i, line in ipairs(NS.DebugLog.buffer) do buffer[i] = line end
+  NS.DebugLog:Hide()
+  NS.DebugLog:Clear()
+  NS.db.global.holdings, NS.State.debug = saved, savedDebug
+  if not ok then error(out, 0) end
+  return out, buffer, shown, flag
+end
+
+local function bufferHas(buffer, text)
+  for _, line in ipairs(buffer) do
+    if line:find(text, 1, true) then return true end
+  end
+  return false
+end
+
+test("/lh holdings <query> writes its matches to the console, ungated, with one chat pointer", function()
+  local out, buffer, shown, flag = holdingsRun(function()
+    NS.Holdings:ApplyContainer("A-Realm", "bags", { [7] = 2 }, { [7] = "|Hitem:7|h[Apple]|h" }, 100)
+    NS.Holdings:ApplyContainer("B-Realm", "bank", { [7] = 9 }, {}, 50)
+  end, function() Sl:Holdings("item name") end)
+  -- red under: the chat printer (one "Item Name: 11" line per match, no pointer). Exactly one line,
+  -- prefix included: the pointer names the title and counts the header with the one match.
+  assertEqual(#out, 1, "one chat line: " .. table.concat(out, " | "))
+  assertEqual(out[1], NS.PREFIX .. " holdings item name: 2 lines written to the debug console. Use Copy to share it.")
+  -- red under: a report written through the gated NS.Debug sink, which drops it with logging off.
+  assertTrue(bufferHas(buffer, "/lh holdings item name"), "the report's header is in the console")
+  assertTrue(bufferHas(buffer, "Item Name: 11"), "the match and its account-wide total are in the console")
+  assertTrue(shown, "the report reveals a hidden console")
+  assertEqual(flag, false, "a report never turns the logging flag on")
+end)
+
+test("/lh holdings caps its report at ten matches", function()
+  local _, buffer = holdingsRun(function()
+    local counts = {}
+    for id = 1, 12 do counts[id] = id end
+    NS.Holdings:ApplyContainer("A-Realm", "bags", counts, {}, 100)
+  end, function() Sl:Holdings("item name") end)
+  local body = 0
+  for _, line in ipairs(buffer) do
+    if line:find("Item Name: ", 1, true) then body = body + 1 end
+  end
+  assertEqual(body, 10, "ten of the twelve matches")
+end)
+
+test("/lh holdings with no match answers in chat and writes no report", function()
+  local out, buffer, shown = holdingsRun(nil, function() Sl:Holdings("item name") end)
   assertEqual(#out, 1)
-  -- Exact, prefix included: both lines are pinned byte for byte across their move to the shared
-  -- printer's format form (LH-A-12).
-  assertEqual(out[1], NS.PREFIX .. " Item Name: 11")
-  assertEqual(none[1], NS.PREFIX .. " no holdings match 'item name'.")
+  -- Exact, prefix included: pinned byte for byte across its move to the shared printer's format
+  -- form (LH-A-12).
+  assertEqual(out[1], NS.PREFIX .. " no holdings match 'item name'.")
+  -- red under: a report opened before the empty check (a header and a pointer with no match).
+  assertEqual(#buffer, 0, "nothing reaches the console: " .. table.concat(buffer, " | "))
+  assertTrue(not shown, "a refusal leaves the console hidden")
 end)
