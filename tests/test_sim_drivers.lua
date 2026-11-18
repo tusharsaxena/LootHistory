@@ -120,13 +120,13 @@ local MUTATES = {
     function(s) return s.zone == "Elsewhere" end },
   { "QuestTurnedIn", function() D.QuestTurnedIn(80000, 10, 500) end, "QUEST_TURNED_IN",
     function(s, s0) return s.money == s0.money + 500 end },
-  { "TradeAccept", function() D.TradeAccept("Simalt-Realm") end, "TRADE_ACCEPT_UPDATE",
-    function(s) return s.trade == "Simalt-Realm" end },
+  { "TradeAccept", function() D.TradeAccept("Sampleblade-Samplerealm") end, "TRADE_ACCEPT_UPDATE",
+    function(s) return s.trade == "Sampleblade-Samplerealm" end },
   { "Combat off", function() D.Combat(true); D.Combat(false) end, "PLAYER_REGEN_ENABLED",
     function(s) return s.combat == false end },
   { "WarbandGold", function() D.WarbandGold(1000) end, "ACCOUNT_MONEY",
     function(s, s0) return s.money == s0.money - 1000 and s.warband == s0.warband + 1000 end },
-  { "CurrencyTransfer", function() D.CurrencyTransfer(CREST, 2, "Simalt-Realm") end, "CURRENCY_TRANSFER_LOG_UPDATE",
+  { "CurrencyTransfer", function() D.CurrencyTransfer(CREST, 2, "Sampleblade-Samplerealm") end, "CURRENCY_TRANSFER_LOG_UPDATE",
     function(s, s0) return s.crest == s0.crest - 2 and s.transfer == 2 end },
   { "Buy", function() D.Buy(1, "herb", 2, 300) end, "hook:BuyMerchantItem",
     function(s, s0) return s.herb == s0.herb + 2 and s.money == s0.money - 300 end },
@@ -178,9 +178,9 @@ test("SimDrivers: a hook driver shows the client's pre-call world to the post-ho
   withSession(function(record)
     local w = Host.world
     local bagID, slot = World.Find(w, "bags", World.ITEMS.ore.id)
-    D.Send("Simalt-Realm", { { bagID, slot } }, 100)
+    D.Send("Sampleblade-Samplerealm", { { bagID, slot } }, 100)
     local send = first(record, "hook:SendMail")
-    assertEqual(send.args[1], "Simalt-Realm")
+    assertEqual(send.args[1], "Sampleblade-Samplerealm")
     assertTrue(send.seen ~= nil and send.seen > 0, "the attachment was staged when the post-hook read it")
     assertTrue(first(record, "MAIL_SEND_SUCCESS") ~= nil)
     assertEqual(w.sendMail, nil, "the frame is empty once sent")
@@ -216,7 +216,7 @@ local function driveHook(name)
     UseItem = function() D.UseItem(bagID, slot) end, Repair = function() D.Repair(10) end,
     Destroy = function() D.Destroy(bagID, slot) end, TakeMailItem = function() D.TakeMailItem(mail, 1) end,
     AutoLootMail = function() D.AutoLootMail(mail) end, TakeMailMoney = function() D.TakeMailMoney(mail) end,
-    Send = function() D.Send("Simalt-Realm", { { bagID, slot } }, 0) end,
+    Send = function() D.Send("Sampleblade-Samplerealm", { { bagID, slot } }, 0) end,
     Post = function() D.Post(bagID, slot, 1, 10, name == "PostCommodity") end,
     AuctionBuy = function() D.AuctionBuy("herb", 1, 10, name == "ConfirmCommoditiesPurchase") end,
     Craft = function()

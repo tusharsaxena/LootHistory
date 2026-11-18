@@ -175,14 +175,14 @@ local function shapeWorld(w)
   w.equipped[13] = { itemID = 219915, link = "L2" }
   w.money, w.warbandMoney = 12345, 67890
   w.currencies = { { id = 3008, quantity = 5, accountWide = false } }
-  w.inbox = { { sender = "Simalt-Realm", subject = "Hi", money = 0, items = { { itemID = 210930, link = "L3", count = 2 } } } }
+  w.inbox = { { sender = "Sampleblade-Samplerealm", subject = "Hi", money = 0, items = { { itemID = 210930, link = "L3", count = 2 } } } }
   w.sendMail = { items = { [210796] = 4 }, money = 99 }
   w.owned = { { itemID = 210930, link = "L3", quantity = 3, status = "active" },
               { itemID = 210796, link = "L1", quantity = 1, status = "sold" } }
   w.targeting, w.combat, w.quest = true, true, { id = 4242 }
   w.instance = { party = true, keystone = 12, zone = "Z", subzone = "S", mapID = 77 }
-  w.trade = { target = "Simalt-Realm" }
-  w.transfer = { currencyID = 3008, quantity = 1, toKey = "Simalt-Realm" }
+  w.trade = { target = "Sampleblade-Samplerealm" }
+  w.transfer = { currencyID = 3008, quantity = 1, toKey = "Sampleblade-Samplerealm" }
   w.loot = { guid = "Creature-0-3767-2552-11111-1234-0000ABCDEF", n = 2 }
 end
 
@@ -193,14 +193,14 @@ local WORLD_ANSWERS = {
   GetMoney = "{1=12345,n=1}", GetWarbandMoney = "{1=67890,n=1}",
   ListCurrencies = "{1={1={accountWide=false,id=3008,quantity=5}},n=1}",
   ScanInbox = '{1={210930=2},2={210930="L3"},n=2}',
-  GetMailHeader = '{1="Simalt-Realm",2="Hi",n=2}',
+  GetMailHeader = '{1="Sampleblade-Samplerealm",2="Hi",n=2}',
   ReadSendMail = "{1={210796=4},2=99,n=2}",
   ScanOwnedAuctions = '{1={210930=3},2={210930="L3"},n=2}',
   ItemLocationID = "{1=210796,n=1}", ContainerItemHasLoot = "{1=true,n=1}",
   IsSpellTargeting = "{1=true,n=1}", CurrentQuestID = "{1=4242,n=1}",
   GetActiveKeystoneLevel = "{1=12,n=1}", InPartyInstance = "{1=true,n=1}", InCombatLockdown = "{1=true,n=1}",
-  TradeTargetKey = '{1="Simalt-Realm",n=1}',
-  LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="Simalt-Realm"},n=1}',
+  TradeTargetKey = '{1="Sampleblade-Samplerealm",n=1}',
+  LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="Sampleblade-Samplerealm"},n=1}',
   NumLootItems = "{1=2,n=1}", LootSourceGUID = '{1="Creature-0-3767-2552-11111-1234-0000ABCDEF",n=1}',
   Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}",
 }
