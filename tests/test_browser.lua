@@ -1034,14 +1034,15 @@ local function clickSettings(win)
 end
 
 test("Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)", function()
-  -- red under: the title bar's marks built by hand (the close alone, no settings mark).
+  -- red under: the title bar's marks built by hand (the close alone, no settings mark). The lock
+  -- left of settings is AF-HDR-LH's, pinned in its own cases below.
   withSettings({ visibility = "always" }, function()
     B:Show()
     local f = B:GetWindow()
     local ok, err = pcall(function()
       local hb = f.headerButtons
       assertTrue(hb ~= nil, "the History window's marks are not W.HeaderButtons'")
-      assertEqual(table.concat(hb.order, ","), "settings,close", "left to right settings · close")
+      assertEqual(table.concat(hb.order, ","), "lock,settings,close", "left to right lock · settings · close")
       assertTrue(f.settingsButton ~= nil and f.settingsButton == hb.settings, "the settings mark")
       assertTrue(f.closeButton ~= nil and f.closeButton == hb.close, "the close mark")
       assertEqual(hb.offsets.close, -6, "the close 6 px in from the corner")
@@ -1097,6 +1098,112 @@ test("Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 
     assertEqual(p.y, 0)
     close:__fire("OnClick", "LeftButton")
     assertEqual(closed, 1, "the close still runs its handler")
+  end)
+  NS.MakeHeaderButtons = real
+  if not ok then error(err, 0) end
+end)
+
+-- ── The History window's lock mark (AF-HDR-LH) ──────────────────────────────────────────────────
+-- standalone-windows *Which marks a window owes* (standard v2.115.0): a primary window's header
+-- carries close, settings and lock. The lock is a W.HeaderButtons extra, the catalog's `lock` while
+-- locked and `unlock` while not, its click the `/lh lock` / `/lh unlock` verb the launcher's Locked
+-- entry also runs, and the host repaints it whenever `settings.locked` moves.
+
+--- Run `fn(f, mark)` with the History window up, unlocked to start, putting the lock back after.
+local function withLockMark(fn)
+  local before = NS.db.profile.settings.locked
+  NS.Schema:Set("settings.locked", false)
+  withSettings({ visibility = "always" }, function()
+    B:Show()
+    local f = B:GetWindow()
+    local ok, err = pcall(fn, f, f.lockButton)
+    B:Hide()
+    NS.Schema:Set("settings.locked", before)
+    if not ok then error(err, 0) end
+  end)
+end
+
+--- The art and tooltip a repaint hands `mark`: its icon's SetTexture is spied (the mock's texture is
+--- the frame itself, which records no path), then the mark is repainted.
+local function paintedLock(mark)
+  local path
+  rawset(mark.icon, "SetTexture", function(_, p) path = p end)
+  B:PaintLockMark()
+  rawset(mark.icon, "SetTexture", nil)
+  return path, mark.__tip
+end
+
+test("Browser: the History title bar reads lock · settings · close (AF-HDR-LH)", function()
+  -- red under: no lock mark, one outside W.HeaderButtons' extras, or one in the wrong place.
+  withLockMark(function(f, mark)
+    local hb = f.headerButtons
+    assertEqual(table.concat(hb.order, ","), "lock,settings,close", "left to right lock · settings · close")
+    assertTrue(mark ~= nil and mark == hb.extras.lock, "the lock mark is the window's `lock` extra")
+    assertEqual(rawget(mark, "__owner"), "LootHistory", "the mark is this addon's")
+    assertTrue(mark.icon ~= nil, "the lock mark draws a catalog icon")
+  end)
+end)
+
+test("Browser: the lock mark shows unlock while unlocked and lock while locked (AF-HDR-LH)", function()
+  -- red under: a mark that keeps its build-time art or tooltip after the lock moves.
+  withLockMark(function(_, mark)
+    local path, tip = paintedLock(mark)
+    assertEqual(path, NS.Icon("unlock"), "unlocked: the catalog's unlock mark")
+    assertEqual(tip, "Lock the window", "unlocked: the tooltip says a click locks")
+    NS.Schema:Set("settings.locked", true)
+    path, tip = paintedLock(mark)
+    assertEqual(path, NS.Icon("lock"), "locked: the catalog's lock mark")
+    assertEqual(tip, "Unlock the window", "locked: the tooltip says a click unlocks")
+  end)
+end)
+
+test("Browser: a click on the lock mark runs /lh lock, then /lh unlock, and repaints (AF-HDR-LH)", function()
+  -- red under: a click that writes nothing, a second lock state, or a mark left on its old face.
+  withLockMark(function(_, mark)
+    local face
+    rawset(mark.icon, "SetTexture", function(_, p) face = p end)
+    mark:__fire("OnClick", "LeftButton")
+    assertEqual(NS.db.profile.settings.locked, true, "the click locked the window")
+    assertTrue(B:IsLocked(), "B:IsLocked, the drag gate, reads the same value")
+    assertEqual(face, NS.Icon("lock"), "the change repainted the mark")
+    mark:__fire("OnClick", "LeftButton")
+    rawset(mark.icon, "SetTexture", nil)
+    assertEqual(NS.db.profile.settings.locked, false, "the second click unlocked it")
+    assertEqual(face, NS.Icon("unlock"), "and repainted it back")
+  end)
+end)
+
+test("Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)", function()
+  -- red under: a verb missing, one writing a second key, or a mark the verb does not reach.
+  local function verb(name)
+    for _, c in ipairs(NS.COMMANDS) do if c[1] == name then return c[3] end end
+    error("no /lh " .. name .. " verb")
+  end
+  withLockMark(function(_, mark)
+    local face
+    rawset(mark.icon, "SetTexture", function(_, p) face = p end)
+    verb("lock")("")
+    assertEqual(NS.db.profile.settings.locked, true, "/lh lock locks")
+    assertEqual(face, NS.Icon("lock"), "/lh lock repainted the mark")
+    verb("unlock")("")
+    rawset(mark.icon, "SetTexture", nil)
+    assertEqual(NS.db.profile.settings.locked, false, "/lh unlock unlocks")
+    assertEqual(face, NS.Icon("unlock"), "/lh unlock repainted the mark")
+  end)
+end)
+
+test("Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)", function()
+  -- red under: MakeTitleMarks putting a lock on a window that passes no extra (the export modal).
+  local bar, win = T.mocks.CreateFrame("Frame"), T.mocks.CreateFrame("Frame")
+  B:MakeTitleMarks(bar, win, function() end)
+  assertTrue(win.lockButton == nil, "a window passing no lock extra carries none")
+  local real = NS.MakeHeaderButtons
+  NS.MakeHeaderButtons = function() return nil end
+  local ok, err = pcall(function()
+    local w2 = T.mocks.CreateFrame("Frame")
+    B:MakeTitleMarks(T.mocks.CreateFrame("Frame"), w2, function() end, nil, { { key = "lock" } })
+    assertTrue(w2.lockButton == nil, "no W.HeaderButtons, no lock mark")
+    B:PaintLockMark()   -- and the repaint is a safe no-op on whatever window exists
   end)
   NS.MakeHeaderButtons = real
   if not ok then error(err, 0) end

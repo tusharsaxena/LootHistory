@@ -137,7 +137,7 @@ Settings panel on its landing page** by running the `config` verb (slash-command
 Verbs dispatch from `NS.COMMANDS`; `/lh help` is generated from the same table.
 
 **The slash surface is unchanged while the addon is disabled** (slash-commands-§2/§7): only the
-feature verbs `show` / `hide` / `toggle` / `skin` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
+feature verbs `show` / `hide` / `toggle` / `skin` / `lock` / `unlock` / `test` / `purge` / `holdings` / `sim` refuse, with the collection's one refusal
 line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-state.md).
 
 | Verb | Action |
@@ -146,6 +146,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `show` / `hide` / `toggle` | Open / close / toggle the window |
 | `config` | Open the Settings panel |
 | `skin` | Open the first-run skin picker on demand, whatever `pickerSeen` says (`NS.RunSkinVerb`, the library's `O.SkinVerb`). A feature verb: refused with the one disabled line while the addon is off |
+| `lock` / `unlock` | Lock / unlock the History window and the export modal (slash-commands-§8, AF-HDR-LH). **Aliases** of `/lh set settings.locked true` / `false`, the Master controls **Lock frame** row, through `Schema:Set`; the launcher's **Locked** entry and the History window's header lock mark run the same verbs. Feature verbs: refused while the addon is off |
 | `enable` / `disable` | Turn recording on / off. **Aliases**, never a second switch: each is `/lh set settings.enabled <bool>` with the path filled in, so it writes the Master controls **Enable Loot History** row through `Schema:Set` and holds no state of its own (slash-commands-§2). Both keep answering while the addon is disabled, which is what stops the pair being one-way |
 | `version` | Print the addon version (`[LH] v<version>`, read from TOC metadata) |
 | `get <path>` | Print a setting value |

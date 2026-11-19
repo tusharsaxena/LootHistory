@@ -23,6 +23,10 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 --   "Toggle history browser"                      the binding's row in Options -> Keybindings and
 --                                                 the General page's Keybindings tab
 --   "Shows or hides the history browser."         that row's tooltip in the Keybindings tab (NS.BINDINGS)
+-- and the History window's lock mark and the lock pair (modules/Browser.lua, settings/Schema.lua; AF-HDR-LH) --
+--   "Lock the window" / "Unlock the window"       the lock mark's tooltip, unlocked / locked
+--   "Lock the window in place"                    /lh lock's help row
+--   "Unlock the window so it can be dragged"      /lh unlock's help row
 -- and NS.RefusalLine's answer under the perf hold --
 --   "Not available during a performance capture."
 -- and the skin seam's one reload line (core/SkinSetup.lua, a profile event leaving an EllesmereUI

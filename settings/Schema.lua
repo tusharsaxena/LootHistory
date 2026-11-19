@@ -1172,6 +1172,12 @@ NS.COMMANDS = gateFeatureVerbs{
   -- NS.RunSkinVerb). A feature verb, so the gate above refuses it while the addon is disabled. The
   -- help text is the library's VERB_HELP, one wording for every Ka0s addon.
   { "skin",     NS.L["Choose a skin: open the skin picker"], function() NS.RunSkinVerb() end },
+  -- THE LOCK PAIR (slash-commands-§8, AF-HDR-LH): aliases of one `set` of the Master controls
+  -- "Lock frame" row, exactly as enable / disable are of theirs, so the checkbox, the verbs, the
+  -- launcher's Locked entry and the History window's lock mark show one value. Feature verbs, so a
+  -- disabled addon refuses them with the line naming `/lh enable`.
+  { "lock",     NS.L["Lock the window in place"],          function() NS.Slash:CliSet("settings.locked true") end },
+  { "unlock",   NS.L["Unlock the window so it can be dragged"], function() NS.Slash:CliSet("settings.locked false") end },
   -- THE TWO RESERVED VERBS (slash-commands-§2). ALIASES, never a second switch: each is literally
   -- `/lh set settings.enabled <bool>` with the path filled in -- the same stored path the Master
   -- controls "Enable Loot History" checkbox writes, through the same single write seam

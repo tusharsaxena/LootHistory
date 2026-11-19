@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-2024%2F2024_passing-green)
+![Tests](https://img.shields.io/badge/Tests-2030%2F2030_passing-green)
 
 Retail only for now; WoW Forever support is planned. Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -47,7 +47,7 @@ Most items are filed straight from what the game reported, and those are marked 
 
 ## Usage
 
-There's nothing to set up. Install it, log in, and it's already recording. A small **Choose a skin** window comes up once on each new profile. Pick a look or close it, and after that all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then tick **Lock frame** on the Master controls tab (or **Locked** in the minimap button's menu) to keep it there. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip directly below the title bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
+There's nothing to set up. Install it, log in, and it's already recording. A small **Choose a skin** window comes up once on each new profile. Pick a look or close it, and after that all you'll see is a minimap button, because the History window stays shut until you open it. Drag the window by its title bar and pull its bottom-right corner to size it, then click the padlock in its title bar to keep it there. `/lh lock` and `/lh unlock`, **Lock frame** on the Master controls tab and **Locked** in the minimap button's menu do the same. A new install has no loot to look at, so `/lh test`, or the **Test mode** box on Master controls, fills the window with sample rows, under an amber strip directly below the title bar that says they're a sample and not yours. Combat switches it off, and it's never saved.
 
 Reading back your loot happens in the History window, in this order:
 
@@ -149,6 +149,6 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
-Bound lock, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
+Bound lock, the History window's lock and unlock marks, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
 info and drag-handle marks, the window close buttons and settings gears, the skin picker's eye and gear, the debug console's copy and clear
 buttons, and the small marks LibKa0s draws beside skinned controls. Only the icons the addon draws are shipped, with their license text beside them.

@@ -150,9 +150,10 @@ never silently unfiltered. Result: pass (owner-marked 2026-10-10)
 window stays closed and nothing prints. Result: pass (owner-marked 2026-10-10)
 
 **SLASH-2. The help index.** `/lh help` → a header `v<version> — slash commands (/loothistory is an
-alias for /lh)`, then one row per command in this order: show, hide, toggle, config, skin, enable,
-disable, version, get, set, list, reset, resetall, profile, holdings, debug, diagnostics, perf, test,
-sim, purge, help (twenty-two).
+alias for /lh)`, then one row per command in this order: show, hide, toggle, config, skin, lock,
+unlock, enable, disable, version, get, set, list, reset, resetall, profile, holdings, debug,
+diagnostics, perf, test, sim, purge, help (twenty-four; `lock` and `unlock` joined after `skin` with
+AF-HDR-LH, checked by SLASH-11).
 Each row is a gold `/lh <verb>`, an em dash and a white description; every line carries `[LH]`; no
 raw key such as `HELP_HEADER` shows; the window does not open. (Re-opened by LH-01 of the skin fonts
 and feedback run, 2026-10-30: `skin` joins after `config`, and the list now names `perf` and `sim`,
@@ -206,6 +207,15 @@ In combat (a target dummy) `/lh skin` twice → two gray lines saying the picker
 combat, and no window. `/lh disable`, then `/lh skin` → one line naming `/lh enable` and no window;
 `/lh enable` afterwards. Fail: no window on a seen profile, a window in combat or while disabled, or a
 Lua error. Result: Owner reported pass, 2026-10-31
+
+**SLASH-11. `/lh lock` and `/lh unlock` (AF-HDR-LH; slash-commands-§8).** `/lh help` → `/lh lock`
+("Lock the window in place") and `/lh unlock` ("Unlock the window so it can be dragged") sit right
+after `/lh skin`. With the History window open, `/lh lock` → one line `settings.locked = true`, the
+title bar no longer drags the window, the corner grip no longer resizes it, and Settings → General →
+Master controls → **Lock frame** is ticked. `/lh unlock` → one line `settings.locked = false`, the
+window drags and resizes again and the box is clear. `/lh disable`, then `/lh lock` → one line naming
+`/lh enable` and the box unchanged; `/lh enable` afterwards. Fail: a verb missing from help, a second
+line, a lock that leaves the box out of step, or a disabled addon that locks. Result:
 
 ## Settings panel
 
@@ -1089,6 +1099,27 @@ the tooltip may grow a moment after it opens, and when it does it stays whole on
 rather than running off the bottom. Fail: a tooltip at the cursor, one on top of the window, one hanging off a corner of
 its button, a grown tooltip cut off by the screen's bottom edge, or a comparison tooltip covering the
 row tooltip. Result:
+
+**HIST-50. The History title bar reads lock · settings · close (AF-HDR-LH; standalone-windows' *Which
+marks a window owes*, standard v2.115.0).** Unlocked (`/lh unlock`), `/lh show` → the title bar's
+right end carries three same-size marks, an open padlock, the gear, then the ✕ in the corner, evenly
+spaced, gray at rest and centered on the title bar. Hover the padlock → it lights the skin's link
+color and a *Lock the window* tooltip opens above it. Click it → one chat line `settings.locked =
+true`, the mark becomes a closed padlock, its tooltip now reads *Unlock the window*, and the title
+bar no longer drags the window and the corner grip no longer resizes it. Click it again → one line
+`settings.locked = false`, the open padlock is back and the window drags again. Open the export modal
+→ its title bar still reads gear · ✕, with no padlock. Pick **Obsidian** → the three marks repaint
+with no reload and keep their places. Fail: no padlock, a padlock right of the gear, a mark that
+keeps its old face or tooltip after a click, a lock that does not stop the drag, or a padlock on the
+export modal. Result:
+
+**HIST-51. One lock, four surfaces (AF-HDR-LH).** With the History window open and unlocked, tick
+Settings → General → Master controls → **Lock frame** → the title bar's padlock closes at once. Clear
+the box → it opens. Right-click the minimap button and click **Locked** → one line `settings.locked =
+true` and the padlock closes; click **Locked** again → it opens. `/lh lock` → it closes; `/lh unlock`
+→ it opens. Switch to a profile whose **Lock frame** is ticked (`/lh profile <name>`) → the padlock
+shows closed; switch back → it matches that profile's box. Fail: a padlock that disagrees with the
+box, the menu or the verbs, or one that only updates after `/reload`. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -2590,6 +2621,10 @@ spreadsheet mark. Result: pass (owner-marked 2026-10-23)
 when off) and its info button draw, and the cascade's reorder handle draws; Filters tab → each id
 list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 
+**ICON-7. The History window's lock marks (AF-HDR-LH).** `/lh unlock`, `/lh show` → the padlock left
+of the gear draws open (the catalog's `unlock`); `/lh lock` → it draws closed (`lock`). Fail: an empty
+square in either state. Result:
+
 **SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color. Result: Passed (owner, 2026-11-02)
 
 **SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
@@ -2736,6 +2771,13 @@ Added by the same adoption's wave D (2026-11-18), awaiting the owner: LED-7 is r
 `/lh holdings` writes a report to the debug console with one chat pointer), so its result is cleared.
 TM-3 and SIM-15 are new (AD-87-LH, test mode's and the simulator's made-up people are the shared
 sample characters); SIM-5 names the new alt and keeps its result.
+
+Added by the adoption feedback run (AF-HDR-LH, 2026-11-19), awaiting the owner: HIST-50, HIST-51,
+SLASH-11 and ICON-7, new (the History window's header lock mark and the `/lh lock` / `/lh unlock`
+pair, standalone-windows' *Which marks a window owes*, standard v2.115.0). SLASH-2 now lists the two
+new verbs and keeps its result; SLASH-11 checks them. The launcher menu's **Locked** entry now runs the
+verbs, so it prints the `settings.locked` line (HIST-51); LAUNCH checks that name the entry keep their
+results.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass
