@@ -143,6 +143,12 @@ function B:PaintLockMark()
   local path = NS.Icon and NS.Icon(icon)
   if mark.icon and path then mark.icon:SetTexture(path) end
   mark.__tip = tip
+  -- The library reads __tip only on hover, so a tooltip already open on this mark is rewritten now.
+  local gt = GameTooltip
+  if gt and type(gt.IsOwned) == "function" and gt:IsOwned(mark) then
+    local enter = mark:GetScript("OnEnter")
+    if enter then enter(mark) end
+  end
 end
 
 -- ── Window position/size persistence ──────────────────────────────────────────

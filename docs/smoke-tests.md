@@ -1105,8 +1105,9 @@ marks a window owes*, standard v2.115.0).** Unlocked (`/lh unlock`), `/lh show` 
 right end carries three same-size marks, an open padlock, the gear, then the ✕ in the corner, evenly
 spaced, gray at rest and centered on the title bar. Hover the padlock → it lights the skin's link
 color and a *Lock the window* tooltip opens above it. Click it → one chat line `settings.locked =
-true`, the mark becomes a closed padlock, its tooltip now reads *Unlock the window*, and the title
-bar no longer drags the window and the corner grip no longer resizes it. Click it again → one line
+true`, the mark becomes a closed padlock, the tooltip still open under the cursor reads *Unlock
+the window* at once (no leave and re-enter), and the title bar no longer drags the window and the
+corner grip no longer resizes it. Click it again → one line
 `settings.locked = false`, the open padlock is back and the window drags again. Open the export modal
 → its title bar still reads gear · ✕, with no padlock. Pick **Obsidian** → the three marks repaint
 with no reload and keep their places. Fail: no padlock, a padlock right of the gear, a mark that

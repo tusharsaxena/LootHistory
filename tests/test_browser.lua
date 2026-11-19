@@ -1173,6 +1173,30 @@ test("Browser: a click on the lock mark runs /lh lock, then /lh unlock, and repa
   end)
 end)
 
+test("Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)", function()
+  -- red under: a repaint that changes mark.__tip but leaves the tooltip already open on the old words.
+  withLockMark(function(_, mark)
+    local tip, words = T.mocks.GameTooltip, nil
+    local realOwned, realText = rawget(tip, "IsOwned"), rawget(tip, "SetText")
+    rawset(tip, "IsOwned", function(_, o) return o == mark end)
+    rawset(tip, "SetText", function(_, w) words = w end)
+    local ok, err = pcall(function()
+      mark:__fire("OnEnter")
+      assertEqual(words, "Lock the window", "hover opens the unlocked words")
+      mark:__fire("OnClick", "LeftButton")
+      assertEqual(words, "Unlock the window", "the click rewrote the open tooltip at once")
+      rawset(tip, "IsOwned", function() return false end)
+      words = nil
+      mark:__fire("OnClick", "LeftButton")
+      assertTrue(words == nil, "a tooltip some other frame owns is left alone")
+    end)
+    rawset(tip, "IsOwned", realOwned)
+    rawset(tip, "SetText", realText)
+    tip:Hide()
+    if not ok then error(err, 0) end
+  end)
+end)
+
 test("Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)", function()
   -- red under: a verb missing, one writing a second key, or a mark the verb does not reach.
   local function verb(name)

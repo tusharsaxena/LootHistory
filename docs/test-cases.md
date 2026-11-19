@@ -691,7 +691,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (82)
+### test_browser.lua (83)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -773,6 +773,7 @@ Total.
 - Browser: the History title bar reads lock · settings · close (AF-HDR-LH)
 - Browser: the lock mark shows unlock while unlocked and lock while locked (AF-HDR-LH)
 - Browser: a click on the lock mark runs /lh lock, then /lh unlock, and repaints (AF-HDR-LH)
+- Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)
 - Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
 - Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
 
@@ -2355,7 +2356,7 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 82 |
+| test_browser.lua | 83 |
 | test_browser_filterbar.lua | 23 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
@@ -2428,4 +2429,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2030** |
+| **Total** | **2031** |
