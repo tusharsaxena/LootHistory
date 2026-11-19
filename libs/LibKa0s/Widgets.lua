@@ -137,7 +137,7 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- measured its target from unguarded OnShow / OnSizeChanged hooks, so a strip docked on a display
 -- riding a plate raised from the host's frame. A measurement the client refuses now answers nil, and
 -- the strip is placed on the display's top edge, unflipped and clearing nothing it cannot measure.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 28
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 29
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -586,11 +586,18 @@ end
 --
 -- Every measurement goes through `measure` (minor 28): a display anchored to a nameplate cannot be
 -- measured, the client raising on the read, so a refused read answers nil, which the placement reads
--- as "no flip" and "nothing to clear". The strip still docks on such a display's top edge.
+-- as "no flip" and "nothing to clear". The strip still docks on such a display's top edge. A value
+-- the client calls secret (`issecretvalue`) is no number either (minor 29, LibKa0s#95): an attached
+-- display's height, edges or level can read secret out of combat, and arithmetic on one raises.
 
 local STRIP_HUD_LEVEL = 5   -- the display's chrome band: this many levels over the display
 
-local function num(v) return type(v) == "number" and v or nil end
+local function num(v)
+  if type(v) ~= "number" then return nil end
+  local secret = issecretvalue
+  if secret and secret(v) then return nil end
+  return v
+end
 local function shown(f) return type(f) == "table" and type(f.IsShown) == "function" and f:IsShown() == true end
 
 local function call(f, method, ...)
