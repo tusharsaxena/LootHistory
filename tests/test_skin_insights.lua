@@ -366,12 +366,10 @@ local function assertTips(want, label)
   l = tipLines(function() C.ShowLinesTooltip({}, "Day", { { label = "Net", text = "0" } }) end)
   assertEqual(l[1].c, want("gtip.title"), label .. ": a lines tooltip's title")
   assertEqual(l[2].c, want("gtip.value"), label .. ": a row with no color")
-  local cursor, scale = rawget(mocks, "GetCursorPosition"), rawget(mocks.UIParent, "GetEffectiveScale")
-  rawset(mocks, "GetCursorPosition", function() return 100, 100 end)
-  rawset(mocks.UIParent, "GetEffectiveScale", function() return 1 end)
-  l = tipLines(function() C.ShowCursorTooltip({}, "Sword: 3", "gtip.title") end)
-  rawset(mocks, "GetCursorPosition", cursor); rawset(mocks.UIParent, "GetEffectiveScale", scale)
-  assertEqual(l[1].c, want("gtip.title"), label .. ": a cursor line")
+  -- Re-pinned by AD-92-LH: the cursor-pinned helper (ShowCursorTooltip) is retired, and a chart
+  -- bar's line in its own token now goes through ShowLineTooltip, placed beside the window.
+  l = tipLines(function() C.ShowLineTooltip({}, "Sword: 3", "gtip.title") end)
+  assertEqual(l[1].c, want("gtip.title"), label .. ": a chart bar's line in its own token")
   l = tipLines(function() C.ShowLineTooltip({}, "3 drops") end)
   assertEqual(l[1].c, want("gtip.value"), label .. ": a strip bar's line")
 end

@@ -171,7 +171,8 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- docking, and v1.105.0 adds `W.HeaderButtons` and `W.Bar` in files of their own; WidgetsDropdown
   -- minor 2 (LibKa0s#92) opens an entry's tooltip beside its menu where it owned at ANCHOR_RIGHT on the
   -- row. No Dropdown, ContextMenu or CloseMenu member, option or row field moves, so nothing to change here.
-  assertEqual(lib.MODULES.Widgets, 27, "this adoption is written against Widgets minor 27")
+  -- Minor 28 (LibKa0s v1.106.0, RangeMaster#17) guards the HUD dock's measurements; no member moves.
+  assertEqual(lib.MODULES.Widgets, 28, "this adoption is written against Widgets minor 28")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

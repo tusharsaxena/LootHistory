@@ -15,7 +15,7 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 -- Routed through NS.L with no override here (the key is the English): the History window's test-mode
 -- marks (modules/Browser.lua, LootHistory#36) --
 --   "TEST MODE"                                                      the red badge beside the title, on a degraded install
---   "TEST MODE: a sample loot history, not yours. Combat ends it."   the strip under the filter bar
+--   "TEST MODE: a sample loot history, not yours. Combat ends it."   the strip under the title bar
 --   "Test mode"                                                      the strip's tooltip title
 --   "Shows: sample loot, holdings and timeline"                      ...and its two lines
 --   "Ended by: combat, /lh test, the launcher menu"

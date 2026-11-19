@@ -99,7 +99,7 @@ at once.
 | `Cfg` | `LibKa0s-Options-1.0` (minor 27); `runRebuilders`, `settings/Panel.lua` | the panel registration parked in combat and its `register flushed (combat ended)`, the open refused in combat, and opened; each write, Defaults, button, toggle, tab or id-list change the combat lock refuses, `<what> refused (in combat)`, once per text per combat; a list rebuilder that raised, once per distinct message (`DebugOnce`, re-armed by a Clear) |
 | `Launcher` | `LibKa0s-Launcher-1.0` (minor 5) | registration, and the broker or minimap library missing, once at register; these are state lines on the descriptor's `debugAtEnable`, held for `debug on` because register runs at login with logging off |
 | `Rollup` | `Rollup:SeedOnce` / `Rollup:Prune`, `modules/Rollup.lua`, from the login deferral | the one-time seed, `seeded <n> cells`, once per account; each login's rollup prune, `retention <n>d: removed <n> days`, or `prune skipped: retention is Always` |
-| `Holdings` | `modules/Reconciler.lua`, `Flush` | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing |
+| `Holdings` | `modules/Reconciler.lua`, `Flush`; `/lh holdings <query>` (`settings/Slash.lua`) | `flush: <n> holder(s) changed`, once per flush that moved at least one holder; a flush that changed nothing writes nothing. The `/lh holdings` report's lines carry the same tag, ungated (*Reports*, below) |
 | `Dispatch` | `NS.DeliverAll`, `core/Dispatch.lua` | `row raised: <error>`, once per row that raised under `pcall` during a simulated delivery (the rest of the rows still run); written only with logging on |
 | `Sim` | `core/SimSeam.lua` (the seam's `debug` sink); `modules/Sim.lua` (the session's `debug` sink and the host) | a traceback from `NS.SimSeam:Live` when the function it ran raised, before the error is re-raised; the library's session lines (each fired event, each step, the stop with its event count and reason); each refused start, `refused: <line>`; each real event that stopped a session, `real <event>: stopping, then recording it live`; each destructive surface refused while one runs, `refused while active: <what>`; each `/lh sim loot`, `loot verb: <n> lines`; and the host's stop line, `simulation stopped (<reason>): <n> events, <n> rows`. Written only with logging on |
 | `Diag` | `/lh diagnostics`; the console's **Diagnostics** link | the report (below), ungated; the run turns logging on first when it is off |
@@ -116,6 +116,24 @@ at once.
 - **The login deferrals.** The five- and twenty-second prune and repair passes run with the flag off
   (it is session-only), so their `[Prune]` and `[Migrate]` lines land only when logging is already on.
 - **Positions, sizes and the saved view.** Named non-setting state (`debug-logging-§10`).
+
+## Reports
+
+A **report** is a multi-line read-out a player asks for by name, and under the owner's routing ruling
+of 2026-11-08 (`debug-logging-§15`, LibKa0s#79) it goes to this console, not to chat. Loot History's
+report verbs:
+
+| Verb | Header | Body | Stays in chat |
+|---|---|---|---|
+| `/lh holdings <query>` | `/lh holdings <query>` | up to ten `<name>: <total>` lines, under the `Holdings` tag | `no holdings match '<query>'.`, which writes nothing; the disabled refusal |
+| `/lh diagnostics` | the begin marker | the diagnostics report (below), which keeps its own helper and pointer | the library-absent line |
+
+Every report but the diagnostics one is written through the library's `NS.DebugLog:Report`: the lines
+land whatever the logging flag reads and leave it as it was, a hidden console is shown, and chat gets
+exactly one pointer line, `<title>: N lines written to the debug console. Use Copy to share it.`, N
+counting the header. Without LibKa0s the stub in `core/DebugLogSetup.lua` prints the body in chat
+with no pointer. The reserved `/lh list`, the help index, acknowledgments and refusals stay in chat.
+Pinned in `tests/test_slash_verbs.lua` (the holdings cases) and `tests/test_debuglog.lua` (the stub).
 
 ## The diagnostics report
 

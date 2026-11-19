@@ -315,14 +315,21 @@ test("Insights layout: nothing it draws stays visible once its pane is hidden (L
 end)
 
 -- The hover lines stay core/Compat.lua's, in the token each widget always used. red under: the
--- library's default tooltip, or one token for every widget.
+-- library's default tooltip, or one token for every widget. Re-pinned by AD-92-LH (LibKa0s#92):
+-- every mark, the strip column included, is a body element whose line goes through ShowLineTooltip
+-- and is placed by the Charts context (a function place, ctx:PlaceTip), where it was pinned beside
+-- the cursor (the retired ShowCursorTooltip) and a strip column sat above itself.
+-- The next case hovers the same instance's marks again, through the real placer: one instance for
+-- both, because every instance this suite builds stays on the heap until the run ends (the leak gate).
+local hoverInst
+
 test("Insights layout: each widget's hover goes through Compat in its own token", function()
   local inst = newInstance()
+  hoverInst = inst
   layout(inst, rich)
   local C, seen = NS.Compat, {}
-  local cursor, line = C.ShowCursorTooltip, C.ShowLineTooltip
-  C.ShowCursorTooltip = function(_, text, token) seen[#seen + 1] = { "cursor", text, token } end
-  C.ShowLineTooltip = function(_, text, token, anchor) seen[#seen + 1] = { anchor, text, token } end
+  local line = C.ShowLineTooltip
+  C.ShowLineTooltip = function(_, text, token, place) seen[#seen + 1] = { place, text, token } end
   local bar = inst.pool.source.active[1]
   local seg = inst.pool.chsource.active[1].segs[1]
   local row = inst.pool.zone.active[1]
@@ -331,15 +338,52 @@ test("Insights layout: each widget's hover goes through Compat in its own token"
   local ok, err = pcall(function()
     for _, w in ipairs({ bar, seg, row, chip, col }) do w:GetScript("OnEnter")(w) end
   end)
-  C.ShowCursorTooltip, C.ShowLineTooltip = cursor, line
+  C.ShowLineTooltip = line
   if not ok then error(err, 0) end
+  assertEqual(#seen, 5, "every widget hovered through ShowLineTooltip")
   assertEqual(seen[1][3], "gtip.title", "a bar's label")
   assertEqual(seen[2][3], "gtip.value", "a segment")
   assertEqual(seen[3][3], "gtip.value", "a list row")
   assertEqual(seen[4][3], "gtip.body", "a legend chip")
-  assertEqual(seen[5][1], "ANCHOR_TOP", "a strip column sits above the column")
   assertEqual(seen[5][3], "gtip.value", "a strip column")
+  for i, s in ipairs(seen) do
+    assertEqual(type(s[1]), "function", "widget " .. i .. " is placed by the Charts context's PlaceTip")
+  end
   assertTrue(seen[1][2]:find(":  ", 1, true) ~= nil, "the hover states the value")
+end)
+
+-- AD-92-LH: a chart mark's tooltip is placed by ctx:PlaceTip (beside the window group), and a
+-- gains-vs-losses bar's beside the window, never at the cursor. red under: ShowCursorTooltip, or the
+-- ledger bars' old ANCHOR_CURSOR.
+test("Insights layout: a chart mark and a gains-vs-losses bar open their tooltips beside the window", function()
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, mocks)
+  local inst = hoverInst or newInstance()
+  hoverInst = nil
+  layout(inst, rich)
+  local ctx, placed = inst.charts, {}
+  local real = ctx.PlaceTip
+  ctx.PlaceTip = function(self, tt, owner) placed[#placed + 1] = owner; return real(self, tt, owner) end
+  local bar = inst.pool.source.active[1]
+  local col = inst.pool.day.active[1]
+  local ok, err = pcall(function()
+    for _, w in ipairs({ bar, col }) do
+      mocks.GameTooltip:Hide()
+      tipSpy.assertBody(tipSpy(function() w:GetScript("OnEnter")(w) end), w, "a chart mark")
+      assertTrue(placed[#placed] == w, "ctx:PlaceTip placed the mark's tooltip")
+    end
+  end)
+  ctx.PlaceTip = real
+  if not ok then error(err, 0) end
+  local T1 = 1600000000
+  local stats = statsFor({
+    { ts = T1, char = "A-Realm", classFile = "MAGE", kind = "GOLD", itemName = "Gold", source = "REPAIR", dir = "OUT", quantity = 300 },
+  })
+  layout(inst, stats)                       -- a second pass on the same instance draws the ledger
+  local lb = inst.ledgerUI.pools.reason.active[1]
+  assertTrue(lb ~= nil, "a gains-vs-losses bar drew")
+  mocks.GameTooltip:Hide()
+  tipSpy.assertBody(tipSpy(function() lb:GetScript("OnEnter")(lb) end), lb, "a gains-vs-losses bar")
+  mocks.GameTooltip:Hide()
 end)
 
 -- A library-absent install: Attach says so and every later call does nothing. red under: Attach

@@ -274,6 +274,18 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 
+### test_tooltip_place.lua (9)
+
+- tooltip placement: LibKa0s-Tooltip-1.0 is loaded for core/Compat.lua to place through
+- tooltip placement: a body tooltip opens right of the window, level with the row, 2 px off
+- tooltip placement: with no room on the right a body tooltip opens left of the window
+- tooltip placement: a chrome tooltip is centered 2 px above its control, below only at the top
+- tooltip placement: a function place (the Charts host's ctx:PlaceTip) places it instead
+- tooltip placement: a tooltip that grows after Show is placed again, only while still ours
+- tooltip placement: unreadable geometry or no Tooltip major attaches it above the element
+- tooltip placement: every Compat Show* helper owns at ANCHOR_NONE and places after Show
+- tooltip placement: no shipped file anchors a tooltip at a corner or the cursor
+
 ### test_scanner.lua (5)
 
 - Scanner: variants sum by itemID across slots and bags
@@ -679,7 +691,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (74)
+### test_browser.lua (77)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -755,9 +767,13 @@ Total.
 - Browser: the default view floors items at the minimum-quality setting
 - Browser: the Quality 'all' option names the floor
 - Browser: group options offer Direction and Holder
+- Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
+- Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)
+- Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 px in (AD-86-LH)
 
-### test_browser_filterbar.lua (22)
+### test_browser_filterbar.lua (23)
 
+- filter bar: a bar button's tooltip is attached above the button
 - Browser: date options offer 90 days and 1 year after 30 days
 - Browser: _filterHonored - no set honors everything, a set honors only its keys
 - Browser: a tab grays the controls it does not honor, and History restores them
@@ -781,17 +797,25 @@ Total.
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
 
-### test_teststrip.lua (7)
+### test_teststrip.lua (8)
 
-- test strip: test mode on shows the strip with its L text, shifts the panes and hides the badge
-- test strip: test mode off hides the strip and the badge and puts the panes back
-- test strip: Show while already in test mode reserves the space
-- test strip: the strip hangs under the filter bar, and hovering it explains test mode
-- test strip: each mode strip hangs under the filter bar and explains its own mode
+- test strip: test mode on shows the strip with its L text, moves the body down and hides the badge
+- test strip: test mode off hides the strip and the badge and puts the body back
+- test strip: Show while already in test mode moves the body down
+- test strip: the strip is docked directly under the title bar, and hovering it explains test mode
+- test strip: each mode strip is docked under the title bar and explains its own mode
+- test strip: each mode strip's tooltip is attached above the strip, never at a corner
 - test strip: the strip text comes from NS.L
 - test strip: degraded (no Widgets): no strip, no shift, the badge still shows
 
-### test_browsertable.lua (85)
+### test_browser_footer.lua (4)
+
+- footer: the History window's footer is the library's W.Footer across its bottom edge
+- footer: its lines keep their words, the count on the left and the database size on the right
+- footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
+- footer: the resize grip sits in the footer's corner, and the right line clears it
+
+### test_browsertable.lua (86)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -864,6 +888,7 @@ Total.
 - BrowserTable: the Qty column is measured wide enough for the widest signed gold amount
 - BrowserTable: a gold row hovers a BankLedger-style Gold tooltip; an item row its own
 - BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged
+- BrowserTable: every row tooltip is a body tooltip, placed beside the window after Show
 - BrowserTable: group by Direction and by Holder
 - BrowserTable: group by Type & SubType orders by type, then subtype, alphabetically
 - BrowserTable: Type & SubType with no subtype reads 'Type: Armor' and leads its type
@@ -879,7 +904,7 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (35)
+### test_export.lua (37)
 
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
@@ -916,12 +941,15 @@ Total.
 - Export: CSV ledger columns follow wowheadLink and default for legacy rows
 - Export: InsightsCSV appends Ledger sections only when the range has losses
 - Export: InsightsCSV writes a negative copper value with a leading minus
+- Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
+- Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)
 
-### test_debuglog.lua (20)
+### test_debuglog.lua (21)
 
 - FONT_MONO constant is a JetBrains Mono TTF path
 - the degraded DebugLog stub's formatters carry no library format string
 - the degraded DebugLog stub's RunDiagnostics prints the placeholder, writes nothing, returns 0
+- the degraded DebugLog stub's Report streams the report to chat with no pointer
 - NS.Debug renders a secret message arg as <secret> without raising
 - NS.Debug formats ordinary args (numbers included) through %s
 - /lh debug on enables state
@@ -1044,7 +1072,7 @@ Total.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_slash_verbs.lua (13)
+### test_slash_verbs.lua (15)
 
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
@@ -1058,7 +1086,9 @@ Total.
 - the refusal is never turned on a verb slash-commands-§2 keeps live, /lh enable above all
 - /lh debug events prints the rejected event names, or none
 - Clear-blacklist confirm and /lh test print their exact lines through the printer
-- /lh holdings <query> prints the matching name and its account-wide total
+- /lh holdings <query> writes its matches to the console, ungated, with one chat pointer
+- /lh holdings caps its report at ten matches
+- /lh holdings with no match answers in chat and writes no report
 
 ### test_slash_degraded.lua (17)
 
@@ -1233,7 +1263,7 @@ Total.
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
 
-### test_analytics_layout.lua (11)
+### test_analytics_layout.lua (12)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1245,9 +1275,10 @@ Total.
 - Insights layout: losses only — no empty text, no LOOT divider
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 - Insights layout: each widget's hover goes through Compat in its own token
+- Insights layout: a chart mark and a gains-vs-losses bar open their tooltips beside the window
 - Insights layout: without LibKa0s-Charts-1.0 the tab says so and draws nothing
 
-### test_holdingstab.lua (33)
+### test_holdingstab.lua (34)
 
 - HoldingsTab: model lists things collapsed by default
 - HoldingsTab: expanding a thing adds one line per holder
@@ -1272,6 +1303,7 @@ Total.
 - HoldingsTab: columns hide right to left as the pane narrows; Name, Total and Value stay
 - HoldingsTab: hovering a thing shows the right tooltip for an item, a currency and gold
 - HoldingsTab: the pane's rows hover and leave through the tooltip; the header holds exactly the column labels
+- HoldingsTab: a row's and a header cell's tooltips open beside the window
 - HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise
 - HoldingsTab group: Quality headers by rank (highest first), N = things in the group
 - HoldingsTab group: Type and SubType headers are alphabetical
@@ -1320,7 +1352,7 @@ Total.
 - Timeline model: LegendLayout keeps the Total's slot and one gap between the rest, wrapping rows
 - Timeline tab: one pane resize renders the chart twice (accepted, bounded)
 
-### test_timelinetab.lua (35)
+### test_timelinetab.lua (36)
 
 - Timeline tab: registered between Insights and Holdings
 - Timeline tab: Total plus one line per holder; the Character filter narrows it
@@ -1342,6 +1374,7 @@ Total.
 - Timeline tab: Total only is remembered in the saved view, the per-line set is not
 - Timeline tab: the hover tooltip lists only the visible lines
 - Timeline tab: hovering a day's strip column shows its Gained / Lost / Net, and OnLeave hides it
+- Timeline tab: strip, legend and chart tooltips open beside the window; the toggle's above it
 - Timeline tab: the strip tooltip stays the Total's with lines hidden
 - Timeline tab: a day with no flow has no strip hit region; regions are pooled across redraws
 - Timeline tab: a repaint under a strip tooltip re-shows it, and one whose day went hides it
@@ -1375,7 +1408,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (12)
+### test_testdata.lua (16)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1389,6 +1422,10 @@ Total.
 - Test mode: a pick of a thing the sample lacks falls back to the default
 - TestData: the seeded sample stores are byte-identical to the pinned build
 - TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
+- Test mode: every History sample character is a sample identity, the shared five by class
+- Test mode: every Holdings sample holder is a sample identity
+- the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail
+- Sim: the stranger the social scenario trades with is a shared sample character
 
 ### test_views.lua (17)
 
@@ -2108,7 +2145,7 @@ Total.
 - skin values: no typed value outside the kit's categories and the host's rows
 - skin values: the check is falsifiable, a planted value of each shape is reported
 
-### test_skin_switch.lua (103)
+### test_skin_switch.lua (107)
 
 - skin switch: the check is falsifiable, a surface that redraws a literal is reported
 - skin switch: the window's edge changes
@@ -2117,6 +2154,8 @@ Total.
 - skin switch: the window's title changes with the Scope ignored
 - skin switch: the close control changes
 - skin switch: the close control changes with the Scope ignored
+- skin switch: the settings mark changes
+- skin switch: the settings mark changes with the Scope ignored
 - skin switch: the selected tab's label changes
 - skin switch: the selected tab's label changes with the Scope ignored
 - skin switch: an unselected tab's label changes
@@ -2137,6 +2176,8 @@ Total.
 - skin switch: the export modal's edge changes with the Scope ignored
 - skin switch: the export modal's title changes
 - skin switch: the export modal's title changes with the Scope ignored
+- skin switch: the export modal's settings mark changes
+- skin switch: the export modal's settings mark changes with the Scope ignored
 - skin switch: the export modal's CSV button changes
 - skin switch: the export modal's CSV button changes with the Scope ignored
 - skin switch: the test strip changes
@@ -2293,6 +2334,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 74 |
 | test_compat_routing.lua | 2 |
+| test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 24 |
@@ -2306,30 +2348,31 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 74 |
-| test_browser_filterbar.lua | 22 |
-| test_teststrip.lua | 7 |
-| test_browsertable.lua | 85 |
-| test_export.lua | 35 |
-| test_debuglog.lua | 20 |
+| test_browser.lua | 77 |
+| test_browser_filterbar.lua | 23 |
+| test_teststrip.lua | 8 |
+| test_browser_footer.lua | 4 |
+| test_browsertable.lua | 86 |
+| test_export.lua | 37 |
+| test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 50 |
-| test_slash_verbs.lua | 13 |
+| test_slash_verbs.lua | 15 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 49 |
-| test_analytics_layout.lua | 11 |
-| test_holdingstab.lua | 33 |
+| test_analytics_layout.lua | 12 |
+| test_holdingstab.lua | 34 |
 | test_timeline.lua | 34 |
-| test_timelinetab.lua | 35 |
+| test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 12 |
+| test_testdata.lua | 16 |
 | test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
@@ -2371,11 +2414,11 @@ Total.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_skin_values.lua | 3 |
-| test_skin_switch.lua | 103 |
+| test_skin_switch.lua | 107 |
 | test_client_globals.lua | 3 |
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **1988** |
+| **Total** | **2023** |

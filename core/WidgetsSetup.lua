@@ -99,9 +99,12 @@
 --
 -- NS.MakeTestStrip answers nil for the same reason, and the mode is still marked: the badge beside
 -- the window title (red TEST MODE, or cyan SIM) does not depend on the library. It marks a mode
--- only on such a degraded install, where the window draws no strip and reserves no space for one
--- (NS.TestStripReserve answers 0); while a strip exists the strip is the marker and the badge stays
--- hidden (the preview-mode header-word rule, standard v2.87.0).
+-- only on such a degraded install, where the window draws no strip and moves no band for one;
+-- while a strip exists the strip is the marker and the badge stays hidden (the preview-mode
+-- header-word rule, standard v2.87.0).
+--
+-- NS.MakeFooter answers a bare footer the same way: the window keeps its two lines at the same
+-- FOOTER.HEIGHT, with no hairline, so a degraded window lays its panes out as a whole one does.
 
 local addonName, NS = ...
 
@@ -296,39 +299,109 @@ function NS.MakeAutocomplete(editBox, opts)
   return W.Autocomplete(editBox, o)
 end
 
---- A mode strip under the filter bar, or nil when the library (or its TestStrip) is absent.
+--- A mode strip, or nil when the library (or its TestStrip) is absent.
 ---
 --- LibKa0s#48 / LootHistory#36: a band with the info mark saying the rows under it are not the
 --- player's live history, in the library's test flavor (amber) or, from Widgets minor 14
---- (LibKa0s v1.76.0), its simulation flavor (cyan, `kind = "sim"`). Born hidden and unanchored;
---- modules/Browser.lua builds one of each kind, anchors them under the filter bar, hooks a per-kind
---- tooltip and shows the one whose mode is on. The `info` art is resolved here, once, like the
---- dropdown's chevron, which is why `info` is on this addon's `LibKa0s icons:` line.
+--- (LibKa0s v1.76.0), its simulation flavor (cyan, `kind = "sim"`). Born hidden; modules/Browser.lua
+--- builds one of each kind, hooks a per-kind tooltip and shows the one whose mode is on. The `info`
+--- art is resolved here, once, like the dropdown's chevron, which is why `info` is on this addon's
+--- `LibKa0s icons:` line.
 ---
---- NIL IS A REAL ANSWER: no strip, no reserve, and the title badge marks the mode instead.
+--- `dock` is the strip's docking (Widgets minor 27; preview-mode's *Where the strip sits*, standard
+--- v2.110.0): `{ titleBar, window, onOffset }` docks it directly under that title bar, full width
+--- (`dock = "title"`), and the library places it again on every show, hide and resize. The host
+--- never anchors it: it moves everything below the title bar down by `strip:BodyOffset()`, told
+--- through `onOffset` on each show and hide. With no `dock` the strip is unanchored (minor 26's).
+---
+--- NIL IS A REAL ANSWER: no strip, no body offset, and the title badge marks the mode instead.
 ---
 --- @param parent table  the frame to parent it to
 --- @param text string   the localized line, set once at birth
 --- @param kind string|nil  "test" (the default) or "sim"; the library maps anything else to "test"
---- @return table|nil    the library's strip, with `strip.text` and `strip.kind`
-function NS.MakeTestStrip(parent, text, kind)
+--- @param dock table|nil  { titleBar, window, onOffset } for `dock = "title"`
+--- @return table|nil    the library's strip, with `strip.text` and `strip.kind` (and, docked,
+---                      `strip:BodyOffset()` and `strip:Place()`)
+function NS.MakeTestStrip(parent, text, kind, dock)
   if not (W and W.TestStrip) then return nil end
   -- sim / onEnd (LibKa0s Widgets minor 21, SF-F1): the strip's right-click menu ends the mode.
   local isSim = kind == "sim"
-  return W.TestStrip(parent, { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind,
+  local opts = { text = text, icon = NS.Icon and NS.Icon("info"), kind = kind,
     owner = addonName, sim = isSim and NS.Sim or nil,
-    onEnd = (not isSim) and function() NS.BrowserTable:SetTestMode(false) end or nil })
+    onEnd = (not isSim) and function() NS.BrowserTable:SetTestMode(false) end or nil }
+  if type(dock) == "table" and dock.titleBar then
+    opts.dock, opts.titleBar, opts.window, opts.onOffset = "title", dock.titleBar, dock.window, dock.onOffset
+  end
+  return W.TestStrip(parent, opts)
 end
 
--- The gap this addon leaves above and below the strip: 2 px under the filter bar, 2 px over the
--- panes. A HOST constant, because the library publishes only the strip's own height.
-local TEST_STRIP_GAPS = 4
+-- What a footer measures with no library: Widgets minor 27's published figures, so a degraded
+-- window lays its panes out the same (it draws no hairline).
+local FOOTER_FALLBACK = { HEIGHT = 24, PAD = 8, GRIP = 22 }
 
---- The height the panes give up while the strip is shown: the library's published HEIGHT plus this
---- addon's gaps, or 0 when there is no strip to make room for.
+--- The window footer's height (W.FOOTER.HEIGHT, 24, skin-invariant; standalone-windows' *Window
+--- chrome geometry*), read where the library publishes it, else the figure it publishes.
 ---
 --- @return number
-function NS.TestStripReserve()
-  if not (W and W.TestStrip and W.TEST_STRIP) then return 0 end
-  return W.TEST_STRIP.HEIGHT + TEST_STRIP_GAPS
+function NS.FooterHeight()
+  local F = W and W.FOOTER
+  return (type(F) == "table" and F.HEIGHT) or FOOTER_FALLBACK.HEIGHT
+end
+
+-- The degraded footer: a bare FOOTER.HEIGHT frame across the window's bottom edge with the two
+-- lines W.Footer would lay, and the same SetLeft / SetRight; no hairline, no skin.
+local function bareFooter(parent, opts)
+  local F = FOOTER_FALLBACK
+  local foot = CreateFrame("Frame", nil, parent)
+  foot:SetHeight(F.HEIGHT)
+  foot:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+  foot:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 0)
+  foot.left = foot:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  foot.left:SetPoint("LEFT", foot, "LEFT", F.PAD, 0)
+  foot.left:SetJustifyH("LEFT")
+  foot.right = foot:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  foot.right:SetPoint("RIGHT", foot, "RIGHT", -(opts.grip and F.GRIP or F.PAD), 0)
+  foot.right:SetJustifyH("RIGHT")
+  foot.marks = {}
+  foot.SetLeft = function(self, text) self.left:SetText(type(text) == "string" and text or "") end
+  foot.SetRight = function(self, text) self.right:SetText(type(text) == "string" and text or "") end
+  foot:SetLeft(opts.left)
+  foot:SetRight(opts.right)
+  return foot
+end
+
+--- A window footer (the library's W.Footer, Widgets minor 27; standalone-windows' *The footer*,
+--- standard v2.110.0): no fill, a hairline in the skin's `divider` along its top, FOOTER.HEIGHT tall
+--- across `parent`'s bottom edge, born shown, its `left` and `right` lines in `text.muted`, painted
+--- for this addon's skin owner. With no library (or a Widgets shell older than minor 27) the bare
+--- footer above stands in, so the window keeps its lines.
+---
+--- @param parent table  the frame whose bottom edge it spans
+--- @param opts table|nil  W.Footer's opts (left, right, marks, grip, resize, inset); `owner` is always this addon
+--- @return table  the footer, with `foot.left`, `foot.right`, `foot:SetLeft`, `foot:SetRight`
+function NS.MakeFooter(parent, opts)
+  local o = {}
+  for k, v in pairs(opts or {}) do o[k] = v end
+  if not (W and type(W.Footer) == "function") then return bareFooter(parent, o) end
+  o.owner = addonName
+  return W.Footer(parent, o)
+end
+
+--- A window's title-bar marks (the library's W.HeaderButtons, WidgetsHeader minor 1; standalone-windows'
+--- *Title-bar controls*, standard v2.113.0, LibKa0s#86): right-aligned, left to right `spec.extras`,
+--- settings, close. `owner` is always this addon's folder, which is also the launcher descriptor's
+--- `name` (core/LauncherSetup.lua), so the settings mark's click reaches the opener the launcher
+--- registered for it (Core.OpenSettings). `spec.makeClose` is the host's close factory (this addon's
+--- one wrapper, B:MakeCloseButton). Answers nil with no library (or a Widgets older than v1.105.0),
+--- and the caller builds its close alone, as before.
+---
+--- @param bar table   the title bar the marks sit on
+--- @param spec table  W.HeaderButtons' spec (close, makeClose, settings, hideOnSettings, extras, frame, ...)
+--- @return table|nil  W.HeaderButtons' answer: { close, settings, extras, order, offsets, right, optOut }
+function NS.MakeHeaderButtons(bar, spec)
+  if not (W and type(W.HeaderButtons) == "function") then return nil end
+  local o = {}
+  for k, v in pairs(spec or {}) do o[k] = v end
+  o.owner = addonName
+  return W.HeaderButtons(bar, o)
 end

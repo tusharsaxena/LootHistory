@@ -471,7 +471,8 @@ local function makeHeaderCell(header, col)
   b.fs:SetAllPoints(); b.fs:SetJustifyH(col.align); b.fs:SetWordWrap(false)
   b.fs:SetTextColor(headerRGB())
   b:SetScript("OnClick", function() HT:SetSort(col.key) end)
-  b:SetScript("OnEnter", function(self) NS.Compat.ShowTextTooltip(self, col.label, col.desc, "ANCHOR_BOTTOM") end)
+  -- A column header is a BODY element: beside the window, as a row's (AD-92-LH).
+  b:SetScript("OnEnter", function(self) NS.Compat.ShowTextTooltip(self, col.label, col.desc) end)
   b:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   return b
 end

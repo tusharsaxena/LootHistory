@@ -185,7 +185,7 @@ end)
 -- ── Color + label helpers ─────────────────────────────────────────────────────
 
 test("Analytics._shortChar: drops the realm from a Name-Realm key", function()
-  assertEqual(A._shortChar("Ka0z-Ravencrest"), "Ka0z")
+  assertEqual(A._shortChar("Samplehunter-Samplerealm"), "Samplehunter")
   assertEqual(A._shortChar("Ka0z"), "Ka0z")
 end)
 

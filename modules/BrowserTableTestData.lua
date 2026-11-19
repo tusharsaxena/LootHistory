@@ -155,12 +155,29 @@ local function testSubType(ty, idBase)
   return list[(idBase % #list) + 1]
 end
 
+-- The sample characters, one per class (preview-mode "Sample characters", LibKa0s#87): the five of
+-- the collection's shared set (NS.SampleCharacters, core/SimSeam.lua) for their classes, and for the
+-- eight classes those five lack this addon's own pool, named to the same convention (a 2-12 letter
+-- name starting Sample or Mock, on Samplerealm). Keyed at file load; draws nothing from the PRNG, so
+-- the dataset's shape does not move with the names.
+local SAMPLE_POOL = {
+  ROGUE = "Sampleshade", DEATHKNIGHT = "Mockfrost", SHAMAN = "Sampletotem", WARLOCK = "Mockhex",
+  MONK = "Samplepalm", DRUID = "Mockgrove", DEMONHUNTER = "Sampleglaive", EVOKER = "Mockscale",
+}
+local SAMPLE_KEYS = {}
+for _, c in ipairs(NS.SampleCharacters()) do SAMPLE_KEYS[c.classFile] = c.fullName end
+for cls, name in pairs(SAMPLE_POOL) do SAMPLE_KEYS[cls] = SAMPLE_KEYS[cls] or (name .. "-Samplerealm") end
+
+--- The sample character of class `cls`, as its Name-Realm holder key.
+local function testCharKey(cls) return SAMPLE_KEYS[cls] end
+
 -- The sample's universe, shared with test mode's ledger half (modules/TestData.lua), so the Holdings
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
-BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000 }
+BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000,
+  charKey = testCharKey }
 
 -- The other end of a sample holder-move row: the Warband for a warband move, else the sample class
--- after the row's own (wrapping), as that character's Name-Realm and its class.
+-- after the row's own (wrapping), as that character's sample key and its class.
 local function moveOtherEnd(r)
   if r.source == "WARBAND_DEPOSIT" or r.source == "WARBAND_WITHDRAW" then
     return C.WARBAND_HOLDER, nil
@@ -168,7 +185,7 @@ local function moveOtherEnd(r)
   local k = 1
   while TEST_CLASSES[k] and TEST_CLASSES[k] ~= r.classFile do k = k + 1 end
   local otherClass = TEST_CLASSES[(k % #TEST_CLASSES) + 1]
-  return otherClass:sub(1, 1) .. otherClass:sub(2):lower() .. "-Ravencrest", otherClass
+  return testCharKey(otherClass), otherClass
 end
 
 -- The container a move lands in on its receiver: the Warband's tabs, an alt's mail for ALT_MAIL,
@@ -237,7 +254,7 @@ function BrowserTable:BuildTestData()
     local conf    = (rng(100) <= 14) and "INFERRED" or "CERTAIN"
     out[#out + 1] = {
       ts = now - age,
-      char = cls:sub(1, 1) .. cls:sub(2):lower() .. "-Ravencrest",
+      char = testCharKey(cls),
       classFile = cls,
       itemID = 100000 + idBase,
       itemName = TEST_ITEM_NAMES[idBase],

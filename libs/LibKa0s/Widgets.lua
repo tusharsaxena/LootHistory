@@ -132,7 +132,12 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- lib.FOOTER (THE FOOTER), and the strip's docking: `opts.dock` / lib.DockTestStrip under a title bar
 -- or on a HUD's top edge, flipped under its bottom edge when the top would leave the screen, with
 -- `strip:Place()`, `strip:BodyOffset()` and `strip:IsFlipped()`. An undocked strip is minor 26's.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 27
+-- Minor 28 (RangeMaster#17): the HUD dock's measurements are guarded. The client refuses GetTop and
+-- its kin on a region anchored to a nameplate ("Can't measure restricted regions"), and the dock
+-- measured its target from unguarded OnShow / OnSizeChanged hooks, so a strip docked on a display
+-- riding a plate raised from the host's frame. A measurement the client refuses now answers nil, and
+-- the strip is placed on the display's top edge, unflipped and clearing nothing it cannot measure.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 28
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -578,6 +583,10 @@ end
 -- The strip re-places itself when it shows, when the title bar, the window, the display or the clear
 -- frame shows, hides or resizes; a host that MOVES a display calls `strip:Place()` after the move,
 -- since a move fires no script. The strip never shows or hides itself.
+--
+-- Every measurement goes through `measure` (minor 28): a display anchored to a nameplate cannot be
+-- measured, the client raising on the read, so a refused read answers nil, which the placement reads
+-- as "no flip" and "nothing to clear". The strip still docks on such a display's top edge.
 
 local STRIP_HUD_LEVEL = 5   -- the display's chrome band: this many levels over the display
 
@@ -590,21 +599,30 @@ local function call(f, method, ...)
   return nil
 end
 
+--- `f:method()` as a number, or nil: nil too when the client refuses the read (a region anchored to a
+--- nameplate, "Can't measure restricted regions"), which raises rather than answering (minor 28).
+local function measure(f, method)
+  local fn = type(f) == "table" and f[method]
+  if type(fn) ~= "function" then return nil end
+  local ok, v = pcall(fn, f)
+  return ok and num(v) or nil
+end
+
 --- The screen's top in screen pixels, and `f`'s top and bottom in the same units, or nil.
 local function screenEdges(f)
-  local scale = num(call(f, "GetEffectiveScale")) or 1
-  local top, bottom = num(call(f, "GetTop")), num(call(f, "GetBottom"))
+  local scale = measure(f, "GetEffectiveScale") or 1
+  local top, bottom = measure(f, "GetTop"), measure(f, "GetBottom")
   return top and top * scale, bottom and bottom * scale, scale
 end
 
 local function screenTop()
   local ui = UIParent
-  local top = num(call(ui, "GetTop"))
-  return top and top * (num(call(ui, "GetEffectiveScale")) or 1)
+  local top = measure(ui, "GetTop")
+  return top and top * (measure(ui, "GetEffectiveScale") or 1)
 end
 
 local function stripHeight(s)
-  return num(call(s, "GetHeight")) or STRIP_H
+  return measure(s, "GetHeight") or STRIP_H
 end
 
 --- How far past the display's top (or bottom, `below`) the clear frame reaches while it shows, in
@@ -613,7 +631,7 @@ local function clearReach(s, d, below)
   if not shown(d.clear) then return 0 end
   local tTop, tBottom = screenEdges(d.target)
   local cTop, cBottom = screenEdges(d.clear)
-  local scale = num(call(s, "GetEffectiveScale")) or 1
+  local scale = measure(s, "GetEffectiveScale") or 1
   local reach
   if below then reach = tBottom and cBottom and (tBottom - cBottom) else reach = cTop and tTop and (cTop - tTop) end
   if not reach or reach <= 0 then return 0 end
@@ -625,7 +643,7 @@ local function wouldLeaveTop(s, d, lift)
   local sTop = screenTop()
   local tTop = screenEdges(d.target)
   if not (sTop and tTop) then return false end
-  local scale = num(call(s, "GetEffectiveScale")) or 1
+  local scale = measure(s, "GetEffectiveScale") or 1
   return tTop + (lift + stripHeight(s)) * scale > sTop + 0.5
 end
 

@@ -187,7 +187,8 @@ local function makeToggle(parent, text, onClick, tip)
   end
   b:SetChecked(false)
   b:SetScript("OnClick", onClick)
-  b:SetScript("OnEnter", function(self2) NS.Compat.ShowTextTooltip(self2, text, tip, "ANCHOR_BOTTOM") end)
+  -- A toggle on the tab's header band, a toolbar: CHROME, centered above it (AD-92-LH).
+  b:SetScript("OnEnter", function(self2) NS.Compat.ShowTextTooltip(self2, text, tip, "chrome") end)
   b:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
   NS.Skin.Button(b)
   return b
@@ -404,7 +405,7 @@ function TL:ShowFlowTip(bar)
   local h = self.model and TM.FlowLines(self.model, bar.flow)
   if not h then self:HideFlowTip(); return end
   self.flowTipOwner, self.legendTipOwner = bar, nil
-  NS.Compat.ShowLinesTooltip(bar, h.title, h.rows, "ANCHOR_CURSOR")
+  NS.Compat.ShowLinesTooltip(bar, h.title, h.rows)   -- a chart mark: beside the window (AD-92-LH)
 end
 
 function TL:HideFlowTip()
@@ -470,10 +471,11 @@ function TL:ShowLegendTip(btn)
   self.legendTipOwner, self.flowTipOwner = btn, nil
   local t = TM.LegendTip(self.model, btn.key)
   if not t then
-    NS.Compat.ShowTextTooltip(btn, btn.label, "Click to hide/show", "ANCHOR_TOP")
+    NS.Compat.ShowTextTooltip(btn, btn.label, "Click to hide/show")
     return
   end
-  NS.Compat.ShowAmountTooltip(btn, t.title, t.color, t.label, t.value, t.hint, "ANCHOR_TOP")
+  -- A legend chip is a BODY element: beside the window, level with the chip (AD-92-LH).
+  NS.Compat.ShowAmountTooltip(btn, t.title, t.color, t.label, t.value, t.hint)
 end
 
 function TL:HideLegendTip()
@@ -553,7 +555,8 @@ function TL:OnHover(i)
   end
   rows[#rows + 1] = { label = "Gained", text = h.gain, color = NS.Skin.Token("sem.good") }
   rows[#rows + 1] = { label = "Lost", text = h.loss, color = NS.Skin.Token("sem.bad") }
-  NS.Compat.ShowLinesTooltip(self.chart, h.title, rows, "ANCHOR_CURSOR")
+  -- The plot is a BODY element: beside the window, level with the chart's top (AD-92-LH).
+  NS.Compat.ShowLinesTooltip(self.chart, h.title, rows)
 end
 
 function TL:VisibleSeriesCount()

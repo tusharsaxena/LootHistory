@@ -329,6 +329,10 @@ test("sim marker: while a session runs the window wears the sim strip and the fo
     assertFalse(f.simStrip:IsShown(), "idle: no sim strip")
     local base = {}
     for name, pane in pairs(f.panes) do base[name] = paneTop(pane) end
+    -- The mock answers the strip's icon texture with the strip itself (the kit's known divergence),
+    -- so its own height is lost; it answers the height the library sets on it while this runs.
+    local stripH = T.mocks.LibStub("LibKa0s-Widgets-1.0").TEST_STRIP.HEIGHT
+    rawset(f.simStrip, "GetHeight", function() return stripH end)
     start("loot")
     assertTrue(f.simStrip:IsShown(), "running: the sim strip")
     assertEqual(f.simStrip.kind, "sim", "the library's simulation flavor")
@@ -336,8 +340,9 @@ test("sim marker: while a session runs the window wears the sim strip and the fo
     assertFalse(f.testStrip:IsShown(), "running: no test strip")
     assertFalse(f.testBadge:IsShown(), "running: the strip is the marker, so no title badge")
     for name, pane in pairs(f.panes) do
-      assertEqual(paneTop(pane), base[name] - NS.TestStripReserve(), name .. " pane moves under the strip")
+      assertEqual(paneTop(pane), base[name] - stripH, name .. " pane moves down by the strip's BodyOffset")
     end
+    rawset(f.simStrip, "GetHeight", nil)
     assertEqual(B._footer:GetText():match("^Simulating: loot \194\183 step 0/3"), "Simulating: loot \194\183 step 0/3")
     Sim:Step()
     assertTrue(B._footer:GetText():find("step 1/3", 1, true) ~= nil, "a step repaints the footer: "

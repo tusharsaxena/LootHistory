@@ -1106,6 +1106,36 @@ test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows 
   if not ok then error(err, 0) end
 end)
 
+-- AD-92-LH (LibKa0s#92): a History row is a BODY element, so every one of its tooltips (an item's,
+-- a currency's, a gold row's, a test-mode sample's) opens beside the window through
+-- Compat.PlaceTooltip, owned at ANCHOR_NONE. red under: the row's old ANCHOR_RIGHT, a corner of the
+-- row as wide as the window, or a placement before Show.
+test("BrowserTable: every row tooltip is a body tooltip, placed beside the window after Show", function()
+  local BT, M = NS.BrowserTable, T.mocks
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, M)
+  local row, savedMode = BT:BuildRow(), BT.testMode
+  -- A link-less sample row, written out (BuildTestData's whole set is heap the leak gate counts).
+  local sample = { itemName = "Sword", quality = 4, itemType = "Weapon", itemSubType = "Daggers", quantity = 1 }
+  local ok, err = pcall(function()
+    local cases = {
+      { "an item row", { itemName = "Apple", itemLink = "|Hitem:7|h[Apple]|h", quantity = 1 } },
+      { "a currency row", { itemName = "Crest", currencyID = 3008, quantity = 5 } },
+      { "a gold row", { kind = "GOLD", itemName = "Gold", quantity = 1234567, dir = "OUT" } },
+      { "a test-mode sample row", sample, true },
+    }
+    for i, c in ipairs(cases) do
+      BT.testMode = c[3] or false
+      BT:BindRow(row, dataEntry(c[2]), i)
+      M.GameTooltip:Hide()
+      local got = tipSpy(function() row:GetScript("OnEnter")(row) end)
+      tipSpy.assertBody(got, row, c[1])
+    end
+  end)
+  BT.testMode = savedMode
+  M.GameTooltip:Hide()
+  if not ok then error(err, 0) end
+end)
+
 test("BrowserTable: group by Direction and by Holder", function()
   local BT = NS.BrowserTable
   local saved = BT.groupBy
@@ -1295,22 +1325,23 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   for id, count in pairs(byPair) do assertEqual(count, 2, "pair " .. id .. " has both halves") end
   local W = NS.Constants.WARBAND_HOLDER
   local want = {
-    "1|WARBAND_DEPOSIT|OUT|Warlock-Ravencrest|Warlock-Ravencrest|WARLOCK|Warlock-Ravencrest/bags|{W}/tabs",
-    "2|WARBAND_WITHDRAW|OUT|{W}|Monk-Ravencrest|MONK|{W}/tabs|Monk-Ravencrest/bags",
-    "3|ALT_MAIL|OUT|Druid-Ravencrest|Druid-Ravencrest|DRUID|Druid-Ravencrest/bags|Demonhunter-Ravencrest/mail",
-    "4|ALT_TRADE|OUT|Demonhunter-Ravencrest|Demonhunter-Ravencrest|DEMONHUNTER|Demonhunter-Ravencrest/bags"
-      .. "|Evoker-Ravencrest/bags",
-    "5|CURRENCY_TRANSFER|OUT|Evoker-Ravencrest|Evoker-Ravencrest|EVOKER|Evoker-Ravencrest/bags"
-      .. "|Warrior-Ravencrest/bags",
-    "1|WARBAND_DEPOSIT|IN|{W}|Warlock-Ravencrest|WARLOCK|Warlock-Ravencrest/bags|{W}/tabs",
-    "2|WARBAND_WITHDRAW|IN|Monk-Ravencrest|Monk-Ravencrest|MONK|{W}/tabs|Monk-Ravencrest/bags",
-    "3|ALT_MAIL|IN|Demonhunter-Ravencrest|Demonhunter-Ravencrest|DEMONHUNTER|Druid-Ravencrest/bags"
-      .. "|Demonhunter-Ravencrest/mail",
-    "4|ALT_TRADE|IN|Evoker-Ravencrest|Evoker-Ravencrest|EVOKER|Demonhunter-Ravencrest/bags|Evoker-Ravencrest/bags",
-    "5|CURRENCY_TRANSFER|IN|Warrior-Ravencrest|Warrior-Ravencrest|WARRIOR|Evoker-Ravencrest/bags"
-      .. "|Warrior-Ravencrest/bags",
+    "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|OUT|{W}|{MK}|MONK|{W}/tabs|{MK}/bags",
+    "3|ALT_MAIL|OUT|{DR}|{DR}|DRUID|{DR}/bags|{DH}/mail",
+    "4|ALT_TRADE|OUT|{DH}|{DH}|DEMONHUNTER|{DH}/bags|{EV}/bags",
+    "5|CURRENCY_TRANSFER|OUT|{EV}|{EV}|EVOKER|{EV}/bags|{WA}/bags",
+    "1|WARBAND_DEPOSIT|IN|{W}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|IN|{MK}|{MK}|MONK|{W}/tabs|{MK}/bags",
+    "3|ALT_MAIL|IN|{DH}|{DH}|DEMONHUNTER|{DR}/bags|{DH}/mail",
+    "4|ALT_TRADE|IN|{EV}|{EV}|EVOKER|{DH}/bags|{EV}/bags",
+    "5|CURRENCY_TRANSFER|IN|{WA}|{WA}|WARRIOR|{EV}/bags|{WA}/bags",
   }
-  assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{W}", W)))
+  -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
+  -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
+  local names = { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
+    DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
+    WA = "Mockshield-Mockrealm" }
+  assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))
 end)
 
 test("BrowserTable: GroupRecords pins nil, unknown and column-less group modes", function()

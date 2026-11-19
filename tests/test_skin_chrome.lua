@@ -140,8 +140,10 @@ local function assertChrome(win, exp, want, label)
       assertEqual(rgba(rawget(regions.line, "__color")), want("tab.onLine"), label .. ": tab underline " .. name)
     end
   end
-  assertEqual(textColor(B._footer), want("text.disabled"), label .. ": the footer")
-  assertEqual(textColor(B._dbFooter), want("text.disabled"), label .. ": the DB-size footer")
+  -- The footer is the library's W.Footer since AD-89-LH (standalone-windows' *The footer*, standard
+  -- v2.110.0): both lines in `text.muted`, where the hand-built footer drew `text.disabled`.
+  assertEqual(textColor(B._footer), want("text.muted"), label .. ": the footer")
+  assertEqual(textColor(B._dbFooter), want("text.muted"), label .. ": the DB-size footer")
   for _, key in ipairs({ "export", "save", "reset", "clear" }) do
     local b = B._barCtl[key]
     assertEqual(rgba(rawget(b, "__backdropColor")), want("btn.bg"), label .. ": " .. key .. " fill")
@@ -441,19 +443,26 @@ local function assertHeader(frame, bar, title, close, key, what)
   assertOnBand(title, band, what .. " title")
   assertOnBand(close, band, what .. " close")
   assertEqual(points(close)[1][4], -6, what .. ": the close is 6 px in from the band's right")
+  -- AD-86-LH: the settings mark the close's width and W.HeaderButtons' 6 px gap inward of it.
+  local settings = frame.settingsButton
+  assertTrue(settings ~= nil, what .. ": the title bar has its settings mark")
+  assertOnBand(settings, band, what .. " settings")
+  assertEqual(points(settings)[1][4], -(6 + close:GetWidth() + 6),
+    what .. ": settings the close's width and a 6 px gap in from the close")
 end
 
 -- ── the title-bar controls (SR-LH, smoke round 1's rulings 3 and 4) ─────────────────────────────
 --
 -- Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS/SR1_SMOKE_ROUND1.md: every title-bar
 -- control on every window shows a tooltip on hover, in the owner's gtip.title, and rests in the
--- skin's icon.tint; a close X lights close.hot under the pointer. This addon's two windows carry one
--- title-bar control each, the close, built by Core.MakeCloseButton with this owner (core/CoreSetup.lua),
--- so the library's AttachTitleTip and CloseButton paint are what this holds. A control added to
+-- skin's icon.tint; a close X lights close.hot under the pointer. This addon's two windows carry two
+-- title-bar controls each since AD-86-LH (W.HeaderButtons, LibKa0s#86): the settings mark, which
+-- lights text.link, and the close, built by Core.MakeCloseButton with this owner (core/CoreSetup.lua),
+-- so the library's AttachTitleTip, Mark and CloseButton paint are what this holds. A control added to
 -- either title bar joins its window's list below, or the window is not covered.
 local TITLE_CONTROLS = {
-  { what = "History", controls = function(win) return { close = win.closeButton } end },
-  { what = "export", controls = function(_, exp) return { close = exp.closeButton } end },
+  { what = "History", controls = function(win) return { close = win.closeButton, settings = win.settingsButton } end },
+  { what = "export", controls = function(_, exp) return { close = exp.closeButton, settings = exp.settingsButton } end },
 }
 
 -- Hover `b` and answer what the tooltip was given: { text, color } or nil, and whether leave hid it.

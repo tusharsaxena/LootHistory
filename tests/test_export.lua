@@ -353,3 +353,46 @@ test("Export: InsightsCSV writes a negative copper value with a leading minus", 
     netCount = 0, netValue = -200, reasonIn = {}, reasonOut = {}, valueReasonIn = {}, valueReasonOut = {} }
   assertTrue(NS.Export:InsightsCSV(stats):find("Ledger,Net,0,-0g 2s 0c", 1, true) ~= nil)
 end)
+
+-- ── The title-bar marks (AD-86-LH, LibKa0s#86) ─────────────────────────────────────────────────
+-- standalone-windows *Title-bar controls* (standard v2.113.0): the export modal's title bar reads
+-- settings · close through W.HeaderButtons. The modal is DIALOG strata, over the settings panel, so
+-- the settings mark hides it first (hideOnSettings).
+
+test("Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)", function()
+  -- red under: the modal's close built by hand with no settings mark.
+  NS.Export:Open({ title = "Export History", providers = {}, csv = function() return "" end })
+  local win = NS.Export:Window()
+  local ok, err = pcall(function()
+    local hb = win.headerButtons
+    assertTrue(hb ~= nil, "the export modal's marks are not W.HeaderButtons'")
+    assertEqual(table.concat(hb.order, ","), "settings,close", "left to right settings · close")
+    assertTrue(win.settingsButton ~= nil and win.settingsButton == hb.settings, "the settings mark")
+    assertTrue(win.closeButton ~= nil and win.closeButton == hb.close, "the close mark")
+    assertEqual(hb.offsets.close, -6, "the close 6 px in from the corner")
+    assertEqual(hb.offsets.settings, -(6 + win.closeButton:GetWidth() + 6),
+      "settings the close's width and a 6 px gap inward of it")
+    assertEqual(rawget(win.settingsButton, "__owner"), "LootHistory", "the mark is this addon's")
+  end)
+  win:Hide()
+  if not ok then error(err, 0) end
+end)
+
+test("Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)", function()
+  -- red under: no settings mark, or one that leaves the DIALOG-strata modal over the settings panel.
+  NS.Export:Open({ title = "Export History", providers = {}, csv = function() return "" end })
+  local win = NS.Export:Window()
+  local ok, err = pcall(function()
+    assertTrue(win:IsShown(), "the export modal did not open")
+    local P, opened = NS.Panel, 0
+    local real = P.Open
+    P.Open = function() opened = opened + 1 end
+    local fired, why = pcall(function() win.settingsButton:__fire("OnClick", "LeftButton") end)
+    P.Open = real
+    if not fired then error(why, 0) end
+    assertEqual(opened, 1, "the settings mark did not open the settings panel")
+    assertTrue(not win:IsShown(), "the modal stayed up over the settings panel")
+  end)
+  win:Hide()
+  if not ok then error(err, 0) end
+end)

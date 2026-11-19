@@ -76,7 +76,7 @@ if not lib then
     DebugVerb = function() return false end,
     -- The report and its serializer (DebugLog 23, LibKa0s v1.105.0, LibKa0s#79). With no console the
     -- report streams to chat with no pointer, the ruling's library-absent arm; a serialize answers one
-    -- line. Carried for surface parity; no verb here routes through them yet (adoption is owed).
+    -- line. `/lh holdings` (settings/Slash.lua) is the one report verb that routes through Report.
     Report = function(_, _, _, fn)
       local n = 0
       if type(fn) == "function" then

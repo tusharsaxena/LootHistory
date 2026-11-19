@@ -392,6 +392,33 @@ case("Timeline tab: hovering a day's strip column shows its Gained / Lost / Net,
   assertTrue(got.hides >= 1, "OnLeave hides the tooltip")
 end)
 
+-- AD-92-LH (LibKa0s#92): the strip's columns, the legend's entries and the plot are BODY elements,
+-- so their tooltips open beside the window; the Total only toggle sits on the tab's header band, a
+-- toolbar, so its tooltip is CHROME, attached above it. red under: the old ANCHOR_CURSOR,
+-- ANCHOR_TOP and ANCHOR_BOTTOM.
+case("Timeline tab: strip, legend and chart tooltips open beside the window; the toggle's above it", function()
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, T.mocks)
+  local tt = T.mocks.GameTooltip
+  seedFlow(20000, 5000)
+  open()
+  local TL = NS.Timeline
+  local bar = TL.stripPool.active[1]
+  tt:Hide()
+  tipSpy.assertBody(tipSpy(function() bar:__fire("OnEnter") end), bar, "a strip column")
+  bar:__fire("OnLeave")
+  local b = legendButton(TOTAL)
+  tt:Hide()
+  tipSpy.assertBody(tipSpy(function() b:__fire("OnEnter") end), b, "a legend entry")
+  b:__fire("OnLeave")
+  tt:Hide()
+  tipSpy.assertBody(tipSpy(function() TL:OnHover(#TL.model.hoverXs) end), TL.chart, "the chart's hover")
+  TL:OnHover(nil)
+  local toggle = TL.totalOnlyBtn
+  tt:Hide()
+  tipSpy.assertChrome(tipSpy(function() toggle:GetScript("OnEnter")(toggle) end), toggle, "the Total only toggle")
+  toggle:GetScript("OnLeave")(toggle)
+end)
+
 case("Timeline tab: the strip tooltip stays the Total's with lines hidden", function()
   seedFlow(20000, 5000)
   open()

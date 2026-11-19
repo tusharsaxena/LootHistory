@@ -408,6 +408,40 @@ test("HoldingsTab: the pane's rows hover and leave through the tooltip; the head
   if not ok then error(err, 0) end
 end)
 
+-- AD-92-LH (LibKa0s#92): a Holdings row and a header cell are BODY elements, so each tooltip opens
+-- beside the window, owned at ANCHOR_NONE. red under: the shims' old ANCHOR_RIGHT, or the header's
+-- ANCHOR_BOTTOM.
+test("HoldingsTab: a row's and a header cell's tooltips open beside the window", function()
+  seed()
+  local HT = NS.HoldingsTab
+  local tipSpy = dofile("tests/tip_spy.lua")(NS, T.mocks)
+  local scroll, savedWidth
+  local ok, err = pcall(function()
+    NS.Browser:Show(); NS.Browser:SelectTab("Holdings"); NS.Browser:SetCharSet(nil)
+    scroll = HT.scroll; savedWidth = rawget(scroll, "GetWidth")
+    HT.scroll.GetWidth = function() return 2000 end
+    HT:Refresh()
+    local hovered = 0
+    for _, row in ipairs(HT:Rows()) do
+      local l = row.line
+      if l and l.kind == "thing" then
+        T.mocks.GameTooltip:Hide()
+        tipSpy.assertBody(tipSpy(function() row:GetScript("OnEnter")(row) end), row, "a Holdings row")
+        row:GetScript("OnLeave")(row)
+        hovered = hovered + 1
+      end
+    end
+    assertTrue(hovered >= 2, "the rows hovered")
+    local cell = HT.header.cells.name
+    T.mocks.GameTooltip:Hide()
+    tipSpy.assertBody(tipSpy(function() cell:GetScript("OnEnter")(cell) end), cell, "a Holdings header cell")
+    cell:GetScript("OnLeave")(cell)
+  end)
+  if scroll then scroll.GetWidth = savedWidth end
+  NS.Browser:SelectTab("History"); NS.Browser._forgetLive("Holdings"); NS.Browser:Hide()
+  if not ok then error(err, 0) end
+end)
+
 test("HoldingsTab: with no GameTooltip the tooltip shims draw nothing and do not raise", function()
   local saved = mocks.GameTooltip
   mocks.GameTooltip = nil

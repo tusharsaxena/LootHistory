@@ -20,11 +20,11 @@ free number in its theme.
 | PANEL-1 to 27 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
 | PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
-| TM-1 to 2 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, and its History row tooltips |
+| TM-1 to 3 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 44 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin |
+| HIST-1 to 49 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open |
 | FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -33,12 +33,12 @@ free number in its theme.
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
 | ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
 | DEGRADED-1 to 15 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
-| LED-1 to 13 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin |
+| LED-1 to 14 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin, where Holdings' tooltips open |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 18 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, and the Timeline on the skin |
+| TL-1 to 19 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | SKIN-1 to 54 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview |
-| SIM-1 to 14 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window |
+| SIM-1 to 15 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
 
 ## Before you start
@@ -535,9 +535,11 @@ resize grip → the grip is still drawn, nothing resizes and no size is saved (`
 keeps the old size); untick → the grip resizes again and `/reload` keeps the new size. Result: pass (owner-marked 2026-10-10)
 
 **STATE-13. The test-mode strip (LootHistory#36).** `/lh test` → an amber strip with the info mark
-reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits under the filter bar,
-the History table starts under it. (Procedure amended by LH-10, 2026-10-23: the red **TEST MODE**
-badge no longer shows beside the title while the strip does; STATE-17 checks that.) Result: pass
+reading `TEST MODE: a sample loot history, not yours. Combat ends it.` sits directly under the title
+bar, above the tabs, and the tabs, the filter bar and the History table start under it. (Procedure
+amended by LH-10, 2026-10-23: the red **TEST MODE** badge no longer shows beside the title while the
+strip does; STATE-17 checks that. Amended by AD-88-LH, 2026-11-17: the strip sat under the filter bar;
+HIST-45 checks its new place.) Result: pass
 (owner-marked 2026-10-23)
 
 **STATE-14. Every tab makes room for the strip.** Still in test mode, open **Insights**,
@@ -545,7 +547,7 @@ badge no longer shows beside the title while the strip does; STATE-17 checks tha
 with nothing hidden behind it. Result: pass (owner-marked 2026-10-23)
 
 **STATE-15. The strip goes with test mode.** Enter combat (hit a target dummy) → test mode ends, and
-the strip goes and every tab moves back up under the filter bar. Turn it on again
+the strip goes and the tabs, the filter bar and every pane move back up under the title bar. Turn it on again
 and `/lh test` → the same. Result: pass (owner-marked 2026-10-23)
 
 **STATE-16. The strip's tooltip.** In test mode, hover the strip → a tooltip titled `Test mode`,
@@ -553,7 +555,7 @@ then `Shows: sample loot, holdings and timeline` and `Ended by: combat, /lh test
 menu`; move off → it goes. Result: pass (owner-marked 2026-10-23)
 
 **STATE-17. The strip is the test-mode marker; no title badge.** `/lh test` → the amber strip sits
-under the filter bar and there is **no** red **TEST MODE** beside the window title. Open each tab
+under the title bar (under the filter bar before AD-88-LH) and there is **no** red **TEST MODE** beside the window title. Open each tab
 (History, Insights, Timeline, Holdings) → each pane starts under the strip. Hover the strip → its
 tooltip is titled `Test mode`. (OWNER_SCOPE A; LH-10; SM-LH-10) Result: pass (owner-marked 2026-10-23)
 
@@ -577,6 +579,16 @@ the sample, moved unchanged. `/lh test` → History fills with the sample rows a
 charts; open **Holdings** and **Timeline** → the same sample items appear there; `/lh test` again → your
 own history is back. Fail: an empty window in test mode, a Lua error on `/lh test`, or a Holdings or
 Timeline tab that fails to fill. Result:
+
+**TM-3. Test mode's people are the shared sample characters (AD-87-LH, LibKa0s#87; preview-mode's
+*Sample characters*).** `/lh test`, open the History **Character** dropdown → thirteen characters, one
+per class, each named `Sample…` or `Mock…` on **Samplerealm** or **Mockrealm**: among them
+`Samplehunter-Samplerealm` (Hunter), `Sampleblade-Samplerealm` (Paladin), `Mockflame-Mockrealm` (Mage),
+`Samplemender-Samplerealm` (Priest) and `Mockshield-Mockrealm` (Warrior), each in its class color with
+its class icon. Open **Holdings** → the four characters are `Mockflame-Mockrealm`,
+`Mockshield-Mockrealm`, `Samplemender-Samplerealm` and `Sampleshade-Samplerealm`, plus the Warband; the
+Timeline's legend names the same. Fail: any `-Ravencrest` name, a name that is not `Sample…` or
+`Mock…`, or a class color that does not match the class. Result:
 
 ## Combat
 
@@ -853,7 +865,8 @@ filters until they have no rows → the button still reads their name, never "Ch
 Result: pass (owner-marked 2026-10-10)
 
 **HIST-22. Window and button marks.** The title-bar close is the collection's ✕ mark, and the export
-modal and copy window wear the same; the modal's **Export to CSV** carries a spreadsheet mark; the
+modal and copy window wear the same; the History window and the export modal carry the gear mark
+beside it (AD-86-LH, HIST-47); the modal's **Export to CSV** carries a spreadsheet mark; the
 filter bar's **Export**, **Clear**, **Reset** and **Save** carry no mark, only their word. Fail:
 a blank space where a mark belongs (a path with `.tga`, or a name the catalog lacks); a thin text ×
 in place of the close mark means the library did not load (DEGRADED-11). Result: pass (owner-marked 2026-10-10)
@@ -1017,6 +1030,66 @@ state, so no outline): every word and padlock stays readable, nothing moves. Pic
 again → the first look comes back exactly. Fail: a row, arrow or menu entry that keeps the old skin
 until `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
+**HIST-45. The mode strip sits directly under the title bar (AD-88-LH; preview-mode's *Where the strip
+sits*, standard v2.110.0, LibKa0s v1.105.0).** `/lh show`, then `/lh test` → the amber strip spans the
+window's full width directly under the title bar, above the History / Insights / Timeline / Holdings
+tabs; the tabs, the filter bar and the table all move down by the strip's height, and nothing is
+covered (the first table row and the filter bar's controls are whole). Click each tab → every pane
+starts under the filter bar as before. Hover the strip → its `Test mode` tooltip as before;
+right-click it → its menu ends test mode. `/lh test` again → the strip goes and the tabs, the filter
+bar and the table move back up flush under the title bar. `/lh sim start loot` → the **cyan** strip
+in the same place, the body moved the same way; `/lh sim stop` → it goes. Drag the window and resize
+it with the strip up → the strip stays under the title bar at the window's width. Repeat on one other
+skin (Settings → General → **Skin**). Fail: a strip between the filter bar and the table, a gap or an
+overlap between the strip and the tabs, or a strip narrower than the window. Result:
+
+**HIST-46. The footer is the library's (AD-89-LH; standalone-windows' *The footer*, standard
+v2.110.0).** `/lh show` → along the bottom edge the footer is a little taller than before (24 px) with
+**no dark band**: the window's own background shows through, under a thin hairline across its top.
+The left line reads *Showing X of Y*, the right one *Database ~<size>*, both in the same muted gray,
+both vertically centered in the footer. The resize grip sits in the bottom-right corner, inside the
+footer, and the *Database* line ends clear of it. Scroll the History table to the bottom → the last
+row ends above the hairline, never under it; do the same on Holdings and Insights. Drag the grip →
+the window resizes as before (HIST-34), and the footer stays across the full width. Pick **Obsidian**
+and **Azeroth** → the hairline and both lines take each skin's colors with no reload. Run a
+simulation (`/lh sim start loot`) → the left line leads with *Simulating: loot · step k/n* as before.
+Fail: a filled band behind the footer, a line cut off or overlapping the grip, or a row drawn under
+the hairline. Result:
+
+**HIST-47. The History title bar reads settings · close (AD-86-LH; standalone-windows' *Title-bar
+controls*, standard v2.113.0).** `/lh show` → the title bar's right end carries two same-size marks, a
+gear and then the ✕ in the corner, evenly spaced, both gray at rest and centered on the title bar.
+Hover the gear → it lights the skin's link color and an *Open settings* tooltip opens centered above
+it; hover the ✕ → it lights red and says *Close*. Click the gear → this addon's settings open (the
+Ka0s Loot History page), and the History window stays open. Click the ✕ → the window closes as before.
+Pick **Obsidian** → both marks repaint with no reload and keep their places. Fail: no gear, the gear on
+the right of the ✕, a mark off the title bar's middle, a gear that opens nothing or another addon's
+settings, or the window closing on the gear. Result:
+
+**HIST-48. The export modal's title bar reads settings · close (AD-86-LH).** `/lh show`, click the
+filter bar's **Export** → the modal's title bar carries the gear and then the ✕ in the corner, as
+HIST-47. Hover each → the same tooltips and colors. Click the gear → the modal closes first and this
+addon's settings open, with nothing left over them. Open the modal again and close it with the ✕ →
+it closes as before. Fail: no gear, the modal left drawn over the settings panel, or a gear that opens
+nothing. Result:
+
+**HIST-49. Where the History window's tooltips open (AD-92-LH, LibKa0s#92; standalone-windows'
+*Tooltip placement*).** `/lh show` with the window in the screen's middle. Hover an item row, a
+currency row and a gold row → each tooltip opens **beside the window**, outside its right edge with a
+2 px gap, its top level with the row's top, never under the pointer and never over the window; hold
+Shift on an item row with an equippable item → the comparison tooltips open further right, beside the
+item's. Hover a column header → the same, beside the window, level with the header. Drag the window
+against the screen's right edge and hover a row again → the tooltip opens outside the window's left
+edge, and Shift-compare further left. With `/lh test` on, hover a sample row → its sample tooltip
+opens beside the window too, and hover the mode strip under the title bar → its *Test mode* tooltip is
+**centered above the strip**. Hover the filter bar's **Export**, **Clear**, **Save** and **Reset** →
+each tooltip is centered above its button. Drag the window to the screen's bottom edge, `/reload`, and
+hover the lowest row of an item you have not looked at this session (its data is not cached yet) →
+the tooltip may grow a moment after it opens, and when it does it stays whole on the screen, moved up
+rather than running off the bottom. Fail: a tooltip at the cursor, one on top of the window, one hanging off a corner of
+its button, a grown tooltip cut off by the screen's bottom edge, or a comparison tooltip covering the
+row tooltip. Result:
+
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
 (about 6 px), with **Export** and **Clear** flush to that margin. Drag the window wider, then
@@ -1112,8 +1185,13 @@ bar-section legend chip → each reads "<full label>:  <value>" matching the row
 glyphs), including an ellipsized label and a clipped value. Only the companion legend chips are
 label-only. Result: pass (owner-marked 2026-10-10)
 
-**INS-18. Tooltip position.** Every Insights tooltip appears just above and right of the cursor.
-Result: pass (owner-marked 2026-10-10)
+**INS-18. Tooltip position (rewritten by AD-92-LH, LibKa0s#92; standalone-windows' *Tooltip
+placement*).** Open **Insights** with the History window in the screen's middle. Hover a bar row, a
+stacked bar's segment, a ranked-list row, a legend chip, a strip column and a GAINS & LOSSES bar → each
+tooltip opens **beside the History window**, outside its right edge with a 2 px gap, its top level
+with the hovered mark's top; moving the pointer along a row does not move it. Drag the window against
+the screen's right edge and hover again → the tooltips open outside its left edge instead. Fail: a
+tooltip at the cursor, one over the window, or one that follows the pointer. Result:
 
 **INS-19. Segment tooltips.** Hover one segment of any stacked bar (Loot By Character × Source,
 Currency By Type × Source, Currency By Character × Type) → "<category>: <value>" (e.g. "Kill: 45").
@@ -1559,10 +1637,14 @@ an age far older than the others (it answered `nil`). Either is a valid outcome 
 **records** which one the client does, for spec §5.6's open question and ARCHITECTURE's known
 limitations. It must never show `0` that was not there. Result: pass (owner-marked 2026-10-10)
 
-**LED-7. `/lh holdings <name>`.** `/lh holdings hearthstone` (any item you hold) → up to ten lines
-`<name>: <total>`, each total matching the Holdings tab. A currency name prints the count. `/lh
-holdings zzzz` → `no holdings match 'zzzz'.` With the addon disabled (`/lh disable`), the verb answers
-the one disabled line. Result: pass (owner-marked 2026-10-10)
+**LED-7. `/lh holdings <name>` (rewritten by AD-79-LH, LibKa0s#79: a report).** With debug logging
+off and the console closed, `/lh holdings hearthstone` (any item you hold) → the debug console opens
+and holds a `/lh holdings hearthstone` header then up to ten lines `<name>: <total>`, each total
+matching the Holdings tab (a currency name shows the count); chat prints exactly one line, `[LH]
+holdings hearthstone: N lines written to the debug console. Use Copy to share it.`; the console's
+toggle still reads **Debug: OFF**. **Copy** pastes the lines as plain words. `/lh holdings zzzz` →
+`no holdings match 'zzzz'.` in chat, and nothing is written to the console. With the addon disabled
+(`/lh disable`), the verb answers the one disabled line and writes nothing. Result:
 
 **LED-8. The tracking switch.** Untick **Track holdings and losses**, then `/etrace` (filter on
 `BAG_UPDATE`) → no `BAG_UPDATE` handling by LootHistory, and drinking a potion changes nothing on the
@@ -1663,6 +1745,14 @@ on rows that include gold gains and losses (a large one if you have it, six or s
   column overlaps its neighbor.
 
 Result: pass (owner-marked 2026-10-10)
+
+**LED-14. Where Holdings' tooltips open (AD-92-LH, LibKa0s#92).** `/lh show` → **Holdings**, the window
+in the screen's middle. Hover an item, a currency and Gold → each tooltip opens **beside the window**,
+outside its right edge with a 2 px gap, its top level with the row's top; Shift on an equippable item
+opens the comparison further right. Hover a column header → its title and description open beside
+the window, level with the header, not under it. Drag the window against the screen's right edge →
+they open outside its left edge. Fail: a tooltip at the cursor, one on top of the window, or a
+header's hanging below the header. Result:
 
 ## Ledger capture (timeline ledger Phase 2)
 
@@ -1892,7 +1982,8 @@ Lua error. Change the thing and the Date range → the hidden lines stay hidden.
 `/reload` → it is still on. The in/out strip never changes with any of this. Result: pass (owner-marked 2026-10-10)
 
 **TL-15. Strip tooltips.** On Gold over **Last 30 days**, hover a day's column in the green/red strip
-under the chart (the gain bar, the loss bar and the gap between them) → a tooltip at the cursor titled
+under the chart (the gain bar, the loss bar and the gap between them) → a tooltip (beside the window
+since AD-92-LH, TL-19) titled
 `<day> · Total` (the hover's date format, e.g. `14 Aug 2026 · Total`) with **Gained** `+<coins>` in
 green, **Lost** `-<coins>` in red and **Net** signed in its sign's color (white `0` on an even day); a
 side with nothing reads `0`. A day with no bars shows nothing. Move off the strip → it hides. Move from
@@ -1934,6 +2025,15 @@ tooltips take Azeroth's look; the class colors stay the class colors. Pick **Ka0
 the first look comes back exactly. Fail: a line, button or strip that keeps the old skin until
 `/reload`, a changed look on Ka0s Default, or a Lua error. Result: Passed (owner, 2026-11-02)
 
+**TL-19. Where the Timeline's tooltips open (AD-92-LH, LibKa0s#92).** `/lh show` → **Timeline** on Gold
+over **Last 30 days**, the window in the screen's middle. Hover along the plot → the day tooltip opens
+**beside the window**, outside its right edge with a 2 px gap, its top level with the chart's top, and
+it stays there as the crosshair moves from day to day (its lines change, its place does not). Hover a
+day's strip column and a legend entry → each tooltip opens beside the window, level with what you
+hover. Hover **Total only** → its tooltip is **centered above the button**. Drag the window against the
+screen's right edge → the plot, strip and legend tooltips open outside its left edge. Fail: a tooltip
+at the cursor, one over the chart, or the toggle's hanging below its button. Result:
+
 ## Simulator
 
 `/lh sim` runs the real capture engine against an invented world (LootHistory#37). It records into
@@ -1945,7 +2045,7 @@ count (`/run print(#LootHistoryDB.global.history)`) for SIM-5. A check fails on 
 **SIM-1. Start and stop.** `/lh toggle`, then `/lh sim start loot` → the simulation panel opens
 docked beside the History window, titled *Ka0s Loot History - Simulation*; one chat line reads
 *Simulation started (loot): nothing is saved; your history and holdings are not touched.*; the
-History window's strip under the filter bar reads
+History window's strip under the title bar (under the filter bar before AD-88-LH) reads
 *SIM: an invented world drives the real capture. Nothing is saved. /lh sim stop ends it.*, and
 the footer leads with *Simulating: loot · step k/n*. `/lh sim stop` → one stop line; the strip and
 footer prefix go (procedure amended by LH-10, 2026-10-23: no `SIM` title badge; SIM-12); the panel shows the scenario picker. (SM-LH-20) Result: pass (owner-marked 2026-10-23)
@@ -1974,7 +2074,8 @@ row. (SM-LH-23) Result: pass (owner-marked 2026-10-23)
 **SIM-5. Saved data untouched.** After SIM-1 to SIM-4, `/reload` → `/run
 print(#LootHistoryDB.global.history)` prints the count noted before SIM-1, plus only the real rows
 SIM-4 recorded; History, Holdings and the Timeline show your real data and no simulated row
-(no Rookery Bat kill, no Simalt holder). (SM-LH-24) Result: pass (owner-marked 2026-10-23)
+(no Rookery Bat kill, no simulated alt holder: `Sampleblade-Samplerealm`, `Simalt-<realm>` before
+AD-87-LH). (SM-LH-24) Result: pass (owner-marked 2026-10-23)
 
 **SIM-6. The panel.** `/lh sim start vendor` → the panel's rows follow the run as steps play;
 click a row three ahead → the steps in between run in order; during the merchant steps a step waits
@@ -2018,10 +2119,10 @@ plays on its own. `/lh sim stop` after. (LibKa0s v1.76.0, SimTimeline 3 and SimP
 SM-LH-01, SM-LH-02) Result: pass (owner-marked 2026-10-23)
 
 **SIM-12. The simulation's own cyan strip; no title word.** `/lh sim start loot` → a **cyan** strip
-(not amber) under the filter bar reads *SIM: an invented world drives the real capture;
+(not amber) under the title bar (under the filter bar before AD-88-LH) reads *SIM: an invented world drives the real capture;
 nothing is saved. /lh sim stop ends it.*, there is **no** `SIM` word beside the window title,
 and every tab's pane starts under the strip. Hover the strip → its tooltip is titled `Simulation`.
-`/lh sim stop` → the strip goes and the panes move back up under the filter bar. (OWNER_SCOPE A;
+`/lh sim stop` → the strip goes and the tabs, the filter bar and the panes move back up. (OWNER_SCOPE A;
 LibKa0s v1.76.0, Widgets minor 14 `kind = "sim"`; LH-10; SM-LH-11) Result: pass (owner-marked 2026-10-23)
 
 **SIM-13. The Master controls Sim mode checkbox (R6-SIM; Ka0sAddonsCommonTasks
@@ -2060,6 +2161,13 @@ ticked; click it → the panel closes, and the next right-click shows it unticke
 the panel, right-click the minimap button → the entry is ticked. Fail: the box or the entry unticked
 while the panel is open or a sim runs, ticked with neither, an untick that leaves the panel open, a box
 that lags a close by the panel's own button or Escape, or a Lua error. Result: Passed (owner, 2026-11-04)
+
+**SIM-15. The simulation's alt and stranger are sample characters (AD-87-LH, LibKa0s#87).** `/lh sim
+start social` and let it play → the alt mail, the alt trade and the currency transfer name your alt as
+`Sampleblade-Samplerealm` (the Character column and the Holdings tab's holders), and those rows read as
+moves to your own alt (Alt mail, Alt trade); the trade with a stranger names `Mockflame-Mockrealm` and
+reads as a plain trade, not an alt move. `/lh sim stop`. Fail: a `Simalt-` or `Stranger-` name, the
+alt's rows read as plain mail or trades, or a Lua error. Result:
 
 ## Skins
 
@@ -2608,6 +2716,26 @@ this client → behavior matches English (CAP-18 and CAP-19 read the localized C
 Fail: any Lua error, which here means a localized string reached code that assumed English. Result: pass (owner-marked 2026-10-10)
 
 ## Pending sign-off
+
+Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
+HIST-46, new (AD-88-LH, the mode strip docked directly under the title bar; AD-89-LH, the History
+footer as the library's `W.Footer`). STATE-13, STATE-15, STATE-17, SIM-1 and SIM-12 now name the strip's
+new place and keep their results; HIST-45 checks it.
+
+Added by the same adoption's wave B (2026-11-17), awaiting the owner: HIST-47 and HIST-48, new
+(AD-86-LH, both windows' title-bar marks through `W.HeaderButtons`, a settings mark beside the close).
+HIST-22 now names the gear and keeps its result.
+
+Added by the same adoption's wave C (2026-11-17), awaiting the owner: HIST-49, TL-19 and LED-14, new
+(AD-92-LH, every tooltip the addon places beside the History window or, on chrome, centered above its
+control, through `LibKa0s-Tooltip-1.0`). INS-18 is rewritten (Insights' tooltips leave the cursor for
+beside the window), so its result is cleared. TL-15 now points at TL-19 for its tooltip's place and
+keeps its result.
+
+Added by the same adoption's wave D (2026-11-18), awaiting the owner: LED-7 is rewritten (AD-79-LH,
+`/lh holdings` writes a report to the debug console with one chat pointer), so its result is cleared.
+TM-3 and SIM-15 are new (AD-87-LH, test mode's and the simulator's made-up people are the shared
+sample characters); SIM-5 names the new alt and keeps its result.
 
 On 2026-10-10 the owner marked every check in this file as passed, recorded on its
 `Result:` line as `pass (owner-marked 2026-10-10)`; a check that already carried a dated owner pass

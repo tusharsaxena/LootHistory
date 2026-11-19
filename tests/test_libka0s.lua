@@ -1330,7 +1330,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(skin.SkinDefs, 28)
   assertEqual(skin.SkinDefsOthers, 10)
   assertEqual(skin.SkinPaintControls, 18)
-  assertEqual(widgets.Widgets, 27)
+  assertEqual(widgets.Widgets, 28)   -- v1.106.0: the HUD dock guards its measurements
   assertEqual(widgets.WidgetsDropdown, 2)
   assertEqual(widgets.WidgetsReorder, 7)
   assertEqual(widgets.WidgetsDragHandle, 14)

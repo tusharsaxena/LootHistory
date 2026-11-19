@@ -486,15 +486,15 @@ local function EnsureFrame()
   -- (which anchored the title to the bar rather than the band) is not passed.
   NS.Skin.TitleBar(tbar, { text = t })
   frame.titleBar = tbar
-  local close = NS.Browser and NS.Browser.MakeCloseButton
-    and NS.Browser:MakeCloseButton(tbar, function() frame:Hide() end)
-  if close then close:SetPoint("RIGHT", tbar, "RIGHT", -6, 0) end
-  frame.closeButton = close
+  -- The title-bar marks, settings · close (AD-86-LH), through the History window's helper. The
+  -- modal is DIALOG strata, above the settings panel, so the settings mark hides it first.
+  local marks = NS.Browser and NS.Browser.MakeTitleMarks
+    and NS.Browser:MakeTitleMarks(tbar, frame, function() frame:Hide() end, frame) or {}
   -- The header on the window's title band (R5-WIN, as the History window's, modules/Browser.lua):
-  -- the bar takes the band's rect, the title is anchored by title.align and the close 6 px in from
-  -- the right, all at the band's vertical middle in every skin. The anchors above are the degraded
-  -- install's.
-  NS.Skin.Header(frame, { title = t, right = { close }, bars = { tbar } })
+  -- the bar takes the band's rect, the title is anchored by title.align and the marks at
+  -- W.HeaderButtons' offsets (the close 6 px in from the right), all at the band's vertical middle
+  -- in every skin. The anchors HeaderButtons laid are the degraded install's.
+  NS.Skin.Header(frame, { title = t, right = marks, bars = { tbar } })
 
   -- Data Set dropdown (built above, as the library probe), spanning the full button-row width.
   -- Through core/WidgetsSetup.lua's one factory, like the filter bar's nine -- not through

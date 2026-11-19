@@ -35,19 +35,37 @@ local PATH = "settings.appearance.pickerSeen"
 
 -- Every frame built from here on, by parent, so a case can reach the picker list's rows: the
 -- shared mock's frames do not list their children (only the paint recorder's do), and the picker
--- builds its window, rows included, on its first show, which is in this file.
-local childrenOf = setmetatable({}, { __mode = "k" })
+-- builds its window, rows included, on its first show, which is in this file. The wrapper sees every
+-- frame the whole run builds, so it must keep none alive: weak keys alone do not do that under Lua
+-- 5.1, which has no ephemerons (a child that points at its parent keeps the parent's key, and so the
+-- whole tree, reachable), so each parent's children are held weakly too (AD-92-LH, the leak gate).
+-- They are a weak-KEYED set, child -> build order, never a weak-valued array: a collected middle
+-- child would leave a hole in an array, and # and ipairs would then stop early or append over a live
+-- slot. children(parent) answers the live ones as a sequence, in the order they were built.
+local WEAK_K = { __mode = "k" }
+local childrenOf = setmetatable({}, WEAK_K)
+local built = 0
 do
   local create = mocks.CreateFrame
   mocks.CreateFrame = function(frameType, name, parent, ...)
     local f = create(frameType, name, parent, ...)
     if parent ~= nil then
-      local list = childrenOf[parent] or {}
-      childrenOf[parent] = list
-      list[#list + 1] = f
+      local set = childrenOf[parent] or setmetatable({}, WEAK_K)
+      childrenOf[parent] = set
+      built = built + 1
+      set[f] = built
     end
     return f
   end
+end
+
+--- `parent`'s live children, in build order.
+local function children(parent)
+  local set, list = childrenOf[parent], {}
+  if not set then return list end
+  for f in pairs(set) do list[#list + 1] = f end
+  table.sort(list, function(a, b) return set[a] < set[b] end)
+  return list
 end
 
 --- Run `fn(calls)` with O.SkinPicker replaced by a recorder: each call's spec, in order.
@@ -260,7 +278,7 @@ local function stored() return select(2, NS.SkinChoice()) end
 local function pickRow(f, key)
   f.dd:__fire("OnClick")
   local hit = false
-  for _, r in ipairs(childrenOf[f.list] or {}) do
+  for _, r in ipairs(children(f.list)) do
     if r.key == key then r:__fire("OnClick"); hit = true end
   end
   assertTrue(hit, "no row for " .. key)
