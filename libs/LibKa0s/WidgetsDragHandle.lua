@@ -5,7 +5,8 @@
 -- skin owner (`owner`: the shell's SKIN OWNERS), from minor 7 an owned strip's tooltip in its
 -- skin's tooltip colors, its label in its skin's body face, and `panel`, and from minor 8 a fitted
 -- strip that re-fits its title after every repaint of its skin (`FIT_SLACK`, `spec.onRefit`), and
--- from minor 10 measures at the strip's own scale and fits again when it shows.
+-- from minor 10 measures at the strip's own scale and fits again when it shows. From minor 15 its marks
+-- read [?][settings][close] left to right, in the window header's tints, the settings mark standard.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -122,7 +123,19 @@ if not lib then return end
 -- OpenSettings). Opt-in for this run: a third mark on every HUD strip would widen it at re-vendor.
 -- Also minor 14 (SR-L2, smoke round 1, ruling 3): a mark with no host descriptor shows the library's
 -- words (WidgetsDragHandleTip.lua's lib.DRAG_HANDLE_STRINGS, `spec.L`).
-local DRAG_MINOR = 14
+-- Minor 15 (AF-LK-01 of Ka0sAddonsCommonTasks docs/2026-11-19-ADOPTION_FEEDBACK, the owner's feedback on
+-- the adoption smoke, image 6): the marks read [?][settings][close] left to right, the X in the corner
+-- where the "?" sat, the window header's order (WidgetsHeader.lua: extras, settings, close). The
+-- settings mark is standard: built unless `spec.settings == false`. The X still needs `spec.onClose`,
+-- since only the host knows what closing its display means, and every host MUST pass one (the
+-- standard's HUD header rule); a strip without it shows no X. The marks sit closer: each frame is
+-- HELP_HIT = 14 wide (the strip's full HEIGHT tall), so the arts have 6px of air between them where
+-- they had 10, and the corner art keeps its 9px from the strip's edge (HELP_INSET 6, the header's
+-- PAD + its gutter). RESERVE is still 29; each further mark adds 14 where it added 18. The tints are
+-- the window header's (WidgetsHeader.lua's paint, Core.MakeCloseButton): `icon.tint` at rest, the
+-- "?" and the gear `text.link` under the pointer, the X `close.rest` / `close.hot`; the "?" lights on
+-- every strip, as a header mark does. ApplyLevel re-levels the settings mark too (LibKa0s#96).
+local DRAG_MINOR = 15
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -163,12 +176,16 @@ lib.MODULES.WidgetsDragHandle = DRAG_MINOR
 -- since the cap equalled the default, and it rested on an unevidenced, locale-dependent claim
 -- about GameFontNormalSmall. Nothing here reads a font.
 --
--- HELP_HIT is the FRAME the art sits in, and it is deliberately bigger -- the full strip height.
--- This control is the only right-click affordance on AuraMaster's strip and it opens a settings
--- page, so it has to stay easy to hit; a frame the size of its own 8px art is an 8x8 target. The
--- same fix was made to O.IdList's remove icon one layer down (OptionsWidgets.lua, ID_REMOVE_SIZE
--- 16 inside ID_REMOVE_HIT 26): art shrinks, frame does not, and the difference is a gutter the art
--- is centered in. Here that gutter is (18 - 8) / 2 = 5px on all four sides.
+-- HELP_HIT is the WIDTH of the FRAME the art sits in, and it is deliberately bigger than the art;
+-- the frame's height is the full strip HEIGHT. This control is the only right-click affordance on
+-- AuraMaster's strip and it opens a settings page, so it has to stay easy to hit; a frame the size
+-- of its own 8px art is an 8x8 target. The same fix was made to O.IdList's remove icon one layer
+-- down (OptionsWidgets.lua, ID_REMOVE_SIZE 16 inside ID_REMOVE_HIT 26): art shrinks, frame does not,
+-- and the difference is a gutter the art is centered in. Through minor 14 the frame was 18 square,
+-- a 5px gutter all round, so three marks side by side put 10px of air between their arts, which the
+-- owner read as gaps (AF-LK-01, image 6). From minor 15 it is 14 wide: a 3px gutter left and right,
+-- 6px of air between two arts (the window header's 12px of air at its 12px art, brought down toward
+-- this 8px art), and the frames still abut, so the strip has no dead pixel between its marks.
 --
 -- HELP_CLEAR is the empty space the strip keeps between the label's BOUND and the mark's INK. It is
 -- the number the complaint was actually about: before this widget existed both copies spent
@@ -178,14 +195,17 @@ lib.MODULES.WidgetsDragHandle = DRAG_MINOR
 --
 -- RESERVE is what falls out of the three: what each side of the label keeps clear, and therefore
 -- half of everything Measure() adds to the label. It is computed rather than typed so it cannot
--- drift from its own terms.
+-- drift from its own terms. At minor 15 HELP_INSET moved 4 -> 6 as HELP_HIT moved 18 -> 14, so the
+-- corner art still sits HELP_INSET + HELP_GUTTER = 9px from the strip's edge (the window header's
+-- PAD 6 plus its (18 - 12) / 2 gutter) and RESERVE is still 6 + 14 - 3 + 12 = 29: a strip with one
+-- mark is exactly as wide as it was.
 lib.DRAG_HANDLE = {
   HEIGHT     = 18,   -- the strip's height
   GAP        = 2,    -- the gap a host leaves between the strip and the frame it moves
   HELP       = 8,    -- the mark's ART: the texture's edge
-  HELP_HIT   = 18,   -- the mark's FRAME: the click target, the full strip height
-  HELP_INSET = 4,    -- px from the strip's right edge to the mark's FRAME
-  HELP_CLEAR = 12,   -- px of empty space between the label's bound and the mark's art
+  HELP_HIT   = 14,   -- the mark's FRAME width, the click target (minor 15; 18 through 14); height is HEIGHT
+  HELP_INSET = 6,    -- px from the strip's right edge to the corner mark's FRAME (minor 15; 4 through 14)
+  HELP_CLEAR = 12,   -- px of empty space between the label's bound and the leftmost mark's art
   FIT_SLACK  = 2,    -- minor 8: px Measure() adds to the label, so an exact fit never truncates
 }
 
@@ -194,7 +214,7 @@ lib.DRAG_HANDLE = {
 -- NOT FLOORED, and that is a correctness point rather than a tidy-up. The art is placed by
 -- SetPoint CENTER, which splits HELP_HIT - HELP in half exactly; a floored gutter would advertise
 -- a clearance the layout does not draw the moment those two numbers differ by an odd amount. The
--- arithmetic below and dhBuildHelp's SetPoint now say the same thing at every pair of values.
+-- arithmetic below and dhMarkFrame's SetPoint now say the same thing at every pair of values.
 lib.DRAG_HANDLE.HELP_GUTTER =
   (lib.DRAG_HANDLE.HELP_HIT - lib.DRAG_HANDLE.HELP) / 2
 lib.DRAG_HANDLE.RESERVE =
@@ -203,15 +223,17 @@ lib.DRAG_HANDLE.RESERVE =
   - lib.DRAG_HANDLE.HELP_GUTTER
   + lib.DRAG_HANDLE.HELP_CLEAR
 
--- THE CLOSE MARK (minor 3, opt-in through `spec.onClose`). It is the help mark's twin: a HELP_HIT
--- frame around HELP art, the same tint and hover, sitting immediately left of the "?". CLOSE_GAP
--- is the px between the two FRAMES, not the two arts; at 0 the arts sit 2 * HELP_GUTTER = 10px
--- apart, which is the gutter each frame already carries and reads as a pair rather than as a gap.
+-- THE MARKS' ORDER AND PITCH (minor 15). Left to right [?][settings][close], the window header's
+-- order: the X in the corner at HELP_INSET, the gear's frame against the X's, the "?"'s against the
+-- gear's (or against whichever of the two was built). Each mark is the same HELP_HIT frame around
+-- the same HELP art. CLOSE_GAP is the px between two neighboring FRAMES, not two arts; at 0 the arts
+-- sit 2 * HELP_GUTTER = 6px apart (10px through minor 14, with 18px frames). Through minor 14 the
+-- order was [settings][close][?], the X and the gear left of the "?".
 --
--- NOT PART OF RESERVE, and that is the opt-in. RESERVE stays what every strip without an X keeps
--- clear, byte for byte what minor 2 drew; a strip with an X keeps RESERVE + HELP_HIT + CLOSE_GAP
--- on EACH side (dhReserve below), so the label stays centered and the clearance in front of the
--- X's ink is still HELP_CLEAR.
+-- ONLY THE "?" IS IN RESERVE. RESERVE is what a strip with the "?" alone keeps clear, byte for byte
+-- what minor 2 drew; each further mark (the X, the gear) adds HELP_HIT + CLOSE_GAP on EACH side
+-- (dhReserve below), so the label stays centered and the clearance in front of the leftmost ink is
+-- still HELP_CLEAR.
 lib.DRAG_HANDLE.CLOSE_GAP = 0
 
 -- The last rung of the help mark's ladder, beside CHEVRON_FALLBACK and for the same reason: a host
@@ -234,17 +256,18 @@ local CLOSE_FALLBACK = "Interface\\Buttons\\UI-StopButton"
 -- catalog's art is built for (every icon is white with its shape in the alpha channel). The mark's
 -- alpha stays 1.
 --
--- AND IT BRIGHTENS ON HOVER WHERE A CLICK IS WIRED, which the chevron has no need of because the
--- whole dropdown is the button. Here the mark is its own Button -- a right-click opens AuraMaster's
--- Containers page -- so a mark dimmed at rest with no response to the cursor would read as
--- decoration. Full white on OnEnter, back to the resting tint on OnLeave.
---
--- BUT ONLY WHERE ONE IS. ConsumableMaster passes no `onRightClick`, and a mark that lit up under
--- the cursor there would be promising a control nothing is behind -- the same defect from the
--- other side. The over-tint is chosen from `spec.onRightClick` in dhBuildHelp, so the hover
--- response and the click register or decline together.
-local HELP_TINT      = { 0.7, 0.7, 0.72 }
-local HELP_TINT_OVER = { 1, 1, 1 }
+-- AND IT LIGHTS ON HOVER, IN THE WINDOW HEADER'S COLORS (minor 15, AF-LK-01, the owner's images 7-9).
+-- Through minor 14 the marks went full white (`icon.hot`) under the cursor, and the "?" only where
+-- the host wired a right-click. The owner asked that a strip's marks look exactly like a window
+-- header's (WidgetsHeader.lua), so the four colors are that file's and Core.MakeCloseButton's: at
+-- rest `icon.tint` (Ka0s Default's 0.7 gray, which the chevron also wears); the "?" and the gear
+-- under the pointer `text.link` (Ka0s Default's gold-orange, the header's HOT); the X at rest
+-- `close.rest` (every skin's is its `icon.tint`) and under the pointer `close.hot` (the red). The
+-- "?" lights on every strip, a host click or not: a header mark lights whatever is behind it, and
+-- the "?" always answers the pointer with its tooltip and the strip's drag.
+local HELP_TINT      = { 0.7, 0.7, 0.72 }   -- WidgetsHeader.lua's REST, Ka0s Default's `icon.tint`
+local HELP_TINT_OVER = { 1, 0.5, 0 }        -- WidgetsHeader.lua's HOT, Ka0s Default's `text.link`
+local CLOSE_TINT_OVER = { 1, 0.3, 0.3 }     -- Core.MakeCloseButton's CLOSE_HOT, `close.hot`
 
 --- One mark's art: the host's, an owned strip's Ka0s icon (minor 11), else the client rung.
 local function dhMarkArt(handle, spec, field, name, fallback)
@@ -254,8 +277,9 @@ end
 -- The strip's colors as one palette (minor 6): these for a strip with no skin owner, the owner's
 -- tokens for one with (dhPalette). Every paint reads the handle's palette, never a literal.
 -- The tooltip bands' colors are the palette's too (minor 7): `title`, `body` and `footer`.
+-- The X's pair is `closeTint` and `closeOver` (minor 15).
 local DH_PAL = { bg = { 0, 0, 0, 0.75 }, edge = { 1, 0.82, 0, 0.6 }, label = { 1, 0.82, 0 },
-                 tint = HELP_TINT, over = HELP_TINT_OVER,
+                 tint = HELP_TINT, over = HELP_TINT_OVER, closeTint = HELP_TINT, closeOver = CLOSE_TINT_OVER,
                  title = { 1, 0.82, 0 }, body = { 1, 1, 1 }, footer = { 0.6, 0.6, 0.6 } }
 
 --- The palette for `owner` and the Skin major, or the default palette and nil when `owner` is not a
@@ -270,7 +294,8 @@ local function dhPalette(owner, panel)
   local function tok(name, fallback) return Skin:Token(owner, name) or fallback end
   return { bg = tok("handle.bg", DH_PAL.bg), edge = tok("handle.edge", DH_PAL.edge),
            label = tok("text.accent", DH_PAL.label), tint = tok("icon.tint", HELP_TINT),
-           over = tok("icon.hot", HELP_TINT_OVER), title = tok("gtip.title", DH_PAL.title),
+           over = tok("text.link", HELP_TINT_OVER), closeTint = tok("close.rest", HELP_TINT),
+           closeOver = tok("close.hot", CLOSE_TINT_OVER), title = tok("gtip.title", DH_PAL.title),
            body = tok("gtip.value", DH_PAL.body), footer = tok("gtip.footer", DH_PAL.footer) }, Skin
 end
 
@@ -467,79 +492,21 @@ local function dhTint(icon, tint)
   icon:SetVertexColor(tint[1], tint[2], tint[3])
 end
 
---- The help mark: a fixed icon rather than a line of hint text, so a one-element strip is not
---- forced wider by prose.
+--- One mark's frame (minor 15): a Button HELP_HIT wide and the strip's full HEIGHT tall, anchored
+--- RIGHT against `beside`'s LEFT at CLOSE_GAP (the mark to its right), else in the strip's corner at
+--- HELP_INSET, wearing the strip's own drag scripts so a drag that starts on a mark moves the frame
+--- like one that starts on the strip, and holding HELP art at CENTER in the resting `tint`. nil
+--- where the client cannot make the frame.
 ---
---- A BIG FRAME AROUND A SMALL TEXTURE. The Button is HELP_HIT square -- the strip's full height --
---- and the art is HELP square, centered, leaving HELP_GUTTER on every side. See lib.DRAG_HANDLE
---- for why those are two numbers, and HELP_TINT for why the art is dimmed rather than white.
----
---- It TAKES THE STRIP'S OWN DRAG SCRIPTS, so a drag that starts on the "?" moves the frame instead
---- of landing in a dead zone -- AuraMaster's copy did that and ConsumableMaster's did not -- and it
---- passes a right-click through when the host registered one. Its tooltip is `spec.helpTooltip`
---- when the host wrote a second descriptor and `spec.tooltip` when it did not, read on every hover
---- rather than captured here.
-local function dhBuildHelp(handle, spec)
-  local D = lib.DRAG_HANDLE
-  local help = CreateFrame("Button", nil, handle)
-  if not (help and help.SetSize) then return nil end
-  help:SetSize(D.HELP_HIT, D.HELP_HIT)
-  help:SetPoint("RIGHT", handle, "RIGHT", -D.HELP_INSET, 0)
-  help:RegisterForDrag("LeftButton")
-  help:SetScript("OnDragStart", handle:GetScript("OnDragStart"))
-  help:SetScript("OnDragStop", handle:GetScript("OnDragStop"))
-  local icon = help.CreateTexture and help:CreateTexture(nil, "OVERLAY")
-  if icon and icon.SetTexture then
-    icon:SetSize(D.HELP, D.HELP)
-    icon:SetPoint("CENTER", help, "CENTER", 0, 0)
-    icon:SetTexture(dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK))
-    dhTint(icon, handle.__pal.tint)
-    help.icon = icon
-  end
-  -- HOVER FEEDBACK FOLLOWS THE CLICK, and nothing else. The brighten is the line that says this
-  -- mark is a control; on a host that wired no click it was advertising an action that does not
-  -- exist. ConsumableMaster registers none -- dhSetClick above declines to register a click for
-  -- the same reason -- so its mark stays at the resting tint and is what it actually is there: the
-  -- anchor of a second tooltip. A host that passes `onRightClick` still gets the full-white
-  -- response the control earns.
-  -- The tints are read from the handle's palette at fire time (minor 6), so a skin switch reaches
-  -- the next hover.
-  help:SetScript("OnEnter", function()
-    dhTint(help.icon, spec.onRightClick and handle.__pal.over or handle.__pal.tint)
-    dhShowTooltip(handle, help, spec, spec.helpTooltip or spec.tooltip, "HELP_TIP")
-  end)
-  help:SetScript("OnLeave", function()
-    dhTint(help.icon, handle.__pal.tint)
-    dhHideTooltip()
-  end)
-  dhSetClick(help, spec, false)
-  return help
-end
-
---- The close mark, built only for a host that passes `spec.onClose`; nil otherwise, and nil where
---- the client cannot make the frame.
----
---- THE HELP MARK'S TWIN IN EVERYTHING BUT ITS CLICK. The same HELP_HIT frame around the same HELP
---- art at CENTER, the same resting tint, and the strip's own drag scripts, so a drag that starts on
---- the X moves the frame like one that starts on the "?". It always brightens under the cursor,
---- because unlike the "?" it always has a click behind it.
----
---- THE CLICK IS THE LEFT BUTTON'S. A left click calls `spec.onClose`; a right click is passed to
---- `spec.onRightClick` when the host wired one, as the "?" passes it, so the X is not a dead zone
---- for the strip's own right-click either. With no right-click the X registers the left alone. A
---- drag is not a click: the client does not fire OnClick for a press that became a drag.
----
---- Anchored RIGHT to the "?"'s LEFT, so it follows the mark rather than restating its inset; on a
---- strip whose "?" could not be built it takes the "?"'s own place. Its tooltip is
---- `spec.closeTooltip`, falling back to `spec.tooltip`, read on every hover.
-local function dhBuildClose(handle, spec)
-  if not spec.onClose then return nil end
+--- A FRAME WIDER THAN ITS ART, AND AS TALL AS THE STRIP. See lib.DRAG_HANDLE for why those are two
+--- numbers, and HELP_TINT for the colors.
+local function dhMarkFrame(handle, beside, art, tint)
   local D = lib.DRAG_HANDLE
   local btn = CreateFrame("Button", nil, handle)
   if not (btn and btn.SetSize) then return nil end
-  btn:SetSize(D.HELP_HIT, D.HELP_HIT)
-  if handle.help then
-    btn:SetPoint("RIGHT", handle.help, "LEFT", -D.CLOSE_GAP, 0)
+  btn:SetSize(D.HELP_HIT, D.HEIGHT)
+  if beside then
+    btn:SetPoint("RIGHT", beside, "LEFT", -D.CLOSE_GAP, 0)
   else
     btn:SetPoint("RIGHT", handle, "RIGHT", -D.HELP_INSET, 0)
   end
@@ -550,18 +517,46 @@ local function dhBuildClose(handle, spec)
   if icon and icon.SetTexture then
     icon:SetSize(D.HELP, D.HELP)
     icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
-    icon:SetTexture(dhMarkArt(handle, spec, "closeIcon", "close", CLOSE_FALLBACK))
-    dhTint(icon, handle.__pal.tint)
+    icon:SetTexture(art)
+    dhTint(icon, tint)
     btn.icon = icon
   end
+  return btn
+end
+
+--- A mark's hover: `over` (a palette key) and the tooltip on enter, `rest` and no tooltip on leave.
+--- The tints are read from the handle's palette at fire time (minor 6), so a skin switch reaches the
+--- next hover.
+local function dhMarkHover(handle, btn, spec, t, key, rest, over)
   btn:SetScript("OnEnter", function()
-    dhTint(btn.icon, handle.__pal.over)
-    dhShowTooltip(handle, btn, spec, spec.closeTooltip or spec.tooltip, "CLOSE_TIP")
+    dhTint(btn.icon, handle.__pal[over])
+    dhShowTooltip(handle, btn, spec, t, key)
   end)
   btn:SetScript("OnLeave", function()
-    dhTint(btn.icon, handle.__pal.tint)
+    dhTint(btn.icon, handle.__pal[rest])
     dhHideTooltip()
   end)
+end
+
+--- The close mark, built only for a host that passes `spec.onClose`; nil otherwise, and nil where
+--- the client cannot make the frame. Every host MUST pass one (minor 15: the standard's HUD header
+--- rule); only the host knows what closing its display means, so the library draws no X it could
+--- not honor.
+---
+--- THE CORNER MARK (minor 15), where the "?" sat through minor 14: the window header's order puts
+--- close outermost. It rests in `close.rest` and lights `close.hot`, as Core.MakeCloseButton's X.
+---
+--- THE CLICK IS THE LEFT BUTTON'S. A left click calls `spec.onClose`; a right click is passed to
+--- `spec.onRightClick` when the host wired one, as the "?" passes it, so the X is not a dead zone
+--- for the strip's own right-click either. With no right-click the X registers the left alone. A
+--- drag is not a click: the client does not fire OnClick for a press that became a drag. Its tooltip
+--- is `spec.closeTooltip`, falling back to `spec.tooltip`, read on every hover.
+local function dhBuildClose(handle, spec)
+  if not spec.onClose then return nil end
+  local btn = dhMarkFrame(handle, nil, dhMarkArt(handle, spec, "closeIcon", "close", CLOSE_FALLBACK),
+    handle.__pal.closeTint)
+  if not btn then return nil end
+  dhMarkHover(handle, btn, spec, spec.closeTooltip or spec.tooltip, "CLOSE_TIP", "closeTint", "closeOver")
   if spec.onRightClick then
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   else
@@ -593,36 +588,22 @@ local function dhOpenSettings(spec)
   if core and type(core.OpenSettings) == "function" then core.OpenSettings(spec.settingsOwner or spec.owner) end
 end
 
---- The settings mark (minor 14), built only for a host that passes `spec.settings`: the X's twin in
---- frame, art size, tint, drag scripts and right-click pass-through, anchored left of the X (else of
---- the "?", else the corner). Its tooltip is `spec.settingsTooltip`, falling back to `spec.tooltip`.
+--- Whether this strip carries the settings mark: every strip from minor 15 (opt-in at 14) unless the
+--- host passes `spec.settings = false`. Read by the builder and by dhReserve, so they cannot disagree.
+local function dhHasSettings(spec)
+  return spec.settings ~= false
+end
+
+--- The settings mark (minor 14; standard from minor 15): the X's twin in frame, art size, drag
+--- scripts and right-click pass-through, anchored against the X (else in the corner), resting in
+--- `icon.tint` and lighting `text.link`, the window header's gear. Its tooltip is
+--- `spec.settingsTooltip`, falling back to `spec.tooltip`.
 local function dhBuildSettings(handle, spec)
-  if not spec.settings then return nil end
-  local D = lib.DRAG_HANDLE
-  local btn = CreateFrame("Button", nil, handle)
-  if not (btn and btn.SetSize) then return nil end
-  btn:SetSize(D.HELP_HIT, D.HELP_HIT)
-  local beside = handle.close or handle.help
-  if beside then btn:SetPoint("RIGHT", beside, "LEFT", -D.CLOSE_GAP, 0) else btn:SetPoint("RIGHT", handle, "RIGHT", -D.HELP_INSET, 0) end
-  btn:RegisterForDrag("LeftButton")
-  btn:SetScript("OnDragStart", handle:GetScript("OnDragStart"))
-  btn:SetScript("OnDragStop", handle:GetScript("OnDragStop"))
-  local icon = btn.CreateTexture and btn:CreateTexture(nil, "OVERLAY")
-  if icon and icon.SetTexture then
-    icon:SetSize(D.HELP, D.HELP)
-    icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
-    icon:SetTexture(dhMarkArt(handle, spec, "settingsIcon", "settings", SETTINGS_FALLBACK))
-    dhTint(icon, handle.__pal.tint)
-    btn.icon = icon
-  end
-  btn:SetScript("OnEnter", function()
-    dhTint(btn.icon, handle.__pal.over)
-    dhShowTooltip(handle, btn, spec, spec.settingsTooltip or spec.tooltip, "SETTINGS_TIP")
-  end)
-  btn:SetScript("OnLeave", function()
-    dhTint(btn.icon, handle.__pal.tint)
-    dhHideTooltip()
-  end)
+  if not dhHasSettings(spec) then return nil end
+  local btn = dhMarkFrame(handle, handle.close,
+    dhMarkArt(handle, spec, "settingsIcon", "settings", SETTINGS_FALLBACK), handle.__pal.tint)
+  if not btn then return nil end
+  dhMarkHover(handle, btn, spec, spec.settingsTooltip or spec.tooltip, "SETTINGS_TIP", "tint", "over")
   if spec.onRightClick then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") else btn:RegisterForClicks("LeftButtonUp") end
   btn:SetScript("OnClick", function(_, button)
     if button == "LeftButton" then return dhOpenSettings(spec) end
@@ -631,15 +612,34 @@ local function dhBuildSettings(handle, spec)
   return btn
 end
 
---- What each side of the label keeps clear on THIS strip: RESERVE, plus the close mark's frame and
---- its gap when the host asked for one, and the settings mark's the same (minor 14). Read by
---- dhBuildLabel and by Measure, so the bound the label truncates at and the width the strip is given
---- cannot disagree.
+--- The help mark: a fixed icon rather than a line of hint text, so a one-element strip is not
+--- forced wider by prose. The LEFTMOST mark from minor 15, against the gear (else the X, else the
+--- corner).
+---
+--- It takes the strip's drag scripts (dhMarkFrame), so a drag that starts on the "?" moves the frame
+--- instead of landing in a dead zone, and it passes a right-click through when the host registered
+--- one. It lights `text.link` under the pointer on every strip (minor 15; through 14 it lit only
+--- where `spec.onRightClick` was wired, in `icon.hot`). Its tooltip is `spec.helpTooltip` when the
+--- host wrote a second descriptor and `spec.tooltip` when it did not, read on every hover rather
+--- than captured here.
+local function dhBuildHelp(handle, spec)
+  local help = dhMarkFrame(handle, handle.settings or handle.close,
+    dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK), handle.__pal.tint)
+  if not help then return nil end
+  dhMarkHover(handle, help, spec, spec.helpTooltip or spec.tooltip, "HELP_TIP", "tint", "over")
+  dhSetClick(help, spec, false)
+  return help
+end
+
+--- What each side of the label keeps clear on THIS strip: RESERVE (the "?"), plus HELP_HIT +
+--- CLOSE_GAP for each further mark, the X where the host passed `onClose` and the gear unless it
+--- passed `settings = false` (minor 15). Read by dhBuildLabel and by Measure, so the bound the label
+--- truncates at and the width the strip is given cannot disagree.
 local function dhReserve(spec)
   local D = lib.DRAG_HANDLE
   local r = D.RESERVE
   if spec.onClose then r = r + D.HELP_HIT + D.CLOSE_GAP end
-  if spec.settings then r = r + D.HELP_HIT + D.CLOSE_GAP end
+  if dhHasSettings(spec) then r = r + D.HELP_HIT + D.CLOSE_GAP end
   return r
 end
 
@@ -703,7 +703,7 @@ local function dhRepaint(handle, owner)
   end
   if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
   if handle.help then dhTint(handle.help.icon, pal.tint) end
-  if handle.close then dhTint(handle.close.icon, pal.tint) end
+  if handle.close then dhTint(handle.close.icon, pal.closeTint) end
   if handle.settings then dhTint(handle.settings.icon, pal.tint) end
   dhMarksArt(handle)
   dhRefit(handle)
@@ -713,7 +713,7 @@ end
 --- face dhLabelWidth measures in -- see LABEL_FONT_DEFAULT, which is the whole point of the field.
 ---
 --- BOUNDED ON BOTH SIDES, NOT JUST CENTERED, and the bound is the strip's reserve (dhReserve:
---- RESERVE, widened by the close mark where there is one) -- the same number Measure() spends on
+--- RESERVE, widened by each further mark: the X, the gear) -- the same number Measure() spends on
 --- each side of the label. A FontString with a CENTER point and nothing else has no
 --- width of its own and grows both ways out of the strip, so a label longer than the strip runs
 --- under the mark and past the gold edge. There are three ways to get one, and none of them is
@@ -743,7 +743,7 @@ local function dhBuildLabel(handle, spec)
   return label
 end
 
---- The two drag scripts, set on the strip -- and copied onto the mark by dhBuildHelp, which reads
+--- The two drag scripts, set on the strip -- and copied onto every mark by dhMarkFrame, which reads
 --- them back off the strip rather than being handed them.
 local function dhSetDragScripts(handle, spec)
   handle:SetScript("OnDragStart", function()
@@ -840,8 +840,8 @@ local function dhAttachMethods(handle, spec)
     return dhLabelWidth(spec, self.__label, self.label, self) + lib.DRAG_HANDLE.FIT_SLACK + dhReserve(spec) * 2
   end
 
-  --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE without a close
-  --- mark, RESERVE + HELP_HIT + CLOSE_GAP with one. Published so a host that reasons about the
+  --- What each side of the label keeps clear on this strip: DRAG_HANDLE.RESERVE for the "?", plus
+  --- HELP_HIT + CLOSE_GAP for the X and again for the gear (minor 15). Published so a host that reasons about the
   --- strip's width reads the number rather than restating the arithmetic.
   function handle:Reserve()
     return dhReserve(spec)
@@ -859,8 +859,8 @@ local function dhAttachMethods(handle, spec)
     return w
   end
 
-  --- Re-apply `spec.level` (minor 5) over the parent's CURRENT level, and set both marks to the
-  --- handle's level + 1 explicitly. A host calls it after it re-levels or re-parents the handle's
+  --- Re-apply `spec.level` (minor 5) over the parent's CURRENT level, and set every mark (the "?",
+  --- the X and, from minor 15, the gear: LibKa0s#96) to the handle's level + 1 explicitly. A host calls it after it re-levels or re-parents the handle's
   --- parent -- SetParent re-derives levels (XS-18) -- never only in a memoized restyle that may
   --- skip it. Without a numeric spec.level it writes nothing and answers false.
   function handle:ApplyLevel()
@@ -868,6 +868,7 @@ local function dhAttachMethods(handle, spec)
     if not lvl then return false end
     dhLevelMark(self.help, lvl + 1)
     dhLevelMark(self.close, lvl + 1)
+    dhLevelMark(self.settings, lvl + 1)   -- minor 15, LibKa0s#96
     return true
   end
 end
@@ -886,16 +887,18 @@ end
 ---   onDragStart function|nil      called once the move has started.
 ---   onDragStop  function|nil      called once it has stopped -- where a host saves the position.
 ---   onRightClick function|nil     without it NEITHER the strip NOR the mark registers for clicks.
----   onClose     function|nil      minor 3. Builds the close mark (an X) left of the help mark and
----                                 calls this on its left click. Without it no X is built and the
----                                 strip is exactly minor 2's.
+---   onClose     function|nil      minor 3. Builds the close mark (an X), from minor 15 in the
+---                                 strip's corner (rightmost), and calls this on its left click.
+---                                 Every host MUST pass one (the standard's HUD header rule): it
+---                                 hides or disables the display and keeps its settings. Without it
+---                                 no X is built, never a mark that does nothing.
 ---   closeIcon   string|nil        resolved texture path for the X; nil falls back.
----   settings    true|function|nil minor 14 (LibKa0s#86). Builds the settings mark left of the X (else
----                                 of the "?"); a left click calls the function, else `onSettings`,
----                                 else LibKa0s-Core-1.0's OpenSettings(`settingsOwner` or `owner`),
----                                 the opener the addon's launcher registered. Opt-in: without it the
----                                 strip is exactly minor 13's.
----   onSettings  function|nil      minor 14. What the settings mark opens, with `settings = true`.
+---   settings    true|function|false|nil minor 14 (LibKa0s#86). The settings mark, left of the X
+---                                 (else in the corner); a left click calls the function, else
+---                                 `onSettings`, else LibKa0s-Core-1.0's OpenSettings(`settingsOwner`
+---                                 or `owner`), the opener the addon's launcher registered. Standard
+---                                 from minor 15: built unless this is `false` (opt-in at 14).
+---   onSettings  function|nil      minor 14. What the settings mark opens, unless `settings` is one.
 ---   settingsOwner string|nil      minor 14. The registry key, where it is not `owner`.
 ---   settingsIcon string|nil       minor 14. Resolved texture path for the mark; nil falls back.
 ---   settingsTooltip table|nil     minor 14. The mark's own descriptor; `tooltip` without it, and
@@ -905,7 +908,8 @@ end
 ---   tooltip     table|nil         the descriptor the STRIP shows, and the mark's too unless
 ---                                 `helpTooltip` says otherwise:
 ---                                   { title, body = {…}, footer = {…}, owner, anchor, place }
----                                 (`owner` and `anchor` retired at minor 14: accepted, not read)
+---                                 (`owner` and `anchor` retired at minor 14, `place` at Tip minor 2:
+---                                 accepted, not read)
 ---                                 every band entry may be a string, a function called on each
 ---                                 hover whose nil return drops the line, or a
 ---                                 { <either>, r, g, b } table carrying its own color. No tooltip
@@ -919,21 +923,19 @@ end
 ---                                 by UIParent at ANCHOR_NONE and attached centered above the strip
 ---                                 (LibKa0s-Tooltip-1.0's PlaceAttached; WidgetsDragHandleTip.lua).
 ---   tooltipAnchor string|nil      RETIRED at minor 14, as `tooltipOwner`.
----   tooltipPlace function|nil     minor 4. tooltipPlace(tip, frame) -> true when it placed the
----                                 tooltip. The tooltip is owned by UIParent at ANCHOR_NONE,
----                                 drawn, shown, and then handed to this under pcall with the
----                                 frame hovered. A raise or any answer but `true` falls back to the
----                                 library's attached placement above the strip (minor 14; the
----                                 cursor before). A descriptor's own `place` wins; a value that is
----                                 not a function is ignored.
+---   tooltipPlace function|nil     minor 4. RETIRED at WidgetsDragHandleTip minor 2 (accepted, never
+---                                 called; deprecated, a host drops it): the strip's tooltip and its
+---                                 marks' always attach centered above the strip, below only without
+---                                 room. Through Tip minor 1 it was called after Show and kept its
+---                                 point on a literal `true`. A descriptor's `place` is retired with it.
 ---   edge        function|nil      the host's own 1px edge painter, called as
 ---                                 edge(frame, size, r, g, b, a). Defaults to four strips of ours.
 ---   number      function|nil      number(v, fallback) -- a secret-safe numeric guard.
 ---   labelFont   string|nil        the font object the label is DRAWN in AND measured in.
 ---                                 Defaults to "GameFontNormalSmall".
 ---   level       number|nil        minor 5. The handle's frame level as an OFFSET over
----                                 parent:GetFrameLevel(), applied at birth before the help and
----                                 close marks are built, so the marks are born at handle + 1. nil
+---                                 parent:GetFrameLevel(), applied at birth before the
+---                                 marks are built, so the marks are born at handle + 1. nil
 ---                                 keeps minor 4's implicit parent + 1. See handle:ApplyLevel().
 ---   ignoreParentAlpha boolean|nil minor 5. true calls SetIgnoreParentAlpha(true) on the handle, so
 ---                                 a display that fades its content does not fade the strip a
@@ -980,9 +982,10 @@ function lib.DragHandle(parent, spec)
   handle:SetScript("OnLeave", dhHideTooltip)
   dhSetClick(handle, spec, true)
 
-  handle.help = dhBuildHelp(handle, spec)
+  -- Right to left (minor 15): the X in the corner, the gear against it, the "?" leftmost.
   handle.close = dhBuildClose(handle, spec)
   handle.settings = dhBuildSettings(handle, spec)
+  handle.help = dhBuildHelp(handle, spec)
   dhAttachMethods(handle, spec)
   dhFitOnShow(handle)
   handle:SetLabel(spec.label)

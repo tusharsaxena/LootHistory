@@ -4,7 +4,7 @@ Catalog of WoW Midnight (Interface 120105, 12.1.5) behaviors that Ka0s Loot Hist
 
 > **Not a secret-value *reader* — but its output seam is still secret-safe.** Unlike KickCD, LH does **not** read cooldown/cast timings or any of 12.0's "secret value" protected returns; it reads loot, item, mail, and quest data, none of which are secret-tainted. So no capture/attribution path ever holds a secret. **However**, the shared chat printer (`NS.Print`) and debug sink (`NS.Debug`) are still built secret-safe — every argument routes through `NS.SafeToString` (`core/Util.lua`) before it reaches `table.concat`/`string.format`, so a value that *is* secret logs as `<secret>` instead of crashing. This is the Ka0s standard's single-seam mandate (events-frames-taint-§8): the guard lives once in the shared helpers and every call site inherits it, regardless of whether this addon happens to feed it a secret today. There is no per-call-site `issecretvalue` handling, and there should be none.
 
-<!-- BEGIN VENDORED: quirks catalog v2.103.1 (source: WowAddonStandards) -->
+<!-- BEGIN VENDORED: quirks catalog v2.115.0 (source: WowAddonStandards) -->
 > Part of the **[Ka0s WoW Addon Standard](https://github.com/tusharsaxena/WowAddonStandards/blob/master/standards/STANDARDS.md)** — the split standard. This section is vendored whole into every addon's `docs/midnight-quirks.md` (§1), so its links are absolute. Cross-references use the `filename-§N` form (see the index's section map).
 
 ## Client quirks
@@ -106,7 +106,7 @@ GUID; seven repos (Q7).
 secret stays secret after combat ends, and the client writes a secret to SavedVariables as `nil` — or,
 where it was a key, loses the entry. *Measured:* a reload probe, 2026-10-25. *Cost:* silent data loss on
 the next reload. *Do:* store a plain value or nothing; never store a captured secret to read later.
-*Source:* DpsRace `docs/known-limitations.md`, the reload probe; three repos (Q21).
+*Source:* Combat Trail `docs/known-limitations.md`, the reload probe its race mode carries; three repos (Q21).
 
 **A frame handed a secret has secret geometry, and so does everything anchored to it.** After
 `StatusBar:SetValue(secret)` (or `SetAlphaFromBoolean`, or anchoring to an aura engine container) the
@@ -136,7 +136,7 @@ path takes the event's plain value; do not inherit `CastingBarFrameTemplate` for
 player. *Source:* KickCD `docs/midnight-quirks.md`, "split the gate in two"; two repos (Q13).
 
 **`InChatMessagingLockdown` can answer a secret.** *Do:* read it through a guard and treat a secret as
-locked. *Source:* DropWatcher and QuickComms `core/Compat.lua` (byte-identical), DpsRace; three repos (Q27).
+locked. *Source:* DropWatcher and QuickComms `core/Compat.lua` (byte-identical), Combat Trail; three repos (Q27).
 
 ### 3. Events
 
@@ -213,6 +213,38 @@ spelling. *Source:* DropWatcher `docs/midnight-quirks.md`, the research's enum v
 build a `Name-Realm` key before the realm is known; defer, or fall back to `GetRealmName` with its spaces
 and hyphens removed. *Source:* DropWatcher `docs/midnight-quirks.md`, realm names; four repos (Q25).
 
+**On Forever a character's name is two words, unique per region, and its realm is a long label.** *Client:*
+Forever (1.60.1, build 70790). *Measured:* the owner's in-game probe of 2026-11-08 (Ka0sAddonsCommonTasks
+`docs/2026-11-07-WOW_FOREVER_PORT_STEP5/W1_FOREVER_NAME_PROBE.md`). Every character has a first name and a
+surname, and only the pair is unique; `RegionalUniqueNamesEnabled()` answers true. The name APIs answer:
+
+| Call | Forever answers | Retail answers |
+|---|---|---|
+| `UnitName(unit)`, `UnitFullName(unit)` | `"Traxex"`, `"Silentshot"`: the **surname** second | the name, then the realm (nil on your own realm) |
+| `GetUnitName(unit, true)`, `Ambiguate(…, "short")` | `"Traxex Silentshot"` | `"Name"`, or `"Name-Realm"` across realms |
+| a chat event's sender (arg 2) | `"Doom Dock"`, no realm suffix | `"Name-Realm"` |
+| `GetRealmName()` / `GetNormalizedRealmName()` | `"CAMWOW AU1 Realm 2 PvP"` / `"CAMWOWAU1Realm2PvP"` | the realm, with and without its spaces |
+| AceDB-3.0 40's `db.keys` | `char` `"Traxex Silentshot"`, `realm` `"PvP"`, `factionrealm` `"Alliance - PvP"` | `"Name - Realm"`, the realm |
+
+Players know a realm by its ruleset (Normal, PvP, RP-PvP), not by its label, and there is no cross-realm play to
+put a realm on another player. *Cost:* `local name, realm = UnitName(unit)` reads the surname as a realm and
+builds `"Traxex-Silentshot"`; a one-value `UnitName(unit)` keeps only the first name, so two characters that
+share one ("Traxex Silentshot", "Traxex Ironhide") collide in a key, a filter or a roster; a surface sized for
+one Retail word truncates the pair; a `Name-Realm` key built from `GetNormalizedRealmName` is unique but is
+not the identity the player or AceDB uses. *Do:* read a character through `LibKa0s-Compat-1.0`'s identity readers (from `LibKa0s v1.94.0`):
+`UnitCharacterName(unit)` for any unit, `CharacterKey()` and `RealmKey()` for the player, and `RegionalNames()`
+for the question itself. They implement this rule. When `RegionalUniqueNamesEnabled` exists and answers true,
+a character's identity is its **whole name**: `GetUnitName(unit, true)` for any unit, or
+`UnitNameUnmodified("player")`'s two returns joined by a space for the player, and its realm is the
+**ruleset** AceDB 40 derives from `C_GameRules` (`Hardcore`, `RP-PvP`, `RP`, `PvP`, `PvE`). The ruleset is the realm key for stored realm data too, by the owner's
+ruling of 2026-11-08, so two PvP realms share one realm key. An addon whose
+profile store is AceDB reads those as `db.keys.char` and `db.keys.realm` and never derives them again. That
+test is feature detection inside the compat family (clients-§3, compat), never a client check in feature
+code. Never read `UnitName`'s second return as a realm, never split a name on whitespace or key on its first
+word, and size every surface that shows a name, a realm or a profile key for the long form, or truncate it
+with the whole value in a tooltip. *Source:* the owner's ruling and probe of 2026-11-08 during the WoW
+Forever port's step 5, recorded ahead of the two-repo bar by that ruling; AceDB-3.0 minor 40's key block.
+
 **A template-less `FontString` with no font raises on `SetText`.** "Font not set" from a `FontString`
 created without a template or `SetFontObject` takes the addon down at load; a mock that does not enforce it
 passes every test. *Do:* give every bare `FontString` a font object before its first `SetText`; the kit's
@@ -223,8 +255,7 @@ mock enforces it. *Source:* MultiMeters `tests/mock_frame.lua`, the font-not-set
 
 Each needs an in-game probe, recorded with the build, before any section of this standard changes.
 
-- **WoW Forever behaviors (none recorded yet).** The catalog was written on Retail. The Forever client (build 70790) has a missing-API surface, `SetDesaturation` among it, that LibKa0s tracks in LibKa0s#44, and no quirk entry yet meets this section's two-repo bar for it. Record a Forever behavior in the repo that meets it, with the build, and promote it by a harvest like any other.
-
+- **WoW Forever behaviors (one recorded).** The catalog was written on Retail. The Forever client (build 70790) has a missing-API surface, `SetDesaturation` among it, that LibKa0s tracks in LibKa0s#44. One Forever entry is in §5, the two-word names and long realm labels, measured on build 70790. Record any other Forever behavior in the repo that meets it, with the build, and promote it by a harvest like any other.
 - **`string.format` on a secret.** events-frames-taint-§8 says it raises, with three repos; two say it
   works, one with a mid-combat observation. The likely difference is the specifier (`%s` against `%d` and
   `%.1f`) or that the result is itself a secret string. Probe each specifier, in combat, on a damage-meter
