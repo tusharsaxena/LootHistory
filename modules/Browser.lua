@@ -90,22 +90,65 @@ end
 -- through core/WidgetsSetup.lua's NS.MakeHeaderButtons, left to right settings · close, the close
 -- still B:MakeCloseButton's (the one wrapper) and the settings mark opening this addon's settings
 -- through the launcher's registered opener. `hideOnSettings` is the window to hide first, for one
--- that would cover the settings panel (the DIALOG-strata export modal). On a degraded install (no
--- HeaderButtons) the close alone, 6 px in from the bar's right, as before. Sets `win.closeButton`,
--- `win.settingsButton` and answers the S.Header `right` list (outermost first).
-function B:MakeTitleMarks(bar, win, onClose, hideOnSettings)
+-- that would cover the settings panel (the DIALOG-strata export modal). `extras` are W.HeaderButtons'
+-- own, left of the settings mark: the History window passes its lock (AF-HDR-LH). On a degraded
+-- install (no HeaderButtons) the close alone, 6 px in from the bar's right, as before. Sets
+-- `win.closeButton`, `win.settingsButton`, `win.lockButton` (the `lock` extra, if any) and answers
+-- the S.Header `right` list (outermost first).
+function B:MakeTitleMarks(bar, win, onClose, hideOnSettings, extras)
   local hb = NS.MakeHeaderButtons and NS.MakeHeaderButtons(bar, {
-    close = onClose, frame = win, hideOnSettings = hideOnSettings,
+    close = onClose, frame = win, hideOnSettings = hideOnSettings, extras = extras,
     makeClose = function(parent, onClick) return B:MakeCloseButton(parent, onClick) end,
   })
   if hb then
     win.closeButton, win.settingsButton = hb.close, hb.settings
+    win.lockButton = hb.extras and hb.extras.lock
     return hb.right
   end
   local close = B:MakeCloseButton(bar, onClose)
   if close then close:SetPoint("RIGHT", bar, "RIGHT", -6, 0) end
   win.closeButton = close
   return { close }
+end
+
+-- The History window's lock mark (AF-HDR-LH; standalone-windows *Which marks a window owes*, standard
+-- v2.115.0: a primary window's header carries close, settings and lock). The catalog's `lock` while
+-- locked and `unlock` while not, its tooltip what a click does. The click runs `/lh unlock` or
+-- `/lh lock`, the verbs the launcher's Locked entry also runs, and they write `settings.locked`
+-- through the single seam; that row's onChange (SETTINGS_CHANGED) repaints the mark through
+-- B:OnSettingsChanged, as B:AdoptProfile does on a profile switch. W.HeaderButtons evaluates `icon`
+-- and `tip` once, at build, so the repaint is the host's.
+local function lockFace()
+  if B:IsLocked() then return "lock", NS.L["Unlock the window"] end
+  return "unlock", NS.L["Lock the window"]
+end
+
+--- The History window's `lock` extra, painted for the lock as it stands now.
+local function lockExtra()
+  local icon, tip = lockFace()
+  return { key = "lock", icon = icon, tip = tip, onClick = function() B:ToggleLock() end }
+end
+
+--- Flip the lock through the verbs: `/lh unlock` while locked, `/lh lock` while not.
+function B:ToggleLock()
+  if NS.RunVerb then NS.RunVerb(B:IsLocked() and "unlock" or "lock") end
+end
+
+--- Repaint the lock mark's art and tooltip for the lock as it stands; a no-op with no mark.
+function B:PaintLockMark()
+  local f = B:GetWindow()
+  local mark = f and f.lockButton
+  if not mark then return end
+  local icon, tip = lockFace()
+  local path = NS.Icon and NS.Icon(icon)
+  if mark.icon and path then mark.icon:SetTexture(path) end
+  mark.__tip = tip
+  -- The library reads __tip only on hover, so a tooltip already open on this mark is rewritten now.
+  local gt = GameTooltip
+  if gt and type(gt.IsOwned) == "function" and gt:IsOwned(mark) then
+    local enter = mark:GetScript("OnEnter")
+    if enter then enter(mark) end
+  end
 end
 
 -- ── Window position/size persistence ──────────────────────────────────────────
@@ -897,6 +940,7 @@ function B:AdoptProfile()
   end
   if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
   B:ApplyChrome(frame, NS.db.profile.settings.windowScale)
+  B:PaintLockMark()
   B:ApplyVisibility()
 end
 
@@ -1069,9 +1113,9 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.dividerBar = divider
 
-  -- The title-bar marks, settings · close (AD-86-LH): B:MakeTitleMarks above. The History window is
-  -- HIGH strata, the settings panel's own, so it stays up when settings opens.
-  local marks = B:MakeTitleMarks(titleBar, frame, function() B:Hide() end)
+  -- The title-bar marks, lock · settings · close (AD-86-LH, AF-HDR-LH): B:MakeTitleMarks above. The
+  -- History window is HIGH strata, the settings panel's own, so it stays up when settings opens.
+  local marks = B:MakeTitleMarks(titleBar, frame, function() B:Hide() end, nil, { lockExtra() })
 
   -- The header on the window's title band (R5-WIN of Ka0sAddonsCommonTasks
   -- docs/2026-11-03-SMOKE_ROUND5, items 2 and 5): S.Band is the band at Shell's own inset and
@@ -1344,6 +1388,7 @@ end
 -- built lazily and may not exist, and E:Open re-applies on every open regardless.
 function B:OnSettingsChanged()
   B:ApplyChrome(frame, NS.db.profile.settings.windowScale)
+  B:PaintLockMark()
   if NS.Export and NS.Export.ApplyChrome then NS.Export:ApplyChrome() end
   B:ApplyVisibility()
   -- The MINIMAP BUTTON is deliberately not re-applied here any more. It is the Master controls

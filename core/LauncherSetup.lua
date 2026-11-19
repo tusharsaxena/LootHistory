@@ -63,6 +63,9 @@ local function runVerb(verb)
     if entry[1] == verb then return entry[3]("") end
   end
 end
+-- Published for the History window's lock mark (AF-HDR-LH), which runs `/lh lock` / `/lh unlock`
+-- through this same lookup, so the mark, the menu's Locked entry and the verbs are one path.
+NS.RunVerb = runVerb
 
 -- ── THE SHOW WINDOW KEY BINDING (launcher-§6, anti-pattern #96) ──────────────────────────────
 --
@@ -226,13 +229,12 @@ NS.Launcher = Launcher:New({
   setEnabled = function(on) runVerb(on and "enable" or "disable") end,
 
   -- LOCKED: the *Lock frame* row's `settings.locked`, read through B:IsLocked (the History
-  -- window's and the export modal's own drag gate). This addon has NO lock/unlock verb, so the
-  -- toggle is the ROW's own write: Schema:Set on the row's path, the seam the panel checkbox and
-  -- `/lh set settings.locked` both take, so the row's onChange repaints the chrome.
+  -- window's and the export modal's own drag gate). The toggle runs `/lh unlock` while locked and
+  -- `/lh lock` while not (AF-HDR-LH), the verbs the History window's lock mark also runs: each is
+  -- `/lh set settings.locked <bool>` through the single write seam, so the row's onChange repaints
+  -- the chrome and the lock mark, and the confirmation line is the verb's own.
   isLocked   = lockedNow,
-  toggleLock = function()
-    if NS.Schema and NS.Schema.Set then NS.Schema:Set("settings.locked", not lockedNow()) end
-  end,
+  toggleLock = function() runVerb(lockedNow() and "unlock" or "lock") end,
 
   -- TEST MODE: `state.testMode`'s get, BrowserTable.testMode, the one switch `/lh test`, the Test
   -- mode box and the combat start share. The toggle is the `/lh test` verb, so a refused start

@@ -1330,11 +1330,11 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(skin.SkinDefs, 28)
   assertEqual(skin.SkinDefsOthers, 10)
   assertEqual(skin.SkinPaintControls, 18)
-  assertEqual(widgets.Widgets, 28)   -- v1.106.0: the HUD dock guards its measurements
+  assertTrue(widgets.Widgets >= 28)   -- v1.106.0: the HUD dock guards its measurements; 29 since v1.107.0, pinned there
   assertEqual(widgets.WidgetsDropdown, 2)
   assertEqual(widgets.WidgetsReorder, 7)
-  assertEqual(widgets.WidgetsDragHandle, 14)
-  assertEqual(widgets.WidgetsDragHandleTip, 1)
+  assertTrue(widgets.WidgetsDragHandle >= 14) -- 15 since v1.107.0, pinned there
+  assertTrue(widgets.WidgetsDragHandleTip >= 1) -- 2 since v1.107.0, pinned there
   assertEqual(widgets.WidgetsCopyWindow, 6)
   assertEqual(widgets.WidgetsHeader, 1)
   assertEqual(widgets.WidgetsBar, 1)
@@ -1350,5 +1350,17 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(sim.Sim, 3)
   assertEqual(sim.SimPanel, 11)
   assertEqual(sim.SimPanelRender, 4)
+  assertEqual(T.KIT_VERSION, 57)
+end)
+
+test("v1.107.0: the vendored minors and the kit revision match the release", function()
+  -- The drag strip's marks and tooltip (AF-LK-01, AF-LK-02, LibKa0s#96): WidgetsDragHandle 15 reads
+  -- the marks [?][settings][close] with the settings mark on by default, WidgetsDragHandleTip 2 opens
+  -- the strip's tooltip above it. This addon builds no strip; the pins say which payload it carries.
+  local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
+  assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Widgets-1.0 missing: re-vendor v1.107.0")
+  assertEqual(lib.MODULES.WidgetsDragHandle, 15)
+  assertEqual(lib.MODULES.WidgetsDragHandleTip, 2)
+  assertEqual(lib.MODULES.Widgets, 29)   -- LibKa0s#95: secret dock geometry reads as none
   assertEqual(T.KIT_VERSION, 57)
 end)

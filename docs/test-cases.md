@@ -691,7 +691,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (77)
+### test_browser.lua (83)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -770,6 +770,12 @@ Total.
 - Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
 - Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)
 - Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 px in (AD-86-LH)
+- Browser: the History title bar reads lock · settings · close (AF-HDR-LH)
+- Browser: the lock mark shows unlock while unlocked and lock while locked (AF-HDR-LH)
+- Browser: a click on the lock mark runs /lh lock, then /lh unlock, and repaints (AF-HDR-LH)
+- Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)
+- Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
+- Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
 
 ### test_browser_filterbar.lua (23)
 
@@ -1072,7 +1078,7 @@ Total.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_slash_verbs.lua (15)
+### test_slash_verbs.lua (16)
 
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
@@ -1089,6 +1095,7 @@ Total.
 - /lh holdings <query> writes its matches to the console, ungated, with one chat pointer
 - /lh holdings caps its report at ten matches
 - /lh holdings with no match answers in chat and writes no report
+- /lh lock and /lh unlock are feature verbs: refused while disabled, writing nothing (AF-HDR-LH)
 
 ### test_slash_degraded.lua (17)
 
@@ -1750,7 +1757,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (50)
+### test_libka0s.lua (51)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1802,6 +1809,7 @@ Total.
 - v1.92.0: the vendored minors and the kit revision match the release
 - v1.93.0: the vendored minors and the kit revision match the release
 - v1.105.0: the vendored minors and the kit revision match the release
+- v1.107.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2348,7 +2356,7 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 77 |
+| test_browser.lua | 83 |
 | test_browser_filterbar.lua | 23 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
@@ -2360,7 +2368,7 @@ Total.
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
 | test_slash.lua | 50 |
-| test_slash_verbs.lua | 15 |
+| test_slash_verbs.lua | 16 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 7 |
 | test_schema.lua | 48 |
@@ -2391,7 +2399,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 50 |
+| test_libka0s.lua | 51 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2421,4 +2429,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2023** |
+| **Total** | **2031** |

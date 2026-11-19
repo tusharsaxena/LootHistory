@@ -1,5 +1,5 @@
 -- LibKa0s-Widgets-1.0 -- the drag handle's tooltip: the descriptor's three bands evaluated on each
--- hover, the owner it is shown by, and the host's placement hook (WidgetsDragHandle minors 3, 4 and 7).
+-- hover, the owner it is shown by, and where it opens (WidgetsDragHandle minors 3, 4 and 7).
 --
 -- Peeled out of WidgetsDragHandle.lua at its minor 14, unchanged (LK-92B of Ka0sAddonsCommonTasks
 -- docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, design section 3.6), on the seam CLAUDE.md's band census
@@ -23,17 +23,26 @@
 -- centered ABOVE THE STRIP (below only without room above: SR-L1, the bundle's smoke round 1, where
 -- it opened below) through LibKa0s-Tooltip-1.0's PlaceAttached, read at hover time. It is
 -- always owned by UIParent at ANCHOR_NONE and placed by absolute points, which a restricted layout
--- tree (AuraMaster's anchors) accepts. A host's `tooltipPlace` (or a descriptor's `place`) still
--- wins when it answers `true`; a raise or any other answer falls back to the attached placer, never
--- the cursor (anti-pattern #119). `tooltipOwner = "cursor"`, `tooltipAnchor` and a descriptor's
--- `owner` and `anchor` are RETIRED: still accepted, no longer read (the frozen -1.0 major removes
--- no field).
+-- tree (AuraMaster's anchors) accepts, and never at the cursor (anti-pattern #119).
+-- `tooltipOwner = "cursor"`, `tooltipAnchor` and a descriptor's `owner` and `anchor` are RETIRED:
+-- still accepted, no longer read (the frozen -1.0 major removes no field).
+--
+-- THE PLACEMENT HOOK IS RETIRED TOO (minor 2, AF-LK-02 of Ka0sAddonsCommonTasks
+-- docs/2026-11-19-ADOPTION_FEEDBACK). Through minor 1 a host's `tooltipPlace` (or a descriptor's
+-- `place`) was called after Show and kept its own point when it answered `true`, so Aura Master's,
+-- AbsorbTracker's, Consumable Master's and KickCD's strip tooltips opened BESIDE the strip (the
+-- owner's image 11) while every window header's opened above its mark (image 10, Drop Watcher). The
+-- owner's ruling is one rule: above the strip everywhere, below only without room. Both keys are
+-- still accepted, so a host not yet updated does not error, and neither is read or called: the
+-- strip's tooltip and its marks' always take the attached placement. Deprecated: a host drops them.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
 -- Minor 1: the tooltip half, moved here unchanged from WidgetsDragHandle.lua (its minor 14).
-local DRAGTIP_MINOR = 1
+-- Minor 2 (AF-LK-02): `spec.tooltipPlace` and a descriptor's `place` are retired, accepted unread; every
+-- strip and mark tooltip attaches centered above the strip (WHERE IT OPENS).
+local DRAGTIP_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own: see WidgetsDragHandle.lua.
 if lib.__dragTipMinor and lib.__dragTipMinor >= DRAGTIP_MINOR
   and lib.__dragTipShellMinor == lib.MINOR then return end
@@ -79,15 +88,6 @@ local function dhBand(entries, r, g, b)
   return out
 end
 
---- The host's placement hook for this descriptor, or nil (minor 4). The descriptor's own `place`
---- wins over `spec.tooltipPlace`. A value that is not a
---- function is ignored rather than called, so a typo costs the hook and not the tooltip's owner.
-local function dhPlacer(spec, t)
-  if type(t.place) == "function" then return t.place end
-  if type(spec.tooltipPlace) == "function" then return spec.tooltipPlace end
-  return nil
-end
-
 --- The three-band shape both copies built out of different text, EVALUATED ONCE for this hover: a
 --- gold title, white wrapped body lines, then -- only when at least one survives -- gray footer
 --- lines. Evaluated apart from the drawing, once per hover. The band colors are `pal`'s, the
@@ -127,23 +127,18 @@ local function dhPlaceAttached(tip, handle)
   pcall(tip.SetPoint, tip, "BOTTOM", handle, "TOP", 0, 2)
 end
 
---- Show the descriptor's tooltip for `frame`, the frame hovered and the frame a placement hook is
---- handed: owned by UIParent at ANCHOR_NONE, evaluated and drawn, SHOWN (so a placement reads the
---- tooltip's measured size), then the host's hook under pcall when there is one, and the library's
---- attached placement unless that hook answered a literal `true`. `handle` is the strip, whose
---- palette colors the bands (minor 7); `defaultPal` is WidgetsDragHandle.lua's owner-less palette,
---- for a handle that carries none.
-local function dhShowTooltip(handle, frame, spec, t, defaultPal)
+--- Show the descriptor's tooltip for `frame`, the frame hovered: owned by UIParent at ANCHOR_NONE,
+--- evaluated and drawn, SHOWN (so the placement reads the tooltip's measured size), then attached
+--- above the strip. `handle` is the strip, whose palette colors the bands (minor 7) and which every
+--- tooltip places by, whichever of its frames is hovered; `defaultPal` is WidgetsDragHandle.lua's
+--- owner-less palette, for a handle that carries none. `spec.tooltipPlace` and `t.place` are retired
+--- (minor 2) and not read; `frame` and `spec` stay in the signature WidgetsDragHandle.lua calls.
+local function dhShowTooltip(handle, frame, spec, t, defaultPal)  -- luacheck: no unused args
   local tip = GameTooltip
   if not (t and tip and tip.SetOwner and tip.SetText) then return end
   local lines = dhTooltipLines(t, handle.__pal or defaultPal)
   tip:SetOwner(UIParent, "ANCHOR_NONE")
   dhDrawTooltip(tip, lines)
-  local place = dhPlacer(spec, t)
-  if place then
-    local ok, placed = pcall(place, tip, frame)
-    if ok and placed == true then return end
-  end
   dhPlaceAttached(tip, handle)
 end
 

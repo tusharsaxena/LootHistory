@@ -711,7 +711,8 @@ test("launcher: the descriptor answers the library's questions, and every toggle
       BrowserTable = { testMode = false },
       Database = { Count = function() return 3 end },
       SkinColor = NS.SkinColor,
-      COMMANDS = { verb("show"), verb("toggle"), verb("enable"), verb("disable"), verb("test") },
+      COMMANDS = { verb("show"), verb("toggle"), verb("enable"), verb("disable"), verb("test"),
+        verb("lock"), verb("unlock") },
     }
     Loader.load("core/LauncherSetup.lua", ns, mocks)
     assertTrue(captured ~= nil, "the file must build its launcher through Launcher:New")
@@ -740,14 +741,14 @@ test("launcher: the descriptor answers the library's questions, and every toggle
       "each toggle runs its verb's own NS.COMMANDS handler, looked up at call time")
 
     assertEqual(captured.isLocked(), false)
+    ran = {}
     captured.toggleLock()
     locked = true
     assertEqual(captured.isLocked(), true, "isLocked reads B:IsLocked on every call")
     captured.toggleLock()
-    assertEqual(#sets, 2, "toggleLock writes through the single write seam, once per call")
-    assertEqual(sets[1][1], "settings.locked", "the Lock frame row's own path")
-    assertEqual(sets[1][2], true, "unlocked -> lock")
-    assertEqual(sets[2][2], false, "locked -> unlock")
+    assertEqual(table.concat(ran, ","), "lock,unlock",
+      "toggleLock runs /lh lock while unlocked and /lh unlock while locked (AF-HDR-LH)")
+    assertEqual(#sets, 0, "and never writes the row itself: the verb owns the write")
 
     assertEqual(captured.isWindowShown(), false)
     winShown = true

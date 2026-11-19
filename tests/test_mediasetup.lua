@@ -39,6 +39,10 @@ local DRAWN = {
   -- LibKa0s-Widgets-1.0's ReorderList (core/WidgetsSetup.lua) for the reason every other mark is:
   -- a vendored library cannot know which addon folder it was copied into.
   "segment",
+  -- the History window's header lock mark (modules/Browser.lua's lockFace, AF-HDR-LH), both halves:
+  -- `lock` while locked (listed above, the Bound column draws it too) and `unlock` while not. Named
+  -- through a local, so the source sweep below cannot see either literal; this line is the record.
+  "unlock",
   -- drawn by LibKa0s on our behalf: Core's close on four windows, DebugLog's strip on two (its
   -- copy and clear; `clear` is listed once, above, because the row menus draw it too), and the
   -- Options id list's help mark (`info`, above: settings/Panel.lua's IdList passes no helpIcon)

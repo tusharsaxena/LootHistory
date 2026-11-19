@@ -455,3 +455,23 @@ test("/lh holdings with no match answers in chat and writes no report", function
   assertEqual(#buffer, 0, "nothing reaches the console: " .. table.concat(buffer, " | "))
   assertTrue(not shown, "a refusal leaves the console hidden")
 end)
+
+test("/lh lock and /lh unlock are feature verbs: refused while disabled, writing nothing (AF-HDR-LH)",
+  function()
+    -- red under: a lock pair missing the gate, or one that writes before it refuses.
+    local before = NS.db.profile.settings.locked
+    NS.Schema:Set("settings.locked", false)
+    whileDisabled(function()
+      for _, verb in ipairs({ "lock", "unlock" }) do
+        local out = capture(function() Sl:OnSlash(verb) end)
+        assertEqual(#out, 1, "/lh " .. verb .. " answers on one line, got: " .. table.concat(out, " | "))
+        assertEqual(out[1], refusalFor(), "the refusal is the collection's one line")
+      end
+      assertEqual(NS.db.profile.settings.locked, false, "a refused /lh lock wrote settings.locked")
+    end)
+    local out = capture(function() Sl:OnSlash("lock") end)
+    assertEqual(NS.db.profile.settings.locked, true, "enabled, /lh lock locks")
+    assertTrue(out[1] ~= nil and out[1]:find("settings.locked", 1, true) ~= nil,
+      "the confirmation is the set line: " .. tostring(out[1]))
+    NS.Schema:Set("settings.locked", before)
+  end)
