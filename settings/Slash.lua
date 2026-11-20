@@ -3,6 +3,25 @@ NS.Slash = NS.Slash or {}
 local Sl = NS.Slash
 local print = NS.Print   -- secret-safe, [LH]-prefixed shared printer (events-frames-taint-§8)
 
+--- The ledger reset recommendation's text, its four headings in the skin's `gtip.title`: a line the
+--- addon writes into a client frame takes the tooltip family drawn for the stock dark backing (owner
+--- ruling U-7 of 2026-11-20, skinning-§9 Game art; Ka0s Default's is the gold these headings always
+--- wore). Built again on every offer, so the skin of the moment draws it. `%d` is the record count.
+function NS.LedgerResetText()
+  local head = NS.SkinEscape and NS.SkinEscape("gtip.title") or ""
+  local function h(text) return head .. text .. (head ~= "" and "|r" or "") end
+  return h("Loot History has become a full ledger.") .. "\n\n" ..
+    "It now tracks what every character and your warband holds, and will track gains AND losses " ..
+    "of items, currencies and gold.\n\n" ..
+    h("Recommended: start a fresh history.") .. " Your %d existing records only ever captured " ..
+    "gains. Mixed with the new data, any period before today would show income with no spending, " ..
+    "so net totals and Insights for those dates overstate what you kept.\n\n" ..
+    h("If you keep it:") .. " nothing is lost and older loot stays browsable, but net and loss " ..
+    "figures are only accurate from today; ranges that include older dates carry a warning.\n\n" ..
+    h("If you reset:") .. " older loot records are deleted permanently. Settings, filters and " ..
+    "profiles are kept. Choose Export first for a copy."
+end
+
 -- Confirm dialogs for destructive actions. Registered once; in-game only.
 if type(StaticPopupDialogs) == "table" then
   StaticPopupDialogs["KA0S_LOOTHISTORY_PURGE"] = {
@@ -116,16 +135,7 @@ if type(StaticPopupDialogs) == "table" then
   -- is asked again next session (the persisted db.global.resetPromptPending carries it there); only
   -- Keep and a confirmed Reset store a choice, and both retire the marker.
   StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"] = {
-    text = "|cffffd100Loot History has become a full ledger.|r\n\n" ..
-      "It now tracks what every character and your warband holds, and will track gains AND losses " ..
-      "of items, currencies and gold.\n\n" ..
-      "|cffffd100Recommended: start a fresh history.|r Your %d existing records only ever captured " ..
-      "gains. Mixed with the new data, any period before today would show income with no spending, " ..
-      "so net totals and Insights for those dates overstate what you kept.\n\n" ..
-      "|cffffd100If you keep it:|r nothing is lost and older loot stays browsable, but net and loss " ..
-      "figures are only accurate from today; ranges that include older dates carry a warning.\n\n" ..
-      "|cffffd100If you reset:|r older loot records are deleted permanently. Settings, filters and " ..
-      "profiles are kept. Choose Export first for a copy.",
+    text = NS.LedgerResetText(),
     button1 = "Reset history", button2 = "Keep history", button3 = "Export first",
     OnAccept = function()
       if NS.SimBlocks("The ledger reset") then return end
@@ -194,7 +204,10 @@ function NS.OfferLedgerReset()
     end, NS.RejectedEvents)
     return
   end
-  if type(StaticPopup_Show) == "function" then StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history) end
+  if type(StaticPopup_Show) ~= "function" then return end
+  local dialog = StaticPopupDialogs and StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"]
+  if dialog then dialog.text = NS.LedgerResetText() end
+  StaticPopup_Show("KA0S_LOOTHISTORY_LEDGER_RESET", #g.history)
 end
 
 -- ── LibKa0s-Slash-1.0 seam ─────────────────────────────────────────────────────────────────────

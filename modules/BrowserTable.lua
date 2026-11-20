@@ -1073,12 +1073,13 @@ function BrowserTable:ShowMenu(anchor, items)
     -- row reads exactly as it did before.
     local mark = item.icon and NS.Icon and NS.Icon(item.icon)
     b.fs:SetText((mark and (NS.Skin.MarkText(mark, 14) .. " ") or "") .. item.label)
+    -- The token is kept on the item, so a skin switch with the menu open recolors its text too.
+    b.textToken = item.enabled and "menu.text" or "text.disabled"
+    b.fs:SetTextColor(NS.SkinColor(b.textToken))
     if item.enabled then
-      b.fs:SetTextColor(NS.SkinColor("menu.text"))
       b:EnableMouse(true)
       b:SetScript("OnClick", function() m:Hide(); item.fn() end)
     else
-      b.fs:SetTextColor(NS.SkinColor("text.disabled"))
       b:EnableMouse(false)
       b:SetScript("OnClick", nil)
     end
@@ -1102,7 +1103,8 @@ end
 -- scroll bar, the empty line and the row menu's backdrop are recorded frames the library repaints
 -- itself; this walk covers what the table colors at build time: the sort-arrow markup (rebuilt),
 -- the header labels and lock, every pooled row's stripe, hover and group-header text on the active
--- AND the free list (a parked row comes back in the new skin), and the row menu's item hover. The
+-- AND the free list (a parked row comes back in the new skin), and the row menu's item hover and
+-- item text (menu.text, or text.disabled on a disabled item; SD-SK-LH.2). The
 -- rebind then repaints the cells, the padlocks, the quality text and the chevrons. Fires after the
 -- new skin is resolved (NS.Skin.OnLooksChanged); a no-op walk before the table is attached.
 local function paintRowChrome(row)
@@ -1123,7 +1125,10 @@ function BrowserTable:Reskin()
     for _, row in ipairs(pool.active) do paintRowChrome(row) end
     for _, row in ipairs(pool.free) do paintRowChrome(row) end
   end
-  for _, b in ipairs(rowMenu and rowMenu.buttons or {}) do b.hl:SetColorTexture(NS.SkinColor("menu.hover")) end
+  for _, b in ipairs(rowMenu and rowMenu.buttons or {}) do
+    b.hl:SetColorTexture(NS.SkinColor("menu.hover"))
+    if b.textToken then b.fs:SetTextColor(NS.SkinColor(b.textToken)) end
+  end
   if self.frame then self:Bind() end
 end
 

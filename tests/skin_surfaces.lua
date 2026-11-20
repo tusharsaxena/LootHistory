@@ -19,6 +19,13 @@
 -- Scope: the AH price table lives on the settings panel, so Ignore settings panel keeps it stock
 -- and it is `scope = "panel"`. Everything else is a window of this addon and follows either way.
 -- This addon has no HUD, so no surface carries a companion (the Options document, Moving to).
+--
+-- THE MEDIA FAKE (test kit revision 58, skinning-§9, SD-SK-LH.1 of Ka0sAddonsCommonTasks
+-- docs/2026-11-20-SKIN_DEFAULTS_AUDIT). This harness loads no LibSharedMedia, so without one every
+-- skin's bar texture resolved to the same fallback and a data fill whose texture stopped following
+-- could not be told from one that followed. While a fixture stands, a LibSharedMedia fake answers
+-- every skin's statusbar key with a path of its own, so `expect = "texture"` sees the move. Font keys
+-- stay out: resolving every face too took the run past the kit's 256 MB leak budget.
 
 return function(NS, mocks)
   local OWNER = "LootHistory"
@@ -30,6 +37,22 @@ return function(NS, mocks)
   local baseCreateFrame
   local undo = {}
   local function later(fn) undo[#undo + 1] = fn end
+
+  -- Every shipped skin's statusbar key, each its own path; read off the skins, so a new skin is
+  -- covered the day it lands.
+  local BARS = {}
+  for _, def in ipairs(Skin:Skins()) do
+    local key = Skin:ResolveSkin(def.key)["bar.texture"]
+    if type(key) == "string" and key ~= "" then BARS[key] = "Interface\\AddOns\\SkinProbe\\statusbar\\" .. key end
+  end
+  local function installMedia()
+    local libs = mocks.__libs
+    local saved = libs["LibSharedMedia-3.0"]
+    libs["LibSharedMedia-3.0"] = {
+      Fetch = function(_, kind, key) if kind == "statusbar" then return BARS[key] end end,
+    }
+    later(function() libs["LibSharedMedia-3.0"] = saved end)
+  end
 
   -- tests/test_skin_chrome.lua's reset: a skin change queues the library's page re-render on the
   -- kit's timers, and away from Ka0s Default the page backdrop texture IS the page in this harness.
@@ -61,6 +84,7 @@ return function(NS, mocks)
   local function shared(fixture)
     if standing ~= fixture then
       close()
+      installMedia()
       standing, built = fixture, { fixture() }
     end
     return unpack(built)
@@ -224,13 +248,19 @@ return function(NS, mocks)
     NS.Holdings:ApplyMoney("Mock-Realm", 50000, now - 86400)
     NS.Holdings:ApplyMoney("Mock-Realm", 70000, now)
     NS.Holdings:ApplyMoney(NS.Constants.WARBAND_HOLDER, 10000, now)
+    -- A day's gold in and out, so the flow strip draws its columns.
+    NS.Rollup:NoteFlow("Mock-Realm", "g", now, "IN", 2000)
+    NS.Rollup:NoteFlow("Mock-Realm", "g", now, "OUT", 500)
     local hook = mocks.hooksecurefunc
     rawset(mocks, "hooksecurefunc", SW.hooksecurefunc)
     later(function() rawset(mocks, "hooksecurefunc", hook) end)
     unfiltered("Timeline")
     local pane = fresh(TL, TL_KEYS)
+    -- Sized, so the repaint a switch runs (TL:Refresh, laid out at the pane's size) draws the strip.
+    pane:SetSize(640, 320)
     TL.thing = "g"
     TL:Attach(pane)
+    TL:Refresh()   -- the model, with the day's flows (tests/test_skin_insights.lua's columns case)
     TL:Layout(640, 320)
     return TL
   end
@@ -306,6 +336,15 @@ return function(NS, mocks)
 
   local function hdr(BT) return BT.headerFrame.buttons end
 
+  --- The first shown Texture `pick` answers across a pool's active widgets.
+  local function firstShown(pool, pick)
+    for _, w in ipairs(pool.active) do
+      for _, t in ipairs({ pick(w) }) do
+        if t and t:IsShown() then return t end
+      end
+    end
+  end
+
   local surfaces = {
     { name = "the window's edge", build = function() return edgeOf((windows())) end },
     { name = "the window's title", build = function() return (windows()).title end },
@@ -320,6 +359,10 @@ return function(NS, mocks)
     { name = "the filter bar's Save button", build = function() windows(); return NS.Browser._barCtl.save end },
     { name = "the filter bar's Reset button", build = function() windows(); return NS.Browser._barCtl.reset end },
     { name = "the filter bar's Clear button", build = function() windows(); return NS.Browser._barCtl.clear end },
+    -- The hosted library controls (SD-SK-LH.1): a filter dropdown and the search box, owned by
+    -- this addon (core/WidgetsSetup.lua), so the library repaints them on a switch.
+    { name = "a filter dropdown", build = function() windows(); return NS.Browser._dd.group end },
+    { name = "the search box", build = function() windows(); return NS.Browser._search end },
     { name = "the export modal's edge", build = function()
       local _, exp = windows(); return edgeOf(exp)
     end },
@@ -340,6 +383,9 @@ return function(NS, mocks)
     { name = "the sorted header's arrow", build = function() return hdr(historyTable()).date.fs end },
     { name = "the Bound header's lock", build = function()
       local b = hdr(historyTable()); return b.bound and b.bound.tex
+    end },
+    { name = "the History table's scroll bar", build = function()
+      return rawget(historyTable().scroll, "ScrollBar")
     end },
     { name = "a row's stripe", build = function()
       local _, rows = historyTable(); return rows[1].stripe
@@ -376,7 +422,24 @@ return function(NS, mocks)
     { name = "a list panel", build = function() return insights().zonePanel end },
     { name = "the ledger's caveat", build = function() return insights().ledgerUI.caveat end },
     { name = "a bar's track", build = function() return insights().pool.bound.active[1].track end },
-    { name = "a strip bar's fill", build = function() return insights().pool.day.active[1].fill end },
+    { name = "a strip bar's fill", expect = "texture",
+      build = function() return insights().pool.day.active[1].fill end },
+    -- The bars of data (SD-SK-LH.1, test kit revision 58): each a Texture in the skin's bar texture,
+    -- so each says `expect = "texture"`. A source's hue is a named meaning table
+    -- (SOURCE_CATEGORY_COLOR; skinning-§9 Meaning colors, the audit's OVERRIDE row), so the ranked
+    -- source bar and the per-character source segment hold their color.
+    { name = "a ranked source bar's fill", expect = "texture", hold = "color",
+      build = function() return insights().pool.source.active[1].fill end },
+    { name = "a per-character source segment", expect = "texture", hold = "color", build = function()
+      return firstShown(insights().pool.chsource, function(bar)
+        local out = {}
+        for _, seg in ipairs(bar.segs) do out[#out + 1] = seg.tex end
+        return unpack(out)
+      end)
+    end },
+    { name = "a ledger half", expect = "texture", build = function()
+      return firstShown(insights().ledgerUI.pools.reason, function(bar) return bar.left, bar.right end)
+    end },
     { name = "a strip bar's label", build = function() return insights().pool.day.active[1].axis end },
     { name = "a legend chip", build = function() return insights().pool.sourceleg.active[1].fs end },
     { name = "the ledger's center axis", build = function()
@@ -387,6 +450,14 @@ return function(NS, mocks)
     { name = "the Timeline's title", build = function() return timeline().title end },
     { name = "the Timeline's hint", build = function() return timeline().hint end },
     { name = "the Timeline's strip axis", build = function() return timeline().stripAxis end },
+    { name = "a Timeline flow column", expect = "texture", build = function()
+      return firstShown(timeline().stripPool, function(bar) return bar.up, bar.down end)
+    end },
+    -- The library's line chart, owned (NS.MakeLineChart): axes, grid and tick labels follow the
+    -- skin, and the Total line reads chart.total.
+    { name = "the Timeline's line chart", build = function() return timeline().chart end },
+    -- The Total's legend entry: its label in chart.total and the skin's face.
+    { name = "a Timeline legend entry", build = function() return timeline().legendButtons[1] end },
 
     { name = "the Holdings header band", build = function() return holdingsTab().header end },
     { name = "a Holdings header label", build = function() return holdingsTab().header.cells.name.fs end },

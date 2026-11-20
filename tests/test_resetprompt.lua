@@ -36,6 +36,32 @@ test("Reset prompt: dialogs are registered with three choices", function()
   assertTrue(T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET_CONFIRM"] ~= nil)
 end)
 
+test("Reset prompt: the headings read gtip.title, the skin's tooltip-title token, on every offer", function()
+  -- red under: the four headings typed as |cffffd100 in the dialog table (U-7 of Ka0sAddonsCommonTasks
+  -- docs/2026-11-20-SKIN_DEFAULTS_AUDIT: lines written into a client frame read gtip.*), or the text
+  -- built once at registration, so a skin chosen afterwards never reaches it.
+  local g, M, Skin = NS.db.global, T.mocks, NS.Skin
+  local savedH, savedPrompt, savedPending = g.history, g.resetPrompt, g.resetPromptPending
+  g.history, g.resetPrompt, g.resetPromptPending = { {} }, nil, true
+  local realShow, realColor = M.StaticPopup_Show, Skin.Color
+  M.StaticPopup_Show = function() end
+  Skin.Color = function(name, ...)
+    if name == "gtip.title" then return 0.2, 0.4, 0.6 end
+    return realColor(name, ...)
+  end
+  local ok, err = pcall(NS.OfferLedgerReset)
+  Skin.Color = realColor
+  local text = M.StaticPopupDialogs["KA0S_LOOTHISTORY_LEDGER_RESET"].text
+  pcall(NS.OfferLedgerReset)   -- put the Ka0s Default text back for the cases after this one
+  M.StaticPopup_Show = realShow
+  g.history, g.resetPrompt, g.resetPromptPending = savedH, savedPrompt, savedPending
+  if not ok then error(err, 0) end
+  local _, heads = text:gsub("|cff336699", "")
+  assertEqual(heads, 4, "each of the four headings is drawn in gtip.title")
+  assertTrue(text:find("|cffffd100", 1, true) == nil, "no heading keeps the typed gold")
+  assertTrue(text:find("%d", 1, true) ~= nil, "the record count's format slot is kept")
+end)
+
 test("Reset prompt: Keep stores the choice; Esc leaves it undecided", function()
   local g = NS.db.global
   g.resetPrompt, g.resetPromptPending = nil, true

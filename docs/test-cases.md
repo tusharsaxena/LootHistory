@@ -1117,11 +1117,12 @@ Total.
 - library-less install: the degraded help does not offer /lh profile
 - library-less install: NS.Perf is the degradation stub and /lh perf answers
 
-### test_resetprompt.lua (7)
+### test_resetprompt.lua (8)
 
 - Reset prompt: offered only for an upgraded (armed), non-empty, undecided DB
 - Reset prompt: an Esc on the upgrade login is asked again on the NEXT session
 - Reset prompt: dialogs are registered with three choices
+- Reset prompt: the headings read gtip.title, the skin's tooltip-title token, on every offer
 - Reset prompt: Keep stores the choice; Esc leaves it undecided
 - Reset prompt: confirmed reset purges history and keeps holdings
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
@@ -2154,7 +2155,7 @@ Total.
 - skin values: no typed value outside the kit's categories and the host's rows
 - skin values: the check is falsifiable, a planted value of each shape is reported
 
-### test_skin_switch.lua (108)
+### test_skin_switch.lua (126)
 
 - skin switch: the check is falsifiable, a surface that redraws a literal is reported
 - skin switch: the check is falsifiable, a bar whose texture never moves is reported
@@ -2182,6 +2183,10 @@ Total.
 - skin switch: the filter bar's Reset button changes with the Scope ignored
 - skin switch: the filter bar's Clear button changes
 - skin switch: the filter bar's Clear button changes with the Scope ignored
+- skin switch: a filter dropdown changes
+- skin switch: a filter dropdown changes with the Scope ignored
+- skin switch: the search box changes
+- skin switch: the search box changes with the Scope ignored
 - skin switch: the export modal's edge changes
 - skin switch: the export modal's edge changes with the Scope ignored
 - skin switch: the export modal's title changes
@@ -2198,6 +2203,8 @@ Total.
 - skin switch: the sorted header's arrow changes with the Scope ignored
 - skin switch: the Bound header's lock changes
 - skin switch: the Bound header's lock changes with the Scope ignored
+- skin switch: the History table's scroll bar changes
+- skin switch: the History table's scroll bar changes with the Scope ignored
 - skin switch: a row's stripe changes
 - skin switch: a row's stripe changes with the Scope ignored
 - skin switch: a row's hover changes
@@ -2232,6 +2239,12 @@ Total.
 - skin switch: a bar's track changes with the Scope ignored
 - skin switch: a strip bar's fill changes
 - skin switch: a strip bar's fill changes with the Scope ignored
+- skin switch: a ranked source bar's fill changes
+- skin switch: a ranked source bar's fill changes with the Scope ignored
+- skin switch: a per-character source segment changes
+- skin switch: a per-character source segment changes with the Scope ignored
+- skin switch: a ledger half changes
+- skin switch: a ledger half changes with the Scope ignored
 - skin switch: a strip bar's label changes
 - skin switch: a strip bar's label changes with the Scope ignored
 - skin switch: a legend chip changes
@@ -2246,6 +2259,12 @@ Total.
 - skin switch: the Timeline's hint changes with the Scope ignored
 - skin switch: the Timeline's strip axis changes
 - skin switch: the Timeline's strip axis changes with the Scope ignored
+- skin switch: a Timeline flow column changes
+- skin switch: a Timeline flow column changes with the Scope ignored
+- skin switch: the Timeline's line chart changes
+- skin switch: the Timeline's line chart changes with the Scope ignored
+- skin switch: a Timeline legend entry changes
+- skin switch: a Timeline legend entry changes with the Scope ignored
 - skin switch: the Holdings header band changes
 - skin switch: the Holdings header band changes with the Scope ignored
 - skin switch: a Holdings header label changes
@@ -2372,7 +2391,7 @@ Total.
 | test_slash.lua | 50 |
 | test_slash_verbs.lua | 16 |
 | test_slash_degraded.lua | 17 |
-| test_resetprompt.lua | 7 |
+| test_resetprompt.lua | 8 |
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
@@ -2424,11 +2443,11 @@ Total.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_skin_values.lua | 3 |
-| test_skin_switch.lua | 108 |
+| test_skin_switch.lua | 126 |
 | test_client_globals.lua | 3 |
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2033** |
+| **Total** | **2052** |
