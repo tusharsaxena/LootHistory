@@ -26,7 +26,7 @@
 local lib = LibStub and LibStub("LibKa0s-Options-1.0", true)
 if not lib then return end
 
-local COMPOSE_MINOR = 19
+local COMPOSE_MINOR = 20
 -- Minor 8: O.StrataTooltip(values[, strings]), the one tooltip every player strata row carries
 -- (frame-layering-§1, options-ui-§16).
 -- Minor 9: MasterControls takes `notes`, `resetPositionTooltip` and `lockIsPreview`, the only ways a
@@ -69,6 +69,15 @@ local COMPOSE_MINOR = 19
 -- in settings (next to test)"): MasterControls takes `isSimMode` and `toggleSim`, the launcher
 -- descriptor's own pair, and with both draws a session-only Sim mode row beside Test mode, or beside
 -- Lock frame where the host has no Test mode row (THE SIM ROW, below). Without them nothing moves.
+-- Minor 20 (SD-LK-97.6 to SD-LK-97.9 of Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97,
+-- the owner's ruling R-2): every group starts on the skin unless the host opts out. With no `fromSkin`
+-- FontGroup, BorderGroup and BarGroup emit their picker's companion as `fromSkin = true` did, and with
+-- no `flagsFromSkin` Font flags leads with From skin. Every swatch (FontGroup's, BarGroup's,
+-- BorderGroup's and ColorPair's) gains `<color key>FromSkin` and Font shadow `fontShadowFromSkin`,
+-- bool rows defaulting true; a swatch stays live (options-ui-§17) and Font shadow is disabled while
+-- its companion is on. `fromSkin = false` is minor 19's block, byte for byte; `flagsFromSkin = false`,
+-- `colorFromSkin = false` and `shadowFromSkin = false` each take one part back. A companion a host
+-- already writes in `extra` is kept and not emitted again (FOLLOWING THE SKIN, below).
 -- Paired on the SHELL's minor as well as this file's own — see OptionsScroll.lua for why the
 -- file's own counter is not enough.
 if lib.__composeMinor and lib.__composeMinor >= COMPOSE_MINOR
@@ -362,14 +371,26 @@ end
 -- so a record-backed row reads its record) and shows the skin's value (`skinValue`, the row field the
 -- flow engine reads before the stored one, OptionsWidgets minor 35); the host draws with
 -- `S.Resolve(token, stored, fromSkin)`, which answers the skin's value while the companion is set.
--- `Skin.ResetToSkin` sets the companions to true. Without `fromSkin` a composer emits what minor 11
--- emitted, but for the picker defaults below (minor 17).
+-- `Skin.ResetToSkin` sets the companions to true. Without `fromSkin` a composer emitted what minor 11
+-- emitted through minor 19, but for the picker defaults below (minor 17).
+--
+-- ON BY DEFAULT (minor 20, the owner's ruling R-2). Every skinnable value a group composes starts on
+-- the skin: the picker's companion unless `fromSkin = false`, Font flags' From skin unless
+-- `flagsFromSkin = false` (or `fromSkin = false` with no `flagsFromSkin`), and a companion per swatch
+-- and for Font shadow unless `colorFromSkin = false` / `shadowFromSkin = false` (or `fromSkin = false`).
+-- Each companion is stored beside the row it governs (`<its key>FromSkin`), `keys` naming another
+-- stored key by the companion's canonical leaf, and comes after the canonical rows, the first opening a
+-- line and the next pairing beside it. A companion whose key an `extra` row already declares is the
+-- host's: the composer emits none and governs with the host's. A swatch is never disabled
+-- (options-ui-§17, CLASS_COLOR_NOTE's reason); Font shadow is, while its companion is on, showing ticked
+-- where the skin draws a shadow.
 
 -- What a picker starts on: Ka0s Default's `hud.font`, `bar.borderStyle` and `bar.texture`, written out
 -- because a composer reads no state (tests/test_options_compose_skin.lua holds them to SkinDefs.lua).
 -- Font size 12, thickness 1 and OUTLINE are that skin's values already, so those rows keep their
--- literals. Without a companion a row keeps this pick through a skin change; following one is the
--- host's `fromSkin`, and only a host drawing through `S.FontFlags` may also ask for `flagsFromSkin`.
+-- literals. Without a companion (`fromSkin = false`) a row keeps this pick through a skin change. Font
+-- flags' From skin, on by default since minor 20, is read only through `S.FontFlags`, so a host that
+-- draws its stored flags any other way passes `flagsFromSkin = false`.
 local SKIN_PICK = { font = "Ka0s Prototype", borderStyle = "None", barTexture = "Ka0s Default" }
 
 -- The three media pickers that can follow the skin, by canonical leaf: the token the skin answers
@@ -390,6 +411,40 @@ local BAR_EDGE = { ["bar.borderStyle"] = true, ["bar.borderSize"] = true }
 -- The other families a picker can follow, by `spec.fromSkin` value (minor 13, `bar` minor 17); `true`,
 -- and any value not named here, is FROM_SKIN's. `sizeToken` makes the companion govern the group's
 -- thickness row too (`disabledIf` it, showing that token while it is set).
+-- The color and shadow companions' words (minor 20), by canonical swatch leaf; ColorPair's names its
+-- own label. Class color comes first, which every color companion says.
+local COLOR_FROM_SKIN = {
+  fontColor = "Draw this text in the skin's HUD text color. The Font color swatch is not read while this "
+    .. "is on, and Use class color comes first.",
+  borderColor = "Draw this border in the skin's border color. The Border color swatch is not read while "
+    .. "this is on, and Use class color comes first.",
+  barColor = "Draw this bar's fill in the skin's bar color. The Bar color swatch is not read while this "
+    .. "is on, and Use class color comes first.",
+}
+local COLOR_FROM_SKIN_LABEL = "Use the skin's color"
+local SHADOW_FROM_SKIN = { label = "Use the skin's shadow",
+  tooltip = "Draw this text with the skin's shadow. Font shadow is not read while this is on." }
+
+--- Whether each part of a group follows the skin (minor 20): on unless the host opts out.
+local function follows(spec)
+  local block = spec.fromSkin ~= false
+  local flags = spec.flagsFromSkin
+  if flags == nil then flags = block end
+  return { picker = block, flags = flags == true, color = block and spec.colorFromSkin ~= false,
+    shadow = block and spec.shadowFromSkin ~= false }
+end
+
+--- The keys the host's `extra` rows already declare, a path or (bound) a field: a companion named
+--- there is the host's, and the composer emits no second one (minor 20).
+local function declared(spec)
+  local set = {}
+  for _, row in ipairs(spec.extra or EMPTY) do
+    local key = type(row) == "table" and (row.path or row.field) or nil
+    if key ~= nil then set[key] = true end
+  end
+  return set
+end
+
 local FROM_SKIN_FAMILY = {
   bar = {
     borderStyle = { token = "bar.borderStyle", sizeToken = "bar.borderSize", label = "Use the skin's border",
@@ -690,19 +745,71 @@ function lib.__AttachCompose(O, d)
   --- canonical rows, on a line of its own, so the block's pairs stay as they are. `size` is the
   --- group's thickness row, governed too when the family names a size token (minor 13), and `show`
   --- its Show border row, when the picker is the bar's (minor 18).
-  local function fromSkinRow(spec, rows, picker, leaf, size, show)
+  --- The stored key of the companion of `target` (the row emit returned for canonical `leaf`):
+  --- `keys[<leaf>FromSkin]` under the prefix when the host names one, else the target's own key plus
+  --- "FromSkin" (minor 20; minor 12's picker rule).
+  local function companionKey(spec, target, leaf)
+    local own = (spec.keys or EMPTY)[leaf .. "FromSkin"]
+    if own ~= nil then return (spec.prefix or "") .. own end
+    return (target.path or target.field) .. "FromSkin"
+  end
+
+  --- Emit the companion `key` for canonical `leaf` (minor 20): nothing when the host's `extra`
+  --- declares the key, which then answers true as the host's own row. `st` counts the block's
+  --- companions, so the first opens a line and the next pairs beside it. Answers whether a row (the
+  --- composer's or the host's) now carries the key.
+  local function emitCompanion(spec, st, rows, leaf, key, label, tooltip)
+    if st.taken[key] then return true end
+    local row = emit(spec, rows, leaf .. "FromSkin", {
+      path = key, type = "bool", label = label, tooltip = tooltip, default = true,
+      startsLine = (st.n % 2 == 0) or nil,
+    })
+    if not row then return false end
+    st.n = st.n + 1
+    return true
+  end
+
+  --- A fresh companion count for one block, with the keys its `extra` declares.
+  local function companions(spec)
+    return { n = 0, taken = declared(spec) }
+  end
+
+  --- The `<key>FromSkin` companion of `picker` (the row emit returned for canonical `leaf`), unless
+  --- `spec.fromSkin` is false (minor 20; an opt-in through minor 19) or the caller omitted either
+  --- row. Appended after the canonical rows, so the block's pairs stay as they are. `size` is the
+  --- group's thickness row, governed too when the family names a size token (minor 13), and `show`
+  --- its Show border row, when the picker is the bar's (minor 18).
+  local function fromSkinRow(spec, st, rows, picker, leaf, size, show)
     local family = FROM_SKIN_FAMILY[spec.fromSkin]
     local f = family and family[leaf] or FROM_SKIN[leaf]
-    if not (spec.fromSkin and picker and f) then return end
-    local companion = (picker.path or picker.field) .. "FromSkin"
-    local row = emit(spec, rows, leaf .. "FromSkin", {
-      path = companion, type = "bool", label = f.label, tooltip = f.tooltip, default = true,
-      startsLine = true,
-    })
-    if not row then return end
+    if not (spec.fromSkin ~= false and picker and f) then return end
+    local companion = companionKey(spec, picker, leaf)
+    if not emitCompanion(spec, st, rows, leaf, companion, f.label, f.tooltip) then return end
     governed(picker, companion, f.token)
     if size and f.sizeToken then governed(size, companion, f.sizeToken) end
     if show and BAR_EDGE[f.token] then governedShow(show, companion) end
+  end
+
+  --- The `<color key>FromSkin` companion of `swatch` (canonical `leaf`), unless the host opted out
+  --- (minor 20). The swatch is not governed: it stays live (options-ui-§17).
+  local function colorFromSkinRow(spec, st, rows, swatch, leaf, tooltip)
+    if not (swatch and follows(spec).color) then return end
+    emitCompanion(spec, st, rows, leaf, companionKey(spec, swatch, leaf), COLOR_FROM_SKIN_LABEL, tooltip)
+  end
+
+  --- Font shadow's `fontShadowFromSkin` companion, unless the host opted out (minor 20). While it is
+  --- on the toggle is disabled, and reads ticked where the skin draws a shadow (`hud.shadow`, a color
+  --- while on, false while off).
+  local function shadowFromSkinRow(spec, st, rows, shadow)
+    if not (shadow and follows(spec).shadow) then return end
+    local companion = companionKey(spec, shadow, "fontShadow")
+    if not emitCompanion(spec, st, rows, "fontShadow", companion, SHADOW_FROM_SKIN.label,
+      SHADOW_FROM_SKIN.tooltip) then return end
+    shadow.disabledIf = companion
+    shadow.skinValue = function(row)
+      if not companionOn(row, companion) then return nil end
+      return type(skinValue("hud.shadow")) == "table" or nil
+    end
   end
   -- Published on the INSTANCE, not on the lib table, for the reason Options.lua's layout block
   -- gives: a lib-level table is shared by every instance, so handing it out lets one host's
@@ -763,6 +870,9 @@ function lib.__AttachCompose(O, d)
   ---   companionKey  string   the companion's leaf. Defaults to "useClassColor<Key>".
   ---   label         string   the swatch's label. Defaults to "Color".
   ---   hasAlpha      boolean  defaults true, exactly as the color maker's own default does.
+  ---   fromSkin, colorFromSkin  boolean  since compose minor 20 the pair is followed by
+  ---                 `<key>FromSkin`, "Use the skin's color" (default true, a line of its own, the
+  ---                 swatch left live); either false emits none, for a class or meaning color.
   function O.ColorPair(spec)
     spec = spec or EMPTY
     local rows = {}
@@ -771,9 +881,11 @@ function lib.__AttachCompose(O, d)
     local companion = spec.companionKey
       or ("useClassColor" .. key:sub(1, 1):upper() .. key:sub(2))
 
-    emit(spec, rows, key, swatchRow(spec, label, "The " .. label:lower() .. ".", spec.hasAlpha))
+    local swatch = emit(spec, rows, key, swatchRow(spec, label, "The " .. label:lower() .. ".", spec.hasAlpha))
     emit(spec, rows, companion,
       companionRow(spec, "Take this color from the class color instead of the swatch beside it."))
+    colorFromSkinRow(spec, companions(spec), rows, swatch, key, "Draw this in the skin's color. The "
+      .. label .. " swatch is not read while this is on, and Use class color comes first.")
     return appendExtra(spec, rows)
   end
 
@@ -824,13 +936,23 @@ function lib.__AttachCompose(O, d)
   --- An even row count plus `startsLine` on rows 1 and 3 is what makes that layout parity-proof
   --- rather than a property of how many rows happen to precede the block.
   ---
+  ---   [Use the skin's font]  [Use the skin's color]
+  ---   [Use the skin's shadow]
+  ---
   --- `spec.flagsFromSkin = true` (compose minor 14) leads Font flags with "From skin" ("@skin") and
   --- makes it the default; the host draws with `S.FontFlags(stored)`. With `fromSkin = true` too it
   --- is the minimum font setting every element carries (D-07).
+  ---
+  --- Since compose minor 20 that is the default: no `fromSkin` is `true` and no `flagsFromSkin` is
+  --- `true`, and the block ends with three companions, each a bool defaulting true: `fontFromSkin`
+  --- (the picker's, governing it), `fontColorFromSkin` (the swatch stays live) and
+  --- `fontShadowFromSkin` (Font shadow disabled while it is on). `fromSkin = false` is minor 19's
+  --- block; `flagsFromSkin = false`, `colorFromSkin = false` and `shadowFromSkin = false` each take
+  --- one part back. A companion an `extra` row already declares is the host's and is not emitted.
   function O.FontGroup(spec)
     spec = spec or EMPTY
     local rows = {}
-    local skinFlags = spec.flagsFromSkin == true
+    local skinFlags = follows(spec).flags
 
     local picker = emit(spec, rows, "font", {
       type = "string", label = "Font", tooltip = "The face this text is drawn in.",
@@ -841,7 +963,7 @@ function lib.__AttachCompose(O, d)
       type = "number", label = "Font size", tooltip = "Height of the text, in points.",
       min = 6, max = 32, step = 1, default = 12,
     })
-    emit(spec, rows, "fontColor",
+    local swatch = emit(spec, rows, "fontColor",
       swatchRow(spec, "Font color", "The color the text is drawn in.", spec.hasAlpha))
     emit(spec, rows, "useClassColorFont",
       companionRow(spec, "Draw this text in the class color instead of the swatch beside it."))
@@ -852,12 +974,15 @@ function lib.__AttachCompose(O, d)
       sorting = skinFlags and FONT_FLAGS_SKIN_SORT or FONT_FLAGS_SORT,
       default = skinFlags and FLAGS_FROM_SKIN or "OUTLINE",
     })
-    emit(spec, rows, "fontShadow", {
+    local shadow = emit(spec, rows, "fontShadow", {
       type = "bool", label = "Font shadow",
       tooltip = "Draw a soft shadow behind the text, for legibility over bright art.",
       default = false,
     })
-    fromSkinRow(spec, rows, picker, "font")
+    local st = companions(spec)
+    fromSkinRow(spec, st, rows, picker, "font")
+    colorFromSkinRow(spec, st, rows, swatch, "fontColor", COLOR_FROM_SKIN.fontColor)
+    shadowFromSkinRow(spec, st, rows, shadow)
     return appendExtra(spec, rows)
   end
 
@@ -875,6 +1000,10 @@ function lib.__AttachCompose(O, d)
   --- (compose minor 17) and `"icon"` (minor 13) govern the thickness as well. On the bar's family a
   --- skin's None leaves the picker, the thickness and Show border live, the player's, and a real
   --- style disables all three (minor 18).
+  ---
+  --- Since compose minor 20 no `fromSkin` is `true`, and `borderColorFromSkin` ("Use the skin's
+  --- color", default true, the swatch left live) follows the style's companion; `fromSkin = false`
+  --- emits neither, `colorFromSkin = false` the color's alone.
   function O.BorderGroup(spec)
     spec = spec or EMPTY
     local rows = {}
@@ -895,11 +1024,13 @@ function lib.__AttachCompose(O, d)
       type = "number", label = "Border thickness (px)", tooltip = "Border edge width, in pixels.",
       min = 0, max = 16, step = 1, default = 1,
     })
-    emit(spec, rows, "borderColor",
+    local swatch = emit(spec, rows, "borderColor",
       swatchRow(spec, "Border color", "The color the border is drawn in.", spec.hasAlpha))
     emit(spec, rows, "useClassColorBorder",
       companionRow(spec, "Draw this border in the class color instead of the swatch beside it."))
-    fromSkinRow(spec, rows, picker, "borderStyle", size, show)
+    local st = companions(spec)
+    fromSkinRow(spec, st, rows, picker, "borderStyle", size, show)
+    colorFromSkinRow(spec, st, rows, swatch, "borderColor", COLOR_FROM_SKIN.borderColor)
     return appendExtra(spec, rows)
   end
 
@@ -912,6 +1043,10 @@ function lib.__AttachCompose(O, d)
   --- A group over a BACKGROUND is not a bar group. A container with a backdrop and no fill texture
   --- takes the swatch and its companion (O.ColorPair) and nothing else; inventing a texture picker
   --- for a surface that has no texture is a control wired to nothing.
+  ---
+  --- Since compose minor 20 the block ends with `barTextureFromSkin` (no `fromSkin` is `true`) and
+  --- `barColorFromSkin` ("Use the skin's color", the swatch left live), each defaulting true;
+  --- `fromSkin = false` emits neither, `colorFromSkin = false` the color's alone.
   function O.BarGroup(spec)
     spec = spec or EMPTY
     local rows = {}
@@ -925,11 +1060,13 @@ function lib.__AttachCompose(O, d)
       type = "number", label = "Bar opacity", tooltip = "How opaque the bar's fill is.",
       isPercent = true, min = 0, max = 1, step = 0.05, default = 1,
     })
-    emit(spec, rows, "barColor",
+    local swatch = emit(spec, rows, "barColor",
       swatchRow(spec, "Bar color", "The color the bar's fill is drawn in.", spec.hasAlpha))
     emit(spec, rows, "useClassColorBar",
       companionRow(spec, "Draw this bar in the class color instead of the swatch beside it."))
-    fromSkinRow(spec, rows, picker, "barTexture")
+    local st = companions(spec)
+    fromSkinRow(spec, st, rows, picker, "barTexture")
+    colorFromSkinRow(spec, st, rows, swatch, "barColor", COLOR_FROM_SKIN.barColor)
     return appendExtra(spec, rows)
   end
 

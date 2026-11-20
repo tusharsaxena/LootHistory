@@ -15,23 +15,14 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
--- Minor 12: lib.RaiseStaticPopups, the library half of frame-layering-§4's "a destructive
--- confirmation is never buried by a window shown after it" (XS-08), called by the three tool windows.
--- Minor 13: ApplySkin and MakeCloseButton paint through a skin owner's facade (LibKa0s-Skin-1.0,
--- resolved at call time) when the caller names a registered owner; any other call is minor 12's.
--- Minor 14: MakeResizable's `opts.owner`, a registered skin owner whose `icon.grip` tints the grip's
--- art, live (LK-06b of Ka0sAddonsCommonTasks docs/2026-10-30-SKIN_LIBRARY_FOLLOWUPS, ruling R-5);
--- any other call is minor 13's.
--- Minor 16 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): pixel edges, the
--- one mechanism Widgets and the Skin major share; any other call is minor 15's.
--- Minor 17 (FU-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): the pixel edges section
--- moved, unchanged, to CorePixel.lua (layout-§1); no member and no behavior changes.
--- Minor 18 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the
--- settings-opener registry (RegisterSettingsOpener, HasSettings, OpenSettings), which
--- LibKa0s-Launcher-1.0's New fills and every library window's settings mark reads; any other call
--- is minor 17's. Also minor 18 (SR-L2, the same bundle's smoke round 1, ruling 3): MakeCloseButton's
--- close carries a "Close" tooltip, LibKa0s-Tooltip-1.0's AttachTitleTip with its CloseTip(owner).
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 18
+-- Minor 12: lib.RaiseStaticPopups (frame-layering-§4, XS-08). Minor 13: ApplySkin and MakeCloseButton
+-- paint through a registered skin owner's facade. Minor 14 (LK-06b, ruling R-5): MakeResizable's
+-- `opts.owner` tints the grip in `icon.grip`. Minor 16 (SF1-L1): pixel edges, moved unchanged to
+-- CorePixel.lua at minor 17 (FU-L2). Minor 18 (LK-86, LibKa0s#86): the settings-opener registry
+-- (RegisterSettingsOpener, HasSettings, OpenSettings), and MakeCloseButton's "Close" tooltip (SR-L2).
+-- Minor 19 (SD-LK-97.16, LibKa0s#97): ApplySkin's host `skin` table with `skinBands` and a registered
+-- `owner` draws that owner's gradient and art bands under the host's own edge (S.Shell's keepEdge).
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 19
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -219,14 +210,24 @@ function lib.__SkinFacade(owner)
   return Skin:For(owner)
 end
 
---- Wear the skin. A no-op on a frame with no SetBackdrop — a frame created without the
---- BackdropTemplate inherit is undecorated, not broken, and a missing skin is not worth erroring
---- over in the middle of building someone's window.
+-- ApplySkin's hand-off to the owner's facade: the window's S.Shell, or keepEdge's bands (minor 19).
+local function ownerShell(S, frame, host, owner)
+  local Skin = LibStub("LibKa0s-Skin-1.0", true)
+  local rec = Skin and type(Skin.painted) == "table" and Skin.painted[frame]
+  local call = rec and rec.owner == owner and rec.calls.Shell
+  local kept = call and type(call[1]) == "table" and call[1].keepEdge   -- our own keepEdge paint, below
+  if not host then return S.Shell(frame, kept and {} or nil) end        -- a bare Shell, not keepEdge again
+  local inset = tonumber(type(host.insets) == "table" and host.insets.left) or 1
+  if host.skinBands == true then return S.Shell(frame, { keepEdge = true, noTopBar = true, inset = inset }) end
+  if kept then S.Shell(frame, { keepEdge = true, noTopBar = true, noBands = true }) end
+end
+
+--- Wear the skin. A no-op on a frame with no SetBackdrop — a frame created without the BackdropTemplate
+--- inherit is undecorated, not broken, and a missing skin is not worth erroring over mid-build.
 ---
---- `skin` is optional and defaults to `lib.SKIN`. It exists so a host that overrides the skin —
---- DebugLog's descriptor `skin` field is the only one today — reaches THIS implementation rather
---- than a second copy of the same five calls somewhere else, which is how a title tint ends up
---- applied on one window and not its twin.
+--- `skin` is optional and defaults to `lib.SKIN`. It exists so a host that overrides the skin — DebugLog's
+--- descriptor `skin` field is the only one today — reaches THIS implementation rather than a second copy
+--- of the same five calls somewhere else, which is how a title tint ends up on one window and not its twin.
 ---
 --- Every step past the backdrop is guarded on the key being present, so a caller passing a plain
 --- WoW backdrop table (no `bg`, no `innerBorder`, …) gets a plain backdrop rather than a raise
@@ -235,18 +236,22 @@ end
 --- `owner` (minor 13) is optional: an addon folder name. When it names a REGISTERED skin owner
 --- (`LibKa0s-Skin-1.0`'s `IsOwner`) and `skin` is absent, the window is handed to that owner's
 --- facade after this paint (`S.Shell(frame)`), so it wears the owner's skin and repaints with it.
---- Any other call, an unregistered name or a missing Skin major included, is minor 12's, call for
---- call. A host's own `skin` table wins over the owner.
+--- Any other call, an unregistered name or a missing Skin major included, is minor 12's, call for call.
+--- A host's own `skin` table wins over the owner.
+---
+--- `skin.skinBands` (minor 19), on a host table whose `bg` follows `win.bg`: the owner's `S.Shell` with
+--- `keepEdge` keeps the host's edge and draws the gradient and art inside `skin.insets.left`, live; a
+--- later table without it hides them.
 function lib.ApplySkin(frame, skin, owner)
   if not frame or not frame.SetBackdrop then return end
-  local S = skin == nil and lib.__SkinFacade(owner) or nil
-  skin = type(skin) == "table" and skin or lib.SKIN
-
+  local S = (skin == nil or type(skin) == "table") and lib.__SkinFacade(owner) or nil
+  local host = type(skin) == "table" and skin or nil
+  skin = host or lib.SKIN
   applyBackdrop(frame, skin)
   applyInnerBorder(frame, skin)
   applyAccents(frame, skin)
   hideHeaderRule(frame)
-  if S then S.Shell(frame) end
+  if S then return ownerShell(S, frame, host, owner) end
 end
 
 -- What the close control is drawn at, and how much of that slot the art fills. The slot is the

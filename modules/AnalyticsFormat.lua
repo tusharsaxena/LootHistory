@@ -19,6 +19,8 @@ local MAX_DAY_BARS = 60        -- cap the per-day strip so long "All" ranges sta
 -- render builds carry these very tables: a sync and the refresh after it repaint every chart. Ka0s
 -- Default's values are the literals they replace.
 -- SOURCE_COLOR stays literal: a source's hue is its identity across every skin, and no token names it.
+-- It is a named meaning table (skinning-§9, Meaning colors: category hues), named so the typed-value
+-- gate's meaning-table category reads it as one (SOURCE_CATEGORY_COLOR; test kit revision 58).
 local NEUTRAL = {}
 
 -- Per-source bar colors (no such table in Constants; kept local to the chart).
@@ -34,7 +36,7 @@ local NEUTRAL = {}
 -- separation (any two slots as neighbors) is not achievable here - a documented,
 -- inherent limit, not an oversight; the existing direct value/count labels on
 -- every bar and legend entry are the required secondary encoding.
-local SOURCE_COLOR = {
+local SOURCE_CATEGORY_COLOR = {
   KILL        = { 0.68, 0.27, 0.26 }, CONTAINER  = { 0.83, 0.37, 0.00 },
   MPLUS       = { 0.53, 0.31, 0.65 }, ROLL       = { 0.20, 0.62, 0.23 },
   BONUS_ROLL  = { 0.25, 0.40, 0.74 }, QUEST      = { 0.65, 0.51, 0.00 },
@@ -240,6 +242,6 @@ Analytics._money        = money
 -- numbers. It binds these to file-scope locals at load.
 Analytics.K = { NEUTRAL = NEUTRAL, COIN_H = COIN_H }
 Analytics._fmt = {
-  SOURCE_COLOR = SOURCE_COLOR, BOUND_LABEL = BOUND_LABEL, BOUND_COLOR = BOUND_COLOR,
+  SOURCE_COLOR = SOURCE_CATEGORY_COLOR, BOUND_LABEL = BOUND_LABEL, BOUND_COLOR = BOUND_COLOR,
   BOUND_ORDER = BOUND_ORDER, WEEKDAY = WEEKDAY, starMarkup = starMarkup,
 }

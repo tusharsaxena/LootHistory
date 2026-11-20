@@ -26,7 +26,10 @@
 -- The distance text's settings are options-ui-§16's canonical Font block: Font, Font size, Font
 -- color, Use class color, Font flags (led by From skin), Font shadow, then "Use the skin's font",
 -- the companion at the font path plus "FromSkin" (OptionsCompose's FontGroup with `fromSkin` and
--- `flagsFromSkin`). Given `opts.options`, the host's Options instance, the six rows and the
+-- `flagsFromSkin`), and from minor 3 the composer's two others: "Use the skin's color"
+-- (`fontColorFromSkin`, at the color path plus "FromSkin"; the swatch stays live) and "Use the
+-- skin's shadow" (`fontShadowFromSkin`, at the shadow path plus "FromSkin"; Font shadow is not read
+-- while it is on). Given `opts.options`, the host's Options instance, the six rows and the
 -- companion ARE `O.FontGroup`'s, so they carry the composer's shape, words and media picker; without
 -- one this file emits the same leaves in the same order with the same words. The block's own
 -- extras follow it: Text position, Show the label and Distance units.
@@ -45,7 +48,9 @@ if not lib or type(lib.__methods) ~= "table" then return end
 -- Minor 1: the rows (plan row L1).
 -- Minor 2 (Skill Master docs/superpowers/plans/2026-11-14-feedback-round9.md, rows L1 to L4): paired
 -- on WaypointArrow minor 2 (the larger art); the Text and Position blocks and the Lock toggle.
-local SETTINGS_MINOR = 2
+-- Minor 3 (LibKa0s#97, `SD-LK-97` Batch C): paired on WaypointArrow minor 3; the Text block's color and
+-- shadow companions, built here and kept from the composer's rows (minor 2 dropped them).
+local SETTINGS_MINOR = 3
 if lib.__settingsMinor and lib.__settingsMinor >= SETTINGS_MINOR
   and lib.__settingsShellMinor == lib.MINOR then return end
 lib.__settingsMinor      = SETTINGS_MINOR
@@ -79,6 +84,11 @@ lib.SETTINGS_STRINGS = {
   FONT_SHADOW_TIP = "Draw a soft shadow behind the text, for legibility over bright art.",
   FONT_SKIN = "Use the skin's font",
   FONT_SKIN_TIP = "Draw this text in the skin's font. The font picker is not read while this is on.",
+  -- Minor 3: the color and shadow companions (OptionsCompose's words).
+  FONT_COLOR_SKIN = "Use the skin's color",
+  FONT_COLOR_SKIN_TIP = "Draw this text in the skin's HUD text color. The Font color swatch is not read while this is on, and Use class color comes first.",
+  FONT_SHADOW_SKIN = "Use the skin's shadow",
+  FONT_SHADOW_SKIN_TIP = "Draw this text with the skin's shadow. Font shadow is not read while this is on.",
   TEXT_POSITION = "Text position",
   TEXT_POSITION_TIP = "Where the distance sits beside the arrow, or Hidden for the arrow alone.",
   POS_BELOW = "Below", POS_ABOVE = "Above", POS_LEFT = "Left", POS_RIGHT = "Right", POS_HIDDEN = "Hidden",
@@ -175,6 +185,8 @@ local FONT_LEAVES = {
   { key = "fontFlags", label = "FONT_FLAGS", tip = "FONT_FLAGS_TIP" },
   { key = "fontShadow", label = "FONT_SHADOW", tip = "FONT_SHADOW_TIP" },
   { key = "fontFromSkin", label = "FONT_SKIN", tip = "FONT_SKIN_TIP" },
+  { key = "fontColorFromSkin", label = "FONT_COLOR_SKIN", tip = "FONT_COLOR_SKIN_TIP" },     -- minor 3
+  { key = "fontShadowFromSkin", label = "FONT_SHADOW_SKIN", tip = "FONT_SHADOW_SKIN_TIP" },  -- minor 3
 }
 
 --- The font row's choices without an Options instance: LibSharedMedia's faces, else the default's.
@@ -197,8 +209,9 @@ local function flagValues(L)
 end
 
 --- The Font block's rows, built here (no Options instance): FontGroup's leaves, order, types,
---- defaults and words, `startsLine` on Font, Font color and the companion. `paths` has the
---- companion's path already.
+--- defaults and words, `startsLine` on Font, Font color and the first and third companions (the
+--- composer's pairing), Font shadow disabled while its companion is on. `paths` has the
+--- companions' paths already.
 local function ownFontRows(opts, L, paths)
   local D, out = lib.DEFAULTS, {}
   local made = {
@@ -208,8 +221,10 @@ local function ownFontRows(opts, L, paths)
     fontColor = { type = "color", hasAlpha = true, startsLine = true, classColorSource = "player" },
     useClassColorFont = { type = "bool", classColorSource = "player" },
     fontFlags = { type = "string", values = flagValues(L), sorting = lib.FONT_FLAGS },
-    fontShadow = { type = "bool" },
+    fontShadow = { type = "bool", disabledIf = paths.fontShadowFromSkin },
     fontFromSkin = { type = "bool", startsLine = true },
+    fontColorFromSkin = { type = "bool" },
+    fontShadowFromSkin = { type = "bool", startsLine = true },
   }
   for _, leaf in ipairs(FONT_LEAVES) do
     local row, path = made[leaf.key], paths[leaf.key]
@@ -257,7 +272,7 @@ local function composedFontRows(O, opts, L, paths, subgroup)
   for _, leaf in ipairs(FONT_LEAVES) do
     local path = paths[leaf.key]
     if path then byPath[path] = leaf.key else omit[leaf.key] = true end
-    if leaf.key ~= "fontFromSkin" then keys[leaf.key] = path end
+    if leaf.key ~= "fontFromSkin" then keys[leaf.key] = path end   -- the composer derives that one itself
     labels[leaf.key], tooltips[leaf.key] = override(L, leaf.label), override(L, leaf.tip)
   end
   local D = lib.DEFAULTS
@@ -349,11 +364,14 @@ local function positionRows(opts, L, paths, subgroup)
   return ownPositionRows(L, paths), nil
 end
 
---- The host's paths with the companion's filled in (the font path plus "FromSkin").
+--- The host's paths with the companions' filled in (each row's path plus "FromSkin"; the color and
+--- shadow companions from minor 3).
 local function withCompanion(paths)
   local out = {}
   for k, v in pairs(paths) do if type(v) == "string" and v ~= "" then out[k] = v end end
-  out.fontFromSkin = lib.__pathOf(paths, "fontFromSkin")
+  for _, key in ipairs({ "fontFromSkin", "fontColorFromSkin", "fontShadowFromSkin" }) do
+    out[key] = lib.__pathOf(paths, key)
+  end
   return out
 end
 

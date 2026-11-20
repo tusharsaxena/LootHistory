@@ -1757,7 +1757,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (51)
+### test_libka0s.lua (52)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1810,6 +1810,7 @@ Total.
 - v1.93.0: the vendored minors and the kit revision match the release
 - v1.105.0: the vendored minors and the kit revision match the release
 - v1.107.0: the vendored minors and the kit revision match the release
+- v1.108.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2149,13 +2150,14 @@ Total.
 
 ### test_skin_values.lua (3)
 
-- skin values: every host row carries its file, substring, why and cause id
+- skin values: every host row carries its file, substring, why and a cause id or kit row category
 - skin values: no typed value outside the kit's categories and the host's rows
 - skin values: the check is falsifiable, a planted value of each shape is reported
 
-### test_skin_switch.lua (107)
+### test_skin_switch.lua (108)
 
 - skin switch: the check is falsifiable, a surface that redraws a literal is reported
+- skin switch: the check is falsifiable, a bar whose texture never moves is reported
 - skin switch: the window's edge changes
 - skin switch: the window's edge changes with the Scope ignored
 - skin switch: the window's title changes
@@ -2399,7 +2401,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 51 |
+| test_libka0s.lua | 52 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2422,11 +2424,11 @@ Total.
 | test_eol.lua | 2 |
 | test_layout_cap.lua | 13 |
 | test_skin_values.lua | 3 |
-| test_skin_switch.lua | 107 |
+| test_skin_switch.lua | 108 |
 | test_client_globals.lua | 3 |
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2031** |
+| **Total** | **2033** |

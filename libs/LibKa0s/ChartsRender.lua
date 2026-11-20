@@ -15,7 +15,10 @@
 local lib = LibStub and LibStub("LibKa0s-Charts-1.0", true)
 if not lib then return end
 
-local RENDER_MINOR = 1
+local RENDER_MINOR = 2
+-- Minor 2 (SD-LK-97.3's Charts part, LibKa0s#97; the owner's U-4): a strip column's alpha is set
+-- before its fill is painted, so the skin's gloss on it fades with the column: a zero column's
+-- faint stub no longer carries a full-strength gloss under Glass.
 if lib.__renderMinor and lib.__renderMinor >= RENDER_MINOR
   and lib.__renderShellMinor == lib.MINOR then return end
 lib.__renderMinor      = RENDER_MINOR
@@ -527,8 +530,9 @@ local function placeColumn(ctx, f, strip, b, x, barW, top)
   f:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", x, 0)
   f:SetSize(barW, K.DAYSTRIP_H)
   f.fill:SetSize(barW, math.max(1, math.min(1, b.count / top) * (K.DAYSTRIP_H - 2)))
-  ctx.barFill(f.fill, b.color or ctx.colors.bar)
+  -- Minor 2: the alpha first, so the skin's gloss the fill wears (Charts minor 3) can match it.
   f.fill:SetAlpha(b.count == 0 and 0.12 or 0.9)
+  ctx.barFill(f.fill, b.color or ctx.colors.bar)
   f._tip = b.info
 end
 

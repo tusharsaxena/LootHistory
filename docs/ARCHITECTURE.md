@@ -469,10 +469,15 @@ facade with this addon as its **owner**.
 
 ### Intentional exceptions
 
-**No allow row.** The five rows the addon's own color gate carried went when the kit's check replaced it,
-because a kit category takes each of them: the item quality's client color (`qualityHex`), chat output
-(`NS.PREFIX` and the get/set echo), StaticPopup text in the ledger reset prompt and the simulator's
-fixture hyperlinks.
+**Three allow rows, each a meaning color (cause MC).** The five rows the addon's own color gate carried
+went when the kit's check replaced it, because a kit category takes each of them: the item quality's
+client color (`qualityHex`), chat output (`NS.PREFIX` and the get/set echo), StaticPopup text in the ledger reset prompt and the simulator's
+fixture hyperlinks. Test kit revision 58 (LibKa0s v1.108.0) reads colors kept in a table or a `return` as well,
+and three of those no kit category takes: the degraded title badges' red and cyan (`TEST_MARK` and
+`SIM_MARK` in `modules/Browser.lua`, drawn only with no `W.TestStrip`) and the common quality's white
+that `qualityColor` (`modules/BrowserTable.lua`) answers for a quality the client has no color for.
+The Insights per-source palette is named `SOURCE_CATEGORY_COLOR` in `modules/AnalyticsFormat.lua`, so
+the kit's meaning-table category takes it as a named meaning table (skinning-§9).
 
 Outside the gate's reach, also on purpose:
 

@@ -63,7 +63,9 @@ if not lib then return end
 -- Minor 6, same release (SF-L8, #70): `series[i].fill`, an area fill under a line.
 -- Minor 7 (FU-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): every Line is drawn in
 -- physical pixels and re-sized on a pixel-scale change (the header's PHYSICAL PIXELS).
-local CHART_MINOR = 7
+-- Minor 8 (SD-LK-97.1 of Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97): a chart
+-- runs the shell's owner check (Widgets.lua's THE OWNER CHECK).
+local CHART_MINOR = 8
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsDragHandle.lua is: a chart that
 -- attached to an older shell would publish `lib.LineChart` beside a `lib.MODULES` the shell owns,
 -- and nothing would say the two came from different vendored copies.
@@ -696,5 +698,6 @@ function lib.LineChart(parent, opts)
   c:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil); self:ClearHover() end)
   c:SetScript("OnSizeChanged", function(self, w, h) self:Render(w, h) end)
   if Skin then lib.__onSkin(Skin, c.__opts.owner, c, chartRepaint) end
+  if type(lib.__checkOwner) == "function" then lib.__checkOwner(c, parent, c.__opts.owner, "LineChart") end
   return c
 end

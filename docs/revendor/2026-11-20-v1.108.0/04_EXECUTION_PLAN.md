@@ -1,0 +1,3 @@
+# 04 Execution plan
+
+Nothing adopted inside this bundle, so no candidate commits here. The re-vendor commit (SD-RV-LH) carries both payloads, the provenance roll, the floored and new pins in `tests/test_libka0s.lua` and `tests/test_widgets.lua`, the three revision-58 typed-value fixes (`SOURCE_CATEGORY_COLOR` in `modules/AnalyticsFormat.lua`, three MC rows in `tests/run.lua`), the regenerated `docs/test-cases.md` and README badge, this bundle, and the standard reference refresh to v2.116.0 (the vendored quirks catalog's stamp in `docs/midnight-quirks.md`; the catalog body is unchanged). The run's SD-SK-LH item follows in its own commits.

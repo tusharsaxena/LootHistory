@@ -6,9 +6,15 @@
 -- WHAT IT LOOKS FOR. Two kinds of typed value, each with its shapes:
 --
 --   color    a numeric literal in a color position of a paint call (V.COLOR_ARGS, plus the host's
---            `calls`) or of a CreateColor, typed outright or as a fallback (`c.r or 1`); a `|cff`
---            escape in a string; a `{ text, r, g, b }` row of components, the shape a tooltip line
---            table feeds AddLine.
+--            `calls`) or of a global color call (V.GLOBAL_COLOR_ARGS: CreateColor, and the defaults
+--            of an RGBA(c, r, g, b, a) fallback), typed outright or as a fallback (`c.r or 1`); a
+--            `|cff` escape in a string; a `{ text, r, g, b }` row of components, the shape a tooltip
+--            line table feeds AddLine. From kit revision 58 (SD-LK-97.19 of Ka0sAddonsCommonTasks
+--            docs/2026-11-20-SKIN_DEFAULTS_AUDIT) also the shapes a color is kept in before it is
+--            drawn: a table of three or four components (`{ 1, 0.82, 0 }`), a keyed one
+--            (`{ r = 0.2, g = 0.75, b = 0.3 }`), three or four names assigned three or four
+--            components at once (`local R, G, B = 1, 0.82, 0`) and a `return` of three or four
+--            components (`return 0.45, 0.45, 0.5`). A component is a numeric literal from 0 to 1.
 --   texture  a client path in a string, under Interface\ or Fonts\, wherever it stands; a literal
 --            handed to a texture setter or an atlas setter (V.TEXTURE_SETTERS): a path, a name or a
 --            file id. Fonts are here because a face is drawn from a path the same way a bar is.
@@ -40,6 +46,10 @@ V.COLOR_ARGS = {
   SetStatusBarColor = { 1, 2, 3 }, SetShadowColor = { 1, 2, 3 }, SetSwipeColor = { 1, 2, 3 },
   AddLine = { 2, 3, 4 }, AddDoubleLine = { 3, 4, 5, 6, 7, 8 },
 }
+
+--- Global call name -> the argument positions that hold color components (kit revision 58 adds
+--- RGBA, LibKa0s-Core's `RGBA(c, dr, dg, db, da)`, whose defaults are the color a nil `c` draws).
+V.GLOBAL_COLOR_ARGS = { CreateColor = { 1, 2, 3 }, RGBA = { 2, 3, 4 } }
 
 --- The setters whose first argument names a texture or an atlas.
 V.TEXTURE_SETTERS = {
@@ -198,10 +208,12 @@ local function scanColorCalls(ctx, calls)
       if numericAt(list, positions) then ctx.add{ kind = "color", shape = "call", pos = pos, call = name, args = list } end
     end)
   end
-  -- A global, so no receiver to match on, and a gradient's stops are read here.
-  eachArgs(ctx.bare, "%f[%w_]CreateColor%s*(%b())", function(pos, list)
-    if numericAt(list, { 1, 2, 3 }) then ctx.add{ kind = "color", shape = "call", pos = pos, call = "CreateColor", args = list } end
-  end)
+  -- A global, or a field of any table, so no receiver to match on; a gradient's stops are read here.
+  for name, positions in pairs(V.GLOBAL_COLOR_ARGS) do
+    eachArgs(ctx.bare, "%f[%w_]" .. name .. "%s*(%b())", function(pos, list)
+      if numericAt(list, positions) then ctx.add{ kind = "color", shape = "call", pos = pos, call = name, args = list } end
+    end)
+  end
 end
 
 local function isComponent(arg)
@@ -215,13 +227,99 @@ local function isColorRow(list)
   return isComponent(list[2]) and isComponent(list[3]) and isComponent(list[4])
 end
 
+--- Three or four components and nothing else (kit revision 58).
+local function isComponents(list)
+  if #list ~= 3 and #list ~= 4 then return false end
+  for _, arg in ipairs(list) do
+    if not isComponent(arg) then return false end
+  end
+  return true
+end
+
+--- `{ r = .., g = .., b = .. }`, an `a` allowed, each a component (kit revision 58).
+local function isKeyedColor(list)
+  local got = {}
+  for _, arg in ipairs(list) do
+    local key, value = arg:match("^%s*([rgba])%s*=%s*(.-)%s*$")
+    if not key or got[key] or not isComponent(value) then return false end
+    got[key] = true
+  end
+  return got.r and got.g and got.b or false
+end
+
+--- The shape of a table constructor's fields, or nil when it keeps no color. A trailing separator
+--- leaves an empty last field, which is no field.
+local function tableShape(list)
+  if #list > 1 and not list[#list]:find("%S") then list[#list] = nil end
+  if isColorRow(list) then return "row" end
+  if isComponents(list) then return "table" end
+  if isKeyedColor(list) then return "keyed" end
+  return nil
+end
+
 local function scanColorRows(ctx)
   local init = 1
   while true do
     local s, _, body = ctx.bare:find("(%b{})", init)
     if not s then return end
     init = s + 1
-    if isColorRow(splitArgs(body:sub(2, -2))) then ctx.add{ kind = "color", shape = "row", pos = s } end
+    local shape = tableShape(splitArgs(body:sub(2, -2)))
+    if shape then ctx.add{ kind = "color", shape = shape, pos = s } end
+  end
+end
+
+--- A name list: `a, b.c, d` (kit revision 58).
+local function isNames(list)
+  for _, arg in ipairs(list) do
+    if not arg:find("^%s*[%a_][%w_%.]*%s*$") then return false end
+  end
+  return true
+end
+
+--- True when a value list has a fraction in it, or (`ones`) a 1 among whole numbers: `0, 0, 0` is as
+--- often a count's zeros as a black, and a statement has no call to say which.
+local function colorLike(values, ones)
+  local one = false
+  for _, v in ipairs(values) do
+    local n = tonumber(v)
+    if n ~= math.floor(n) then return true end
+    one = one or n == 1
+  end
+  return ones and one
+end
+
+--- Names that end r, g, b (and a) in that order, any case: `r, g, b`, `LINE_R, LINE_G, LINE_B`.
+--- A name that ends in a digit or an underscore (`u1`, `x_`) ends in no channel letter.
+local function channelNames(names)
+  local want = { "r", "g", "b", "a" }
+  for i, name in ipairs(names) do
+    local last = name:match("(%a)%s*$")
+    if not last or last:lower() ~= want[i] then return false end
+  end
+  return true
+end
+
+--- `local R, G, B = 1, 0.82, 0` and `return 0.45, 0.45, 0.5`, one statement on one line, the line
+--- read with its comment and its string bodies blanked (kit revision 58). An assignment of whole
+--- numbers counts only to channel names: `local rows, named, sealed = 0, 0, 1` is three counters.
+local function scanColorStatements(ctx)
+  for i, line in ipairs(ctx.bareLines) do
+    local lhs, rhs = line:match("^%s*local%s+([^=]-)=([^=].-)%s*;?%s*$")
+    if not lhs then lhs, rhs = line:match("^%s*([%a_][%w_%.%s,]-)=([^=].-)%s*;?%s*$") end
+    if lhs then
+      local names, values = splitArgs(lhs), splitArgs(rhs)
+      if #names == #values and isNames(names) and isComponents(values)
+        and (channelNames(names) or colorLike(values, false)) then
+        ctx.add{ kind = "color", shape = "assign", pos = ctx.starts[i] }
+      end
+    end
+    for at in line:gmatch("()%f[%w_]return%f[^%w_]") do
+      local tail = line:sub(at + 6):gsub("%f[%w_]end%f[^%w_].*$", ""):gsub("%f[%w_]return%f[^%w_].*$", ""):gsub(";.*$", "")
+      local values = splitArgs(tail)
+      if isComponents(values) and colorLike(values, true) then
+        ctx.add{ kind = "color", shape = "return", pos = ctx.starts[i] + at - 1 }
+      end
+    end
   end
 end
 
@@ -359,6 +457,34 @@ local function isPopup(hit, ctx)
   return hit.shape == "escape" and inSpans(ctx.popup, hit.pos)
 end
 
+--- A kept color whose alpha is a literal 0 (`{ 0, 0, 0, 0 }`, `{ r = 1, g = 1, b = 1, a = 0 }`): it
+--- draws nothing under any skin (kit revision 58). Only the new shapes, so no host row that excuses
+--- a call goes stale.
+local function isClearColor(hit, ctx)
+  if hit.shape ~= "table" and hit.shape ~= "keyed" then return false end
+  local body = ctx.bare:match("^%b{}", hit.pos)
+  local list = body and splitArgs(body:sub(2, -2)) or {}
+  if #list > 1 and not list[#list]:find("%S") then list[#list] = nil end
+  for i, arg in ipairs(list) do
+    local key, value = arg:match("^%s*(%a)%s*=%s*(.-)%s*$")
+    if (key == "a" and tonumber(value) == 0) or (not key and i == 4 and tonumber(arg) == 0) then return true end
+  end
+  return false
+end
+
+--- What a table or a statement of components holds when it is no color: texture coordinates, an
+--- inset or a padding, read off the code on the line: its comment is cut, so the word has to be in
+--- a name or a string there (kit revision 58). A call's colors are never this.
+local GEOMETRY_WORDS = { "coord", "crop", "inset", "pad", "margin", "offset" }
+local function isGeometry(hit)
+  if hit.shape == "call" or hit.shape == "row" or hit.shape == "escape" then return false end
+  local lower = hit.text:lower()
+  for _, word in ipairs(GEOMETRY_WORDS) do
+    if lower:find(word, 1, true) then return true end
+  end
+  return false
+end
+
 --- `{ category, rule }` in reading order; the first that takes a hit names it.
 V.COLOR_RULES = {
   { "chat line (L13)", isChat },
@@ -369,6 +495,8 @@ V.COLOR_RULES = {
   { "neutral 1,1,1 reset", isNeutral },
   { "white base for tinting", isWhiteBase },
   { "StaticPopup text", isPopup },
+  { "tex coords, inset or padding", isGeometry },
+  { "fully clear color", isClearColor },
 }
 
 local function hasAny(norm, list)
@@ -545,7 +673,8 @@ function V.scan(src, opts)
   local hits, stringAt = {}, {}
   for _, s in ipairs(strings) do stringAt[s.pos] = s.body end
   local ctx = {
-    bare = bare, strings = strings, stringAt = stringAt, taken = {}, path = opts.path or "",
+    bare = bare, bareLines = bareLines, starts = starts,
+    strings = strings, stringAt = stringAt, taken = {}, path = opts.path or "",
     chat = chatSpans(bare), popup = popupSpans(bare), meaning = meaningSpans(bare),
     locale = spansOf(bare, "%f[%w_]L%s*%b[]", {}),
   }
@@ -557,6 +686,7 @@ function V.scan(src, opts)
   end
   scanColorCalls(ctx, mergedCalls(opts.calls))
   scanColorRows(ctx)
+  scanColorStatements(ctx)
   scanTextureCalls(ctx)
   scanStrings(ctx)
   table.sort(hits, byLine)
@@ -573,24 +703,67 @@ end
 
 -- ── the host's rows ──────────────────────────────────────────────────────────────────────────
 
-local ROW_FIELDS = { "file", "substring", "why", "cause" }
+local ROW_FIELDS = { "file", "substring", "why" }
 local CAUSE_ID = "^%u[%u%d][%u%d%-]*$"
+
+--- The kit's row categories (kit revision 58, the owner's U-6 of Ka0sAddonsCommonTasks
+--- docs/2026-11-20-SKIN_DEFAULTS_AUDIT): what a host row names in `category` in place of a `cause`,
+--- for a value that draws no look and so has no ruling of its own to cite. A row carries one or the
+--- other, never both.
+V.ROW_CATEGORIES = {
+  -- `stored.r or 1` where a load backfill fills every channel first: no player ever sees it
+  ["unreachable default"] = true,
+  -- white a host's own helper tints (the kit category of the same name reads a tint on the same
+  -- object in the same file, and no further)
+  ["white base for tinting"] = true,
+  -- three or four fractions the scanner reads as a color that are something else, a position, a
+  -- scale or a weight (`local x, y, s = 0.5, 0.5, 0.8`) on a line that names no geometry word (the
+  -- review of SD-LK-GUARD)
+  ["not a color"] = true,
+}
+
+local function categoryNames()
+  local names = {}
+  for name in pairs(V.ROW_CATEGORIES) do names[#names + 1] = ("%q"):format(name) end
+  table.sort(names)
+  return table.concat(names, " or ")
+end
+
+--- What is wrong with a row's cause or category, or nil.
+local function citationProblem(row, i)
+  local cause, category = row.cause, row.category
+  if cause ~= nil and category ~= nil then
+    return ("row %d (%s) has both a cause and a category: one names why it is left alone"):format(i, row.file)
+  end
+  if category ~= nil then
+    if not V.ROW_CATEGORIES[category] then
+      return ("row %d (%s) has category %q, which is no kit row category: %s"):format(i, row.file,
+        tostring(category), categoryNames())
+    end
+    return nil
+  end
+  if type(cause) ~= "string" or cause == "" then
+    return ("row %d (%s) has no cause (or a kit row category)"):format(i, row.file)
+  end
+  if not cause:find(CAUSE_ID) then
+    return ("row %d (%s) has cause %q, which is no cause id such as L13 or FS-AM-02"):format(i, row.file, cause)
+  end
+  return nil
+end
 
 --- What is wrong with one host row, or nil.
 local function rowProblem(row, i)
-  if type(row) ~= "table" then return ("row %d is a %s, not { file, substring, why, cause }"):format(i, type(row)) end
+  if type(row) ~= "table" then return ("row %d is a %s, not { file, substring, why, cause or category }"):format(i, type(row)) end
   for _, field in ipairs(ROW_FIELDS) do
     if type(row[field]) ~= "string" or row[field] == "" then
       return ("row %d (%s) has no %s"):format(i, tostring(row.file), field)
     end
   end
-  if not row.cause:find(CAUSE_ID) then
-    return ("row %d (%s) has cause %q, which is no cause id such as L13 or FS-AM-02"):format(i, row.file, row.cause)
-  end
-  return nil
+  return citationProblem(row, i)
 end
 
---- Every problem in the host's rows: a missing field or a cause that is no id.
+--- Every problem in the host's rows: a missing field, a cause that is no id, or a category the kit
+--- does not name.
 function V.rowProblems(rows)
   local out = {}
   for i, row in ipairs(rows or {}) do

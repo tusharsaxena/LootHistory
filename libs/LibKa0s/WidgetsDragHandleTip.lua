@@ -35,6 +35,19 @@
 -- owner's ruling is one rule: above the strip everywhere, below only without room. Both keys are
 -- still accepted, so a host not yet updated does not error, and neither is read or called: the
 -- strip's tooltip and its marks' always take the attached placement. Deprecated: a host drops them.
+--
+-- A STRIP WHOSE RECT READS SECRET (minor 3, SD-LK-99 of Ka0sAddonsCommonTasks
+-- docs/2026-11-20-LIBKA0S_94_97_99_100, LibKa0s#99, the owner's ruling R-3). Through minor 2 a strip
+-- whose edges read secret (Aura Master's container attached under a parent holding auras, in an
+-- instance) fell back to a relative point on the strip, which the restricted tree refuses, so the
+-- tooltip did not render. From minor 3 the placement walks the strip's ancestors (GetParent, up to
+-- but not including UIParent, MAX_ANCESTORS deep) and attaches the tooltip above the NEAREST ONE
+-- WHOSE RECT READS, with the same rule as the strip's (above, below only without room above). It
+-- is still pinned by an absolute point on UIParent, computed from that ancestor's readable rect,
+-- so nothing is anchored into the restricted tree. "Above the strip" stands whenever the strip's
+-- own rect reads. When no ancestor reads either, the tooltip is hidden: no tooltip and no error,
+-- and no relative point into the strip. The relative point survives only for a copy with no
+-- Tooltip major to place by.
 
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
@@ -42,7 +55,10 @@ if not lib then return end
 -- Minor 1: the tooltip half, moved here unchanged from WidgetsDragHandle.lua (its minor 14).
 -- Minor 2 (AF-LK-02): `spec.tooltipPlace` and a descriptor's `place` are retired, accepted unread; every
 -- strip and mark tooltip attaches centered above the strip (WHERE IT OPENS).
-local DRAGTIP_MINOR = 2
+-- Minor 3 (SD-LK-99, LibKa0s#99): a strip whose rect reads secret places above its nearest readable
+-- ancestor, and hides the tooltip when none reads, never by a point into the strip (A STRIP WHOSE
+-- RECT READS SECRET).
+local DRAGTIP_MINOR = 3
 -- Paired on the SHELL's minor as well as this file's own: see WidgetsDragHandle.lua.
 if lib.__dragTipMinor and lib.__dragTipMinor >= DRAGTIP_MINOR
   and lib.__dragTipShellMinor == lib.MINOR then return end
@@ -115,22 +131,47 @@ local function dhDrawTooltip(tip, lines)
   tip:Show()
 end
 
+-- How far the readable-ancestor walk climbs, so a parent cycle cannot hang a hover.
+local MAX_ANCESTORS = 32
+
+--- `frame`'s parent, or nil at UIParent, at the top, or on a self-parent. UIParent is never a
+--- placement target: its rect is the whole screen, and a tooltip "above" it says nothing.
+local function dhParentOf(frame)
+  local fn = type(frame) == "table" and frame.GetParent
+  if type(fn) ~= "function" then return nil end
+  local ok, p = pcall(fn, frame)
+  if not ok or type(p) ~= "table" or p == frame or p == UIParent then return nil end
+  return p
+end
+
 --- The library's placement: attached and centered above the STRIP (`handle`), whichever of its
---- frames is hovered (a mark places by its strip, as AuraMaster's StripOf did). Unreadable geometry,
---- or no Tooltip major, attaches it above the strip by a relative point, which a restricted tree
---- refuses, so under pcall; a refused point leaves the tooltip with no anchor (the points were
---- cleared), never at the cursor. Reached only when the strip's geometry cannot be read.
+--- frames is hovered (a mark places by its strip, as AuraMaster's StripOf did). When the strip's
+--- rect does not read (secret, or unplaced), above its nearest ancestor whose rect does (minor 3,
+--- LibKa0s#99), by the same absolute point on UIParent, so nothing anchors into the restricted
+--- tree; when none reads, the tooltip is hidden. Answers the frame it placed by, or nil. Only a copy
+--- with no Tooltip major attaches it by a relative point, under pcall, never at the cursor.
 local function dhPlaceAttached(tip, handle)
   local Tip = LibStub("LibKa0s-Tooltip-1.0", true)
-  if Tip and Tip.PlaceAttached(tip, handle) then return end
+  if not (Tip and type(Tip.PlaceAttached) == "function") then
+    tip:ClearAllPoints()
+    pcall(tip.SetPoint, tip, "BOTTOM", handle, "TOP", 0, 2)
+    return nil
+  end
+  local f = handle
+  for _ = 0, MAX_ANCESTORS do
+    if Tip.PlaceAttached(tip, f) then return f end
+    f = dhParentOf(f)
+    if not f then break end
+  end
   tip:ClearAllPoints()
-  pcall(tip.SetPoint, tip, "BOTTOM", handle, "TOP", 0, 2)
+  if tip.Hide then tip:Hide() end
+  return nil
 end
 
 --- Show the descriptor's tooltip for `frame`, the frame hovered: owned by UIParent at ANCHOR_NONE,
 --- evaluated and drawn, SHOWN (so the placement reads the tooltip's measured size), then attached
---- above the strip. `handle` is the strip, whose palette colors the bands (minor 7) and which every
---- tooltip places by, whichever of its frames is hovered; `defaultPal` is WidgetsDragHandle.lua's
+--- above the strip, or above its nearest readable ancestor (minor 3). `handle` is the strip, whose
+--- palette colors the bands (minor 7) and which every tooltip places by, whichever of its frames is hovered; `defaultPal` is WidgetsDragHandle.lua's
 --- owner-less palette, for a handle that carries none. `spec.tooltipPlace` and `t.place` are retired
 --- (minor 2) and not read; `frame` and `spec` stay in the signature WidgetsDragHandle.lua calls.
 local function dhShowTooltip(handle, frame, spec, t, defaultPal)  -- luacheck: no unused args

@@ -274,9 +274,21 @@ Kit.diagnostics = {
 }
 
 -- The typed-value gate's facts (kit revision 50): the host's own paint calls, name to color positions.
--- No row: every value it finds in this addon is a kit category or a token.
+-- The rows are what kit revision 58's new shapes (a color kept in a table or a return) read that no
+-- kit category takes: each a meaning color (skinning-§9, cause MC), never a look a skin can reach.
 Kit.skinValues = {
   calls = { SkinBar = { 2, 3, 4 }, setCell = { 3, 4, 5 }, IconMarkup = { 4, 5, 6 } },
+  rows = {
+    { file = "modules/Browser.lua", substring = "local TEST_MARK =",
+      why = "test mode's red title badge, drawn only on a degraded install with no W.TestStrip; the strip's meaning color, the same under every skin",
+      cause = "MC" },
+    { file = "modules/Browser.lua", substring = "local SIM_MARK =",
+      why = "the simulation's cyan title badge, drawn only on a degraded install with no W.TestStrip; the strip's meaning color, the same under every skin",
+      cause = "MC" },
+    { file = "modules/BrowserTable.lua", substring = "return 1, 1, 1",
+      why = "an item quality the client has no color for draws the common quality's white: an item quality color, the same under every skin",
+      cause = "MC" },
+  },
 }
 -- The painted surfaces the skin-switch test flips, one object each (tests/skin_surfaces.lua).
 Kit.skinSwitch = dofile("tests/skin_surfaces.lua")(NS, mocks)
