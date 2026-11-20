@@ -34,8 +34,12 @@
 --   host.palette  the ranked palette, a list of { r, g, b }, or a function answering one
 --   host.text     function(parent, font, justify) -> a FontString in that font object
 --   host.paint    function(fs, color): a label's color (and the host's face for it)
---   host.fill     function(texture, color, alpha): a texture's flat color
---   host.barFill  function(texture, color, alpha): a bar of data's fill
+--   host.fill     function(texture, color, alpha): a texture's flat color (the track, the rules,
+--                 a legend swatch); never a bar of data's, from minor 3
+--   host.barFill  function(texture, color, alpha): a bar of data's fill, THE bar seam: a bar, a
+--                 stacked segment, a range bar and a strip column. Left out, the owner's S.BarTexture
+--                 and S.BarGloss (minor 3), or with no owner Ka0s Default's bar texture where the
+--                 Skin major is loaded, else a flat color
 --   host.onReskin function(ctx): redraw the bound rows, after Reskin repainted the chrome
 -- docs/api/Charts/version-1.1-docs.md is the full contract, and each row's fields are on its renderer
 -- below.
@@ -87,7 +91,15 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- (ANCHOR_CURSOR_RIGHT, anti-pattern #119). Additive for a host with its own `tip`: it is still
 -- called with the legacy anchor, plus the context as a fourth argument, whose new `PlaceTip`
 -- places the host's shown tooltip the same way; `host.group` names the group.
-local MAJOR, MINOR = "LibKa0s-Charts-1.0", 2
+-- Minor 3 (SD-LK-97.15 and the Charts part of SD-LK-97.3 of Ka0sAddonsCommonTasks
+-- docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97; the owner's U-4): a bar of data is drawn only
+-- through `barFill`. With no host barFill an owner's context paints S.BarTexture and the skin's
+-- gloss (S.BarGloss on the Texture), so a window chart bar and a HUD bar match under Glass; an
+-- owner-less one paints Ka0s Default's bar texture where the Skin major is loaded. A host's `fill`
+-- no longer stands in for a bar of data, which drew it flat under every skin. Still minor 3
+-- (SD-LK-97.1): a context built on `content` runs LibKa0s-Widgets-1.0's owner check (Widgets.lua's
+-- THE OWNER CHECK, read at call time), so a host that sinks it hears of an owner-less chart.
+local MAJOR, MINOR = "LibKa0s-Charts-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -350,6 +362,10 @@ local function skinSeams(ctx, S, host)
   end
   ctx.barFill = host.barFill or function(tex, c, a)
     S.BarTexture(tex, c[1], c[2], c[3], a or c[4] or 1)
+    -- minor 3 (U-4): the skin's gloss, a region of the bar's frame, at the Texture's own alpha
+    -- (a faint strip column's gloss is as faint as it is)
+    local gloss = S.BarGloss(tex)
+    if gloss and type(tex.GetAlpha) == "function" then gloss:SetAlpha(tex:GetAlpha()) end
   end
   ctx.panel = host.panel or function(parent)
     local f = plainPanel(parent)
@@ -359,9 +375,21 @@ local function skinSeams(ctx, S, host)
   ctx.paletteOf = ctx.paletteOf or (not ctx.paletteList and function() return S.Token("chart.series") end or nil)
 end
 
+-- No addon registers this name, so its facade reads Ka0s Default (WidgetsDropdown.lua's idiom).
+local DEFAULT_OWNER = MAJOR
+
+--- An owner-less bar of data (minor 3): Ka0s Default's bar texture through the Skin major, tinted,
+--- as an owner on Ka0s Default draws it; a flat color without the major.
+local function defaultBarFill()
+  local Skin = LibStub("LibKa0s-Skin-1.0", true)
+  if not (Skin and type(Skin.For) == "function") then return plainFill end
+  local S = Skin:For(DEFAULT_OWNER)
+  return function(tex, c, a) S.BarTexture(tex, c[1], c[2], c[3], a or c[4] or 1) end
+end
+
 local function plainSeams(ctx, host)
   ctx.text = host.text or plainText
-  ctx.barFill = host.barFill or host.fill or plainFill
+  ctx.barFill = host.barFill or defaultBarFill()
   ctx.panel = host.panel or plainPanel
 end
 
@@ -387,6 +415,12 @@ local function mergedFonts(given)
     for k, v in pairs(given) do out[k] = v end
   end
   return out
+end
+
+-- Widgets' owner check (W.OwnerWarnings) on a context built with no registered owner.
+local function checkOwner(ctx, content, owner)
+  local W = LibStub("LibKa0s-Widgets-1.0", true)
+  if W and type(W.__checkOwner) == "function" then W.__checkOwner(ctx, content, owner, "chart context") end
 end
 
 -- ── the context ──────────────────────────────────────────────────────────────────────────────
@@ -424,6 +458,7 @@ function lib:New(content, host)
     plainSeams(ctx, host)
   end
   syncColors(ctx)
+  checkOwner(ctx, content, host.owner)
   return ctx
 end
 

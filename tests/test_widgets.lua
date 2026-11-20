@@ -173,7 +173,11 @@ test("Widgets: the seam builds a real library dropdown, art passed as parameters
   -- row. No Dropdown, ContextMenu or CloseMenu member, option or row field moves, so nothing to change here.
   -- Minor 28 (LibKa0s v1.106.0, RangeMaster#17) guards the HUD dock's measurements; no member moves.
   -- Minor 29 (LibKa0s v1.107.0, LibKa0s#95) reads secret dock geometry as none; no member moves.
-  assertEqual(lib.MODULES.Widgets, 29, "this adoption is written against Widgets minor 29")
+  -- Minor 30 (LibKa0s v1.108.0, LibKa0s#94 and #97) lays a footer's shown marks only, reports an
+  -- owner-less widget to a registered sink, and WidgetsDropdown minor 3 tints a submenu arrow from
+  -- the menu palette and measures no secret label. This addon passes `owner` on every widget, hides
+  -- no footer mark and opens no submenu, so nothing to change here.
+  assertEqual(lib.MODULES.Widgets, 30, "this adoption is written against Widgets minor 30")
   local seen
   local stockDropdown = lib.Dropdown
   lib.Dropdown = function(parent, width, opts) seen = opts; return stockDropdown(parent, width, opts) end

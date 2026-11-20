@@ -338,6 +338,13 @@ test("skin table: a skin switch repaints the table live, pooled free rows too, a
     BT:ShowRowMenu(rows()[2], RECORD)
     assertEqual(rgba(rawget(m, "__backdropColor")), today("menu.bg"), "the menu fill back")
     assertEqual(rgba(rawget(m.buttons[1].hl, "__color")), today("menu.hover"), "the menu hover back")
+    -- SD-SK-LH.2: a switch with the menu open recolors its entries' text, not only their hover
+    -- (red under: the text colored per open only, so an open menu kept the old skin's menu.text).
+    NS.ApplySkinChoice("ka0s", SW.key(Skin))
+    assertEqual(textColor(m.buttons[5].fs), tokenOf("menu.text"), "an open menu's entry follows the switch")
+    NS.ApplySkinChoice("ka0s", "ka0s")
+    assertEqual(textColor(m.buttons[5].fs), today("menu.text"), "and comes back with Ka0s Default")
+    m:Hide()
   end)
 end)
 

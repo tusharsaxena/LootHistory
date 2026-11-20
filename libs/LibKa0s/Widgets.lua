@@ -104,40 +104,23 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- Minor 16: the skin owner (the header's SKIN OWNERS).
 -- Minor 17: the scope switches (the header's THE SCOPE SWITCHES): every string an owned control draws
 -- in its skin's body face, and `opts.panel`.
--- Minor 18 (cause L6 of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING): lib.__ownedMark. An owned
--- control a host gave no art draws the Ka0s icon, not the client rung, and the strip's icon wears
--- `icon.tint`.
--- Minor 19 (cause L8 of the same bundle): an owned menu's glyph column reads the skin's `font.mono`; a
--- host's `glyphFont` is what turns the column on, and what an owner-less menu and Ignore fonts draw.
--- A face a host names on an owned control (`opts.font`, `spec.labelFont`) is now its template.
--- Minor 20 (FS-FIX of the same bundle): an owned dropdown's tick and arrow follow a skin switch and
--- the Scope, live, where they were baked in the constructor.
--- Minor 21 (FS-FIX of the same bundle): `lib.ContextMenu`, the shared menu opened by a host; the row
--- options `title`, `disabled`, `divider`, `tooltip` and `keepOpen`, for a dropdown too; onSelect takes
--- the row; the dropdown's label is one line.
--- Minor 22 (R5-L5 of Ka0sAddonsCommonTasks docs/2026-11-03-SMOKE_ROUND5): `lib.IconText`, inline icon
--- markup cropped by the icon rule.
--- Minor 23 (G4 of OutfitterReborn docs/superpowers/specs/2026-11-05-smoke-round-2-design.md): cascading
--- menus. A W.ContextMenu row's `submenu = rows` opens a child menu beside the row, one pooled frame
--- per depth, the parent kept; the row options `radio` and `selected` draw a tick column.
--- Minor 24 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): the dropdown, the
--- search box and every menu level draw a one-PHYSICAL-pixel edge at any UI scale (lib.__pixelEdged).
--- Minor 25 (SF2-L1 of the same bundle): lib.__pixelLine. A menu's divider rule, at every cascade depth,
--- is one physical pixel high at any UI scale and re-sized on a scale change, and the row boxes and the
--- drag-handle strips of this major's secondaries are drawn through it.
--- Minor 26 (FU-L2 of Ka0sAddonsCommonTasks docs/2026-11-06-FOLLOWUPS_V1_91): the dropdown and the shared
--- menu it drops (its cascade, lib.ContextMenu and lib.CloseMenu) moved, unchanged, to WidgetsDropdown.lua
--- (layout-§1); the shell hands it lib.__dropdownKit. No member and no behavior changes.
--- Minor 27 (the owner's 2026-11-15 window-chrome rulings, WowAddonStandards v2.110.0): lib.Footer and
--- lib.FOOTER (THE FOOTER), and the strip's docking: `opts.dock` / lib.DockTestStrip under a title bar
--- or on a HUD's top edge, flipped under its bottom edge when the top would leave the screen, with
--- `strip:Place()`, `strip:BodyOffset()` and `strip:IsFlipped()`. An undocked strip is minor 26's.
--- Minor 28 (RangeMaster#17): the HUD dock's measurements are guarded. The client refuses GetTop and
--- its kin on a region anchored to a nameplate ("Can't measure restricted regions"), and the dock
--- measured its target from unguarded OnShow / OnSizeChanged hooks, so a strip docked on a display
--- riding a plate raised from the host's frame. A measurement the client refuses now answers nil, and
--- the strip is placed on the display's top edge, unflipped and clearing nothing it cannot measure.
-local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 29
+-- Minors 18 to 20 (causes L6, L8 and FS-FIX of Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING):
+-- lib.__ownedMark (an owned control with no host art draws the Ka0s icon, the strip's in `icon.tint`);
+-- an owned menu's glyph column in `font.mono`, a host's named face its template; an owned dropdown's
+-- tick and arrow follow a switch and the Scope, live.
+-- Minor 21 (FS-FIX): `lib.ContextMenu`; the row options `title`, `disabled`, `divider`, `tooltip`,
+-- `keepOpen`; onSelect takes the row; one-line labels. Minor 22 (R5-L5): `lib.IconText`.
+-- Minor 23 (G4 of OutfitterReborn's smoke round 2): cascading menus (`submenu`, `radio`, `selected`).
+-- Minors 24 and 25 (SF1-L1, SF2-L1 of docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): one-PHYSICAL-pixel
+-- edges (lib.__pixelEdged) and lines (lib.__pixelLine), re-sized on a scale change.
+-- Minor 26 (FU-L2): the dropdown and its menus moved, unchanged, to WidgetsDropdown.lua (layout-§1).
+-- Minor 27 (the owner's 2026-11-15 window-chrome rulings): lib.Footer and lib.FOOTER (THE FOOTER), and
+-- the strip's docking, `opts.dock` / lib.DockTestStrip, with Place, BodyOffset and IsFlipped.
+-- Minor 28 (RangeMaster#17): the HUD dock's measurements are guarded; one the client refuses (a
+-- region anchored to a nameplate) answers nil, and the strip sits on the display's top edge.
+-- Minor 30 (LibKa0s#94): the footer lays only its SHOWN marks, re-laid on a mark's show or hide, the
+-- footer's show and `foot:Relayout()`. And (SD-LK-97.1, LibKa0s#97): THE OWNER CHECK, below.
+local MAJOR, MINOR = "LibKa0s-Widgets-1.0", 30
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -222,6 +205,55 @@ local function skinOf(owner)
   return nil
 end
 lib.__skinOf = skinOf
+
+-- ── THE OWNER CHECK (minor 30, SD-LK-97.1 of LibKa0s#97) ─────────────────────────────────────
+--
+-- A widget built with no owner inside an owned window draws Ka0s Default under every skin, silently.
+-- A host that registers a sink (its debug line writer, which writes only while its logging is on)
+-- hears of each one; nothing is walked until some host registers one. The owner is NOT inferred: a
+-- widget owner-less on purpose (a stock twin) would change its look at re-vendor.
+lib.__ownerSinks = lib.__ownerSinks or {}
+lib.__ownerWarned = lib.__ownerWarned or setmetatable({}, { __mode = "k" })
+
+--- The nearest frame from `parent` up that a registered owner's skin painted, and that owner.
+local function paintedAncestor(Skin, parent)
+  local f, depth = parent, 0
+  while type(f) == "table" and depth < 32 do
+    local rec = Skin.painted[f]
+    if rec and Skin:IsOwner(rec.owner) then return f, rec.owner end
+    f = type(f.GetParent) == "function" and f:GetParent() or nil
+    depth = depth + 1
+  end
+end
+
+--- Hear of every library widget built with no registered skin owner inside a frame `owner`'s skin
+--- paints: `sink(message, widget, frame)`, under pcall, once per widget. A nil sink stops it.
+function lib.OwnerWarnings(owner, sink)
+  if type(owner) ~= "string" or owner == "" then return end
+  lib.__ownerSinks[owner] = type(sink) == "function" and sink or nil
+end
+
+-- Tell `who`'s sink of `widget`, built with `owner` (nil or unregistered) inside `frame`.
+local function warnOwner(sink, widget, frame, who, owner, kind)
+  local name = type(frame.GetName) == "function" and frame:GetName() or nil
+  local given = owner == nil and "no skin owner" or ("the unregistered owner %q"):format(tostring(owner))
+  local ok, err = pcall(sink, ("LibKa0s: a %s was built with %s inside %s, which %s's skin paints; pass owner = %q"
+    .. " so it follows the skin"):format(tostring(kind), given, name or "an unnamed frame", who, who), widget, frame)
+  if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
+end
+
+--- The check each constructor runs on what it built (`kind` names it in the message). Internal.
+function lib.__checkOwner(widget, parent, owner, kind)
+  if next(lib.__ownerSinks) == nil or type(widget) ~= "table" or lib.__ownerWarned[widget] then return end
+  if skinOf(owner) then return end
+  local Skin = LibStub("LibKa0s-Skin-1.0", true)
+  if not (Skin and type(Skin.painted) == "table" and type(Skin.IsOwner) == "function") then return end
+  local frame, who = paintedAncestor(Skin, parent)
+  local sink = who and lib.__ownerSinks[who]
+  if not sink then return end
+  lib.__ownerWarned[widget] = true
+  warnOwner(sink, widget, frame, who, owner, kind)
+end
 
 --- True while a control built with `panel` (`opts.panel == true`) sits on the settings page of an
 --- owner that ignores its settings panel (minor 17): the control is then drawn as an owner-less one.
@@ -413,6 +445,7 @@ function lib.SearchBox(parent, width, opts)
       tint(box.icon, opts.owner)
     end
   end
+  lib.__checkOwner(box, parent, opts.owner, "SearchBox")
   return box
 end
 
@@ -561,6 +594,7 @@ function lib.TestStrip(parent, opts)
   if opts.dock ~= "hud" then stripMenu(s, opts) end
   s:Hide()   -- born hidden, so it never flashes at the parent's center
   if opts.dock ~= nil then lib.DockTestStrip(s, opts) end
+  lib.__checkOwner(s, parent, opts.owner, "TestStrip")
   return s
 end
 
@@ -834,15 +868,17 @@ local function footMark(foot, spec)
   return b
 end
 
---- Lay the footer's right side from its corner in: the grip's inset (or the padding), the marks
---- outermost first, then the right line; the left line runs up to the right line.
+--- Lay the footer's right side from its corner in: the grip's inset (or the padding), the SHOWN
+--- marks outermost first, then the right line; the left line runs up to the right line. A hidden
+--- mark takes no slot (minor 30, LibKa0s#94): it is anchored where the next shown one goes, so it
+--- keeps a point, and the chain does not advance past it.
 local function footLayout(foot)
   local edge = foot.__grip and FOOT_GRIP or FOOT_PAD
   local anchor, point, x = foot, "RIGHT", -edge
   for _, b in ipairs(foot.marks) do
     b:ClearAllPoints()
     b:SetPoint("RIGHT", anchor, point, x, 0)
-    anchor, point, x = b, "LEFT", -FOOT_MARK_GAP
+    if b:IsShown() then anchor, point, x = b, "LEFT", -FOOT_MARK_GAP end
   end
   if anchor ~= foot then x = -FOOT_PAD end
   foot.right:ClearAllPoints()
@@ -880,8 +916,10 @@ end
 --- bottom edge, BORN SHOWN and anchored, with no fill. It draws a one-physical-pixel hairline along
 --- its top, `opts.inset` (1) in from each side so it meets the window's edge; `foot.left` (the
 --- status line, LEFT at PAD) and `foot.right` (RIGHT, clear of the marks), both one line, in
---- `text.muted`; the control slot, `opts.marks` laid right to left from the corner, outermost first;
---- and, with `opts.grip` or `opts.resize`, the right inset that clears the resize grip's corner.
+--- `text.muted`; the control slot, `opts.marks` laid right to left from the corner, outermost first,
+--- the hidden ones skipped (minor 30); and, with `opts.grip` or `opts.resize`, the right inset that
+--- clears the resize grip's corner. A mark's OnShow or OnHide, and the footer's own OnShow, re-lay
+--- it (hooked once each); `foot:Relayout()` re-lays it on demand.
 ---
 --- The host owns every string (`foot:SetLeft`, `foot:SetRight`), every mark's art, action and
 --- tooltip, and when the footer shows; a host that hides it gives `FOOTER.HEIGHT` back to its body.
@@ -894,7 +932,8 @@ end
 ---                         inset = number, owner = string }; `owner` a registered skin owner
 --- @return table  the Frame, with `foot.line` (Texture), `foot.left`, `foot.right` (FontStrings),
 ---                `foot.marks` (Buttons, each with `.icon`), `foot.grip` (the grip `opts.resize`
----                made, or nil), and `foot:SetLeft(text)`, `foot:SetRight(text)`, `foot:SetGrip(on)`
+---                made, or nil), and `foot:SetLeft(text)`, `foot:SetRight(text)`, `foot:SetGrip(on)`,
+---                `foot:Relayout()`
 function lib.Footer(parent, opts)
   opts = type(opts) == "table" and opts or {}
   local foot = CreateFrame("Frame", nil, parent)
@@ -923,9 +962,19 @@ function lib.Footer(parent, opts)
   foot.SetLeft = function(self, text) footSet(self.left, text) end
   foot.SetRight = function(self, text) footSet(self.right, text) end
   foot.SetGrip = function(self, on) self.__grip = on and true or nil; footLayout(self) end
+  foot.Relayout = function(self) footLayout(self) end
   foot.__grip = (opts.grip == true or type(opts.resize) == "table") or nil
+  -- A host shows or hides a mark per tab: each mark's show and hide re-lay the footer. The client
+  -- fires neither on a mark whose window is hidden, so the footer's own show re-lays it too.
+  local function relay() footLayout(foot) end
+  for _, b in ipairs(foot.marks) do
+    b:HookScript("OnShow", relay)
+    b:HookScript("OnHide", relay)
+  end
+  foot:HookScript("OnShow", relay)
   footLayout(foot)
   if type(opts.resize) == "table" then foot.grip = footResize(foot, parent, opts.resize, opts.owner) end
+  lib.__checkOwner(foot, parent, opts.owner, "Footer")
   return foot
 end
 

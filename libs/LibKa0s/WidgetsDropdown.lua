@@ -26,13 +26,20 @@ local core = LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE or type(lib.__dropdownKit) ~= "table" then return end
 
-local DROPDOWN_MINOR = 2
+local DROPDOWN_MINOR = 3
 -- Minor 1: the dropdown and the shared menu, moved here unchanged from Widgets.lua (its minor 26).
 -- Minor 2 (LK-92B of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#92): an
 -- entry's tooltip opens beside its menu (LibKa0s-Tooltip-1.0's body rule; WowAddonStandards
 -- standalone-windows, *Tooltip placement*: "menu entries use the menu frame as the group"), where it
 -- owned at ANCHOR_RIGHT on the row. A host renderer still draws its own lines; a tooltip it shows,
 -- owned by the row, is then placed the same way. `row.__menu` is the level a pooled row sits in.
+-- Minor 3 (Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97): a submenu row's
+-- arrow takes the menu palette's `arrow` on every paint, the opener's `icon.arrow` desaturated as a
+-- dropdown's arrow is, and the gray back for an owner-less open (SD-LK-97.4); and the menu measures
+-- no secret label and reads no width that answers a secret, so a host whose labels may be secret
+-- (Multi Meters' segment picker under the Combat restriction) opens the skinned menu at its
+-- `opts.width`, where it fell back to the client's (the owner's U-21). Still minor 3 (SD-LK-97.1):
+-- a dropdown runs the shell's owner check (Widgets.lua's THE OWNER CHECK).
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__dropdownMinor and lib.__dropdownMinor >= DROPDOWN_MINOR
   and lib.__dropdownShellMinor == lib.MINOR then return end
@@ -61,7 +68,8 @@ local MENU_ROW_H, MENU_DIVIDER_H = 16, 8
 -- The shared menu's row colors: selected, plain, the highlight under the pointer, and a title, a
 -- disabled row and a divider (minor 21).
 local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 0.82, 0, 0.15 },
-                   title = { 1, 0.82, 0 }, off = { 0.5, 0.5, 0.5 }, rule = { 0.24, 0.24, 0.27, 0.85 } }
+                   title = { 1, 0.82, 0 }, off = { 0.5, 0.5, 0.5 }, rule = { 0.24, 0.24, 0.27, 0.85 },
+                   arrow = { 0.7, 0.7, 0.72 } }   -- a submenu row's arrow (minor 3), on the art's own hue
 -- No addon registers this name, so its facade reads Ka0s Default: the menu is given back through it.
 local DEFAULT_OWNER = MAJOR
 
@@ -81,10 +89,26 @@ local function rowTicked(opt)
   return opt.selected == true
 end
 
+local function isSecret(v) return type(issecretvalue) == "function" and issecretvalue(v) and true or false end
+
+--- `w` grown to fit `opt`'s row: its label measured, plus the row's insets; a width that answers a
+--- secret is not read (minor 3).
+local function rowWidth(menu, dd, opt, w)
+  menu.measure:SetText((dd.multi and dd.__check or "") .. (opt.label or ""))
+  -- A glyphed or ticked row indents its text by a further 14px, a submenu row's arrow takes 10.
+  local pad = (opt.glyph or tickColumn(dd, opt)) and 38 or 24
+  if hasSubmenu(dd, opt) then pad = pad + 10 end
+  local sw = menu.measure:GetStringWidth()
+  if isSecret(sw) then return w end
+  return math.max(w, math.min(320, (tonumber(sw) or 0) + pad))
+end
+
 -- Never narrower than the button it drops from, but grown to the widest label it must show:
 -- a class icon plus a Name-Realm outruns the 140px Character button. Measured with a spare
 -- FontString in the row font (inline icon markup counts toward GetStringWidth), + the 8px
 -- insets, the tick markup and a little slack; capped so one freak label can't fill the screen.
+-- A secret label (minor 3) is not measured, and a width that answers a secret is not read: such a
+-- row takes the floor (a W.ContextMenu's `opts.width`), so no arithmetic ever meets a secret.
 local function menuWidth(menu, dd, opts)
   local w = math.max(dd:GetWidth(), 90)
   if not menu.measure then
@@ -94,11 +118,7 @@ local function menuWidth(menu, dd, opts)
   -- Minor 17: measured in the face the rows wear, else a long label in a wider face truncates.
   lib.__skinFont(menu.measure, menu.__fontOwner, menu.__fontSkin, "GameFontHighlightSmall")
   for _, opt in ipairs(opts) do
-    menu.measure:SetText((dd.multi and dd.__check or "") .. (opt.label or ""))
-    -- A glyphed or ticked row indents its text by a further 14px, a submenu row's arrow takes 10.
-    local pad = (opt.glyph or tickColumn(dd, opt)) and 38 or 24
-    if hasSubmenu(dd, opt) then pad = pad + 10 end
-    w = math.max(w, math.min(320, (menu.measure:GetStringWidth() or 0) + pad))
+    if not isSecret(opt.label) then w = rowWidth(menu, dd, opt, w) end
   end
   return w
 end
@@ -157,14 +177,14 @@ local function rowTick(b)
   return t
 end
 
---- A submenu row's arrow (minor 23), built the first time a row needs one.
+--- A submenu row's arrow (minor 23), built the first time a row needs one. Its color is the menu
+--- palette's, set on every paint (paintRowMarks, minor 3).
 local function rowArrow(b)
   if b.__sub then return b.__sub end
   local a = b:CreateTexture(nil, "OVERLAY")
   a:SetSize(10, 10)
   a:SetPoint("RIGHT", -4, 0)
   a:SetTexture(SUBMENU_ARROW)
-  a:SetVertexColor(0.7, 0.7, 0.72)
   b.__sub = a
   return a
 end
@@ -238,16 +258,28 @@ local function paintRowKind(b, dd, opt, pal, hover)
   b:SetScript("OnLeave", tip and function() lib.__rowTipOff() end or nil)
 end
 
+--- A submenu arrow in the palette's `arrow` (minor 3): desaturated under a skin, so its token's hue
+--- shows as a dropdown arrow's does; the art's own hue under the gray of an owner-less open.
+local function tintArrow(a, pal)
+  local c = pal.arrow or MENU_PAL.arrow
+  if type(a.SetDesaturated) == "function" then a:SetDesaturated(pal ~= MENU_PAL) end
+  a:SetVertexColor(c[1], c[2], c[3], c[4] or 1)
+end
+
 --- A row's tick column and submenu arrow (minor 23), and the label's two insets around them. Each is
---- written whenever the row has one, for the pool's sake.
-local function paintRowMarks(b, dd, opt)
+--- written whenever the row has one, for the pool's sake; the arrow's color too (minor 3).
+local function paintRowMarks(b, dd, opt, pal)
   local col, sub = tickColumn(dd, opt), hasSubmenu(dd, opt)
   if col or b.__tick then
     local t = rowTick(b)
     t:SetText(col and rowTicked(opt) and dd.__tick or "")
     t:SetShown(col)
   end
-  if sub or b.__sub then rowArrow(b):SetShown(sub) end
+  if sub or b.__sub then
+    local a = rowArrow(b)
+    a:SetShown(sub)
+    tintArrow(a, pal)
+  end
   -- A glyphed or ticked row indents its text to clear the column; every other row starts at the margin.
   b.fs:ClearAllPoints()
   b.fs:SetPoint("LEFT", (opt.glyph or col) and 22 or 8, 0)
@@ -261,7 +293,7 @@ local function paintMenuRow(b, dd, opt, selected, pal, glyphFace, hover)
   local check = (dd.multi and selected) and dd.__check or ""
   paintRowKind(b, dd, opt, pal, hover)
   b.fs:SetText(check .. (opt.label or ""))
-  paintRowMarks(b, dd, opt)
+  paintRowMarks(b, dd, opt, pal)
   -- FONT SET ON EVERY PAINT, not once at creation, and that is the one thing this widget does
   -- differently from the version it was lifted out of. The row pool is shared across every dropdown
   -- in the process, which now spans addons — and two hosts need not name the same monospace face.
@@ -384,7 +416,8 @@ local function skinMenu(m, dd)
                 hover = token(Skin, owner, "menu.hover", MENU_PAL.hover),
                 title = token(Skin, owner, "menu.textSel", MENU_PAL.title),
                 off = token(Skin, owner, "text.disabled", MENU_PAL.off),
-                rule = token(Skin, owner, "divider", MENU_PAL.rule) }
+                rule = token(Skin, owner, "divider", MENU_PAL.rule),
+                arrow = token(Skin, owner, "icon.arrow", MENU_PAL.arrow) }
     return
   end
   if not m.__pal then return end
@@ -789,7 +822,10 @@ end
 ---                             for a dropdown on the owner's settings page (THE SCOPE SWITCHES)
 --- @return table  the dropdown
 function lib.Dropdown(parent, width, opts)
-  return MakeDropdown(parent, width, opts)
+  local dd = MakeDropdown(parent, width, opts)
+  -- Still minor 3 (SD-LK-97.1): the shell's owner check (Widgets.lua's THE OWNER CHECK).
+  if type(lib.__checkOwner) == "function" then lib.__checkOwner(dd, parent, opts and opts.owner, "Dropdown") end
+  return dd
 end
 
 --- Open the shared popup menu on `rows` (minor 21), a dropdown's options, each with its row options

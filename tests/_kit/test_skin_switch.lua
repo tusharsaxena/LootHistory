@@ -15,7 +15,13 @@
 --         paint = function(frame) ... end,        -- optional: the redraw a mock has no listener
 --                                                 -- for; a tracked primitive needs none
 --         scope = "panel",                        -- optional: "panel" or "fonts", what Ignore keeps
---         companion = function(on) ... end },     -- optional: writes this surface's FromSkin row
+--         companion = function(on) ... end,       -- optional: writes this surface's FromSkin row
+--         expect = "texture",                     -- optional (kit revision 58): a family, or a list,
+--                                                 -- the surface must draw and move: "texture" for a
+--                                                 -- data fill drawn on a Texture
+--         hold = { "shadow" },                    -- optional (58): families a ruling keeps fixed
+--         clear = true },                         -- optional (58): a StatusBar drawn clear (alpha
+--                                                 -- 0) is left out of the bar-texture check
 --     },
 --   }
 --   Kit.run{ dir = "tests/", suites = { ..., { name = "test_skin_switch", dir = "tests/_kit/" } } }
@@ -27,6 +33,10 @@
 -- A surface gets one case with the Scope cleared and its companion on, and, unless `scope` or
 -- `companion` excludes it, a second with the Scope ignored and companions off. Coverage is the
 -- host's declaration: a surface it does not list is not tested. The audit reads the list.
+--
+-- From kit revision 58 each setter family moves on its own (skin_switch.lua's header): color
+-- always, font and shadow in the first pass, the fill of every StatusBar the surface holds, and a
+-- family `expect` names; and a string whose face moves with no color set on it is reported.
 
 local Kit = ...
 local test, fail = Kit.test, Kit.fail
@@ -73,6 +83,26 @@ test("skin switch: the check is falsifiable, a surface that redraws a literal is
     paint = function(o) o:SetVertexColor(0.5, 0.5, 0.5) end,
   }, "clear")
   if not problem then fail("skin switch: a surface that never changed passed") end
+end)
+
+test("skin switch: the check is falsifiable, a bar whose texture never moves is reported", function()
+  -- kit revision 58: its color follows the skin, its texture does not.
+  local Skin = facts.skin
+  if type(Skin) == "function" then Skin = Skin() end
+  local fill = { SetTexture = function() end, SetVertexColor = function() end }
+  local bar = {
+    SetStatusBarTexture = function(_, path) fill:SetTexture(path) end,
+    SetStatusBarColor = function(_, r, g, b, a) fill:SetVertexColor(r, g, b, a) end,
+    GetStatusBarTexture = function() return fill end,
+  }
+  local problem = W.runSurface(facts, {
+    name = "planted bar", build = function() return bar end,
+    paint = function(o)
+      o:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+      o:SetStatusBarColor(Skin:Color(facts.owner, "text.body"))
+    end,
+  }, "clear")
+  if not problem then fail("skin switch: a bar whose texture never moved passed") end
 end)
 
 for _, surface in ipairs(facts.surfaces) do

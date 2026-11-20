@@ -1,12 +1,5 @@
--- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with a help mark, dragged to move
--- the frame it belongs to, from minor 3 an opt-in close mark beside the help mark, from minor 4
--- an opt-in host hook that places the tooltip (`tooltipPlace`), from minor 5 an opt-in frame
--- level and parent-alpha opt-out (`level`, `ignoreParentAlpha`, `ApplyLevel`), from minor 6 a
--- skin owner (`owner`: the shell's SKIN OWNERS), from minor 7 an owned strip's tooltip in its
--- skin's tooltip colors, its label in its skin's body face, and `panel`, and from minor 8 a fitted
--- strip that re-fits its title after every repaint of its skin (`FIT_SLACK`, `spec.onRefit`), and
--- from minor 10 measures at the strip's own scale and fits again when it shows. From minor 15 its marks
--- read [?][settings][close] left to right, in the window header's tints, the settings mark standard.
+-- LibKa0s-Widgets-1.0 — the unlocked drag handle: a labeled strip with its marks ([?][settings][close]
+-- from minor 15), dragged to move the frame it belongs to. Each minor's notes sit above DRAG_MINOR.
 --
 -- ── WHY THIS IS A LIBRARY AND NOT TWO COPIES ─────────────────────────────────────────────────
 --
@@ -135,7 +128,9 @@ if not lib then return end
 -- the window header's (WidgetsHeader.lua's paint, Core.MakeCloseButton): `icon.tint` at rest, the
 -- "?" and the gear `text.link` under the pointer, the X `close.rest` / `close.hot`; the "?" lights on
 -- every strip, as a header mark does. ApplyLevel re-levels the settings mark too (LibKa0s#96).
-local DRAG_MINOR = 15
+-- Minor 16 (SD-LK-97.5 and 97.1, LibKa0s#97): a host's `spec.edge` is called again, under pcall,
+-- with the new `handle.edge` on each repaint; a strip runs the shell's owner check.
+local DRAG_MINOR = 16
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -654,7 +649,8 @@ local function dhBuildChrome(handle, spec)
     handle.bg = bg
   end
   local e = pal.edge
-  if spec.edge then return spec.edge(handle, 1, e[1], e[2], e[3], e[4]) end
+  handle.__edgeFn = type(spec.edge) == "function" and spec.edge or nil
+  if handle.__edgeFn then return spec.edge(handle, 1, e[1], e[2], e[3], e[4]) end
   handle.__edges = dhDrawEdge(handle, 1, e[1], e[2], e[3], e[4])
 end
 
@@ -691,16 +687,18 @@ local function dhMarksArt(handle)
 end
 
 --- Repaint a skinned strip from its owner's skin (minor 6): re-run after each skin switch, then
---- re-fit it in its new face (minor 8). A host's own `spec.edge` pixels are the host's and are not
---- redrawn.
+--- re-fit it in its new face (minor 8). A host's own `spec.edge` painter is called again with the new
+--- color (minor 16), so it recolors what it drew.
 local function dhRepaint(handle, owner)
   local pal, Skin = dhPalette(owner, handle.__panel)
   handle.__pal = pal
   dhFontLabel(handle, owner, Skin)
   if handle.bg then handle.bg:SetColorTexture(pal.bg[1], pal.bg[2], pal.bg[3], pal.bg[4]) end
-  for _, tex in ipairs(handle.__edges or {}) do
-    tex:SetColorTexture(pal.edge[1], pal.edge[2], pal.edge[3], pal.edge[4])
-  end
+  local e = pal.edge
+  for _, tex in ipairs(handle.__edges or {}) do tex:SetColorTexture(e[1], e[2], e[3], e[4]) end
+  local ok, err = true, nil
+  if handle.__edgeFn then ok, err = pcall(handle.__edgeFn, handle, 1, e[1], e[2], e[3], e[4]) end
+  if not ok and type(geterrorhandler) == "function" then geterrorhandler()(err) end
   if handle.label then handle.label:SetTextColor(pal.label[1], pal.label[2], pal.label[3]) end
   if handle.help then dhTint(handle.help.icon, pal.tint) end
   if handle.close then dhTint(handle.close.icon, pal.closeTint) end
@@ -930,6 +928,8 @@ end
 ---                                 point on a literal `true`. A descriptor's `place` is retired with it.
 ---   edge        function|nil      the host's own 1px edge painter, called as
 ---                                 edge(frame, size, r, g, b, a). Defaults to four strips of ours.
+---                                 Called again with an owned strip's new `handle.edge` on each
+---                                 repaint (minor 16), so it recolors what it drew, never adds more.
 ---   number      function|nil      number(v, fallback) -- a secret-safe numeric guard.
 ---   labelFont   string|nil        the font object the label is DRAWN in AND measured in.
 ---                                 Defaults to "GameFontNormalSmall".
@@ -990,6 +990,7 @@ function lib.DragHandle(parent, spec)
   dhFitOnShow(handle)
   handle:SetLabel(spec.label)
   if Skin then lib.__onSkin(Skin, spec.owner, handle, dhRepaint) end
+  if type(lib.__checkOwner) == "function" then lib.__checkOwner(handle, parent, spec.owner, "DragHandle") end
   -- See "WHAT THE HOST STILL OWNS" at the top: the one visibility call this file makes, at birth,
   -- because a strip with no width and no anchor point would otherwise flash.
   handle:Hide()

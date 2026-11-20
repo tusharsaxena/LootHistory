@@ -18,7 +18,7 @@
 -- `onClick(frame, button)`, `onEnter(frame)`, `onLeave(frame)`, `onArrive(target)`, `arrive`,
 -- `near`, `far`, `format(yards, units)`, `strings` and `debug(tag, msg)`. The instance owns no SavedVariables: the
 -- host keeps its settings at its own paths (WaypointArrowSettings.lua's rows) and hands them over
--- with `Configure`. docs/api/WaypointArrow/version-1.1-docs.md is the full contract.
+-- with `Configure`. docs/api/WaypointArrow/version-3.3-docs.md is the full contract.
 --
 -- ── GEOMETRY ─────────────────────────────────────────────────────────────────────────────────
 --
@@ -50,7 +50,11 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-WaypointArrow-1.0", 2
+-- Minor 3 (LibKa0s#97, `SD-LK-97` Batch C, the owner's R-2): the text follows the skin's color and
+-- shadow: `fontColorFromSkin` (default true; the facade's HudTextColor, Use class color ahead of it,
+-- the swatch while off) and `fontShadowFromSkin` (default true, handed to HudFont in place of the
+-- literal false that kept the Font shadow row the player's under every skin).
+local MAJOR, MINOR = "LibKa0s-WaypointArrow-1.0", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -123,12 +127,13 @@ lib.DEFAULTS = {
   scale = 1,
   font = lib.FONT_DEFAULT, fontFromSkin = true, fontSize = 12, fontColor = { 1, 1, 1, 1 },
   useClassColorFont = false, fontFlags = lib.FLAGS_FROM_SKIN, fontShadow = true,
+  fontColorFromSkin = true, fontShadowFromSkin = true,   -- minor 3
   textPosition = "BELOW", showLabel = false, distanceUnits = "yards",
   x = 0, y = 200, lock = false,
 }
 lib.SETTINGS = { "style", "useSkinColors", "farColor", "nearColor", "scale",
   "font", "fontFromSkin", "fontSize", "fontColor", "useClassColorFont", "fontFlags", "fontShadow",
-  "textPosition", "showLabel", "distanceUnits", "x", "y", "lock" }
+  "fontColorFromSkin", "fontShadowFromSkin", "textPosition", "showLabel", "distanceUnits", "x", "y", "lock" }
 lib.SKIN_FAR, lib.SKIN_NEAR = "text.accent", "sem.good"   -- the skin's tokens "Use the skin's colors" reads
 
 -- ── the measures ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +194,8 @@ local VALID = {
   useClassColorFont = isBool,
   fontFlags = oneOf(lib.FONT_FLAGS),
   fontShadow = isBool,
+  fontColorFromSkin = isBool,
+  fontShadowFromSkin = isBool,
   textPosition = oneOf(lib.TEXT_POSITIONS),
   showLabel = isBool,
   distanceUnits = oneOf(lib.DISTANCE_UNITS),
@@ -386,13 +393,14 @@ local function mediaBase(S)
   return "Interface\\AddOns\\" .. d.addon .. "\\" .. (d.vendorPath or "libs\\LibKa0s") .. "\\" .. lib.MEDIA_DIR .. "\\"
 end
 
---- The host's path for `key` in `paths` (minor 2): its own entry, but for `fontFromSkin` the font
---- path plus "FromSkin" whenever a font path is named, where the Font block's companion lives
---- (OptionsCompose's rule, which Skin's ResetToSkin reads too).
+--- The host's path for `key` in `paths` (minor 2): its own entry, but for a Font block companion its
+--- row's path plus "FromSkin" whenever that path is named, where OptionsCompose puts it (and Skin's
+--- ResetToSkin reads it): `fontFromSkin` at the font path's, and from minor 3 `fontColorFromSkin`
+--- and `fontShadowFromSkin` at the color's and the shadow's.
+local COMPANION_OF = { fontFromSkin = "font", fontColorFromSkin = "fontColor", fontShadowFromSkin = "fontShadow" }
 local function pathOf(paths, key)
-  if key == "fontFromSkin" and type(paths.font) == "string" and paths.font ~= "" then
-    return paths.font .. "FromSkin"
-  end
+  local base = COMPANION_OF[key] and paths[COMPANION_OF[key]]
+  if type(base) == "string" and base ~= "" then return base .. "FromSkin" end
   local p = paths[key]
   if type(p) == "string" and p ~= "" then return p end
   return nil
@@ -624,11 +632,22 @@ local function namedFont(S, name)
 end
 
 --- The text's color as r, g, b, a: the player's class color while Use class color is on (and the
---- client answers one), else the swatch.
+--- client answers one), else from minor 3 the skin's HUD text color while Use the skin's color is on
+--- (and the facade answers one), else the swatch.
+local function plainRGBA(ok, r, g, b, a)   -- a call's answer while it is plain numbers (alpha 1 by default)
+  if ok and plainNumber(r) and plainNumber(g) and plainNumber(b) then return r, g, b, plainNumber(a) and a or 1 end
+end
+
 local function textColor(S)
   if setting(S, "useClassColorFont") and type(core.ClassColor) == "function" then
     local ok, r, g, b = pcall(core.ClassColor, "player")
-    if ok and plainNumber(r) and plainNumber(g) and plainNumber(b) then return r, g, b, 1 end
+    local cr, cg, cb, ca = plainRGBA(ok, r, g, b)
+    if cr then return cr, cg, cb, ca end
+  end
+  local facade = setting(S, "fontColorFromSkin") and skinFacade(S) or nil
+  if facade and type(facade.HudTextColor) == "function" then
+    local r, g, b, a = plainRGBA(pcall(facade.HudTextColor))
+    if r then return r, g, b, a end
   end
   local c = setting(S, "fontColor")
   local r, g, b = rgbOf(c)
@@ -654,7 +673,8 @@ local function applyFont(S)
   local size, flags, shadow = setting(S, "fontSize"), setting(S, "fontFlags"), setting(S, "fontShadow")
   if facade and type(facade.HudFont) == "function" then
     if type(facade.HudFontSize) == "function" then size = facade.HudFontSize(size, fromSkin) end
-    facade.HudFont(fs, { face = face, size = size, flags = flags, shadow = shadow, shadowFromSkin = false })
+    facade.HudFont(fs, { face = face, size = size, flags = flags, shadow = shadow,
+      shadowFromSkin = setting(S, "fontShadowFromSkin") })   -- minor 3: the literal false to minor 2
   else
     setOwnFont(fs, face, size, flags, shadow)
   end

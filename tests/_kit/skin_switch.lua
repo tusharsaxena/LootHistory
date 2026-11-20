@@ -29,6 +29,21 @@
 -- excluded, because the rules say it stays stock or stored there, and every other surface still has
 -- to change.
 --
+-- EACH SETTER FAMILY ON ITS OWN (kit revision 58, SD-LK-97.18 of Ka0sAddonsCommonTasks
+-- docs/2026-11-20-SKIN_DEFAULTS_AUDIT, the owner's U-5). Through revision 57 a surface passed when
+-- any one setter moved, so a bar whose color followed the skin passed with a texture that never did.
+-- Now the steady draws are sorted into families (W.FAMILY: texture, color, font, shadow) and each
+-- family a surface drew has to move on its own: color always, font and shadow in the first pass (the
+-- second holds fonts ignored, so a face stays put there by rule). Texture is asked where it is never
+-- a white base: every StatusBar the surface holds draws its fill (its SetStatusBarTexture, or a
+-- SetTexture or SetAtlas on the Texture GetStatusBarTexture answers) and that fill moves; a surface
+-- with `expect = "texture"` (or a list of families) asks the same of every texture it draws, and has
+-- to draw one. A plain Texture drawn from skin art (a background, a window art path) is asked only
+-- under `expect = "texture"`: without it, art that stops following still passes on its tint. A StatusBar drawn clear (alpha 0, or a bar color of alpha 0) is left out when the
+-- surface says `clear = true`, and a family a ruling holds fixed is left out by `hold`. A string
+-- whose face moves while no color is set on it on a switch keeps the client's color under a skin's
+-- face, and is reported too; a SetFontObject or a |c escape in its text counts as a color set.
+--
 -- The probe is unregistered and the owner's choice and Scope put back whatever a surface does.
 
 local W = {}
@@ -45,6 +60,21 @@ W.SETTERS = {
   "SetFont", "SetFontObject", "SetShadowColor", "SetShadowOffset",
   "SetText", "SetFormattedText", "AddLine", "AddDoubleLine",
 }
+
+--- Setter -> its family (kit revision 58). A setter in none (alpha, desaturation, text) counts toward
+--- a surface changing at all, and is asked nothing on its own.
+W.FAMILY = {
+  SetStatusBarTexture = "texture", SetTexture = "texture", SetAtlas = "texture", SetBackdrop = "texture",
+  SetNormalTexture = "texture", SetPushedTexture = "texture", SetHighlightTexture = "texture",
+  SetDisabledTexture = "texture", SetCheckedTexture = "texture",
+  SetTextColor = "color", SetColorTexture = "color", SetVertexColor = "color", SetGradient = "color",
+  SetBackdropColor = "color", SetBackdropBorderColor = "color", SetStatusBarColor = "color",
+  SetFont = "font", SetFontObject = "font",
+  SetShadowColor = "shadow", SetShadowOffset = "shadow",
+}
+
+--- The families, in the order a problem is reported.
+W.FAMILIES = { "texture", "color", "font", "shadow" }
 
 -- ── the probe ────────────────────────────────────────────────────────────────────────────────
 
@@ -147,7 +177,7 @@ end
 local function spyOn(rec, obj)
   rec.n = rec.n + 1
   local id = rec.n
-  rec.ids[obj] = id
+  rec.ids[obj], rec.objs[id] = id, obj
   for _, name in ipairs(W.SETTERS) do
     local fn = methodOf(obj, name)
     if fn then
@@ -170,15 +200,16 @@ local function watch(rec, obj, seen)
   local family = {}
   kin(obj, "GetRegions", family)
   kin(obj, "GetChildren", family)
+  kin(obj, "GetStatusBarTexture", family)   -- a bar's fill, which a host may draw as a Texture
   if type(rawget(obj, "NineSlice")) == "table" then family[#family + 1] = rawget(obj, "NineSlice") end
   for _, other in ipairs(family) do watch(rec, other, seen) end
 end
 
---- Spy on the drawing setters of `objects` and everything under them. Answers `{ log, undo, watch }`:
---- `log` maps "id:Setter" to the last arguments, `watch(objects)` takes in regions made since, and
---- `undo()` takes every spy off.
+--- Spy on the drawing setters of `objects` and everything under them. Answers `{ log, undo, watch,
+--- ids, objs }`: `log` maps "id:Setter" to the last arguments, `watch(objects)` takes in regions made
+--- since, `undo()` takes every spy off, and `ids` / `objs` map an object to its id and back.
 function W.spy(objects)
-  local rec = { n = 0, ids = {}, undos = {}, log = {} }
+  local rec = { n = 0, ids = {}, objs = {}, undos = {}, log = {} }
   function rec.watch(list)
     local seen = {}
     for _, obj in ipairs(list) do watch(rec, obj, seen) end
@@ -238,6 +269,180 @@ local function setterNames(log)
   return table.concat(names, ", ")
 end
 
+-- ── each family on its own (kit revision 58) ─────────────────────────────────────────────────
+
+local function idOf(key) return tonumber(key:match("^(%d+):")) end
+local function setterOf(key) return key:match(":(.+)$") end
+
+--- The keys of `log` that `keep(key)` answers true for.
+local function only(log, keep)
+  local out = {}
+  for key, args in pairs(log) do
+    if keep(key) then out[key] = args end
+  end
+  return out
+end
+
+local function moved(a, b) return differs(a, b) or differs(b, a) end
+
+local function setOfList(v)
+  local set = {}
+  if type(v) == "string" then set[v] = true
+  elseif type(v) == "table" then
+    for _, name in ipairs(v) do set[name] = true end
+  end
+  return set
+end
+
+--- `obj`'s answer to `method`, or nothing.
+local function packed(ok, ...)
+  if ok then return { n = select("#", ...), ... } end
+  return nil
+end
+local function ask(obj, method)
+  local fn = methodOf(obj, method)
+  local got = fn and packed(pcall(fn, obj))
+  if got then return unpack(got, 1, got.n) end
+  return nil
+end
+
+--- True when `obj` is a region of a type in `types`: by its GetObjectType, or, for a stand-in with
+--- no GetObjectType at all, by having `method`. A mock frame answers any method (itself, for
+--- GetObjectType), so a method alone is never taken for a type there.
+local function isA(obj, types, method)
+  if methodOf(obj, "GetObjectType") then return types[ask(obj, "GetObjectType")] == true end
+  return methodOf(obj, method) ~= nil
+end
+
+local BAR_TYPES, TEXT_TYPES = { StatusBar = true }, { FontString = true, EditBox = true }
+
+--- True for a StatusBar drawn clear: its alpha 0, or its bar color's.
+local function isClear(bar)
+  if ask(bar, "GetAlpha") == 0 then return true end
+  return select(4, ask(bar, "GetStatusBarColor")) == 0
+end
+
+--- The keys a StatusBar's fill is drawn by: the bar's SetStatusBarTexture, and SetTexture or SetAtlas
+--- on the Texture GetStatusBarTexture answers.
+local function fillKeys(rec, id, bar)
+  local keys = { [id .. ":SetStatusBarTexture"] = true }
+  local fill = ask(bar, "GetStatusBarTexture")
+  local fid = type(fill) == "table" and rec.ids[fill]
+  if fid then
+    keys[fid .. ":SetTexture"], keys[fid .. ":SetAtlas"] = true, true
+  end
+  return keys
+end
+
+--- A StatusBar whose fill does not follow the skin: drawn the same under the probe, or not drawn on
+--- a switch at all. Answers a problem or nil.
+local function barProblem(run, base, seen)
+  local name, rec = run.surface.name, run.rec
+  for id = 1, rec.n do
+    local bar = rec.objs[id]
+    if isA(bar, BAR_TYPES, "SetStatusBarTexture") and not (run.surface.clear and isClear(bar)) then
+      local keys = fillKeys(rec, id, bar)
+      local b = only(base, function(k) return keys[k] end)
+      local s = only(seen, function(k) return keys[k] end)
+      if isEmpty(b) and isEmpty(s) then
+        return ("%s holds a StatusBar that drew no texture on a skin switch: a bar's fill is "
+          .. "`bar.texture`'s place under every skin (a clear bar is left out with clear = true)"):format(name)
+      end
+      if not moved(b, s) then
+        return ("%s holds a StatusBar whose texture did not change on a skin switch (%s drew the same "
+          .. "under the probe): a bar's fill is `bar.texture`'s place under every skin (a clear bar is "
+          .. "left out with clear = true)"):format(name, setterNames(b))
+      end
+    end
+  end
+  return nil
+end
+
+--- The families this run asks to move when drawn, and the ones it asks to be drawn at all.
+local function asked(run)
+  local surface = run.surface
+  local hold, expect = setOfList(surface.hold), setOfList(surface.expect)
+  local want = { color = true, font = not run.ignored, shadow = not run.ignored }
+  for fam in pairs(expect) do want[fam] = true end
+  for fam in pairs(hold) do want[fam], expect[fam] = nil, nil end
+  return want, expect, hold
+end
+
+local function movedNames(base, seen)
+  local out = {}
+  for _, fam in ipairs(W.FAMILIES) do
+    local inFam = function(k) return W.FAMILY[setterOf(k)] == fam end
+    if moved(only(base, inFam), only(seen, inFam)) then out[#out + 1] = fam end
+  end
+  return #out > 0 and table.concat(out, ", ") or "a setter of no family"
+end
+
+--- A family the surface drew that did not move, or one it expects and did not draw.
+local function familyProblem(run, base, seen)
+  local name = run.surface.name
+  local want, expect = asked(run)
+  for _, fam in ipairs(W.FAMILIES) do
+    local inFam = function(k) return W.FAMILY[setterOf(k)] == fam end
+    local b, s = only(base, inFam), only(seen, inFam)
+    if expect[fam] and isEmpty(b) and isEmpty(s) then
+      return ("%s drew no %s on a skin switch, and it expects one"):format(name, fam)
+    end
+    if want[fam] and not (isEmpty(b) and isEmpty(s)) and not moved(b, s) then
+      return ("%s did not change its %s on a skin switch (%s drew the same under the probe), while "
+        .. "its %s moved: each family follows the skin on its own"):format(name, fam, setterNames(b),
+        movedNames(base, seen))
+    end
+  end
+  return nil
+end
+
+--- True when one switch's `log` colored string `id`: a SetTextColor, a SetFontObject (a font object
+--- carries its own color) or text carrying a |c escape.
+local function coloredIn(log, id)
+  if log[id .. ":SetTextColor"] or log[id .. ":SetFontObject"] then return true end
+  for _, setter in ipairs({ "SetText", "SetFormattedText" }) do
+    local text = log[id .. ":" .. setter]
+    if text and text:find("|c", 1, true) then return true end
+  end
+  return false
+end
+
+--- A string (anything with SetTextColor and a font setter) whose face moved while no color was set
+--- on it on any switch: the skin's face over the client's color. A SetFontObject, or a |c escape
+--- in its text, counts as coloring it (the review of SD-LK-GUARD).
+local function colorlessFace(run, base, seen, logs)
+  local rec = run.rec
+  for id = 1, rec.n do
+    local obj = rec.objs[id]
+    if isA(obj, TEXT_TYPES, "SetTextColor") then
+      local face = function(k) return idOf(k) == id and W.FAMILY[setterOf(k)] == "font" end
+      local colored = false
+      for _, log in ipairs(logs) do
+        if coloredIn(log, id) then colored = true end
+      end
+      if not colored and moved(only(base, face), only(seen, face)) then
+        return ("%s holds a string whose face follows the skin while its color is never set on a "
+          .. "switch (no SetTextColor, SetFontObject or |c escape): it keeps the client's color under "
+          .. "the skin's face"):format(run.surface.name)
+      end
+    end
+  end
+  return nil
+end
+
+--- What the steady draws say beyond "something moved": a bar, a family, a colorless face.
+local function deeper(run, base, seen, logs)
+  local _, _, hold = asked(run)
+  if not hold.texture then
+    local problem = barProblem(run, base, seen)
+    if problem then return problem end
+  end
+  local problem = familyProblem(run, base, seen)
+  if problem then return problem end
+  if hold.color then return nil end
+  return colorlessFace(run, base, seen, logs)
+end
+
 --- The four flips over a built surface. Answers a problem, or nil.
 local function compare(run)
   local Skin, name = run.Skin, run.surface.name
@@ -251,7 +456,7 @@ local function compare(run)
       .. "its build answered the wrong object"):format(name)
   end
   local base, seen = steady(home, home, again), steady(probe, home, again)
-  if differs(base, seen) or differs(seen, base) then return nil end
+  if moved(base, seen) then return deeper(run, base, seen, { home, probe, again }) end
   if isEmpty(base) then
     return ("%s did not change on a skin switch: all it drew (%s) moved between two draws of one skin, "
       .. "so none of it follows the skin"):format(name, setterNames(home))
@@ -269,7 +474,8 @@ local function pass(facts, Skin, surface, ignore)
     if surface.companion then surface.companion(true) end
     local frames = { surface.build() }
     rec = W.spy(frames)
-    return compare({ Skin = Skin, owner = facts.owner, surface = surface, frames = frames, rec = rec })
+    return compare({ Skin = Skin, owner = facts.owner, surface = surface, frames = frames, rec = rec,
+                     ignored = ignore })
   end)
   if rec then rec.undo() end
   if ok then return problem end
@@ -303,6 +509,39 @@ end
 
 local SCOPES = { panel = true, fonts = true }
 
+--- What is wrong with a surface's `expect` or `hold`: a family name, or a list of them.
+local function familiesProblem(s, field)
+  local v = s[field]
+  if v == nil then return nil end
+  local list = type(v) == "string" and { v } or v
+  if type(list) ~= "table" or #list == 0 then
+    return ("surface %q has %s %q: a family name or a list of them"):format(s.name, field, tostring(v))
+  end
+  for _, fam in ipairs(list) do
+    local known = false
+    for _, name in ipairs(W.FAMILIES) do known = known or name == fam end
+    if not known then
+      return ("surface %q has %s %q: texture, color, font or shadow"):format(s.name, field, tostring(fam))
+    end
+  end
+  return nil
+end
+
+-- `expect` and `hold`: each a known family or list of them, and no family in both.
+local function familyFieldsProblem(s)
+  for _, field in ipairs({ "expect", "hold" }) do
+    local problem = familiesProblem(s, field)
+    if problem then return problem end
+  end
+  local held = setOfList(s.hold)
+  for fam in pairs(setOfList(s.expect)) do
+    if held[fam] then
+      return ("surface %q names %q in both expect and hold: a family is asked to move or held fixed"):format(s.name, fam)
+    end
+  end
+  return nil
+end
+
 local function surfaceProblem(s, seen)
   if type(s) ~= "table" or type(s.name) ~= "string" or s.name == "" then return "a surface has no name" end
   if seen[s.name] then return ("surface %q is declared twice"):format(s.name) end
@@ -314,7 +553,10 @@ local function surfaceProblem(s, seen)
   if s.companion ~= nil and type(s.companion) ~= "function" then
     return ("surface %q has a companion that is no function(on)"):format(s.name)
   end
-  return nil
+  if s.clear ~= nil and type(s.clear) ~= "boolean" then
+    return ("surface %q has clear %q: true or nothing"):format(s.name, tostring(s.clear))
+  end
+  return familyFieldsProblem(s)
 end
 
 --- What is wrong with the host's facts, in reading order.

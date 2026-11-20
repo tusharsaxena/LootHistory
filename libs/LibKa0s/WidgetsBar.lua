@@ -44,7 +44,14 @@ local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
 -- Minor 1 (LK-80 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#80).
-local BAR_MINOR = 1
+-- Minor 2 (SD-LK-97.2 and SD-LK-97.3 of Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT,
+-- LibKa0s#97, ruling R-2: under any skin an element takes the skin's value by default): the border
+-- follows the skin unless the host says otherwise (`borderFromSkin` defaults true; `borderShow`
+-- false stays the no-border default under a skin of None), and a data fill drawn on the skin's
+-- texture wears the skin's gloss (S.BarGloss on the fill Texture, `glossFromSkin` default true),
+-- shown with the fill and following a switch. Still minor 2 (SD-LK-97.1): a bar runs the shell's
+-- owner check (Widgets.lua's THE OWNER CHECK).
+local BAR_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__barMinor and lib.__barMinor >= BAR_MINOR
   and lib.__barShellMinor == lib.MINOR then return end
@@ -78,7 +85,7 @@ local BAR = lib.BAR
 local DEFAULTS = {
   fill = "bar.fill", bg = "bar.bg", border = "bar.border", marker = "hud.label", spark = false,
   text = "hud.text", timer = "sem.info", bonusTemp = "sem.info", bonusPerm = "sem.good",
-  borderShow = false, borderStyle = "Solid", borderSize = 1, borderFromSkin = false,
+  borderShow = false, borderStyle = "Solid", borderSize = 1, borderFromSkin = true, glossFromSkin = true,
   alpha = 1, fontSize = 11, textAnchor = "CENTER", reverse = false, segmented = false,
   showTimer = true,
 }
@@ -227,8 +234,17 @@ end
 
 -- ── painting ─────────────────────────────────────────────────────────────────────────────────
 
+--- The gloss `tex` wears now (minor 2): the owner's S.BarGloss on it, off for the style's own
+--- texture (a player's pick: the gloss belongs to the skin's) and for `glossFromSkin = false`. Kept
+--- per texture, so the layout shows it only with its fill.
+local function paintGloss(bar, tex, Skin, own)
+  if not Skin then return end
+  local on = bar.style.glossFromSkin ~= false and not own
+  bar.glosses[tex] = Skin:For(bar.owner).BarGloss(tex, on) or nil
+end
+
 --- A data fill in `c`: the style's texture tinted, else the owner's bar texture (S.BarTexture,
---- recorded, so a skin switch follows), else a flat color.
+--- recorded, so a skin switch follows), else a flat color. Then its gloss (minor 2).
 local function paintFill(bar, tex, c)
   if not c then return end
   local s = bar.style
@@ -244,17 +260,25 @@ local function paintFill(bar, tex, c)
   else
     tex:SetColorTexture(r, g, b, a)
   end
+  paintGloss(bar, tex, Skin, path ~= nil)
+end
+
+--- `tex` shown or hidden, and its gloss with it (minor 2).
+local function setShown(bar, tex, shown)
+  tex:SetShown(shown)
+  local gloss = bar.glosses[tex]
+  if gloss then gloss:SetShown(shown) end
 end
 
 --- What the border draws, as show, style, size: the style's three, through the owner's S.BarBorder
---- while `borderFromSkin` is on (skinning-§6: a skin that states a real style wins over Show
---- border). None or a size of 0 draws nothing.
+--- while `borderFromSkin` is on, which it is unless the host says false (minor 2; skinning-§6: a
+--- skin that states a real style wins over Show border). None or a size of 0 draws nothing.
 local function borderOf(bar)
   local s = bar.style
   local show, style, size = s.borderShow == true, s.borderStyle or "Solid", tonumber(s.borderSize) or 1
   local Skin = skinOf(bar)
   if Skin then
-    local st, sh, sz = Skin:For(bar.owner).BarBorder(style, show, size, s.borderFromSkin == true)
+    local st, sh, sz = Skin:For(bar.owner).BarBorder(style, show, size, s.borderFromSkin ~= false)
     if st ~= nil then style, show, size = st, sh, tonumber(sz) or size end
   end
   if style == "None" or size <= 0 then show = false end
@@ -374,11 +398,11 @@ function Methods:Layout()
   local side, sgn = origin(self)
   local fillW, bonusW = max(0, w * g.fill), max(0, w * g.bonus)
   span(self, self.fill, sgn * INSET, fillW)
-  self.fill:SetShown(fillW >= 0.5 and not g.segments)
+  setShown(self, self.fill, fillW >= 0.5 and not g.segments)
   self:LayoutSegments(g.segments, w)
   local x = sgn * (INSET + fillW)
   span(self, self.bonus, x, bonusW)
-  self.bonus:SetShown(bonusW >= 0.5)
+  setShown(self, self.bonus, bonusW >= 0.5)
   self.spark:ClearAllPoints()
   self.spark:SetPoint("TOP", self, "TOP" .. side, x, 0)
   self.spark:SetPoint("BOTTOM", self, "BOTTOM" .. side, x, 0)
@@ -393,7 +417,7 @@ function Methods:LayoutSegments(segs, w)
     local seg = segs and segs[i]
     local sw = seg and w * (seg.to - seg.from) or 0
     if seg and sw >= 0.5 then span(self, t, sgn * (INSET + w * seg.from), sw) end
-    t:SetShown(seg ~= nil and sw >= 0.5)
+    setShown(self, t, seg ~= nil and sw >= 0.5)
   end
 end
 
@@ -539,6 +563,7 @@ local function buildRegions(bar)
     bar.edges[i] = t
   end
   bar.segmentTextures, bar.markerTextures = {}, {}
+  bar.glosses = {}   -- fill Texture -> the gloss S.BarGloss answered for it (minor 2)
   bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   bar.text:SetWordWrap(false)
   bar.timer = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -572,6 +597,8 @@ function lib.Bar(parent, opts)
   bar:ApplyStyle(styleFrom(opts))
   watchOwner(bar)
   bar:SetScript("OnSizeChanged", function(self) self:Layout() end)
+  -- Still minor 2 (SD-LK-97.1): the shell's owner check (Widgets.lua's THE OWNER CHECK).
+  if type(lib.__checkOwner) == "function" then lib.__checkOwner(bar, parent, bar.owner, "Bar") end
   return bar
 end
 

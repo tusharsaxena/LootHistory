@@ -17,8 +17,11 @@ local lib = LibStub and LibStub("LibKa0s-Skin-1.0", true)
 if not lib then return end   -- the shell refused (no Core, or below its floor): nothing to attach to
 if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no helpers from this copy
 
-local HUD_MINOR = 1
+local HUD_MINOR = 2
 -- Minor 1: the HUD's shared looks, moved here unchanged from SkinPaintExtras.lua (its minor 19).
+-- Minor 2 (SD-LK-97.3 of Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97; the
+-- owner's U-4): S.BarGloss takes a bar of data's fill Texture too, its gloss a region of the
+-- Texture's parent, so the Widgets Bar and the Charts bars wear Glass's gloss as a StatusBar does.
 if lib.__hudMinor and lib.__hudMinor >= HUD_MINOR
   and lib.__hudShellMinor == lib.MINOR then return end
 lib.__hudMinor      = HUD_MINOR
@@ -43,20 +46,51 @@ local GLOSS = { glossTop = { 1, 1, 1, 0.25 }, glossBottom = { 1, 1, 1, 0 } }
 --- player's own texture, hides it, and nil or true leave it to the skin. Recorded with the argument,
 --- so a skin change shows or hides it with no host call and a replay keeps `false`; call it once
 --- after the bar has its texture, again when the companion moves, and again if a host hands the bar
---- a new fill Texture. Anything but a StatusBar is left alone. Draws no Media icon.
-prim.BarGloss = function(owner, statusBar, fromSkin)
-  if P.kind(statusBar) ~= "StatusBar" then return end
-  local rec = P.track(owner, statusBar, "BarGloss", fromSkin)
-  local fill = statusBar:GetStatusBarTexture()
-  if fromSkin == false or P.T(owner)["bar.gloss"] ~= true or not fill then
-    return P.hide(rec, "gloss")
-  end
-  local gloss = P.tex(rec, "gloss", statusBar, "OVERLAY", -8)
-  if not gloss then return end
+--- a new fill Texture. Draws no Media icon.
+--- A Texture (minor 2, SD-LK-97.3): a bar of data drawn as a Texture, the Widgets Bar's fill and a
+--- Charts bar's. The same look, a region of the Texture's parent frame at the same layer, anchored
+--- to the Texture, and hidden while the Texture is: a host that hides and shows the Texture calls it
+--- again, or shows the answer with it (the Bar does, on every layout). Answers the gloss while the
+--- skin draws one (a StatusBar's too), else nil. Anything but a StatusBar or a Texture with a frame
+--- parent is left alone.
+local function glossOn(owner, fromSkin)
+  return fromSkin ~= false and P.T(owner)["bar.gloss"] == true
+end
+
+local function glossFill(rec, parent, fill)
+  local gloss = P.tex(rec, "gloss", parent, "OVERLAY", -8)
+  if not gloss then return nil end
   gloss:ClearAllPoints()
   gloss:SetPoint("TOPLEFT", fill, "TOPLEFT")
   gloss:SetPoint("BOTTOMRIGHT", fill, "RIGHT")
   P.fill(rec, gloss, GLOSS, "gloss")
+  return gloss
+end
+
+--- The Texture half (minor 2): the gloss on the Texture's parent, shown only while the Texture is.
+local function textureGloss(owner, tex, fromSkin)
+  local rec = P.track(owner, tex, "BarGloss", fromSkin)
+  local parent = type(tex.GetParent) == "function" and tex:GetParent() or nil
+  if not (rec and glossOn(owner, fromSkin) and P.isFrame(parent)) then
+    if rec then P.hide(rec, "gloss") end
+    return nil
+  end
+  local gloss = glossFill(rec, parent, tex)
+  if gloss and type(tex.IsShown) == "function" and tex:IsShown() == false then gloss:Hide() end
+  return gloss
+end
+
+prim.BarGloss = function(owner, statusBar, fromSkin)
+  local kind = P.kind(statusBar)
+  if kind == "Texture" then return textureGloss(owner, statusBar, fromSkin) end
+  if kind ~= "StatusBar" then return nil end
+  local rec = P.track(owner, statusBar, "BarGloss", fromSkin)
+  local fill = statusBar:GetStatusBarTexture()
+  if not (glossOn(owner, fromSkin) and fill) then
+    P.hide(rec, "gloss")
+    return nil
+  end
+  return glossFill(rec, statusBar, fill)
 end
 
 -- `__hudLooks`: a look's key -> { obj, ready }, its one font object for the session, across owners.

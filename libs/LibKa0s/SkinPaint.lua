@@ -69,30 +69,19 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- target itself. The client's EditBox answers GetFontObject with an anonymous font object, not the
 -- named one it was given, and handing that back through SetFontObject overflowed the client's stack
 -- (Forever -> Midnight crashed the game, 2026-10-26); such a target gets its face back by path.
--- Minor 4: a skin's font sizes are RELATIVE to Ka0s Default's. Every skin sets `font.bodySize` and
--- `font.titleSize`, Ka0s Default's being the reference, and a target keeps its own stock size scaled
--- by the skin's size over the reference: a 10pt caption under a skin 10% larger is 11pt, not the
--- skin's body size. The owner's font objects are one per role AND size, so two targets of one role
--- at two sizes no longer share (and overwrite) one object's size. Layouts measured against the stock
--- fonts hold in every skin (the owner's notes, 2026-10-26).
--- Minor 5: a DARK label (luminance under .3: dark text on a bright primary button or a selected tab)
--- takes a shadowless font object, because the black drop shadow smears dark strokes; and P.label
--- gives every string a primitive colors the skin's face too, so no string is left on the client's
--- font and its shadow (an EditBox hint, a list header, a footer, on a light skin most of all).
--- Minor 6: no skin is special. Ka0s Default used to leave a stock control stock, keep Core's own
--- SKIN table for the window, fade nothing and leave AceGUI rows alone, falling back to the client's
--- look wherever it set no token. It now sets every token (SkinDefs minor 8) and paints from them
--- like every other skin (the owner's ruling, 2026-10-26: "make sure even the Ka0s Default has a
--- setting for everything").
--- Minor 7: a fill or wash meant to sit under a target's own regions is a region OF the target, at the
--- bottom sublevels of BACKGROUND (P.SUB), no longer on the fill holder one frame level down. The holder
--- could not sit below a target one level above its parent: it landed on the parent's level, and the
--- client may draw either of two frames at one level first, so a window's backdrop covered its title
--- bar's fill (Loot History's bar on Azeroth, the owner's probe, 2026-10-27). A target always draws
--- after its parent. P.under stays, for a sibling file's older copy.
+-- Minor 4: a skin's font sizes are RELATIVE to Ka0s Default's (`font.bodySize`, `font.titleSize`): a
+-- target keeps its stock size scaled by the skin's over the reference, one font object per role AND
+-- size, so layouts measured against the stock fonts hold in every skin (the owner, 2026-10-26).
+-- Minor 5: a DARK label (luminance under .3) takes a shadowless font object, and P.label gives every
+-- string a primitive colors the skin's face too, so none is left on the client's font and shadow.
+-- Minor 6: no skin is special. Ka0s Default sets every token (SkinDefs minor 8) and paints from them
+-- like every other skin (the owner's ruling, 2026-10-26).
+-- Minor 7: a fill or wash under a target's own regions is a region OF the target, at the bottom
+-- sublevels of BACKGROUND (P.SUB), not on a holder one level down, which could land on the parent's
+-- level and draw under a window's backdrop (the owner's probe, 2026-10-27). P.under stays, for a
+-- sibling file's older copy.
 -- Minor 8: P.font gives a string back its own face, size and shadow while its owner ignores fonts
--- (Skin minor 5's SetIgnore, the Appearance tab's "Ignore fonts"); the skin still colors it.
--- And Panel's nav-rail recolor saves the rail's colors first, so P.unpaint gives them back.
+-- (the Appearance tab's "Ignore fonts"), and P.unpaint gives a nav rail its colors back.
 -- Minor 9 (the owner's round-5 notes: the title bar and footer covered a wide window edge at its
 -- four corners): Shell draws the window's edge and its inner rule on an edge holder EDGE_LEVEL frame
 -- levels above the window (P.edgeHolder), over every child band; the backdrop's own edge is clear
@@ -136,7 +125,9 @@ if not lib then return end   -- the shell refused (no Core, or below its floor):
 -- opts keeps those opts, so a host that paints twice keeps one band. Then (R5-L3, still minor 18): Shell
 -- lays S.Band's holder (SkinPaintExtras minor 17's P.layBand) on every paint. No function is added.
 -- Minor 19 (SF1-L1 of Ka0sAddonsCommonTasks docs/2026-11-06-REVENDOR_LIBKA0S_V1_89): P.box's non-flat edge at P.pxEdge's size.
-local PAINT_MINOR = 19
+-- Minor 20 (SD-LK-97.16, LibKa0s#97): Shell's `opts.keepEdge` (the host's backdrop and edge stay, only
+-- the bands draw, at `opts.inset`) and `opts.noBands`; Core.ApplySkin's host-skin `skinBands`.
+local PAINT_MINOR = 20
 if lib.__paintMinor and lib.__paintMinor >= PAINT_MINOR
   and lib.__paintShellMinor == lib.MINOR then return end
 lib.__paintMinor      = PAINT_MINOR
@@ -995,9 +986,10 @@ local function shellRegions(rec, frame, T)
   P.fill(rec, t, T, "win.bg")
 end
 
--- The window's body and title face. A frame with a backdrop: Core.ApplySkin with the skin's table, its
--- edge clear (shellEdges draws it); a frame with none: the fill region. Then `frame.title`'s font.
-local function shellBody(owner, rec, frame, T, style)
+-- The window, the host's edge not kept: the stock art faded, then a frame with a backdrop Core.ApplySkin
+-- (its edge clear), one with none the fill region; `frame.title`'s font, the edge and the bands.
+local function shellBody(owner, rec, frame, T, opts, style)
+  if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
   local c = core()
   if not P.hasBackdrop(frame) then
     shellRegions(rec, frame, T)
@@ -1006,6 +998,8 @@ local function shellBody(owner, rec, frame, T, style)
   end
   local title = rawget(frame, "title")
   if P.isFS(title) then P.font(owner, rec, title, "title") end
+  shellEdges(rec, frame, T, opts, style)
+  shellBands(rec, frame, T, opts, style == "flat" and T["win.borderSize"] or 1)
 end
 
 -- The slots `opts.tokens` remaps on a window (minor 11), and the fill slots among every box's.
@@ -1025,6 +1019,8 @@ P.FILL_SLOTS = FILL_SLOTS   -- Panel and Inset's too (SkinPaintExtras.lua since 
 --- A template-built window has its art (`NineSlice` and the textures `opts.stock` names) faded under
 --- every skin, Ka0s Default included. On a backdrop frame the top bar sits over the backdrop's fill
 --- (minor 18); a call with no opts on a frame its owner painted with opts repeats them. Draws no Media icon.
+--- `opts.keepEdge` (minor 20) leaves the backdrop, its fill and its edge to the host and draws only
+--- the bands, `opts.inset` (default 1) in; `opts.noBands` with it hides the gradient and the art.
 prim.Shell = function(owner, frame, opts)
   if type(frame) ~= "table" then return end
   local prev = opts == nil and lib.painted[frame]
@@ -1039,10 +1035,14 @@ prim.Shell = function(owner, frame, opts)
   if T["win.bg"] == nil then return end
   T = P.remap(owner, T, opts.tokens, SHELL_SLOTS, FILL_SLOTS, "Shell")
   local style = T["win.borderStyle"] or "flat"
-  if rec.regions.stock then P.fadeAll(rec, P.stockRegions(frame, opts)) end
-  shellBody(owner, rec, frame, T, style)
-  shellEdges(rec, frame, T, opts, style)
-  shellBands(rec, frame, T, opts, style == "flat" and T["win.borderSize"] or 1)
+  if opts.keepEdge then   -- the host's own backdrop and edge (minor 20): only the bands are ours
+    P.hideEdges(rec, frame)
+    innerRule(rec, nil, nil, 0)
+    if opts.noBands then P.hide(rec, "grad"); P.hide(rec, "art")
+    else shellBands(rec, frame, T, opts, tonumber(opts.inset) or 1) end
+  else
+    shellBody(owner, rec, frame, T, opts, style)
+  end
   if P.layBand then P.layBand(owner, rec, frame, T) end   -- S.Band's holder (SkinPaintExtras minor 17)
 end
 

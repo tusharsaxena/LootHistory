@@ -465,14 +465,27 @@ facade with this addon as its **owner**.
   `NS.IconMarkup`. A row that matches nothing fails.
 - **The switch test.** The kit's `test_skin_switch` (`Kit.skinSwitch`) flips each surface
   `tests/skin_surfaces.lua` declares to a probe skin and fails one that draws the same. A surface is
-  one painted object, because the kit counts a change anywhere under what `build` answers.
+  one painted object, because the kit counts a change anywhere under what `build` answers. From kit
+  revision 58 each setter family moves on its own, and the bars of data (a strip bar, a ranked source
+  bar, a per-character segment, a ledger half, a Timeline flow column) say `expect = "texture"`, so a
+  fill whose texture stopped following fails even while its tint moves; the two source-colored ones
+  hold their color (`hold = "color"`, the per-source meaning table). The harness loads no
+  LibSharedMedia, so while a fixture stands `tests/skin_surfaces.lua` installs a fake that answers each
+  skin's statusbar key with a path of its own. Font keys are left out of it: resolving them took the run to
+  259 MB above its start, past the kit's 256 MB leak budget (measured 2026-11-20, SD-SK-LH.1).
 
 ### Intentional exceptions
 
-**No allow row.** The five rows the addon's own color gate carried went when the kit's check replaced it,
-because a kit category takes each of them: the item quality's client color (`qualityHex`), chat output
-(`NS.PREFIX` and the get/set echo), StaticPopup text in the ledger reset prompt and the simulator's
-fixture hyperlinks.
+**Three allow rows, each a meaning color (cause MC).** The five rows the addon's own color gate carried
+went when the kit's check replaced it, because a kit category takes each of them: the item quality's
+client color (`qualityHex`), chat output (`NS.PREFIX` and the get/set echo) and the simulator's fixture
+hyperlinks. The fifth, the ledger reset prompt's gold headings, is gone: they read `gtip.title` through
+`NS.LedgerResetText()` (`settings/Slash.lua`), built again on every offer (the owner's U-7, SD-SK-LH.3). Test kit revision 58 (LibKa0s v1.108.0) reads colors kept in a table or a `return` as well,
+and three of those no kit category takes: the degraded title badges' red and cyan (`TEST_MARK` and
+`SIM_MARK` in `modules/Browser.lua`, drawn only with no `W.TestStrip`) and the common quality's white
+that `qualityColor` (`modules/BrowserTable.lua`) answers for a quality the client has no color for.
+The Insights per-source palette is named `SOURCE_CATEGORY_COLOR` in `modules/AnalyticsFormat.lua`, so
+the kit's meaning-table category takes it as a named meaning table (skinning-§9).
 
 Outside the gate's reach, also on purpose:
 

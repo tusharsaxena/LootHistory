@@ -42,7 +42,10 @@
 -- WITHOUT one, `parent` is a plain frame and the section is built of plain frames, one control per
 -- line: a check button for a toggle, a value between - and + buttons for a number, a button that
 -- steps through the choices for a list, a swatch that opens the client's color picker for a color.
--- The per-key text boxes are the Options build's alone.
+-- The per-key text boxes are the Options build's alone. The plain build is EXEMPT from skinning
+-- (the owner's U-3, LibKa0s#97): it is the fallback for a host with no LibKa0s-Options-1.0 instance,
+-- drawn in stock client templates that nothing paints, and no Ka0s host may use it. A Ka0s host
+-- passes `opts.options`, whose rows are its skinned panel's own.
 --
 -- ── THE PREVIEW ──────────────────────────────────────────────────────────────────────────────
 --
@@ -91,7 +94,13 @@ if not lib or type(lib.__methods) ~= "table" or type(lib.__validFor) ~= "functio
 -- sample line; its Preview heading, Test countdown and Play, Text to play, Unlock to move and Reset
 -- position stay. The three-tab build keeps its line. `FONT_FACES` leads with the new default face,
 -- Oxanium SemiBold (Callout minor 4), then Oxanium Bold. Needs the shell at minor 3, as minor 4 did.
-local SETTINGS_MINOR = 5
+-- Minor 6 (LibKa0s#97, `SD-LK-97` Batch C, the owner's R-2): the rows follow the shell's skin defaults:
+-- Outline leads with From skin ("@skin"), "Use the skin's shadow" (`fontShadowFromSkin`, Shadow and
+-- its offsets not read while it is on) and, beside the Numbers swatch, "Use the skin's color"
+-- (`numberColorFromSkin`; the swatch stays live, options-ui-§17); the font row shows a stored
+-- "@skin" as the Skin font (its `skinValue`); a color row's path-less reader is the swatch, not the
+-- drawn color.
+local SETTINGS_MINOR = 6
 if lib.__settingsMinor and lib.__settingsMinor >= SETTINGS_MINOR
   and lib.__settingsShellMinor == lib.MINOR then return end
 lib.__settingsMinor      = SETTINGS_MINOR
@@ -123,9 +132,11 @@ lib.SETTINGS_STRINGS = {
   FONT = "Font", FONT_TIP = "The call-out's face. Skin font is your skin's, Game default the game's own.",
   SIZE = "Size", SIZE_TIP = "The height of the call-out's text, 32 to 200.",
   OUTLINE = "Outline", OUTLINE_TIP = "The outline drawn around each letter.",
-  OUTLINE_NONE = "None", OUTLINE_OUTLINE = "Outline", OUTLINE_THICK = "Thick outline",
-  OUTLINE_MONO = "Monochrome",
-  SHADOW = "Shadow", SHADOW_TIP = "A black shadow behind the text.",
+  OUTLINE_SKIN = "From skin", OUTLINE_NONE = "None", OUTLINE_OUTLINE = "Outline",
+  OUTLINE_THICK = "Thick outline", OUTLINE_MONO = "Monochrome",
+  SHADOW = "Shadow", SHADOW_TIP = "A black shadow behind the text, drawn while Use the skin's shadow is off.",
+  SHADOW_SKIN = "Use the skin's shadow",
+  SHADOW_SKIN_TIP = "Draw the text with your skin's shadow. Shadow and its offsets are not read while this is on.",
   SHADOW_X = "Shadow X offset", SHADOW_Y = "Shadow Y offset",
   SHADOW_OFFSET_TIP = "How far the shadow sits from the text, -20 to 20.",
   GLOW = "Glow",
@@ -159,7 +170,9 @@ lib.SETTINGS_STRINGS = {
   COLORS = "Colors",
   KIND_NUMBER = "Numbers", KIND_INFO = "Information", KIND_GO = "Go", KIND_STOP = "Stop",
   KIND_WARN = "Warnings", KIND_ERROR = "Errors",
-  KIND_TIP = "The color of every call-out of this kind.",
+  KIND_TIP = "The color of every call-out of this kind. Left at its default it is your skin's matching color; a color you pick is kept.",
+  NUMBER_SKIN = "Use the skin's color",
+  NUMBER_SKIN_TIP = "Draw the countdown numbers in your skin's HUD text color. The Numbers swatch is not read while this is on.",
   STOCK_TEXTS = "Stock texts",
   TEXT_TIP = "Your own words for %s. Empty shows %s.",
   MUTE = "Mute %s", MUTE_TIP = "%s shows without its voice.",
@@ -217,7 +230,7 @@ local function listOf(L, pairs_)
 end
 
 local function outlineValues(L)
-  return listOf(L, { { "NONE", "OUTLINE_NONE" }, { "OUTLINE", "OUTLINE_OUTLINE" },
+  return listOf(L, { { lib.FROM_SKIN, "OUTLINE_SKIN" }, { "NONE", "OUTLINE_NONE" }, { "OUTLINE", "OUTLINE_OUTLINE" },
     { "THICKOUTLINE", "OUTLINE_THICK" }, { "MONOCHROME", "OUTLINE_MONO" } })
 end
 
@@ -377,13 +390,19 @@ end
 
 local function lookRows(B, L, out)
   local inst, g = B.inst, word(L, "TAB_LOOK")
+  -- A stored "@skin" shows as the Skin font (minor 6). A path row is read through the host's
+  -- descriptor, so the seam is `skinValue` (OptionsWidgets honors it for any row), not a `get`.
+  local skinFace = function() return inst:Get("font") == lib.FONT_SKIN and lib.FONT_SKIN or nil end
   row(out, "look", g, nil, bind(B, "font", { type = "string", label = word(L, "FONT"), tooltip = word(L, "FONT_TIP"),
-    dialogControl = "Ka0sMedia_Font", values = fontChoices, startsLine = true }))
+    dialogControl = "Ka0sMedia_Font", values = fontChoices, startsLine = true }, nil, { skinValue = skinFace }))
   row(out, "look", g, nil, slider(B, word(L, "SIZE"), word(L, "SIZE_TIP"), "size", lib.SIZE_MIN, lib.SIZE_MAX, 1))
   row(out, "look", g, nil, choice(B, word(L, "OUTLINE"), word(L, "OUTLINE_TIP"), "outline", outlineValues(L)))
-  row(out, "look", g, nil, bind(B, "shadow", { type = "bool", label = word(L, "SHADOW"), tooltip = word(L, "SHADOW_TIP"),
-    startsLine = true }))
-  local noShadow = function() return not inst:Get("shadow") end
+  local skinShadow = function() return inst:Get("fontShadowFromSkin") == true end
+  local shadow = row(out, "look", g, nil, bind(B, "shadow", { type = "bool", label = word(L, "SHADOW"),
+    tooltip = word(L, "SHADOW_TIP"), startsLine = true }))
+  shadow.disabledIf = skinShadow
+  row(out, "look", g, nil, check(B, L, "fontShadowFromSkin", "SHADOW_SKIN"))
+  local noShadow = function() return skinShadow() or not inst:Get("shadow") end
   local x = row(out, "look", g, nil, slider(B, word(L, "SHADOW_X"), word(L, "SHADOW_OFFSET_TIP"), "shadowX", -20, 20, 1))
   local y = row(out, "look", g, nil, slider(B, word(L, "SHADOW_Y"), word(L, "SHADOW_OFFSET_TIP"), "shadowY", -20, 20, 1))
   x.disabledIf, y.disabledIf, x.startsLine = noShadow, noShadow, true
@@ -454,17 +473,20 @@ end
 local function trim(v) return type(v) == "string" and v:match("^%s*(.-)%s*$") or "" end
 
 --- The six colors under their "Colors" subgroup, on tab `tab` (Texts in the three-tab shape, Look in
---- the one tab's) with that tab's group label `g`.
+--- the one tab's) with that tab's group label `g`. From minor 6 the Numbers swatch has "Use the
+--- skin's color" beside it (never dimming it), so Information opens the next line; every swatch
+--- reads its stored color, the one the call-out draws while it is not on the skin.
 local function colorRows(B, L, out, g, tab)
   local inst, colors = B.inst, word(L, "COLORS")
   for i, kind in ipairs(lib.KINDS) do
     row(out, tab, g, colors, bind(B, "colors." .. kind, { type = "color", label = word(L, KIND_WORD[kind]),
-      tooltip = word(L, "KIND_TIP"), hasAlpha = false, startsLine = i == 1 }, {
-        get = function() return bothShapes(inst:GetColor(kind)) end,
+      tooltip = word(L, "KIND_TIP"), hasAlpha = false, startsLine = i <= 2 or nil }, {
+        get = function() return bothShapes(fromEither(lib.__colorFor(inst, kind))) end,
         set = function(c)
           local r, gg, b = fromEither(c)
           if r then inst:SetColor(kind, r, gg, b) end
         end }, { get = function() return lib.__colorFor(inst, kind) end }))
+    if kind == "number" then row(out, tab, g, colors, check(B, L, "numberColorFromSkin", "NUMBER_SKIN")) end
   end
 end
 

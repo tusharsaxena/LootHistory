@@ -16,8 +16,9 @@
 -- (the frame's global name), `addon` and `vendorPath` (where the payload sits, for the voice packs
 -- and the bundled fonts), `soundsBase` (the folder holding the packs, overriding the one `addon`
 -- implies), `skin` (a registered skin owner, for the "Skin font" choice, the drag strip and,
--- from minor 3, the glow's skin color), `label` (the drag strip's text) and `debug` (`debug(tag, msg)`). docs/api/Callout/version-4.5-docs.md
--- is the full contract.
+-- from minor 3, the glow's skin color), `label` (the drag strip's text), from minor 5 `onClose` and
+-- `onSettings` (the drag strip's close and settings marks) and `debug` (`debug(tag, msg)`).
+-- docs/api/Callout/version-5.6-docs.md is the full contract.
 --
 -- ── WHERE A WRITE GOES (minor 2) ─────────────────────────────────────────────────────────────
 --
@@ -75,7 +76,17 @@ if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary
 -- `shadowY = 1`), and a black glow at full intensity, 1 px thick, 1 px right and 1 px down
 -- (`glowCustom`, `glowColor = { 0, 0, 0 }`, `glowIntensity = 1`, `glowThickness = 1`, `glowX = 1`,
 -- `glowY = -1`). A host that stored its own values reads them as before; `GLOW_LEGACY` is unchanged.
-local MAJOR, MINOR = "LibKa0s-Callout-1.0", 4
+-- Minor 5 (LibKa0s#100, `SD-LK-100`): the descriptor's `onClose` and `onSettings` (functions) reach
+-- the drag strip, so the strip carries its close mark (the standard's HUD header rule: close hides or
+-- disables the display) and its settings mark opens the host's page. Each is called under pcall, as
+-- every host callback here is. Without them the strip is minor 4's: no X, and the settings mark
+-- opens the `skin` owner's registered opener. Extended, unreleased (LibKa0s#97, `SD-LK-97` Batch C,
+-- the owner's R-2, U-1 and U-2): the look follows the skin (Skin font, an "@skin" outline, the skin's
+-- glow color, `fontShadowFromSkin`), numbers read `hud.text` (`numberColorFromSkin`), the other kinds
+-- their `sem.*` token until the player picks a color (`MEANING`), and with an owner the text and its
+-- halo go through the facade's HudFont and HudFontSize. `FollowKeys` names a host's one-time move
+-- and `MoveToSkin` makes it (the Skin font stored as itself, never "@skin").
+local MAJOR, MINOR = "LibKa0s-Callout-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -156,8 +167,11 @@ lib.SOUND_EXT = ".ogg"
 -- ── the choices ──────────────────────────────────────────────────────────────────────────────
 
 lib.FONT_SKIN, lib.FONT_GAME = "Skin font", "Game default"   -- the two font values that are no face
-lib.FONT_DEFAULT = "Ka0s Oxanium SemiBold"   -- a LibKa0s-Media-1.0 face, also its LSM name (minor 4; Bold to minor 3)
-lib.OUTLINES = { "NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME" }
+-- The bundled display face: the default to minor 5's skin defaults, now what an owner-less (or
+-- fonts-ignored) Skin font draws. A LibKa0s-Media-1.0 face, also its LSM name (Bold to minor 3).
+lib.FONT_DEFAULT = "Ka0s Oxanium SemiBold"
+lib.FROM_SKIN = "@skin"                   -- the Skin major's sentinel: an outline (or face) from the skin
+lib.OUTLINES = { lib.FROM_SKIN, "NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME" }
 lib.GLOWS = { "off", "soft", "strong" }    -- the retired glow choice (to minor 2), GLOW_LEGACY's keys
 lib.ANIMS = { "slam", "pulse", "glow", "blink", "shake", "none" }
 lib.CHANNELS = { "Master", "SFX", "Dialog" }
@@ -170,17 +184,20 @@ lib.WIDTH = 900                           -- the frame's width; its height follo
 
 --- The settings a host seeds its profile with (AceDB copies a defaults table, so pass this one; a
 --- host copying by hand copies `point` and `colors` too, never shares them).
+--- From SD-LK-97 the look is the skin's (R-2, U-1): the Skin font, its outline, its shadow
+--- (`fontShadowFromSkin`; the stored shadow while off), its glow color, `hud.text` for numbers, and
+--- each meaning kind's `sem.*` token, whose default here is Ka0s Default's value of it.
 lib.DEFAULTS = {
-  font = lib.FONT_DEFAULT, size = 96, outline = "THICKOUTLINE",
-  shadow = true, shadowX = 1, shadowY = 1,
+  font = lib.FONT_SKIN, size = 96, outline = lib.FROM_SKIN,
+  shadow = true, shadowX = 1, shadowY = 1, fontShadowFromSkin = true, numberColorFromSkin = true,
   colors = {
-    number = { 1, 1, 1 },        info = { 0.35, 0.75, 1 },  go = { 0.3, 1, 0.45 },
-    stop   = { 1, 0.35, 0.3 },   warn = { 1, 0.78, 0.2 },   error = { 1, 0.2, 0.25 },
+    number = { 1, 1, 1 },        info = { 0.3, 0.8, 1 },    go = { 0.35, 0.8, 0.45 },
+    stop   = { 1, 0.33, 0.33 },  warn = { 1, 0.5, 0 },      error = { 1, 0.33, 0.33 },
   },
-  -- The glow behind the text (minor 3): on. From minor 4 black at full intensity, 1 px thick, 1 px
-  -- right and 1 px down (to minor 3: the old "soft" look, 0.35 and 2 px, in each word's kind color).
+  -- The glow behind the text (minor 3): on. From minor 4 at full intensity, 1 px thick, 1 px right
+  -- and 1 px down, the swatch black; from SD-LK-97 drawn in the skin's glow color.
   glow = true, glowIntensity = 1, glowThickness = 1, glowX = 1, glowY = -1,
-  glowCustom = true, glowColor = { 0, 0, 0 }, useClassColorGlow = false, glowColorFromSkin = false,
+  glowCustom = true, glowColor = { 0, 0, 0 }, useClassColorGlow = false, glowColorFromSkin = true,
   anim = "slam", hold = 1.5,
   point = { "CENTER", "CENTER", 0, 180 },
   voice = "male-arena-john", channel = "Master", speakFrom = 5,
@@ -197,6 +214,21 @@ lib.GLOW_LEGACY = {
   soft   = { glow = true, glowIntensity = 0.35, glowThickness = 2 },
   strong = { glow = true, glowIntensity = 0.7, glowThickness = 5 },
 }
+
+--- The meaning kinds' tokens (U-2): with no color picked (nothing stored, or a stored default of
+--- this or v1.107.0's minor) the kind draws its owner's token; a picked color wins. "number" is HUD
+--- text, not a meaning: `numberColorFromSkin` is its companion. Never mutate it.
+lib.MEANING = { info = "sem.info", go = "sem.good", stop = "sem.bad", warn = "sem.warn", error = "sem.bad" }
+local COLORS_BEFORE = {   -- the kinds' defaults to v1.107.0, a stored copy of which follows too
+  info = { 0.35, 0.75, 1 }, go = { 0.3, 1, 0.45 }, stop = { 1, 0.35, 0.3 }, warn = { 1, 0.78, 0.2 },
+  error = { 1, 0.2, 0.25 },
+}
+
+--- What `FollowKeys` compares against: the look settings whose v1.107.0 (minor 4, plan row L17)
+--- defaults the skin now replaces. Never mutate it.
+lib.FOLLOW_FROM = { font = "Ka0s Oxanium SemiBold", outline = "THICKOUTLINE", glowColorFromSkin = false }
+local FOLLOW_ORDER = { "font", "outline", "glowColorFromSkin" }
+local FOLLOW_TO = { font = lib.FONT_SKIN, outline = lib.FROM_SKIN, glowColorFromSkin = true }   -- MoveToSkin's writes
 
 local TAG = "CALLOUT"
 local HEIGHT_FACTOR = 1.5                 -- the frame's height over the font size
@@ -266,7 +298,7 @@ end
 local VALID = {
   font = nonEmpty, size = between(lib.SIZE_MIN, lib.SIZE_MAX), outline = oneOf(lib.OUTLINES),
   shadow = isBool, shadowX = between(-20, 20), shadowY = between(-20, 20),
-  glow = isBool, glowIntensity = between(0.05, 1), glowThickness = between(1, 6),
+  fontShadowFromSkin = isBool, numberColorFromSkin = isBool, glow = isBool, glowIntensity = between(0.05, 1), glowThickness = between(1, 6),
   glowX = between(-20, 20), glowY = between(-20, 20), glowCustom = isBool, glowColor = validColor,
   useClassColorGlow = isBool, glowColorFromSkin = isBool,
   anim = oneOf(lib.ANIMS), hold = between(0.2, 10),
@@ -357,12 +389,54 @@ local function voiceOf(S)
   return lib.OFF
 end
 
-local function colorOf(S, kind)
+local function resolve(major) return LibStub and LibStub(major, true) end
+
+--- The host's skin facade (`d.skin`, a registered owner), or nil.
+local function skinFacade(S)
+  local Skin = resolve("LibKa0s-Skin-1.0")
+  local owner = S.d.skin
+  if not (Skin and type(owner) == "string" and type(Skin.IsOwner) == "function" and type(Skin.For) == "function"
+    and Skin:IsOwner(owner)) then
+    return nil
+  end
+  return Skin:For(owner)
+end
+
+--- r, g, b of the facade's `member(...)`, or nil: no owner, no member, or no color.
+local function skinColor(S, member, ...)
+  local facade = skinFacade(S)
+  if not (facade and type(facade[member]) == "function") then return nil end
+  local r, g, b = facade[member](...)
+  if finite(r) and finite(g) and finite(b) then return r, g, b end
+  return nil
+end
+
+--- A kind's swatch: its stored color, else its default (what the color row reads and resets to).
+local function ownColor(S, kind)
   local t = store(S)
   local r, g, b = rgb(t and type(t.colors) == "table" and t.colors[kind])
   if r then return r, g, b end
-  local c = lib.DEFAULTS.colors[kind] or lib.DEFAULTS.colors.info
+  local c = lib.DEFAULTS.colors[kind]
   return c[1], c[2], c[3]
+end
+
+local function near(r, g, b, c)
+  return c ~= nil and math.abs(r - c[1]) < 0.002 and math.abs(g - c[2]) < 0.002 and math.abs(b - c[3]) < 0.002
+end
+
+--- The color a kind draws in: numbers the skin's HUD text color while `numberColorFromSkin` is on,
+--- a meaning kind its `sem.*` token while its swatch holds a default, else the swatch.
+local function colorOf(S, kind)
+  if not KIND[kind] then kind = "info" end
+  local r, g, b = ownColor(S, kind)
+  local sr, sg, sb
+  if kind == "number" then
+    if get(S, "numberColorFromSkin") then sr, sg, sb = skinColor(S, "HudTextColor") end
+  elseif near(r, g, b, lib.DEFAULTS.colors[kind]) or near(r, g, b, COLORS_BEFORE[kind]) then
+    sr, sg, sb = skinColor(S, "Color", lib.MEANING[kind])
+  end
+  if sr then return sr, sg, sb end
+  return r, g, b
 end
 
 -- ── the write route (minor 2) ────────────────────────────────────────────────────────────────
@@ -481,27 +555,24 @@ end
 
 -- ── the font ─────────────────────────────────────────────────────────────────────────────────
 
-local function resolve(major) return LibStub and LibStub(major, true) end
-
 local function gameFont()
   if type(STANDARD_TEXT_FONT) == "string" then return STANDARD_TEXT_FONT end
   return "Fonts\\FRIZQT__.TTF"
 end
 
---- The host's skin facade (`d.skin`, a registered owner), or nil.
-local function skinFacade(S)
-  local Skin = resolve("LibKa0s-Skin-1.0")
-  local owner = S.d.skin
-  if not (Skin and type(owner) == "string" and type(Skin.IsOwner) == "function" and type(Skin.For) == "function"
-    and Skin:IsOwner(owner)) then
-    return nil
-  end
-  return Skin:For(owner)
-end
+--- The Skin font, or the "@skin" a host's ResetToSkin stores for it.
+local function isSkinFace(name) return name == lib.FONT_SKIN or name == lib.FROM_SKIN end
 
+--- The skin's HUD face (`BarStyle().font`, nil while the owner ignores fonts), or, from a facade with
+--- no BarStyle, its body face.
 local function skinFont(S)
   local facade = skinFacade(S)
-  return facade and type(facade.GetFont) == "function" and facade.GetFont() or nil
+  if not facade then return nil end
+  if type(facade.BarStyle) == "function" then
+    local style = facade.BarStyle()
+    return type(style) == "table" and style.font or nil
+  end
+  return type(facade.GetFont) == "function" and facade.GetFont() or nil
 end
 
 --- A face by name: LibSharedMedia's, else LibKa0s-Media-1.0's bundled file of that name.
@@ -517,13 +588,19 @@ end
 local function fontPath(S)
   local name = get(S, "font")
   if name == lib.FONT_GAME then return gameFont() end
-  if name == lib.FONT_SKIN then return skinFont(S) or gameFont() end
+  if isSkinFace(name) then return skinFont(S) or namedFont(S, lib.FONT_DEFAULT) or gameFont() end
   return namedFont(S, name) or namedFont(S, lib.FONT_DEFAULT) or gameFont()
 end
 
+--- The flags the text draws with: "@skin" through the facade's FontFlags (the skin's HUD outline),
+--- or "OUTLINE" with no owner; "NONE" is none.
 local function fontFlags(S)
   local o = get(S, "outline")
-  return o == "NONE" and "" or o
+  if o == "NONE" then return "" end
+  if o ~= lib.FROM_SKIN then return o end
+  local facade = skinFacade(S)
+  if facade and type(facade.FontFlags) == "function" then return facade.FontFlags(o) end
+  return "OUTLINE"
 end
 
 --- SetFont answers false for a face the client cannot load; the game's face stands in.
@@ -645,19 +722,34 @@ local function paint(S, kind)
   S.halo:SetAlpha(get(S, "glow") and get(S, "glowIntensity") or 0)
 end
 
-local function applyLook(S)
-  local path, size, flags = fontPath(S), get(S, "size"), fontFlags(S)
+--- The text's face, size, flags and shadow, and its halo's. With an owner (SD-LK-97.12) through the
+--- facade's HudFont, the only shadow a 12.0.7 client draws: the Skin font's size scaled by
+--- HudFontSize, the shadow the skin's while `fontShadowFromSkin` is on (else the stored one), the
+--- halo thick and shadowless. Owner-less, set on the strings directly, as to minor 5.
+local function applyFace(S, path, size, flags)
+  local thick = 2 * math.floor(get(S, "glowThickness") + 0.5)
+  local facade = skinFacade(S)
+  if facade and type(facade.HudFont) == "function" then
+    if type(facade.HudFontSize) == "function" then size = facade.HudFontSize(size, isSkinFace(get(S, "font"))) end
+    local shadow = get(S, "shadow") and { get(S, "shadowX"), get(S, "shadowY"), 0, 0, 0, 1 } or false
+    facade.HudFont(S.text, { face = path, size = size, flags = flags, shadow = shadow,
+      shadowFromSkin = get(S, "fontShadowFromSkin") })
+    facade.HudFont(S.halo, { face = path, size = size + thick, flags = "THICKOUTLINE", shadow = false,
+      shadowFromSkin = false })
+    return
+  end
   setFont(S.text, path, size, flags)
-  setFont(S.halo, path, size + 2 * math.floor(get(S, "glowThickness") + 0.5), "THICKOUTLINE")
+  setFont(S.halo, path, size + thick, "THICKOUTLINE")
+  local on = get(S, "shadow")
+  S.text:SetShadowOffset(on and get(S, "shadowX") or 0, on and get(S, "shadowY") or 0)
+  S.text:SetShadowColor(0, 0, 0, on and 1 or 0)
+end
+
+local function applyLook(S)
+  local size = get(S, "size")
+  applyFace(S, fontPath(S), size, fontFlags(S))
   S.halo:ClearAllPoints()
   S.halo:SetPoint("CENTER", S.content, "CENTER", get(S, "glowX"), get(S, "glowY"))
-  if get(S, "shadow") then
-    S.text:SetShadowOffset(get(S, "shadowX"), get(S, "shadowY"))
-    S.text:SetShadowColor(0, 0, 0, 1)
-  else
-    S.text:SetShadowOffset(0, 0)
-    S.text:SetShadowColor(0, 0, 0, 0)
-  end
   S.frame:SetSize(lib.WIDTH, math.floor(size * HEIGHT_FACTOR + 0.5))
   paint(S, S.current and S.current.kind or "info")
 end
@@ -700,9 +792,18 @@ local function endDrag(S)
   savePosition(S)
 end
 
+--- Minor 5: the descriptor's strip callback `key` under pcall (`call`), or nil when it is not a function.
+local function hostMark(S, key)
+  local fn = S.d[key]
+  if type(fn) ~= "function" then return nil end
+  return function() call(S, fn) end
+end
+
 --- The drag strip over the frame while it is unlocked, when LibKa0s-Widgets-1.0 is present. It is a
 --- child of the frame, which never animates (the animations play on S.content), and it ignores the
---- frame's alpha and sits HANDLE_LEVEL over it (frame-layering-§2).
+--- frame's alpha and sits HANDLE_LEVEL over it (frame-layering-§2). From minor 5 the descriptor's
+--- `onClose` builds the strip's close mark and `onSettings` is what its settings mark opens; a
+--- descriptor without them builds minor 4's strip.
 local function buildHandle(S)
   local Widgets = resolve("LibKa0s-Widgets-1.0")
   if not (Widgets and type(Widgets.DragHandle) == "function") then return end
@@ -712,6 +813,7 @@ local function buildHandle(S)
     canDrag = function() return not S.locked end,
     onDragStart = function() S.moving = true end,
     onDragStop = function() S.moving = nil; savePosition(S) end,
+    onClose = hostMark(S, "onClose"), onSettings = hostMark(S, "onSettings"),   -- minor 5
   })
   if not handle then return end
   handle:SetPoint("BOTTOM", S.frame, "TOP", 0, HANDLE_GAP)
@@ -759,6 +861,8 @@ local function build(S)
   buildHandle(S)
   applyLook(S)
   applyPosition(S)
+  local facade = skinFacade(S)   -- a skin switch repaints the look (HudFont is not replayed)
+  if facade and type(facade.OnLooksChanged) == "function" then facade.OnLooksChanged(function() applyLook(S) end) end
   return f
 end
 
@@ -1072,6 +1176,7 @@ function METHODS:Get(key)
   if head then return getLeaf(S, head, sub) end
   if not VALID[key] then return nil end
   if key == "voice" then return voiceOf(S) end
+  if key == "font" and isSkinFace(get(S, key)) then return lib.FONT_SKIN end   -- "@skin" reads as the Skin font
   return copy(get(S, key))
 end
 
@@ -1242,6 +1347,33 @@ function lib:MigrateGlow(t)   -- luacheck: ignore 212/self
   return true
 end
 
+--- The keys of `t` (the host's call-out table) a one-time step moves onto the skin (SD-LK-97.10, the
+--- owner's U-1): each of `FOLLOW_FROM`'s settings `t` still holds at its v1.107.0 default, as
+--- `prefix .. key` (`prefix` gets its one dot; none for none), in the order `font`, `outline`,
+--- `glowColorFromSkin`. A picked value is never listed. The list names what `MoveToSkin` moves; it is
+--- not for `Skin.ResetToSkin`, which would store "@skin" for the face, a value the font picker does
+--- not offer (the draw and the font row read it as the Skin font, but a host's own `get` answers it).
+function lib:FollowKeys(t, prefix)   -- luacheck: ignore 212/self
+  local out = {}
+  if type(t) ~= "table" then return out end
+  prefix = nonEmpty(prefix) and (prefix:sub(-1) == "." and prefix or prefix .. ".") or ""
+  for _, key in ipairs(FOLLOW_ORDER) do
+    if t[key] == lib.FOLLOW_FROM[key] then out[#out + 1] = prefix .. key end
+  end
+  return out
+end
+
+--- The one-time move itself (SD-LK-97.10, the owner's U-1): every `FollowKeys(t)` key takes the skin's
+--- value in `t`, the face `FONT_SKIN`, the outline `FROM_SKIN` ("@skin") and `glowColorFromSkin` true.
+--- Answers how many it moved (0 for a `t` that is not a table). A host calls it once per profile from
+--- a step under its own per-profile record: a player who later picks an old default again is not
+--- moved twice. With the library absent (a host's degraded mode) there is nothing to call.
+function lib:MoveToSkin(t)
+  local keys = self:FollowKeys(t)
+  for _, key in ipairs(keys) do t[key] = FOLLOW_TO[key] end
+  return #keys
+end
+
 --- A new call-out. `d.db` is required; every other field is optional (see the API document).
 function lib:New(d)   -- luacheck: ignore 212/self
   if type(d) ~= "table" or (type(d.db) ~= "table" and type(d.db) ~= "function") then
@@ -1263,14 +1395,15 @@ lib.__methods = METHODS
 
 -- What CalloutSettings.lua's schema rows (minor 3) read off an instance, private for the same
 -- reason: a row's validate (`__validFor`), its default (`__defaultFor`, a color in the host's shape),
--- a color row's reader (`__colorFor`, the kind's color as it reads, re-encoded in the host's shape,
--- so a stored array still reaches a swatch that decodes named keys), the host's prefix
+-- a color row's reader (`__colorFor`, the kind's swatch: its stored color or default, never the
+-- skin's color it may draw in, re-encoded in the host's shape, so a stored array still reaches a
+-- swatch that decodes named keys and a reset count reads a default as one), the host's prefix
 -- (`__prefixOf`, nil without `d.path`) and whether a leaf key is one (`__known`).
 lib.__validFor = function(inst, key, v) return validFor(state(inst), key, v) end
 lib.__defaultFor = function(inst, key) return copy(defaultOf(state(inst), key, true)) end
 lib.__colorFor = function(inst, kind)
   local S = state(inst)
-  local r, g, b = colorOf(S, kind)
+  local r, g, b = ownColor(S, KIND[kind] and kind or "info")
   return encodeColor(S, r, g, b, true)
 end
 -- Minor 3: the glow swatch's reader, the same way.

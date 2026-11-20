@@ -85,7 +85,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- copies already sit in vendored trees, and the same minor would let the first loaded one win.
 -- Minor 18 (SR2-L5 of docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, option C): a primary Button hovers by
 -- its fill, `btnPrimary.hoverBg` (SkinDefs minor 28), its label kept; `opts.tokens` takes `hoverBg`.
-local CONTROLS_MINOR = 18
+-- Minor 19 (SD-LK-97.17 of Ka0sAddonsCommonTasks docs/2026-11-20-SKIN_DEFAULTS_AUDIT, LibKa0s#97):
+-- S.ApplyBarFill on a StatusBar with no texture of its own lays the skin's `bar.texture` under the
+-- accent, recorded, so the bar is not drawn invisible and a skin switch moves the texture.
+local CONTROLS_MINOR = 19
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -981,17 +984,36 @@ prim.SortHeaderBar = function(owner, bar, opts)
   end
 end
 
+--- True when `bar` (a StatusBar) has a fill texture of its own: one its fill Texture answers.
+local function hasBarTexture(bar)
+  local fill = type(bar.GetStatusBarTexture) == "function" and bar:GetStatusBarTexture() or nil
+  local path = fill and type(fill.GetTexture) == "function" and fill:GetTexture() or nil
+  return path ~= nil and path ~= ""
+end
+
+--- A StatusBar with no texture of its own takes the skin's `bar.texture` (minor 19), WHITE8X8 when
+--- the key resolves to none, and keeps taking it on every replay: the record says the texture is
+--- ours, so a skin switch moves it. A bar that came with a texture keeps the host's.
+local function barFillTexture(owner, rec, bar)
+  if type(bar.SetStatusBarTexture) ~= "function" then return end
+  local mine = P.saved(rec, "barFillTexture")
+  if not mine[bar] and hasBarTexture(bar) then return end
+  mine[bar] = true
+  bar:SetStatusBarTexture(P.media("statusbar", P.T(owner)["bar.texture"]) or P.WHITE8)
+end
+
 --- S.ApplyBarFill(target): the accent (`text.accent`) on a status bar (SetStatusBarColor) or a
---- texture (SetVertexColor). Draws no Media icon.
+--- texture (SetVertexColor). A status bar with no texture of its own (minor 19) is given the skin's
+--- `bar.texture` first, as S.BarTexture lays it, so its fill is drawn. Draws no Media icon.
 prim.ApplyBarFill = function(owner, target)
   if type(target) ~= "table" then return end
-  P.track(owner, target, "ApplyBarFill")
+  local rec = P.track(owner, target, "ApplyBarFill")
+  local statusBar = P.isFrame(target) and type(target.SetStatusBarColor) == "function"
+  if rec and statusBar then barFillTexture(owner, rec, target) end
   local c = P.T(owner)["text.accent"]
   if not c then return end
   if P.isTexture(target) then return target:SetVertexColor(rgba(c)) end
-  if P.isFrame(target) and type(target.SetStatusBarColor) == "function" then
-    target:SetStatusBarColor(rgba(c))
-  end
+  if statusBar then target:SetStatusBarColor(rgba(c)) end
 end
 
 -- ── navigation, drawers, list rows ───────────────────────────────────────────────────────────

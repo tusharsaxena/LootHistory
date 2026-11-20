@@ -53,9 +53,9 @@ broken in the other twelve.
 | `lizard_sighted.lua` | The sanitized shadow `run-automated-tests.sh`'s complexity suite measures, and the function-count parity check over it (`automated-tests-§3`, kit revision 35) |
 | `test_lizard_sighted.lua` | The sighted complexity gate's own cases, a kit suite (kit revision 35) |
 | `test_skin_values.lua` | The typed-value gate (`skinning-§1`), a kit suite run over the consumer's tracked source (kit revision 50) |
-| `skin_values.lua` | The scanner and the kit-shared allow categories `test_skin_values.lua` loads from its own folder (kit revision 50) |
+| `skin_values.lua` | The scanner, the kit-shared allow categories and the kit row categories `test_skin_values.lua` loads from its own folder (kit revision 50; the kept-color shapes, `RGBA` and the row categories from 58) |
 | `test_skin_switch.lua` | The skin-switch test (`skinning-§1`), a kit suite run over the surfaces the consumer declares (kit revision 50) |
-| `skin_switch.lua` | The probe skin, the setter spies and the two passes `test_skin_switch.lua` loads from its own folder (kit revision 50) |
+| `skin_switch.lua` | The probe skin, the setter spies and the two passes `test_skin_switch.lua` loads from its own folder (kit revision 50; each setter family on its own, the StatusBar fill check and `expect` / `hold` / `clear` from 58) |
 | `README.md` | This file |
 
 They vendor as one folder. A copy that leaves out `asserts.lua`, `inventory.lua`, `secrets.lua`, `latch.lua`, `bindings_xml.lua`, `glyphs.lua`, `client_globals.lua`, `client_globals_live.lua`, `client_globals_forever.lua`, `mock_ace.lua`, `mock_record.lua`,
@@ -544,6 +544,16 @@ path drawn outright is still a hit, and a host row that repeats a category goes 
 counts as a base only with a tint on that object after it, a path in `SetStatusBarTexture` is a hit,
 and a font face is never `media/`.
 
+From kit revision 58 it also reads a color kept before it is drawn: a table of three or four
+components (`{ 1, 0.82, 0 }`), a keyed one (`{ r = 0.2, g = 0.75, b = 0.3 }`), three or four names
+assigned components at once (`local R, G, B = 1, 0.82, 0`; whole numbers only to channel names), a
+`return` of components (a fraction or a 1 among them, so a count's zeros are not one), and the
+defaults of an `RGBA(c, r, g, b, a)` fallback. Two categories take only those shapes: tex coords,
+an inset or a padding (`coord`, `crop`, `inset`, `pad`, `margin` or `offset` on the line), and a
+fully clear color (an alpha of 0). A row may name a kit row category, `"unreachable default"`,
+`"white base for tinting"` or `"not a color"` (three or four fractions that are a position, a scale
+or a weight), in `category` instead of a `cause`, for a value that draws no look.
+
 ## `test_skin_switch.lua`
 
 The seventh, new in kit revision 50 (`skinning-§1`). A host declares its painted surfaces, and each
@@ -552,6 +562,15 @@ that gives every token its own value, because real skins share tokens and would 
 setter the two flips back to Ka0s Default disagree on is noise and is dropped, so a counter or a fade
 cannot pass a surface that draws only literals. It excludes Scope-ignored surfaces and companions off
 from its second pass.
+
+From kit revision 58 each setter family moves on its own: a surface that drew a color, a face or a
+shadow has to move that family, not just any setter (font and shadow in the first pass only, since
+the second holds fonts ignored). Every StatusBar a surface holds has to draw its fill on a switch and
+move it, read off `SetStatusBarTexture` and off `SetTexture` or `SetAtlas` on the Texture
+`GetStatusBarTexture` answers. A string whose face moves while no color is set on it is reported.
+Three optional surface fields: `expect` (a family or a list the surface must draw and move,
+`"texture"` for a data fill on a Texture), `hold` (families a ruling keeps fixed) and `clear = true`
+(a StatusBar drawn clear, alpha 0, is left out of the fill check).
 
 ### How a host adopts both
 
@@ -576,7 +595,7 @@ Kit.run{ dir = "tests/", suites = { ..., { name = "test_skin_values", dir = "tes
 
 Both suites must be declared after the re-vendor, or the inventory goes red. With its facts unset,
 each is one declared skip that names the rule, so that commit stays green. Every row needs its `why`
-and a `cause` id. `build` answers what was painted; `paint` is the redraw a mock has no listener for;
+and a `cause` id, or (kit revision 58) a kit row `category` instead. `build` answers what was painted; `paint` is the redraw a mock has no listener for;
 `scope` is `"panel"` or `"fonts"`; `companion(on)` writes the surface's `<key>FromSkin` row. The steps
 are in the kit revision 50 document, `docs/api/testkit/version-50-docs.md` in the LibKa0s repo.
 

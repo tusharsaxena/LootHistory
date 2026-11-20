@@ -1139,7 +1139,7 @@ test("v1.84.0: the vendored minors and the kit revision match the release", func
   assertTrue(modules("LibKa0s-Sim-1.0").SimPanelRender >= 1) -- 2 since v1.85.0, pinned there
   local charts = modules("LibKa0s-Charts-1.0")
   assertTrue(charts.Charts >= 1) -- 2 since v1.105.0, pinned there
-  assertEqual(charts.ChartsRender, 1)
+  assertTrue(charts.ChartsRender >= 1) -- 2 since v1.108.0, pinned there
   assertTrue(T.KIT_VERSION >= 47) -- 49 since v1.85.0, pinned there
 end)
 -- v1.85.0 (Ka0sAddonsCommonTasks docs/2026-11-01-FULL_SKINNING/): the full skinning library release.
@@ -1181,7 +1181,7 @@ test("v1.85.0: the vendored minors and the kit revision match the release", func
   assertEqual(options.OptionsIds, 7)
   assertEqual(options.OptionsIdList, 9) -- 9 since R5-L5
   assertTrue(options.OptionsTabs >= 15) -- 16 since v1.92.0, pinned there
-  assertEqual(options.OptionsCompose, 19) -- 19 since R6-SIM-L (the Sim mode checkbox)
+  assertTrue(options.OptionsCompose >= 19) -- 19 since R6-SIM-L (the Sim mode checkbox); 20 since v1.108.0, pinned there
   assertEqual(options.OptionsScroll, 13)
   assertTrue(options.OptionsNav >= 5) -- 6 since v1.93.0, pinned there
   assertEqual(options.OptionsDrawer, 5)
@@ -1239,7 +1239,7 @@ test("v1.90.0: the vendored minors and the kit revision match the release", func
   assertEqual(widgets.WidgetsAutocomplete, 8)
   local skin = modules("LibKa0s-Skin-1.0")
   assertTrue(skin.Skin >= 17) -- 18 since v1.105.0, pinned there
-  assertEqual(skin.SkinPaint, 19)
+  assertTrue(skin.SkinPaint >= 19) -- 20 since v1.108.0, pinned there
   assertTrue(skin.SkinPaintExtras >= 18) -- 19 since v1.91.0 (the HUD and confirm peels), pinned there
   assertEqual(modules("LibKa0s-Options-1.0").OptionsAppearance, 7)
   assertTrue(T.KIT_VERSION >= 51) -- 52 since v1.92.0, pinned there
@@ -1262,10 +1262,10 @@ test("v1.91.0: the vendored minors and the kit revision match the release", func
   local widgets = modules("LibKa0s-Widgets-1.0")
   assertTrue(widgets.Widgets >= 26) -- 27 since v1.105.0, pinned there
   assertTrue(widgets.WidgetsDropdown >= 1) -- 2 since v1.105.0, pinned there
-  assertEqual(widgets.WidgetsLineChart, 7)
+  assertTrue(widgets.WidgetsLineChart >= 7) -- 8 since v1.108.0, pinned there
   local skin = modules("LibKa0s-Skin-1.0")
   assertEqual(skin.SkinPaintExtras, 19)
-  assertEqual(skin.SkinPaintHud, 1)
+  assertTrue(skin.SkinPaintHud >= 1) -- 2 since v1.108.0, pinned there
   assertEqual(skin.SkinAceConfirm, 1)
   assertTrue(T.KIT_VERSION >= 51) -- 52 since v1.92.0, pinned there
 end)
@@ -1320,24 +1320,24 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   local widgets, skin = modules("LibKa0s-Widgets-1.0"), modules("LibKa0s-Skin-1.0")
   local debugLog, options = modules("LibKa0s-DebugLog-1.0"), modules("LibKa0s-Options-1.0")
   local sim, browser = modules("LibKa0s-Sim-1.0"), modules("LibKa0s-IconBrowser-1.0")
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 18)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 18) -- 19 since v1.108.0, pinned there
   assertEqual(modules("LibKa0s-Compat-1.0").Compat, 4)
-  assertEqual(modules("LibKa0s-Charts-1.0").Charts, 2)
+  assertTrue(modules("LibKa0s-Charts-1.0").Charts >= 2) -- 3 since v1.108.0, pinned there
   assertEqual(modules("LibKa0s-Media-1.0").Media, 13)
   assertEqual(modules("LibKa0s-Launcher-1.0").Launcher, 11)
   assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 14)
   assertEqual(skin.Skin, 18)
   assertEqual(skin.SkinDefs, 28)
   assertEqual(skin.SkinDefsOthers, 10)
-  assertEqual(skin.SkinPaintControls, 18)
+  assertTrue(skin.SkinPaintControls >= 18) -- 19 since v1.108.0, pinned there
   assertTrue(widgets.Widgets >= 28)   -- v1.106.0: the HUD dock guards its measurements; 29 since v1.107.0, pinned there
-  assertEqual(widgets.WidgetsDropdown, 2)
+  assertTrue(widgets.WidgetsDropdown >= 2) -- 3 since v1.108.0, pinned there
   assertEqual(widgets.WidgetsReorder, 7)
   assertTrue(widgets.WidgetsDragHandle >= 14) -- 15 since v1.107.0, pinned there
   assertTrue(widgets.WidgetsDragHandleTip >= 1) -- 2 since v1.107.0, pinned there
   assertEqual(widgets.WidgetsCopyWindow, 6)
   assertEqual(widgets.WidgetsHeader, 1)
-  assertEqual(widgets.WidgetsBar, 1)
+  assertTrue(widgets.WidgetsBar >= 1) -- 2 since v1.108.0, pinned there
   assertEqual(debugLog.DebugLog, 23)
   assertEqual(debugLog.DebugLogDiagnostics, 11)
   assertEqual(debugLog.DebugLogWindow, 5)
@@ -1350,7 +1350,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(sim.Sim, 3)
   assertEqual(sim.SimPanel, 11)
   assertEqual(sim.SimPanelRender, 4)
-  assertEqual(T.KIT_VERSION, 57)
+  assertTrue(T.KIT_VERSION >= 57) -- 58 since v1.108.0, pinned there
 end)
 
 test("v1.107.0: the vendored minors and the kit revision match the release", function()
@@ -1359,8 +1359,42 @@ test("v1.107.0: the vendored minors and the kit revision match the release", fun
   -- the strip's tooltip above it. This addon builds no strip; the pins say which payload it carries.
   local lib = T.mocks.LibStub("LibKa0s-Widgets-1.0", true)
   assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Widgets-1.0 missing: re-vendor v1.107.0")
-  assertEqual(lib.MODULES.WidgetsDragHandle, 15)
-  assertEqual(lib.MODULES.WidgetsDragHandleTip, 2)
-  assertEqual(lib.MODULES.Widgets, 29)   -- LibKa0s#95: secret dock geometry reads as none
-  assertEqual(T.KIT_VERSION, 57)
+  assertTrue(lib.MODULES.WidgetsDragHandle >= 15) -- 16 since v1.108.0, pinned there
+  assertTrue(lib.MODULES.WidgetsDragHandleTip >= 2) -- 3 since v1.108.0, pinned there
+  assertTrue(lib.MODULES.Widgets >= 29) -- LibKa0s#95: secret dock geometry reads as none; 30 since v1.108.0, pinned there
+  assertTrue(T.KIT_VERSION >= 57) -- 58 since v1.108.0, pinned there
+end)
+test("v1.108.0: the vendored minors and the kit revision match the release", function()
+  -- LibKa0s#94, #97, #99, #100 (Ka0sAddonsCommonTasks docs/2026-11-20-LIBKA0S_94_97_99_100): the
+  -- footer lays only its shown marks (Widgets 30), library defaults follow the skin (WidgetsBar 2,
+  -- Charts 3, ChartsRender 2, SkinPaintHud 2, SkinPaintControls 19, OptionsCompose 20, the Callout
+  -- and WaypointArrow pairs), the shared menu measures no secret label (WidgetsDropdown 3), host
+  -- bands and owner warnings (Core 19, SkinPaint 20, WidgetsDragHandle 16, WidgetsLineChart 8), the
+  -- strip tooltip's readable ancestor (WidgetsDragHandleTip 3), and test kit revision 58.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.108.0")
+    return lib.MODULES
+  end
+  local widgets, skin = modules("LibKa0s-Widgets-1.0"), modules("LibKa0s-Skin-1.0")
+  local charts, callout = modules("LibKa0s-Charts-1.0"), modules("LibKa0s-Callout-1.0")
+  local arrow = modules("LibKa0s-WaypointArrow-1.0")
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 19)
+  assertEqual(callout.Callout, 5)
+  assertEqual(callout.CalloutSettings, 6)
+  assertEqual(arrow.WaypointArrow, 3)
+  assertEqual(arrow.WaypointArrowSettings, 3)
+  assertEqual(charts.Charts, 3)
+  assertEqual(charts.ChartsRender, 2)
+  assertEqual(skin.SkinPaint, 20)
+  assertEqual(skin.SkinPaintHud, 2)
+  assertEqual(skin.SkinPaintControls, 19)
+  assertEqual(widgets.Widgets, 30)
+  assertEqual(widgets.WidgetsDropdown, 3)
+  assertEqual(widgets.WidgetsDragHandle, 16)
+  assertEqual(widgets.WidgetsDragHandleTip, 3)
+  assertEqual(widgets.WidgetsLineChart, 8)
+  assertEqual(widgets.WidgetsBar, 2)
+  assertEqual(modules("LibKa0s-Options-1.0").OptionsCompose, 20)
+  assertEqual(T.KIT_VERSION, 58)
 end)
