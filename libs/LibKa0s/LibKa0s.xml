@@ -13,6 +13,8 @@
 	<Script file="Glow.lua"/>
 	<Script file="Toast.lua"/>
 	<Script file="Callout.lua"/>
+	<Script file="CalloutRoute.lua"/>
+	<Script file="CalloutSound.lua"/>
 	<Script file="CalloutSettings.lua"/>
 	<Script file="WaypointArrow.lua"/>
 	<Script file="WaypointArrowSettings.lua"/>
@@ -29,6 +31,7 @@
 	<Script file="SkinPaintHud.lua"/>
 	<Script file="SkinAceConfirm.lua"/>
 	<Script file="SkinPaintControls.lua"/>
+	<Script file="SkinPaintNav.lua"/>
 	<Script file="SkinEUI.lua"/>
 	<Script file="SkinAce.lua"/>
 	<Script file="Widgets.lua"/>
@@ -60,6 +63,7 @@
 	<Script file="OptionsHeader.lua"/>
 	<Script file="OptionsCombat.lua"/>
 	<Script file="OptionsCompose.lua"/>
+	<Script file="OptionsComposeMaster.lua"/>
 	<Script file="OptionsScroll.lua"/>
 	<Script file="OptionsNav.lua"/>
 	<Script file="OptionsDrawer.lua"/>

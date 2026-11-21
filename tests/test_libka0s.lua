@@ -51,6 +51,9 @@ local LIB_FILES = {
   -- LibKa0s-WaypointArrow-1.0 (WaypointArrow, WaypointArrowSettings), in XML order. Nothing here
   -- wires either; the client loads them, so the suite must too.
   "libs/LibKa0s/Callout.lua",
+  -- New in v1.109.0: CalloutRoute and CalloutSound, peeled out of Callout.lua (Callout 6), in XML order.
+  "libs/LibKa0s/CalloutRoute.lua",
+  "libs/LibKa0s/CalloutSound.lua",
   "libs/LibKa0s/CalloutSettings.lua",
   "libs/LibKa0s/WaypointArrow.lua",
   "libs/LibKa0s/WaypointArrowSettings.lua",
@@ -76,6 +79,8 @@ local LIB_FILES = {
   "libs/LibKa0s/SkinPaintHud.lua",
   "libs/LibKa0s/SkinAceConfirm.lua",
   "libs/LibKa0s/SkinPaintControls.lua",
+  -- New in v1.109.0: SkinPaintNav, the nav rail's paint peeled out of SkinPaintControls (20).
+  "libs/LibKa0s/SkinPaintNav.lua",
   "libs/LibKa0s/SkinEUI.lua",
   "libs/LibKa0s/SkinAce.lua",
   "libs/LibKa0s/Widgets.lua",
@@ -140,6 +145,9 @@ local LIB_FILES = {
   -- load list is a file the client loads and the suite does not, so the composers would be nil in
   -- every headless run and present in every real one.
   "libs/LibKa0s/OptionsCompose.lua",
+  -- New in v1.109.0: OptionsComposeMaster, the Master controls composers peeled out of
+  -- OptionsCompose.lua (OptionsCompose 21), a secondary file of LibKa0s-Options-1.0.
+  "libs/LibKa0s/OptionsComposeMaster.lua",
   "libs/LibKa0s/OptionsScroll.lua",
   "libs/LibKa0s/OptionsNav.lua",
   -- New in v1.73.0: O.Drawer (OptionsDrawer 1), an eleventh file of LibKa0s-Options-1.0. No page
@@ -1380,7 +1388,7 @@ test("v1.108.0: the vendored minors and the kit revision match the release", fun
   local charts, callout = modules("LibKa0s-Charts-1.0"), modules("LibKa0s-Callout-1.0")
   local arrow = modules("LibKa0s-WaypointArrow-1.0")
   assertEqual(modules("LibKa0s-Core-1.0").Core, 19)
-  assertEqual(callout.Callout, 5)
+  assertTrue(callout.Callout >= 5) -- 6 since v1.109.0, pinned there
   assertEqual(callout.CalloutSettings, 6)
   assertEqual(arrow.WaypointArrow, 3)
   assertEqual(arrow.WaypointArrowSettings, 3)
@@ -1388,13 +1396,36 @@ test("v1.108.0: the vendored minors and the kit revision match the release", fun
   assertEqual(charts.ChartsRender, 2)
   assertEqual(skin.SkinPaint, 20)
   assertEqual(skin.SkinPaintHud, 2)
-  assertEqual(skin.SkinPaintControls, 19)
+  assertTrue(skin.SkinPaintControls >= 19) -- 20 since v1.109.0, pinned there
   assertEqual(widgets.Widgets, 30)
   assertEqual(widgets.WidgetsDropdown, 3)
   assertEqual(widgets.WidgetsDragHandle, 16)
   assertEqual(widgets.WidgetsDragHandleTip, 3)
   assertEqual(widgets.WidgetsLineChart, 8)
   assertEqual(widgets.WidgetsBar, 2)
-  assertEqual(modules("LibKa0s-Options-1.0").OptionsCompose, 20)
-  assertEqual(T.KIT_VERSION, 58)
+  assertTrue(modules("LibKa0s-Options-1.0").OptionsCompose >= 20) -- 21 since v1.109.0, pinned there
+  assertTrue(T.KIT_VERSION >= 58) -- 59 since v1.109.0, pinned there
+end)
+
+test("v1.109.0: the vendored minors and the kit revision match the release", function()
+  -- The layout-§1 peels (Ka0sAddonsCommonTasks docs/2026-11-21-SYNC_FOLLOWUPS): CalloutRoute and
+  -- CalloutSound out of Callout.lua (Callout 6), SkinPaintNav out of SkinPaintControls.lua
+  -- (SkinPaintControls 20), OptionsComposeMaster out of OptionsCompose.lua (OptionsCompose 21), and
+  -- test kit revision 59. This addon calls none of the peeled members directly; the pins say which
+  -- payload it carries.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.109.0")
+    return lib.MODULES
+  end
+  local callout, skin = modules("LibKa0s-Callout-1.0"), modules("LibKa0s-Skin-1.0")
+  local options = modules("LibKa0s-Options-1.0")
+  assertEqual(callout.Callout, 6)
+  assertEqual(callout.CalloutRoute, 1)
+  assertEqual(callout.CalloutSound, 1)
+  assertEqual(skin.SkinPaintControls, 20)
+  assertEqual(skin.SkinPaintNav, 1)
+  assertEqual(options.OptionsCompose, 21)
+  assertEqual(options.OptionsComposeMaster, 1)
+  assertEqual(T.KIT_VERSION, 59)
 end)
