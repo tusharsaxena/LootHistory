@@ -2000,7 +2000,8 @@ for 1 to 4, a LibKa0s patch release. Result: pass (owner-marked 2026-10-10)
    against the flat skin.
 7. `date("*t", ts)` and `time{...}` give local midnight across a daylight-saving change (EU
    2026-10-25, US 2026-11-01): Timeline day labels stay on midnight and no day repeats or vanishes.
-8. `GameTooltip:AddDoubleLine` renders `GetCoinTextureString` coin markup on the right side.
+8. `GameTooltip:AddDoubleLine` renders `C_CurrencyInfo.GetCoinTextureString` coin markup on the right side
+   (on Retail and on WoW Forever: money shows coin glyphs, never "Ng Ns Nc" text).
 9. `StaticPopup_Show(name, text1, text2, data)` hands `data` to `OnAccept(self, data)` on 12.1.
 10. `RAID_CLASS_COLORS[classFile]` still carries `r, g, b` for every class, Evoker included.
 

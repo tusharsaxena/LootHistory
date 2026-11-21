@@ -257,7 +257,7 @@ do
   end)
 
   test("Util: ParseRollWon matches the player's roll-won line, else nil", function()
-    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    local won = T.rollWonLine(LINK)
     assertEqual(NS.Util.ParseRollWon(won), LINK)
     -- A normal receive line is not a roll-won line.
     assertEqual(NS.Util.ParseRollWon(string.format(T.mocks.LOOT_ITEM_SELF, LINK)), nil)
@@ -338,12 +338,35 @@ do
   end)
 
   test("Util: LOOT_ROLL_YOU_WON appearing after a nil first parse is honored", function()
-    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    local won = T.rollWonLine(LINK)
     withGlobal("LOOT_ROLL_YOU_WON", nil, function()
       NS.Util.RollWonPattern()                       -- caches false: the global is absent
       assertEqual(NS.Util.ParseRollWon(won), nil)
     end)
     assertEqual(NS.Util.ParseRollWon(won), LINK)     -- the cached false must not survive
+  end)
+
+  -- WoW Forever's LOOT_ROLL_YOU_WON leads with a loot-history id: "|HlootHistory:%d|h[Loot]|h: You
+  -- won: %s". The parse answers the %s capture (the item link), never the id the %d captures first.
+  local FOREVER_ROLL_WON = "|HlootHistory:%d|h[Loot]|h: You won: %s"
+
+  test("Util: the mock's LOOT_ROLL_YOU_WON is the running client's own string", function()
+    assertEqual(T.mocks.LOOT_ROLL_YOU_WON, T.forever and FOREVER_ROLL_WON or "You won: %s")
+  end)
+
+  test("Util: ParseRollWon answers the link, not the loot-history id, on a %d-led global", function()
+    withGlobal("LOOT_ROLL_YOU_WON", FOREVER_ROLL_WON, function()
+      assertEqual(NS.Util.ParseRollWon("|HlootHistory:42|h[Loot]|h: You won: " .. LINK), LINK)
+      assertEqual(NS.Util.ParseRollWon("You won: " .. LINK), nil, "the Retail shape is not this client's")
+    end)
+    -- And back on the running client's own global, its own line still answers the link.
+    assertEqual(NS.Util.ParseRollWon(T.rollWonLine(LINK, 3)), LINK)
+  end)
+
+  test("Util: ParseRollWon answers nil when the global carries no %s at all", function()
+    withGlobal("LOOT_ROLL_YOU_WON", "You won roll %d", function()
+      assertEqual(NS.Util.ParseRollWon("You won roll 5"), nil)
+    end)
   end)
 
   test("Util: an unchanged global set does not rebuild", function()
@@ -355,7 +378,7 @@ do
     U.RollWonPattern = function(...) builds.roll = builds.roll + 1; return origRoll(...) end
     local loot = string.format(T.mocks.LOOT_ITEM_SELF, LINK)
     local curr = string.format(T.mocks.CURRENCY_GAINED, CURR)
-    local won = string.format(T.mocks.LOOT_ROLL_YOU_WON, LINK)
+    local won = T.rollWonLine(LINK)
     local ok, err = pcall(function()
       -- A change rebuilds exactly once, then the unchanged set is reused.
       withGlobal("LOOT_ITEM_SELF", "Got: %s", function()
@@ -397,6 +420,56 @@ test("Util: FormatMoney shows non-zero parts", function()
   assertEqual(NS.Util.FormatMoney(120), "1s 20c")
   assertEqual(NS.Util.FormatMoney(10000), "1g")
   assertEqual(NS.Util.FormatMoney(123456), "12g 34s 56c")
+end)
+
+-- Money text (R8, both clients): C_CurrencyInfo.GetCoinTextureString first, then GetMoneyString,
+-- then the plain text. The bare GetCoinTextureString global is never read (WoW Forever has none).
+-- BankLedger's BL-08 shape. The loader env resolves T.mocks before _G, so the swap goes through it.
+local function withMoneyApis(apis, fn)
+  local m = T.mocks
+  local saved = { m.C_CurrencyInfo, m.GetMoneyString, m.GetCoinTextureString }
+  local currency = setmetatable(apis.currency or {}, { __index = saved[1] })
+  m.C_CurrencyInfo, m.GetMoneyString, m.GetCoinTextureString = currency, apis.moneyString, apis.bare
+  local ok, err = pcall(fn)
+  m.C_CurrencyInfo, m.GetMoneyString, m.GetCoinTextureString = saved[1], saved[2], saved[3]
+  if not ok then error(err, 0) end
+end
+
+test("Util: FormatMoney prefers C_CurrencyInfo.GetCoinTextureString and passes the glyph height", function()
+  local calls = {}
+  withMoneyApis({
+    currency = { GetCoinTextureString = function(...) calls[#calls + 1] = { n = select("#", ...), ... }
+      return "coins" end },
+    moneyString = function() return "money" end,
+    bare = function() return "bare" end,
+  }, function()
+    assertEqual(NS.Util.FormatMoney(10203, 12), "coins")
+    assertEqual(NS.Util.FormatMoney(10203), "coins")
+    assertEqual(NS.Util.FormatMoney(0, 12), "")
+  end)
+  assertEqual(#calls, 2)
+  assertEqual(calls[1][1], 10203)
+  assertEqual(calls[1][2], 12)
+  -- No height: the API's own default (14) applies, so the argument is left out, not passed as nil.
+  assertEqual(calls[2].n, 1)
+end)
+
+test("Util: FormatMoney falls back to GetMoneyString when C_CurrencyInfo has no coin string", function()
+  local got
+  withMoneyApis({
+    currency = { GetCoinTextureString = false },
+    moneyString = function(copper) got = copper; return "money" end,
+    bare = function() return "bare" end,
+  }, function()
+    assertEqual(NS.Util.FormatMoney(10203, 12), "money")
+  end)
+  assertEqual(got, 10203)
+end)
+
+test("Util: FormatMoney never reads the bare GetCoinTextureString global", function()
+  withMoneyApis({ currency = { GetCoinTextureString = false }, bare = function() return "bare" end }, function()
+    assertEqual(NS.Util.FormatMoney(10203), "1g 2s 3c")
+  end)
 end)
 
 test("Util: FormatBytes scales B / kB / MB", function()

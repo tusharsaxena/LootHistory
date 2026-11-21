@@ -302,7 +302,7 @@ test("Collector: a roll-won line writes no record but stamps ROLL for the receiv
 
   local before = NS.Database:Count()
   -- 1) The roll-won announcement itself records nothing.
-  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ROLL_YOU_WON, LINK))
+  NS.Collector:OnChatMsgLoot(nil, T.rollWonLine(LINK))
   assertEqual(NS.Database:Count(), before)
 
   -- 2) The item's own receive line arrives next and consumes the ROLL context.

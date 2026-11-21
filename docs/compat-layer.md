@@ -139,7 +139,9 @@ is sorted, and asserts `NS.SimSeam:Unwrapped()` is empty once the whole addon ha
 - `Util.PlayerKey` / `Util.QualifyName` (`UnitName`, the realm): the simulated player is the real player.
 - `time()`, `GetTime()`, `date()`: a simulation runs on the real clock, so TTLs and holds behave as they
   do live, and the test kit's clock drives them headless.
-- `CreateFrame`, atlases, `GetCoinTextureString`, the `core/ItemSetup.lua` cache warm-up and
+- `CreateFrame`, atlases, the money text (`Util.FormatMoney`: `C_CurrencyInfo.GetCoinTextureString`, then
+  `GetMoneyString`, then plain text, the same order on both clients; the bare `GetCoinTextureString`
+  global is never read, since WoW Forever has none), the `core/ItemSetup.lua` cache warm-up and
   `core/EnvSetup.lua`'s TOC metadata: none of them is an answer a simulated loot run changes.
 
 ## Third-party pricing addons stay out of Compat

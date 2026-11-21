@@ -96,7 +96,7 @@ Total.
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 - ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
-### test_util.lua (52)
+### test_util.lua (58)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -131,10 +131,16 @@ Total.
 - Util: a rewritten LOOT_ITEM_SELF is honored on the next parse without a reload
 - Util: a rewritten CURRENCY_GAINED_MULTIPLE is honored
 - Util: LOOT_ROLL_YOU_WON appearing after a nil first parse is honored
+- Util: the mock's LOOT_ROLL_YOU_WON is the running client's own string
+- Util: ParseRollWon answers the link, not the loot-history id, on a %d-led global
+- Util: ParseRollWon answers nil when the global carries no %s at all
 - Util: an unchanged global set does not rebuild
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
+- Util: FormatMoney prefers C_CurrencyInfo.GetCoinTextureString and passes the glyph height
+- Util: FormatMoney falls back to GetMoneyString when C_CurrencyInfo has no coin string
+- Util: FormatMoney never reads the bare GetCoinTextureString global
 - Util: FormatBytes scales B / kB / MB
 - Database: InitDB creates the account-wide store and the Default profile
 - Schema: Set writes through the single seam
@@ -2414,7 +2420,7 @@ Total.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
-| test_util.lua | 52 |
+| test_util.lua | 58 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 79 |
@@ -2507,4 +2513,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2105** |
+| **Total** | **2111** |

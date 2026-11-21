@@ -149,11 +149,21 @@ function D.LootLine(key, qty, form)
   return chat("CHAT_MSG_LOOT", D.LootText(World.Link(World.Spec(w, key)), qty or 1, form))
 end
 
+--- The client's own roll-won line for `link`. Retail's LOOT_ROLL_YOU_WON is "You won: %s"; WoW
+--- Forever's leads with a loot-history id, "|HlootHistory:%d|h[Loot]|h: You won: %s", so a plain
+--- :format(link) would raise there. Each %d takes `id` (1 by default), each %s the link, in order.
+function D.RollWonText(link, id)
+  return (LOOT_ROLL_YOU_WON:gsub("%%([sd%%])", function(c)
+    if c == "s" then return link elseif c == "d" then return tostring(id or 1) end
+    return "%"
+  end))
+end
+
 --- "You won: <item>": the roll result only; the item follows on its own loot line (D.Loot).
 function D.RollWon(key)
   local w = world()
   if not w then return 0 end
-  return chat("CHAT_MSG_LOOT", LOOT_ROLL_YOU_WON:format(World.Link(World.Spec(w, key))))
+  return chat("CHAT_MSG_LOOT", D.RollWonText(World.Link(World.Spec(w, key))))
 end
 
 --- `qty` of currency `id`: the world's balance first, then CHAT_MSG_CURRENCY and

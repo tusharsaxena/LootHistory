@@ -70,15 +70,24 @@ function Util.RangeFrom(range)
   return nil
 end
 
--- Format a copper amount for display. In-game uses gold/silver/copper coin icon glyphs
--- (GetCoinTextureString); headless falls back to "Ng Ns Nc" (only non-zero parts).
--- "" for nil/0. Shared by the Vendor column and any future currency columns.
+-- Format a copper amount for display, with the gold/silver/copper coin glyphs in game. "" for nil/0.
+-- Shared by the Vendor column and any future currency columns. The order is the same on Retail and
+-- WoW Forever (the port's R8): C_CurrencyInfo.GetCoinTextureString, the documented API on both
+-- clients (it takes the glyph height); then GetMoneyString, the SharedXML helper both clients ship
+-- (WoW Forever has no bare GetCoinTextureString global, which is never read); then "Ng Ns Nc" text
+-- with only the non-zero parts, which is also what the headless suite sees. BankLedger's shape.
 function Util.FormatMoney(copper, coinHeight)
   copper = copper or 0
   if copper <= 0 then return "" end
-  if GetCoinTextureString then
-    -- coinHeight (optional) sizes the gold/silver/copper icon glyphs; nil = client default.
-    return GetCoinTextureString(copper, coinHeight)
+  local currency = C_CurrencyInfo
+  if currency and currency.GetCoinTextureString then
+    -- coinHeight (optional) sizes the glyphs; without it the argument is left out, so the API's
+    -- own default (14) applies rather than a nil it may refuse.
+    if coinHeight then return currency.GetCoinTextureString(copper, coinHeight) end
+    return currency.GetCoinTextureString(copper)
+  end
+  if GetMoneyString then
+    return GetMoneyString(copper)
   end
   local g = math.floor(copper / 10000)
   local s = math.floor((copper % 10000) / 100)
@@ -224,20 +233,40 @@ end
 -- so that imminent receive line attributes to the roll rather than inheriting a stale kill/container
 -- stamp. Compiled once per distinct LOOT_ROLL_YOU_WON, like the self-loot patterns (false = the
 -- global string is absent; a false cached while it was absent is rebuilt once it appears).
-local rollWonPattern, rollWonSource
+--
+-- The link is the global's %s capture, which is not always the first: WoW Forever's string leads
+-- with a loot-history hyperlink, "|HlootHistory:%d|h[Loot]|h: You won: %s" (forever-quirks), and
+-- toLootPattern turns that %d into capture 1. So the compile also records which capture the %s is.
+
+-- The 1-based position of the first %s among the format's %s/%d specifiers (the captures
+-- toLootPattern makes, in order), or nil when there is none. A "%%" is a literal and captures nothing.
+local function linkCaptureIndex(fmt)
+  local n = 0
+  for spec in fmt:gmatch("%%(.)") do
+    if spec == "s" or spec == "d" then
+      n = n + 1
+      if spec == "s" then return n end
+    end
+  end
+  return nil
+end
+
+local rollWonPattern, rollWonSource, rollWonLink
 function Util.RollWonPattern()
   rollWonSource = LOOT_ROLL_YOU_WON
-  rollWonPattern = rollWonSource and toLootPattern(rollWonSource) or false
+  rollWonLink = rollWonSource and linkCaptureIndex(rollWonSource)
+  rollWonPattern = rollWonLink and toLootPattern(rollWonSource) or false
   return rollWonPattern
 end
 
--- Returns the item link if `msg` is the player's own roll-won line, else nil.
+-- Returns the item link if `msg` is the player's own roll-won line, else nil. The captures are read
+-- through select, so the hit path builds no table (CHAT_MSG_LOOT is a combat-path event).
 function Util.ParseRollWon(msg)
   if not msg then return nil end
   local pat = rollWonPattern
   if pat == nil or not rawequal(rollWonSource, LOOT_ROLL_YOU_WON) then pat = Util.RollWonPattern() end
   if not pat then return nil end
-  return msg:match(pat)
+  return (select(rollWonLink, msg:match(pat)))
 end
 
 -- Self-currency patterns, from the CHAT_MSG_CURRENCY global strings. Quantity-bearing variants

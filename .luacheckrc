@@ -31,7 +31,7 @@ read_globals = {
   -- core/CompatClient.lua's library-absent stubs only (clients-§3; tests/test_compat_routing.lua)
   "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CAMELOT", "RegionalUniqueNamesEnabled", "issecretvalue",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",
-  "GameFontHighlightSmall", "GetCoinTextureString", "BreakUpLargeNumbers",
+  "GameFontHighlightSmall", "GetMoneyString", "BreakUpLargeNumbers",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_CurrencyInfo",

@@ -317,6 +317,16 @@ end
 -- Retail, which runs it (DropWatcher's tests/run.lua precedent).
 local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1/R2): absent on WoW Forever, "
   .. "which its per-client case asserts" or nil
+-- `rollWonLine(link, id)` is the client's own roll-won chat line (LOOT_ROLL_YOU_WON) for `link`.
+-- Retail's global is "You won: %s"; WoW Forever's leads with a loot-history id,
+-- "|HlootHistory:%d|h[Loot]|h: You won: %s" (forever-quirks), so a plain string.format(global, link)
+-- raises there. Each %d takes `id` (7 by default), each %s the link, in the global's own order.
+local function rollWonLine(link, id)
+  return (mocks.LOOT_ROLL_YOU_WON:gsub("%%([sd%%])", function(c)
+    if c == "s" then return link elseif c == "d" then return tostring(id or 7) end
+    return "%"
+  end))
+end
 -- `retailWords(fn)` wraps a case so it runs with Retail's words for the account (the WoW Forever
 -- port's R2: "Warband" / "Warbound" on Retail, "Account" / "Account Bound" on WoW Forever), then puts
 -- the client's back. The golden snapshots (tests/analytics_golden.txt, tests/export_golden.txt) were
@@ -363,7 +373,7 @@ _G.LH_TEST = Kit.expose{
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
   forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
-  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords,
+  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords, rollWonLine = rollWonLine,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

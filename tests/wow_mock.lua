@@ -162,8 +162,10 @@ return function()
   M.LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
   M.LOOT_ITEM_REFUND = "You are refunded: %s."
   M.LOOT_ITEM_REFUND_MULTIPLE = "You are refunded: %sx%d."
-  -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context.
-  M.LOOT_ROLL_YOU_WON = "You won: %s"
+  -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context. WoW Forever's
+  -- leads with a loot-history hyperlink whose %d comes BEFORE the item's %s (the kit's Forever
+  -- GlobalStrings, gs_forever.lua:13940; Retail's is gs_live.lua:13445).
+  M.LOOT_ROLL_YOU_WON = FOREVER and "|HlootHistory:%d|h[Loot]|h: You won: %s" or "You won: %s"
   -- Currency gain strings (CHAT_MSG_CURRENCY). Single has no qty; multiples carry xN, and the
   -- bonus/overflow variants append a parenthetical (the overflow one embeds a second %s = the
   -- currency name, which the parser ignores).
