@@ -201,6 +201,8 @@ local FILTERBAR_H, FILTER_GAP = 46, 8
 
 function B:Tabs() local out = {}; for i, n in ipairs(tabOrder) do out[i] = n end; return out end
 function B:ActiveTab() return lastTab end
+-- A registered tab's spec (nil for none): how modules/BrowserViews.lua reads the registry this file owns.
+function B._tabSpec(name) return tabSpecs[name] end
 
 -- Lazily let the owning module build its pane content the first time it's shown.
 local function BuildPane(name)
@@ -304,7 +306,7 @@ local function setHonored(ctl, on)
 end
 
 function B:ApplyTabFilters(name)
-  local spec = tabSpecs[name]
+  local spec = B._tabSpec(name)
   for key, ctl in pairs(self._dd or {}) do setHonored(ctl, B._filterHonored(spec, key)) end
   setHonored(self._search, B._filterHonored(spec, "search"))
   setHonored(self._exportBtn, B._filterHonored(spec, "export"))
@@ -320,7 +322,7 @@ end
 -- only those modes and shows that tab's value while the tab is active, and a pick goes to the tab.
 -- A spec with none of that (History, Insights) drives the History table's groupBy, as always.
 function B:SetGroup(mode)
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   if spec and spec.setGroup then return spec.setGroup(mode) end
   if NS.BrowserTable then NS.BrowserTable:SetGroupBy(mode) end
 end
@@ -330,7 +332,7 @@ end
 function B:SyncGroupControl()
   local dd = self._dd and self._dd.group
   if not dd then return end
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   dd:SetOptions(B._groupOptionsFor(spec))
   local mode = (spec and spec.group) and spec.group() or (NS.BrowserTable and NS.BrowserTable.groupBy)
   dd:SelectValue(mode or "none")
@@ -342,13 +344,13 @@ end
 -- and `pick(item)`. A tab with no `suggest` offers nothing, and a tab whose Search is grayed offers
 -- nothing either -- its box takes no input, so a list could only be stale.
 function B:Suggest(text)
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   if not (spec and spec.suggest and B._filterHonored(spec, "search")) then return nil end
   return spec.suggest(text)
 end
 
 function B:PickSuggestion(item)
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   if spec and spec.pick and item then spec.pick(item) end
 end
 
@@ -445,7 +447,7 @@ local STOCK_VIEW = {
 -- A tab's stock view: STOCK_VIEW itself, or a copy with the tab spec's `stock` fields laid over it
 -- (Holdings sorts by name, not date).
 local function stockView(tab)
-  local spec = tabSpecs[tab or lastTab]
+  local spec = B._tabSpec(tab or B:ActiveTab())
   local extra = spec and spec.stock
   if not extra then return STOCK_VIEW end
   local v = {}
@@ -456,7 +458,7 @@ end
 
 -- A tab's saved view (the active tab's by default), or its stock view when it has none.
 local function savedViewOrStock(tab)
-  tab = tab or lastTab
+  tab = tab or B:ActiveTab()
   local all = NS.db and NS.db.profile and NS.db.profile.savedViews
   local v = type(all) == "table" and all[tab]
   if type(v) == "table" then return v end
@@ -536,9 +538,10 @@ local switching = false
 local function ApplyFilter()
   if NS.BrowserTable then NS.BrowserTable:SetFilter(B.activeFilter) end
   B:UpdateFooter()
-  local s = tabSpecs[lastTab]
-  if switching or lastTab == "History" then return end
-  if s and s.refresh and frame and frame.panes[lastTab]._built then s.refresh() end
+  local tab, win = B:ActiveTab(), B:GetWindow()
+  local s = B._tabSpec(tab)
+  if switching or tab == "History" then return end
+  if s and s.refresh and win and win.panes[tab]._built then s.refresh() end
 end
 B._applyFilter = ApplyFilter   -- the filter bar's controls (modules/BrowserFilterBar.lua) push through it
 
@@ -567,7 +570,7 @@ end
 
 -- Park `tab`'s state as the bar holds it now (the tab is still the active one).
 function B._stashLive(tab)
-  if not (frame and tabSpecs[tab]) then return end
+  if not (B:GetWindow() and B._tabSpec(tab)) then return end
   live[tab] = { view = B:CaptureView(), char = setToFilter(B.activeFilter and B.activeFilter.char) or {} }
 end
 
@@ -604,7 +607,7 @@ end
 -- for `tab` naming another tab, that tab's own parked state. Shares the exact field shape
 -- Database:QueryList consumes (quality/source/itemType/itemSubType/zone/bound/char/from/text).
 function B:CurrentFilter(tab)
-  if tab and tab ~= lastTab then return parkedFilter(tab) end
+  if tab and tab ~= B:ActiveTab() then return parkedFilter(tab) end
   local out = {}
   for k, v in pairs(self.activeFilter or {}) do out[k] = v end
   return out
@@ -624,7 +627,7 @@ end
 function B:SetViewField(k, v, tab)
   local p = NS.db and NS.db.profile
   if not p then return end
-  tab = tab or lastTab
+  tab = tab or B:ActiveTab()
   if type(p.savedViews) ~= "table" then p.savedViews = {} end
   if type(p.savedViews[tab]) ~= "table" then
     local copy = {}
@@ -643,7 +646,7 @@ function B:ShowTimeline(key)
   self:Show()
   self:SelectTab("Timeline")
   local d = key and NS.Holdings and NS.Holdings.Describe and NS.Holdings:Describe(key)
-  if lastTab == "Timeline" and d and d.name then self:SetSearchText(d.name) end
+  if B:ActiveTab() == "Timeline" and d and d.name then self:SetSearchText(d.name) end
 end
 
 -- True while a simulation runs (modules/Sim.lua's NS.Sim, or its inert stub without the library).
@@ -701,7 +704,7 @@ end
 function B:OnDatasetChanged()
   self:RefreshFilterOptions()
   live = {}
-  self:ApplyView(initialFor(lastTab))
+  self:ApplyView(initialFor(B:ActiveTab()))
   self:UpdateFooter()
   self:UpdateDbSize()
   self:UpdateTestStrip()
@@ -810,7 +813,7 @@ function B:CaptureView()
   captureFilters(dd, v)
   v.date   = (dd and dd.date._value) or "all"
   v.search = (self._search and self._search:GetText()) or ""
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   if spec and spec.captureView then spec.captureView(v) end
   return v
 end
@@ -854,9 +857,9 @@ end
 -- Apply a view to the ACTIVE tab. A tab spec with `applyView` owns its group and sort (Holdings);
 -- every other tab's go onto the History table, as they always did.
 function B:ApplyView(view, scope)
-  view = view or stockView(lastTab)
+  view = view or stockView(B:ActiveTab())
   self.activeFilter = {}
-  local spec = tabSpecs[lastTab]
+  local spec = B._tabSpec(B:ActiveTab())
   if spec and spec.applyView then spec.applyView(view) else applyTableState(view) end
   local dd = self._dd
   if dd then applyDropdowns(dd, view); self:SyncGroupControl() end   -- a tab with its own group keeps it
@@ -891,8 +894,8 @@ function B:SaveView()
   end
   local p = NS.db.profile
   if type(p.savedViews) ~= "table" then p.savedViews = {} end
-  p.savedViews[lastTab] = self:CaptureView()
-  NS.Format("%s view saved as default.", lastTab)
+  p.savedViews[B:ActiveTab()] = self:CaptureView()
+  NS.Format("%s view saved as default.", B:ActiveTab())
 end
 
 -- `silent` suppresses the chat line when called programmatically; the filter-bar Reset button
@@ -901,12 +904,12 @@ function B:ResetView(silent)
   local p = NS.db and NS.db.profile
   local testMode = NS.BrowserTable and NS.BrowserTable.testMode
   if p and not testMode and type(p.savedViews) == "table" then
-    p.savedViews[lastTab] = nil
+    p.savedViews[B:ActiveTab()] = nil
     if next(p.savedViews) == nil then p.savedViews = nil end
   end
-  self:ApplyView(stockView(lastTab), testMode and "all" or "current")
+  self:ApplyView(stockView(B:ActiveTab()), testMode and "all" or "current")
   if not silent then
-    NS.Format("%s view reset to stock defaults.", lastTab)
+    NS.Format("%s view reset to stock defaults.", B:ActiveTab())
   end
 end
 
@@ -935,8 +938,8 @@ function B:AdoptProfile()
   frame:ClearAllPoints()
   RestoreWindow()
   if not (NS.BrowserTable and NS.BrowserTable.testMode) then
-    live = {}
-    self:ApplyView(savedViewOrStock(), "current")
+    B._forgetLive()
+    self:ApplyView(B._savedViewOrStock(), "current")
   end
   if NS.BrowserTable and NS.BrowserTable.Bind then NS.BrowserTable:Bind() end
   B:ApplyChrome(frame, NS.db.profile.settings.windowScale)
@@ -948,15 +951,15 @@ end
 -- none; the saved slot is kept), and the player scope to "current player" (every character in
 -- test mode). See SaveView above.
 function B:ClearFilters()
-  self:ApplyView(initialFor(lastTab))
+  self:ApplyView(initialFor(B:ActiveTab()))
 end
 
 -- Route the Export button to the active tab's modal (issue #15), titled after the tab ("Export
 -- Insights"). A spec carrying `export` owns its modal (Insights: the analytics summary off the SAME
 -- shared filter); every other tab gets the default below, the History loot rows.
 function B:OpenExport()
-  local title = "Export " .. tostring(lastTab)
-  local s = tabSpecs[lastTab]
+  local title = "Export " .. tostring(B:ActiveTab())
+  local s = B._tabSpec(B:ActiveTab())
   if s and s.export then return s.export(title) end
   NS.Export:Open({ title = title,
     providers = { allData = function() return NS.Database:Export({}) end,
@@ -1170,7 +1173,7 @@ local function EnsureFrame()
   B._minW = minW
   frame:SetWidth(minW)
   B:RefreshFilterOptions()
-  B:ApplyView(savedViewOrStock(), "current")
+  B:ApplyView(B._savedViewOrStock(), "current")
   B:UpdateDbSize()
 
   -- Resize grip, bottom-right: Core.MakeResizable through the seam (#33). The library draws the
@@ -1397,9 +1400,9 @@ function B:OnSettingsChanged()
   -- every unrelated chrome message would be a second writer of one state (launcher-§3).
   -- The minimum-quality floor follows the setting live while the window is up.
   if frame and frame:IsShown() and B.activeFilter then
-    applyQualityFloor(B.activeFilter)
+    B._applyQualityFloor(B.activeFilter)
     if B._dd and B._dd.quality then B._dd.quality:SetOptions(qualityOptions()) end
-    ApplyFilter()
+    B._applyFilter()
   end
 end
 
