@@ -90,7 +90,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Compat-1.0", 4
+local MAJOR, MINOR = "LibKa0s-Compat-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -380,7 +380,7 @@ end
 -- -- character identity (minor 4) ----------------------------------------------------------------
 --
 -- The owner's ruling of 2026-11-08 (Ka0sAddonsCommonTasks docs/2026-11-07-WOW_FOREVER_PORT_STEP5/
--- W1_FOREVER_NAME_PROBE.md; standard client-quirks-§5): where names are unique per region (WoW
+-- W1_FOREVER_NAME_PROBE.md; standard forever-quirks-§4): where names are unique per region (WoW
 -- Forever, `RegionalUniqueNamesEnabled()` true), a character is its first name and surname together
 -- and its realm is its ruleset. UnitName answers the SURNAME as its second value there, where Retail
 -- answers the realm. These four mirror AceDB-3.0 minor 40's key block exactly, so an addon's own keys

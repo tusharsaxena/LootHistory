@@ -1329,7 +1329,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   local debugLog, options = modules("LibKa0s-DebugLog-1.0"), modules("LibKa0s-Options-1.0")
   local sim, browser = modules("LibKa0s-Sim-1.0"), modules("LibKa0s-IconBrowser-1.0")
   assertTrue(modules("LibKa0s-Core-1.0").Core >= 18) -- 19 since v1.108.0, pinned there
-  assertEqual(modules("LibKa0s-Compat-1.0").Compat, 4)
+  assertEqual(modules("LibKa0s-Compat-1.0").Compat, 5)
   assertTrue(modules("LibKa0s-Charts-1.0").Charts >= 2) -- 3 since v1.108.0, pinned there
   assertEqual(modules("LibKa0s-Media-1.0").Media, 13)
   assertEqual(modules("LibKa0s-Launcher-1.0").Launcher, 11)
@@ -1355,7 +1355,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(options.OptionsSkinPickerQueue, 1)
   assertEqual(browser.IconBrowserWindow, 2)
   assertEqual(browser.IconBrowser, 2)
-  assertEqual(sim.Sim, 3)
+  assertEqual(sim.Sim, 4)
   assertEqual(sim.SimPanel, 11)
   assertEqual(sim.SimPanelRender, 4)
   assertTrue(T.KIT_VERSION >= 57) -- 58 since v1.108.0, pinned there
