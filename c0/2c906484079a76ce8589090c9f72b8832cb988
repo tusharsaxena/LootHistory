@@ -1,0 +1,1 @@
+FU-RV independent review (rv-c, 2026-11-21): payload/kit match LibKa0s v1.109.0 (media pruned per declaration), provenance v1.109.0, re-pins/load lists correct, midnight-quirks block byte-matches client-quirks v2.117.0, forever-quirks Not applicable doc-map row, no broken citations, line endings preserved, gates green. No findings.
