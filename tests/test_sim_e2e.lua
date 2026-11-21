@@ -105,9 +105,24 @@ local EXPECT_NO_LEDGER = {
   },
 }
 
+-- The pins above name Retail's fixture ids; every scenario plays the same steps on both clients, so
+-- on WoW Forever each id reads as that client's item or currency of the same fixture key (LH-05,
+-- modules/SimWorld.lua and modules/SimScenario.lua's per-client sets). The identity on Retail.
+local RETAIL_IDS = { herb = 236761, ore = 237359, trinket = 273796, cache = 279287, junk = 4865,
+  dust = 219946, potion = 211880 }
+local CLIENT_ID = {}
+for key, id in pairs(RETAIL_IDS) do CLIENT_ID[id] = (World.ITEMS[key] or Host.SCENARIO_ITEMS[key]).id end
+CLIENT_ID[3444], CLIENT_ID[3316] = World.FIXTURE.currencies[1][1], World.FIXTURE.currencies[2][1]
+
+local function forClient(line)
+  return (line:gsub("(%u+):(%d+)", function(kind, id)
+    return kind .. ":" .. (CLIENT_ID[tonumber(id)] or id)
+  end))
+end
+
 local function assertRows(rows, want, label)
   local exp = {}
-  for i, l in ipairs(want) do exp[i] = l end
+  for i, l in ipairs(want) do exp[i] = forClient(l) end
   table.sort(exp)
   assertEqual(table.concat(H.describeAll(rows), "\n"), table.concat(exp, "\n"), label .. ": the exact rows")
 end
@@ -180,6 +195,7 @@ local function assertBrowserShows(rows, label)
 end
 
 local function find(rows, line)
+  line = forClient(line)
   for _, r in ipairs(rows) do if H.describe(r) == line then return r end end
   error("no row " .. line, 2)
 end
@@ -193,7 +209,7 @@ local CHECKS = {
     for _, line in ipairs({ "IN ITEM:236761 x1 KILL @me", "IN ITEM:237359 x3 KILL @me", "IN GOLD x12345 KILL @me" }) do
       local r = find(rows, line)
       assertTrue(r.claimed, "loot: " .. line .. " is the chat row, claimed by its holdings delta")
-      assertEqual(r.sourceDetail and r.sourceDetail.npcID, 219000, "loot: " .. line .. " carries the npcID")
+      assertEqual(r.sourceDetail and r.sourceDetail.npcID, World.KILL_NPC.id, "loot: " .. line .. " carries the npcID")
     end
     assertEqual(find(rows, "IN ITEM:273796 x1 QUEST @me").sourceDetail.questID, 84000, "loot: the quest id")
   end,

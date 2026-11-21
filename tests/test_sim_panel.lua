@@ -114,7 +114,8 @@ test("sim panel: idle, the rows preview the picked scenario's steps with their c
     start("loot")
     Sim:Stop("stop")
     local r = Sim:PanelRows()
-    assertEqual(labels(r), "Start: Open world: kill, lockbox, quest|Kill: Rookery Bat|"
+    -- The kill is the client's own creature (LH-05: Retail's Rookery Bat, WoW Forever's Defias Thug).
+    assertEqual(labels(r), "Start: Open world: kill, lockbox, quest|Kill: " .. Host.World.KILL_NPC.name .. "|"
       .. "Lockbox: open " .. Host.World.ITEMS.cache.name .. "|Quest: turn in|Stop simulation")
     assertEqual(states(r), "ready,locked,locked,locked,locked")
     assertEqual(r[1].command, "/lh sim start loot")

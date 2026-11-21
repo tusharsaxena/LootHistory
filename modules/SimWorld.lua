@@ -22,7 +22,8 @@ local _, NS = ...
 --
 -- It is SEEDED, never mirrored: World.New reads no real bag, so a run is deterministic for its
 -- seed and never shows the player's own items inside a simulated history. The items and currencies
--- are real current-expansion (Midnight, 12.0.x) ids, so the live item reads (GetItemInfo,
+-- are real ids of the client running (Midnight, 12.0.x, on Retail; 1.x on WoW Forever, picked once
+-- by ClientKey(), clients-§5), so the live item reads (GetItemInfo,
 -- ScanBound, the AH price providers) answer for real; one fixture link carries bonus ids
 -- (Item.BonusIDsFromLink, LH-02's adoption) and one is the item least likely to be cached, whose
 -- rows fall back to the link's own name and color (Compat.GetItemInfo).
@@ -49,21 +50,54 @@ Host.World = World
 -- Item quality -> link color (ITEM_QUALITY_COLORS' hex, written out: the link is built here).
 local QUALITY_HEX = { [0] = "9d9d9d", "ffffff", "1eff00", "0070dd", "a335ee", "ff8000" }
 
---- The fixture's items, by key. Real Midnight (12.0.x) ids, taken from the owner's own captures:
---- `bonus` makes a link carry bonus ids; `uncached` marks the one the client is least likely to
---- have cached; `hasLoot` an openable one. `level` is the link's level field (the player's, 90).
-World.ITEMS = {
-  herb    = { id = 236761, name = "Tranquility Bloom", quality = 1, level = 90 },
-  ore     = { id = 237359, name = "Refulgent Copper Ore", quality = 1, level = 90 },
-  trinket = { id = 273796, name = "Vile Vial of Volatile Venom", quality = 4, level = 90,
-              bonus = { 12843, 13440, 6652, 12699 } },
-  cache   = { id = 279287, name = "Corroded Pouch", quality = 2, level = 90,
-              hasLoot = true, uncached = true },
-}
+-- The client, picked once at file load (clients-§5): the items, currencies, worn slot, situation
+-- and the kill below are each client's own.
+local CLIENT = NS.Compat.ClientKey() == "forever" and "forever" or "retail"
+Host.SIM_CLIENT = CLIENT
 
---- The default fixture. A scenario def may carry its own as `def.fixture`; `{ min, max }` pairs
---- are drawn from the session seed. Currencies are Champion Mistcrest (per character) and
---- Voidlight Marl (warband-wide); the situation is Silvermoon City.
+--- The fixture's items, by key, one set per client, the ids taken from the owner's own captures.
+--- Retail's are Midnight's (12.0.x), WoW Forever's 1.x's (its SavedVariables, 2026-11-22: there a
+--- link carries the one bonus id 3524). `bonus` makes a link carry bonus ids; `uncached` marks the
+--- one the client is least likely to have cached; `hasLoot` an openable one. `level` is the link's
+--- level field (the player's: 90 on Retail, 60 on Forever). `trinket` is the key of the epic piece
+--- the scenarios loot, disenchant and post, whatever slot it is worn in (FIXTURE.equipped).
+local ITEM_SETS = {
+  retail = {
+    herb    = { id = 236761, name = "Tranquility Bloom", quality = 1, level = 90 },
+    ore     = { id = 237359, name = "Refulgent Copper Ore", quality = 1, level = 90 },
+    trinket = { id = 273796, name = "Vile Vial of Volatile Venom", quality = 4, level = 90,
+                bonus = { 12843, 13440, 6652, 12699 } },
+    cache   = { id = 279287, name = "Corroded Pouch", quality = 2, level = 90,
+                hasLoot = true, uncached = true },
+  },
+  forever = {
+    herb    = { id = 2449, name = "Earthroot", quality = 1, level = 60 },
+    ore     = { id = 2770, name = "Copper Ore", quality = 1, level = 60 },
+    trinket = { id = 19149, name = "Lava Belt", quality = 4, level = 60, bonus = { 3524 } },
+    cache   = { id = 248683, name = "Waylaid Crate: Apprentice Ore", quality = 1, level = 60,
+                hasLoot = true, uncached = true },
+  },
+}
+World.ITEMS = ITEM_SETS[CLIENT]
+
+--- The default fixture, one per client. A scenario def may carry its own as `def.fixture`;
+--- `{ min, max }` pairs are drawn from the session seed. Retail's currencies are Champion Mistcrest
+--- (per character) and Voidlight Marl (warband-wide), its situation Silvermoon City; WoW Forever's
+--- are Honor Points and Merchant's Favor (the owner's own, both per character until a probe shows
+--- either is account-wide), its situation Stormwind City (uiMapID 1453, as the client reported it),
+--- and its epic is a belt, worn at the waist (slot 6).
+local FIXTURES = {
+  retail = {
+    equipped = { [13] = "trinket" },
+    currencies = { { 3444, 100, 400, false }, { 3316, 500, 1500, true } },
+    instance = { zone = "Silvermoon City", subzone = "The Bazaar", mapID = 2393 },
+  },
+  forever = {
+    equipped = { [6] = "trinket" },
+    currencies = { { 1792, 50, 400, false }, { 3402, 20, 200, false } },
+    instance = { zone = "Stormwind City", subzone = "Trade District", mapID = 1453 },
+  },
+}
 World.FIXTURE = {
   slots = { bags = 16, bank = 28, tabs = 98 },
   money = { 1500000, 2500000 },
@@ -71,10 +105,12 @@ World.FIXTURE = {
   bags = { { "herb", 5, 20 }, { "ore", 5, 20 }, { "cache", 1, 1 } },
   bank = { { "ore", 20, 40 } },
   tabs = { { "herb", 20, 60 } },
-  equipped = { [13] = "trinket" },
-  currencies = { { 3444, 100, 400, false }, { 3316, 500, 1500, true } },
-  instance = { zone = "Silvermoon City", subzone = "The Bazaar", mapID = 2393 },
 }
+for k, v in pairs(FIXTURES[CLIENT]) do World.FIXTURE[k] = v end
+
+--- The creature the loot scenario kills and `/lh sim loot` loots, per client. Illustrative: nothing
+--- resolves it live, it only rides into the rows' details (npcID) and the step's label.
+World.KILL_NPC = ({ retail = { id = 219000, name = "Rookery Bat" }, forever = { id = 38, name = "Defias Thug" } })[CLIENT]
 
 -- Park-Miller: exact in a double, so a seed answers the same sequence on every client.
 local function newRng(seed)

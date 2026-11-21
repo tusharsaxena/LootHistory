@@ -35,7 +35,9 @@ function S.new(T)
     return by
   end
 
-  local CLASS = { [211880] = 0 }   -- the potion is a consumable; every other fixture item is not
+  -- The potion is a consumable (Retail's Algari Healing Potion, WoW Forever's Major Healing Potion);
+  -- every other fixture item is not.
+  local CLASS = { [211880] = 0, [13446] = 0 }
 
   local function linkID(link)
     return tonumber(type(link) == "string" and (link:match("item:(%d+)")) or link)
@@ -61,6 +63,7 @@ function S.new(T)
     local names = {}
     for k, v in pairs(M.__currencyNames) do names[k] = v end
     names[3444], names[3316] = "Champion Mistcrest", "Voidlight Marl"
+    names[1792], names[3402] = "Honor Points", "Merchant's Favor"
     M.__currencyNames = names
     local ok, err = pcall(body)
     CI.GetItemInfoInstant, CI.GetItemInfo, M.__currencyNames, _G.AUCTION_HOUSE = saved[1], saved[2], saved[3],
@@ -189,7 +192,7 @@ function S.new(T)
   -- A holder key as the expectations write it: `me`, `alt` (the session's own alt) or `§warband`.
   local function who(key)
     if key == nil then return "nil" end
-    local me, alt = NS.Util.PlayerKey(), Host.alt or "Sampleblade-Samplerealm"
+    local me, alt = NS.Util.PlayerKey(), Host.alt or NS.SampleCharacters()[2].fullName
     local function lit(x) return (x:gsub("%p", "%%%0")) end
     return (tostring(key):gsub(lit(me), "me"):gsub(lit(alt), "alt"))
   end

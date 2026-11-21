@@ -41,15 +41,23 @@ Host.SCENARIOS = SC
 
 -- ── fixture ───────────────────────────────────────────────────────────────────────────────────
 
---- Items only the scenarios use, by key (World.Spec reads the world's own `items` first). `junk`
---- is a poor-quality drop below the default collection threshold; `dust` is an enchanting
---- material (The War Within's Storm Dust); `potion` a combat consumable (its Algari Healing
---- Potion). Real ids, so the live item reads answer for them.
-Host.SCENARIO_ITEMS = {
-  junk   = { id = 4865, name = "Ruined Pelt", quality = 0, level = 1 },
-  dust   = { id = 219946, name = "Storm Dust", quality = 1, level = 80 },
-  potion = { id = 211880, name = "Algari Healing Potion", quality = 1, level = 80 },
-}
+--- Items only the scenarios use, by key (World.Spec reads the world's own `items` first), one set
+--- per client (Host.SIM_CLIENT, picked once by modules/SimWorld.lua). `junk` is a poor-quality drop
+--- below the default collection threshold (Ruined Pelt, on both); `dust` is an enchanting material
+--- (The War Within's Storm Dust; 1.x's Strange Dust); `potion` a combat consumable (the Algari
+--- Healing Potion; the Major Healing Potion). Real ids, so the live item reads answer for them.
+Host.SCENARIO_ITEMS = ({
+  retail = {
+    junk   = { id = 4865, name = "Ruined Pelt", quality = 0, level = 1 },
+    dust   = { id = 219946, name = "Storm Dust", quality = 1, level = 80 },
+    potion = { id = 211880, name = "Algari Healing Potion", quality = 1, level = 80 },
+  },
+  forever = {
+    junk   = { id = 4865, name = "Ruined Pelt", quality = 0, level = 1 },
+    dust   = { id = 10940, name = "Strange Dust", quality = 1, level = 60 },
+    potion = { id = 13446, name = "Major Healing Potion", quality = 1, level = 60 },
+  },
+})[Host.SIM_CLIENT]
 
 -- The default fixture plus what the scenarios act on: a gear piece and dust in the bags (to
 -- disenchant, post and deposit) and potions to drink in combat.
@@ -71,8 +79,10 @@ local KEY = {
     { encounter = 2835, npc = 207939, name = "Baron Braunpyke" },
   },
 }
-local OPEN_WORLD = { party = false, keystone = false, zone = "Silvermoon City", subzone = "The Bazaar",
-  mapID = 2393 }
+-- The open world the scenarios leave a dungeon for: the fixture's own situation (Silvermoon City on
+-- Retail, Stormwind City on WoW Forever).
+local OPEN_WORLD = { party = false, keystone = false, zone = World.FIXTURE.instance.zone,
+  subzone = World.FIXTURE.instance.subzone, mapID = World.FIXTURE.instance.mapID }
 
 -- ── ops (play time: resolve keys against the world, then drive) ──────────────────────────────
 
@@ -243,7 +253,7 @@ end
 
 local CREST = World.FIXTURE.currencies[1][1]
 local B1, B2 = KEY.bosses[1], KEY.bosses[2]
-local NPC = { id = 219000, name = "Rookery Bat" }
+local NPC = World.KILL_NPC
 
 -- Each step: kind, label, tip (what it injects), calls.
 local function step(kind, label, tip, calls) return { kind = kind, label = label, tip = tip, calls = calls } end

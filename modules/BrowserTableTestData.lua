@@ -7,6 +7,13 @@ local _, NS = ...
 local BrowserTable = NS.BrowserTable
 local C = NS.Constants
 
+-- The client, picked once at file load (clients-§5): the classes, places, item names and item
+-- levels below are each client's own list, never a filtered Retail one. WoW Forever has nine classes
+-- (no Death Knight, Monk, Demon Hunter or Evoker), the Eastern Kingdoms and Kalimdor of 1.x, and
+-- items of level 60 and below. The PRNG draws the same values in the same order on both clients, so
+-- only what a draw picks differs.
+local CLIENT = NS.Compat.ClientKey() == "forever" and "forever" or "retail"
+
 -- Synthetic dataset for /lh test. A deliberately NON-uniform spread so the Insights charts read
 -- like real play: weighted-random sources/qualities/classes/zones/types/timestamps, a handful of
 -- "hot" items that drop often over a long tail, and keystone/hour peaks. A deterministic PRNG
@@ -20,19 +27,34 @@ local TEST_BINDINGS = {
   { key = "WARBAND",    name = "Warbound" },
   { key = "WARBAND_UE", name = "Warbound Until Equipped" },
 }
-local TEST_CLASSES = {
-  "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN",
-  "MAGE", "WARLOCK", "MONK", "DRUID", "DEMONHUNTER", "EVOKER",
-}
--- Midnight (12.0.x) zones — Quel'Thalas region.
-local TEST_ZONES = {
-  { name = "Silvermoon City",    mapID = 110 },
-  { name = "Eversong Woods",     mapID = 94 },
-  { name = "Isle of Quel'Danas", mapID = 122 },
-  { name = "Zul'Aman",           mapID = 781 },
-  { name = "Harandar",           mapID = 2400 },
-  { name = "Tirisfal Glades",    mapID = 18 },
-}
+local TEST_CLASSES = ({
+  retail = {
+    "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN",
+    "MAGE", "WARLOCK", "MONK", "DRUID", "DEMONHUNTER", "EVOKER",
+  },
+  forever = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" },
+})[CLIENT]
+-- Six zones per client, in TEST_ZONE_W's index order. Retail: Midnight (12.0.x), the Quel'Thalas
+-- region. WoW Forever: the Alliance's leveling road, under the uiMapIDs the client itself reported
+-- (the owner's WoW Forever SavedVariables, 2026-11-22).
+local TEST_ZONES = ({
+  retail = {
+    { name = "Silvermoon City",    mapID = 110 },
+    { name = "Eversong Woods",     mapID = 94 },
+    { name = "Isle of Quel'Danas", mapID = 122 },
+    { name = "Zul'Aman",           mapID = 781 },
+    { name = "Harandar",           mapID = 2400 },
+    { name = "Tirisfal Glades",    mapID = 18 },
+  },
+  forever = {
+    { name = "Stormwind City",     mapID = 1453 },
+    { name = "Elwynn Forest",      mapID = 1429 },
+    { name = "Westfall",           mapID = 1436 },
+    { name = "Redridge Mountains", mapID = 1433 },
+    { name = "Duskwood",           mapID = 1431 },
+    { name = "Teldrassil",         mapID = 1438 },
+  },
+})[CLIENT]
 -- Weighted distributions ({ value, weight }) — larger weight ⇒ appears more, so no two bars match.
 local TEST_SOURCE_W = {
   { "KILL", 30 }, { "CONTAINER", 22 }, { "QUEST", 16 }, { "MPLUS", 15 }, { "VENDOR", 10 },
@@ -40,11 +62,17 @@ local TEST_SOURCE_W = {
   { "CRAFT", 6 }, { "MILLING", 5 }, { "PROSPECTING", 5 }, { "OTHER", 4 },
 }
 local TEST_QUALITY_W = { { 0, 8 }, { 1, 14 }, { 2, 26 }, { 3, 22 }, { 4, 12 }, { 5, 4 } }
-local TEST_CLASS_W = {  -- a few "mains" dominate the play time
-  { "MAGE", 14 }, { "WARRIOR", 12 }, { "ROGUE", 10 }, { "PRIEST", 9 }, { "DRUID", 9 },
-  { "PALADIN", 8 }, { "HUNTER", 8 }, { "DEATHKNIGHT", 6 }, { "SHAMAN", 6 }, { "WARLOCK", 6 },
-  { "MONK", 5 }, { "DEMONHUNTER", 5 }, { "EVOKER", 4 },
-}
+local TEST_CLASS_W = ({  -- a few "mains" dominate the play time, the same four on both clients
+  retail = {
+    { "MAGE", 14 }, { "WARRIOR", 12 }, { "ROGUE", 10 }, { "PRIEST", 9 }, { "DRUID", 9 },
+    { "PALADIN", 8 }, { "HUNTER", 8 }, { "DEATHKNIGHT", 6 }, { "SHAMAN", 6 }, { "WARLOCK", 6 },
+    { "MONK", 5 }, { "DEMONHUNTER", 5 }, { "EVOKER", 4 },
+  },
+  forever = {
+    { "MAGE", 14 }, { "WARRIOR", 12 }, { "ROGUE", 10 }, { "PRIEST", 9 }, { "DRUID", 9 },
+    { "PALADIN", 8 }, { "HUNTER", 8 }, { "SHAMAN", 6 }, { "WARLOCK", 6 },
+  },
+})[CLIENT]
 local TEST_ZONE_W = { { 1, 24 }, { 2, 18 }, { 4, 16 }, { 3, 12 }, { 6, 10 }, { 5, 8 } } -- index into TEST_ZONES
 local TEST_TYPE_W = {
   { "Armor", 22 }, { "Consumable", 20 }, { "Tradegoods", 18 }, { "Weapon", 14 },
@@ -74,7 +102,9 @@ do
   for h = 0, 23 do TEST_HOUR_W[#TEST_HOUR_W + 1] = { h, w[h] } end
 end
 -- Item pool: the first 8 are "hot" (recur often), the rest a long tail. Name is keyed off the id.
-local TEST_ITEM_NAMES = {
+-- One list per client; the fifth is the item the Timeline opens on (TestSample.defaultItem).
+local TEST_ITEM_NAME_LISTS = {}
+TEST_ITEM_NAME_LISTS.retail = {
   "Sunwell Cinder", "Thalassian Warblade", "Ley-Woven Cloak", "Void-Touched Shard",
   "Everlight Crystal", "Duskweave Bracers", "Arcane Reservoir", "Bloodgem Signet",
   "Runeblade of Quel'Thalas", "Felflame Ember", "Silvermoon Sigil", "Manaforge Core",
@@ -84,6 +114,21 @@ local TEST_ITEM_NAMES = {
   "Sanctified Reliquary", "Shadowflame Tome", "Emberglow Sapphire", "Wretched Fel Dust",
   "Highborne Codex", "Sindorei Banner",
 }
+TEST_ITEM_NAME_LISTS.forever = {
+  "Thorium Bar", "Runecloth", "Black Lotus", "Righteous Orb",
+  "Arcane Crystal", "Dark Iron Ore", "Elemental Fire", "Essence of Earth",
+  "Bloodvine", "Fiery Core", "Lava Core", "Core Leather",
+  "Hakkari Bijou", "Zulian Coin", "Arcanite Bar", "Enchanted Thorium Bar",
+  "Mooncloth", "Felcloth", "Large Brilliant Shard", "Greater Eternal Essence",
+  "Dream Dust", "Illusion Dust", "Golden Pearl", "Star Ruby",
+  "Huge Emerald", "Azerothian Diamond", "Blue Sapphire", "Major Healing Potion",
+  "Flask of the Titans", "Elixir of the Mongoose",
+}
+local TEST_ITEM_NAMES = TEST_ITEM_NAME_LISTS[CLIENT]
+local TEST_DEFAULT_ITEM = TEST_ITEM_NAMES[5]   -- Everlight Crystal on Retail, Arcane Crystal on Forever
+-- A gear piece's item level from its quality and one draw of `rng(span)`: Midnight's 560s and up on
+-- Retail, the 1.x range (a quality-5 piece tops out at 80) on WoW Forever.
+local TEST_ILVL = ({ retail = { base = 560, step = 12, span = 40 }, forever = { base = 20, step = 8, span = 20 } })[CLIENT]
 local TEST_DAY = 86400
 local TEST_SPAN_DAYS = 20   -- drops are spread over roughly the last 20 days
 local TEST_HOT_ITEMS = 8
@@ -157,24 +202,32 @@ end
 
 -- The sample characters, one per class (preview-mode "Sample characters", LibKa0s#87): the five of
 -- the collection's shared set (NS.SampleCharacters, core/SimSeam.lua) for their classes, and for the
--- eight classes those five lack this addon's own pool, named to the same convention (a 2-12 letter
--- name starting Sample or Mock, on Samplerealm). Keyed at file load; draws nothing from the PRNG, so
--- the dataset's shape does not move with the names.
-local SAMPLE_POOL = {
-  ROGUE = "Sampleshade", DEATHKNIGHT = "Mockfrost", SHAMAN = "Sampletotem", WARLOCK = "Mockhex",
-  MONK = "Samplepalm", DRUID = "Mockgrove", DEMONHUNTER = "Sampleglaive", EVOKER = "Mockscale",
+-- classes those five lack this addon's own pool, named to the same convention (a 2-12 letter name
+-- starting Sample or Mock). Each is that client's holder key: `Name-Samplerealm` on Retail, which
+-- lacks eight, and "First Surname" on WoW Forever, which lacks four (forever-quirks-§4). Keyed at
+-- file load; draws nothing from the PRNG, so the dataset's shape does not move with the names.
+local SAMPLE_POOLS = {
+  retail = {
+    ROGUE = "Sampleshade-Samplerealm", DEATHKNIGHT = "Mockfrost-Samplerealm",
+    SHAMAN = "Sampletotem-Samplerealm", WARLOCK = "Mockhex-Samplerealm", MONK = "Samplepalm-Samplerealm",
+    DRUID = "Mockgrove-Samplerealm", DEMONHUNTER = "Sampleglaive-Samplerealm", EVOKER = "Mockscale-Samplerealm",
+  },
+  forever = {
+    ROGUE = "Sampleshade Mockveil", SHAMAN = "Sampletotem Mockridge", WARLOCK = "Mockhex Samplefen",
+    DRUID = "Mockgrove Samplethorn",
+  },
 }
 local SAMPLE_KEYS = {}
 for _, c in ipairs(NS.SampleCharacters()) do SAMPLE_KEYS[c.classFile] = c.fullName end
-for cls, name in pairs(SAMPLE_POOL) do SAMPLE_KEYS[cls] = SAMPLE_KEYS[cls] or (name .. "-Samplerealm") end
+for cls, key in pairs(SAMPLE_POOLS[CLIENT]) do SAMPLE_KEYS[cls] = SAMPLE_KEYS[cls] or key end
 
---- The sample character of class `cls`, as its Name-Realm holder key.
+--- The sample character of class `cls`, as its holder key on this client.
 local function testCharKey(cls) return SAMPLE_KEYS[cls] end
 
 -- The sample's universe, shared with test mode's ledger half (modules/TestData.lua), so the Holdings
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
 BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000,
-  charKey = testCharKey }
+  charKey = testCharKey, defaultItem = TEST_DEFAULT_ITEM }
 
 -- The other end of a sample holder-move row: the Warband for a warband move, else the sample class
 -- after the row's own (wrapping), as that character's sample key and its class.
@@ -246,7 +299,7 @@ function BrowserTable:BuildTestData()
     local age    = testAge(rng)
     local qty    = testQuantity(rng, q, isGear)
     -- gear only; scales with quality. The short-circuit is load-bearing: non-gear must draw nothing.
-    local ilvl    = isGear and (560 + q * 12 + rng(40)) or nil
+    local ilvl    = isGear and (TEST_ILVL.base + q * TEST_ILVL.step + rng(TEST_ILVL.span)) or nil
     local vendor  = testVendorPrice(rng, q)
     local auction = testAuctionPrice(rng, q)
     local subType = testSubType(ty, idBase)

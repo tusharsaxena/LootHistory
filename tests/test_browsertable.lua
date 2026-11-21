@@ -93,10 +93,12 @@ test("BrowserTable: test data covers every bound state, source, quality, class",
   for q = 0, 5 do
     assertTrue(quality[q], "test data missing quality " .. q)
   end
-  -- A range of classes so class coloring / per-character breakdowns have variety.
+  -- A range of classes so class coloring / per-character breakdowns have variety: every class the
+  -- client has (LH-05: Retail's thirteen, WoW Forever's nine).
   local classCount = 0
   for _ in pairs(class) do classCount = classCount + 1 end
-  assertTrue(classCount >= 10, "expected >=10 distinct classes, got " .. classCount)
+  local want = T.forever and 9 or 13
+  assertEqual(classCount, want, "expected " .. want .. " distinct classes, got " .. classCount)
   -- Spans at least 14 days for the range selector / time charts.
   assertTrue((maxTs - minTs) >= 14 * 86400, "test data should span >= 14 days")
 end)
@@ -600,7 +602,9 @@ end)
 test("BrowserTable: every synthetic record carries the fields the table and charts read", function()
   for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
     assertTrue(type(r.ts) == "number" and r.ts > 0)
-    assertTrue(type(r.char) == "string" and r.char:find("-", 1, true) ~= nil, "char is Name-Realm")
+    -- The client's holder key (LH-05): Name-Realm on Retail, "First Surname" on WoW Forever.
+    local shape = T.forever and "^%u%l+ %u%l+$" or "^%u%l+%-%u%l+$"
+    assertTrue(type(r.char) == "string" and r.char:find(shape) ~= nil, "char is the client's holder key")
     assertTrue(type(r.itemName) == "string" and r.itemName ~= "")
     assertTrue(type(r.itemID) == "number")
     assertTrue(type(r.quantity) == "number" and r.quantity >= 1)
@@ -1324,7 +1328,19 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   end
   for id, count in pairs(byPair) do assertEqual(count, 2, "pair " .. id .. " has both halves") end
   local W = NS.Constants.WARBAND_HOLDER
-  local want = {
+  local want = T.forever and {
+    -- WoW Forever's nine classes (LH-05): the alt moves walk its own class order.
+    "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|OUT|{W}|{DR}|DRUID|{W}/tabs|{DR}/bags",
+    "3|ALT_MAIL|OUT|{WA}|{WA}|WARRIOR|{WA}/bags|{PA}/mail",
+    "4|ALT_TRADE|OUT|{PA}|{PA}|PALADIN|{PA}/bags|{HU}/bags",
+    "5|CURRENCY_TRANSFER|OUT|{HU}|{HU}|HUNTER|{HU}/bags|{RO}/bags",
+    "1|WARBAND_DEPOSIT|IN|{W}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
+    "2|WARBAND_WITHDRAW|IN|{DR}|{DR}|DRUID|{W}/tabs|{DR}/bags",
+    "3|ALT_MAIL|IN|{PA}|{PA}|PALADIN|{WA}/bags|{PA}/mail",
+    "4|ALT_TRADE|IN|{HU}|{HU}|HUNTER|{PA}/bags|{HU}/bags",
+    "5|CURRENCY_TRANSFER|IN|{RO}|{RO}|ROGUE|{HU}/bags|{RO}/bags",
+  } or {
     "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
     "2|WARBAND_WITHDRAW|OUT|{W}|{MK}|MONK|{W}/tabs|{MK}/bags",
     "3|ALT_MAIL|OUT|{DR}|{DR}|DRUID|{DR}/bags|{DH}/mail",
@@ -1338,7 +1354,9 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   }
   -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
   -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
-  local names = { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
+  local names = T.forever and { W = W, WL = "Mockhex Samplefen", DR = "Mockgrove Samplethorn",
+    WA = "Mockshield Sampleforge", PA = "Sampleblade Mockvale", HU = "Samplehunter Mockstride",
+    RO = "Sampleshade Mockveil" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
     DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
     WA = "Mockshield-Mockrealm" }
   assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))

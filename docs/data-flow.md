@@ -327,7 +327,7 @@ they do live. `modules/SimScenario.lua`'s ledger gate holds the next step while 
 tables into `NS.SimStores`, so every [capture-path accessor](#capture-path-stores) writes and reads
 the session. The one read the Reconciler made straight from the saved history, the coalescing check
 (`modules/Reconciler.lua`, `R:Write`), goes through `Database:History()` and follows the session too. A
-simulated own alt, `Sampleblade-Samplerealm` (the shared sample set's second character, `NS.SampleCharacters`, LibKa0s#87; it was `Simalt-<realm>` before AD-87-LH, and the alt mail is now addressed by its full `Name-Realm`), is seeded into the session holdings so the alt mail and alt trade
+simulated own alt, `Sampleblade-Samplerealm` on Retail and "Sampleblade Mockvale" on WoW Forever (the shared sample set's second character, `NS.SampleCharacters`, LibKa0s#87; it was `Simalt-<realm>` before AD-87-LH, and the alt mail is now addressed by its full `Name-Realm`), is seeded into the session holdings so the alt mail and alt trade
 paths see it. The start then runs `R:LoginScan()` with the seam on: the session holdings are empty, so
 that pass is a silent genesis and writes no rows.
 

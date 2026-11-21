@@ -1439,7 +1439,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (16)
+### test_testdata.lua (21)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1447,15 +1447,20 @@ Total.
 - Test mode: ledger writes go to the real stores, never the sample
 - TestData: the History sample writes holder moves as a loss and a gain
 - TestData: the sample rollup books a holder move's loss and gain on each holder
-- TestData: the default Timeline thing is Everlight Crystal, nil without a sample
+- TestData: the default Timeline thing is the client's default item, nil without a sample
 - Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
 - TestData: the seeded sample stores are byte-identical to the pinned build
-- TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
+- TestData: with no default item the default thing is the item on most days, ties to the lowest key
 - Test mode: every History sample character is a sample identity, the shared five by class
 - Test mode: every Holdings sample holder is a sample identity
-- the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail
+- the library-absent copies of the sample five are LibKa0s-Sim-1.0's SAMPLE, per client
+- the sample five are the client's identity shape: Name-Realm on Retail, First Surname on Forever
+- Test mode: the History sample's classes are the client's own, one sample character each
+- Test mode: the History sample's zones are the client's own, with their uiMapIDs
+- Test mode: the History sample's items are the client's own names and item levels
+- Test mode: the sample currencies are the client's own
 - Sim: the stranger the social scenario trades with is a shared sample character
 
 ### test_views.lua (17)
@@ -2014,7 +2019,7 @@ Total.
 - SimWorld: the fixture world is deterministic for a seed
 - SimWorld: a world never mirrors the player's real bags
 - SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads
-- SimWorld: the fixture is Midnight's: items, currencies and the situation
+- SimWorld: the fixture is the client's own: items, currencies, the situation and the kill
 - SimWorld: the uncached fixture link falls back to the link's own name and color
 - SimWorld: the mutation helpers move stacks, money, mail and auctions
 - SimWorld: every provider answers from the world while active and live when idle
@@ -2432,7 +2437,7 @@ Total.
 | test_timeline.lua | 34 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 16 |
+| test_testdata.lua | 21 |
 | test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
@@ -2481,4 +2486,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2079** |
+| **Total** | **2084** |

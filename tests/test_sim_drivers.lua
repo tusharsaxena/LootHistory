@@ -71,7 +71,8 @@ test("SimDrivers: a loot driver produces a line ParseSelfLoot accepts", function
         assertEqual(link, World.Link(World.ITEMS.trinket), form .. " x" .. qty .. ": the link parses back")
         assertEqual(n, qty, form .. " x" .. qty .. ": the quantity parses back")
         assertEqual(source, form == "bonus" and "BONUS_ROLL" or nil)
-        assertEqual(r.args[2], U.PlayerKey():match("^([^%-]+)"), "the player's own name")
+        -- The character's first name on both clients: no realm (Retail), no surname (WoW Forever).
+        assertEqual(r.args[2], (M.UnitName("player")), "the player's own first name")
         assertEqual(r.args[12], M.UnitGUID and M.UnitGUID("player") or "Player-0-00000000", "the player's GUID")
       end
     end

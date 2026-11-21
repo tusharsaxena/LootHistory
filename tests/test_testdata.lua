@@ -8,6 +8,8 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- NS.Holdings:ActiveStore / NS.Rollup:ActiveStore, and no write path ever sees them.
 
 local WARBAND = "§warband"
+-- The kit profile this run is (tests/run.lua's T.forever): every per-client seed is read for it.
+local CLIENT = T.forever and "forever" or "retail"
 
 local function deepEqual(a, b)
   if type(a) ~= type(b) then return false end
@@ -215,12 +217,17 @@ local function withTimeline(fn)
   end)
 end
 
-test("TestData: the default Timeline thing is Everlight Crystal, nil without a sample", function()
+-- The item the Timeline opens on, per client: the fifth of each client's own item list.
+local DEFAULT_ITEM = ({ retail = "Everlight Crystal", forever = "Arcane Crystal" })[CLIENT]
+
+test("TestData: the default Timeline thing is the client's default item, nil without a sample", function()
   withStores(function()
     assertEqual(NS.TestData.DefaultTimelineThing(), nil, "a default with no sample")
     NS.BrowserTable:SetTestMode(true)
     local d = NS.TestData.DefaultTimelineThing()
-    assertEqual(NS.TestData.Describe(d).name, "Everlight Crystal")
+    -- red under: one Retail item list on both clients (Everlight Crystal on WoW Forever).
+    assertEqual(NS.TestData.Describe(d).name, DEFAULT_ITEM)
+    assertEqual(NS.BrowserTable.TestSample.defaultItem, DEFAULT_ITEM, "the sample names its default")
   end)
 end)
 
@@ -232,7 +239,7 @@ test("Test mode: the Timeline opens on the default sample item with lines drawn,
     TL:Refresh()
     assertEqual(TL:Thing(), NS.TestData.DefaultTimelineThing())
     assertTrue(#TL.model.series >= 2, "no lines drawn for the default item")
-    assertTrue(TL.title:GetText():find("Everlight Crystal", 1, true) ~= nil, "title: " .. tostring(TL.title:GetText()))
+    assertTrue(TL.title:GetText():find(DEFAULT_ITEM, 1, true) ~= nil, "title: " .. tostring(TL.title:GetText()))
     assertEqual(NS.Browser:ViewField("timelineThing", "Timeline"), before, "the saved view changed")
   end)
 end)
@@ -321,12 +328,15 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- Re-pinned by AD-87-LH (was 3160:2043831815 and 117029:2104532542): the holder keys are the
     -- sample characters now, and the daily walk meets the holders in their sorted-key order, so the
     -- PRNG reaches each series in a new order. Nothing else about the build moved.
-    assertEqual(#hs .. ":" .. checksum(hs), "3180:521769667", "holdings")
-    assertEqual(#ds .. ":" .. checksum(ds), "118617:161303863", "daily")
+    -- WoW Forever's pins are its own sample's (LH-05: its holder keys, items and currencies); Retail's
+    -- did not move with it.
+    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "3093:296770321", "110993:401539997" } })[CLIENT]
+    assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
+    assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)
 end)
 
-test("TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key", function()
+test("TestData: with no default item the default thing is the item on most days, ties to the lowest key", function()
   local saved = NS.State.testDaily
   local ok, err = pcall(function()
     -- c:/g keys never count; a key seen twice in a day (two holders) counts that day once.
@@ -340,9 +350,9 @@ test("TestData: with no Everlight Crystal the default thing is the item on most 
     assertEqual(NS.TestData.DefaultTimelineThing(), "i:5", "i:5 now leads on three days")
     NS.State.testDaily = { ["2026-10-01"] = { A = { ["c:1"] = {}, g = {} } } }
     assertEqual(NS.TestData.DefaultTimelineThing(), nil, "no item at all")
-    -- Everlight Crystal wins on any one day, over an item on more days.
+    -- The default item (Everlight Crystal, Arcane Crystal) wins on any one day, over an item on more days.
     local names, everlight = NS.BrowserTable.TestSample.itemNames
-    for i, n in ipairs(names) do if n == "Everlight Crystal" then everlight = "i:" .. (100000 + i) end end
+    for i, n in ipairs(names) do if n == DEFAULT_ITEM then everlight = "i:" .. (100000 + i) end end
     NS.State.testDaily = {
       ["2026-10-01"] = { A = { ["i:5"] = {} } }, ["2026-10-02"] = { A = { ["i:5"] = {}, [everlight] = {} } },
     }
@@ -355,21 +365,30 @@ end)
 -- ── the sample characters (preview-mode "Sample characters", LibKa0s#87, AD-87-LH) ──────────────
 --
 -- Test mode and the simulator draw made-up people, and since the standard's v2.113.0 rule they are
--- the collection's: the five of LibKa0s-Sim-1.0's SAMPLE.retail for their classes, and for the
--- classes those five lack, the host's own pool, named to the same convention. Before AD-87-LH every
--- sample character was `<Class>-Ravencrest`, a real realm.
+-- the collection's: the five of LibKa0s-Sim-1.0's SAMPLE for the client running (LH-05: Retail's
+-- set on Retail, WoW Forever's on Forever) for their classes, and for the classes those five lack,
+-- the host's own pool, named to the same convention. Before AD-87-LH every sample character was
+-- `<Class>-Ravencrest`, a real realm.
 
---- True when `key` is a Retail sample identity under the convention: `Name-Realm`, a name of 2-12
---- letters starting Sample or Mock, and the realm Samplerealm or Mockrealm.
+local function sampleWord(w)
+  return w ~= nil and #w <= 12 and (w:find("^Sample") or w:find("^Mock")) ~= nil
+end
+
+--- True when `key` is a sample identity under the convention for this run's client: on Retail
+--- `Name-Realm`, a name of 2-12 letters starting Sample or Mock and the realm Samplerealm or
+--- Mockrealm; on WoW Forever "First Surname", both words so, and no realm (forever-quirks-§4).
 local function conventional(key)
+  if CLIENT == "forever" then
+    local first, surname = tostring(key):match("^(%u%l+) (%u%l+)$")
+    return sampleWord(first) and sampleWord(surname)
+  end
   local name, realm = tostring(key):match("^(%u%l+)%-(%u%l+)$")
-  return name ~= nil and #name <= 12 and (name:find("^Sample") or name:find("^Mock")) ~= nil
-    and (realm == "Samplerealm" or realm == "Mockrealm")
+  return sampleWord(name) and (realm == "Samplerealm" or realm == "Mockrealm")
 end
 
 local function sharedByClass()
   local out = {}
-  for _, c in ipairs(T.mocks.LibStub("LibKa0s-Sim-1.0").Sample("retail")) do out[c.classFile] = c.fullName end
+  for _, c in ipairs(T.mocks.LibStub("LibKa0s-Sim-1.0").Sample(CLIENT)) do out[c.classFile] = c.fullName end
   return out
 end
 
@@ -405,20 +424,111 @@ test("Test mode: every Holdings sample holder is a sample identity", function()
   assertEqual(n, 4, "the History sample's four mains hold things")
 end)
 
-test("the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail", function()
+test("the library-absent copies of the sample five are LibKa0s-Sim-1.0's SAMPLE, per client", function()
   -- The fallback NS.SampleCharacters answers without the library (core/SimSeam.lua). A copy that
-  -- drifts from the library's rows goes red here, as the skin fallback does in surface parity.
-  local live, copy = T.mocks.LibStub("LibKa0s-Sim-1.0").SAMPLE.retail, NS.SAMPLE_FALLBACK
-  assertEqual(#copy, #live, "five rows")
-  for i, row in ipairs(live) do
-    for _, field in ipairs({ "name", "realm", "classFile", "fullName" }) do
-      assertEqual(copy[i][field], row[field], "row " .. i .. " " .. field)
+  -- drifts from the library's rows goes red here, as the skin fallback does in surface parity. Both
+  -- clients' copies are held on every run; the one answering is the running client's.
+  local SAMPLE = T.mocks.LibStub("LibKa0s-Sim-1.0").SAMPLE
+  for _, client in ipairs({ "retail", "forever" }) do
+    local live, copy = SAMPLE[client], (NS.SAMPLE_FALLBACKS or {})[client]
+    assertTrue(copy ~= nil, client .. ": a library-absent copy")
+    assertEqual(#copy, #live, client .. ": five rows")
+    for i, row in ipairs(live) do
+      for _, field in ipairs({ "name", "realm", "classFile", "fullName", "surname" }) do
+        assertEqual(copy[i][field], row[field], client .. " row " .. i .. " " .. field)
+      end
     end
   end
+  assertTrue(NS.SAMPLE_FALLBACK == NS.SAMPLE_FALLBACKS[CLIENT], "the running client's copy answers")
+  local live = SAMPLE[CLIENT]
   local rows = NS.SampleCharacters()
-  assertEqual(rows[1].fullName, live[1].fullName, "with the library, the library's rows")
+  -- red under: Sim.Sample("retail") on both clients ("Samplehunter-Samplerealm" on WoW Forever).
+  assertEqual(rows[1].fullName, live[1].fullName, "with the library, the library's rows for this client")
   rows[1].fullName = "changed"
   assertEqual(NS.SampleCharacters()[1].fullName, live[1].fullName, "each call answers a fresh copy")
+end)
+
+test("the sample five are the client's identity shape: Name-Realm on Retail, First Surname on Forever", function()
+  local want = ({ retail = "Sampleblade-Samplerealm", forever = "Sampleblade Mockvale" })[CLIENT]
+  assertEqual(NS.SampleCharacters()[2].fullName, want)
+  for _, c in ipairs(NS.SampleCharacters()) do
+    assertTrue(conventional(c.fullName), "off the convention: " .. tostring(c.fullName))
+  end
+end)
+
+-- ── the History sample's universe, per client (LH-05, clients-§5) ──────────────────────────────
+
+local CLASSES = {
+  retail = { "DEATHKNIGHT", "DEMONHUNTER", "DRUID", "EVOKER", "HUNTER", "MAGE", "MONK", "PALADIN", "PRIEST",
+    "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR" },
+  forever = { "DRUID", "HUNTER", "MAGE", "PALADIN", "PRIEST", "ROGUE", "SHAMAN", "WARLOCK", "WARRIOR" },
+}
+local ZONES = {
+  retail = { "Eversong Woods=94", "Harandar=2400", "Isle of Quel'Danas=122", "Silvermoon City=110",
+    "Tirisfal Glades=18", "Zul'Aman=781" },
+  forever = { "Duskwood=1431", "Elwynn Forest=1429", "Redridge Mountains=1433", "Stormwind City=1453",
+    "Teldrassil=1438", "Westfall=1436" },
+}
+
+local function sortedSet(t)
+  local out = {}
+  for k in pairs(t) do out[#out + 1] = k end
+  table.sort(out)
+  return table.concat(out, ",")
+end
+
+test("Test mode: the History sample's classes are the client's own, one sample character each", function()
+  local classes, chars = {}, {}
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    classes[r.classFile] = true
+    chars[r.char] = r.classFile
+  end
+  -- red under: Retail's thirteen on WoW Forever (a Death Knight, Monk, Demon Hunter or Evoker).
+  assertEqual(sortedSet(classes), table.concat(CLASSES[CLIENT], ","))
+  local perClass = {}
+  for key, cls in pairs(chars) do
+    assertTrue(perClass[cls] == nil or perClass[cls] == key, cls .. ": one sample character")
+    perClass[cls] = key
+  end
+end)
+
+test("Test mode: the History sample's zones are the client's own, with their uiMapIDs", function()
+  local zones = {}
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do zones[r.zone .. "=" .. tostring(r.mapID)] = true end
+  -- red under: Midnight's Quel'Thalas on WoW Forever.
+  assertEqual(sortedSet(zones), table.concat(ZONES[CLIENT], ","))
+end)
+
+test("Test mode: the History sample's items are the client's own names and item levels", function()
+  local names, lo, hi = {}, math.huge, 0
+  for _, n in ipairs(NS.BrowserTable.TestSample.itemNames) do names[n] = true end
+  assertEqual(#NS.BrowserTable.TestSample.itemNames, 30, "thirty items on each client")
+  for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
+    assertTrue(names[r.itemName], "a row names an item off the sample: " .. tostring(r.itemName))
+    if r.itemLevel then lo, hi = math.min(lo, r.itemLevel), math.max(hi, r.itemLevel) end
+  end
+  -- red under: one Retail list and Midnight's item levels (560 and up) on WoW Forever.
+  if CLIENT == "forever" then
+    assertTrue(names["Arcane Crystal"] and not names["Everlight Crystal"], "WoW Forever's own item names")
+    assertTrue(lo >= 21 and hi <= 80, ("WoW Forever's item levels, 21..80: %d..%d"):format(lo, hi))
+  else
+    assertTrue(names["Everlight Crystal"] and not names["Arcane Crystal"], "Retail's own item names")
+    assertTrue(lo >= 561 and hi <= 660, ("Retail's item levels, 561..660: %d..%d"):format(lo, hi))
+  end
+end)
+
+test("Test mode: the sample currencies are the client's own", function()
+  local want = ({ retail = { 3008, "Valorstones" }, forever = { 1792, "Honor Points" } })[CLIENT]
+  local other = ({ retail = 1792, forever = 3008 })[CLIENT]
+  -- red under: Retail's Valorstones, Resonance Crystals and Undercoin on WoW Forever.
+  assertEqual((NS.TestData.Describe("c:" .. want[1]) or {}).name, want[2])
+  assertEqual(NS.TestData.Describe("c:" .. other), nil, "the other client's currency is not in the sample")
+  local holdings = NS.TestData.Build(NS.BrowserTable:BuildTestData(), os.time())
+  for key, e in pairs(holdings) do
+    for id in pairs(e.currency) do
+      assertTrue(NS.TestData.Describe("c:" .. id) ~= nil, key .. " holds a currency off the sample: " .. id)
+    end
+  end
 end)
 
 test("Sim: the stranger the social scenario trades with is a shared sample character", function()
@@ -428,6 +538,6 @@ test("Sim: the stranger the social scenario trades with is a shared sample chara
       if call[1] == "trade" and call[2] ~= "@alt" then target = call[2] end
     end
   end
-  -- red under: "Stranger-Realm".
-  assertEqual(target, "Mockflame-Mockrealm")
+  -- red under: "Stranger-Realm"; on WoW Forever, Retail's "Mockflame-Mockrealm".
+  assertEqual(target, ({ retail = "Mockflame-Mockrealm", forever = "Mockflame Samplewick" })[CLIENT])
 end)

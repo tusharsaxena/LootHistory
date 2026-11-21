@@ -6,7 +6,7 @@ local TD = NS.TestData
 -- BrowserTable:BuildTestData; this fills the Holdings and Timeline tabs the same way, with two
 -- session-only stores published beside NS.State.testRecords:
 --   * NS.State.testHoldings -- db.global.holdings' shape: five holders (four of the History sample's
---     characters and the Warband), the sample's thirty items, three currencies and gold;
+--     characters and the Warband), the sample's thirty items, the client's sample currencies and gold;
 --   * NS.State.testDaily -- db.global.daily's shape: SPAN_DAYS of closes and gained/lost tallies.
 -- Read paths reach them through NS.Holdings:ActiveStore and NS.Rollup:ActiveStore, as History's do
 -- through Database:ActiveHistory. No write path (Apply*, Credit*, the rollup writer) sees them.
@@ -29,12 +29,21 @@ local CLASSES = { "MAGE", "WARRIOR", "ROGUE", "PRIEST" }
 local TYPES = { "Armor", "Consumable", "Tradegoods", "Weapon", "Quest", "Gem", "Recipe" }
 local WARBAND_TYPES = { Tradegoods = true, Gem = true, Recipe = true }
 
--- Three real currencies under their own names, so a hover's tooltip agrees with the row.
-local CURRENCIES = {
-  { id = 3008, name = "Valorstones",        quality = 3 },
-  { id = 2815, name = "Resonance Crystals", quality = 3 },
-  { id = 2803, name = "Undercoin",          quality = 1 },
-}
+-- Real currencies under their own names, so a hover's tooltip agrees with the row, one list per
+-- client picked once (clients-§5). `account` marks the one the Warband holds. WoW Forever's are the
+-- two the owner's characters hold there (Honor Points, Merchant's Favor); neither is known to be
+-- account-wide, so its account holder holds none until a probe says otherwise.
+local CURRENCIES = ({
+  retail = {
+    { id = 3008, name = "Valorstones",        quality = 3 },
+    { id = 2815, name = "Resonance Crystals", quality = 3 },
+    { id = 2803, name = "Undercoin",          quality = 1, account = true },
+  },
+  forever = {
+    { id = 1792, name = "Honor Points",     quality = 1 },
+    { id = 3402, name = "Merchant's Favor", quality = 1 },
+  },
+})[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
 
 local function sample() return NS.BrowserTable.TestSample end
 local function charKey(cls) return sample().charKey(cls) end
@@ -121,7 +130,9 @@ local function buildHoldings(rng, genesis, now)
     local look = itemLook(idBase)
     if WARBAND_TYPES[look.itemType] then w.items[S.idBase + idBase] = { [C.Container.TABS] = 20 + rng(400) } end
   end
-  w.currency[CURRENCIES[3].id] = 100 + rng(900)
+  for _, c in ipairs(CURRENCIES) do
+    if c.account then w.currency[c.id] = 100 + rng(900) end
+  end
   w.money = (150000 + rng(600000)) * GOLD
   w.scanned[C.Container.TABS], w.scanned.currency, w.scanned.money = now - 7200, now - 7200, now - 7200
   out[WARBAND] = w
@@ -263,11 +274,12 @@ local function itemDays(daily)
   return days
 end
 
--- Everlight Crystal's key when `days` holds it, else nil.
+-- The sample's default item's key (TestSample.defaultItem: Everlight Crystal on Retail, Arcane
+-- Crystal on WoW Forever) when `days` holds it, else nil.
 local function everlightKey(days)
   for idBase, name in ipairs(sample().itemNames) do
     local key = "i:" .. (sample().idBase + idBase)
-    if name == "Everlight Crystal" and days[key] then return key end
+    if name == sample().defaultItem and days[key] then return key end
   end
 end
 
@@ -280,8 +292,8 @@ local function mostDays(days)
   return best
 end
 
---- The thing the Timeline opens on while the sample is up: "Everlight Crystal" when the sample holds
---- it, else the sample item with the most rollup days (ties to the lowest thing key). nil with no
+--- The thing the Timeline opens on while the sample is up: the sample's default item (Retail's
+--- "Everlight Crystal", WoW Forever's "Arcane Crystal") when the sample holds it, else the sample item with the most rollup days (ties to the lowest thing key). nil with no
 --- sample published.
 function TD.DefaultTimelineThing()
   local daily = NS.State.testDaily
