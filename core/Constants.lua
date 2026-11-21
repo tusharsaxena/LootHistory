@@ -2,6 +2,35 @@ local _, NS = ...
 NS.Constants = NS.Constants or {}
 local C = NS.Constants
 
+-- ── The client's features (clients-§4, §5) ───────────────────────────────────────────────────
+-- The Retail-only features (the WoW Forever port, Ka0sAddonsCommonTasks
+-- docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/00_DESIGN.md, ruling R1), each declared with
+-- the clients it serves and gated where it registers by C.FEATURE, its ForClient answer read once.
+-- `warbandBank` is the warband bank's tabs and gold: the Reconciler's `tabs` and `warbandMoney`
+-- parts and their two events (modules/Reconciler.lua), the tab ids (C.WARBAND_TAB_IDS below), the
+-- char <-> warband pairing and its two reasons (C.SOURCE_CLIENTS below), the Holdings tab's Warband
+-- split (modules/HoldingsTab.lua) and the simulator's warband steps (modules/SimScenario.lua). The
+-- account holder itself (`§warband`) serves both clients: WoW Forever has account-wide currencies,
+-- and the holder reads "Account" there (C.ACCOUNT below).
+C.FEATURE_CLIENTS = {
+  warbandBank = { "retail" },
+}
+C.FEATURE = {}
+for name, clients in pairs(C.FEATURE_CLIENTS) do C.FEATURE[name] = NS.Compat.ForClient(clients) end
+
+-- The account's own words, one set per client picked once by ClientKey() (clients-§5; ruling R2):
+-- Retail calls it the Warband, WoW Forever the Account (its tooltips read "Binds to Account",
+-- ITEM_BIND_TO_ACCOUNT). Only what a player reads changes: the stored keys (the `§warband` holder,
+-- the WARBAND / WARBAND_UE bound states) are the same on both. Both sets are published, as
+-- C.ACCOUNT_WORDS, for the suites' golden snapshots, which were cut under Retail's.
+C.ACCOUNT_WORDS = {
+  retail = { holder = "Warband", bound = "Warbound", boundUE = "Warbound Until Equipped",
+             boundUEShort = "Warbound (UE)" },
+  forever = { holder = "Account", bound = "Account Bound", boundUE = "Account Bound Until Equipped",
+              boundUEShort = "Account Bound (UE)" },
+}
+C.ACCOUNT = C.ACCOUNT_WORDS[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
+
 -- Source enum. Values are the stored string keys (stable — do not RENAME; they are the export
 -- contract). Extending it is fine (additive/forward-compatible): DISENCHANT/MILLING/PROSPECTING
 -- are first-class deconstruct sources so the Source column reads the ability, not a generic "Craft".
@@ -82,6 +111,25 @@ C.LEDGER_REASON = {
   WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
 }
 
+-- The sources one client lacks (clients-§4), each declared with the clients it serves. A source
+-- ForClient refuses is ABSENT on this client: it is kept out of SourceOrder, SOURCE_IMPLEMENTED and
+-- LEDGER_REASON, so no filter, mute list or sample offers it, and C.SOURCE_ABSENT names it.
+-- SourceType and SourceLabel stay whole: they are the export contract, and a stored row keeps its
+-- key and its label. The two warband directions are the warband bank's (C.FEATURE.warbandBank).
+C.SOURCE_CLIENTS = {
+  WARBAND_DEPOSIT = C.FEATURE_CLIENTS.warbandBank, WARBAND_WITHDRAW = C.FEATURE_CLIENTS.warbandBank,
+}
+C.SOURCE_ABSENT = {}
+for s, clients in pairs(C.SOURCE_CLIENTS) do
+  if not NS.Compat.ForClient(clients) then C.SOURCE_ABSENT[s] = true end
+end
+do
+  local order = {}
+  for _, s in ipairs(C.SourceOrder) do if not C.SOURCE_ABSENT[s] then order[#order + 1] = s end end
+  C.SourceOrder = order
+  for s in pairs(C.SOURCE_ABSENT) do C.SOURCE_IMPLEMENTED[s], C.LEDGER_REASON[s] = nil, nil end
+end
+
 -- Attribution confidence.
 C.Confidence = { CERTAIN = "CERTAIN", INFERRED = "INFERRED" }
 
@@ -104,6 +152,8 @@ C.Container = {
 }
 -- The virtual holder for the warband bank, warband gold and account-wide currencies. `§` marks a
 -- system key (BagSync's convention): code that means "characters" skips keys starting with it.
+-- On WoW Forever, which has no warband bank, it holds the account-wide currencies alone and reads
+-- "Account" (C.ACCOUNT.holder).
 C.WARBAND_HOLDER = "§warband"
 
 -- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. The colors
@@ -316,7 +366,9 @@ local function idsMatching(patterns)
 end
 C.BAG_IDS         = idsMatching(GROUP_PATTERNS.BAGS)
 C.BANK_IDS        = idsMatching(GROUP_PATTERNS.BANK)
-C.WARBAND_TAB_IDS = idsMatching(GROUP_PATTERNS.TABS)
+-- The warband tabs only where the warband bank is a feature (C.FEATURE.warbandBank): on WoW Forever
+-- the client numbers AccountBankTab_1..9 (15..23) but the bank is not there, so nothing scans them.
+C.WARBAND_TAB_IDS = C.FEATURE.warbandBank and idsMatching(GROUP_PATTERNS.TABS) or {}
 -- No numeric fallback when Enum.BagIndex is absent: the groups degrade to EMPTY (compat-layer
 -- degrade-to-nothing), so a build without the enum scans no container rather than guessing ids
 -- Blizzard has renumbered before. Holdings then simply has no bag column for that build.

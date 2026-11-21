@@ -69,7 +69,13 @@ test("TestData: the sample holdings and daily stores build deterministically", f
     n = n + 1
     if h ~= WARBAND then assertTrue(chars[h], h .. " is not a character of the History sample") end
   end
-  assertTrue(n >= 5 and h1[WARBAND] ~= nil, "want at least four characters and the Warband")
+  -- WoW Forever has no warband bank (R1), and its sample marks no account currency, so its account
+  -- holder holds nothing and is not in the sample (modules/TestData.lua).
+  if T.forever then
+    assertTrue(n >= 4 and h1[WARBAND] == nil, "want at least four characters and no account holder")
+  else
+    assertTrue(n >= 5 and h1[WARBAND] ~= nil, "want at least four characters and the Warband")
+  end
 end)
 
 test("TestData: a day's close is its flows applied to the day before", function()
@@ -108,8 +114,9 @@ test("Test mode: Holdings and Timeline show the sample, and the real stores come
     NS.BrowserTable:SetTestMode(true)
     assertTrue(NS.State.testHoldings ~= nil and NS.State.testDaily ~= nil, "test mode published no ledger sample")
     local set, n = holderSet(NS.HoldingsTab.BuildModel({}, allExpanded(), "name"))
-    assertTrue(n >= 5, "Holdings shows " .. n .. " holders")
-    assertTrue(set[WARBAND], "Holdings shows no Warband")
+    -- WoW Forever's sample has no account holder (no warband bank, no account currency in it).
+    assertTrue(n >= (T.forever and 4 or 5), "Holdings shows " .. n .. " holders")
+    assertEqual(set[WARBAND] == true, not T.forever, "Holdings shows the Warband on Retail only")
     for _, thing in ipairs({ "g", "i:100001" }) do
       local m, lines = timelineModel(thing), 0
       for _, sr in ipairs(m.series) do
@@ -176,7 +183,12 @@ test("TestData: the History sample writes holder moves as a loss and a gain", fu
     if p.OUT.source == "WARBAND_WITHDRAW" then assertEqual(U.RowHolder(p.OUT), WARBAND) end
     reasons[p.OUT.source] = true
   end
-  for k in pairs(L.HOLDER_MOVE_REASON) do assertTrue(reasons[k], "no " .. k .. " pair in the sample") end
+  -- A reason this client lacks (the warband directions on WoW Forever, R1) makes no pair at all.
+  local absent = NS.Constants.SOURCE_ABSENT
+  for k in pairs(L.HOLDER_MOVE_REASON) do
+    if absent[k] then assertEqual(reasons[k], nil, k .. " is absent, yet the sample pairs it")
+    else assertTrue(reasons[k], "no " .. k .. " pair in the sample") end
+  end
 end)
 
 test("TestData: the sample rollup books a holder move's loss and gain on each holder", function()
@@ -329,8 +341,9 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- sample characters now, and the daily walk meets the holders in their sorted-key order, so the
     -- PRNG reaches each series in a new order. Nothing else about the build moved.
     -- WoW Forever's pins are its own sample's (LH-05: its holder keys, items and currencies); Retail's
-    -- did not move with it.
-    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "3093:296770321", "110993:401539997" } })[CLIENT]
+    -- did not move with it. Re-pinned by LH-06 (was 3093:296770321 and 110993:401539997): WoW Forever
+    -- has no warband bank (R1), so its sample has no Warband holder, tabs or gold.
+    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95662:1728806636" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)

@@ -24,8 +24,8 @@ local TEST_BINDINGS = {
   { key = nil,       name = "Unbound" },
   { key = "BOE",     name = "Bind on Equip" },
   { key = "BOP",        name = "Bind on Pickup" },
-  { key = "WARBAND",    name = "Warbound" },
-  { key = "WARBAND_UE", name = "Warbound Until Equipped" },
+  { key = "WARBAND",    name = C.ACCOUNT.bound },     -- per client (R2): "Account Bound" on WoW Forever
+  { key = "WARBAND_UE", name = C.ACCOUNT.boundUE },
 }
 local TEST_CLASSES = ({
   retail = {

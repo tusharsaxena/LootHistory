@@ -9,7 +9,7 @@ test("Export: BoundLabel maps tokens and nil", function()
   assertEqual(NS.Export:BoundLabel(nil), "Not Bound")
   assertEqual(NS.Export:BoundLabel("NONE"), "Not Bound")
   assertEqual(NS.Export:BoundLabel("BOE"), "Bind on Equip")
-  assertEqual(NS.Export:BoundLabel("WARBAND"), "Warbound")
+  assertEqual(NS.Export:BoundLabel("WARBAND"), T.forever and "Account Bound" or "Warbound")
 end)
 
 test("Export: WowheadLink with bonus IDs", function()
@@ -310,9 +310,11 @@ local checkCsv = dofile("tests/golden.lua").file("tests/export_golden.txt")
 -- One line per row; the closing CRLF every document ends with is asserted by the header case above.
 local function csvLines(csv) return (csv:gsub("\r\n$", ""):gsub("\r\n", "\n")) end
 
-test("Export: InsightsCSV over items and currency matches the golden document", function()
+-- Cut under Retail's account words (T.retailWords): on WoW Forever "Warbound" reads "Account Bound",
+-- which also sorts the By Bound Type rows differently.
+test("Export: InsightsCSV over items and currency matches the golden document", T.retailWords(function()
   checkCsv("rich", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.richHistory()))))
-end)
+end))
 
 test("Export: InsightsCSV over zero-value items with no currency matches the golden document", function()
   checkCsv("plain", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.plainHistory()))))

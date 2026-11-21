@@ -608,11 +608,14 @@ test("Compat: bag-id groups come from Enum.BagIndex names, type constants exclud
   -- Each client's own numbering (tests/wow_mock.lua): Retail 12.1.5 has six character bank tabs and
   -- five account tabs, WoW Forever nine of each, so the same names land on different ids. Both
   -- enums carry the Keyring (-1), and it is in no group yet (the per-client container table is later).
+  -- The warband tabs are a group only where the warband bank is a feature (Retail, ruling R1): WoW
+  -- Forever's enum numbers AccountBankTab_1..9 as 15..23, and nothing scans them.
   local C = NS.Constants
   assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
   if T.forever then
     assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11,12,13,14")
-    assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "15,16,17,18,19,20,21,22,23")
+    assertEqual(C.FEATURE.warbandBank, false)
+    assertEqual(#C.WARBAND_TAB_IDS, 0, "no warband tab id on WoW Forever")
   else
     assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
     assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
@@ -626,8 +629,9 @@ test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to gue
   Loader.addonName = "LootHistory"
   local mocks = dofile("tests/wow_mock.lua")()
   mocks.Enum.BagIndex = nil
-  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here.
-  local ns = { Item = { QualityLabel = function() return "" end } }
+  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here. core/Compat.lua
+  -- and core/CompatClient.lua load above it too: the feature declarations read ForClient at load.
+  local ns = { Item = { QualityLabel = function() return "" end }, Compat = NS.Compat }
   Loader.load("core/Constants.lua", ns, mocks)
   assertEqual(#ns.Constants.BAG_IDS, 0)
   assertEqual(#ns.Constants.BANK_IDS, 0)

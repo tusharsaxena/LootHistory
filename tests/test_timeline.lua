@@ -371,7 +371,7 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.label, "Holding"); assertEqual(t.value, NS.Util.FormatMoney(70000))
   assertEqual(t.hint, "Click to hide/show")
   t = TM().LegendTip(m, W)
-  assertEqual(t.title, "Warband")
+  assertEqual(t.title, NS.Constants.ACCOUNT.holder)   -- "Warband"; "Account" on WoW Forever (R2)
   assertTrue(t.color == NS.Skin.Token("sem.warband"), "the Warband's title is its series color")
   assertEqual(t.color[1], 0.25); assertEqual(t.color[2], 0.75); assertEqual(t.color[3], 0.95)
   assertEqual(t.value, NS.Util.FormatMoney(25000))

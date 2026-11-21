@@ -40,7 +40,9 @@ test("HoldingsTab: character filter narrows holders", function()
 end)
 
 test("HoldingsTab: container and age formatting", function()
-  assertEqual(NS.HoldingsTab.FormatContainers({ tabs = 100, bags = 12, bank = 40 }), "Bags 12 · Bank 40 · Warband 100")
+  -- The Warband split is Retail-only (R1): WoW Forever has no warband tabs, so it never shows one.
+  assertEqual(NS.HoldingsTab.FormatContainers({ tabs = 100, bags = 12, bank = 40 }),
+    T.forever and "Bags 12 · Bank 40" or "Bags 12 · Bank 40 · Warband 100")
   assertEqual(NS.HoldingsTab.FormatAge(1000, 1030), "now")
   assertEqual(NS.HoldingsTab.FormatAge(1000, 1000 + 3 * 3600), "3 h")
   assertEqual(NS.HoldingsTab.FormatAge(1000, 1000 + 2 * 86400), "2 d")
@@ -541,11 +543,11 @@ test("HoldingsTab group: Character lists a thing under every holder with that ho
   withGear(function() keep(function()
     seedGroups()
     local lines = NS.HoldingsTab.BuildModel({}, {}, "total", nil, "char", {})
-    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: Warband (1)")
+    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: " .. NS.Constants.ACCOUNT.holder .. " (1)")
     local m = members(lines)
     assertEqual(m["Character: A-Realm"], "g=10000,c:3008=40,i:7=2", "sorted by total within the group")
     assertEqual(m["Character: B-Realm"], "i:7=9")
-    assertEqual(m["Character: Warband"], "i:7=5")
+    assertEqual(m["Character: " .. NS.Constants.ACCOUNT.holder], "i:7=5")
   end) end)
 end)
 
@@ -577,7 +579,7 @@ test("HoldingsTab group: a collapsed group keeps its header and count and hides 
     local aKey
     for _, l in ipairs(open) do if l.kind == "header" and l.label == "Character: A-Realm" then aKey = l.key end end
     local lines = HT.BuildModel({}, {}, "name", nil, "char", { [aKey] = true })
-    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: Warband (1)")
+    assertEqual(headers(lines), "Character: A-Realm (3) | Character: B-Realm (1) | Character: " .. NS.Constants.ACCOUNT.holder .. " (1)")
     assertEqual(lines[1].collapsed, true)
     assertEqual(lines[2].kind, "header", "the A group's members are hidden")
     assertEqual(#lines, #open - 3)

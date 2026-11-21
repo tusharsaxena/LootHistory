@@ -93,6 +93,17 @@ test("Rollup: the warband's gate is its tabs", function()
   NS.Holdings:MarkGenesis("§warband", T0)
   NS.Holdings:ApplyContainer("§warband", "tabs", { [7] = 1 }, {}, T0 + 10)
   assertEqual(NS.Holdings:Get("§warband").meta.completeAt, T0 + 10)
+end, T.RETAIL_ONLY)
+
+-- clients-§6, both profiles: where the warband bank is absent (WoW Forever, R1) the account holder
+-- has no gate container, so its genesis is complete at once and never draws a partial stretch.
+test("Rollup: the account holder is partial until its tabs on Retail, never partial on WoW Forever", function()
+  reset()
+  NS.Holdings:ApplyMoney("§warband", 10, T0)
+  NS.Holdings:MarkGenesis("§warband", T0)
+  assertEqual(NS.Holdings:Get("§warband").meta.partial, not T.forever)
+  NS.Holdings:MarkGenesis("A-R", T0)
+  assertEqual(NS.Holdings:Get("A-R").meta.partial, true, "a character waits for its bank on both")
 end)
 
 test("Rollup: wired through the write hook - Database:Add reaches the tally", function()

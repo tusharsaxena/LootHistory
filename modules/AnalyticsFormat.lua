@@ -63,7 +63,7 @@ local SOURCE_CATEGORY_COLOR = {
 -- BoE where History's lock is green and off-white; not reconciled in leg 1), and the table's
 -- Warbound blue and until-equipped orange, so the two views read alike there.
 local BOUND_LABEL = {
-  BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
+  BOP = "Soulbound", BOE = "BoE", WARBAND = NS.Constants.ACCOUNT.bound, WARBAND_UE = NS.Constants.ACCOUNT.boundUEShort,
   UNBOUND = "Unbound",
 }
 local BOUND_TOKEN = {

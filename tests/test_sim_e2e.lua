@@ -86,6 +86,20 @@ local EXPECT = {
   },
 }
 
+-- WoW Forever has no warband bank (R1): its bank scenario is the character bank alone, so it writes
+-- the two MOVEs and no WARBAND_DEPOSIT / WITHDRAW row; and with no warband gold to draw, its seeded
+-- world's stacks come out of the stream differently, so the bags' stack sizes are its own. Named in
+-- Retail's ids, which forClient below maps, like every pin here.
+local ALT_MAIL_ORE = T.forever and 15 or 11
+if T.forever then
+  EXPECT.bank = {
+    "MOVE ITEM:219946 x8 TRANSFER @me me/bags>me/bank",
+    "MOVE ITEM:236761 x17 TRANSFER @me me/bags>me/bank",
+  }
+  local social = EXPECT.social
+  social[#social] = "OUT ITEM:237359 x" .. ALT_MAIL_ORE .. " ALT_MAIL @me me/bags>alt/mail"
+end
+
 -- What the Collector alone writes with the ledger off: no diff row, no gold, no move.
 local EXPECT_NO_LEDGER = {
   loot = {
@@ -230,13 +244,20 @@ local CHECKS = {
   bank = function()
     local we = NS.Holdings:Get(NS.Constants.WARBAND_HOLDER)
     assertTrue(we.meta.genesis ~= nil and we.meta.partial == false, "bank: the warband's genesis, complete once read")
+    if T.forever then
+      -- The account holder (account-wide currencies, R2) is there, but no banker reads a warband tab
+      -- or warband gold into it: the warband bank is Retail-only (R1).
+      assertEqual(we.scanned.tabs, nil, "bank: no warband tab read on WoW Forever")
+      assertEqual(we.scanned.money, nil, "bank: no warband gold read on WoW Forever")
+      assertEqual(next(we.items), nil, "bank: the account holder holds no item on WoW Forever")
+    end
     assertEqual(NS.Holdings:Get(NS.Util.PlayerKey()).meta.partial, false, "bank: the character is complete once read")
   end,
   social = function(rows)
     local alt = NS.Holdings:Get(Host.alt)
     local ore = World.ITEMS.ore.id
-    assertEqual(alt.items[ore] and alt.items[ore].mail, 11, "social: the alt's mail is credited the sent stack")
-    assertEqual(alt.escrow.mailAlt[ore], 11, "social: ...as alt mail")
+    assertEqual(alt.items[ore] and alt.items[ore].mail, ALT_MAIL_ORE, "social: the alt's mail is credited the sent stack")
+    assertEqual(alt.escrow.mailAlt[ore], ALT_MAIL_ORE, "social: ...as alt mail")
     assertEqual(alt.escrow.mailMoney, 50000, "social: and the sent gold")
     local out = find(rows, "OUT CURRENCY:3444 x20 CURRENCY_TRANSFER @me me/currency>alt/currency")
     local into = find(rows, "IN CURRENCY:3444 x20 CURRENCY_TRANSFER @alt me/currency>alt/currency")

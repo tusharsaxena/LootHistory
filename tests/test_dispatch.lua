@@ -29,6 +29,11 @@ local SNAPSHOT = {
   "out:TRADE_ACCEPT_UPDATE",
   "spell:UNIT_SPELLCAST_SUCCEEDED:player",
 }
+-- The warband bank's two rows are Retail-only (R1, clients-§4): WoW Forever registers neither.
+if T.forever then
+  local retailOnly = { ["ledger:ACCOUNT_MONEY"] = true, ["ledger:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED"] = true }
+  for i = #SNAPSHOT, 1, -1 do if retailOnly[SNAPSHOT[i]] then table.remove(SNAPSHOT, i) end end
+end
 
 -- The shared bus also carries the lifecycle's own PLAYER_ENTERING_WORLD (core/LifecycleSetup.lua),
 -- which is not a capture event and has never been one of the four modules' registrations.
@@ -128,7 +133,9 @@ test("Dispatch: registered follows Enable/Disable, including trackLedger off", f
 
     NS.Schema:Set("settings.trackLedger", false)
     assertEqual((registeredBy("Reconciler")), 0, "trackLedger off unregisters every Reconciler row")
-    assertEqual(#liveCapture(), #SNAPSHOT - 14, "and only those fourteen come off the live set")
+    -- Fourteen Reconciler rows on Retail; twelve on WoW Forever, which lacks the warband bank's two (R1).
+    local rows = T.forever and 12 or 14
+    assertEqual(#liveCapture(), #SNAPSHOT - rows, "and only those " .. rows .. " come off the live set")
     local n, total = registeredBy("Collector")
     assertEqual(n, total, "the Collector's rows stay registered with trackLedger off")
     NS.Schema:Set("settings.trackLedger", true)

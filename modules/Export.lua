@@ -10,9 +10,10 @@ local E = NS.Export
 -- Friendly bind-state labels, matching the Bound column's tooltip legend. nil/"NONE" = Not Bound.
 local BOUND_LABEL = {
   NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
-  WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
+  WARBAND = NS.Constants.ACCOUNT.bound, WARBAND_UE = NS.Constants.ACCOUNT.boundUE,   -- per client (R2)
 }
 function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(token) end
+E._boundLabel = BOUND_LABEL   -- the suites' golden snapshots read Retail's words on WoW Forever too
 
 -- Plain-text money for CSV: always "Ng Ns Nc" (never the in-game coin-texture markup that
 -- Util.FormatMoney emits). "" for nil so a missing vendorPrice stays blank.

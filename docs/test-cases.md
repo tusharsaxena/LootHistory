@@ -8,10 +8,12 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (37)
+### test_constants.lua (39)
 
 - Constants: every SourceType value equals its key (the stable stored form)
-- Constants: every SourceType member appears in the display order
+- Constants: every SourceType member this client serves appears in the display order
+- Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
+- Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
 - Constants: the display order lists no source twice and invents none
 - Constants: every SourceType member has a non-empty display label
 - Constants: SourceLabel carries no label for a non-source key
@@ -195,7 +197,7 @@ Total.
 - LedgerFormat: quantity text is signed; transfers unsigned; gold as money
 - LedgerFormat: gold quantity is pale gold; others take the direction color
 - LedgerFormat: signed count and money; zero is a gray dash
-- LedgerFormat: the warband holder reads as Warband
+- LedgerFormat: the warband holder reads as Warband (Account on WoW Forever, R2)
 
 ### test_compat.lua (78)
 
@@ -329,7 +331,7 @@ Total.
 - Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
 - Holdings: with NS.SimStores.holdings set, Store and every write act on the session table
 
-### test_rollup.lua (24)
+### test_rollup.lua (25)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -339,6 +341,7 @@ Total.
 - Rollup: an amend tallies only its delta, on the day it happens
 - Rollup: the gate container's first scan after genesis ends the partial window
 - Rollup: the warband's gate is its tabs
+- Rollup: the account holder is partial until its tabs on Retail, never partial on WoW Forever
 - Rollup: wired through the write hook - Database:Add reaches the tally
 - Rollup: Keys indexes every thing in the rollup and learns new ones
 - Rollup: escrow and currency credits write closes too (Phase 2's direct holdings writes)
@@ -519,20 +522,21 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (10)
+### test_reconciler.lua (11)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
 - Reconciler: bank is unreadable until the banker interaction shows
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
+- Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
 
-### test_reconciler_rows.lua (33)
+### test_reconciler_rows.lua (34)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -542,6 +546,7 @@ Total.
 - Reconciler: combat potion burst lands as one CONSUME row and coalesces
 - Reconciler: rows after the 60 s window append
 - Reconciler: a warband deposit is an OUT on the character and an IN on the warband
+- Reconciler: a bank visit reads the warband tab and gold on Retail only
 - Reconciler: a warband withdraw of gold and an item is one OUT and one IN each, no MOVE
 - Reconciler: coalescing amends each half of a holder move separately
 - Reconciler: a posted claim absorbs the gain and stamps the chat row
@@ -2388,7 +2393,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 37 |
+| test_constants.lua | 39 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2402,14 +2407,14 @@ Total.
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
-| test_rollup.lua | 24 |
+| test_rollup.lua | 25 |
 | test_attribution.lua | 40 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 49 |
-| test_reconciler.lua | 10 |
-| test_reconciler_rows.lua | 33 |
+| test_reconciler.lua | 11 |
+| test_reconciler_rows.lua | 34 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2486,4 +2491,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2084** |
+| **Total** | **2089** |

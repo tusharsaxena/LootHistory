@@ -345,19 +345,28 @@ STEPS.ah = {
   step("close", L["Mailbox: close"], { L["MailInfo HIDE"] }, { { "close", "MailInfo" } }),
 }
 
+-- The warband bank's three steps only where it is a feature (C.FEATURE.warbandBank, clients-§4): on
+-- WoW Forever the scenario is the character bank alone, and closes the Banker only.
+local WARBAND_BANK = NS.Constants.FEATURE.warbandBank
 STEPS.bank = {
   step("open", L["Bank: open"], { L["Banker SHOW: the bank's first read"] }, { { "open", "Banker" } }),
   step("deposit", L["Bank: deposit 2 stacks"], { L["BAG_UPDATE, PLAYERBANKSLOTS_CHANGED, twice"] },
     { { "move", "herb", "bags", "bank" }, { "move", "dust", "bags", "bank" } }),
-  step("warband", L["Warband bank: open"], { L["AccountBanker SHOW"] }, { { "open", "AccountBanker" } }),
-  step("deposit", L["Warband bank: deposit"],
-    { L["A stack into a warband tab"], L["Gold into the warband bank: PLAYER_MONEY, ACCOUNT_MONEY"] },
-    { { "move", "ore", "bags", "tabs" }, { "warbandGold", 250000 } }),
-  step("withdraw", L["Warband bank: withdraw 1"], { L["A stack out of a warband tab, the bag burst"] },
-    { { "move", "herb", "tabs", "bags" } }),
-  step("close", L["Bank: close"], { L["AccountBanker and Banker HIDE"] },
-    { { "close", "AccountBanker" }, { "close", "Banker" } }),
 }
+if WARBAND_BANK then
+  local bank = STEPS.bank
+  bank[#bank + 1] = step("warband", L["Warband bank: open"], { L["AccountBanker SHOW"] },
+    { { "open", "AccountBanker" } })
+  bank[#bank + 1] = step("deposit", L["Warband bank: deposit"],
+    { L["A stack into a warband tab"], L["Gold into the warband bank: PLAYER_MONEY, ACCOUNT_MONEY"] },
+    { { "move", "ore", "bags", "tabs" }, { "warbandGold", 250000 } })
+  bank[#bank + 1] = step("withdraw", L["Warband bank: withdraw 1"], { L["A stack out of a warband tab, the bag burst"] },
+    { { "move", "herb", "tabs", "bags" } })
+  bank[#bank + 1] = step("close", L["Bank: close"], { L["AccountBanker and Banker HIDE"] },
+    { { "close", "AccountBanker" }, { "close", "Banker" } })
+else
+  STEPS.bank[#STEPS.bank + 1] = step("close", L["Bank: close"], { L["Banker HIDE"] }, { { "close", "Banker" } })
+end
 
 STEPS.social = {
   step("mailbox", L["Mailbox: open"], { L["MailInfo SHOW, MAIL_INBOX_UPDATE"] }, { { "open", "MailInfo" } }),
@@ -400,7 +409,8 @@ end
 
 local LABELS = {
   loot = L["Open world: kill, lockbox, quest"], key = L["Mythic+ key"], vendor = L["Merchant and disenchant"],
-  ah = L["Auction House day"], bank = L["Bank and warband bank"], social = L["Mail, trade and transfer"],
+  ah = L["Auction House day"], bank = WARBAND_BANK and L["Bank and warband bank"] or L["Bank"],
+  social = L["Mail, trade and transfer"],
 }
 
 for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do

@@ -132,8 +132,8 @@ local BOUND_LEGEND = {
   { "UNBOUND",    "Not Bound" },
   { "BOE",        "Bind on Equip" },
   { "BOP",        "Bind on Pickup" },
-  { "WARBAND",    "Warbound" },
-  { "WARBAND_UE", "Warbound Until Equipped" },
+  { "WARBAND",    C.ACCOUNT.bound },     -- "Warbound"; "Account Bound" on WoW Forever
+  { "WARBAND_UE", C.ACCOUNT.boundUE },
 }
 function BrowserTable:AddBoundLegend(tooltip)
   for _, entry in ipairs(BOUND_LEGEND) do
@@ -263,7 +263,8 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
-    desc = "Character the row belongs to — full Name-Realm, class-colored; Warband for the warband's half of a move.",
+    desc = "Character the row belongs to — full Name-Realm, class-colored; " .. C.ACCOUNT.holder ..
+      " for the " .. C.ACCOUNT.holder:lower() .. "'s half of a move.",
     valueFn = function(r) return charDisplay(r) end,
     sortFn = function(r) return NS.LedgerFormat.HolderLabel(r.holder or r.char):lower() end },
 }

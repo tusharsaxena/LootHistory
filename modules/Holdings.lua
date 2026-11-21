@@ -25,10 +25,17 @@ local function itemTotal(row)
 end
 
 -- A holder is partial from genesis until its gate container (bank / warband tabs) is first read;
--- the Timeline draws that stretch dashed, so the moment it ends is recorded once.
+-- the Timeline draws that stretch dashed, so the moment it ends is recorded once. Where the warband
+-- bank is absent (C.FEATURE.warbandBank, WoW Forever) the account holder has no gate: it holds only
+-- account-wide currencies, which every login reads, so it is never partial.
+local function gateOf(holder)
+  if holder ~= WARBAND then return C.Container.BANK end
+  return C.FEATURE.warbandBank and C.Container.TABS or nil
+end
+
 local function endPartial(e, holder, container, ts)
-  local gate = (holder == WARBAND) and C.Container.TABS or C.Container.BANK
-  if container == gate and e.meta.genesis and e.meta.partial and not e.meta.completeAt then
+  local gate = gateOf(holder)
+  if gate and container == gate and e.meta.genesis and e.meta.partial and not e.meta.completeAt then
     e.meta.partial, e.meta.completeAt = false, ts
   end
 end
@@ -120,8 +127,8 @@ end
 function Holdings:MarkGenesis(holder, ts)
   local e = self:Get(holder, true)
   e.meta.genesis = e.meta.genesis or ts
-  local gate = (holder == WARBAND) and C.Container.TABS or C.Container.BANK
-  e.meta.partial = e.scanned[gate] == nil
+  local gate = gateOf(holder)
+  e.meta.partial = gate ~= nil and e.scanned[gate] == nil
 end
 
 function Holdings:Holders()

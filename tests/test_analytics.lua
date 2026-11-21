@@ -427,6 +427,6 @@ test("Insights ledger: every ledger reason has its own chart color", function()
 end)
 
 test("Insights ledger: the by-character chart names a holder, the Warband as Warband", function()
-  assertEqual(AL().HolderShort(NS.Constants.WARBAND_HOLDER), "Warband")
+  assertEqual(AL().HolderShort(NS.Constants.WARBAND_HOLDER), NS.Constants.ACCOUNT.holder)
   assertEqual(AL().HolderShort("Ka0z-Realm"), "Ka0z")
 end)

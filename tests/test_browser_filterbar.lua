@@ -116,7 +116,7 @@ test("Browser: a holders tab lists holders, with the warband as Warband", functi
     NS.Holdings:ApplyMoney("Alt-Realm", 5, 1)
     local labels = {}
     for _, o in ipairs(NS.Browser._options.char(true)) do labels[o.value] = o.label end
-    assertTrue(labels[W] ~= nil and labels[W]:find("Warband", 1, true) ~= nil)
+    assertTrue(labels[W] ~= nil and labels[W]:find(NS.Constants.ACCOUNT.holder, 1, true) ~= nil)
     assertTrue(labels["Alt-Realm"] ~= nil)
     assertTrue(labels["current"] ~= nil, "the Current preset stays")
   end)
@@ -245,7 +245,7 @@ test("filter bar: each width covers the widest label that control can show", fun
     assertTrue(w[key] >= #label * 6 + pad, key .. " must fit '" .. label .. "'")
   end
   covers("dir", "Direction: 3 selected")
-  covers("bound", "Warbound Until Equipped")
+  covers("bound", NS.Constants.ACCOUNT.boundUE)   -- "Account Bound Until Equipped", the longer, on WoW Forever
   covers("quality", "Quality: " .. NS.Item.QualityLabel(2) .. "+")
   covers("quality", "Quality: 9 selected")
   covers("char", "Character: Current")
@@ -460,7 +460,7 @@ test("Browser: Character Current shows the character's half of a warband move, W
     -- The list offers the Warband, under the name a player reads.
     local labels = {}
     for _, o in ipairs(NS.Browser._options.char(false)) do labels[o.value] = o.label end
-    assertEqual(labels[W], "Warband")
+    assertEqual(labels[W], NS.Constants.ACCOUNT.holder)
     assertTrue(labels[me] ~= nil)
     -- "Character: Current" is the set { [me] = true }.
     local mine = NS.Database:Query({ char = { [me] = true } })

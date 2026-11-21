@@ -99,13 +99,18 @@ local FIXTURES = {
   },
 }
 World.FIXTURE = {
-  slots = { bags = 16, bank = 28, tabs = 98 },
+  slots = { bags = 16, bank = 28 },
   money = { 1500000, 2500000 },
-  warbandMoney = { 5000000, 9000000 },
   bags = { { "herb", 5, 20 }, { "ore", 5, 20 }, { "cache", 1, 1 } },
   bank = { { "ore", 20, 40 } },
-  tabs = { { "herb", 20, 60 } },
 }
+-- The warband bank's tabs and gold only where it is a feature (C.FEATURE.warbandBank, clients-§4):
+-- WoW Forever's world has neither, as its client has no warband bank.
+if NS.Constants.FEATURE.warbandBank then
+  World.FIXTURE.slots.tabs = 98
+  World.FIXTURE.warbandMoney = { 5000000, 9000000 }
+  World.FIXTURE.tabs = { { "herb", 20, 60 } }
+end
 for k, v in pairs(FIXTURES[CLIENT]) do World.FIXTURE[k] = v end
 
 --- The creature the loot scenario kills and `/lh sim loot` loots, per client. Illustrative: nothing

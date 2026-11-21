@@ -16,6 +16,11 @@ local Compat = NS.Compat
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 local CT = C.Container
 local WARBAND = C.WARBAND_HOLDER
+-- The warband bank is Retail-only (C.FEATURE.warbandBank, clients-§4; the WoW Forever port's ruling
+-- R1): where it is absent, the `tabs` and `warbandMoney` parts, their two events, the tab reads and
+-- the char <-> warband pairing are never registered, so no row, event or read of them exists. The
+-- account holder stays: account-wide currencies still file under it (the currency scan steps).
+local WARBAND_BANK = C.FEATURE.warbandBank
 -- BAG_UPDATE_DELAYED already closes a burst of BAG_UPDATEs; the short fuse also folds the money,
 -- currency and equipment events a single vendor sale or loot fires beside it into one flush.
 local DEBOUNCE = 0.35
@@ -26,7 +31,7 @@ function R:IsReadable(part)
   if part == "bank" or part == "tabs" then return self.readable.bank == true end
   if part == "mail" then return self.readable.mail == true end
   if part == "auctions" then return self.readable.auctions == true end
-  if part == "warbandMoney" then return Compat.GetWarbandMoney() ~= nil end
+  if part == "warbandMoney" then return WARBAND_BANK and Compat.GetWarbandMoney() ~= nil end
   return true
 end
 
@@ -51,9 +56,14 @@ end
 -- record the whole bank as lost; the same holds for a closed mailbox. Escrow's two (mailbox,
 -- auction house) are listed here because the readable flags are this module's; what to DO with the
 -- mail/auctions columns is modules/Escrow.lua's. `drift`: the first read of a visit is a drift pass.
+-- A banker reads the warband tabs and gold too only where the warband bank is a feature.
+local function bankParts()
+  if WARBAND_BANK then return { "bank", "tabs", "warbandMoney" } end
+  return { "bank" }
+end
 R.READABLE_ON = {
-  Banker        = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" }, drift = true },
-  AccountBanker = { flag = "bank",         parts = { "bank", "tabs", "warbandMoney" }, drift = true },
+  Banker        = { flag = "bank",         parts = bankParts(), drift = true },
+  AccountBanker = { flag = "bank",         parts = bankParts(), drift = true },
   MailInfo      = { flag = "mail",         parts = { "mail" } },
   Auctioneer    = { flag = "auctionHouse", parts = {} },
 }
@@ -101,7 +111,6 @@ local EVENT_HANDLERS = {
   BAG_UPDATE_DELAYED = function(self) scheduleFlush(self) end,
   PLAYER_EQUIPMENT_CHANGED = dirtyAndFlush("equipped"),
   PLAYER_MONEY = dirtyAndFlush("money"),
-  ACCOUNT_MONEY = dirtyAndFlush("warbandMoney"),
   CURRENCY_DISPLAY_UPDATE = function(self, a1, a3, a4, a5)
     self:OnCurrencyUpdate(a1, a3, a4, a5)                 -- (id, quantity, change, gainSrc, lostSrc)
   end,
@@ -110,7 +119,6 @@ local EVENT_HANDLERS = {
     self:MarkDirty("currencyDelta"); scheduleFlush(self)
   end,
   PLAYERBANKSLOTS_CHANGED = dirtyAndFlush("bank"),
-  PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = dirtyAndFlush("tabs"),
   PLAYER_INTERACTION_MANAGER_FRAME_SHOW = function(self, a1) self:OnInteraction(true, a1) end,
   PLAYER_INTERACTION_MANAGER_FRAME_HIDE = function(self, a1) self:OnInteraction(false, a1) end,
   MAIL_INBOX_UPDATE = function(self)
@@ -123,6 +131,11 @@ local EVENT_HANDLERS = {
     end
   end,
 }
+-- The warband bank's two events, only where it is a feature (WARBAND_BANK above).
+if WARBAND_BANK then
+  EVENT_HANDLERS.ACCOUNT_MONEY = dirtyAndFlush("warbandMoney")
+  EVENT_HANDLERS.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED = dirtyAndFlush("tabs")
+end
 
 local function onEvent(self, event, a1, a3, a4, a5)
   local handler = EVENT_HANDLERS[event]
@@ -174,16 +187,18 @@ local function addLinks(dst, src) for id, l in pairs(src or {}) do if not dst[id
 local CONTAINER_READS = {
   bags     = { mine = true,  c = CT.BAGS,     ids = function() return C.BAG_IDS end },
   bank     = { mine = true,  c = CT.BANK,     ids = function() return C.BANK_IDS end },
-  tabs     = { mine = false, c = CT.TABS,     ids = function() return C.WARBAND_TAB_IDS end },
   equipped = { mine = true,  c = CT.EQUIPPED },
 }
+if WARBAND_BANK then
+  CONTAINER_READS.tabs = { mine = false, c = CT.TABS, ids = function() return C.WARBAND_TAB_IDS end }
+end
 
 function R:Scan(me)
   local snap, d, S = {}, self.dirty, NS.Scanner
   -- At an open bank a bag change re-reads the bank and the warband tabs too: a shift-click split
   -- dragged out of the bank fires a bag event for the bags only (LED-P2-01), so waiting for the
   -- bank's own event would leave the withdraw one-sided. Both reads are bounded to the banker visit.
-  if d.bags and self.readable.bank then d.bank, d.tabs = true, true end
+  if d.bags and self.readable.bank then d.bank, d.tabs = true, WARBAND_BANK or nil end
   for part, spec in pairs(CONTAINER_READS) do
     if d[part] and self:IsReadable(part) then
       local counts, links
@@ -262,13 +277,16 @@ function R:Plan(snap, me, clock)
 end
 
 -- Plan step 1: char <-> warband transfers (warband bank deposit/withdraw, warband gold, account
--- currency moving between the two holders). Two holders, so the reason names the direction.
-R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(_, plan, me)
-  local a, b = plan.net[me], plan.net[WARBAND]
-  if not (a and b) then return end
-  for _, p in ipairs(L.PairHolders(me, a, WARBAND, b)) do
-    p.reason = (p.from == WARBAND) and "WARBAND_WITHDRAW" or "WARBAND_DEPOSIT"
-    plan.pairs[#plan.pairs + 1] = p
+-- currency moving between the two holders). Two holders, so the reason names the direction. Only
+-- where the warband bank is a feature: elsewhere both reasons are absent (C.SOURCE_ABSENT).
+if WARBAND_BANK then
+  R.PLAN_STEPS[#R.PLAN_STEPS + 1] = function(_, plan, me)
+    local a, b = plan.net[me], plan.net[WARBAND]
+    if not (a and b) then return end
+    for _, p in ipairs(L.PairHolders(me, a, WARBAND, b)) do
+      p.reason = (p.from == WARBAND) and "WARBAND_WITHDRAW" or "WARBAND_DEPOSIT"
+      plan.pairs[#plan.pairs + 1] = p
+    end
   end
 end
 
@@ -633,7 +651,7 @@ end
 -- over these parts alone, like a login: UNTRACKED, no hold, no pairing, no claims. Every other dirty
 -- part keeps normal classification in the pass that follows. A container never read before has no
 -- baseline, so its first read is its genesis (no rows) either way.
-local DRIFT_PARTS = { "bank", "tabs", "warbandMoney" }
+local DRIFT_PARTS = bankParts()
 
 local function driftPass(self)
   local rest, only = self.dirty, {}
@@ -677,11 +695,14 @@ end
 -- and the warband tabs need the banker, so a fresh holder stays `partial` until then. A login
 -- inside combat (a reload mid-pull) defers the read AND the genesis stamp to the regen edge, so
 -- genesis never lands on a holder that was not actually scanned.
+local LOGIN_PARTS = { "bags", "equipped", "money", "currency" }
+if WARBAND_BANK then LOGIN_PARTS[#LOGIN_PARTS + 1] = "warbandMoney" end
+
 function R:LoginScan()
   self._sessionStarted = true
   if Compat.InCombatLockdown() then self.loginPending, self.deferred = true, true; return end
   self.loginPending, self.deferred = nil, nil
-  for _, p in ipairs({ "bags", "equipped", "money", "currency", "warbandMoney" }) do self:MarkDirty(p) end
+  for _, p in ipairs(LOGIN_PARTS) do self:MarkDirty(p) end
   local e = NS.Holdings:Get(NS.Util.PlayerKey())
   local first = not (e and e.meta.genesis)
   if first then self.silent = true else self.forceReason = C.SourceType.UNTRACKED end
@@ -692,14 +713,20 @@ end
 
 -- The fourteen capture rows (core/Dispatch.lua) on the private `__ev` target, appended at FILE LOAD
 -- so their order is TOC order. Each fn hands R:OnEvent the client's full payload; R:OnEvent keeps
--- its (event, a1, _, a3, a4, a5) shape because the suites drive it directly.
-for _, event in ipairs({
-  "BAG_UPDATE", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_MONEY", "ACCOUNT_MONEY",
-  "CURRENCY_DISPLAY_UPDATE", "PLAYERBANKSLOTS_CHANGED", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED",
-  "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "PLAYER_REGEN_ENABLED",
-  "CURRENCY_TRANSFER_LOG_UPDATE", "MAIL_INBOX_UPDATE", "OWNED_AUCTIONS_UPDATED",
+-- its (event, a1, _, a3, a4, a5) shape because the suites drive it directly. ACCOUNT_MONEY and
+-- PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED are the warband bank's (`clients`, clients-§4): twelve rows
+-- where it is absent.
+for _, row in ipairs({
+  { "BAG_UPDATE" }, { "BAG_UPDATE_DELAYED" }, { "PLAYER_EQUIPMENT_CHANGED" }, { "PLAYER_MONEY" },
+  { "ACCOUNT_MONEY", clients = C.FEATURE_CLIENTS.warbandBank },
+  { "CURRENCY_DISPLAY_UPDATE" }, { "PLAYERBANKSLOTS_CHANGED" },
+  { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", clients = C.FEATURE_CLIENTS.warbandBank },
+  { "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" }, { "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }, { "PLAYER_REGEN_ENABLED" },
+  { "CURRENCY_TRANSFER_LOG_UPDATE" }, { "MAIL_INBOX_UPDATE" }, { "OWNED_AUCTIONS_UPDATED" },
 }) do
-  NS.EventRow("Reconciler", "ledger", event, function(ev, ...) return R:OnEvent(ev, ...) end)
+  if Compat.ForClient(row.clients) then
+    NS.EventRow("Reconciler", "ledger", row[1], function(ev, ...) return R:OnEvent(ev, ...) end)
+  end
 end
 
 local function trackLedgerOn()

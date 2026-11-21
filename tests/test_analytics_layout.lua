@@ -202,11 +202,12 @@ test("Insights layout: the fixtures exercise the branches they are meant to", fu
   assertEqual(empty.totals.records, 0, "empty is empty")
 end)
 
-test("Insights layout: a full pass over items and currency matches the golden snapshot", T.ka0sDefault(function()
+-- Cut under Retail's account words (T.retailWords): on WoW Forever the Warbound bar reads "Account Bound".
+test("Insights layout: a full pass over items and currency matches the golden snapshot", T.ka0sDefault(T.retailWords(function()
   local inst = newInstance()
   local y = layout(inst, rich)
   assertGolden("rich", snapshot(inst, y))
-end))
+end)))
 
 test("Insights layout: a second pass re-acquires the same widgets and draws the same thing", function()
   local inst = newInstance()

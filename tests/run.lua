@@ -310,6 +310,35 @@ local function bagIndex(name)
   if id == nil then error("bagIndex: no Enum.BagIndex member " .. tostring(name), 2) end
   return id
 end
+-- `RETAIL_ONLY` is the declared-skip reason (the kit's `test(name, fn, reason)`) for a case of a
+-- Retail-only feature (the warband bank, the WoW Forever port's ruling R1) on the forever profile,
+-- where the feature is absent and its own per-client case asserts the absence (clients-§6); nil on
+-- Retail, which runs it (DropWatcher's tests/run.lua precedent).
+local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1): absent on WoW Forever, "
+  .. "which its per-client case asserts" or nil
+-- `retailWords(fn)` wraps a case so it runs with Retail's words for the account (the WoW Forever
+-- port's R2: "Warband" / "Warbound" on Retail, "Account" / "Account Bound" on WoW Forever), then puts
+-- the client's back. The golden snapshots (tests/analytics_golden.txt, tests/export_golden.txt) were
+-- cut under Retail's and characterize layout and order, not the client's words, so their cases name
+-- the words they were cut under. It patches the three places a word is read: NS.Constants.ACCOUNT
+-- (LedgerFormat.HolderLabel), Insights' bound labels and the CSV's. On Retail it moves nothing.
+local function retailWords(fn)
+  return function(...)
+    local C = NS.Constants
+    local words, retail = C.ACCOUNT, C.ACCOUNT_WORDS.retail
+    local tables = { NS.Analytics._fmt.BOUND_LABEL, NS.Export._boundLabel }
+    local saved = { words = {}, labels = {} }
+    for k, v in pairs(words) do saved.words[k] = v end
+    for i, t in ipairs(tables) do saved.labels[i] = { t.WARBAND, t.WARBAND_UE } end
+    for k, v in pairs(retail) do words[k] = v end
+    tables[1].WARBAND, tables[1].WARBAND_UE = retail.bound, retail.boundUEShort
+    tables[2].WARBAND, tables[2].WARBAND_UE = retail.bound, retail.boundUE
+    local ok, err = pcall(fn, ...)
+    for k, v in pairs(saved.words) do words[k] = v end
+    for i, t in ipairs(tables) do t.WARBAND, t.WARBAND_UE = saved.labels[i][1], saved.labels[i][2] end
+    if not ok then error(err, 0) end
+  end
+end
 -- `ka0sDefault(fn)` wraps a case so it runs on Ka0s Default and then puts the profile's stored and
 -- applied skin back. A new profile, and every reset, wears the client's default skin
 -- (NS.DEFAULT_SKIN, skinning-§2): Ka0s Default on Retail, WoW Forever on Forever. A case that pins
@@ -333,6 +362,7 @@ _G.LH_TEST = Kit.expose{
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
   forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
+  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

@@ -43,7 +43,7 @@ test("BrowserTable: bound legend adds a line per state", function()
   NS.BrowserTable:AddBoundLegend(fakeTip)
   assertEqual(#lines, 5)
   assertTrue(lines[1]:find("Not Bound", 1, true) ~= nil)
-  assertTrue(lines[5]:find("Warbound", 1, true) ~= nil)
+  assertTrue(lines[5]:find(NS.Constants.ACCOUNT.boundUE, 1, true) ~= nil)   -- "Warbound Until Equipped" on Retail
 end)
 
 test("BrowserTable: each legend lock is tinted, and sits on its own line", function()
@@ -1154,7 +1154,7 @@ test("BrowserTable: group by Direction and by Holder", function()
   labels = {}
   for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
   table.sort(labels)
-  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: Warband")
+  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: " .. NS.Constants.ACCOUNT.holder)
   BT.groupBy = saved
 end)
 
@@ -1266,12 +1266,12 @@ test("BrowserTable: the Character column shows the row's holder", function()
   local W = NS.Constants.WARBAND_HOLDER
   local wb = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = W, source = "WARBAND_DEPOSIT" }
   local me = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = "Ka0z-Realm", source = "WARBAND_DEPOSIT" }
-  assertEqual(cell("char", wb), "Warband", "the Warband half carries no class icon")
+  assertEqual(cell("char", wb), NS.Constants.ACCOUNT.holder, "the Warband half carries no class icon")
   assertTrue(cell("char", me):find("Ka0z-Realm", 1, true) ~= nil)
   assertEqual(cell("char", { char = "Old-Realm" }), "Old-Realm", "a legacy row's holder is its char")
   local sortFn
   for _, col in ipairs(NS.BrowserTable.COLUMNS) do if col.key == "char" then sortFn = col.sortFn end end
-  assertEqual(sortFn(wb), "warband")
+  assertEqual(sortFn(wb), NS.Constants.ACCOUNT.holder:lower())
   -- Group: Character follows the column.
   withTableState(function()
     local BT = NS.BrowserTable
@@ -1279,7 +1279,9 @@ test("BrowserTable: the Character column shows the row's holder", function()
     local labels = {}
     for _, e in ipairs(BT:GroupRecords({ wb, me })) do if e.kind == "header" then labels[#labels + 1] = e.label end end
     table.sort(labels)
-    assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
+    local want = { "Character: Ka0z-Realm", "Character: " .. NS.Constants.ACCOUNT.holder }
+    table.sort(want)   -- "Account" sorts before the character on WoW Forever, "Warband" after it on Retail
+    assertEqual(table.concat(labels, "|"), table.concat(want, "|"))
   end)
 end)
 
@@ -1329,17 +1331,14 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   for id, count in pairs(byPair) do assertEqual(count, 2, "pair " .. id .. " has both halves") end
   local W = NS.Constants.WARBAND_HOLDER
   local want = T.forever and {
-    -- WoW Forever's nine classes (LH-05): the alt moves walk its own class order.
-    "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
-    "2|WARBAND_WITHDRAW|OUT|{W}|{DR}|DRUID|{W}/tabs|{DR}/bags",
-    "3|ALT_MAIL|OUT|{WA}|{WA}|WARRIOR|{WA}/bags|{PA}/mail",
-    "4|ALT_TRADE|OUT|{PA}|{PA}|PALADIN|{PA}/bags|{HU}/bags",
-    "5|CURRENCY_TRANSFER|OUT|{HU}|{HU}|HUNTER|{HU}/bags|{RO}/bags",
-    "1|WARBAND_DEPOSIT|IN|{W}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
-    "2|WARBAND_WITHDRAW|IN|{DR}|{DR}|DRUID|{W}/tabs|{DR}/bags",
-    "3|ALT_MAIL|IN|{PA}|{PA}|PALADIN|{WA}/bags|{PA}/mail",
-    "4|ALT_TRADE|IN|{HU}|{HU}|HUNTER|{PA}/bags|{HU}/bags",
-    "5|CURRENCY_TRANSFER|IN|{RO}|{RO}|ROGUE|{HU}/bags|{RO}/bags",
+    -- WoW Forever's nine classes (LH-05): the alt moves walk its own class order. It has no warband
+    -- bank (R1), so no WARBAND_DEPOSIT / WITHDRAW pair: the seed walk reaches the alt moves first.
+    "1|ALT_MAIL|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{DR}/mail",
+    "2|ALT_TRADE|OUT|{DR}|{DR}|DRUID|{DR}/bags|{WA}/bags",
+    "3|CURRENCY_TRANSFER|OUT|{WA}|{WA}|WARRIOR|{WA}/bags|{PA}/bags",
+    "1|ALT_MAIL|IN|{DR}|{DR}|DRUID|{WL}/bags|{DR}/mail",
+    "2|ALT_TRADE|IN|{WA}|{WA}|WARRIOR|{DR}/bags|{WA}/bags",
+    "3|CURRENCY_TRANSFER|IN|{PA}|{PA}|PALADIN|{WA}/bags|{PA}/bags",
   } or {
     "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
     "2|WARBAND_WITHDRAW|OUT|{W}|{MK}|MONK|{W}/tabs|{MK}/bags",
@@ -1354,9 +1353,8 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   }
   -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
   -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
-  local names = T.forever and { W = W, WL = "Mockhex Samplefen", DR = "Mockgrove Samplethorn",
-    WA = "Mockshield Sampleforge", PA = "Sampleblade Mockvale", HU = "Samplehunter Mockstride",
-    RO = "Sampleshade Mockveil" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
+  local names = T.forever and { WL = "Mockhex Samplefen", DR = "Mockgrove Samplethorn",
+    WA = "Mockshield Sampleforge", PA = "Sampleblade Mockvale" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
     DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
     WA = "Mockshield-Mockrealm" }
   assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))
@@ -1437,7 +1435,8 @@ test("Test mode: SetTestMode traces each act and falls back to a table Refresh",
     if not ok then error(err, 0) end
     assertEqual(table.concat(traced, "\n"), table.concat({
       "test mode refused: the General visibility setting keeps the window hidden.",
-      "test mode on: " .. 304 .. " sample rows",
+      -- WoW Forever's sample lacks the two warband reasons' seed rows and their receiving halves (R1).
+      "test mode on: " .. (T.forever and 300 or 304) .. " sample rows",
       "test mode off (combat started)",
     }, "\n"))
   end)

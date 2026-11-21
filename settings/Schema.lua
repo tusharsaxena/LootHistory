@@ -342,7 +342,8 @@ local ROWS = {
 
   { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", subgroup = "Ledger", label = "Track holdings and losses",
-    tooltip = "Keep a ledger of what every character and your warband holds, and every gain, loss " ..
+    tooltip = "Keep a ledger of what every character and your " .. C.ACCOUNT.holder:lower() ..
+      " holds, and every gain, loss " ..
       "and transfer. Off = record loot gains only, as before.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
@@ -440,7 +441,8 @@ local ROWS = {
   -- 020, LOO-L02); it was on History, which is otherwise about how long data is kept.
   { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
     page = "General", group = "Interface", subgroup = "History window", label = "Show transfers by default",
-    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+    tooltip = "Include transfers (bank deposits, " .. (C.FEATURE.warbandBank and "warband moves, " or "") ..
+      "mail to your alts) in History's " ..
       "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
@@ -1211,7 +1213,7 @@ NS.COMMANDS = gateFeatureVerbs{
   -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
   { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
     function(rest) NS.Slash:CliProfile(rest) end },
-  { "holdings", "Search what your characters and warband hold: holdings <query>",
+  { "holdings", "Search what your characters and " .. C.ACCOUNT.holder:lower() .. " hold: holdings <query>",
     function(rest) NS.Slash:Holdings(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
     function(rest)

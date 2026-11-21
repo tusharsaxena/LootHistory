@@ -78,7 +78,35 @@ test("Reconciler: LoginScan seeds genesis, partial until bank seen", function()
   R():LoginScan()
   local e = NS.Holdings:Get(ME())
   assertTrue(e.meta.genesis ~= nil); assertTrue(e.meta.partial)
-  assertEqual(NS.Holdings:Get("§warband").money, 70)
+  if T.forever then
+    -- The warband bank is Retail-only (R1): no warband gold is read, so the account holder has none.
+    local w = NS.Holdings:Get("§warband")
+    assertEqual(w and w.money, nil, "no warband gold on WoW Forever")
+  else
+    assertEqual(NS.Holdings:Get("§warband").money, 70)
+  end
+  T.mocks.__warbandMoney = 0
+end)
+
+-- clients-§6: a per-client feature has a case on each profile, present where declared and absent
+-- where not. The warband bank (C.FEATURE.warbandBank, ruling R1) is Retail's.
+test("Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)", function()
+  -- red under: a WoW Forever build that registers ACCOUNT_MONEY or the tab-slot event, arms the
+  -- `tabs` / `warbandMoney` parts at a banker, or reads warband gold.
+  local rows = {}
+  for _, row in ipairs(NS.EVENT_ROWS) do
+    if row.owner == "Reconciler" then rows[row.event] = true end
+  end
+  local onRetail = not T.forever
+  assertEqual(rows.ACCOUNT_MONEY == true, onRetail, "the ACCOUNT_MONEY row")
+  assertEqual(rows.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED == true, onRetail, "the tab-slot row")
+  assertTrue(rows.PLAYERBANKSLOTS_CHANGED, "the character bank's row serves both clients")
+  for _, name in ipairs({ "Banker", "AccountBanker" }) do
+    assertEqual(table.concat(R().READABLE_ON[name].parts, ","),
+      onRetail and "bank,tabs,warbandMoney" or "bank", name .. "'s parts")
+  end
+  T.mocks.__warbandMoney = 70
+  assertEqual(R():IsReadable("warbandMoney"), onRetail, "warband gold is read on Retail only")
   T.mocks.__warbandMoney = 0
 end)
 
@@ -146,19 +174,22 @@ end
 
 test("Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)", function()
   local C = NS.Constants
+  -- The warband bank's routes are Retail's (R1): on WoW Forever a warband tab id is no part of its
+  -- own, and its two events reach no handler.
+  local tab = T.bagIndex("AccountBankTab_1")
   local cases = {
     { "BAG_UPDATE", nil, { 0 }, "bags[0] | fuse=0 | " },
     { "BAG_UPDATE", nil, { C.BANK_IDS[1] }, "bank | fuse=0 | " },
-    { "BAG_UPDATE", nil, { C.WARBAND_TAB_IDS[1] }, "tabs | fuse=0 | " },
+    { "BAG_UPDATE", nil, { tab }, T.forever and ("bags[" .. tab .. "] | fuse=0 | ") or "tabs | fuse=0 | " },
     { "BAG_UPDATE", nil, {}, "bags[] | fuse=0 | " },
     { "BAG_UPDATE_DELAYED", nil, {}, " | fuse=1 | " },
     { "PLAYER_EQUIPMENT_CHANGED", nil, {}, "equipped | fuse=1 | " },
     { "PLAYER_MONEY", nil, {}, "money | fuse=1 | " },
-    { "ACCOUNT_MONEY", nil, {}, "warbandMoney | fuse=1 | " },
+    { "ACCOUNT_MONEY", nil, {}, T.forever and " | fuse=0 | " or "warbandMoney | fuse=1 | " },
     { "CURRENCY_DISPLAY_UPDATE", nil, { 7, "x", 3, 4, 5 }, " | fuse=0 | cur:7,3,4,5" },
     { "CURRENCY_TRANSFER_LOG_UPDATE", nil, {}, "currencyDelta | fuse=1 |  | transfer" },
     { "PLAYERBANKSLOTS_CHANGED", nil, {}, "bank | fuse=1 | " },
-    { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", nil, {}, "tabs | fuse=1 | " },
+    { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", nil, {}, T.forever and " | fuse=0 | " or "tabs | fuse=1 | " },
     { "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", nil, { 17 }, " | fuse=0 | inter:true:17" },
     { "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", nil, { 17 }, " | fuse=0 | inter:false:17" },
     { "MAIL_INBOX_UPDATE", nil, {}, " | fuse=0 | " },

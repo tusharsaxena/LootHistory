@@ -17,7 +17,8 @@ local function H() return NS.db.global.history end
 
 -- Every case runs on a frozen wall clock (row ts, the 60 s coalescing window) and restores the
 -- shared mock on the way out whether the body passed or threw.
-local function case(name, body)
+-- `skip` is a declared-skip reason (T.RETAIL_ONLY for a warband-bank case on WoW Forever).
+local function case(name, body, skip)
   test(name, function()
     local savedTime, savedICL = m.time, m.InCombatLockdown
     local savedList, savedWide, savedXfer = m.__currencyList, m.__currencyAccountWide, m.__currencyTransfers
@@ -29,10 +30,12 @@ local function case(name, body)
     m.__itemClassID, R()._enabled = savedClass, savedEnabled
     m.__currencyList, m.__currencyAccountWide, m.__currencyTransfers = savedList, savedWide, savedXfer
     if not ok then error(err, 0) end
-  end)
+  end, skip)
 end
 
--- The first warband (account) tab, by member: 12 on Retail, 15 on WoW Forever (tests/run.lua).
+-- The first warband (account) tab, by member: 12 on Retail, 15 on WoW Forever (tests/run.lua). The
+-- warband bank is Retail-only (R1), so its cases are declared skips on WoW Forever (T.RETAIL_ONLY),
+-- and "a bank visit reads no warband tab or gold" below is the absence case that runs there.
 local WB1 = T.bagIndex("AccountBankTab_1")
 
 local function setBag(bagID, slots)
@@ -203,6 +206,26 @@ case("Reconciler: a warband deposit is an OUT on the character and an IN on the 
   end
   assertEqual(by[ME].dir, "OUT"); assertEqual(by["§warband"].dir, "IN")
   assertTrue(by[ME].pairId ~= nil); assertEqual(by[ME].pairId, by["§warband"].pairId)
+end, T.RETAIL_ONLY)
+
+-- clients-§6, both profiles: the warband bank is Retail's (R1). At an open banker Retail reads the
+-- warband tabs and gold into the account holder; WoW Forever reads neither, even with a warband tab
+-- id and warband gold planted, so no account-holder holding or row comes from the bank.
+case("Reconciler: a bank visit reads the warband tab and gold on Retail only", function()
+  reset()
+  setBag(0, {})
+  genesis()
+  setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 500000
+  openBank("AccountBanker"); R():Flush()
+  assertEqual(#H(), 0, "a first read writes no row on either client")
+  local w = NS.Holdings:Get(NS.Constants.WARBAND_HOLDER)
+  if T.forever then
+    assertEqual(w and w.items[7], nil, "no warband tab is read on WoW Forever")
+    assertEqual(w and w.money, nil, "no warband gold is read on WoW Forever")
+  else
+    assertEqual(w.items[7].tabs, 5); assertEqual(w.money, 500000)
+  end
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType("AccountBanker"))
 end)
 
 local function warbandWithBalance()
@@ -245,7 +268,7 @@ case("Reconciler: a warband withdraw of gold and an item is one OUT and one IN e
   assertEqual(rows["GOLD:IN"].quantity, 13839900); assertEqual(rows["ITEM:IN"].quantity, 1)
   assertEqual(rows["GOLD:OUT"].from, "§warband/money"); assertEqual(rows["GOLD:OUT"].to, ME .. "/money")
   assertTrue(rows["GOLD:IN"].pairId ~= rows["ITEM:IN"].pairId, "each thing's move has its own pairId")
-end)
+end, T.RETAIL_ONLY)
 
 -- Review Focus 5: inside the 60 s window a second withdraw amends each half in place; an IN never
 -- folds into an OUT and the warband's half never folds into the character's.
@@ -266,7 +289,7 @@ case("Reconciler: coalescing amends each half of a holder move separately", func
   assertEqual(#H(), 4)
   assertEqual(by["§warband:OUT"].quantity, 3); assertEqual(by[ME .. ":IN"].quantity, 3)
   for i = 3, 4 do assertEqual(H()[i].source, "WARBAND_DEPOSIT"); assertEqual(H()[i].quantity, 1) end
-end)
+end, T.RETAIL_ONLY)
 
 case("Reconciler: a posted claim absorbs the gain and stamps the chat row", function()
   reset()
@@ -630,7 +653,7 @@ case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, nev
   m.__now = 300
   openBank("AccountBanker"); R():Flush()
   assertEqual(#H(), 4); assertEqual(H()[4].source, "UNTRACKED"); assertEqual(H()[4].holder, "§warband")
-end)
+end, T.RETAIL_ONLY)
 
 -- Final-review fix: a combat login deferred to the regen edge, with a banker opened in the same
 -- combat, runs the bank drift pass first; the login's own UNTRACKED must survive it.

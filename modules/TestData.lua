@@ -6,7 +6,9 @@ local TD = NS.TestData
 -- BrowserTable:BuildTestData; this fills the Holdings and Timeline tabs the same way, with two
 -- session-only stores published beside NS.State.testRecords:
 --   * NS.State.testHoldings -- db.global.holdings' shape: five holders (four of the History sample's
---     characters and the Warband), the sample's thirty items, the client's sample currencies and gold;
+--     characters and the Warband; on WoW Forever, which has no warband bank, the account holder only
+--     when an account currency is in the sample), the sample's thirty items, the client's sample
+--     currencies and gold;
 --   * NS.State.testDaily -- db.global.daily's shape: SPAN_DAYS of closes and gained/lost tallies.
 -- Read paths reach them through NS.Holdings:ActiveStore and NS.Rollup:ActiveStore, as History's do
 -- through Database:ActiveHistory. No write path (Apply*, Credit*, the rollup writer) sees them.
@@ -125,17 +127,25 @@ local function buildHoldings(rng, genesis, now)
     out[charKey(cls)] = e
   end
   -- The Warband: reagents, gems and recipes in the bank tabs, warband gold, one account currency.
+  -- Where the warband bank is absent (C.FEATURE.warbandBank, WoW Forever) the account holder holds
+  -- account currencies alone, and is in the sample only when the client's list marks one.
+  local bank = C.FEATURE.warbandBank
   local w = newHolder(genesis, now, nil)
-  for idBase = 1, #S.itemNames do
-    local look = itemLook(idBase)
-    if WARBAND_TYPES[look.itemType] then w.items[S.idBase + idBase] = { [C.Container.TABS] = 20 + rng(400) } end
+  if bank then
+    for idBase = 1, #S.itemNames do
+      local look = itemLook(idBase)
+      if WARBAND_TYPES[look.itemType] then w.items[S.idBase + idBase] = { [C.Container.TABS] = 20 + rng(400) } end
+    end
   end
   for _, c in ipairs(CURRENCIES) do
     if c.account then w.currency[c.id] = 100 + rng(900) end
   end
-  w.money = (150000 + rng(600000)) * GOLD
-  w.scanned[C.Container.TABS], w.scanned.currency, w.scanned.money = now - 7200, now - 7200, now - 7200
-  out[WARBAND] = w
+  w.scanned.currency = now - 7200
+  if bank then
+    w.money = (150000 + rng(600000)) * GOLD
+    w.scanned[C.Container.TABS], w.scanned.money = now - 7200, now - 7200
+  end
+  if bank or next(w.currency) then out[WARBAND] = w end
   return out
 end
 
