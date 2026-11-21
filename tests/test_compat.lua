@@ -607,19 +607,43 @@ end)
 test("Compat: bag-id groups come from Enum.BagIndex names, type constants excluded", function()
   -- Each client's own numbering (tests/wow_mock.lua): Retail 12.1.5 has six character bank tabs and
   -- five account tabs, WoW Forever nine of each, so the same names land on different ids. Both
-  -- enums carry the Keyring (-1), and it is in no group yet (the per-client container table is later).
+  -- enums carry the Keyring (-1), and it joins the bags on WoW Forever only (ruling R5): Retail's -1
+  -- was the legacy bank container before 11.2, so Retail keeps it out of every group.
   -- The warband tabs are a group only where the warband bank is a feature (Retail, ruling R1): WoW
   -- Forever's enum numbers AccountBankTab_1..9 as 15..23, and nothing scans them.
   local C = NS.Constants
-  assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
   if T.forever then
+    assertEqual(table.concat(C.BAG_IDS, ","), "-1,0,1,2,3,4,5")
     assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11,12,13,14")
     assertEqual(C.FEATURE.warbandBank, false)
     assertEqual(#C.WARBAND_TAB_IDS, 0, "no warband tab id on WoW Forever")
   else
+    assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
     assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
     assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
   end
+end)
+
+test("Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring", function()
+  -- red under: one shared pattern table (the Keyring in Retail's bags, or in neither client's), or a
+  -- table picked anew per read rather than once at load by ClientKey() (clients-§5; ruling R5).
+  local C = NS.Constants
+  local function has(list, want)
+    for _, p in ipairs(list) do if p == want then return true end end
+    return false
+  end
+  local byClient = C.CONTAINER_GROUPS_BY_CLIENT
+  assertTrue(has(byClient.forever.BAGS, "^Keyring$"), "WoW Forever's bags hold the Keyring")
+  for _, client in ipairs({ "retail", "forever" }) do
+    for group, list in pairs(byClient[client]) do
+      if not (client == "forever" and group == "BAGS") then
+        assertTrue(not has(list, "^Keyring$"), client .. " " .. group .. " holds no Keyring")
+      end
+    end
+  end
+  assertTrue(C.CONTAINER_GROUPS == byClient[T.forever and "forever" or "retail"],
+    "the running client's table is the one picked")
+  assertTrue(not has(C.BAG_IDS, -2) and not has(C.BAG_IDS, -3), "the type constants stay out")
 end)
 
 test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()

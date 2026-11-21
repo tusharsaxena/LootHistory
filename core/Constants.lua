@@ -354,11 +354,27 @@ local MSG = {
 -- Derived BY MEMBER NAME from Enum.BagIndex, never by number: Blizzard renumbers between builds,
 -- and 12.0.7 also carries type constants (Characterbanktab = -2, Accountbanktab = -3) a loose
 -- pattern would scoop up. Anchored, case-sensitive patterns only.
-local GROUP_PATTERNS = {
-  BAGS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
-  BANK = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" },
-  TABS = { "^AccountBankTab_%d+$" },
+-- One table per client, picked once by ClientKey() (clients-§5; ruling R5). They differ only in the
+-- Keyring (-1): on WoW Forever it holds the player's keys, so it is part of the bags and a key moved
+-- between keyring and bags is an internal move. Both enums number it, but Retail's -1 was the legacy
+-- bank container before 11.2, so Retail keeps it out of every group. Both tables are published, as
+-- C.CONTAINER_GROUPS_BY_CLIENT, for the suites.
+local BANK_PATTERNS = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" }
+local TABS_PATTERNS = { "^AccountBankTab_%d+$" }
+C.CONTAINER_GROUPS_BY_CLIENT = {
+  retail = {
+    BAGS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
+    BANK = BANK_PATTERNS,
+    TABS = TABS_PATTERNS,
+  },
+  forever = {
+    BAGS = { "^Keyring$", "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
+    BANK = BANK_PATTERNS,
+    TABS = TABS_PATTERNS,
+  },
 }
+C.CONTAINER_GROUPS = C.CONTAINER_GROUPS_BY_CLIENT[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
+local GROUP_PATTERNS = C.CONTAINER_GROUPS
 local function idsMatching(patterns)
   local seen, ids = {}, {}
   local members = Enum and Enum.BagIndex

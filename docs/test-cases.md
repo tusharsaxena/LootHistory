@@ -200,7 +200,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband (Account on WoW Forever, R2)
 
-### test_compat.lua (78)
+### test_compat.lua (79)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -250,6 +250,7 @@ Total.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 - Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
+- Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring
 - Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
 - Compat: container slot read and empty slot
 - Compat: GetMoney nets cursor and trade money
@@ -2406,7 +2407,7 @@ Total.
 | test_util.lua | 52 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 78 |
+| test_compat.lua | 79 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 8 |
 | test_tooltip_place.lua | 9 |
@@ -2496,4 +2497,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2094** |
+| **Total** | **2095** |
