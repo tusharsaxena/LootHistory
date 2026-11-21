@@ -69,7 +69,7 @@ free number in its theme.
   `core/EnvSetup.lua`): INSTALL, CAP, SLASH-1 to SLASH-3, STATE-1 to STATE-4, LAUNCH-5 and INS-20;
   a change to `core/EnvSetup.lua` also needs SLASH-9, and one that moves `core/Compat.lua` also
   needs LOC.
-- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
+- Browser, table, Insights or export (`modules/Browser.lua`, `BrowserViews.lua`, `BrowserTable.lua`, `AnalyticsFormat.lua`,
   `Analytics.lua`, `AnalyticsCharts.lua`, `Export.lua`): HIST, INS, STATE-6, STATE-7 to STATE-16, COMBAT-1, COMBAT-2, COMBAT-6, COMBAT-7 and INSTALL-8.
 - Settings or schema: PANEL, SLASH, PROFILE, STATE-3, STATE-5, STATE-6, COMBAT-2, COMBAT-5, DIAG-9
   and FILT-1, plus CAP-22 to CAP-24 for a new capture row.

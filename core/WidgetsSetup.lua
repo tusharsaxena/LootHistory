@@ -282,7 +282,7 @@ end
 --- The browser's shared Search box wears it on every tab (modules/BrowserFilterBar.lua): a list in
 --- the box's own gray skin, hung directly under it and as wide as it, so it follows the box through
 --- every FB-1 relayout with no handler of its own. What the rows say and what a pick does belong to
---- the active tab (B:Suggest / B:PickSuggestion in modules/Browser.lua).
+--- the active tab (B:Suggest / B:PickSuggestion in modules/BrowserViews.lua).
 ---
 --- The caller's opts are COPIED, as NS.MakeLineChart's are.
 ---

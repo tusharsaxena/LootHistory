@@ -777,7 +777,7 @@ Total.
 - Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
 - Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
 
-### test_browser_filterbar.lua (23)
+### test_browser_filterbar.lua (24)
 
 - filter bar: a bar button's tooltip is attached above the button
 - Browser: date options offer 90 days and 1 year after 30 days
@@ -802,6 +802,7 @@ Total.
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
+- Browser: BrowserViews.lua loads between Browser.lua and BrowserFilterBar.lua, helpers intact
 
 ### test_teststrip.lua (8)
 
@@ -2378,7 +2379,7 @@ Total.
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 83 |
-| test_browser_filterbar.lua | 23 |
+| test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 86 |
@@ -2450,4 +2451,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2052** |
+| **Total** | **2053** |
