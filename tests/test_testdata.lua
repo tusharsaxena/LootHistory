@@ -195,6 +195,13 @@ test("TestData: the sample rollup books a holder move's loss and gain on each ho
   -- The rollup reads the clock the sample was stamped with: BuildTestData dates its rows from
   -- time(), so a fixed date here drifted out of the sample's window as the calendar moved on.
   local records = NS.BrowserTable:BuildTestData()
+  -- Whether a move's item is one its holders hold is the sample's dice: on WoW Forever, whose seed
+  -- walk is shorter (R1, R2), none is. So each item move carries a hot item, which TestData puts on
+  -- every character, and the case reads the booking rather than the dice.
+  local hot = NS.BrowserTable.TestSample.idBase + 1
+  for _, r in ipairs(records) do
+    if NS.Ledger.HOLDER_MOVE_REASON[r.source] and NS.Util.RowKind(r) == "ITEM" then r.itemID = hot end
+  end
   local now = T.mocks.time()   -- the clock the addon chunks resolve (the kit binds os.time)
   local _, daily = NS.TestData.Build(records, now)
   local checked = 0
@@ -342,8 +349,10 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- PRNG reaches each series in a new order. Nothing else about the build moved.
     -- WoW Forever's pins are its own sample's (LH-05: its holder keys, items and currencies); Retail's
     -- did not move with it. Re-pinned by LH-06 (was 3093:296770321 and 110993:401539997): WoW Forever
-    -- has no warband bank (R1), so its sample has no Warband holder, tabs or gold.
-    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95662:1728806636" } })[CLIENT]
+    -- has no warband bank (R1), so its sample has no Warband holder, tabs or gold. Re-pinned by LH-07
+    -- (daily was 95662:1728806636): its sample has no Mythic+, Milling or Prospecting rows (R2), so
+    -- the rows the daily walk folds in moved; the holdings did not.
+    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95461:1897410143" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)

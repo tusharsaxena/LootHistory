@@ -4,8 +4,11 @@ local C = NS.Constants
 
 -- ── The client's features (clients-§4, §5) ───────────────────────────────────────────────────
 -- The Retail-only features (the WoW Forever port, Ka0sAddonsCommonTasks
--- docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/00_DESIGN.md, ruling R1), each declared with
--- the clients it serves and gated where it registers by C.FEATURE, its ForClient answer read once.
+-- docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/00_DESIGN.md, rulings R1 and R2), each declared
+-- with the clients it serves and gated where it registers by C.FEATURE, its ForClient answer read once.
+-- `mythicPlus` is the keystone: the MPLUS source (C.SOURCE_CLIENTS below), the keystone context and
+-- its four events (modules/Attribution.lua), the Insights keystone breakdown (Database:Stats'
+-- byKeystone, core/Database.lua) and the simulator's `key` scenario (modules/SimScenario.lua).
 -- `warbandBank` is the warband bank's tabs and gold: the Reconciler's `tabs` and `warbandMoney`
 -- parts and their two events (modules/Reconciler.lua), the tab ids (C.WARBAND_TAB_IDS below), the
 -- char <-> warband pairing and its two reasons (C.SOURCE_CLIENTS below), the Holdings tab's Warband
@@ -14,6 +17,7 @@ local C = NS.Constants
 -- and the holder reads "Account" there (C.ACCOUNT below).
 C.FEATURE_CLIENTS = {
   warbandBank = { "retail" },
+  mythicPlus = { "retail" },
 }
 C.FEATURE = {}
 for name, clients in pairs(C.FEATURE_CLIENTS) do C.FEATURE[name] = NS.Compat.ForClient(clients) end
@@ -115,9 +119,15 @@ C.LEDGER_REASON = {
 -- ForClient refuses is ABSENT on this client: it is kept out of SourceOrder, SOURCE_IMPLEMENTED and
 -- LEDGER_REASON, so no filter, mute list or sample offers it, and C.SOURCE_ABSENT names it.
 -- SourceType and SourceLabel stay whole: they are the export contract, and a stored row keeps its
--- key and its label. The two warband directions are the warband bank's (C.FEATURE.warbandBank).
+-- key and its label. The two warband directions are the warband bank's (C.FEATURE.warbandBank), MPLUS
+-- the keystone's (C.FEATURE.mythicPlus). The rest are content WoW Forever does not have (ruling R2):
+-- no bonus-roll coins, no Milling or Prospecting, and so no DECONSTRUCT reason -- Disenchant, which
+-- it has, stays a source (its seed is modules/Attribution.lua's, per client).
+local RETAIL = { "retail" }
 C.SOURCE_CLIENTS = {
   WARBAND_DEPOSIT = C.FEATURE_CLIENTS.warbandBank, WARBAND_WITHDRAW = C.FEATURE_CLIENTS.warbandBank,
+  MPLUS = C.FEATURE_CLIENTS.mythicPlus,
+  BONUS_ROLL = RETAIL, MILLING = RETAIL, PROSPECTING = RETAIL, DECONSTRUCT = RETAIL,
 }
 C.SOURCE_ABSENT = {}
 for s, clients in pairs(C.SOURCE_CLIENTS) do

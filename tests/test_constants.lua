@@ -50,6 +50,31 @@ test("Constants: the warband bank is Retail-only (R1), its two reasons absent on
   if not T.forever then assertEqual(absent, 0, "Retail lacks no source") end
 end)
 
+-- Ruling R2: the keystone (MPLUS) and the content WoW Forever does not have -- bonus rolls, Milling,
+-- Prospecting and the DECONSTRUCT reason -- are Retail's. Disenchant serves both.
+local R2_SOURCES = { "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING", "DECONSTRUCT" }
+
+test("Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)", function()
+  -- red under: a WoW Forever build that still declares the keystone, or still offers one of these
+  -- in a filter, the mute list or the reasons; or a Retail build that lost one.
+  assertEqual(C.FEATURE.mythicPlus, not T.forever)
+  local inOrder, offered = {}, {}
+  for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
+  for _, o in ipairs(C.SOURCE_OPTIONS) do offered[o.value] = true end
+  for _, s in ipairs(R2_SOURCES) do
+    assertEqual(C.SOURCE_ABSENT[s] == true, T.forever, s .. " absent")
+    assertEqual(inOrder[s] == true, not T.forever, s .. " in SourceOrder")
+    assertEqual(C.SOURCE_IMPLEMENTED[s] == true, not T.forever, s .. " implemented")
+    assertEqual(C.SourceType[s], s, s .. " stays a SourceType member (the export contract)")
+    assertTrue(type(C.SourceLabel[s]) == "string", s .. " keeps its label")
+  end
+  assertEqual(C.LEDGER_REASON.DECONSTRUCT == true, not T.forever, "DECONSTRUCT a ledger reason")
+  for _, s in ipairs({ "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }) do
+    assertEqual(offered[s] == true, not T.forever, s .. " offered as a capture mute")
+  end
+  assertTrue(inOrder.DISENCHANT and offered.DISENCHANT, "Disenchant serves both clients")
+end)
+
 test("Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever", function()
   if T.forever then
     assertEqual(C.ACCOUNT.holder, "Account")

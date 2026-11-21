@@ -413,8 +413,11 @@ local LABELS = {
   social = L["Mail, trade and transfer"],
 }
 
+-- The `key` scenario only where the keystone is a feature (C.FEATURE.mythicPlus, clients-§4; ruling
+-- R2): WoW Forever offers the other five. Its bonus-roll step goes with it.
+local MYTHIC_PLUS = NS.Constants.FEATURE.mythicPlus
 for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do
-  if not SC.defs[name] then
+  if not SC.defs[name] and (name ~= "key" or MYTHIC_PLUS) then
     SC.names[#SC.names + 1] = name
     SC.defs[name] = { label = LABELS[name], fixture = scenarioFixture(), steps = STEPS[name], timeline = timeline }
   end

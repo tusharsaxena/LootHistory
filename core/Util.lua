@@ -173,15 +173,18 @@ end
 -- Published for the simulator's line writer (modules/SimDrivers.lua), so a simulated line is
 -- formatted from exactly the globals this parser compiles.
 Util.LootGlobals = lootGlobals
+-- The bonus-roll tag only where BONUS_ROLL is a source (C.SOURCE_ABSENT, ruling R2): on WoW Forever
+-- the line is still parsed, as an untagged self-loot line that reads the loot context.
+local BONUS_ROLL = not NS.Constants.SOURCE_ABSENT.BONUS_ROLL and "BONUS_ROLL" or nil
 local LOOT_SHAPES = {
   { hasQty = true },                          -- LOOT_ITEM_SELF_MULTIPLE
   { hasQty = true },                          -- LOOT_ITEM_PUSHED_SELF_MULTIPLE
-  { hasQty = true,  source = "BONUS_ROLL" },  -- LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE
+  { hasQty = true,  source = BONUS_ROLL },    -- LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE
   { hasQty = true,  source = "CRAFT" },       -- LOOT_ITEM_CREATED_SELF_MULTIPLE
   { hasQty = true,  source = "REFUND" },      -- LOOT_ITEM_REFUND_MULTIPLE
   { hasQty = false },                         -- LOOT_ITEM_SELF
   { hasQty = false },                         -- LOOT_ITEM_PUSHED_SELF
-  { hasQty = false, source = "BONUS_ROLL" },  -- LOOT_ITEM_BONUS_ROLL_SELF
+  { hasQty = false, source = BONUS_ROLL },    -- LOOT_ITEM_BONUS_ROLL_SELF
   { hasQty = false, source = "CRAFT" },       -- LOOT_ITEM_CREATED_SELF
   { hasQty = false, source = "REFUND" },      -- LOOT_ITEM_REFUND
 }

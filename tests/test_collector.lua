@@ -214,6 +214,7 @@ test("Collector: end-to-end writes an attributed record", function()
   assertEqual(r.mapID, 2657)
 end)
 
+-- BONUS_ROLL is Retail's (R2); on WoW Forever the line reads the context (the case below).
 test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context", function()
   local mocks = T.mocks
   mocks.__now = 0
@@ -234,6 +235,24 @@ test("Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overridi
 
   NS.db.profile.settings.qualityThreshold = 2   -- restore
   NS.Collector:RefreshUpvalues()
+end, T.RETAIL_ONLY)
+
+-- Per client: WoW Forever has no bonus rolls (R2), so a line in that shape is an ordinary self-loot
+-- line and takes the context's source; Retail records BONUS_ROLL over the context.
+test("Collector: a bonus-roll line is BONUS_ROLL on Retail, the context's source on WoW Forever", function()
+  local mocks = T.mocks
+  mocks.__now = 0
+  NS.db.profile.settings.qualityThreshold = 1
+  NS.Collector:RefreshUpvalues()
+  NS.Attribution:Stamp("KILL", { npcID = 999 }, "CERTAIN")
+  local before = NS.Database:Count()
+  NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK))
+  NS.db.profile.settings.qualityThreshold = 2   -- restore
+  NS.Collector:RefreshUpvalues()
+  assertEqual(NS.Database:Count(), before + 1)
+  local r = NS.Database:History()[NS.Database:Count()]
+  assertEqual(r.source, T.forever and "KILL" or "BONUS_ROLL")
+  assertEqual(r.sourceDetail and r.sourceDetail.npcID, T.forever and 999 or nil)
 end)
 
 test("Collector: end-to-end attributes a created line to CRAFT, overriding context", function()
@@ -580,14 +599,14 @@ test("Collector: with no price gathered the [AHPrice] line says none and picks n
     NS.Collector:RefreshUpvalues()
     NS.AuctionPrice.GatherAll = function() return nil end
     NS.AuctionPrice.Pick = function() return nil, nil end
-    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK))
+    NS.Collector:OnChatMsgLoot(nil, string.format(mocks.LOOT_ITEM_CREATED_SELF, LINK))
   end)
   local price, loot
   for _, l in ipairs(lines) do
     if l:find("^%[AHPrice%]") then price = l end
     if l:find("^%[Loot%]") then loot = l end
   end
-  assertEqual(loot, "[Loot] Item Name q4 ilvl=- src=BONUS_ROLL conf=CERTAIN")
+  assertEqual(loot, "[Loot] Item Name q4 ilvl=- src=CRAFT conf=CERTAIN")
   assertEqual(price, "[AHPrice] Item Name | gathered: none | pick: -(-)")
 end)
 

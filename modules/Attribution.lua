@@ -17,6 +17,9 @@ local Attribution = NS.Attribution
 local State = NS.State
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
 local Constants = NS.Constants
+-- The keystone is Retail's (C.FEATURE.mythicPlus, clients-§4; ruling R2): on WoW Forever its four
+-- events are not registered and a GameObject loot is always CONTAINER.
+local MYTHIC_PLUS = Constants.FEATURE.mythicPlus
 
 -- Deconstruct abilities (Disenchant / Milling / Prospecting) each stamp their OWN source. Their
 -- materials arrive through a loot window whose Item source GUID would otherwise resolve to CONTAINER
@@ -30,7 +33,16 @@ local Constants = NS.Constants
 -- English literal: GetSpellName returns the client-locale name, so "Milling" on enUS becomes
 -- "Mahlen" on deDE and the check follows the player's language automatically
 -- (a localization-§4 / anti-pattern #37 departure, ratified in docs/ARCHITECTURE.md ## Documented deviations).
-local DECONSTRUCT_ID = {
+--
+-- Both lists are seeds, one per client picked once by ClientKey() (clients-§5, §10; the WoW Forever
+-- port's D15). WoW Forever has Disenchant and neither Milling nor Prospecting (ruling R2), so both
+-- of its lists hold Disenchant 13262 alone (the 1.x spell, the same id as Retail's) and its Milling
+-- and Prospecting entries are EMPTY BY DECISION: not derived from the Forever client's own spell
+-- table, and never filtered out of Retail's, whose ids may be other spells there. A seed that does
+-- not resolve keeps every negative unmemoized (DeconstructSource's `allSeedsResolved`), so every
+-- player cast would re-resolve the list: Retail's other seeds are not carried over.
+local CLIENT = NS.Compat.ClientKey() == "forever" and "forever" or "retail"
+local DECONSTRUCT_IDS = { retail = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
   -- Milling: generic + per-expansion + a representative per-herb "Mass Mill" (seed for the name family)
   [51005] = "MILLING", [382981] = "MILLING", [434913] = "MILLING", [1269575] = "MILLING",
@@ -41,9 +53,14 @@ local DECONSTRUCT_ID = {
   [382979] = "PROSPECTING", [382971] = "PROSPECTING", [382977] = "PROSPECTING",
   [382973] = "PROSPECTING", [382975] = "PROSPECTING", [382972] = "PROSPECTING",
   [225904] = "PROSPECTING",
-}
--- The deconstruct source names, for the OnLootOpened guard.
-local DECONSTRUCT_SOURCE = { DISENCHANT = true, MILLING = true, PROSPECTING = true }
+}, forever = { [13262] = "DISENCHANT" } }
+local DECONSTRUCT_ID = DECONSTRUCT_IDS[CLIENT]
+-- The deconstruct source names this client serves, for the OnLootOpened guard (C.SOURCE_ABSENT
+-- takes Milling and Prospecting out on WoW Forever).
+local DECONSTRUCT_SOURCE = {}
+for _, s in ipairs({ "DISENCHANT", "MILLING", "PROSPECTING" }) do
+  if not Constants.SOURCE_ABSENT[s] then DECONSTRUCT_SOURCE[s] = true end
+end
 
 -- Name-family seeds: a stable spellID per source whose *localized* name is matched (substring, as a
 -- prefix stem) against the cast's *localized* name — so any base / per-expansion variant that embeds
@@ -51,13 +68,21 @@ local DECONSTRUCT_SOURCE = { DISENCHANT = true, MILLING = true, PROSPECTING = tr
 -- final word: the per-herb/ore "Mass Mill <Herb>" / "Mass Prospect <Ore>" families share a localized
 -- command prefix ("Mass Mill", "Massenmahlen …", …), so we match that prefix rather than enumerate
 -- every herb/ore. All names come from C_Spell at match time — zero English literals in the compare.
-local NAME_SEEDS = {
-  { source = "DISENCHANT",  id = 13262 },                    -- "Disenchant" (prefix of "Disenchanting")
-  { source = "MILLING",     id = 51005 },                    -- "Milling"
-  { source = "MILLING",     id = 434926, dropLast = true },  -- "Mass Mill <Herb>"
-  { source = "PROSPECTING", id = 31252 },                    -- "Prospecting"
-  { source = "PROSPECTING", id = 225904, dropLast = true },  -- "Mass Prospect <Ore>"
+local NAME_SEEDS_BY_CLIENT = {
+  retail = {
+    { source = "DISENCHANT",  id = 13262 },                    -- "Disenchant" (prefix of "Disenchanting")
+    { source = "MILLING",     id = 51005 },                    -- "Milling"
+    { source = "MILLING",     id = 434926, dropLast = true },  -- "Mass Mill <Herb>"
+    { source = "PROSPECTING", id = 31252 },                    -- "Prospecting"
+    { source = "PROSPECTING", id = 225904, dropLast = true },  -- "Mass Prospect <Ore>"
+  },
+  forever = {
+    { source = "DISENCHANT",  id = 13262 },                    -- "Disenchant"
+  },
 }
+local NAME_SEEDS = NAME_SEEDS_BY_CLIENT[CLIENT]
+-- Published read-only for the suites' per-client cases (tests/test_attribution.lua).
+Attribution._seeds = { ids = DECONSTRUCT_ID, names = NAME_SEEDS, sources = DECONSTRUCT_SOURCE }
 
 -- The localized match token for a seed: its client-locale spell name, optionally minus its final
 -- word (the per-herb/ore suffix), trimmed and lowercased. nil when the name is not yet cached.
@@ -178,7 +203,7 @@ function Attribution:ResolveLootSource(guid, state)
     end
     return S.KILL, detail
   elseif kind == "GameObject" then
-    if state.keystone then
+    if MYTHIC_PLUS and state.keystone then
       return S.MPLUS, { keystoneLevel = state.keystone.level }
     end
     return S.CONTAINER, nil
@@ -412,7 +437,7 @@ end
 -- The capture rows (core/Dispatch.lua), appended at FILE LOAD so their order is TOC order. Each
 -- fn receives the client's full payload, event name first.
 --
--- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET.
+-- The keystone context's lifetime is ZONE_CHANGED_NEW_AREA + CHALLENGE_MODE_RESET (Retail only).
 -- PLAYER_ENTERING_WORLD is deliberately NOT a row: the addon object already binds it to
 -- OnEnterWorld (core/LifecycleSetup.lua), and a second registration of that event on the same
 -- target would replace that handler.
@@ -420,12 +445,18 @@ local function busRow(event, fn) NS.EventRow("Attribution", "bus", event, fn) en
 busRow("LOOT_OPENED", function() Attribution:OnLootOpened() end)
 busRow("ENCOUNTER_START", function(...) Attribution:OnEncounterStart(...) end)
 busRow("ENCOUNTER_END", function(...) Attribution:OnEncounterEnd(...) end)
-busRow("CHALLENGE_MODE_START", function() Attribution:OnChallengeModeStart() end)
-busRow("CHALLENGE_MODE_COMPLETED", function() Attribution:OnChallengeModeCompleted() end)
+-- The keystone's rows only where it is a feature (MYTHIC_PLUS): ZONE_CHANGED_NEW_AREA serves the
+-- keystone context alone, so WoW Forever registers five bus rows, Retail nine.
+if MYTHIC_PLUS then
+  busRow("CHALLENGE_MODE_START", function() Attribution:OnChallengeModeStart() end)
+  busRow("CHALLENGE_MODE_COMPLETED", function() Attribution:OnChallengeModeCompleted() end)
+end
 busRow("TRADE_ACCEPT_UPDATE", function(...) Attribution:OnTradeAcceptUpdate(...) end)
 busRow("QUEST_TURNED_IN", function(...) Attribution:OnQuestTurnedIn(...) end)
-busRow("ZONE_CHANGED_NEW_AREA", function() Attribution:OnZoneChanged() end)
-busRow("CHALLENGE_MODE_RESET", function() Attribution:OnChallengeModeReset() end)
+if MYTHIC_PLUS then
+  busRow("ZONE_CHANGED_NEW_AREA", function() Attribution:OnZoneChanged() end)
+  busRow("CHALLENGE_MODE_RESET", function() Attribution:OnChallengeModeReset() end)
+end
 -- Player-only spell-success on a dedicated RegisterUnitEvent frame: a bare
 -- RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") delivers the raid-wide firehose (every nameplate cast).
 NS.EventRow("Attribution", "spell", "UNIT_SPELLCAST_SUCCEEDED", function(event, unit, castGUID, spellID)

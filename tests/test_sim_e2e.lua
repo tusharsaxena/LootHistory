@@ -128,9 +128,16 @@ local CLIENT_ID = {}
 for key, id in pairs(RETAIL_IDS) do CLIENT_ID[id] = (World.ITEMS[key] or Host.SCENARIO_ITEMS[key]).id end
 CLIENT_ID[3444], CLIENT_ID[3316] = World.FIXTURE.currencies[1][1], World.FIXTURE.currencies[2][1]
 
+-- A reason WoW Forever lacks reads as the one it records there instead: a disenchanted item's loss
+-- is DECONSTRUCT on Retail and falls through to OTHER on Forever (R2, core/Ledger.lua).
+local CLIENT_REASON = T.forever and { DECONSTRUCT = "OTHER" } or {}
+
 local function forClient(line)
-  return (line:gsub("(%u+):(%d+)", function(kind, id)
+  line = line:gsub("(%u+):(%d+)", function(kind, id)
     return kind .. ":" .. (CLIENT_ID[tonumber(id)] or id)
+  end)
+  return (line:gsub(" (%u[%u_]+) @", function(reason)
+    return " " .. (CLIENT_REASON[reason] or reason) .. " @"
   end))
 end
 
@@ -279,16 +286,19 @@ local function playScenario(name, mode)
   end)
 end
 
+-- The `key` scenario is the keystone's (C.FEATURE.mythicPlus, R2): its cases are declared skips on
+-- WoW Forever, whose scenario list the case below pins without it.
 for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do
   for _, mode in ipairs({ "step", "run" }) do
     test(("SimScenario: %s by %s writes exactly its rows, no duplicates, holdings as the world"):format(name, mode),
-      function() playScenario(name, mode) end)
+      function() playScenario(name, mode) end, name == "key" and T.RETAIL_ONLY or nil)
   end
 end
 
-test("SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps", function()
+test("SimScenario: the client's scenarios (six on Retail, no key on Forever), in order, each a pure timeline of labeled, tipped steps", function()
   local sc = Host.SCENARIOS
-  assertEqual(table.concat(sc.names, ","), "loot,key,vendor,ah,bank,social")
+  assertEqual(table.concat(sc.names, ","), T.forever and "loot,vendor,ah,bank,social" or "loot,key,vendor,ah,bank,social")
+  assertEqual(sc.defs.key == nil, T.forever, "the key scenario is Retail's")
   for _, name in ipairs(sc.names) do
     local def = sc.defs[name]
     local a, b = def.timeline(def, { scenario = name, seed = 0 }), def.timeline(def, { scenario = name, seed = 1 })
@@ -314,7 +324,7 @@ test("SimScenario: key: the potion drunk in combat waits for the regen edge, and
     end,
   })
   assertEqual(deferredSeen, 2, "both pulls deferred their flush")
-end)
+end, T.RETAIL_ONLY)
 
 test("SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes",
 function()
@@ -376,7 +386,8 @@ function()
         assertFalse(Sim:IsActive())
       end)
     end
-    for _, name in ipairs({ "loot", "key" }) do
+    -- `key` is Retail's (R2).
+    for _, name in ipairs(T.forever and { "loot" } or { "loot", "key" }) do
       for _, mode in ipairs({ "step", "run" }) do
         H.run(name, mode, function(rows)
           assertRows(rows, EXPECT_NO_LEDGER[name], name .. " by " .. mode .. " with the ledger off")

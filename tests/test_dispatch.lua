@@ -29,9 +29,12 @@ local SNAPSHOT = {
   "out:TRADE_ACCEPT_UPDATE",
   "spell:UNIT_SPELLCAST_SUCCEEDED:player",
 }
--- The warband bank's two rows are Retail-only (R1, clients-§4): WoW Forever registers neither.
+-- The warband bank's two rows are Retail-only (R1, clients-§4), and so are the keystone's four (R2):
+-- WoW Forever registers none of them.
 if T.forever then
-  local retailOnly = { ["ledger:ACCOUNT_MONEY"] = true, ["ledger:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED"] = true }
+  local retailOnly = { ["ledger:ACCOUNT_MONEY"] = true, ["ledger:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED"] = true,
+    ["bus:CHALLENGE_MODE_COMPLETED"] = true, ["bus:CHALLENGE_MODE_RESET"] = true,
+    ["bus:CHALLENGE_MODE_START"] = true, ["bus:ZONE_CHANGED_NEW_AREA"] = true }
   for i = #SNAPSHOT, 1, -1 do if retailOnly[SNAPSHOT[i]] then table.remove(SNAPSHOT, i) end end
 end
 

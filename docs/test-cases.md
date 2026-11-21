@@ -8,11 +8,12 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (39)
+### test_constants.lua (40)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
 - Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
+- Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)
 - Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
 - Constants: the display order lists no source twice and invents none
 - Constants: every SourceType member has a non-empty display label
@@ -116,7 +117,7 @@ Total.
 - Util: ParseSelfLoot multiple self-loot → link, qty N
 - Util: ParseSelfLoot pushed variant → link, qty
 - Util: ParseSelfLoot ignores another player's loot
-- Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL
+- Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL (Retail), untagged on Forever
 - Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT
 - Util: ParseSelfLoot tags a refund self-loot line as REFUND
 - Util: ParseSelfLoot leaves the source tag nil for normal loot
@@ -359,7 +360,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (40)
+### test_attribution.lua (42)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -371,13 +372,15 @@ Total.
 - Attribution: KILL loot inside the post-kill grace window carries the encounter
 - Attribution: KILL loot after the grace window has expired carries no encounter
 - Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe
-- Attribution: ResolveLootSource GameObject in keystone → MPLUS + level
+- Attribution: ResolveLootSource GameObject in keystone → MPLUS + level (Retail), CONTAINER on Forever
 - Attribution: ResolveLootSource GameObject otherwise → CONTAINER
 - Attribution: ResolveLootSource Item GUID → CONTAINER
 - Attribution: opening a lootable bag item stamps CONTAINER
 - Attribution: using a non-lootable bag item does not stamp
 - Attribution: applying a pending spell to a bag item does not stamp CONTAINER
-- Attribution: deconstruct spells map to their own source
+- Attribution: deconstruct spells map to their own source (Milling and Prospecting Retail-only)
+- Attribution: the deconstruct seed lists are the client's (Forever: Disenchant 13262 only)
+- Attribution: on every client a non-deconstruct cast is conclusive once the seeds resolve
 - Attribution: DeconstructSource resolves enumerated ids locale-independently
 - Attribution: DeconstructSource matches un-enumerated variants by localized name family
 - Attribution: a no-break space in a localized spell name does not break the family match
@@ -394,7 +397,7 @@ Total.
 - Attribution: CHALLENGE_MODE_RESET clears the keystone
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
-- Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: Enable registers the client's bus events (nine on Retail, five on Forever), the player-only cast frame and five hooks
 - Attribution: read-side hooks are installed through Compat.HookSecure once
 - Attribution: a retired ENCOUNTER_START costs only itself (front gate)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
@@ -470,7 +473,7 @@ Total.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (49)
+### test_collector.lua (50)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -491,6 +494,7 @@ Total.
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
+- Collector: a bonus-roll line is BONUS_ROLL on Retail, the context's source on WoW Forever
 - Collector: end-to-end attributes a created line to CRAFT, overriding context
 - Collector: end-to-end attributes a refund line to REFUND
 - Collector: a roll-won line writes no record but stamps ROLL for the receive line
@@ -701,7 +705,7 @@ Total.
 - Stats: respects the filter
 - Stats: empty dataset yields zeroed totals
 - Stats: vendor value (vendorPrice × quantity) totals + by source/zone
-- Stats: byType / byBound / byChar / byConfidence / byKeystone
+- Stats: byType / byBound / byChar / byConfidence / byKeystone (Retail; absent on Forever)
 - Stats: hour/weekday buckets sum to record count (TZ-independent)
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
@@ -1915,7 +1919,7 @@ Total.
 - perf: suspend and resume log to the console whatever the debug flag says
 - perf: /lh perf dispatches to the harness
 
-### test_diagnostics.lua (23)
+### test_diagnostics.lua (24)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -1931,6 +1935,7 @@ Total.
 - diagnostics: a raising section costs exactly one line and the sections after it still land
 - diagnostics: an over-cap report ends with the truncated line, then the end marker
 - diagnostics: a secret value in the stored loot context does not raise the report
+- diagnostics: the attribution keystone line is printed on Retail, absent on WoW Forever
 - diagnostics: the stored context's detail prints its fields, not a table address
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
@@ -2056,7 +2061,7 @@ Total.
 - SimScenario: bank by run writes exactly its rows, no duplicates, holdings as the world
 - SimScenario: social by step writes exactly its rows, no duplicates, holdings as the world
 - SimScenario: social by run writes exactly its rows, no duplicates, holdings as the world
-- SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps
+- SimScenario: the client's scenarios (six on Retail, no key on Forever), in order, each a pure timeline of labeled, tipped steps
 - SimScenario: key: the potion drunk in combat waits for the regen edge, and the gate stays open
 - SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes
 - SimScenario: the gate is closed by a pending flush, a settle hold and an out-of-combat deferral
@@ -2393,7 +2398,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 39 |
+| test_constants.lua | 40 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2408,11 +2413,11 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 40 |
+| test_attribution.lua | 42 |
 | test_attribution_out.lua | 13 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 49 |
+| test_collector.lua | 50 |
 | test_reconciler.lua | 11 |
 | test_reconciler_rows.lua | 34 |
 | test_escrow.lua | 21 |
@@ -2465,7 +2470,7 @@ Total.
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
-| test_diagnostics.lua | 23 |
+| test_diagnostics.lua | 24 |
 | test_debug_coverage.lua | 22 |
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
@@ -2491,4 +2496,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2089** |
+| **Total** | **2094** |

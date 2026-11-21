@@ -64,17 +64,21 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 23 ledger reasons; WoW Forever lacks the
-  -- two warband directions (the warband bank is Retail-only, C.SOURCE_ABSENT).
-  assertEqual(#NS.Constants.SourceOrder, T.forever and 37 or 39)
+  -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING,
+  -- PROSPECTING and DECONSTRUCT (R2), all C.SOURCE_ABSENT.
+  assertEqual(#NS.Constants.SourceOrder, T.forever and 32 or 39)
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, 16)
+  -- WoW Forever offers no Mythic+, Bonus Roll, Milling or Prospecting mute (R2).
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, T.forever and 12 or 16)
   local muteable = {}
   for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
   assertTrue(muteable.ROLL); assertTrue(muteable.CRAFT); assertTrue(muteable.REFUND)
-  assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.BONUS_ROLL)
-  assertTrue(muteable.DISENCHANT); assertTrue(muteable.MILLING); assertTrue(muteable.PROSPECTING)
+  assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.DISENCHANT)
+  for _, s in ipairs({ "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }) do
+    assertEqual(muteable[s] == true, not T.forever, s .. " muteable")
+  end
 end)
 
 test("Util: RangeFrom maps range keys to a lower-bound timestamp", function()
@@ -195,18 +199,21 @@ do
     assertEqual(NS.Util.ParseSelfLoot(msg), nil)
   end)
 
-  test("Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL", function()
+  -- BONUS_ROLL is Retail's (R2): on WoW Forever the same line still parses, untagged, so the
+  -- collector reads the loot context for it and never records the absent source.
+  test("Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL (Retail), untagged on Forever", function()
+    local want = not T.forever and "BONUS_ROLL" or nil
     local one = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF, LINK)
     local link, qty, src = NS.Util.ParseSelfLoot(one)
     assertEqual(link, LINK)
     assertEqual(qty, 1)
-    assertEqual(src, "BONUS_ROLL")
+    assertEqual(src, want)
 
     local many = string.format(T.mocks.LOOT_ITEM_BONUS_ROLL_SELF_MULTIPLE, LINK, 4)
     local link2, qty2, src2 = NS.Util.ParseSelfLoot(many)
     assertEqual(link2, LINK)
     assertEqual(qty2, 4)
-    assertEqual(src2, "BONUS_ROLL")
+    assertEqual(src2, want)
   end)
 
   test("Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT", function()

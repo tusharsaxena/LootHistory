@@ -311,10 +311,11 @@ local function bagIndex(name)
   return id
 end
 -- `RETAIL_ONLY` is the declared-skip reason (the kit's `test(name, fn, reason)`) for a case of a
--- Retail-only feature (the warband bank, the WoW Forever port's ruling R1) on the forever profile,
+-- Retail-only feature (the warband bank, the WoW Forever port's ruling R1; the keystone and the
+-- sources WoW Forever lacks, R2) on the forever profile,
 -- where the feature is absent and its own per-client case asserts the absence (clients-§6); nil on
 -- Retail, which runs it (DropWatcher's tests/run.lua precedent).
-local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1): absent on WoW Forever, "
+local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1/R2): absent on WoW Forever, "
   .. "which its per-client case asserts" or nil
 -- `retailWords(fn)` wraps a case so it runs with Retail's words for the account (the WoW Forever
 -- port's R2: "Warband" / "Warbound" on Retail, "Account" / "Account Bound" on WoW Forever), then puts

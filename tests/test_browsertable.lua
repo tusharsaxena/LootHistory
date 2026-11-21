@@ -89,6 +89,11 @@ test("BrowserTable: test data covers every bound state, source, quality, class",
   for _, s in ipairs(NS.Constants.SourceOrder) do
     assertTrue(source[s], "test data missing source " .. s)
   end
+  -- And none this client lacks (C.SOURCE_ABSENT: on WoW Forever the warband moves, R1, and Mythic+,
+  -- Bonus Roll, Milling, Prospecting and Deconstructed, R2).
+  for s in pairs(NS.Constants.SOURCE_ABSENT) do
+    assertFalse(source[s], "test data shows a source this client lacks: " .. s)
+  end
   -- Full quality spread Poor(0)..Legendary(5).
   for q = 0, 5 do
     assertTrue(quality[q], "test data missing quality " .. q)
@@ -1333,12 +1338,14 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   local want = T.forever and {
     -- WoW Forever's nine classes (LH-05): the alt moves walk its own class order. It has no warband
     -- bank (R1), so no WARBAND_DEPOSIT / WITHDRAW pair: the seed walk reaches the alt moves first.
-    "1|ALT_MAIL|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{DR}/mail",
-    "2|ALT_TRADE|OUT|{DR}|{DR}|DRUID|{DR}/bags|{WA}/bags",
-    "3|CURRENCY_TRANSFER|OUT|{WA}|{WA}|WARRIOR|{WA}/bags|{PA}/bags",
-    "1|ALT_MAIL|IN|{DR}|{DR}|DRUID|{WL}/bags|{DR}/mail",
-    "2|ALT_TRADE|IN|{WA}|{WA}|WARRIOR|{DR}/bags|{WA}/bags",
-    "3|CURRENCY_TRANSFER|IN|{PA}|{PA}|PALADIN|{WA}/bags|{PA}/bags",
+    -- Re-pinned by LH-07: no Mythic+, Bonus Roll, Milling, Prospecting or Deconstructed seed (R2), so
+    -- the walk reaches them five rows sooner, on the Hunter.
+    "1|ALT_MAIL|OUT|{HU}|{HU}|HUNTER|{HU}/bags|{RO}/mail",
+    "2|ALT_TRADE|OUT|{RO}|{RO}|ROGUE|{RO}/bags|{PR}/bags",
+    "3|CURRENCY_TRANSFER|OUT|{PR}|{PR}|PRIEST|{PR}/bags|{SH}/bags",
+    "1|ALT_MAIL|IN|{RO}|{RO}|ROGUE|{HU}/bags|{RO}/mail",
+    "2|ALT_TRADE|IN|{PR}|{PR}|PRIEST|{RO}/bags|{PR}/bags",
+    "3|CURRENCY_TRANSFER|IN|{SH}|{SH}|SHAMAN|{PR}/bags|{SH}/bags",
   } or {
     "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
     "2|WARBAND_WITHDRAW|OUT|{W}|{MK}|MONK|{W}/tabs|{MK}/bags",
@@ -1353,8 +1360,8 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   }
   -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
   -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
-  local names = T.forever and { WL = "Mockhex Samplefen", DR = "Mockgrove Samplethorn",
-    WA = "Mockshield Sampleforge", PA = "Sampleblade Mockvale" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
+  local names = T.forever and { HU = "Samplehunter Mockstride", RO = "Sampleshade Mockveil",
+    PR = "Samplemender Mockbrook", SH = "Sampletotem Mockridge" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
     DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
     WA = "Mockshield-Mockrealm" }
   assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))
@@ -1436,7 +1443,8 @@ test("Test mode: SetTestMode traces each act and falls back to a table Refresh",
     assertEqual(table.concat(traced, "\n"), table.concat({
       "test mode refused: the General visibility setting keeps the window hidden.",
       -- WoW Forever's sample lacks the two warband reasons' seed rows and their receiving halves (R1).
-      "test mode on: " .. (T.forever and 300 or 304) .. " sample rows",
+      -- WoW Forever's coverage seed walks its 32 sources (R1, R2), Retail's 39.
+      "test mode on: " .. (T.forever and 295 or 304) .. " sample rows",
       "test mode off (combat started)",
     }, "\n"))
   end)

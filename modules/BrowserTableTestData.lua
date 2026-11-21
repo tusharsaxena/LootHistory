@@ -56,11 +56,16 @@ local TEST_ZONES = ({
   },
 })[CLIENT]
 -- Weighted distributions ({ value, weight }) — larger weight ⇒ appears more, so no two bars match.
-local TEST_SOURCE_W = {
+-- The sources this client lacks (C.SOURCE_ABSENT: Mythic+, Milling and Prospecting on WoW Forever)
+-- are left out, so the sample never shows one.
+local TEST_SOURCE_W = {}
+for _, w in ipairs({
   { "KILL", 30 }, { "CONTAINER", 22 }, { "QUEST", 16 }, { "MPLUS", 15 }, { "VENDOR", 10 },
   { "ROLL", 9 }, { "MAIL", 8 }, { "TRADE", 7 }, { "DISENCHANT", 7 }, { "AH", 6 },
   { "CRAFT", 6 }, { "MILLING", 5 }, { "PROSPECTING", 5 }, { "OTHER", 4 },
-}
+}) do
+  if not C.SOURCE_ABSENT[w[1]] then TEST_SOURCE_W[#TEST_SOURCE_W + 1] = w end
+end
 local TEST_QUALITY_W = { { 0, 8 }, { 1, 14 }, { 2, 26 }, { 3, 22 }, { 4, 12 }, { 5, 4 } }
 local TEST_CLASS_W = ({  -- a few "mains" dominate the play time, the same four on both clients
   retail = {

@@ -33,8 +33,13 @@ Host.Drivers = D
 
 local World = Host.World
 
--- The deconstruct casts the scenarios play (Attribution.DECONSTRUCT's ids).
-D.SPELLS = { disenchant = 13262, milling = 51005, prospecting = 31252 }
+-- The deconstruct casts the scenarios play, one set per client (Host.SIM_CLIENT): Retail's are
+-- Attribution's DECONSTRUCT ids; WoW Forever has Disenchant alone (ruling R2), matched there by the
+-- name of its seed, 13262 (modules/Attribution.lua).
+D.SPELLS = ({
+  retail = { disenchant = 13262, milling = 51005, prospecting = 31252 },
+  forever = { disenchant = 13262 },
+})[Host.SIM_CLIENT]
 
 local lineID = 0
 

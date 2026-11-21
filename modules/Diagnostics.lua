@@ -231,6 +231,8 @@ local function attribution(out)
   else
     out:add(TAG, "attribution: encounter none")
   end
+  -- The keystone line only where the keystone is a feature (C.FEATURE.mythicPlus; ruling R2).
+  if not NS.Constants.FEATURE.mythicPlus then return end
   local k = S.keystone
   out:add(TAG, "attribution: keystone %s", type(k) == "table" and ("level " .. out:str(k.level)) or "none")
 end

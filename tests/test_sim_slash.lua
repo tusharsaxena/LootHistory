@@ -59,7 +59,9 @@ end)
 test("sim slash: bare `/lh sim` prints the status and the usage and opens the panel", function()
   clean(function()
     slash("sim")
-    assertPrinted("Simulation: idle. Scenarios: loot, key, vendor, ah, bank, social.")
+    -- The `key` scenario is Retail's (R2).
+    assertPrinted(T.forever and "Simulation: idle. Scenarios: loot, vendor, ah, bank, social."
+      or "Simulation: idle. Scenarios: loot, key, vendor, ah, bank, social.")
     assertPrinted("/lh sim start <scenario> [size]: start a simulation.")
     assertPrinted("/lh sim loot [n]: n loot lines now, from a kill (1 to 10, default 3).", "the host's usage line")
     assertTrue(Sim:IsPanelShown())

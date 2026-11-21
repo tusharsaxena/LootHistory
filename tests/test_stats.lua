@@ -133,7 +133,9 @@ test("Stats: vendor value (vendorPrice × quantity) totals + by source/zone", fu
   assertEqual(s.byItem[10].value, 100)
 end)
 
-test("Stats: byType / byBound / byChar / byConfidence / byKeystone", function()
+-- byKeystone is the keystone's (C.FEATURE.mythicPlus, R2): Retail counts the M+ record by level,
+-- WoW Forever answers no keystone breakdown at all, even for a stored row that carries a level.
+test("Stats: byType / byBound / byChar / byConfidence / byKeystone (Retail; absent on Forever)", function()
   seedValueStats()
   local s = NS.Database:Stats({})
   assertEqual(s.byType.Weapon, 1)
@@ -145,7 +147,11 @@ test("Stats: byType / byBound / byChar / byConfidence / byKeystone", function()
   assertEqual(s.byChar["A-Realm"].classFile, "MAGE")
   assertEqual(s.byConfidence.CERTAIN, 2)
   assertEqual(s.byConfidence.INFERRED, 1)
-  assertEqual(s.byKeystone[10], 1)
+  if T.forever then
+    assertEqual(s.byKeystone, nil, "WoW Forever has no keystone breakdown")
+  else
+    assertEqual(s.byKeystone[10], 1)
+  end
 end)
 
 test("Stats: hour/weekday buckets sum to record count (TZ-independent)", function()

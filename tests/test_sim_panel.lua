@@ -274,12 +274,13 @@ test("sim panel: the picker starts the chosen scenario", function()
   clean(function()
     assertTrue(Sim:ShowPanel())
     local pk = panel().picker
-    pk.scenario.onSelect("key")
-    assertEqual(Sim:PanelRows()[1].label, "Start: Mythic+ key")
-    assertEqual(Sim:PanelRows()[1].command, "/lh sim start key")
+    -- `vendor`, which both clients offer (the `key` scenario is Retail's, R2).
+    pk.scenario.onSelect("vendor")
+    assertEqual(Sim:PanelRows()[1].label, "Start: Merchant and disenchant")
+    assertEqual(Sim:PanelRows()[1].command, "/lh sim start vendor")
     pk.start:__fire("OnClick")
     assertTrue(Sim:IsActive(), "Start starts it")
-    assertEqual(Sim:Session().scenario, "key")
+    assertEqual(Sim:Session().scenario, "vendor")
   end)
 end)
 
@@ -435,7 +436,7 @@ test("sim window: the panel's Start row and the picker's Start button open it to
     Sim:Stop("stop")
     B:Hide()
     local pk = panel().picker
-    pk.scenario.onSelect("key")
+    pk.scenario.onSelect("vendor")
     pk.start:__fire("OnClick")
     assertTrue(Sim:IsActive(), "the picker starts it")
     assertTrue(shown(), "the picker's start opened the window")
