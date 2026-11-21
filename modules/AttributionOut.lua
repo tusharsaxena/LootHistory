@@ -17,7 +17,8 @@ local function stoodDown() return NS.IsStoodDown and NS.IsStoodDown() end
 -- PLAYER_INTERACTION_MANAGER_FRAME_* type name -> scope key.
 local SCOPE_OF = {
   Merchant = "merchant", Trainer = "trainer", TaxiNode = "taxi", MailInfo = "mailbox",
-  Auctioneer = "auction", Banker = "bank", AccountBanker = "bank", GuildBanker = "guildBank",
+  Auctioneer = "auction", Banker = "bank", CharacterBanker = "bank", AccountBanker = "bank",
+  GuildBanker = "guildBank",
 }
 
 function Attribution:StampOut(reason, opts, trigger)

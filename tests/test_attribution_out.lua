@@ -34,6 +34,14 @@ test("AttributionOut: interaction show/hide toggles scopes", function()
   A():OnInteraction(true, M("MailInfo"));  assertTrue(S().scopes.mailbox)
 end)
 
+test("AttributionOut: a CharacterBanker interaction opens the bank scope on both clients (R8)", function()
+  -- red under: SCOPE_OF without CharacterBanker, so the bank frame is open with no bank scope.
+  reset()
+  local M = NS.Compat.InteractionType
+  A():OnInteraction(true, M("CharacterBanker"));  assertTrue(S().scopes.bank)
+  A():OnInteraction(false, M("CharacterBanker")); assertEqual(S().scopes.bank, nil)
+end)
+
 test("AttributionOut: ReasonContext exposes both slots and the scopes, resetting per-call fields", function()
   reset()
   NS.Attribution:Stamp("KILL", nil, "CERTAIN")

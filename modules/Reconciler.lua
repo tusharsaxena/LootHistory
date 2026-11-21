@@ -57,16 +57,22 @@ end
 -- auction house) are listed here because the readable flags are this module's; what to DO with the
 -- mail/auctions columns is modules/Escrow.lua's. `drift`: the first read of a visit is a drift pass.
 -- A banker reads the warband tabs and gold too only where the warband bank is a feature.
+-- The bank frame opens for three interaction types (BankFrameTemplates registers all three), so a
+-- banker visit is armed by Banker, CharacterBanker (67, both clients; ruling R8) and, where the
+-- warband bank is a feature, the warband-only AccountBanker.
 local function bankParts()
   if WARBAND_BANK then return { "bank", "tabs", "warbandMoney" } end
   return { "bank" }
 end
 R.READABLE_ON = {
-  Banker        = { flag = "bank",         parts = bankParts(), drift = true },
-  AccountBanker = { flag = "bank",         parts = bankParts(), drift = true },
-  MailInfo      = { flag = "mail",         parts = { "mail" } },
-  Auctioneer    = { flag = "auctionHouse", parts = {} },
+  Banker          = { flag = "bank",         parts = bankParts(), drift = true },
+  CharacterBanker = { flag = "bank",         parts = bankParts(), drift = true },
+  MailInfo        = { flag = "mail",         parts = { "mail" } },
+  Auctioneer      = { flag = "auctionHouse", parts = {} },
 }
+if WARBAND_BANK then
+  R.READABLE_ON.AccountBanker = { flag = "bank", parts = bankParts(), drift = true }
+end
 
 function R:OnInteraction(shown, interactionType)
   for name, spec in pairs(R.READABLE_ON) do

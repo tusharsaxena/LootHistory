@@ -406,10 +406,11 @@ Total.
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 - Attribution: ResetContexts clears every context field and leaves registrations
 
-### test_attribution_out.lua (13)
+### test_attribution_out.lua (14)
 
 - AttributionOut: StampOut writes the outbound slot with TTL and filters
 - AttributionOut: interaction show/hide toggles scopes
+- AttributionOut: a CharacterBanker interaction opens the bank scope on both clients (R8)
 - AttributionOut: ReasonContext exposes both slots and the scopes, resetting per-call fields
 - AttributionOut: SendMail to an own alt resolves the holder and stages attachments
 - AttributionOut: SendMail to a stranger leaves `to` nil
@@ -527,11 +528,12 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (11)
+### test_reconciler.lua (12)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
 - Reconciler: bank is unreadable until the banker interaction shows
+- Reconciler: a CharacterBanker interaction makes the bank readable on both clients (R8)
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
@@ -541,7 +543,7 @@ Total.
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
 
-### test_reconciler_rows.lua (34)
+### test_reconciler_rows.lua (35)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -573,6 +575,7 @@ Total.
 - Reconciler: changes made while stood down land as UNTRACKED on resume
 - Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 - Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
+- Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)
 - Reconciler: a currency delta pending when the banker opens survives the drift pass
 - Reconciler: a bank never read before is a silent first read that ends partial
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
@@ -2415,12 +2418,12 @@ Total.
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
 | test_attribution.lua | 42 |
-| test_attribution_out.lua | 13 |
+| test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 11 |
-| test_reconciler_rows.lua | 34 |
+| test_reconciler.lua | 12 |
+| test_reconciler_rows.lua | 35 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2497,4 +2500,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2095** |
+| **Total** | **2098** |

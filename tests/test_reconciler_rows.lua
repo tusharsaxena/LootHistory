@@ -577,6 +577,32 @@ case("Reconciler: bank drift since the last visit is UNTRACKED on the first read
   assertEqual(#H(), 4)
 end)
 
+-- R8: a CharacterBanker visit is a bank visit like a Banker one, on both clients: its first read is
+-- the bank's genesis (no rows), a later visit's first read is UNTRACKED drift, and a deposit inside
+-- the visit is one MOVE.
+case("Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)", function()
+  -- red under: READABLE_ON without a CharacterBanker row (no bank read, the deposit is a bag loss).
+  reset()
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 } })
+  genesis()
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  openBank("CharacterBanker"); R():Flush(); closeBank("CharacterBanker")
+  assertEqual(#H(), 0)                                    -- the bank's first read is its genesis
+  assertEqual(NS.Holdings:Get(ME).items[7].bank, 5)
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 2 } })
+  m.__now = 200
+  openBank("CharacterBanker"); R():Flush()
+  local out7 = rowsBy(ME, 7)
+  assertEqual(#out7, 1); assertEqual(out7[1].dir, "OUT"); assertEqual(out7[1].source, "UNTRACKED")
+  m.__now = 220
+  setBag(0, {}); setBag(6, { [1] = { itemID = 7, link = "L7", count = 2 }, [2] = { itemID = 191, link = "L191", count = 3 } })
+  R():MarkDirty("bags"); R():MarkDirty("bank"); R():Flush()
+  local moved = rowsBy(ME, 191)
+  assertEqual(#moved, 1); assertEqual(moved[1].dir, "MOVE"); assertEqual(moved[1].source, "TRANSFER")
+  closeBank("CharacterBanker")
+  assertEqual(R():IsReadable("bank"), false)
+end)
+
 -- Review fix: the drift pass sets the currency delta aside, so it must not clear the currency
 -- accumulators either; the normal pass that follows still writes the change with its own reason,
 -- and an account transfer pending in the same flush keeps its OUT + IN pair and the alt's credit.

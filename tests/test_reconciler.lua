@@ -56,6 +56,25 @@ test("Reconciler: bank is unreadable until the banker interaction shows", functi
   assertFalse(R():IsReadable("bank"))
 end)
 
+-- R8 (both clients): the bank frame also opens for a CharacterBanker (Enum.PlayerInteractionType 67,
+-- BankFrameTemplates registers Banker, CharacterBanker and AccountBanker), so that type arms the
+-- bank part exactly as a Banker does: readable while shown, a drift read on open, unreadable on hide.
+test("Reconciler: a CharacterBanker interaction makes the bank readable on both clients (R8)", function()
+  -- red under: READABLE_ON without a CharacterBanker row, so the bank stays unreadable and dirty.
+  reset()
+  T.mocks.__bags[6] = { [1] = { itemID = 8, link = "L8", count = 4 } }; T.mocks.__bagSlots[6] = 1
+  R():MarkDirty("bank"); R():Flush()
+  assertEqual(NS.Holdings:Get(ME()), nil)
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", NS.Compat.InteractionType("CharacterBanker"))
+  assertTrue(R():IsReadable("bank"), "readable while the CharacterBanker frame is shown")
+  assertTrue(R().driftPending, "the visit's first read is a drift read")
+  R():Flush()
+  assertEqual(NS.Holdings:Get(ME()).items[8].bank, 4)
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType("CharacterBanker"))
+  assertFalse(R():IsReadable("bank"))
+  assertEqual(R().driftPending, nil)
+end)
+
 test("Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED", function()
   reset()
   local m = T.mocks
@@ -101,10 +120,14 @@ test("Reconciler: the warband bank's parts, events and reads exist only on Retai
   assertEqual(rows.ACCOUNT_MONEY == true, onRetail, "the ACCOUNT_MONEY row")
   assertEqual(rows.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED == true, onRetail, "the tab-slot row")
   assertTrue(rows.PLAYERBANKSLOTS_CHANGED, "the character bank's row serves both clients")
-  for _, name in ipairs({ "Banker", "AccountBanker" }) do
+  for _, name in ipairs({ "Banker", "CharacterBanker" }) do
     assertEqual(table.concat(R().READABLE_ON[name].parts, ","),
       onRetail and "bank,tabs,warbandMoney" or "bank", name .. "'s parts")
   end
+  -- The warband-only banker arms the bank where the warband bank is a feature, and nowhere else.
+  local account = R().READABLE_ON.AccountBanker
+  assertEqual(account ~= nil, onRetail, "AccountBanker arms the bank on Retail only")
+  if account then assertEqual(table.concat(account.parts, ","), "bank,tabs,warbandMoney") end
   T.mocks.__warbandMoney = 70
   assertEqual(R():IsReadable("warbandMoney"), onRetail, "warband gold is read on Retail only")
   T.mocks.__warbandMoney = 0
