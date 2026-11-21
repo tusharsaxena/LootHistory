@@ -121,7 +121,7 @@ Assembled by `Collector:BuildRecord` (`modules/Collector.lua`):
 | Field | Meaning |
 |---|---|
 | `ts` | Loot time, local epoch seconds via `time()`. The primary sort/range key. |
-| `char` | Looter's `"Name-Realm"` (`Util.PlayerKey`) — the account-wide `char` column that stands in for per-character profiles. |
+| `char` | Looter's `"Name-Realm"` (`Util.PlayerKey`; on WoW Forever, where names are unique per region, `"First Surname"` with no realm) — the account-wide `char` column that stands in for per-character profiles. |
 | `classFile` | Locale-independent class token (`"MAGE"`, `"WARRIOR"`, …) from `UnitClass`. Used only for coloring the character in the UI — never the localized class name. |
 | `itemID` | Numeric item id. Denormalized from the link for fast filter/sort/group without parsing links or hitting an uncached `GetItemInfo`. |
 | `itemLink` | **Canonical.** Reconstructs the *exact* tooltip (upgrade track, bonus IDs, crafted stats) via `SetHyperlink`; never re-derivable from `itemID` alone. |

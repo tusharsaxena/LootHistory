@@ -87,8 +87,69 @@ test("Util: RangeFrom maps range keys to a lower-bound timestamp", function()
   assertTrue(today ~= nil and today <= now and (now - today) < 86400)  -- start of the calendar day
 end)
 
-test("Util: PlayerKey is Name-Realm", function()
-  assertEqual(NS.Util.PlayerKey(), "Mock-Realm")
+-- ── Names: the character key and a typed name (forever-quirks-§4; the WoW Forever port, LH-03) ──
+-- Retail keys a character `Name-Realm`, the key every stored Retail row carries since v1. WoW
+-- Forever names are unique per region and UnitName's SECOND value is the surname, so a character is
+-- "First Surname" with no realm. Each case asserts the active kit profile's answer, and the
+-- planted cases prove the other shape on either profile.
+local M = T.mocks
+local NIL = {}
+local function with(fields, fn)
+  local saved = {}
+  for k, v in pairs(fields) do
+    saved[k] = { v = rawget(M, k) }
+    if v == NIL then M[k] = nil else M[k] = v end
+  end
+  local ok, err = pcall(fn)
+  for k, s in pairs(saved) do M[k] = s.v end
+  if not ok then error(err, 0) end
+end
+local REGIONAL = { RegionalUniqueNamesEnabled = function() return true end,
+  UnitName = function() return "Traxex", "Silentshot" end }
+local UNREGIONAL = { RegionalUniqueNamesEnabled = NIL, UnitName = function() return "Traxex" end }
+
+test("Util: PlayerKey is the profile's character key (Mock-Realm on Retail, Mock Mockley on Forever)", function()
+  assertEqual(NS.Util.PlayerKey(), T.forever and "Mock Mockley" or "Mock-Realm")
+  assertEqual(NS.Util.PlayerKey(), T.ME, "T.ME is the same key")
+end)
+
+test("Util: PlayerKey is First Surname on regional names, with no realm", function()
+  with(REGIONAL, function()
+    assertEqual(NS.Util.PlayerKey(), "Traxex Silentshot")
+  end)
+  -- No surname known yet: the first name alone, never "Traxex-Realm".
+  with({ RegionalUniqueNamesEnabled = REGIONAL.RegionalUniqueNamesEnabled, UnitName = function() return "Traxex" end },
+    function() assertEqual(NS.Util.PlayerKey(), "Traxex") end)
+end)
+
+test("Util: PlayerKey stays Name-Realm without regional names, spaces stripped from the realm", function()
+  with(UNREGIONAL, function()
+    assertEqual(NS.Util.PlayerKey(), "Traxex-Realm")
+    with({ GetNormalizedRealmName = function() return "Argent Dawn" end },
+      function() assertEqual(NS.Util.PlayerKey(), "Traxex-ArgentDawn") end)
+  end)
+end)
+
+test("Util: QualifyName adds the realm and strips spaces without regional names", function()
+  with(UNREGIONAL, function()
+    assertEqual(NS.Util.QualifyName("Alt"), "Alt-Realm")
+    assertEqual(NS.Util.QualifyName("Alt-Other Realm"), "Alt-OtherRealm")
+    assertEqual(NS.Util.QualifyName(""), nil); assertEqual(NS.Util.QualifyName(nil), nil)
+  end)
+end)
+
+test("Util: QualifyName keeps a typed two-word name whole and adds no realm on regional names", function()
+  with(REGIONAL, function()
+    assertEqual(NS.Util.QualifyName("Traxex Silentshot"), "Traxex Silentshot")
+    assertEqual(NS.Util.QualifyName("  Traxex Silentshot "), "Traxex Silentshot", "only the ends are trimmed")
+    assertEqual(NS.Util.QualifyName("Traxex"), "Traxex")
+    assertEqual(NS.Util.QualifyName("   "), nil); assertEqual(NS.Util.QualifyName(nil), nil)
+  end)
+end)
+
+test("Util: QualifyName on the active profile matches the profile's own key", function()
+  local typed = T.forever and "Mock Mockley" or "Mock"
+  assertEqual(NS.Util.QualifyName(typed), T.ME)
 end)
 
 test("Util: SplitPath splits dotted paths", function()

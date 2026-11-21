@@ -1,5 +1,8 @@
 local T = _G.LH_TEST
 local NS = T.NS
+-- An own alt's holder key on the active kit profile (tests/run.lua T.nameKey): "Alt-Realm" on
+-- Retail, "Alt" on WoW Forever, where names carry no realm (forever-quirks-§4).
+local ALT, ME = T.nameKey("Alt"), T.ME
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 -- The Search box's autocomplete on every tab (P9): the seam (NS.MakeAutocomplete), the list's
@@ -37,12 +40,12 @@ end
 
 -- Loot rows: two Robes (one name, offered once), a currency, a gold row and an Axe.
 local RECORDS = {
-  { ts = 1000, char = "Mock-Realm", itemName = "Robe of Rot", quality = 3, itemID = 11 },
-  { ts = 1100, char = "Mock-Realm", itemName = "Robe of Rot", quality = 3, itemID = 11 },
-  { ts = 1200, char = "Alt-Realm", itemName = "Greater Robe", quality = 4, itemID = 12 },
-  { ts = 1300, char = "Mock-Realm", itemName = "Resonance Crystals", quality = 2, currencyID = 2815 },
-  { ts = 1400, char = "Mock-Realm", itemName = "Gold", kind = "GOLD", quantity = 500 },
-  { ts = 1500, char = "Alt-Realm", itemName = "Axe of Ro", quality = 2, itemID = 13 },
+  { ts = 1000, char = ME, itemName = "Robe of Rot", quality = 3, itemID = 11 },
+  { ts = 1100, char = ME, itemName = "Robe of Rot", quality = 3, itemID = 11 },
+  { ts = 1200, char = ALT, itemName = "Greater Robe", quality = 4, itemID = 12 },
+  { ts = 1300, char = ME, itemName = "Resonance Crystals", quality = 2, currencyID = 2815 },
+  { ts = 1400, char = ME, itemName = "Gold", kind = "GOLD", quantity = 500 },
+  { ts = 1500, char = ALT, itemName = "Axe of Ro", quality = 2, itemID = 13 },
 }
 
 local function open(tab)
@@ -62,9 +65,9 @@ end
 local function seedHoldings()
   NS.db.global.holdings, NS.db.global.daily = {}, {}
   local t = os.time()
-  NS.Holdings:ApplyContainer("Mock-Realm", "bags", { [7] = 2 }, {}, t)
-  NS.Holdings:ApplyCurrency("Mock-Realm", { [3008] = 5 }, t)
-  NS.Holdings:ApplyMoney("Mock-Realm", 70000, t)
+  NS.Holdings:ApplyContainer(ME, "bags", { [7] = 2 }, {}, t)
+  NS.Holdings:ApplyCurrency(ME, { [3008] = 5 }, t)
+  NS.Holdings:ApplyMoney(ME, 70000, t)
 end
 
 -- ── the seam and the list's placement ──
@@ -134,14 +137,14 @@ end)
 case("Autocomplete: History's names follow the other filters, with the typed text set aside", function()
   NS.State.testRecords = RECORDS
   open("History")
-  B:SetCharSet({ ["Alt-Realm"] = true })
+  B:SetCharSet({ [ALT] = true })
   local got = texts(B:Suggest("ro"))
-  assertEqual(#got, 2, table.concat(got, ", "))   -- Axe of Ro, Greater Robe: Alt-Realm's rows only
+  assertEqual(#got, 2, table.concat(got, ", "))   -- Axe of Ro, Greater Robe: the alt's rows only
   assertEqual(got[1], "Axe of Ro")
 end)
 
 case("Autocomplete: History reads the test-mode sample, not the live history", function()
-  NS.State.testRecords = { { ts = 1, char = "Mock-Realm", itemName = "Sample Spoon", quality = 2, itemID = 5 } }
+  NS.State.testRecords = { { ts = 1, char = ME, itemName = "Sample Spoon", quality = 2, itemID = 5 } }
   open("History")
   assertEqual(texts(B:Suggest("spoon"))[1], "Sample Spoon")
   NS.State.testRecords = RECORDS

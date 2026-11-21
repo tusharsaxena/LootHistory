@@ -2,8 +2,16 @@ local _, NS = ...
 NS.Util = NS.Util or {}
 local Util = NS.Util
 
--- "Name-Realm" of the current player (realm normalized, spaces stripped).
+-- The current player's character key, the holder every record's `char` names. With regional names
+-- (WoW Forever) it is "First Surname", no realm: NS.Compat.CharacterKey, else the whole name
+-- UnitCharacterName reads, so two alts sharing a first name never collide (forever-quirks-§4).
+-- Otherwise "Name-Realm" (realm normalized, spaces stripped), the key every stored Retail row has
+-- carried since v1, so a Retail log stays the same character's.
 function Util.PlayerKey()
+  local Compat = NS.Compat
+  if Compat and Compat.RegionalNames and Compat.RegionalNames() then
+    return Compat.CharacterKey() or Compat.UnitCharacterName("player") or "Unknown"
+  end
   local name = UnitName("player") or "Unknown"
   local realm = (GetNormalizedRealmName and GetNormalizedRealmName())
     or (GetRealmName and GetRealmName()) or "Unknown"
@@ -363,9 +371,15 @@ function Util.ParseSelfMoney(msg)
 end
 
 -- "Name" or "Name-Realm" -> "Name-Realm" on the player's own (normalized) realm. Mail recipients and
--- trade partners are typed or shown without a realm when they share the player's.
+-- trade partners are typed or shown without a realm when they share the player's. With regional
+-- names (WoW Forever) a name carries no realm and may be two words ("Traxex Silentshot"), so it is
+-- kept whole, only its ends trimmed, and no realm is added: the form Util.PlayerKey keys holders by.
 function Util.QualifyName(name)
   if not name or name == "" then return nil end
+  if NS.Compat and NS.Compat.RegionalNames and NS.Compat.RegionalNames() then
+    local whole = name:match("^%s*(.-)%s*$")
+    return whole ~= "" and whole or nil
+  end
   if name:find("-", 1, true) then return (name:gsub("%s+", "")) end
   local realm = (GetNormalizedRealmName and GetNormalizedRealmName()) or (GetRealmName and GetRealmName()) or ""
   return name .. "-" .. tostring(realm):gsub("%s+", "")

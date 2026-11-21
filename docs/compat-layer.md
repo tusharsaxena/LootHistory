@@ -94,8 +94,8 @@ primitives and holds no opinion about how they are composed.
 | `Compat.ScanOwnedAuctions()` | `C_AuctionHouse.GetNumOwnedAuctions` / `GetOwnedAuctionInfo` | Counts and links of the player's ACTIVE auctions only, by itemID. |
 | `Compat.ItemLocationID(loc)` | `C_Item.GetItemID` | itemID for an ItemLocation; `nil` when absent. |
 | `Compat.AuctionMailKind(subject)` | `AUCTION_SOLD/EXPIRED/REMOVED/WON_MAIL_SUBJECT` | `"sold"`, `"expired"`, `"cancelled"` or `"won"` plus the item name, parsed from the localized subject globals; `nil` otherwise. |
-| `Compat.TradeTargetKey()` | `UnitName("NPC")`, `GetNormalizedRealmName` | The open trade's other party as a `Name-Realm` holder key; `nil` when none. |
-| `Compat.LatestCurrencyTransfer()` | `C_CurrencyInfo.FetchCurrencyTransferTransactions` | Newest warband currency transfer as `{currencyID, quantity, toKey}`; `nil` when none or absent. |
+| `Compat.TradeTargetKey()` | `Compat.UnitCharacterName("NPC")`, `GetNormalizedRealmName` | The open trade's other party as a holder key: `Name-Realm` (a bare name gets the player's realm), or on regional names (WoW Forever) the whole `"First Surname"` with no realm, never the surname read as a realm; `nil` when none. |
+| `Compat.LatestCurrencyTransfer()` | `C_CurrencyInfo.FetchCurrencyTransferTransactions` | Newest warband currency transfer as `{currencyID, quantity, toKey}`; `toKey` gets the player's realm when bare, and on regional names (WoW Forever) none, a two-word name kept whole; `nil` when none or absent. |
 
 ## Boundary rule
 

@@ -1,5 +1,8 @@
 local T = _G.LH_TEST
 local NS = T.NS
+-- An own alt's holder key on the active kit profile (tests/run.lua T.nameKey): "Alt-Realm" on
+-- Retail, "Alt" on WoW Forever, where names carry no realm (forever-quirks-§4).
+local ALT = T.nameKey("Alt")
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 -- modules/Reconciler.lua, Phase 2 (timeline-ledger spec §5.1-§5.5): a flush scans, plans rows
@@ -453,7 +456,7 @@ end)
 case("Reconciler: an account currency transfer to an own alt is an OUT and an IN and credits the alt", function()
   reset()
   genesisWithCurrency({ { id = 3008, quantity = 50 } })
-  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
+  NS.db.global.holdings[ALT] = { meta = { genesis = 1 }, scanned = { currency = 1 },
     items = {}, currency = {}, links = {} }
   m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
   R():OnEvent("CURRENCY_TRANSFER_LOG_UPDATE")
@@ -464,13 +467,13 @@ case("Reconciler: an account currency transfer to an own alt is an OUT and an IN
     assertTrue(r.dir ~= "MOVE")
     if r.source == "CURRENCY_TRANSFER" then
       xfer[r.holder .. ":" .. r.dir] = r
-      assertEqual(r.quantity, 10); assertEqual(r.to, "Alt-Realm/currency")
+      assertEqual(r.quantity, 10); assertEqual(r.to, ALT .. "/currency")
     elseif r.dir == "OUT" then fee = fee + 1; assertEqual(r.quantity, 2); assertEqual(r.source, "TRANSFER") end
   end
   assertEqual(#H(), 3); assertEqual(fee, 1)                 -- 10 moved, 2 was the transfer fee
-  assertTrue(xfer[ME .. ":OUT"] ~= nil and xfer["Alt-Realm:IN"] ~= nil)
-  assertEqual(xfer[ME .. ":OUT"].pairId, xfer["Alt-Realm:IN"].pairId)
-  assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
+  assertTrue(xfer[ME .. ":OUT"] ~= nil and xfer[ALT .. ":IN"] ~= nil)
+  assertEqual(xfer[ME .. ":OUT"].pairId, xfer[ALT .. ":IN"].pairId)
+  assertEqual(NS.db.global.holdings[ALT].currency[3008], 10)
   m.__currencyTransfers = {}
 end)
 
@@ -571,7 +574,7 @@ case("Reconciler: a currency delta pending when the banker opens survives the dr
   assertEqual(NS.Holdings:Get(ME).currency[3008], 40)
   closeBank()
   -- A pending account transfer flushed with the opening read keeps its OUT + IN pair and the credit.
-  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { currency = 1 },
+  NS.db.global.holdings[ALT] = { meta = { genesis = 1 }, scanned = { currency = 1 },
     items = {}, currency = {}, links = {} }
   m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
   setBag(6, { [1] = { itemID = 7, link = "L7", count = 3 } })
@@ -588,7 +591,7 @@ case("Reconciler: a currency delta pending when the banker opens survives the dr
     end
   end
   assertEqual(xfer, 2); assertEqual(outs, 1)
-  assertEqual(NS.db.global.holdings["Alt-Realm"].currency[3008], 10)
+  assertEqual(NS.db.global.holdings[ALT].currency[3008], 10)
   assertEqual(NS.Holdings:Get(ME).currency[3008], 28)
   m.__currencyTransfers = {}
 end)

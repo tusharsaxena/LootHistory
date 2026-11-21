@@ -1047,12 +1047,14 @@ function Compat.AuctionMailKind(subject)
   return nil
 end
 
--- The trade partner as a holder key. UnitName("NPC") is the open trade's other party.
+-- The trade partner as a holder key. "NPC" is the open trade's other party, read through
+-- Compat.UnitCharacterName (core/CompatClient.lua): with regional names (WoW Forever) that is the
+-- whole "First Surname" and no realm, keyed as is, never the surname read as a realm; otherwise
+-- UnitName's name and realm, a bare name getting the player's own realm (Name-Realm, as holders are).
 function Compat.TradeTargetKey()
-  if type(UnitName) ~= "function" then return nil end
-  local name, realm = UnitName("NPC")
-  if not name or name == "" then return nil end
-  if name:find("-", 1, true) then return name end
+  local name, realm = Compat.UnitCharacterName("NPC")
+  if not name then return nil end
+  if Compat.RegionalNames() or name:find("-", 1, true) then return name end
   realm = (realm and realm ~= "") and realm
     or (type(GetNormalizedRealmName) == "function" and GetNormalizedRealmName()) or nil
   return realm and (name .. "-" .. realm) or name
@@ -1060,13 +1062,15 @@ end
 
 -- The newest warband currency transfer this character made (CURRENCY_TRANSFER_LOG_UPDATE). Field
 -- names are the 11.x CurrencyTransferTransaction shape as recalled; smoke LED-P2-13 verifies them.
+-- With regional names (WoW Forever) the destination is used as the client names it, no realm added,
+-- a two-word name kept whole; whether it carries the surname there is a probe (P5).
 function Compat.LatestCurrencyTransfer()
   local fn = C_CurrencyInfo and C_CurrencyInfo.FetchCurrencyTransferTransactions
   local list = fn and fn()
   if type(list) ~= "table" or #list == 0 then return nil end
   local t = list[#list]
   local to = t.destinationCharacterName
-  if to and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
+  if to and not Compat.RegionalNames() and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
     local realm = GetNormalizedRealmName()                 -- nil early in login: never a bare "Name-"
     if realm and realm ~= "" then to = to .. "-" .. realm end
   end

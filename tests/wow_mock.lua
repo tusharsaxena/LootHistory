@@ -493,10 +493,12 @@ return function()
   M.C_Item.GetItemID = function(loc) return loc and loc.__itemID end
   M.C_TradeSkillUI = { CraftRecipe = function() end, CraftSalvage = function() end, CraftEnchant = function() end }
 
-  M.__tradeTarget = nil
+  -- The open trade's partner: UnitName("NPC") answers the name and a second value, which is the
+  -- partner's realm on Retail (nil on the player's own) and the partner's SURNAME on WoW Forever.
+  M.__tradeTarget, M.__tradeTargetSecond = nil, nil
   local baseUnitName = M.UnitName
   M.UnitName = function(unit)
-    if unit == "NPC" then return M.__tradeTarget end
+    if unit == "NPC" then return M.__tradeTarget, M.__tradeTargetSecond end
     return baseUnitName(unit)
   end
 

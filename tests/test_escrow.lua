@@ -1,5 +1,8 @@
 local T = _G.LH_TEST
 local NS = T.NS
+-- An own alt's holder key on the active kit profile (tests/run.lua T.nameKey): "Alt-Realm" on
+-- Retail, "Alt" on WoW Forever, where names carry no realm (forever-quirks-§4).
+local ALT = T.nameKey("Alt")
 local assertEqual, assertTrue = T.assertEqual, T.assertTrue
 local m = T.mocks
 local S = dofile("tests/ledger_support.lua")
@@ -20,9 +23,9 @@ case("Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-ori
   S.reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 3 } }); m.__money = 5000
   S.genesis()
-  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { bags = 1 }, items = {},
+  NS.db.global.holdings[ALT] = { meta = { genesis = 1 }, scanned = { bags = 1 }, items = {},
     currency = {}, links = {} }
-  NS.State.pendingMail = { to = "Alt-Realm", items = { [7] = 3 }, money = 1000, sent = true, expires = 200 }
+  NS.State.pendingMail = { to = ALT, items = { [7] = 3 }, money = 1000, sent = true, expires = 200 }
   NS.Attribution:StampOut("MAIL_SEND", { dirs = { OUT = true } })
   S.show("MailInfo")
   setBag(0, {}); m.__money = 3970                         -- 1000 sent + 30 postage
@@ -33,12 +36,12 @@ case("Escrow: mail to an own alt is an ALT_MAIL loss; the alt's mail and own-ori
     assertEqual(r.holder, S.me())
     if r.source == "ALT_MAIL" then alts[r.kind] = r else postage = r end
   end
-  assertEqual(alts.ITEM.quantity, 3); assertEqual(alts.ITEM.to, "Alt-Realm/mail")
+  assertEqual(alts.ITEM.quantity, 3); assertEqual(alts.ITEM.to, ALT .. "/mail")
   assertEqual(alts.GOLD.quantity, 1000)
   -- The alt's IN is written in another pass, so neither half of an alt mail carries a pairId.
   assertEqual(alts.ITEM.pairId, nil); assertEqual(alts.GOLD.pairId, nil)
   assertEqual(postage.kind, "GOLD"); assertEqual(postage.quantity, 30); assertEqual(postage.source, "MAIL_SEND")
-  local alt = NS.db.global.holdings["Alt-Realm"]
+  local alt = NS.db.global.holdings[ALT]
   assertEqual(alt.items[7].mail, 3)
   assertEqual(alt.escrow.mailOwn[7], 3); assertEqual(alt.escrow.mailMoney, 1000)
   assertEqual(alt.escrow.mailAlt[7], 3); assertEqual(alt.escrow.mailMoneyAlt, 1000)
@@ -210,7 +213,7 @@ local function withSender(sender, body)
 end
 
 local function altEntry()
-  NS.db.global.holdings["Alt-Realm"] = { meta = { genesis = 1 }, scanned = { bags = 1 }, items = {},
+  NS.db.global.holdings[ALT] = { meta = { genesis = 1 }, scanned = { bags = 1 }, items = {},
     currency = {}, links = {} }
 end
 
@@ -262,7 +265,7 @@ case("Escrow: a money-only pass leaves the staged items for the item pass; both 
   S.reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 3 } }); m.__money = 5000
   S.genesis(); altEntry()
-  NS.State.pendingMail = { to = "Alt-Realm", items = { [7] = 3 }, money = 1000, sent = true, expires = 200 }
+  NS.State.pendingMail = { to = ALT, items = { [7] = 3 }, money = 1000, sent = true, expires = 200 }
   NS.Attribution:StampOut("MAIL_SEND", { dirs = { OUT = true } })
   S.show("MailInfo")
   m.__money = 3970                                         -- PLAYER_MONEY's fuse runs before the bags land
@@ -280,7 +283,7 @@ case("Escrow: a money-only pass leaves the staged items for the item pass; both 
   R():MarkDirty("bags"); R():Flush()
   assertEqual(#altMail(), 2)                               -- the item's loss joins the gold's
   assertEqual(#rowsBy("OUT"), 3)                           -- no OUT MAIL_SEND for the item
-  local alt = NS.db.global.holdings["Alt-Realm"]
+  local alt = NS.db.global.holdings[ALT]
   assertEqual(alt.items[7].mail, 3)
   assertEqual(alt.escrow.mailOwn[7], 3); assertEqual(alt.escrow.mailMoney, 1000)
   assertEqual(alt.escrow.mailMoneyAlt, 1000)

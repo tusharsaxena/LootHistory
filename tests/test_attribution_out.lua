@@ -1,5 +1,8 @@
 local T = _G.LH_TEST
 local NS = T.NS
+-- An own alt's holder key on the active kit profile (tests/run.lua T.nameKey): "Alt-Realm" on
+-- Retail, "Alt" on WoW Forever, where names carry no realm (forever-quirks-§4).
+local ALT, BOB = T.nameKey("Alt"), T.nameKey("Bob")
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 local A = function() return NS.Attribution end
@@ -44,11 +47,11 @@ end)
 
 test("AttributionOut: SendMail to an own alt resolves the holder and stages attachments", function()
   reset()
-  NS.db.global.holdings = { ["Alt-Realm"] = { meta = {}, scanned = {}, items = {}, currency = {}, links = {} } }
+  NS.db.global.holdings = { [ALT] = { meta = {}, scanned = {}, items = {}, currency = {}, links = {} } }
   T.mocks.__sendMail = { items = { [1] = { itemID = 7, count = 3 } }, money = 500 }
   A():OnSendMail("Alt")
   local p = S().pendingMail
-  assertEqual(p.to, "Alt-Realm"); assertEqual(p.items[7], 3); assertEqual(p.money, 500)
+  assertEqual(p.to, ALT); assertEqual(p.items[7], 3); assertEqual(p.money, 500)
   assertFalse(p.sent)
   A():OnMailSent()
   assertTrue(S().pendingMail.sent)
@@ -88,7 +91,7 @@ test("AttributionOut: a completed trade stamps TRADE_GIVE and records the partne
   T.mocks.__tradeTarget = "Bob"
   A():OnTradeAccept(1, 0); assertEqual(S().outContext, nil)
   A():OnTradeAccept(1, 1)
-  assertEqual(S().outContext.reason, "TRADE_GIVE"); assertEqual(S().tradeTarget, "Bob-Realm")
+  assertEqual(S().outContext.reason, "TRADE_GIVE"); assertEqual(S().tradeTarget, BOB)
   T.mocks.__tradeTarget = nil
 end)
 
@@ -97,7 +100,7 @@ end)
 test("AttributionOut: a trade with an own alt stamps ALT_TRADE on both halves", function()
   reset()
   local savedHoldings, savedLoot = NS.db.global.holdings, S().lootContext
-  NS.db.global.holdings = { ["Bob-Realm"] = { meta = {}, items = {}, currency = {}, links = {}, scanned = {} } }
+  NS.db.global.holdings = { [BOB] = { meta = {}, items = {}, currency = {}, links = {}, scanned = {} } }
   T.mocks.__tradeTarget = "Bob"
   local ok, err = pcall(function()
     A():OnTradeAccept(1, 1)

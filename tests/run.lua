@@ -297,8 +297,14 @@ Kit.skinSwitch = dofile("tests/skin_surfaces.lua")(NS, mocks)
 -- the kit profile the mock set was shaped as (tests/wow_mock.lua's `__client`); `bagIndex(name)` is
 -- that client's Enum.BagIndex member, which Retail and WoW Forever number differently (the account
 -- tabs are 12..16 on Retail and 15..23 on Forever). An unknown member raises rather than answering
--- nil, so a typo never reads as "no such container".
+-- nil, so a typo never reads as "no such container". `ME` is the mock player's character key on that
+-- client (NS.Util.PlayerKey): `Name-Realm` on Retail, "First Surname" with no realm on Forever
+-- (forever-quirks-§4), so a fixture that pins the player's own rows reads it instead of a literal.
 local FOREVER = mocks.__client == "forever"
+local ME = FOREVER and ("Mock " .. mocks.__surname) or "Mock-Realm"
+-- `nameKey(name)` is another character's holder key on that client, as Util.QualifyName and
+-- Compat.TradeTargetKey build it from a bare name: "Name-Realm" on Retail, the name alone on Forever.
+local function nameKey(name) return FOREVER and name or (name .. "-Realm") end
 local function bagIndex(name)
   local id = mocks.Enum.BagIndex[name]
   if id == nil then error("bagIndex: no Enum.BagIndex member " .. tostring(name), 2) end
@@ -309,7 +315,7 @@ _G.LH_TEST = Kit.expose{
   skinSwitch = Kit.skinSwitch,
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
-  forever = FOREVER, bagIndex = bagIndex,
+  forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

@@ -755,22 +755,92 @@ test("Compat: AuctionMailKind parses the localized subjects", function()
   assertEqual(NS.Compat.AuctionMailKind("Hello"), nil)
 end)
 
-test("Compat: TradeTargetKey appends the player's realm when missing", function()
-  T.mocks.__tradeTarget = "Alt"
-  assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
-  T.mocks.__tradeTarget = nil
-  assertEqual(NS.Compat.TradeTargetKey(), nil)
+-- ── Names: the trade partner and a currency transfer's destination (forever-quirks-§4, LH-03) ──
+-- Retail: UnitName("NPC")'s second value is the partner's realm and a bare name gets the player's
+-- realm. WoW Forever: the second value is the SURNAME and names carry no realm, so a partner is
+-- "First Surname" and never "First-Surname". `withNames` plants the other shape on either profile.
+local NAME_NIL = {}
+local function withNames(fields, fn)
+  local m, saved = T.mocks, {}
+  for k, v in pairs(fields) do
+    saved[k] = { v = rawget(m, k) }
+    if v == NAME_NIL then m[k] = nil else m[k] = v end
+  end
+  local ok, err = pcall(fn)
+  for k, s in pairs(saved) do m[k] = s.v end
+  if not ok then error(err, 0) end
+end
+local REGIONAL = { RegionalUniqueNamesEnabled = function() return true end }
+local UNREGIONAL = { RegionalUniqueNamesEnabled = NAME_NIL }
+
+test("Compat: TradeTargetKey appends the player's realm when missing, without regional names", function()
+  withNames(UNREGIONAL, function()
+    T.mocks.__tradeTarget = "Alt"
+    assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
+    T.mocks.__tradeTargetSecond = "Other"
+    assertEqual(NS.Compat.TradeTargetKey(), "Alt-Other", "the partner's own realm")
+    T.mocks.__tradeTarget, T.mocks.__tradeTargetSecond = nil, nil
+    assertEqual(NS.Compat.TradeTargetKey(), nil)
+  end)
+end)
+
+test("Compat: TradeTargetKey is First Surname on regional names, never the surname as a realm", function()
+  local m = T.mocks
+  withNames(REGIONAL, function()
+    m.__tradeTarget, m.__tradeTargetSecond = "Traxex", "Silentshot"
+    local ok, key = pcall(NS.Compat.TradeTargetKey)
+    m.__tradeTarget, m.__tradeTargetSecond = "Traxex", nil
+    local ok2, bare = pcall(NS.Compat.TradeTargetKey)
+    m.__tradeTarget, m.__tradeTargetSecond = nil, nil
+    assertTrue(ok and ok2)
+    assertEqual(key, "Traxex Silentshot")
+    assertEqual(bare, "Traxex", "no surname known: the first name, no realm added")
+  end)
+end)
+
+test("Compat: TradeTargetKey on the active profile keys a partner like the profile's holders", function()
+  local m = T.mocks
+  m.__tradeTarget, m.__tradeTargetSecond = "Alt", T.forever and "Altley" or nil
+  local key = NS.Compat.TradeTargetKey()
+  m.__tradeTarget, m.__tradeTargetSecond = nil, nil
+  assertEqual(key, T.forever and "Alt Altley" or "Alt-Realm")
 end)
 
 test("Compat: LatestCurrencyTransfer appends the realm only when the client knows it", function()
   local m = T.mocks
   local savedRealm, savedXfer = m.GetNormalizedRealmName, m.__currencyTransfers
+  withNames(UNREGIONAL, function()
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+    assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
+    m.GetNormalizedRealmName = function() return nil end   -- early in login
+    local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
+    assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+  end)
+end)
+
+test("Compat: LatestCurrencyTransfer adds no realm and keeps a two-word name on regional names", function()
+  local m = T.mocks
+  local saved = m.__currencyTransfers
+  withNames(REGIONAL, function()
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Traxex Silentshot" } }
+    local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 1, destinationCharacterName = "Traxex" } }
+    local ok2, bare = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.__currencyTransfers = saved
+    assertTrue(ok and ok2)
+    assertEqual(t.toKey, "Traxex Silentshot")
+    assertEqual(bare.toKey, "Traxex", "a one-word destination gets no realm either")
+  end)
+end)
+
+test("Compat: LatestCurrencyTransfer on the active profile keys the destination like the profile's holders", function()
+  local m = T.mocks
+  local saved = m.__currencyTransfers
   m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
-  assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
-  m.GetNormalizedRealmName = function() return nil end   -- early in login
-  local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
-  m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
-  assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+  local t = NS.Compat.LatestCurrencyTransfer()
+  m.__currencyTransfers = saved
+  assertEqual(t.toKey, T.forever and "Alt" or "Alt-Realm")
 end)
 
 test("Compat: HookSecure is presence-gated", function()

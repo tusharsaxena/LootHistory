@@ -93,7 +93,7 @@ Total.
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 - ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
-### test_util.lua (47)
+### test_util.lua (52)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -103,7 +103,12 @@ Total.
 - NS.Print is reclaimed from AceConsole's :Print mixin (architecture-§2)
 - Constants: source enum + order
 - Util: RangeFrom maps range keys to a lower-bound timestamp
-- Util: PlayerKey is Name-Realm
+- Util: PlayerKey is the profile's character key (Mock-Realm on Retail, Mock Mockley on Forever)
+- Util: PlayerKey is First Surname on regional names, with no realm
+- Util: PlayerKey stays Name-Realm without regional names, spaces stripped from the realm
+- Util: QualifyName adds the realm and strips spaces without regional names
+- Util: QualifyName keeps a typed two-word name whole and adds no realm on regional names
+- Util: QualifyName on the active profile matches the profile's own key
 - Util: SplitPath splits dotted paths
 - Util: ParseSelfLoot single self-loot → link, qty 1
 - Util: ParseSelfLoot multiple self-loot → link, qty N
@@ -192,7 +197,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband
 
-### test_compat.lua (74)
+### test_compat.lua (78)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -254,8 +259,12 @@ Total.
 - Compat: send-mail read returns attachments and money
 - Compat: owned auctions count only active ones
 - Compat: AuctionMailKind parses the localized subjects
-- Compat: TradeTargetKey appends the player's realm when missing
+- Compat: TradeTargetKey appends the player's realm when missing, without regional names
+- Compat: TradeTargetKey is First Surname on regional names, never the surname as a realm
+- Compat: TradeTargetKey on the active profile keys a partner like the profile's holders
 - Compat: LatestCurrencyTransfer appends the realm only when the client knows it
+- Compat: LatestCurrencyTransfer adds no realm and keeps a two-word name on regional names
+- Compat: LatestCurrencyTransfer on the active profile keys the destination like the profile's holders
 - Compat: HookSecure is presence-gated
 - Compat: ShowLinesTooltip draws a gold title and one colored double line per row
 - Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
@@ -2377,10 +2386,10 @@ Total.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
-| test_util.lua | 47 |
+| test_util.lua | 52 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 74 |
+| test_compat.lua | 78 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 8 |
 | test_tooltip_place.lua | 9 |
@@ -2470,4 +2479,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2068** |
+| **Total** | **2077** |
