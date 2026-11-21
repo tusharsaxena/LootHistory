@@ -52,9 +52,10 @@ test("Compat: API-absent guards degrade to nil/false with no flavor flag", funct
   assertEqual(subject, nil)
 end)
 
-test("Compat: no game-flavor flags exposed (Retail-only addon)", function()
-  -- LH-10: IsRetail/IsClassic removed — feature code must not branch on game flavor.
-  assertEqual(NS.Compat.IsRetail, nil)
+test("Compat: the client flags are LibKa0s-Compat-1.0's, and no Classic flag exists", function()
+  -- LH-10 removed the hand-rolled IsRetail/IsClassic; the Forever port (LH-01) routes the library's
+  -- client questions through core/CompatClient.lua instead (clients-§3). Classic is no client here.
+  assertEqual(type(NS.Compat.IsRetail), "function"); assertEqual(type(NS.Compat.ClientKey), "function")
   assertEqual(NS.Compat.IsClassic, nil)
 end)
 

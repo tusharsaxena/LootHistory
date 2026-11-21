@@ -201,7 +201,7 @@ Total.
 - Compat: DecodeGUID nil-safe
 - Compat: GetActiveKeystoneLevel nil when API absent (headless)
 - Compat: API-absent guards degrade to nil/false with no flavor flag
-- Compat: no game-flavor flags exposed (Retail-only addon)
+- Compat: the client flags are LibKa0s-Compat-1.0's, and no Classic flag exists
 - Compat: IsAuctionHouseMail matches AH sender + won-subject
 - Compat: an item NAME containing 'Warbound' is not a bind line
 - Compat: ScanBound separates warbound from warbound-until-equipped
@@ -269,10 +269,22 @@ Total.
 - Compat: PlayerInCombat asks UnitAffectingCombat about the player; false when absent
 - Compat: HookUseContainerItem and HookGetQuestReward install through HookSecure*
 
-### test_compat_routing.lua (2)
+### test_compat_routing.lua (4)
 
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
+- Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
+- Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
+
+### test_compat_client.lua (7)
+
+- CompatClient: the client questions answer the active profile, as the library does
+- CompatClient: ForClient reads a declaration for this client; nil and both mean both
+- CompatClient: a degraded install answers the same client through its own stubs
+- CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where it is absent
+- CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
+- CompatClient: the degraded UnitCharacterName keeps the name and drops a surname
+- CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
 
 ### test_tooltip_place.lua (9)
 
@@ -2364,7 +2376,8 @@ Total.
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 74 |
-| test_compat_routing.lua | 2 |
+| test_compat_routing.lua | 4 |
+| test_compat_client.lua | 7 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2452,4 +2465,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2054** |
+| **Total** | **2063** |

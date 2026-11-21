@@ -2,7 +2,7 @@
 
 WoW's item, container, quest, mail, spell, and map APIs have churned across expansions — some moved into `C_*` namespaces, some kept a deprecated global, some vary in shape. `core/Compat.lua` provides a stable surface for those varying and deprecated calls — and **only** those: it does API-shape normalization, not attribution decisions.
 
-The guiding principle is **Retail-only, presence-gated, no game-flavor branching.** Ka0s Loot History targets Retail, so `Compat.lua` never reads `WOW_PROJECT_ID` to pick a code path. Instead every varying/deprecated API is gated by a **direct presence check** of the `C_*` namespace or global it needs (`if C_Map and C_Map.GetBestMapForUnit then …`). When the API is absent the shim degrades to `nil`/`false` rather than erroring — capture keeps working, the affected field just goes unstamped. `core/Compat.lua`'s header is the boundary comment that states the rule.
+The guiding principle is **one codebase for Retail and WoW Forever, presence-gated, with the client asked in one place.** Which client this is (`Compat.IsForever()`, `IsRetail()`, `ClientKey()`, `ForClient(clients)`) and how a character is named on it (`Compat.RegionalNames()`, `UnitCharacterName(unit)`, `CharacterKey()`, `RealmKey()`) are **`LibKa0s-Compat-1.0`**'s members, routed onto `NS.Compat` by `core/CompatClient.lua` with the stubs a degraded install answers instead (clients-§3, forever-quirks-§4). Its stubs are the only code outside the library that read a `WOW_PROJECT_*` constant or `RegionalUniqueNamesEnabled`, and `tests/test_compat_routing.lua` fails any other file that does. A feature one client lacks is a declaration read through `ForClient` (clients-§4), never feature detection. Within a feature the client supports, every varying/deprecated API is gated by a **direct presence check** of the `C_*` namespace or global it needs (`if C_Map and C_Map.GetBestMapForUnit then …`). When the API is absent the shim degrades to `nil`/`false` rather than erroring — capture keeps working, the affected field just goes unstamped. `core/Compat.lua`'s header is the boundary comment that states the rule.
 
 Load-first (`core/Compat.lua` heads the TOC) so every later module can reference `NS.Compat.*`.
 
@@ -99,7 +99,7 @@ primitives and holds no opinion about how they are composed.
 
 ## Boundary rule
 
-Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call, or `WOW_PROJECT_ID` branch outside `Compat.lua` is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
+Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
 Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `InPartyInstance`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras`/`PlayerClassFile` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md), which forward to `Compat.Zone` / `Compat.PlayerMapID` at call time. See the [module map](module-map.md) for how the pieces load and connect.
 
@@ -115,7 +115,7 @@ and `PlayerClassFile`, and every read-side hook goes in through `HookSecure`/`Ho
 **file-scope** capture of a member (`local x = NS.Compat.Member` binds the function before the seam
 can wrap it; a capture of the table, `local Compat = NS.Compat`, reads the member at call time).
 
-The seam is `core/SimSeam.lua`, loaded straight after `core/Compat.lua`. It sorts every member three
+The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`). It sorts every member three
 ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctionHouseMail`,
 `DecodeGUID`, `BindState`, `BestBound`, `CurrencyLinkID`, `AuctionMailKind`, `CurrencySourceName`,
 `InteractionType`), the tooltip `Show*` / `HideTooltip` family and the four hook installers.

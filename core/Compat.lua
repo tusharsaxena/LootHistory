@@ -2,9 +2,12 @@ local _, NS = ...
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat
 
--- Retail-only addon: no game-flavor branching. Every varying/deprecated API is gated by a
--- direct C_*/global presence check below, so a shim degrades to nil/false when its API is
--- absent — never by reading a game-flavor project id.
+-- Retail and WoW Forever, one codebase (clients-§1). Every varying/deprecated API is gated by a
+-- direct C_*/global presence check below, so a shim degrades to nil/false when its API is absent.
+-- Which client this is, and how a character is named on it, is asked only through
+-- core/CompatClient.lua (NS.Compat.ClientKey / IsForever / ForClient / RegionalNames, from
+-- LibKa0s-Compat-1.0, clients-§3); no file here or elsewhere reads a project id. A feature one
+-- client lacks is a declaration read through ForClient (clients-§4), never feature detection.
 
 -- Fold U+00A0, the no-break space, to an ordinary space.
 --

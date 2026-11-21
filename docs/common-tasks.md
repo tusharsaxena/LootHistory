@@ -139,11 +139,12 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### Compat firewall
 
 - Every deprecated or version-varying API call lives in `core/Compat.lua`; modules call
-  `NS.Compat.X` and never the raw global. This is a Retail-only addon, so shims are gated by a
-  direct `C_*`/global **presence check** (e.g. `if C_Map and C_Map.GetBestMapForUnit then …`) that
-  degrades to `nil`/`false` when the API is absent — **not** by reading a game-flavor project id.
-  There is no `WOW_PROJECT_ID` branching anywhere (`core/Compat.lua`'s header says so). Details in
-  [compat-layer.md](compat-layer.md).
+  `NS.Compat.X` and never the raw global. Shims are gated by a direct `C_*`/global **presence
+  check** (e.g. `if C_Map and C_Map.GetBestMapForUnit then …`) that degrades to `nil`/`false` when
+  the API is absent. Which client this is (Retail or WoW Forever) is asked only through
+  `NS.Compat.ClientKey()` / `IsForever()` / `ForClient(clients)`, which `core/CompatClient.lua`
+  routes from `LibKa0s-Compat-1.0` (clients-§3); no other file reads a `WOW_PROJECT_*` constant.
+  Details in [compat-layer.md](compat-layer.md).
 
 ### Table rendering: object pooling
 
