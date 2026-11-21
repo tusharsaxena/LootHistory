@@ -293,10 +293,23 @@ Kit.skinValues = {
 -- The painted surfaces the skin-switch test flips, one object each (tests/skin_surfaces.lua).
 Kit.skinSwitch = dofile("tests/skin_surfaces.lua")(NS, mocks)
 
+-- The per-profile helpers a fixture reads instead of a Retail literal (clients-§6). `forever` is
+-- the kit profile the mock set was shaped as (tests/wow_mock.lua's `__client`); `bagIndex(name)` is
+-- that client's Enum.BagIndex member, which Retail and WoW Forever number differently (the account
+-- tabs are 12..16 on Retail and 15..23 on Forever). An unknown member raises rather than answering
+-- nil, so a typo never reads as "no such container".
+local FOREVER = mocks.__client == "forever"
+local function bagIndex(name)
+  local id = mocks.Enum.BagIndex[name]
+  if id == nil then error("bagIndex: no Enum.BagIndex member " .. tostring(name), 2) end
+  return id
+end
+
 _G.LH_TEST = Kit.expose{
   skinSwitch = Kit.skinSwitch,
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
+  forever = FOREVER, bagIndex = bagIndex,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

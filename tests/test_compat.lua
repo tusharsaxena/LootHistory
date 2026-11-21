@@ -605,10 +605,18 @@ test("Compat: the degraded build's GetSpellName answers nil even with C_Spell pr
 end)
 
 test("Compat: bag-id groups come from Enum.BagIndex names, type constants excluded", function()
+  -- Each client's own numbering (tests/wow_mock.lua): Retail 12.1.5 has six character bank tabs and
+  -- five account tabs, WoW Forever nine of each, so the same names land on different ids. Both
+  -- enums carry the Keyring (-1), and it is in no group yet (the per-client container table is later).
   local C = NS.Constants
   assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
-  assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
-  assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+  if T.forever then
+    assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11,12,13,14")
+    assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "15,16,17,18,19,20,21,22,23")
+  else
+    assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
+    assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+  end
 end)
 
 test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()

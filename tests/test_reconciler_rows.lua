@@ -29,6 +29,9 @@ local function case(name, body)
   end)
 end
 
+-- The first warband (account) tab, by member: 12 on Retail, 15 on WoW Forever (tests/run.lua).
+local WB1 = T.bagIndex("AccountBankTab_1")
+
 local function setBag(bagID, slots)
   m.__bags[bagID] = slots
   local n = 0; for s in pairs(slots) do if s > n then n = s end end
@@ -184,9 +187,9 @@ case("Reconciler: a warband deposit is an OUT on the character and an IN on the 
   reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 2 } })
   genesis()
-  openBank("AccountBanker"); setBag(12, {}); R():Flush()
+  openBank("AccountBanker"); setBag(WB1, {}); R():Flush()
   NS.Holdings:MarkGenesis(NS.Constants.WARBAND_HOLDER, m.__epoch)
-  setBag(0, {}); setBag(12, { [1] = { itemID = 7, link = "L7", count = 2 } })
+  setBag(0, {}); setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 2 } })
   R():MarkDirty("bags"); R():MarkDirty("tabs"); R():Flush()
   assertEqual(#H(), 2)
   local by = {}
@@ -203,7 +206,7 @@ local function warbandWithBalance()
   setBag(0, {})
   genesis()
   openBank("AccountBanker")
-  setBag(12, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 500000
+  setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 500000
   R():MarkDirty("warbandMoney"); R():Flush()              -- the tabs' and warband gold's first read
   NS.Holdings:MarkGenesis(NS.Constants.WARBAND_HOLDER, m.__epoch)
   assertEqual(#H(), 0)
@@ -211,7 +214,7 @@ end
 
 local function withdraw(item, gold)
   local held = NS.Holdings:Get(NS.Constants.WARBAND_HOLDER)
-  setBag(12, { [1] = { itemID = 7, link = "L7", count = held.items[7].tabs - item } })
+  setBag(WB1, { [1] = { itemID = 7, link = "L7", count = held.items[7].tabs - item } })
   setBag(0, { [1] = { itemID = 7, link = "L7", count = ((NS.Holdings:Get(ME).items[7] or {}).bags or 0) + item } })
   m.__warbandMoney = m.__warbandMoney - gold; m.__money = m.__money + gold
   for _, p in ipairs({ "bags", "tabs", "money", "warbandMoney" }) do R():MarkDirty(p) end
@@ -605,11 +608,11 @@ case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, nev
   reset()
   m.__warbandMoney = 1000
   genesis()
-  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } }); setBag(12, {})
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } }); setBag(WB1, {})
   openBank(); R():Flush(); closeBank()                    -- first reads: silent for both holders
   assertEqual(#H(), 0); assertEqual(NS.Holdings:Get("§warband").meta.partial, false)
   -- Elsewhere: 5 of item 7 moved bank -> warband tab, and the warband gained 500 gold.
-  setBag(6, {}); setBag(12, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 1500
+  setBag(6, {}); setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 1500
   m.__now = 200
   openBank(); R():Flush()
   assertEqual(#H(), 3)
@@ -620,7 +623,7 @@ case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, nev
   assertEqual(gold.holder, "§warband"); assertEqual(gold.dir, "IN"); assertEqual(gold.quantity, 500)
   closeBank()
   -- The warband-only banker opens the same drift read.
-  setBag(12, { [1] = { itemID = 7, link = "L7", count = 4 } })
+  setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 4 } })
   m.__now = 300
   openBank("AccountBanker"); R():Flush()
   assertEqual(#H(), 4); assertEqual(H()[4].source, "UNTRACKED"); assertEqual(H()[4].holder, "§warband")

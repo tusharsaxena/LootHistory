@@ -153,3 +153,79 @@ test("Harness: NS.bus is the NewAddon object and carries the message half and th
   assertEqual(got[1], PROBE)
   assertEqual(got[2], 42)
 end)
+
+-- ── the mock is shaped as the kit profile's client (clients-§6) ──────────────────────────────
+--
+-- The kit profile flips only the project constants, the build and a few absent globals, and
+-- LootHistory reads none of them, so before the WoW Forever port the forever run exercised exactly
+-- the Retail mock a second time. tests/wow_mock.lua now shapes the client APIs this addon reads
+-- after each client's own API dump (Retail 12.1.5, WoW Forever 1.60.1: BagIndexConstants,
+-- PlayerInteractionType, UnitName, RegionalUniqueNamesEnabled, C_Bank.CanViewBank). These cases pin
+-- that shape on whichever profile runs, so a mock that slid back to one shape for both goes red.
+
+-- Enum.BagIndex as "Name=id" pairs, sorted by id, so a whole enum is one comparable string.
+local function bagIndexString(e)
+  local rows = {}
+  for name, id in pairs(e) do rows[#rows + 1] = { name, id } end
+  table.sort(rows, function(a, b) return a[2] < b[2] end)
+  for i, r in ipairs(rows) do rows[i] = r[1] .. "=" .. r[2] end
+  return table.concat(rows, ",")
+end
+
+local BAG_HEAD = "Accountbanktab=-3,Characterbanktab=-2,Keyring=-1,Backpack=0,Bag_1=1,Bag_2=2,Bag_3=3,"
+  .. "Bag_4=4,ReagentBag=5,"
+local BAG_INDEX = {
+  retail = BAG_HEAD .. "CharacterBankTab_1=6,CharacterBankTab_2=7,CharacterBankTab_3=8,CharacterBankTab_4=9,"
+    .. "CharacterBankTab_5=10,CharacterBankTab_6=11,AccountBankTab_1=12,AccountBankTab_2=13,"
+    .. "AccountBankTab_3=14,AccountBankTab_4=15,AccountBankTab_5=16",
+  forever = BAG_HEAD .. "CharacterBankTab_1=6,CharacterBankTab_2=7,CharacterBankTab_3=8,CharacterBankTab_4=9,"
+    .. "CharacterBankTab_5=10,CharacterBankTab_6=11,CharacterBankTab_7=12,CharacterBankTab_8=13,"
+    .. "CharacterBankTab_9=14,AccountBankTab_1=15,AccountBankTab_2=16,AccountBankTab_3=17,"
+    .. "AccountBankTab_4=18,AccountBankTab_5=19,AccountBankTab_6=20,AccountBankTab_7=21,"
+    .. "AccountBankTab_8=22,AccountBankTab_9=23",
+}
+
+test("Harness: the mock's client is the kit profile, and T.forever and T.bagIndex read it", function()
+  local client = Loader.MockClient.current()
+  assertEqual(T.mocks.__client, client, "tests/wow_mock.lua shaped the profile the kit applied")
+  assertEqual(T.forever, client == "forever")
+  assertEqual(T.bagIndex("AccountBankTab_1"), client == "forever" and 15 or 12)
+  assertEqual(T.bagIndex("Keyring"), -1)
+  local ok, err = pcall(T.bagIndex, "AccountBankTab_99")
+  assertTrue(not ok and tostring(err):find("no Enum.BagIndex member", 1, true) ~= nil,
+    "an unknown member raises, never answers nil")
+end)
+
+test("Harness: Enum.BagIndex is the active client's own, the Keyring and type constants included", function()
+  local client = Loader.MockClient.current()
+  assertEqual(bagIndexString(T.mocks.Enum.BagIndex), BAG_INDEX[client])
+  local fresh = dofile("tests/wow_mock.lua")()
+  assertEqual(bagIndexString(fresh.Enum.BagIndex), BAG_INDEX[client], "every mock set is built the same way")
+end)
+
+test("Harness: the banker interaction types and bank types carry each dump's numbers", function()
+  local e = T.mocks.Enum
+  assertEqual(e.PlayerInteractionType.Banker, 8)
+  assertEqual(e.PlayerInteractionType.CharacterBanker, 67)
+  assertEqual(e.PlayerInteractionType.AccountBanker, 68)
+  assertEqual(e.PlayerInteractionType.TaxiNode, 6)
+  assertEqual(e.BankType.Character, 0); assertEqual(e.BankType.Account, 2)
+end)
+
+test("Harness: the character, regional names and the account bank follow the client", function()
+  local m = T.mocks
+  local name, second = m.UnitName("player")
+  assertEqual(name, "Mock")
+  assertTrue(m.C_Bank.CanViewBank(m.Enum.BankType.Character), "the character bank is viewable on both")
+  if T.forever then
+    assertEqual(second, "Mockley", "Forever: UnitName's second value is the surname")
+    assertEqual(type(m.RegionalUniqueNamesEnabled), "function")
+    assertTrue(m.RegionalUniqueNamesEnabled(), "Forever: names are unique per region")
+    assertTrue(not m.C_Bank.CanViewBank(m.Enum.BankType.Account), "Forever: the account bank is not viewable")
+  else
+    assertEqual(second, nil, "Retail: the player's own realm is nil")
+    assertEqual(select("#", m.UnitName("player")), 1, "Retail: one value, as before the port")
+    assertEqual(m.RegionalUniqueNamesEnabled, nil, "Retail has no RegionalUniqueNamesEnabled")
+    assertTrue(m.C_Bank.CanViewBank(m.Enum.BankType.Account), "Retail: the account bank is viewable")
+  end
+end)

@@ -7,8 +7,10 @@
 -- case runs under the active kit profile (KA0S_KIT_CLIENT, retail by default) and asserts the
 -- profile's own answer, so the same suite proves both clients (clients-§6).
 --
--- Regional names are not part of either kit profile yet (the Forever-shaped mock is LH-02), so the
--- cases that need them plant RegionalUniqueNamesEnabled on the mock set themselves and put it back.
+-- Regional names follow the mock's client shape (tests/wow_mock.lua): the Forever mock answers
+-- RegionalUniqueNamesEnabled() true and UnitName "Mock", "Mockley"; the Retail mock has no
+-- RegionalUniqueNamesEnabled and no surname. A case that needs the other shape plants it on the mock
+-- set itself and puts it back.
 
 local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
@@ -33,6 +35,7 @@ local function with(m, fields, fn)
 end
 
 local REGIONAL = { RegionalUniqueNamesEnabled = function() return true end }
+local UNREGIONAL = { RegionalUniqueNamesEnabled = NIL }
 local function surnamed(unit) if unit then return "Traxex", "Silentshot" end end
 
 -- ── The client ──────────────────────────────────────────────────────────────────────────────
@@ -84,7 +87,8 @@ test("CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where 
   for _, env in ipairs({ { NS.Compat, M, "live" }, { nil, nil, "degraded" } }) do
     local C, m = env[1], env[2]
     if not C then local ns, _, dm = loadDegraded(); C, m = ns.Compat, dm end
-    assertFalse(C.RegionalNames(), env[3] .. ": absent reads false")
+    assertEqual(C.RegionalNames(), PROFILE == "forever", env[3] .. ": the profile's own answer")
+    with(m, UNREGIONAL, function() assertFalse(C.RegionalNames(), env[3] .. ": absent reads false") end)
     with(m, REGIONAL, function() assertTrue(C.RegionalNames(), env[3] .. ": enabled") end)
     with(m, { RegionalUniqueNamesEnabled = function() return false end }, function()
       assertFalse(C.RegionalNames(), env[3] .. ": disabled")
@@ -92,13 +96,24 @@ test("CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where 
   end
 end)
 
+test("CompatClient: UnitCharacterName answers the profile's own player", function()
+  local name, realm = NS.Compat.UnitCharacterName("player")
+  if PROFILE == "forever" then
+    assertEqual(name, "Mock Mockley", "Forever: first name and surname"); assertEqual(realm, nil)
+  else
+    assertEqual(name, "Mock", "Retail: the name"); assertEqual(realm, nil, "the player's own realm")
+  end
+end)
+
 test("CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm", function()
   local C = NS.Compat
   with(M, { UnitName = surnamed }, function()
-    local name, realm = C.UnitCharacterName("NPC")
-    assertEqual(name, "Traxex"); assertEqual(realm, "Silentshot", "Retail: the second value is the realm")
+    with(M, UNREGIONAL, function()
+      local name, realm = C.UnitCharacterName("NPC")
+      assertEqual(name, "Traxex"); assertEqual(realm, "Silentshot", "Retail: the second value is the realm")
+    end)
     with(M, REGIONAL, function()
-      name, realm = C.UnitCharacterName("NPC")
+      local name, realm = C.UnitCharacterName("NPC")
       assertEqual(name, "Traxex Silentshot"); assertEqual(realm, nil)
     end)
   end)
@@ -116,10 +131,12 @@ test("CompatClient: the degraded UnitCharacterName keeps the name and drops a su
   local ns, _, m = loadDegraded()
   local C = ns.Compat
   with(m, { UnitName = surnamed }, function()
-    local name, realm = C.UnitCharacterName("NPC")
-    assertEqual(name, "Traxex"); assertEqual(realm, "Silentshot")
+    with(m, UNREGIONAL, function()
+      local name, realm = C.UnitCharacterName("NPC")
+      assertEqual(name, "Traxex"); assertEqual(realm, "Silentshot")
+    end)
     with(m, REGIONAL, function()
-      name, realm = C.UnitCharacterName("NPC")
+      local name, realm = C.UnitCharacterName("NPC")
       assertEqual(name, "Traxex"); assertEqual(realm, nil, "never the surname as a realm")
     end)
   end)
@@ -127,8 +144,13 @@ end)
 
 test("CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install", function()
   local C = NS.Compat
-  assertEqual(C.CharacterKey(), "Mock - Realm", "Retail: Name - Realm")
-  assertEqual(C.RealmKey(), "Realm")
+  if PROFILE == "forever" then
+    assertEqual(C.CharacterKey(), "Mock Mockley", "Forever: first name and surname")
+  else
+    assertEqual(C.CharacterKey(), "Mock - Realm", "Retail: Name - Realm")
+  end
+  assertEqual(C.RealmKey(), "Realm", "no C_GameRules in the mock: the realm name on either client")
+  with(M, UNREGIONAL, function() assertEqual(C.CharacterKey(), "Mock - Realm", "without regional names") end)
   with(M, { UnitName = surnamed }, function()
     with(M, REGIONAL, function()
       assertEqual(C.CharacterKey(), "Traxex Silentshot")

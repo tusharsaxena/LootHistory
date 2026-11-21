@@ -276,12 +276,13 @@ Total.
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
 - Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
 
-### test_compat_client.lua (7)
+### test_compat_client.lua (8)
 
 - CompatClient: the client questions answer the active profile, as the library does
 - CompatClient: ForClient reads a declaration for this client; nil and both mean both
 - CompatClient: a degraded install answers the same client through its own stubs
 - CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where it is absent
+- CompatClient: UnitCharacterName answers the profile's own player
 - CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
 - CompatClient: the degraded UnitCharacterName keeps the name and drops a surname
 - CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
@@ -1761,7 +1762,7 @@ Total.
 - Migrate v11->v12: a false set after the step stays false; a re-run changes nothing
 - Defaults: Show transfers is on for a new profile
 
-### test_harness.lua (7)
+### test_harness.lua (11)
 
 - Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
 - Harness: every path the runner derived from the TOC exists on disk
@@ -1770,6 +1771,10 @@ Total.
 - Harness: the runner's suite list has no duplicates
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
+- Harness: the mock's client is the kit profile, and T.forever and T.bagIndex read it
+- Harness: Enum.BagIndex is the active client's own, the Keyring and type constants included
+- Harness: the banker interaction types and bank types carry each dump's numbers
+- Harness: the character, regional names and the account bank follow the client
 
 ### test_libka0s.lua (53)
 
@@ -2377,7 +2382,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 74 |
 | test_compat_routing.lua | 4 |
-| test_compat_client.lua | 7 |
+| test_compat_client.lua | 8 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2434,7 +2439,7 @@ Total.
 | test_skin_tools.lua | 7 |
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
-| test_harness.lua | 7 |
+| test_harness.lua | 11 |
 | test_libka0s.lua | 53 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
@@ -2465,4 +2470,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2063** |
+| **Total** | **2068** |
