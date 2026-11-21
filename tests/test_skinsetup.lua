@@ -22,6 +22,12 @@ local clickTab, homeTab, tabAt, STRIP, widgetsOfType = P.clickTab, P.homeTab, P.
 local Skin = mocks.LibStub("LibKa0s-Skin-1.0")
 local OWNER = "LootHistory"
 
+-- The skin a new profile wears on each kit profile (skinning-§2, LibKa0s-Skin-1.0 minor 18's
+-- CLIENT_DEFAULTS): Ka0s Default on Retail, WoW Forever on Forever. The source is the Ka0s skins on
+-- both. Restated here, not read off the library, so a library that moved a client's default goes red.
+local CLIENT_SKIN = { retail = "ka0s", forever = "forever" }
+local WANT_SKIN = CLIENT_SKIN[T.forever and "forever" or "retail"]
+
 -- ONE listener of each kind for the whole file: the library keeps a listener for the session and
 -- the same function twice is one entry, so each case resets the counters instead of registering.
 local looks, reloads = 0, 0
@@ -95,7 +101,7 @@ test("Skin seam: the owner is the folder name, and NS.Skin is its facade", funct
   assertEqual(Skin:OwnerLabel(OWNER), NS.BRAND, "the copy confirmation names the addon by its brand")
 end)
 
-test("Skin seam: the read answers Ka0s Default before the profile store exists", function()
+test("Skin seam: the read answers the client's default skin before the profile store exists", function()
   -- RegisterOwner calls `get` at FILE LOAD, before NS:InitDB; a getter that raised there would be a
   -- visible Lua error on every login.
   local db = NS.db
@@ -104,17 +110,44 @@ test("Skin seam: the read answers Ka0s Default before the profile store exists",
   NS.db = db
   assertTrue(ok, "NS.SkinChoice raised without a store: " .. tostring(source))
   assertEqual(source, "ka0s")
-  assertEqual(skin, "ka0s")
+  assertEqual(skin, WANT_SKIN, "before the store, the client's default skin")
 end)
 
 -- ── the keys and the rows ────────────────────────────────────────────────────────────────────
 
-test("Skin seam: the appearance keys default to Ka0s Default, as two Appearance rows", function()
-  -- red under: a default other than today's look, the keys moved out of `settings`, or a row that
-  -- renders itself on top of the library's choice grids.
+test("Skin seam: NS.DEFAULT_SKIN is the client's default skin, Skin:DefaultSkin()", function()
+  -- skinning-§2: the default skin is per client, asked of the library once at load and never a
+  -- literal or the addon's own client check. red under: the literal "ka0s" on Forever, or a value
+  -- that is not what the library answers on this client.
+  assertEqual(NS.DEFAULT_SKIN, WANT_SKIN, "NS.DEFAULT_SKIN")
+  assertEqual(NS.DEFAULT_SKIN, Skin:DefaultSkin(), "NS.DEFAULT_SKIN is Skin:DefaultSkin()")
+end)
+
+test("Skin seam: a new profile wears the client's default skin", function()
+  -- A profile made now has stored nothing, so AceDB's default is what it reads and what the profile
+  -- event applies. red under: the literal "ka0s" default on Forever, or a profile event that
+  -- applied some other skin.
+  local db = NS.db
+  local ok, err = pcall(function()
+    db:SetProfile("FreshSkinProbe")
+    assertEqual(db.profile.settings.appearance.skin, WANT_SKIN, "the new profile's stored default")
+    assertEqual(select(2, NS.SkinChoice()), WANT_SKIN, "NS.SkinChoice on the new profile")
+    assertEqual(select(2, Skin:GetChoice(OWNER)), WANT_SKIN, "the applied skin on the new profile")
+  end)
+  db:SetProfile("Default")
+  if db.DeleteProfile then pcall(db.DeleteProfile, db, "FreshSkinProbe", true) end
+  if not ok then error(err, 0) end
+  assertEqual(select(2, Skin:GetChoice(OWNER)), select(2, NS.SkinChoice()), "back on Default, its own skin applied")
+end)
+
+test("Skin seam: the appearance keys default to the client's skin, as two Appearance rows", function()
+  -- red under: a default other than the client's (Ka0s Default, today's look, on Retail; WoW
+  -- Forever on Forever), the source moved off the Ka0s skins, the keys moved out of `settings`, or a
+  -- row that renders itself on top of the library's choice grids.
   local d = NS.defaults.profile.settings.appearance
-  assertEqual(d.source, "ka0s")
-  assertEqual(d.skin, "ka0s")
+  assertEqual(d.source, "ka0s", "the source stays the Ka0s skins on both clients")
+  assertEqual(d.skin, WANT_SKIN, "the profile default is the client's skin")
+  assertEqual(NS.Schema:FindRow("settings.appearance.skin").default, WANT_SKIN, "the schema row's default")
   for _, path in ipairs({ "settings.appearance.source", "settings.appearance.skin" }) do
     local row = NS.Schema:FindRow(path)
     assertTrue(row ~= nil, path .. " is not a schema row")

@@ -520,7 +520,7 @@ end)
 
 -- ── the legend's tooltip and spacing (P10) ──
 
-case("Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint", function()
+case("Timeline tab: a legend entry's tooltip is the holder's color, its holding and the hint", T.ka0sDefault(function()
   seed()
   NS.db.global.holdings["Mock-Realm"].meta.classFile = "MAGE"
   open()
@@ -546,7 +546,7 @@ case("Timeline tab: a legend entry's tooltip is the holder's color, its holding 
   got = spyTooltip(function() legendButton(TOTAL):__fire("OnEnter") end)
   assertEqual(got.doubles[1].l, "Holding (all shown characters)", "the Total line is the filter's")
   assertEqual(got.doubles[1].r, NS.Util.FormatMoney(10000))
-end)
+end))
 
 case("Timeline tab: the Warband's legend tooltip wears the Warband's series color", function()
   seed()

@@ -359,7 +359,7 @@ local function tipModel(key, kind, holders)
   return { key = key, kind = kind, series = series }
 end
 
-case("Timeline model: LegendTip colors the title by holder kind and reads the current holding", function()
+case("Timeline model: LegendTip colors the title by holder kind and reads the current holding", T.ka0sDefault(function()
   local W = NS.Constants.WARBAND_HOLDER
   seedMoney({ ["A-R"] = 70000, [W] = 25000 }, noon(2026, 10, 5))
   NS.db.global.holdings["A-R"].meta.classFile = "MAGE"
@@ -380,7 +380,7 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.color[1], 1); assertEqual(t.color[2], 0.82); assertEqual(t.color[3], 0)
   assertEqual(t.label, "Holding", "every holder is charted, so the Total is the account's")
   assertEqual(t.value, NS.Util.FormatMoney(95000))
-end)
+end))
 
 case("Timeline model: LegendTip's Total sums only the charted holders and says so", function()
   seedMoney({ ["A-R"] = 70000, ["B-R"] = 10000 }, noon(2026, 10, 5))

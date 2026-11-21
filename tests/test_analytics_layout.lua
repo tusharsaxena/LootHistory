@@ -202,11 +202,11 @@ test("Insights layout: the fixtures exercise the branches they are meant to", fu
   assertEqual(empty.totals.records, 0, "empty is empty")
 end)
 
-test("Insights layout: a full pass over items and currency matches the golden snapshot", function()
+test("Insights layout: a full pass over items and currency matches the golden snapshot", T.ka0sDefault(function()
   local inst = newInstance()
   local y = layout(inst, rich)
   assertGolden("rich", snapshot(inst, y))
-end)
+end))
 
 test("Insights layout: a second pass re-acquires the same widgets and draws the same thing", function()
   local inst = newInstance()
@@ -222,21 +222,21 @@ test("Insights layout: a second pass re-acquires the same widgets and draws the 
   assertEqual(snapshot(inst, y2), first, "the second pass draws byte-for-byte what the first did")
 end)
 
-test("Insights layout: items with no value and no currency, over a trimmed day range", function()
+test("Insights layout: items with no value and no currency, over a trimmed day range", T.ka0sDefault(function()
   local inst = newInstance()
   layout(inst, rich)                       -- dirty every pool first, so this pass recycles
   local y = layout(inst, plain)
   assertGolden("plain", snapshot(inst, y))
-end)
+end))
 
-test("Insights layout: an empty range hides every chart and shows the empty text", function()
+test("Insights layout: an empty range hides every chart and shows the empty text", T.ka0sDefault(function()
   local inst = newInstance()
   layout(inst, rich)
   local y = layout(inst, empty)
   assertGolden("empty", snapshot(inst, y))
   assertEqual(y, -150, "the empty state reserves 50px under the cursor")
   assertTrue(inst.emptyText.__shown, "the empty text is shown")
-end)
+end))
 
 test("Insights layout: a nil stats table takes the empty branch too", function()
   local inst = newInstance()

@@ -310,12 +310,29 @@ local function bagIndex(name)
   if id == nil then error("bagIndex: no Enum.BagIndex member " .. tostring(name), 2) end
   return id
 end
+-- `ka0sDefault(fn)` wraps a case so it runs on Ka0s Default and then puts the profile's stored and
+-- applied skin back. A new profile, and every reset, wears the client's default skin
+-- (NS.DEFAULT_SKIN, skinning-§2): Ka0s Default on Retail, WoW Forever on Forever. A case that pins
+-- Ka0s Default's own pixels (a golden, a tooltip's gray) names the skin it was cut under. On Retail
+-- it stores the default and moves nothing.
+local function ka0sDefault(fn)
+  return function(...)
+    local appearance = NS.db.profile.settings.appearance
+    local had = rawget(appearance, "skin")
+    appearance.skin = "ka0s"
+    NS.ApplySkinChoice()
+    local ok, err = pcall(fn, ...)
+    NS.db.profile.settings.appearance.skin = had
+    NS.ApplySkinChoice()
+    if not ok then error(err, 0) end
+  end
+end
 
 _G.LH_TEST = Kit.expose{
   skinSwitch = Kit.skinSwitch,
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
-  forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey,
+  forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

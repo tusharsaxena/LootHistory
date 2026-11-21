@@ -376,7 +376,7 @@ settings.appearance.ignoreFonts | bool | false | nil | nil | nil
 settings.appearance.ignorePanel | bool | true | nil | nil | nil
 settings.appearance.outline | string | "hud" | nil | nil | nil
 settings.appearance.pickerSeen | bool | false | nil | nil | nil
-settings.appearance.skin | string | "ka0s" | nil | nil | nil
+settings.appearance.skin | string | "<DEFAULT_SKIN>" | nil | nil | nil
 settings.appearance.source | string | "ka0s" | nil | nil | nil
 settings.appearance.texture | string | "" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
@@ -411,7 +411,9 @@ test("Schema: the stored settings (path, type, default, range) are the pinned se
   end
   table.sort(lines)
   local got = table.concat(lines, "\n") .. "\n"
-  assertEqual(got, STORED_SETTINGS, "a stored setting's path, type, default or range moved")
+  -- The skin's default is the client's (skinning-§2): Ka0s Default on Retail, WoW Forever on Forever.
+  local want = STORED_SETTINGS:gsub("<DEFAULT_SKIN>", T.forever and "forever" or "ka0s")
+  assertEqual(got, want, "a stored setting's path, type, default or range moved")
 end)
 
 test("Schema: the Capture tooltips name the controls a player can find (item 020)", function()

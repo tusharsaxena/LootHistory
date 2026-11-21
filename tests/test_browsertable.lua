@@ -1051,7 +1051,7 @@ end)
 -- draws a plain tooltip (name in its quality color, "Type · SubType", gray "Test-mode sample"). A
 -- row WITH a link still shows the item's own tooltip, and outside test mode a link-less row is as
 -- before (nothing drawn).
-test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", function()
+test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", T.ka0sDefault(function()
   local BT = NS.BrowserTable
   local row, tt = BT:BuildRow(), T.mocks.GameTooltip
   local savedMode, savedColors = BT.testMode, T.mocks.ITEM_QUALITY_COLORS
@@ -1104,7 +1104,7 @@ test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows 
   T.mocks.ITEM_QUALITY_COLORS = savedColors
   tt:Hide()
   if not ok then error(err, 0) end
-end)
+end))
 
 -- AD-92-LH (LibKa0s#92): a History row is a BODY element, so every one of its tooltips (an item's,
 -- a currency's, a gold row's, a test-mode sample's) opens beside the window through

@@ -7,8 +7,11 @@ local addonName, NS = ...
 --   NS.Skin                 the owner's facade, `Skin:For("LootHistory")`: the painting vocabulary
 --                           (Shell, TitleBar, Button, ...) and Token / Color / Resolve /
 --                           OnLooksChanged. Every surface that draws reads its colors here.
+--   NS.DEFAULT_SKIN         the skin a new profile wears on this client, Skin:DefaultSkin() read
+--                           once at load (skinning-§2): "ka0s" (Ka0s Default) on Retail, "forever"
+--                           (WoW Forever) on Forever, "ka0s" without the library.
 --   NS.SkinChoice()         the stored (source, skin) pair, read through NS.Schema:Get; "ka0s",
---                           "ka0s" before NS:InitDB has built the profile store.
+--                           NS.DEFAULT_SKIN before NS:InitDB has built the profile store.
 --   NS.WriteSkinChoice(s,k,i,m) the write seam: both halves through NS.Schema:Set, the one seam
 --                           `/lh set` and the panel already write through (architecture-§5); `i`,
 --                           the Scope's `{ panel, fonts }`, writes the two exceptions, and `m`, the
@@ -101,7 +104,14 @@ local PANEL_PATH, FONTS_PATH = "settings.appearance.ignorePanel", "settings.appe
 local FONT_PATH, TEXTURE_PATH = "settings.appearance.font", "settings.appearance.texture"
 local OUTLINE_PATH = "settings.appearance.outline"
 local OUTLINE_DEFAULT = "hud"
-local DEFAULT = "ka0s"
+-- The source is the Ka0s skins on both clients; the skin is the client's (skinning-§2:
+-- Skin:DefaultSkin, LibKa0s-Skin-1.0 minor 18, which answers WoW Forever on the Forever client, Ka0s
+-- Default on Retail, and Ka0s Default for an unregistered skin). Asked once at load, before
+-- defaults/Profile.lua reads it; without the library it is Ka0s Default. Never the addon's own
+-- client check.
+local SOURCE_DEFAULT = "ka0s"
+NS.DEFAULT_SKIN = Skin and type(Skin.DefaultSkin) == "function" and Skin:DefaultSkin() or "ka0s"
+local DEFAULT = NS.DEFAULT_SKIN
 
 -- The Ka0s Default tokens the DEGRADED facade answers, copied from the library and limited to the
 -- ones this addon reads. They are the window edge NS.ApplySkin's fallback (core/CoreSetup.lua)
@@ -298,8 +308,8 @@ if #NS.SKIN_OPTIONS == 0 then NS.SKIN_OPTIONS[1] = { value = DEFAULT, text = "Ka
 --- The stored pair, lazily and nil-safely: Ka0s Default until the profile store exists.
 function NS.SkinChoice()
   local S = NS.Schema
-  if not (NS.db and S and S.Get) then return DEFAULT, DEFAULT end
-  return S:Get(SOURCE_PATH) or DEFAULT, S:Get(SKIN_PATH) or DEFAULT
+  if not (NS.db and S and S.Get) then return SOURCE_DEFAULT, DEFAULT end
+  return S:Get(SOURCE_PATH) or SOURCE_DEFAULT, S:Get(SKIN_PATH) or DEFAULT
 end
 
 --- A stored override as the profile keeps it: the LSM key, or "" for the skin's own (false, nil, "").
@@ -830,7 +840,7 @@ end
 --- library's table for a skin key), in NS.SkinColor's arity. nil for a token neither sets.
 function NS.SkinPanelColor(name)
   if not NS.SkinPanelIgnored() or type(Skin.ResolveSkin) ~= "function" then return NS.SkinColor(name) end
-  local c = Skin:ResolveSkin(Skin.DEFAULT or DEFAULT)[name]
+  local c = Skin:ResolveSkin(Skin.DEFAULT or "ka0s")[name]
   if type(c) ~= "table" then return nil end
   if c[4] == nil or c[4] == 1 then return c[1], c[2], c[3] end
   return c[1], c[2], c[3], c[4]
