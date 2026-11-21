@@ -4,9 +4,10 @@ local B = NS.Browser
 
 -- The History window's SHARED filter bar (issue #13): B:BuildFilterBar, the static option sets it
 -- seeds its dropdowns from and the bar's four buttons. Split out of modules/Browser.lua, which
--- owns the window shell, the dataset-driven option builders and the view logic this bar reads
--- through the B._ helpers below. Loads directly after modules/Browser.lua (TOC), so every helper is
--- already published when these file-scope locals capture it.
+-- owns the window shell and the dataset-driven option builders, and modules/BrowserViews.lua, which
+-- owns the view logic this bar reads through the B._ helpers below. Loads directly after
+-- modules/BrowserViews.lua (TOC), so every helper is already published when these file-scope
+-- locals capture it.
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local setToFilter       = B._setToFilter
 local applyQualityFloor = B._applyQualityFloor
@@ -68,7 +69,7 @@ local DIR_OPTIONS = {
 
 -- ── Search suggestions (P9) ──────────────────────────────────────────────────────────────────
 -- The rows the Search box's autocomplete offers on History and Insights, and the pick both share
--- with Holdings. B:Suggest (modules/Browser.lua) routes the list to the active tab's spec.
+-- with Holdings. B:Suggest (modules/BrowserViews.lua) routes the list to the active tab's spec.
 local SUGGEST_MAX = 8
 
 local function trimLower(text)
@@ -143,7 +144,7 @@ B._qualityColorOrNil = qualityColor
 B._SUGGEST_MAX = SUGGEST_MAX
 
 -- Published for the headless suite (tests/test_browser.lua), beside the pure helpers
--- modules/Browser.lua publishes.
+-- modules/BrowserViews.lua publishes.
 B._dateOptions  = DATE_OPTIONS
 B._groupOptions = GROUP_OPTIONS
 B._groupOptionsFor = groupOptionsFor
@@ -355,7 +356,7 @@ end
 
 -- Build the SHARED, singleton filter bar (issue #13) into `bar` — a window-level host anchored
 -- once in EnsureFrame, above every tab pane. One set of controls; each tab keeps its own state on
--- them (P11, Browser.lua "Per-tab views"). The footer is shared window chrome too (built in EnsureFrame); this function
+-- them (P11, BrowserViews.lua "Per-tab views"). The footer is shared window chrome too (built in EnsureFrame); this function
 -- owns only the two rows of controls:
 --   Row 1: Group by · Direction · [search…] · Save · Reset · Clear
 --   Row 2: column filters in table order — Date · Bound · Quality · Type · SubType · Source ·

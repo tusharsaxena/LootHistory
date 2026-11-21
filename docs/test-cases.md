@@ -777,7 +777,7 @@ Total.
 - Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
 - Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
 
-### test_browser_filterbar.lua (23)
+### test_browser_filterbar.lua (24)
 
 - filter bar: a bar button's tooltip is attached above the button
 - Browser: date options offer 90 days and 1 year after 30 days
@@ -802,6 +802,7 @@ Total.
 - filter bar: resizing the window re-lays the bar out to its new width
 - Browser: Character Current shows the character's half of a warband move, Warband the other
 - Browser: BrowserWidgets.lua loads directly before Browser.lua, members intact
+- Browser: BrowserViews.lua loads between Browser.lua and BrowserFilterBar.lua, helpers intact
 
 ### test_teststrip.lua (8)
 
@@ -1758,7 +1759,7 @@ Total.
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
 
-### test_libka0s.lua (52)
+### test_libka0s.lua (53)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1812,6 +1813,7 @@ Total.
 - v1.105.0: the vendored minors and the kit revision match the release
 - v1.107.0: the vendored minors and the kit revision match the release
 - v1.108.0: the vendored minors and the kit revision match the release
+- v1.109.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2378,7 +2380,7 @@ Total.
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
 | test_browser.lua | 83 |
-| test_browser_filterbar.lua | 23 |
+| test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 86 |
@@ -2420,7 +2422,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 7 |
-| test_libka0s.lua | 52 |
+| test_libka0s.lua | 53 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2450,4 +2452,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2052** |
+| **Total** | **2054** |

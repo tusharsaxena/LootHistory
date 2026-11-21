@@ -300,8 +300,8 @@ Note `settings.windowScale` **is** a Schema row (a General > Interface > *Histor
 
 Three more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
 values and no row addresses them, so they are written outside the helper with no register row. Each
-has one owner, `NS.Browser` (`modules/Browser.lua`), and every writer is listed with the act that
-reaches it.
+has one owner, `NS.Browser` (`modules/Browser.lua`, whose per-tab view layer, with the saved views'
+writers, is `modules/BrowserViews.lua`), and every writer is listed with the act that reaches it.
 
 - **`NS.db.profile.settings.window`**, the window geometry `{ point, x, y, w, h }`. The local
   `SaveWindow` writes it when a title-bar drag stops (the title bar's `OnDragStop` in `EnsureFrame`) and when a resize ends

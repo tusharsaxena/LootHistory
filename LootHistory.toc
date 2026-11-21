@@ -134,8 +134,13 @@ modules\LedgerFormat.lua
 # modules\Browser.lua binds as file-scope locals at load; it must be above modules\Browser.lua.
 modules\BrowserWidgets.lua
 modules\Browser.lua
-# LOAD-BEARING POSITION: binds modules\Browser.lua's B._setToFilter, B._applyFilter, B._options and
-# their siblings as file-scope locals at load; modules\Browser.lua must be above.
+# LOAD-BEARING POSITION: the History window's per-tab view layer, peeled off modules\Browser.lua;
+# it publishes B._setToFilter, B._applyFilter and their siblings, which the filter bar below binds
+# at load, so it sits between the two.
+modules\BrowserViews.lua
+# LOAD-BEARING POSITION: binds modules\BrowserViews.lua's B._setToFilter, B._applyFilter and
+# their siblings, and modules\BrowserWidgets.lua's B._options, as file-scope locals at load;
+# both must be above.
 modules\BrowserFilterBar.lua
 modules\BrowserTable.lua
 # LOAD-BEARING POSITION: binds modules\BrowserTable.lua's BrowserTable._columnByKey and

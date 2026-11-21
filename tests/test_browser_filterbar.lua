@@ -493,3 +493,27 @@ test("Browser: BrowserWidgets.lua loads directly before Browser.lua, members int
   assertEqual(#B._boundOrder, 5, "NS.Browser._boundOrder")
   assertEqual(B._boundLabel.BOE, "Bind on Equip", "NS.Browser._boundLabel")
 end)
+
+-- FU-LH-BROWSER (layout-§1): the per-tab view layer was peeled off modules/Browser.lua into
+-- modules/BrowserViews.lua, which publishes the helpers modules/BrowserFilterBar.lua binds as
+-- file-scope locals at ITS load. So the view layer loads directly after Browser.lua and directly
+-- before the filter bar, and every helper the bar binds, plus the window state's accessors the view
+-- layer reads, is on NS.Browser. red under: BrowserViews.lua listed below BrowserFilterBar.lua (the
+-- bar would bind nil and every filter push would error).
+test("Browser: BrowserViews.lua loads between Browser.lua and BrowserFilterBar.lua, helpers intact", function()
+  local files = {}
+  for line in assert(io.open("LootHistory.toc", "r")):lines() do
+    line = line:gsub("\r$", "")
+    if line ~= "" and not line:find("^#") then files[#files + 1] = line end
+  end
+  local at
+  for i, path in ipairs(files) do if path == "modules\\BrowserViews.lua" then at = i end end
+  assertTrue(at ~= nil, "the TOC loads modules\\BrowserViews.lua")
+  assertEqual(files[at - 1], "modules\\Browser.lua", "the view layer loads right after the window shell")
+  assertEqual(files[at + 1], "modules\\BrowserFilterBar.lua", "the filter bar loads right after the view layer")
+  for _, k in ipairs({ "_setToFilter", "_applyQualityFloor", "_applyFilter", "_currentKey",
+                       "_savedViewOrStock", "_forgetLive", "_stashLive", "_restoreLive", "_tabSpec" }) do
+    assertEqual(type(B[k]), "function", "NS.Browser." .. k)
+  end
+  assertEqual(B._tabSpec("History").name, "History", "B._tabSpec reads the registry modules/Browser.lua owns")
+end)

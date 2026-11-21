@@ -435,7 +435,7 @@ local ROWS = {
     end },
 
   -- The History window's Direction default (timeline-ledger spec §7): read when a view that never
-  -- stored a `dir` is applied (modules/Browser.lua defaultDirSet), so it lands on Clear or reopen.
+  -- stored a `dir` is applied (modules/BrowserViews.lua defaultDirSet), so it lands on Clear or reopen.
   -- A view default for the window, so it sits with the window's rows, beside Timeline lines (item
   -- 020, LOO-L02); it was on History, which is otherwise about how long data is kept.
   { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",

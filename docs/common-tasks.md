@@ -209,10 +209,11 @@ every step must be idempotent. Anything needing a warm item cache cannot run inl
 ### File size cap
 
 - Source files are capped at **1500 LOC** (Ka0s standard layout-§1). The browser is deliberately split
-  to respect it — `Browser.lua` (window shell), `BrowserTable.lua` (the pooled table), and the
-  Insights tab in three: `AnalyticsFormat.lua` (pure helpers), `Analytics.lua` (cards, refresh,
-  layout) and `AnalyticsCharts.lua` (widget factories and renderers) — the largest, `Browser.lua`,
-  sitting at 1477 lines (2026-11-21).
+  to respect it — `Browser.lua` (window shell), `BrowserViews.lua` (the per-tab view layer),
+  `BrowserTable.lua` (the pooled table), and the Insights tab in three: `AnalyticsFormat.lua` (pure
+  helpers), `Analytics.lua` (cards, refresh, layout) and `AnalyticsCharts.lua` (widget factories and
+  renderers) — the largest of them, `BrowserTable.lua`, sitting at 1135 lines and `Browser.lua` at 988
+  (2026-11-21).
 
 ### Media: the shared LibKa0s payload, then Blizzard defaults
 

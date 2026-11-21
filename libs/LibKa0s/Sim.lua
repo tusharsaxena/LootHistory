@@ -94,7 +94,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Sim-1.0", 3
+local MAJOR, MINOR = "LibKa0s-Sim-1.0", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -300,7 +300,7 @@ for key, line in pairs({
 -- The convention, which tests/test_sim_sample.lua holds the data to: a name, surname or pet is one
 -- capitalized word of 2-12 letters that starts "Sample" or "Mock"; the realm is "Samplerealm" or
 -- "Mockrealm", never a real one; Retail's identity is "Name-Realm" with a specID of the class;
--- WoW Forever's is "First Surname" with no realm in it (the standard's client-quirks, section 5),
+-- WoW Forever's is "First Surname" with no realm in it (the standard's forever-quirks, section 4),
 -- a class the client has, and a classic talent tree (1-3, LibKa0s-Role-1.0's order) in place of a
 -- spec ID; a pet only on a class that has one. `spec` is an English label for docs and tests; a
 -- host that draws a spec name asks the client for its own. Names are data, never localized.
