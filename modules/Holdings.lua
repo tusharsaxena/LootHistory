@@ -124,6 +124,13 @@ function Holdings:ApplyMoney(holder, copper, ts)
   return changed
 end
 
+--- The slot count each character-bank container answered on the holder's last ready bank read,
+--- { [bagID] = n }: the Reconciler's bank readiness guard (ruling R8) reads it on the next visit, so
+--- a container that had slots and now answers 0 is taken as still loading, not as emptied.
+function Holdings:NoteBankSlots(holder, sizes)
+  self:Get(holder, true).meta.bankSlots = sizes
+end
+
 function Holdings:MarkGenesis(holder, ts)
   local e = self:Get(holder, true)
   e.meta.genesis = e.meta.genesis or ts

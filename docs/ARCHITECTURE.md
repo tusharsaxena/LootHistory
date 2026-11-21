@@ -194,7 +194,7 @@ is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `
 row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The four capture modules append
 their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (nine
 `bus` rows, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
-hooks), Collector (three `bus` rows), Reconciler (fourteen `ledger` rows). Each module's Enable and
+hooks), Collector (three `bus` rows), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever). Each module's Enable and
 Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
 hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
 per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
@@ -210,7 +210,7 @@ two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua`
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
-The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
+The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (sixteen names, fourteen on WoW Forever; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
 | Event / hook | Handler | Module |
 |---|---|---|
@@ -250,6 +250,7 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `CURRENCY_DISPLAY_UPDATE` | `OnCurrencyUpdate` folds the event's own change into a per-id accumulator (marks `currencyDelta`); a nil id marks `currency` for a full list rescan; arms the fuse | `modules/Reconciler.lua` |
 | `CURRENCY_TRANSFER_LOG_UPDATE` | flags an account currency transfer so the next flush pairs it as a MOVE to the own alt; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | marks `bank` / `tabs`; arms the fuse | `modules/Reconciler.lua` |
+| `BAG_CONTAINER_UPDATE` / `BANK_TABS_CHANGED` | the bank's re-read cues (both clients, ruling R8): at an open bank, marks `bank` (and on Retail `tabs`); arms the fuse | `modules/Reconciler.lua` |
 | `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | `OnInteraction`, table-driven by `R.READABLE_ON`: a Banker or CharacterBanker (both clients, ruling R8), or on Retail an AccountBanker, makes the bank readable (marks bank, and on Retail tabs and warband gold), the mailbox makes `mail` readable, the auction house arms `auctionHouse`; a final `Flush` on hide, then unreadable | `modules/Reconciler.lua` |
 | `MAIL_INBOX_UPDATE` | marks `mail` while the mailbox is open; arms the fuse (the column is read by `modules/Escrow.lua`'s scan step) | `modules/Reconciler.lua` |
 | `OWNED_AUCTIONS_UPDATED` | while the auction house is open, makes the owned-auctions list readable and marks `auctions`; arms the fuse | `modules/Reconciler.lua` |

@@ -78,6 +78,7 @@ primitives and holds no opinion about how they are composed.
 | `Compat.GetContainerSlot(bagID, slot)` | `C_Container.GetContainerItemInfo` | `{itemID, link, count}` for an occupied slot, `nil` when empty or absent; flattens `hyperlink`/`stackCount` so callers never see the client's info-table shape. |
 | `Compat.GetMoney()` | `GetMoney` − `GetCursorMoney` − `GetPlayerTradeMoney` | Purse copper as the player owns it: money held on the cursor or staged in a trade window is still theirs. Missing parts read `0`. |
 | `Compat.GetWarbandMoney()` | `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` | Warband bank gold in copper; `nil` when the API or enum is absent (distinct from a real `0`). |
+| `Compat.CanViewCharacterBank()` | `C_Bank.CanViewBank(Enum.BankType.Character)` | Whether this banker shows the character bank, both clients (the Reconciler's bank readiness guard, ruling R8): false at a warband-only banker, where the character bank is left unread; `true` when the API or enum is absent. |
 | `Compat.InCombatLockdown()` | `InCombatLockdown` | `true` only when the client reports lockdown. The Reconciler's combat gate: the lockdown flag, not `UnitAffectingCombat`, because it decides whether a scan may run rather than whether something is displayed. `false` when the API is absent. |
 | `Compat.PlayerClassFile()` | `UnitClass("player")` (2nd return) | The locale-independent class token (`"MAGE"`) the Holdings tab colors a holder's name with and the Collector stamps on every row's `classFile`; `nil` when the API is absent. |
 | `Compat.GetInventoryItem(slot)` | `GetInventoryItemID` + `GetInventoryItemLink` | `itemID, link` for an equipped slot of the player; `nil` when empty or absent. |
@@ -126,7 +127,8 @@ simulation runs. **Wrapped**: everything else, answered live until the simulator
 `GetContainerSlot`, `GetInventoryItem`, `GetMoney`, `GetWarbandMoney`, `ListCurrencies`, `ScanInbox`,
 `GetMailHeader`, `ReadSendMail`, `ScanOwnedAuctions`, `ItemLocationID`, `ContainerItemHasLoot`,
 `IsSpellTargeting`, `CurrentQuestID`, `GetActiveKeystoneLevel`, `InPartyInstance`, `InCombatLockdown`,
-`TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`); the
+`TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`,
+`CanViewCharacterBank`); the
 item, spell and currency reads and `PlayerClassFile` keep answering live, because the simulated player
 is the real player, and `InInstance`, `InGroup` and `PlayerInCombat` are read only through `Live`.
 `tests/test_sim_seam.lua` pins the classification member by member, so a new member fails until it

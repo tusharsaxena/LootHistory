@@ -13,12 +13,15 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 -- The (target, event) set the four capture modules registered BEFORE the dispatch refactor, read
 -- off the kit's registration survey with the hand-written Enable lists still in place and pasted
 -- here as data. A list derived from NS.EVENT_ROWS would agree with the rows however wrong they got.
+-- Rows added since, by hand and with their own case: the bank's two re-read cues,
+-- ledger:BAG_CONTAINER_UPDATE and ledger:BANK_TABS_CHANGED (the WoW Forever port, ruling R8).
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
   "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:ENCOUNTER_END",
   "bus:ENCOUNTER_START", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
   "bus:ZONE_CHANGED_NEW_AREA",
-  "ledger:ACCOUNT_MONEY", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
+  "ledger:ACCOUNT_MONEY", "ledger:BAG_CONTAINER_UPDATE", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
+  "ledger:BANK_TABS_CHANGED",
   "ledger:CURRENCY_DISPLAY_UPDATE", "ledger:CURRENCY_TRANSFER_LOG_UPDATE", "ledger:MAIL_INBOX_UPDATE",
   "ledger:OWNED_AUCTIONS_UPDATED", "ledger:PLAYERBANKSLOTS_CHANGED",
   "ledger:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", "ledger:PLAYER_EQUIPMENT_CHANGED",
@@ -136,8 +139,9 @@ test("Dispatch: registered follows Enable/Disable, including trackLedger off", f
 
     NS.Schema:Set("settings.trackLedger", false)
     assertEqual((registeredBy("Reconciler")), 0, "trackLedger off unregisters every Reconciler row")
-    -- Fourteen Reconciler rows on Retail; twelve on WoW Forever, which lacks the warband bank's two (R1).
-    local rows = T.forever and 12 or 14
+    -- Sixteen Reconciler rows on Retail; fourteen on WoW Forever, which lacks the warband bank's two
+    -- (R1). Both carry the bank's two re-read cues (R8).
+    local rows = T.forever and 14 or 16
     assertEqual(#liveCapture(), #SNAPSHOT - rows, "and only those " .. rows .. " come off the live set")
     local n, total = registeredBy("Collector")
     assertEqual(n, total, "the Collector's rows stay registered with trackLedger off")

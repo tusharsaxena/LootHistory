@@ -503,6 +503,10 @@ local PROVIDERS = {
   { "LootSourceGUID", lootSourceGUID },
   { "Zone", function(w) return w.instance.zone or "", w.instance.subzone or "" end },
   { "PlayerMapID", function(w) return w.instance.mapID end },
+  -- The bank readiness guard's view check (ruling R8, the WoW Forever port): the simulated banker
+  -- shows the character bank (unless a case sets w.canViewBank = false), whatever the real client
+  -- answers away from a bank.
+  { "CanViewCharacterBank", function(w) return w.canViewBank ~= false end },
 }
 
 --- The provided keys, in registration order.

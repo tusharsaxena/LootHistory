@@ -71,7 +71,7 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 |---|---|
 | The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's two chat events, Attribution's nine | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
-| The Reconciler's two private bus targets (the `SettingsChanged` listener and the fourteen capture events) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
+| The Reconciler's two private bus targets (the `SettingsChanged` listener and the sixteen capture events, fourteen on WoW Forever) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
 | The Timeline tab's private bus target (`HOLDINGS_CHANGED` and `RECORD_ADDED`, one coalesced repaint) and any tooltip it owns | `Timeline:Disable`, from `NS.StandDown` |
 | The daily rollup's write hook (the `NS.Database:OnWrite` function; it holds no event and no bus target, so nothing in the event survey shows it, and the proof is behavioral: a row written while stood down tallies nothing) | `Rollup:Disable`, from `NS.StandDown`; `NS.StandUp` re-adds it. The login seed and prune are `NS.After` deferrals, so `NS.CancelDeferrals` drops them |

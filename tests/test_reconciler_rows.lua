@@ -22,12 +22,12 @@ local function case(name, body, skip)
   test(name, function()
     local savedTime, savedICL = m.time, m.InCombatLockdown
     local savedList, savedWide, savedXfer = m.__currencyList, m.__currencyAccountWide, m.__currencyTransfers
-    local savedClass, savedEnabled = m.__itemClassID, R()._enabled
+    local savedClass, savedEnabled, savedView = m.__itemClassID, R()._enabled, m.__canViewBank
     m.__epoch, m.__now = 5000, 100
     m.time = function() return m.__epoch end
     local ok, err = pcall(body)
     m.time, m.InCombatLockdown = savedTime, savedICL
-    m.__itemClassID, R()._enabled = savedClass, savedEnabled
+    m.__itemClassID, R()._enabled, m.__canViewBank = savedClass, savedEnabled, savedView
     m.__currencyList, m.__currencyAccountWide, m.__currencyTransfers = savedList, savedWide, savedXfer
     if not ok then error(err, 0) end
   end, skip)
@@ -55,6 +55,7 @@ local function reset()
   r.dirty, r.readable, r.deferred, r._holdSince = {}, {}, nil, nil
   r.claims, r.recent, r.reasonMemo = {}, {}, {}
   r._pending, r._recheck = nil, nil                       -- a stale fuse from another case never suppresses scheduling
+  r._readyCheck, r._bankOpenAt = nil, nil
   r.pendingCur, r.curGain, r.curLoss, r.pendingTransfer, r.loginPending = {}, {}, {}, nil, nil
   r._enabled = true
   NS.State.outContext, NS.State.lootContext = nil, nil
@@ -603,6 +604,103 @@ case("Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)"
   assertEqual(R():IsReadable("bank"), false)
 end)
 
+-- R8 (both clients): the bank readiness guard. The client can answer a bank container as 0 slots
+-- for a moment after the frame opens (the bank loads lazily; BagSync's "bank isn't always loaded
+-- yet"). A container that had slots on the last ready read and now answers 0 is LOADING, not empty:
+-- the bank part stays dirty and the visit's drift read waits, so a partly loaded bank never writes
+-- its unloaded tabs as an UNTRACKED loss (and the gain on the next read). The re-read cues
+-- (BAG_CONTAINER_UPDATE, BANK_TABS_CHANGED, PLAYERBANKSLOTS_CHANGED, BAG_UPDATE_DELAYED) look again.
+local TAB2 = T.bagIndex("CharacterBankTab_2")
+
+local function bankVisitOne()
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 } })
+  genesis()
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+  setBag(TAB2, { [1] = { itemID = 8, link = "L8", count = 2 } })
+  openBank(); R():Flush(); closeBank()                    -- the bank's baseline (its genesis)
+  assertEqual(#H(), 0)
+end
+
+case("Reconciler: visit 2 with a partly loaded bank waits for the bank, then writes no drift (R8)", function()
+  -- red under: no readiness guard, so the opening read takes tab 2's 0 slots as an UNTRACKED loss.
+  reset()
+  bankVisitOne()
+  assertEqual(NS.Holdings:Get(ME).meta.bankSlots[TAB2], 1, "the ready read remembers each container's slots")
+  m.__now = 200
+  m.__bags[TAB2], m.__bagSlots[TAB2] = nil, 0             -- visit 2: tab 2 not loaded yet
+  openBank(); R():Flush()
+  assertEqual(#H(), 0, "a loading bank writes nothing")
+  assertEqual(R():IsReadable("bank"), false)
+  assertTrue(R().dirty.bank, "the bank part stays dirty")
+  assertTrue(R().driftPending, "the visit's drift read waits for the bank")
+  assertTrue(R()._readyCheck ~= nil, "a re-read is scheduled at the readiness deadline")
+  assertEqual(NS.Holdings:Get(ME).items[8].bank, 2, "the baseline is untouched")
+  m.__now = 201
+  setBag(TAB2, { [1] = { itemID = 8, link = "L8", count = 2 } })
+  R():OnEvent("BAG_CONTAINER_UPDATE"); R():Flush()        -- the bank has loaded
+  assertEqual(#H(), 0, "nothing changed, so the drift read writes nothing")
+  assertEqual(R().driftPending, nil); assertEqual(R().dirty.bank, nil)
+  closeBank()
+end)
+
+case("Reconciler: a bank container still at 0 slots after the readiness wait is read as gone (R8)", function()
+  -- red under: no deadline, so a bag taken out of a bank socket keeps the bank unreadable for good.
+  reset()
+  bankVisitOne()
+  m.__now = 200
+  m.__bags[TAB2], m.__bagSlots[TAB2] = nil, 0
+  openBank(); R():Flush()
+  assertEqual(#H(), 0)
+  m.__now = 200 + R().READY_WAIT
+  R():Flush()
+  local out8 = rowsBy(ME, 8)
+  assertEqual(#out8, 1); assertEqual(out8[1].dir, "OUT"); assertEqual(out8[1].source, "UNTRACKED")
+  assertEqual(NS.Holdings:Get(ME).meta.bankSlots[TAB2], 0, "the new slot count is remembered")
+  assertEqual(R().dirty.bank, nil)
+  closeBank()
+end)
+
+case("Reconciler: a banker that cannot show the character bank never reads it (R8, CanViewBank)", function()
+  -- red under: no C_Bank.CanViewBank(Character) check, so a warband-only banker reads the character
+  -- bank as it answers there (BagSync v20.41) and the visit writes it as UNTRACKED drift.
+  reset()
+  bankVisitOne()
+  m.__now = 200
+  m.__canViewBank = { [0] = false, [1] = true, [2] = not T.forever }
+  setBag(6, {}); setBag(TAB2, {})                         -- what the client answers where it cannot see the bank
+  openBank(); R():Flush()
+  assertEqual(#H(), 0, "the unviewable bank writes nothing")
+  assertEqual(R():IsReadable("bank"), false)
+  assertTrue(R().dirty.bank, "the bank part stays dirty for a banker that can show it")
+  assertEqual(R().driftPending, nil, "the rest of the visit's drift read ran")
+  assertEqual(NS.Holdings:Get(ME).items[7].bank, 5)
+  closeBank()
+  m.__canViewBank = { [0] = true, [1] = true, [2] = not T.forever }
+  setBag(6, { [1] = { itemID = 7, link = "L7", count = 4 } }); setBag(TAB2, { [1] = { itemID = 8, link = "L8", count = 2 } })
+  m.__now = 300
+  openBank(); R():Flush()                                 -- the next ordinary banker visit
+  local out7 = rowsBy(ME, 7)
+  assertEqual(#out7, 1); assertEqual(out7[1].dir, "OUT"); assertEqual(out7[1].source, "UNTRACKED")
+  closeBank()
+end)
+
+case("Reconciler: a Retail warband-only banker reads the warband tabs but not the character bank (R8)", function()
+  -- red under: AccountBanker arming the character bank part with no CanViewBank(Character) check.
+  reset()
+  bankVisitOne()
+  setBag(WB1, {})
+  m.__now = 200
+  m.__canViewBank = { [0] = false, [1] = true, [2] = true }
+  setBag(6, {}); setBag(TAB2, {})
+  setBag(WB1, { [1] = { itemID = 9, link = "L9", count = 1 } })
+  openBank("AccountBanker"); R():Flush()
+  assertEqual(#rowsBy(ME, 7), 0, "no character-bank row")
+  assertEqual(NS.Holdings:Get(ME).items[7].bank, 5)
+  assertTrue(R().dirty.bank)
+  assertEqual(NS.Holdings:Get(NS.Constants.WARBAND_HOLDER).items[9].tabs, 1, "the warband tabs are read")
+  closeBank("AccountBanker")
+end, T.RETAIL_ONLY)
+
 -- Review fix: the drift pass sets the currency delta aside, so it must not clear the currency
 -- accumulators either; the normal pass that follows still writes the change with its own reason,
 -- and an account transfer pending in the same flush keeps its OUT + IN pair and the alt's credit.
@@ -663,8 +761,10 @@ case("Reconciler: warband tab and gold drift lands UNTRACKED on the warband, nev
   setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } }); setBag(WB1, {})
   openBank(); R():Flush(); closeBank()                    -- first reads: silent for both holders
   assertEqual(#H(), 0); assertEqual(NS.Holdings:Get("§warband").meta.partial, false)
-  -- Elsewhere: 5 of item 7 moved bank -> warband tab, and the warband gained 500 gold.
-  setBag(6, {}); setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 1500
+  -- Elsewhere: 5 of item 7 moved bank -> warband tab, and the warband gained 500 gold. The emptied
+  -- bank tab keeps its slot (setBag would answer 0 slots, which the R8 readiness guard reads as
+  -- a tab still loading).
+  m.__bags[6] = {}; setBag(WB1, { [1] = { itemID = 7, link = "L7", count = 5 } }); m.__warbandMoney = 1500
   m.__now = 200
   openBank(); R():Flush()
   assertEqual(#H(), 3)

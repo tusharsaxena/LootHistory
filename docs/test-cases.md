@@ -528,7 +528,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (12)
+### test_reconciler.lua (15)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -537,13 +537,16 @@ Total.
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
+- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)
+- Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)
+- Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
 
-### test_reconciler_rows.lua (35)
+### test_reconciler_rows.lua (39)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -576,6 +579,10 @@ Total.
 - Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 - Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
 - Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)
+- Reconciler: visit 2 with a partly loaded bank waits for the bank, then writes no drift (R8)
+- Reconciler: a bank container still at 0 slots after the readiness wait is read as gone (R8)
+- Reconciler: a banker that cannot show the character bank never reads it (R8, CanViewBank)
+- Reconciler: a Retail warband-only banker reads the warband tabs but not the character bank (R8)
 - Reconciler: a currency delta pending when the banker opens survives the drift pass
 - Reconciler: a bank never read before is a silent first read that ends partial
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
@@ -2422,8 +2429,8 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 12 |
-| test_reconciler_rows.lua | 35 |
+| test_reconciler.lua | 15 |
+| test_reconciler_rows.lua | 39 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2500,4 +2507,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2098** |
+| **Total** | **2105** |

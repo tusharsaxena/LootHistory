@@ -24,14 +24,47 @@ local WARBAND_BANK = C.FEATURE.warbandBank
 -- BAG_UPDATE_DELAYED already closes a burst of BAG_UPDATEs; the short fuse also folds the money,
 -- currency and equipment events a single vendor sale or loot fires beside it into one flush.
 local DEBOUNCE = 0.35
+-- The bank readiness guard's deadline (ruling R8): how long after the frame opens a container that
+-- had slots may still answer 0 as "loading". Past it the 0 is believed (a bag taken out of a bank
+-- socket while nothing was watching), so the guard can never leave the bank unread for good.
+R.READY_WAIT = 5
 
 R.dirty, R.readable = {}, {}
 
+--- The open bank's state (ruling R8, both clients), or nil with no banker open:
+---   "unviewable"  this banker does not show the character bank (a warband-only banker);
+---   "loading"     a character-bank container that had slots on the last ready read answers 0,
+---                 and the visit is younger than READY_WAIT;
+---   "ready"       otherwise.
+--- A per-container check, not "every container answers 0": a partly loaded bank (tab 1 ready, the
+--- rest still 0) must wait too, or its unloaded tabs read as an UNTRACKED loss.
+function R:BankState()
+  if not self.readable.bank then return nil end
+  if not Compat.CanViewCharacterBank() then return "unviewable" end
+  if self._bankOpenAt and GetTime() - self._bankOpenAt >= R.READY_WAIT then return "ready" end
+  local e = NS.Holdings:Get(NS.Util.PlayerKey())
+  local last = e and e.meta.bankSlots
+  if not last then return "ready" end
+  for _, id in ipairs(C.BANK_IDS) do
+    if (last[id] or 0) > 0 and Compat.GetContainerNumSlots(id) == 0 then return "loading" end
+  end
+  return "ready"
+end
+
+-- While the bank is loading its visit's drift read waits (Flush), so the parts that read belongs to
+-- wait with it: the warband tabs and, for that read, the warband gold.
 function R:IsReadable(part)
-  if part == "bank" or part == "tabs" then return self.readable.bank == true end
+  if part == "bank" then return self:BankState() == "ready" end
+  if part == "tabs" then
+    local state = self:BankState()
+    return state ~= nil and state ~= "loading"
+  end
   if part == "mail" then return self.readable.mail == true end
   if part == "auctions" then return self.readable.auctions == true end
-  if part == "warbandMoney" then return WARBAND_BANK and Compat.GetWarbandMoney() ~= nil end
+  if part == "warbandMoney" then
+    if self.driftPending and self:BankState() == "loading" then return false end
+    return WARBAND_BANK and Compat.GetWarbandMoney() ~= nil
+  end
   return true
 end
 
@@ -79,14 +112,16 @@ function R:OnInteraction(shown, interactionType)
     if interactionType ~= nil and interactionType == Compat.InteractionType(name) then
       if shown then
         -- Only the opening of a visit: a second banker frame inside it is not a fresh read.
-        if spec.drift and not self.readable[spec.flag] then self.driftPending = true end
+        if spec.drift and not self.readable[spec.flag] then
+          self.driftPending, self._bankOpenAt = true, GetTime()
+        end
         self.readable[spec.flag] = true
         for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
         scheduleFlush(self)
       else
         self:Flush()                                       -- final read while still readable
         self.readable[spec.flag] = nil
-        if spec.drift then self.driftPending = nil end
+        if spec.drift then self.driftPending, self._bankOpenAt = nil, nil end
         if spec.flag == "auctionHouse" then self.readable.auctions = nil end
       end
     end
@@ -104,6 +139,16 @@ end
 -- A part that only needs its dirty bit and the flush fuse.
 local function dirtyAndFlush(part)
   return function(self) self:MarkDirty(part); scheduleFlush(self) end
+end
+
+-- A bank re-read cue (ruling R8): a bank container or tab set changed, or finished loading, with no
+-- BAG_UPDATE for it (BagSync, BagSmith). At an open bank it re-reads the bank parts; elsewhere the
+-- bank is not readable, so it does nothing.
+local function bankCue(self)
+  if not self.readable.bank then return end
+  self:MarkDirty("bank")
+  if WARBAND_BANK then self:MarkDirty("tabs") end
+  scheduleFlush(self)
 end
 
 -- event -> handler, built once at file scope (performance-§2: no per-event table). A BAG_UPDATE only
@@ -125,6 +170,8 @@ local EVENT_HANDLERS = {
     self:MarkDirty("currencyDelta"); scheduleFlush(self)
   end,
   PLAYERBANKSLOTS_CHANGED = dirtyAndFlush("bank"),
+  BAG_CONTAINER_UPDATE = bankCue,
+  BANK_TABS_CHANGED = bankCue,
   PLAYER_INTERACTION_MANAGER_FRAME_SHOW = function(self, a1) self:OnInteraction(true, a1) end,
   PLAYER_INTERACTION_MANAGER_FRAME_HIDE = function(self, a1) self:OnInteraction(false, a1) end,
   MAIL_INBOX_UPDATE = function(self)
@@ -189,10 +236,11 @@ R.SnapFor = snapFor
 
 local function addLinks(dst, src) for id, l in pairs(src or {}) do if not dst[id] then dst[id] = l end end end
 
--- part -> whose container it is, which column, how to read it.
+-- part -> whose container it is, which column, how to read it. `slots`: a read also records each
+-- container's slot count for the bank readiness guard (R:BankState).
 local CONTAINER_READS = {
   bags     = { mine = true,  c = CT.BAGS,     ids = function() return C.BAG_IDS end },
-  bank     = { mine = true,  c = CT.BANK,     ids = function() return C.BANK_IDS end },
+  bank     = { mine = true,  c = CT.BANK,     ids = function() return C.BANK_IDS end, slots = true },
   equipped = { mine = true,  c = CT.EQUIPPED },
 }
 if WARBAND_BANK then
@@ -212,6 +260,11 @@ function R:Scan(me)
       local s = snapFor(snap, spec.mine and me or WARBAND)
       s.items[spec.c] = counts
       addLinks(s.links, links)
+      if spec.slots then
+        local sizes = {}
+        for _, id in ipairs(spec.ids()) do sizes[id] = Compat.GetContainerNumSlots(id) end
+        s.bankSlots = sizes
+      end
     end
   end
   if d.money then snapFor(snap, me).money = S.ReadMoney() end
@@ -452,6 +505,7 @@ local function applySnap(snap, now)
     end
     if s.money ~= nil and Hd:ApplyMoney(holder, s.money, now) then changed[holder] = true end
     if s.currency and Hd:ApplyCurrency(holder, s.currency, now) then changed[holder] = true end
+    if s.bankSlots then Hd:NoteBankSlots(holder, s.bankSlots) end
   end
   return changed
 end
@@ -676,13 +730,30 @@ local function driftPass(self)
   self.dirty = rest
 end
 
---- Scan, plan, then hold or commit. A part that is not readable (the bank with no banker open)
---- stays dirty for the next flush; in combat the whole pass waits for the regen edge.
+-- A loading bank looks again at the readiness deadline (R.READY_WAIT after the open), besides the
+-- re-read cues. Armed only from inside Flush, so a deferral that runs straight through (headless
+-- without C_Timer) sees `_flushing` and cannot recurse.
+local function scheduleReadyCheck(self)
+  if self._readyCheck then return end
+  local left = R.READY_WAIT - (GetTime() - (self._bankOpenAt or GetTime()))
+  self._readyCheck = true
+  local h = NS.After(left > 0 and left or 0, function()
+    self._readyCheck = nil
+    if self.readable.bank and not self._flushing then self:Flush() end
+  end)
+  self._readyCheck = h
+end
+
+--- Scan, plan, then hold or commit. A part that is not readable (the bank with no banker open, or
+--- a bank still loading or not shown at this banker, R8) stays dirty for the next flush; in combat
+--- the whole pass waits for the regen edge. The visit's drift read waits while the bank loads.
 function R:Flush()
   if Compat.InCombatLockdown() then self.deferred = true; return end
   self._flushing = true
-  if self.driftPending and self.readable.bank then self.driftPending = nil; driftPass(self) end
+  local state = self:BankState()
+  if self.driftPending and state and state ~= "loading" then self.driftPending = nil; driftPass(self) end
   flushBody(self)
+  if state == "loading" then scheduleReadyCheck(self) end
   self._flushing = nil
 end
 
@@ -717,11 +788,12 @@ function R:LoginScan()
   self:MarkLoginGenesis()
 end
 
--- The fourteen capture rows (core/Dispatch.lua) on the private `__ev` target, appended at FILE LOAD
+-- The sixteen capture rows (core/Dispatch.lua) on the private `__ev` target, appended at FILE LOAD
 -- so their order is TOC order. Each fn hands R:OnEvent the client's full payload; R:OnEvent keeps
 -- its (event, a1, _, a3, a4, a5) shape because the suites drive it directly. ACCOUNT_MONEY and
--- PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED are the warband bank's (`clients`, clients-§4): twelve rows
--- where it is absent.
+-- PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED are the warband bank's (`clients`, clients-§4): fourteen
+-- rows where it is absent. BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED are the bank's re-read cues
+-- (R8, both clients).
 for _, row in ipairs({
   { "BAG_UPDATE" }, { "BAG_UPDATE_DELAYED" }, { "PLAYER_EQUIPMENT_CHANGED" }, { "PLAYER_MONEY" },
   { "ACCOUNT_MONEY", clients = C.FEATURE_CLIENTS.warbandBank },
@@ -729,6 +801,7 @@ for _, row in ipairs({
   { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", clients = C.FEATURE_CLIENTS.warbandBank },
   { "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" }, { "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" }, { "PLAYER_REGEN_ENABLED" },
   { "CURRENCY_TRANSFER_LOG_UPDATE" }, { "MAIL_INBOX_UPDATE" }, { "OWNED_AUCTIONS_UPDATED" },
+  { "BAG_CONTAINER_UPDATE" }, { "BANK_TABS_CHANGED" },
 }) do
   if Compat.ForClient(row.clients) then
     NS.EventRow("Reconciler", "ledger", row[1], function(ev, ...) return R:OnEvent(ev, ...) end)
@@ -772,8 +845,10 @@ end
 function R:ResetState()
   NS.CancelDeferral(self._pending)
   NS.CancelDeferral(self._recheck)
+  NS.CancelDeferral(self._readyCheck)
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil
+  self._readyCheck, self._bankOpenAt = nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil

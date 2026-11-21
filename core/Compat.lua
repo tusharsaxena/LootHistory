@@ -850,6 +850,17 @@ function Compat.GetWarbandMoney()
   return fn(t)
 end
 
+-- Whether this banker shows the character bank (the bank readiness guard, ruling R8, both clients).
+-- A warband-only banker opens the bank frame without it, and there the character bank's containers
+-- answer as they please (BagSync v20.41), so the Reconciler leaves its part dirty. A client with no
+-- C_Bank.CanViewBank always shows it.
+function Compat.CanViewCharacterBank()
+  local fn = C_Bank and C_Bank.CanViewBank
+  local t = Enum and Enum.BankType and Enum.BankType.Character
+  if type(fn) ~= "function" or t == nil then return true end
+  return fn(t) ~= false
+end
+
 function Compat.GetInventoryItem(slot)
   if type(GetInventoryItemID) ~= "function" then return nil end
   local id = GetInventoryItemID("player", slot)

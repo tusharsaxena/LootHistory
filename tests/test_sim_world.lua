@@ -19,13 +19,13 @@ local EPIC_SLOT = ({ retail = 13, forever = 6 })[CLIENT]
 -- The session's alt, the shared sample set's second character, in this client's identity shape.
 local ALT = NS.SampleCharacters()[2].fullName
 
--- req-lh-sim §2.2's provider table, in its order.
+-- req-lh-sim §2.2's provider table, in its order, plus the bank readiness guard's view check (R8).
 local REQ_KEYS = {
   "GetContainerNumSlots", "GetContainerSlot", "GetInventoryItem", "GetMoney", "GetWarbandMoney",
   "ListCurrencies", "ScanInbox", "GetMailHeader", "ReadSendMail", "ScanOwnedAuctions", "ItemLocationID",
   "ContainerItemHasLoot", "IsSpellTargeting", "CurrentQuestID", "GetActiveKeystoneLevel", "InPartyInstance",
   "InCombatLockdown", "TradeTargetKey", "LatestCurrencyTransfer", "NumLootItems", "LootSourceGUID", "Zone",
-  "PlayerMapID",
+  "PlayerMapID", "CanViewCharacterBank",
 }
 
 -- A stable text for any value, tables walked with sorted keys.
@@ -209,6 +209,7 @@ local function shapeWorld(w)
   w.trade = { target = ALT }
   w.transfer = { currencyID = 3008, quantity = 1, toKey = ALT }
   w.loot = { guid = "Creature-0-3767-2552-11111-1234-0000ABCDEF", n = 2 }
+  w.canViewBank = false                                   -- the live mock answers true
 end
 
 local WORLD_ANSWERS = {
@@ -227,7 +228,7 @@ local WORLD_ANSWERS = {
   TradeTargetKey = '{1="' .. ALT .. '",n=1}',
   LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="' .. ALT .. '"},n=1}',
   NumLootItems = "{1=2,n=1}", LootSourceGUID = '{1="Creature-0-3767-2552-11111-1234-0000ABCDEF",n=1}',
-  Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}",
+  Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}", CanViewCharacterBank = "{1=false,n=1}",
 }
 
 local function answers()
