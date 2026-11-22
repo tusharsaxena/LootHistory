@@ -203,15 +203,9 @@ test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires",
     -- the major adds later is in neither list and fails this case until the addon decides.
     "IsSecret", "CanAccess", "IsSafeKey", "GetSpellInfo", "GetSpellTexture", "GetSpellCooldown",
     "GetSpecialization", "GetSpecializationInfo",
-    -- LibKa0s v1.92.0 (Compat minor 2) added these four client helpers. No caller here until the Forever port.
-    "IsForever", "IsRetail", "ClientKey", "ForClient",
-    -- LibKa0s v1.94.0 (Compat minor 4) added the four region-unique identity helpers (WoW Forever).
-    -- This addon ships for Retail only, and nothing here calls them.
-    "RegionalNames", "UnitCharacterName", "CharacterKey", "RealmKey",
-    -- LibKa0s v1.110.0 (Compat minor 6, LibKa0s#101) added the container groups and the bank readers.
-    -- Not wired yet: item K101-LH-02 adopts them and takes them off this list.
-    "ContainerGroups", "CONTAINER_PATTERNS_BY_CLIENT", "CanViewCharacterBank", "NumPurchasedBankTabs",
-    "BankerKind", "UnreadyBankContainers",
+    -- Wired, and so compared: the client helpers (Compat minor 2), the region-unique identity helpers
+    -- (minor 4) and the container and bank readers (minor 6, LibKa0s#101, K101-LH-02), each routed
+    -- with its degraded stub by core/CompatClient.lua.
   })
 end)
 

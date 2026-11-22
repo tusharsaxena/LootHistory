@@ -46,7 +46,10 @@ local CLASSIFIED = {
   PlayerClassFile = "wrapped", IsConsumable = "wrapped", CurrencyIsAccountWide = "wrapped",
   ScanInbox = "wrapped", ReadSendMail = "wrapped", ScanOwnedAuctions = "wrapped",
   ItemLocationID = "wrapped", TradeTargetKey = "wrapped", LatestCurrencyTransfer = "wrapped",
-  CanViewCharacterBank = "wrapped", NumPurchasedCharacterBankTabs = "wrapped",
+  CanViewCharacterBank = "wrapped", NumPurchasedBankTabs = "wrapped",
+  -- core/CompatClient.lua (K101-LH-02, LibKa0s#101): the container groups are a read like any other;
+  -- BankerKind and UnreadyBankContainers are pure (above)
+  ContainerGroups = "wrapped", BankerKind = "pure", UnreadyBankContainers = "pure",
   -- core/CompatClient.lua (LH-01): the client and the character, answered live like any read
   IsForever = "wrapped", IsRetail = "wrapped", ClientKey = "wrapped", ForClient = "wrapped",
   RegionalNames = "wrapped", UnitCharacterName = "wrapped", CharacterKey = "wrapped", RealmKey = "wrapped",

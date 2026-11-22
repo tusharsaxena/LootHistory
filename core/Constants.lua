@@ -365,54 +365,24 @@ local MSG = {
   HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
 }
 
--- ── Container id groups (copied from BankLedger core/Constants.lua, which paid for the lesson) ──
--- Derived BY MEMBER NAME from Enum.BagIndex, never by number: Blizzard renumbers between builds,
--- and 12.0.7 also carries type constants (Characterbanktab = -2, Accountbanktab = -3) a loose
--- pattern would scoop up. Anchored, case-sensitive patterns only.
--- One table per client, picked once by ClientKey() (clients-§5; ruling R5). They differ only in the
--- Keyring (-1): on WoW Forever it holds the player's keys, so it is part of the bags and a key moved
--- between keyring and bags is an internal move. Both enums number it, but Retail's -1 was the legacy
--- bank container before 11.2, so Retail keeps it out of every group. Both tables are published, as
--- C.CONTAINER_GROUPS_BY_CLIENT, for the suites.
-local BANK_PATTERNS = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" }
-local TABS_PATTERNS = { "^AccountBankTab_%d+$" }
-C.CONTAINER_GROUPS_BY_CLIENT = {
-  retail = {
-    BAGS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
-    BANK = BANK_PATTERNS,
-    TABS = TABS_PATTERNS,
-  },
-  forever = {
-    BAGS = { "^Keyring$", "^Backpack$", "^Bag_%d+$", "^ReagentBag$" },
-    BANK = BANK_PATTERNS,
-    TABS = TABS_PATTERNS,
-  },
-}
-C.CONTAINER_GROUPS = C.CONTAINER_GROUPS_BY_CLIENT[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
-local GROUP_PATTERNS = C.CONTAINER_GROUPS
-local function idsMatching(patterns)
-  local seen, ids = {}, {}
-  local members = Enum and Enum.BagIndex
-  if type(members) == "table" then
-    for name, value in pairs(members) do
-      if type(value) == "number" then
-        for _, pattern in ipairs(patterns) do
-          if name:match(pattern) and not seen[value] then seen[value] = true; ids[#ids + 1] = value; break end
-        end
-      end
-    end
-  end
-  table.sort(ids)
-  return ids
-end
-C.BAG_IDS         = idsMatching(GROUP_PATTERNS.BAGS)
-C.BANK_IDS        = idsMatching(GROUP_PATTERNS.BANK)
+-- ── Container id groups (LibKa0s-Compat-1.0 minor 6, LibKa0s#101; K101-LH-02) ──────────────────
+-- NS.Compat.ContainerGroups() (core/CompatClient.lua) is the collection's one copy, shared with
+-- BankLedger and OutfitterReborn. It derives the ids BY MEMBER NAME from Enum.BagIndex, never by
+-- number (Blizzard renumbers between builds, and 12.0.7 also carries the type constants
+-- Characterbanktab = -2 and Accountbanktab = -3), through anchored, case-sensitive patterns, one row
+-- per client picked by ClientKey() (clients-§5). The rows differ in two places: the Keyring (-1) is a
+-- bag on WoW Forever only (ruling R5; Retail's -1 was the legacy bank container before 11.2), and the
+-- account bank is declared on Retail only (R1). The pattern rows are published as
+-- NS.Compat.CONTAINER_PATTERNS_BY_CLIENT for the suites. Read once, at file load.
+-- With no Enum.BagIndex the library answers its documented fallback: the bags 0..5 (the backpack, the
+-- four bags and the reagent bag), and no bank or account bank.
+local GROUPS = NS.Compat.ContainerGroups()
+C.BAG_IDS         = GROUPS.bags
+C.BANK_IDS        = GROUPS.bank
 -- The warband tabs only where the warband bank is a feature (C.FEATURE.warbandBank): on WoW Forever
--- the client numbers AccountBankTab_1..9 (15..23) but the bank is not there, so nothing scans them.
-C.WARBAND_TAB_IDS = C.FEATURE.warbandBank and idsMatching(GROUP_PATTERNS.TABS) or {}
--- No numeric fallback when Enum.BagIndex is absent: the groups degrade to EMPTY (compat-layer
--- degrade-to-nothing), so a build without the enum scans no container rather than guessing ids
--- Blizzard has renumbered before. Holdings then simply has no bag column for that build.
+-- the client numbers AccountBankTab_1..9 (15..23) but the bank is not there, and the library's
+-- Forever row declares none either.
+C.WARBAND_TAB_IDS = C.FEATURE.warbandBank and GROUPS.accountBank or {}
 
 C.EQUIP_SLOTS = {}
 for s = (INVSLOT_FIRST_EQUIPPED or 1), (INVSLOT_LAST_EQUIPPED or 19) do C.EQUIP_SLOTS[#C.EQUIP_SLOTS + 1] = s end

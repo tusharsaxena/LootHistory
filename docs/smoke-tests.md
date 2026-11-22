@@ -112,7 +112,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
   LibKa0s factory, a `libs/LibKa0s/Skin*.lua` refresh): SKIN, then HIST-43, HIST-44, INS-23, TL-18,
   LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
 - Client routing or a per-client table (`core/CompatClient.lua`, `C.FEATURE`, `C.SOURCE_CLIENTS`,
-  `C.CONTAINER_GROUPS`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
+  `NS.Compat.ContainerGroups()`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
   pick): FOREVER-1 to FOREVER-13 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
 - Release or `## Interface:` bump: every theme on each client its Index row names, then the
   headless gate green under both kit profiles (`lua tests/run.lua` and

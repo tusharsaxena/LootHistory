@@ -68,7 +68,7 @@ container answers 0 at open and its slots later, how long it takes, and which cu
 it loads. Fallback, away from a bank:
 `/run local f=CreateFrame("Frame") f:RegisterEvent("BANKFRAME_OPENED") f:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW") f:SetScript("OnEvent",function(_,e,a) local function s() local n=0 for i=6,14 do n=n+C_Container.GetContainerNumSlots(i) end return n end print(e,a,s()) C_Timer.After(1,function() print("+1s",s()) end) C_Timer.After(3,function() print("+3s",s()) end) end)`,
 then talk to the banker (Retail: ids 6..11). Safe default: the bank part arms on `Banker`,
-`CharacterBanker` and, on Retail only, `AccountBanker` (`R.READABLE_ON`, `modules/Reconciler.lua`).
+`CharacterBanker` and, on Retail only, `AccountBanker` (`R.BANKER_ARMS`, `modules/Reconciler.lua`).
 A bank container that had slots on the last ready read and now answers 0 is "loading" for up to
 5 s (`R.READY_WAIT`), and the read waits for `BAG_CONTAINER_UPDATE` or `BANK_TABS_CHANGED`. If the
 bank takes longer than 5 s, or neither cue fires while it loads, that is a finding. Result:
@@ -85,7 +85,7 @@ contents, `inventorySlot`, which is `ContainerIDToInventoryID(-1)`). Then try to
 bank, which no recorder can do for you. Fallback:
 `/run print(C_Container.GetContainerNumSlots(-1), C_Container.ContainerIDToInventoryID(-1)) for i=1,C_Container.GetContainerNumSlots(-1) do local x=C_Container.GetContainerItemInfo(-1,i) if x then print(i,x.hyperlink,x.stackCount) end end`.
 Safe default: the keyring (-1) is in the bags group on Forever only (ruling R5,
-`C.CONTAINER_GROUPS_BY_CLIENT`), and there is no keyring-to-bank pairing. If a key can go into the
+LibKa0s-Compat's `CONTAINER_PATTERNS_BY_CLIENT`), and there is no keyring-to-bank pairing. If a key can go into the
 bank, keyring-to-bank moves are real transfers and need one. An `inventorySlot` that is not nil means
 the equipped-bag scan (`Scanner.ScanEquipped`) reads that slot too; check it adds nothing. On
 Retail, a -1 that answers slots is a finding. Result:

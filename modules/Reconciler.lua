@@ -40,27 +40,24 @@ R.dirty, R.readable = {}, {}
 --- A per-container check, not "every container answers 0": a partly loaded bank (tab 1 ready, the
 --- rest still 0) must wait too, or its unloaded tabs read as an UNTRACKED loss. A first visit's
 --- read is the bank's genesis, so a partial one would book the late tabs as gains (LH-REV).
-local function firstVisitLoading()
-  local bought = Compat.NumPurchasedCharacterBankTabs()
-  if not bought then return false end
-  local answering = 0
-  for _, id in ipairs(C.BANK_IDS) do
-    if Compat.GetContainerNumSlots(id) > 0 then answering = answering + 1 end
-  end
-  return answering < bought
+--- The comparison is LibKa0s-Compat's UnreadyBankContainers (LibKa0s#101); the deadline and the
+--- memory are this module's. The bought-tab count is passed only with no memory at all, so a memory
+--- that recorded no slots is taken as found, as it was before the library held the comparison.
+local function bankShape()
+  local shape = {}
+  for _, id in ipairs(C.BANK_IDS) do shape[id] = Compat.GetContainerNumSlots(id) end
+  return shape
 end
 
 function R:BankState()
   if not self.readable.bank then return nil end
-  if not Compat.CanViewCharacterBank() then return "unviewable" end
+  -- Three-valued: nil (the build cannot tell) is read as viewable.
+  if Compat.CanViewCharacterBank() == false then return "unviewable" end
   if self._bankOpenAt and GetTime() - self._bankOpenAt >= R.READY_WAIT then return "ready" end
   local e = NS.Holdings:Get(NS.Util.PlayerKey())
   local last = e and e.meta.bankSlots
-  if not last then return firstVisitLoading() and "loading" or "ready" end
-  for _, id in ipairs(C.BANK_IDS) do
-    if (last[id] or 0) > 0 and Compat.GetContainerNumSlots(id) == 0 then return "loading" end
-  end
-  return "ready"
+  local bought = not last and Compat.NumPurchasedBankTabs("Character") or nil
+  return Compat.UnreadyBankContainers(bankShape(), last, bought) and "loading" or "ready"
 end
 
 -- While the bank is loading its visit's drift read waits (Flush), so the parts that read belongs to
@@ -102,43 +99,55 @@ end
 -- auction house) are listed here because the readable flags are this module's; what to DO with the
 -- mail/auctions columns is modules/Escrow.lua's. `drift`: the first read of a visit is a drift pass.
 -- A banker reads the warband tabs and gold too only where the warband bank is a feature.
--- The bank frame opens for three interaction types (BankFrameTemplates registers all three), so a
--- banker visit is armed by Banker, CharacterBanker (67, both clients; ruling R8) and, where the
--- warband bank is a feature, the warband-only AccountBanker.
+-- The bank frame opens for three interaction types (BankFrameTemplates registers all three), and
+-- LibKa0s-Compat's BankerKind names which bank each opens: "character" for Banker and
+-- CharacterBanker (67, both clients; ruling R8), "account" for the warband-only AccountBanker. A
+-- character banker arms a visit on both clients; an account banker only where the warband bank is a
+-- feature (R1).
 local function bankParts()
   if WARBAND_BANK then return { "bank", "tabs", "warbandMoney" } end
   return { "bank" }
 end
-R.READABLE_ON = {
-  Banker          = { flag = "bank",         parts = bankParts(), drift = true },
-  CharacterBanker = { flag = "bank",         parts = bankParts(), drift = true },
-  MailInfo        = { flag = "mail",         parts = { "mail" } },
-  Auctioneer      = { flag = "auctionHouse", parts = {} },
+R.BANKER_ARMS = {
+  character = { flag = "bank", parts = bankParts(), drift = true },
 }
 if WARBAND_BANK then
-  R.READABLE_ON.AccountBanker = { flag = "bank", parts = bankParts(), drift = true }
+  R.BANKER_ARMS.account = { flag = "bank", parts = bankParts(), drift = true }
+end
+-- Every other interaction that makes a part readable, by Enum.PlayerInteractionType member name.
+R.READABLE_ON = {
+  MailInfo   = { flag = "mail",         parts = { "mail" } },
+  Auctioneer = { flag = "auctionHouse", parts = {} },
+}
+
+local function specFor(interactionType)
+  if interactionType == nil then return nil end
+  local kind = Compat.BankerKind(interactionType)
+  if kind then return R.BANKER_ARMS[kind] end
+  for name, spec in pairs(R.READABLE_ON) do
+    if interactionType == Compat.InteractionType(name) then return spec end
+  end
+  return nil
 end
 
 function R:OnInteraction(shown, interactionType)
-  for name, spec in pairs(R.READABLE_ON) do
-    if interactionType ~= nil and interactionType == Compat.InteractionType(name) then
-      if shown then
-        -- Only the opening of a visit: a second banker frame inside it is not a fresh read.
-        if spec.drift and not self.readable[spec.flag] then
-          self.driftPending, self._bankOpenAt = true, GetTime()
-        end
-        self.readable[spec.flag] = true
-        for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
-        scheduleFlush(self)
-      else
-        local waited = self:Flush() == "waiting"           -- final read while still readable
-        self.readable[spec.flag] = nil
-        if spec.drift then self.driftPending, self._bankOpenAt, self._driftWaited = nil, nil, nil end
-        if spec.flag == "auctionHouse" then self.readable.auctions = nil end
-        -- A bank shut while still loading read nothing: what the wait held is read without it.
-        if waited then scheduleFlush(self) end
-      end
+  local spec = specFor(interactionType)
+  if not spec then return end
+  if shown then
+    -- Only the opening of a visit: a second banker frame inside it is not a fresh read.
+    if spec.drift and not self.readable[spec.flag] then
+      self.driftPending, self._bankOpenAt = true, GetTime()
     end
+    self.readable[spec.flag] = true
+    for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
+    scheduleFlush(self)
+  else
+    local waited = self:Flush() == "waiting"           -- final read while still readable
+    self.readable[spec.flag] = nil
+    if spec.drift then self.driftPending, self._bankOpenAt, self._driftWaited = nil, nil, nil end
+    if spec.flag == "auctionHouse" then self.readable.auctions = nil end
+    -- A bank shut while still loading read nothing: what the wait held is read without it.
+    if waited then scheduleFlush(self) end
   end
 end
 

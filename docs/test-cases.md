@@ -208,7 +208,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband (Account on WoW Forever, R2)
 
-### test_compat.lua (79)
+### test_compat.lua (80)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -258,8 +258,9 @@ Total.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 - Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
-- Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring
-- Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
+- Compat: the container table is per client, and only WoW Forever's bags hold the Keyring
+- Compat: the container groups are disjoint, and no group holds a type constant (K101-LH-02)
+- Compat: without Enum.BagIndex the groups are the library's documented fallback: bags 0..5, no bank
 - Compat: container slot read and empty slot
 - Compat: GetMoney nets cursor and trade money
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
@@ -537,7 +538,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (16)
+### test_reconciler.lua (18)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -546,8 +547,8 @@ Total.
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
-- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)
-- Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
+- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), nil without it (R8)
+- Reconciler: Compat.NumPurchasedBankTabs("Character") answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
 - Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)
 - Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)
 - Reconciler: account-wide currency lands on the warband holder
@@ -555,6 +556,8 @@ Total.
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
+- Reconciler: BankState answers the same outcome for each bank shape (R8, K101-LH-02)
+- Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)
 
 ### test_reconciler_rows.lua (41)
 
@@ -2468,7 +2471,7 @@ Total.
 | test_util.lua | 58 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 79 |
+| test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 9 |
 | test_tooltip_place.lua | 9 |
@@ -2480,7 +2483,7 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 16 |
+| test_reconciler.lua | 18 |
 | test_reconciler_rows.lua | 41 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
@@ -2560,4 +2563,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2150** |
+| **Total** | **2153** |

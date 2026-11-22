@@ -135,3 +135,45 @@ function Compat.ClientBuild()
   local version, build = GetBuildInfo()
   return plainString(version), plainString(build)
 end
+
+-- ── Containers and the bank (Compat minor 6, LibKa0s#101; K101-LH-02) ───────────────────────
+-- The container groups and the bank readiness reads are the library's: one copy for BankLedger,
+-- LootHistory and OutfitterReborn, which had drifted apart (Ka0sAddonsCommonTasks
+-- docs/2026-11-22-LIBKA0S_101_CONTAINER_READER/). The deadline (R.READY_WAIT) and the readiness
+-- memory (holdings meta.bankSlots) stay in modules/Reconciler.lua.
+--
+-- THE STUBS degrade to nothing rather than re-implement: with the library absent the groups are the
+-- library's own documented answer for a build without Enum.BagIndex (the bags 0..5, no bank, no
+-- account bank), no interaction type is a banker, and every bank read answers "cannot tell" (nil).
+-- A degraded install therefore never arms or reads a bank, so it can never read a closed one as
+-- emptied.
+
+local STUB_BAGS = { 0, 1, 2, 3, 4, 5 }
+
+-- The container ids of each group on this client, { bags, bank, accountBank }, each sorted and
+-- de-duplicated, matched by anchored Enum.BagIndex member names. Fresh tables on every call.
+Compat.ContainerGroups = CompatLib and CompatLib.ContainerGroups or function()
+  local bags = {}
+  for i, id in ipairs(STUB_BAGS) do bags[i] = id end
+  return { bags = bags, bank = {}, accountBank = {} }
+end
+
+-- The pattern rows, one per client, published for the suites (a copy: writing to it changes nothing).
+Compat.CONTAINER_PATTERNS_BY_CLIENT = CompatLib and CompatLib.CONTAINER_PATTERNS_BY_CLIENT or {}
+
+-- Whether this banker shows the character bank: true, false, or nil when the build cannot tell (no
+-- C_Bank.CanViewBank, no Enum.BankType.Character, or a secret). THREE-VALUED: the caller reads nil as
+-- viewable (R:BankState compares with false, the lead's call 3).
+Compat.CanViewCharacterBank = CompatLib and CompatLib.CanViewCharacterBank or function() return nil end
+
+-- How many tabs the account bought for a bank type named as Enum.BankType names it ("Character",
+-- "Account"), or nil where the API, the member or a plain number answer is absent.
+Compat.NumPurchasedBankTabs = CompatLib and CompatLib.NumPurchasedBankTabs or function() return nil end
+
+-- "character" for a Banker or CharacterBanker interaction type, "account" for an AccountBanker, nil
+-- otherwise. What each kind arms is the Reconciler's call (the account bank is Retail's alone, R1).
+Compat.BankerKind = CompatLib and CompatLib.BankerKind or function() return nil end
+
+-- Pure: the bank container ids not ready yet (a remembered container now at 0 slots), the short
+-- marker on a first visit with fewer containers answering than `purchased`, or nil when ready.
+Compat.UnreadyBankContainers = CompatLib and CompatLib.UnreadyBankContainers or function() return nil end
