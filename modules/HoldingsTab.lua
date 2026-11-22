@@ -11,7 +11,10 @@ local HT = NS.HoldingsTab
 -- loot EVENT, not something held, so they are ignored here and grayed while this tab is active
 -- (spec §8.0, docs/browser.md). The Group dropdown is live here over its own modes (HT.GROUPS).
 
-local ORDER = { "bags", "equipped", "bank", "mail", "auctions", "tabs" }
+-- The container split. The Warband's tabs are a split only where the warband bank is a feature
+-- (C.FEATURE.warbandBank, clients-§4): on WoW Forever no holder has them.
+local ORDER = { "bags", "equipped", "bank", "mail", "auctions" }
+if NS.Constants.FEATURE.warbandBank then ORDER[#ORDER + 1] = "tabs" end
 local LABEL = { bags = "Bags", equipped = "Equipped", bank = "Bank", mail = "Mail", auctions = "AH", tabs = "Warband" }
 local ROW_H, INDENT, HEADER_H = 18, 16, 20
 local PAD, GAP, NAME_MIN, HOLDER_MIN = 4, 8, 160, 120
@@ -320,7 +323,7 @@ end
 buildArrows()
 
 local function holderLabel(holder)
-  if holder == NS.Constants.WARBAND_HOLDER then return "Warband", NS.SkinRGB("sem.warbandAlt") end
+  if holder == NS.Constants.WARBAND_HOLDER then return NS.Constants.ACCOUNT.holder, NS.SkinRGB("sem.warbandAlt") end
   local e = NS.Holdings:View(holder)
   return holder, NS.Analytics._classColor(e and e.meta and e.meta.classFile)
 end

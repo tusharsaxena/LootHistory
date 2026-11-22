@@ -11,7 +11,8 @@ function NS.LedgerResetText()
   local head = NS.SkinEscape and NS.SkinEscape("gtip.title") or ""
   local function h(text) return head .. text .. (head ~= "" and "|r" or "") end
   return h("Loot History has become a full ledger.") .. "\n\n" ..
-    "It now tracks what every character and your warband holds, and will track gains AND losses " ..
+    "It now tracks what every character and your " .. NS.Constants.ACCOUNT.holder:lower() ..
+    " holds, and will track gains AND losses " ..
     "of items, currencies and gold.\n\n" ..
     h("Recommended: start a fresh history.") .. " Your %d existing records only ever captured " ..
     "gains. Mixed with the new data, any period before today would show income with no spending, " ..

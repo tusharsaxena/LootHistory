@@ -132,8 +132,8 @@ local BOUND_LEGEND = {
   { "UNBOUND",    "Not Bound" },
   { "BOE",        "Bind on Equip" },
   { "BOP",        "Bind on Pickup" },
-  { "WARBAND",    "Warbound" },
-  { "WARBAND_UE", "Warbound Until Equipped" },
+  { "WARBAND",    C.ACCOUNT.bound },     -- "Warbound"; "Account Bound" on WoW Forever
+  { "WARBAND_UE", C.ACCOUNT.boundUE },
 }
 function BrowserTable:AddBoundLegend(tooltip)
   for _, entry in ipairs(BOUND_LEGEND) do
@@ -176,7 +176,9 @@ end
 function BrowserTable:HolderClassFile(r) return holderClassFile(r) end
 
 -- Class-colored, icon-prefixed display value for the row's holder. Shows the full "Name-Realm" so
--- same-named characters on different realms stay distinct, and the Warband as "Warband".
+-- same-named characters on different realms stay distinct, and the Warband as "Warband". On WoW
+-- Forever the key is "First Surname" (no realm), drawn whole: the column was sized for a
+-- Name-Realm, which runs at least as long.
 local function charDisplay(r)
   local name = NS.LedgerFormat.HolderLabel(r.holder or r.char)
   local icon = classIconMarkup(holderClassFile(r))
@@ -216,7 +218,7 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
     desc = "Binding: gray = not bound, white = Bind on Equip, green = Bind on Pickup, "
-      .. "blue = Warbound, orange = Warbound until equipped.",
+      .. "blue = " .. C.ACCOUNT.bound .. ", orange = " .. C.ACCOUNT.bound .. " until equipped.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
     -- Sort the ladder explicitly (BOUND_RANK), not by the token text: the display order is a
     -- product decision, not an alphabetical accident.
@@ -263,7 +265,8 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
-    desc = "Character the row belongs to — full Name-Realm, class-colored; Warband for the warband's half of a move.",
+    desc = "Character the row belongs to — full " .. C.CHARACTER_FORM .. ", class-colored; " .. C.ACCOUNT.holder ..
+      " for the " .. C.ACCOUNT.holder:lower() .. "'s half of a move.",
     valueFn = function(r) return charDisplay(r) end,
     sortFn = function(r) return NS.LedgerFormat.HolderLabel(r.holder or r.char):lower() end },
 }

@@ -75,7 +75,7 @@ local SUITES = {
   "test_constants", "test_mediasetup", "test_envsetup", "test_poolsetup", "test_itemsetup", "test_util",
   "test_ledger",
   "test_ledgerformat",
-  "test_compat", "test_compat_routing", "test_tooltip_place", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
+  "test_compat", "test_compat_routing", "test_compat_client", "test_tooltip_place", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
   "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_export", "test_debuglog",
   -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
@@ -154,6 +154,9 @@ local SUITES = {
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",
+  -- The WoW Forever port's probe verbs (ruling R4, modules/Probe.lua). After test_diagnostics, with
+  -- the addon brought up; every case stops the probe and puts db.global.probe back.
+  "test_probe",
   -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
   -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
   "test_debug_coverage",
@@ -191,6 +194,10 @@ local SUITES = {
   -- the sim's listener refreshing it. After test_sim_slash; every case stops its session.
   "test_sim_checkbox",
   "test_doc_structure",
+  -- The Retail · Forever shape (clients-§2, §4, §6; the WoW Forever port, LH-14): the TOC, the root
+  -- docs, the Forever docs and the per-client table, read from disk, then each declared feature
+  -- present where declared and absent elsewhere on whichever kit profile runs.
+  "test_client_shape",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
   -- the other two gates that answer for the repo rather than for the code.
@@ -293,10 +300,87 @@ Kit.skinValues = {
 -- The painted surfaces the skin-switch test flips, one object each (tests/skin_surfaces.lua).
 Kit.skinSwitch = dofile("tests/skin_surfaces.lua")(NS, mocks)
 
+-- The per-profile helpers a fixture reads instead of a Retail literal (clients-§6). `forever` is
+-- the kit profile the mock set was shaped as (tests/wow_mock.lua's `__client`); `bagIndex(name)` is
+-- that client's Enum.BagIndex member, which Retail and WoW Forever number differently (the account
+-- tabs are 12..16 on Retail and 15..23 on Forever). An unknown member raises rather than answering
+-- nil, so a typo never reads as "no such container". `ME` is the mock player's character key on that
+-- client (NS.Util.PlayerKey): `Name-Realm` on Retail, "First Surname" with no realm on Forever
+-- (forever-quirks-§4), so a fixture that pins the player's own rows reads it instead of a literal.
+local FOREVER = mocks.__client == "forever"
+local ME = FOREVER and ("Mock " .. mocks.__surname) or "Mock-Realm"
+-- `nameKey(name)` is another character's holder key on that client, as Util.QualifyName and
+-- Compat.TradeTargetKey build it from a bare name: "Name-Realm" on Retail, the name alone on Forever.
+local function nameKey(name) return FOREVER and name or (name .. "-Realm") end
+local function bagIndex(name)
+  local id = mocks.Enum.BagIndex[name]
+  if id == nil then error("bagIndex: no Enum.BagIndex member " .. tostring(name), 2) end
+  return id
+end
+-- `RETAIL_ONLY` is the declared-skip reason (the kit's `test(name, fn, reason)`) for a case of a
+-- Retail-only feature (the warband bank, the WoW Forever port's ruling R1; the keystone and the
+-- sources WoW Forever lacks, R2) on the forever profile,
+-- where the feature is absent and its own per-client case asserts the absence (clients-§6); nil on
+-- Retail, which runs it (DropWatcher's tests/run.lua precedent).
+local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1/R2): absent on WoW Forever, "
+  .. "which its per-client case asserts" or nil
+-- `rollWonLine(link, id)` is the client's own roll-won chat line (LOOT_ROLL_YOU_WON) for `link`.
+-- Retail's global is "You won: %s"; WoW Forever's leads with a loot-history id,
+-- "|HlootHistory:%d|h[Loot]|h: You won: %s" (forever-quirks), so a plain string.format(global, link)
+-- raises there. Each %d takes `id` (7 by default), each %s the link, in the global's own order.
+local function rollWonLine(link, id)
+  return (mocks.LOOT_ROLL_YOU_WON:gsub("%%([sd%%])", function(c)
+    if c == "s" then return link elseif c == "d" then return tostring(id or 7) end
+    return "%"
+  end))
+end
+-- `retailWords(fn)` wraps a case so it runs with Retail's words for the account (the WoW Forever
+-- port's R2: "Warband" / "Warbound" on Retail, "Account" / "Account Bound" on WoW Forever), then puts
+-- the client's back. The golden snapshots (tests/analytics_golden.txt, tests/export_golden.txt) were
+-- cut under Retail's and characterize layout and order, not the client's words, so their cases name
+-- the words they were cut under. It patches the three places a word is read: NS.Constants.ACCOUNT
+-- (LedgerFormat.HolderLabel), Insights' bound labels and the CSV's. On Retail it moves nothing.
+local function retailWords(fn)
+  return function(...)
+    local C = NS.Constants
+    local words, retail = C.ACCOUNT, C.ACCOUNT_WORDS.retail
+    local tables = { NS.Analytics._fmt.BOUND_LABEL, NS.Export._boundLabel }
+    local saved = { words = {}, labels = {} }
+    for k, v in pairs(words) do saved.words[k] = v end
+    for i, t in ipairs(tables) do saved.labels[i] = { t.WARBAND, t.WARBAND_UE } end
+    for k, v in pairs(retail) do words[k] = v end
+    tables[1].WARBAND, tables[1].WARBAND_UE = retail.bound, retail.boundUEShort
+    tables[2].WARBAND, tables[2].WARBAND_UE = retail.bound, retail.boundUE
+    local ok, err = pcall(fn, ...)
+    for k, v in pairs(saved.words) do words[k] = v end
+    for i, t in ipairs(tables) do t.WARBAND, t.WARBAND_UE = saved.labels[i][1], saved.labels[i][2] end
+    if not ok then error(err, 0) end
+  end
+end
+-- `ka0sDefault(fn)` wraps a case so it runs on Ka0s Default and then puts the profile's stored and
+-- applied skin back. A new profile, and every reset, wears the client's default skin
+-- (NS.DEFAULT_SKIN, skinning-§2): Ka0s Default on Retail, WoW Forever on Forever. A case that pins
+-- Ka0s Default's own pixels (a golden, a tooltip's gray) names the skin it was cut under. On Retail
+-- it stores the default and moves nothing.
+local function ka0sDefault(fn)
+  return function(...)
+    local appearance = NS.db.profile.settings.appearance
+    local had = rawget(appearance, "skin")
+    appearance.skin = "ka0s"
+    NS.ApplySkinChoice()
+    local ok, err = pcall(fn, ...)
+    NS.db.profile.settings.appearance.skin = had
+    NS.ApplySkinChoice()
+    if not ok then error(err, 0) end
+  end
+end
+
 _G.LH_TEST = Kit.expose{
   skinSwitch = Kit.skinSwitch,
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
+  forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
+  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords, rollWonLine = rollWonLine,
 }
 
 Kit.run{ dir = "tests/", suites = SUITES }

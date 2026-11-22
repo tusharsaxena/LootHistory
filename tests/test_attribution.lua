@@ -103,11 +103,18 @@ test("Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, cle
   mocks.__now = 0
 end)
 
-test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level", function()
+-- The keystone is Retail's (C.FEATURE.mythicPlus, R2): on WoW Forever a keystone context, however it
+-- got there, never turns a GameObject into MPLUS.
+test("Attribution: ResolveLootSource GameObject in keystone → MPLUS + level (Retail), CONTAINER on Forever", function()
   local state = { keystone = { level = 12 } }
   local source, detail = NS.Attribution:ResolveLootSource(OBJECT, state)
-  assertEqual(source, "MPLUS")
-  assertEqual(detail.keystoneLevel, 12)
+  if T.forever then
+    assertEqual(source, "CONTAINER")
+    assertEqual(detail, nil)
+  else
+    assertEqual(source, "MPLUS")
+    assertEqual(detail.keystoneLevel, 12)
+  end
 end)
 
 test("Attribution: ResolveLootSource GameObject otherwise → CONTAINER", function()
@@ -152,16 +159,62 @@ test("Attribution: applying a pending spell to a bag item does not stamp CONTAIN
   assertEqual(NS.Attribution:Consume(), "OTHER")
 end)
 
-test("Attribution: deconstruct spells map to their own source", function()
+-- WoW Forever has Disenchant and neither Milling nor Prospecting (R2): their casts stamp nothing.
+test("Attribution: deconstruct spells map to their own source (Milling and Prospecting Retail-only)", function()
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "c", 13262) -- Disenchant
   assertEqual(NS.Attribution:Consume(), "DISENCHANT")
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "c", 51005) -- Milling (generic)
-  assertEqual(NS.Attribution:Consume(), "MILLING")
+  assertEqual(NS.Attribution:Consume(), T.forever and "OTHER" or "MILLING")
   resetContext()
   NS.Attribution:OnSpellSucceeded(nil, "player", "c", 31252) -- Prospecting (generic)
-  assertEqual(NS.Attribution:Consume(), "PROSPECTING")
+  assertEqual(NS.Attribution:Consume(), T.forever and "OTHER" or "PROSPECTING")
+end)
+
+-- D15: the seed lists are per client. WoW Forever's hold Disenchant 13262 alone, its Milling and
+-- Prospecting entries empty by decision; Retail's keep every id and the five name seeds.
+test("Attribution: the deconstruct seed lists are the client's (Forever: Disenchant 13262 only)", function()
+  local seeds = NS.Attribution._seeds
+  local ids, names, sources = {}, {}, {}
+  for id, src in pairs(seeds.ids) do ids[#ids + 1] = id .. "=" .. src end
+  for _, seed in ipairs(seeds.names) do names[#names + 1] = seed.id .. "=" .. seed.source end
+  for src in pairs(seeds.sources) do sources[#sources + 1] = src end
+  table.sort(ids); table.sort(sources)
+  if T.forever then
+    assertEqual(table.concat(ids, ","), "13262=DISENCHANT")
+    assertEqual(table.concat(names, ","), "13262=DISENCHANT")
+    assertEqual(table.concat(sources, ","), "DISENCHANT")
+  else
+    assertEqual(#ids, 20)
+    assertEqual(table.concat(names, ","),
+      "13262=DISENCHANT,51005=MILLING,434926=MILLING,31252=PROSPECTING,225904=PROSPECTING")
+    assertEqual(table.concat(sources, ","), "DISENCHANT,MILLING,PROSPECTING")
+  end
+  -- Disenchant attributes by id on both; a Retail Milling id is no deconstruct on WoW Forever.
+  assertEqual(NS.Attribution:DeconstructSource(13262, nil), "DISENCHANT")
+  assertEqual(NS.Attribution:DeconstructSource(51005, nil), (not T.forever) and "MILLING" or nil)
+end)
+
+-- With every seed name resolving, WoW Forever's lone Disenchant seed makes a negative conclusive,
+-- so an ordinary cast is memoized after one look (a seed that never resolves would re-run per cast).
+test("Attribution: on every client a non-deconstruct cast is conclusive once the seeds resolve", function()
+  local A = NS.Attribution
+  local orig = NS.Compat.GetSpellName
+  NS.Compat.GetSpellName = function(id)
+    local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
+                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+    return n[id]
+  end
+  local ok, err = pcall(function()
+    local src, conclusive = A:DeconstructSource(990500, "Fireball")
+    assertEqual(src, nil)
+    assertTrue(conclusive, "a resolved seed list makes the negative conclusive")
+    assertEqual(A:DeconstructSource(990501, "Disenchanting"), "DISENCHANT")
+    assertEqual(A:DeconstructSource(990502, "Mass Mill Arthran"), (not T.forever) and "MILLING" or nil)
+  end)
+  NS.Compat.GetSpellName = orig
+  if not ok then error(err, 0) end
 end)
 
 test("Attribution: DeconstructSource resolves enumerated ids locale-independently", function()
@@ -180,7 +233,7 @@ test("Attribution: DeconstructSource resolves enumerated ids locale-independentl
   assertEqual(A:DeconstructSource(1269575, nil), "MILLING")   -- id fallback, name unavailable
   assertEqual(A:DeconstructSource(374627, nil), "PROSPECTING")
   assertEqual(A:DeconstructSource(99999, nil), nil)
-end)
+end, T.RETAIL_ONLY)
 
 -- Un-enumerated per-herb/expansion variants are matched by their *localized* name family, resolved
 -- from seed spellIDs via C_Spell — proving the check follows the client locale and never depends on
@@ -213,7 +266,7 @@ test("Attribution: DeconstructSource matches un-enumerated variants by localized
   assertEqual(A:DeconstructSource(990013, "Feuerball"), nil)
 
   NS.Compat.GetSpellName = orig
-end)
+end, T.RETAIL_ONLY)
 
 -- The family match is pattern work over client text, and client text contains U+00A0. Lua's `%s`
 -- is a byte-wise ASCII class that never matches the no-break space's \194\160, so both halves of
@@ -243,7 +296,7 @@ test("Attribution: a no-break space in a localized spell name does not break the
   assertEqual(A:DeconstructSource(990021, "Prospection\194\160de\194\160masse\194\160Aqirite"), "PROSPECTING")
 
   NS.Compat.GetSpellName = orig
-end)
+end, T.RETAIL_ONLY)
 
 -- The handler fires on every player cast, so a repeated spell (a combat rotation) must resolve
 -- from the per-spellID memo, not re-run GetSpellName + the name-family loop each time.
@@ -294,7 +347,7 @@ test("Attribution: a memoized deconstruct source survives a later name change", 
   assertEqual(A:Consume(), "MILLING", "positive result is memoized, not recomputed")
 
   NS.Compat.GetSpellName = orig
-end)
+end, T.RETAIL_ONLY)
 
 test("Attribution: deconstruct's own loot window does not clobber its source", function()
   resetContext()
@@ -386,6 +439,9 @@ end)
 
 -- ── The keystone context's lifetime ──────────────────────────────────────────────────────────
 --
+-- Retail-only (C.FEATURE.mythicPlus, R2): declared skips on WoW Forever, where the rows are not
+-- registered (the Enable case below asserts the absence) and ResolveLootSource never answers MPLUS.
+--
 -- State.keystone turns every GameObject loot into MPLUS. It is kept through completion so the
 -- reward chest still records as MPLUS, and it must go when the player leaves the party instance or
 -- the key resets; otherwise every herb, ore node and world chest for the rest of the session is
@@ -412,7 +468,7 @@ function()
     assertEqual(NS.State.keystone, nil, "the keystone survived leaving the instance")
     assertEqual(NS.Attribution:ResolveLootSource(OBJECT, NS.State), "CONTAINER")
   end)
-end)
+end, T.RETAIL_ONLY)
 
 test("Attribution: a zone change inside the party instance keeps the keystone (MPLUS 12)", function()
   withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
@@ -422,7 +478,7 @@ test("Attribution: a zone change inside the party instance keeps the keystone (M
     assertEqual(source, "MPLUS")
     assertEqual(detail.keystoneLevel, 12)
   end)
-end)
+end, T.RETAIL_ONLY)
 
 test("Attribution: CHALLENGE_MODE_RESET clears the keystone", function()
   withKeystoneEnv({ inInstance = true, instanceType = "party" }, nil, function()
@@ -430,7 +486,7 @@ test("Attribution: CHALLENGE_MODE_RESET clears the keystone", function()
     NS.Attribution:OnChallengeModeReset()
     assertEqual(NS.State.keystone, nil, "the keystone survived CHALLENGE_MODE_RESET")
   end)
-end)
+end, T.RETAIL_ONLY)
 
 test("Attribution: a completion-time keystone level of 0 does not overwrite the started level",
 function()
@@ -439,7 +495,7 @@ function()
     NS.Attribution:OnChallengeModeCompleted()
     assertEqual(NS.State.keystone.level, 12)
   end)
-end)
+end, T.RETAIL_ONLY)
 
 test("Attribution: zoning back into an active key re-arms the keystone at its level", function()
   withKeystoneEnv({ inInstance = true, instanceType = "party" }, 15, function()
@@ -448,7 +504,7 @@ test("Attribution: zoning back into an active key re-arms the keystone at its le
     assertTrue(NS.State.keystone ~= nil, "re-entry to an active key left no keystone context")
     assertEqual(NS.State.keystone.level, 15)
   end)
-end)
+end, T.RETAIL_ONLY)
 
 -- ── Enable(): the wiring, not the handlers ───────────────────────────────────────────────────
 --
@@ -468,11 +524,17 @@ end)
 -- next suite would run against a half-stubbed client with nine stray registrations on the bus.
 
 -- Sorted: this asserts the SET Enable registers, and the registration order carries no meaning.
-local ENABLE_EVENTS = {
+-- The keystone's four are Retail's (C.FEATURE.mythicPlus, R2): WoW Forever registers the other five.
+local KEYSTONE_EVENTS = { CHALLENGE_MODE_COMPLETED = true, CHALLENGE_MODE_RESET = true,
+  CHALLENGE_MODE_START = true, ZONE_CHANGED_NEW_AREA = true }
+local ENABLE_EVENTS = {}
+for _, e in ipairs({
   "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "CHALLENGE_MODE_START", "ENCOUNTER_END",
   "ENCOUNTER_START", "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
   "ZONE_CHANGED_NEW_AREA",
-}
+}) do
+  if not (T.forever and KEYSTONE_EVENTS[e]) then ENABLE_EVENTS[#ENABLE_EVENTS + 1] = e end
+end
 -- In Enable()'s own order: three globals hooked inline, then core/Compat.lua's two seams.
 local ENABLE_HOOKS = {
   "BuyMerchantItem", "TakeInboxItem", "AutoLootMailItem", "UseContainerItem", "GetQuestReward",
@@ -524,10 +586,11 @@ local function withClientStubs(body)
   if not ok then error(err, 0) end
 end
 
-test("Attribution: Enable registers nine bus events, the player-only cast frame and five hooks",
+test("Attribution: Enable registers the client's bus events (nine on Retail, five on Forever), the player-only cast frame and five hooks",
 function()
   withClientStubs(function(rec)
     NS.Attribution:Enable()
+    assertEqual(#ENABLE_EVENTS, T.forever and 5 or 9)
 
     local added = {}
     for event in pairs(NS.addon.__events) do
@@ -640,7 +703,7 @@ for _, rung in ipairs({ { "front gate", false }, { "pcall rung", true } }) do
       NS.Attribution:Enable()
       local want = table.concat(without(ENABLE_EVENTS, "ENCOUNTER_START"), ",")
       assertEqual(table.concat(addedSince(rec), ","), want,
-        "the other eight bus events must still register")
+        "the other bus events must still register")
       assertEqual(countOf(NS.RejectedEvents, "ENCOUNTER_START"), 1,
         "NS.RejectedEvents must name ENCOUNTER_START exactly once")
       assertEqual(countOf(NS.Attribution.__events, "ENCOUNTER_START"), 0,

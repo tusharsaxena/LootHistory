@@ -88,3 +88,40 @@ test("Compat routing: no file-scope capture of a Compat member outside core/Comp
   assertEqual(#hits, 0, "a file-scope capture binds the member before the seam wraps it:\n  "
     .. table.concat(hits, "\n  "))
 end)
+
+-- clients-§3: which client this is is asked only through LibKa0s-Compat-1.0, routed by
+-- core/CompatClient.lua, whose library-absent stubs are the one place outside the library that may
+-- read a project constant; regional names likewise (forever-quirks-§4). Everything else asks
+-- NS.Compat.ClientKey() / IsForever() / ForClient() / RegionalNames(). An interface-number test is
+-- banned with them: it changes every patch and says nothing about the game type.
+local CLIENT_READS = {
+  { pat = "%f[%w_]WOW_PROJECT_[%u_]+",               use = "Compat.ClientKey() / IsForever() / ForClient()" },
+  { pat = "%f[%w_]RegionalUniqueNamesEnabled%f[^%w_]", use = "Compat.RegionalNames()" },
+  { pat = "%f[%w_]GetBuildInfo%f[^%w_]",             use = "Compat.ClientKey() (never an interface number)" },
+}
+
+test("Compat routing: only core/CompatClient.lua reads the client's project constants or regional names", function()
+  local files = shippedFiles(nil)
+  assertTrue(#files > 0, "the TOC lists no file, so this gate saw nothing")
+  local hits = {}
+  for _, path in ipairs(files) do
+    if path ~= "core/CompatClient.lua" and path:match("%.lua$") then
+      for n, code in ipairs(codeLines(path)) do
+        for _, b in ipairs(CLIENT_READS) do
+          if code:find(b.pat) then hits[#hits + 1] = path .. ":" .. n .. " -> use " .. b.use end
+        end
+      end
+    end
+  end
+  assertEqual(#hits, 0, "client reads outside the compat family:\n  " .. table.concat(hits, "\n  "))
+end)
+
+test("Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam", function()
+  -- red under: CompatClient below core/SimSeam.lua, where its members escape the wrap; or above
+  -- core/Compat.lua, which publishes the NS.Compat it adds to.
+  local order = {}
+  for i, path in ipairs(shippedFiles("core/")) do order[path] = i end
+  assertTrue(order["core/CompatClient.lua"] ~= nil, "the TOC lists core/CompatClient.lua")
+  assertEqual(order["core/CompatClient.lua"], order["core/Compat.lua"] + 1, "straight after core/Compat.lua")
+  assertEqual(order["core/SimSeam.lua"], order["core/CompatClient.lua"] + 1, "straight before core/SimSeam.lua")
+end)

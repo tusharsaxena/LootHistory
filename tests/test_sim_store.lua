@@ -36,6 +36,7 @@ local function seedLive()
   end
 end
 
+-- The `key` scenario is the keystone's (R2): a declared skip on WoW Forever.
 for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do
   test(("SimStore: %s: the saved history, holdings and daily are byte-identical before start and after stop"):format(name),
   function()
@@ -63,5 +64,5 @@ for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do
     assertEqual(NS.SimStores.history, nil, name .. ": the session stores are released")
     assertTrue(NS.Database:History() == NS.db.global.history, name .. ": the accessors read the saved store again")
     unseed()
-  end)
+  end, name == "key" and T.RETAIL_ONLY or nil)
 end

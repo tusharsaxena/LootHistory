@@ -2,7 +2,7 @@
 
 WoW's item, container, quest, mail, spell, and map APIs have churned across expansions — some moved into `C_*` namespaces, some kept a deprecated global, some vary in shape. `core/Compat.lua` provides a stable surface for those varying and deprecated calls — and **only** those: it does API-shape normalization, not attribution decisions.
 
-The guiding principle is **Retail-only, presence-gated, no game-flavor branching.** Ka0s Loot History targets Retail, so `Compat.lua` never reads `WOW_PROJECT_ID` to pick a code path. Instead every varying/deprecated API is gated by a **direct presence check** of the `C_*` namespace or global it needs (`if C_Map and C_Map.GetBestMapForUnit then …`). When the API is absent the shim degrades to `nil`/`false` rather than erroring — capture keeps working, the affected field just goes unstamped. `core/Compat.lua`'s header is the boundary comment that states the rule.
+The guiding principle is **one codebase for Retail and WoW Forever, presence-gated, with the client asked in one place.** Which client this is (`Compat.IsForever()`, `IsRetail()`, `ClientKey()`, `ForClient(clients)`) and how a character is named on it (`Compat.RegionalNames()`, `UnitCharacterName(unit)`, `CharacterKey()`, `RealmKey()`) are **`LibKa0s-Compat-1.0`**'s members, routed onto `NS.Compat` by `core/CompatClient.lua` with the stubs a degraded install answers instead (clients-§3, forever-quirks-§4). The same file answers `Compat.ClientBuild()`, the client's version and build, which only stamps the probe record (`modules/Probe.lua`, ruling R4) and is never compared. Its stubs are the only code outside the library that read a `WOW_PROJECT_*` constant, `RegionalUniqueNamesEnabled` or `GetBuildInfo`, and `tests/test_compat_routing.lua` fails any other file that does. A feature one client lacks is a declaration read through `ForClient` (clients-§4), never feature detection. Within a feature the client supports, every varying/deprecated API is gated by a **direct presence check** of the `C_*` namespace or global it needs (`if C_Map and C_Map.GetBestMapForUnit then …`). When the API is absent the shim degrades to `nil`/`false` rather than erroring — capture keeps working, the affected field just goes unstamped. `core/Compat.lua`'s header is the boundary comment that states the rule.
 
 Load-first (`core/Compat.lua` heads the TOC) so every later module can reference `NS.Compat.*`.
 
@@ -38,7 +38,7 @@ primitives and holds no opinion about how they are composed.
 | Compat function | Wraps | Why |
 |---|---|---|
 | `Compat.FoldNBSP(s)` | — (pure) | Folds U+00A0, the no-break space (`\194\160`), to an ordinary space. Lua's `%s` is a byte-wise ASCII class and never matches it, so every trim, split or suffix strip over client text walks past one — and Blizzard's string tables carry them. Folded, not trimmed as a `[ \194\160]` class: `\160` also legitimately ends a multi-byte character (`à` is `\195\160`), so an end-anchored class trim can saw one in half. Consumed by `ScanBound` and by `modules/Attribution.lua`'s localized name-family seeds. |
-| `Compat.GetActiveKeystoneLevel()` | `C_ChallengeMode.GetActiveKeystoneInfo` | Active M+ keystone level for keystone context; `nil` when no keystone is active or `C_ChallengeMode` is absent. |
+| `Compat.GetActiveKeystoneLevel()` | `C_ChallengeMode.GetActiveKeystoneInfo` | Active M+ keystone level for keystone context (read on Retail only, where `C.FEATURE.mythicPlus` registers the keystone rows); `nil` when no keystone is active or `C_ChallengeMode` is absent. |
 | `Compat.NumLootItems()` | global `GetNumLootItems` | Slots in the open loot window, read by `Attribution:OnLootOpened`; `0` with no window, a `nil` answer or the API absent. A simulator-relevant read. |
 | `Compat.LootSourceGUID(slot)` | global `GetLootSourceInfo` (1st return) | The first source GUID of a loot slot, which `ResolveLootSource` decodes to KILL / CONTAINER / GameObject; one value, `nil` when absent. A simulator-relevant read. |
 | `Compat.Zone()` | **`LibKa0s-Env-1.0`** `GetZone` → `GetZoneText` / `GetSubZoneText` | Zone and subzone, ALWAYS two strings, `""` with no text yet (load-bearing: storage, the Zone filter and group-by-zone bucket `""` with nil). `NS.Zone()` forwards here at call time. A simulator-relevant read. |
@@ -78,12 +78,14 @@ primitives and holds no opinion about how they are composed.
 | `Compat.GetContainerSlot(bagID, slot)` | `C_Container.GetContainerItemInfo` | `{itemID, link, count}` for an occupied slot, `nil` when empty or absent; flattens `hyperlink`/`stackCount` so callers never see the client's info-table shape. |
 | `Compat.GetMoney()` | `GetMoney` − `GetCursorMoney` − `GetPlayerTradeMoney` | Purse copper as the player owns it: money held on the cursor or staged in a trade window is still theirs. Missing parts read `0`. |
 | `Compat.GetWarbandMoney()` | `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` | Warband bank gold in copper; `nil` when the API or enum is absent (distinct from a real `0`). |
+| `Compat.CanViewCharacterBank()` | `C_Bank.CanViewBank(Enum.BankType.Character)` | Whether this banker shows the character bank, both clients (the Reconciler's bank readiness guard, ruling R8): false at a warband-only banker, where the character bank is left unread; `true` when the API or enum is absent. |
+| `Compat.NumPurchasedCharacterBankTabs()` | `C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Character)` | How many character bank tabs the account bought, for the readiness guard's first visit (no remembered slot counts yet); `nil` when the API or enum is absent or the answer is not a number, and the first visit is then not guarded. |
 | `Compat.InCombatLockdown()` | `InCombatLockdown` | `true` only when the client reports lockdown. The Reconciler's combat gate: the lockdown flag, not `UnitAffectingCombat`, because it decides whether a scan may run rather than whether something is displayed. `false` when the API is absent. |
 | `Compat.PlayerClassFile()` | `UnitClass("player")` (2nd return) | The locale-independent class token (`"MAGE"`) the Holdings tab colors a holder's name with and the Collector stamps on every row's `classFile`; `nil` when the API is absent. |
 | `Compat.GetInventoryItem(slot)` | `GetInventoryItemID` + `GetInventoryItemLink` | `itemID, link` for an equipped slot of the player; `nil` when empty or absent. |
 | `Compat.BagInventorySlot(bagID)` | `C_Container.ContainerIDToInventoryID` | The inventory slot a bag container is equipped in, `nil` for the backpack or when absent. |
 | `Compat.ListCurrencies()` | `C_CurrencyInfo.GetCurrencyListSize`/`…ListInfo`/`…ListLink`/`ExpandCurrencyList` | Every currency the character has as `{id, quantity, accountWide}`. Collapsed headers are expanded for the walk and collapsed again after (last-to-first), because the list hides their children; `{}` when the API is absent. |
-| `Compat.InteractionType(name)` | `Enum.PlayerInteractionType[name]` | Numeric interaction type for a name (`"Banker"`, `"AccountBanker"`, …) so handlers never hardcode the number; `nil` when unknown. |
+| `Compat.InteractionType(name)` | `Enum.PlayerInteractionType[name]` | Numeric interaction type for a name (`"Banker"`, `"CharacterBanker"`, `"AccountBanker"`, …) so handlers never hardcode the number; `nil` when unknown. |
 | `Compat.HookSecure(name, fn)` | `hooksecurefunc` (global) | Presence-gated post-hook by global name; `false` and nothing installed when the target is absent. No un-hook exists, so the body gates itself on `NS.IsStoodDown`. Every read-side hook goes in through this or `HookSecureMember`: Attribution's five (`BuyMerchantItem`, `TakeInboxItem`, `AutoLootMailItem`, and the two above) and AttributionOut's thirteen. |
 | `Compat.HookSecureMember(tbl, member, fn)` | `hooksecurefunc` (table member) | Same gate for a namespace function such as `C_AuctionHouse.PostItem`. |
 | `Compat.IsConsumable(itemID)` | `C_Item.GetItemInfoInstant` | `true` when the item's class id is Consumable (0), locale-independent; `false` when absent. |
@@ -94,12 +96,12 @@ primitives and holds no opinion about how they are composed.
 | `Compat.ScanOwnedAuctions()` | `C_AuctionHouse.GetNumOwnedAuctions` / `GetOwnedAuctionInfo` | Counts and links of the player's ACTIVE auctions only, by itemID. |
 | `Compat.ItemLocationID(loc)` | `C_Item.GetItemID` | itemID for an ItemLocation; `nil` when absent. |
 | `Compat.AuctionMailKind(subject)` | `AUCTION_SOLD/EXPIRED/REMOVED/WON_MAIL_SUBJECT` | `"sold"`, `"expired"`, `"cancelled"` or `"won"` plus the item name, parsed from the localized subject globals; `nil` otherwise. |
-| `Compat.TradeTargetKey()` | `UnitName("NPC")`, `GetNormalizedRealmName` | The open trade's other party as a `Name-Realm` holder key; `nil` when none. |
-| `Compat.LatestCurrencyTransfer()` | `C_CurrencyInfo.FetchCurrencyTransferTransactions` | Newest warband currency transfer as `{currencyID, quantity, toKey}`; `nil` when none or absent. |
+| `Compat.TradeTargetKey()` | `Compat.UnitCharacterName("NPC")`, `GetNormalizedRealmName` | The open trade's other party as a holder key: `Name-Realm` (a bare name gets the player's realm), or on regional names (WoW Forever) the whole `"First Surname"` with no realm, never the surname read as a realm; `nil` when none. |
+| `Compat.LatestCurrencyTransfer()` | `C_CurrencyInfo.FetchCurrencyTransferTransactions` | Newest warband currency transfer as `{currencyID, quantity, toKey}`; `toKey` gets the player's realm when bare, and on regional names (WoW Forever) none, a two-word name kept whole; `nil` when none or absent. |
 
 ## Boundary rule
 
-Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call, or `WOW_PROJECT_ID` branch outside `Compat.lua` is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
+Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
 Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `InPartyInstance`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras`/`PlayerClassFile` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md), which forward to `Compat.Zone` / `Compat.PlayerMapID` at call time. See the [module map](module-map.md) for how the pieces load and connect.
 
@@ -115,7 +117,7 @@ and `PlayerClassFile`, and every read-side hook goes in through `HookSecure`/`Ho
 **file-scope** capture of a member (`local x = NS.Compat.Member` binds the function before the seam
 can wrap it; a capture of the table, `local Compat = NS.Compat`, reads the member at call time).
 
-The seam is `core/SimSeam.lua`, loaded straight after `core/Compat.lua`. It sorts every member three
+The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`). It sorts every member three
 ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctionHouseMail`,
 `DecodeGUID`, `BindState`, `BestBound`, `CurrencyLinkID`, `AuctionMailKind`, `CurrencySourceName`,
 `InteractionType`), the tooltip `Show*` / `HideTooltip` family and the four hook installers.
@@ -126,7 +128,8 @@ simulation runs. **Wrapped**: everything else, answered live until the simulator
 `GetContainerSlot`, `GetInventoryItem`, `GetMoney`, `GetWarbandMoney`, `ListCurrencies`, `ScanInbox`,
 `GetMailHeader`, `ReadSendMail`, `ScanOwnedAuctions`, `ItemLocationID`, `ContainerItemHasLoot`,
 `IsSpellTargeting`, `CurrentQuestID`, `GetActiveKeystoneLevel`, `InPartyInstance`, `InCombatLockdown`,
-`TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`); the
+`TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`,
+`CanViewCharacterBank`, `NumPurchasedCharacterBankTabs`); the
 item, spell and currency reads and `PlayerClassFile` keep answering live, because the simulated player
 is the real player, and `InInstance`, `InGroup` and `PlayerInCombat` are read only through `Live`.
 `tests/test_sim_seam.lua` pins the classification member by member, so a new member fails until it
@@ -137,7 +140,9 @@ is sorted, and asserts `NS.SimSeam:Unwrapped()` is empty once the whole addon ha
 - `Util.PlayerKey` / `Util.QualifyName` (`UnitName`, the realm): the simulated player is the real player.
 - `time()`, `GetTime()`, `date()`: a simulation runs on the real clock, so TTLs and holds behave as they
   do live, and the test kit's clock drives them headless.
-- `CreateFrame`, atlases, `GetCoinTextureString`, the `core/ItemSetup.lua` cache warm-up and
+- `CreateFrame`, atlases, the money text (`Util.FormatMoney`: `C_CurrencyInfo.GetCoinTextureString`, then
+  `GetMoneyString`, then plain text, the same order on both clients; the bare `GetCoinTextureString`
+  global is never read, since WoW Forever has none), the `core/ItemSetup.lua` cache warm-up and
   `core/EnvSetup.lua`'s TOC metadata: none of them is an answer a simulated loot run changes.
 
 ## Third-party pricing addons stay out of Compat

@@ -15,6 +15,7 @@ local function reset()
   local m = T.mocks
   m.__bags, m.__bagSlots, m.__inventory, m.__money, m.__warbandMoney = {}, {}, {}, 0, 0
   R().dirty, R().readable, R().deferred = {}, {}, nil
+  R().driftPending, R()._readyCheck, R()._bankOpenAt = nil, nil, nil
 end
 
 local function captureChanged(fn)
@@ -56,6 +57,25 @@ test("Reconciler: bank is unreadable until the banker interaction shows", functi
   assertFalse(R():IsReadable("bank"))
 end)
 
+-- R8 (both clients): the bank frame also opens for a CharacterBanker (Enum.PlayerInteractionType 67,
+-- BankFrameTemplates registers Banker, CharacterBanker and AccountBanker), so that type arms the
+-- bank part exactly as a Banker does: readable while shown, a drift read on open, unreadable on hide.
+test("Reconciler: a CharacterBanker interaction makes the bank readable on both clients (R8)", function()
+  -- red under: READABLE_ON without a CharacterBanker row, so the bank stays unreadable and dirty.
+  reset()
+  T.mocks.__bags[6] = { [1] = { itemID = 8, link = "L8", count = 4 } }; T.mocks.__bagSlots[6] = 1
+  R():MarkDirty("bank"); R():Flush()
+  assertEqual(NS.Holdings:Get(ME()), nil)
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", NS.Compat.InteractionType("CharacterBanker"))
+  assertTrue(R():IsReadable("bank"), "readable while the CharacterBanker frame is shown")
+  assertTrue(R().driftPending, "the visit's first read is a drift read")
+  R():Flush()
+  assertEqual(NS.Holdings:Get(ME()).items[8].bank, 4)
+  R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType("CharacterBanker"))
+  assertFalse(R():IsReadable("bank"))
+  assertEqual(R().driftPending, nil)
+end)
+
 test("Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED", function()
   reset()
   local m = T.mocks
@@ -78,8 +98,118 @@ test("Reconciler: LoginScan seeds genesis, partial until bank seen", function()
   R():LoginScan()
   local e = NS.Holdings:Get(ME())
   assertTrue(e.meta.genesis ~= nil); assertTrue(e.meta.partial)
-  assertEqual(NS.Holdings:Get("§warband").money, 70)
+  if T.forever then
+    -- The warband bank is Retail-only (R1): no warband gold is read, so the account holder has none.
+    local w = NS.Holdings:Get("§warband")
+    assertEqual(w and w.money, nil, "no warband gold on WoW Forever")
+  else
+    assertEqual(NS.Holdings:Get("§warband").money, 70)
+  end
   T.mocks.__warbandMoney = 0
+end)
+
+-- clients-§6: a per-client feature has a case on each profile, present where declared and absent
+-- where not. The warband bank (C.FEATURE.warbandBank, ruling R1) is Retail's.
+test("Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)", function()
+  -- red under: a WoW Forever build that registers ACCOUNT_MONEY or the tab-slot event, arms the
+  -- `tabs` / `warbandMoney` parts at a banker, or reads warband gold.
+  local rows = {}
+  for _, row in ipairs(NS.EVENT_ROWS) do
+    if row.owner == "Reconciler" then rows[row.event] = true end
+  end
+  local onRetail = not T.forever
+  assertEqual(rows.ACCOUNT_MONEY == true, onRetail, "the ACCOUNT_MONEY row")
+  assertEqual(rows.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED == true, onRetail, "the tab-slot row")
+  assertTrue(rows.PLAYERBANKSLOTS_CHANGED, "the character bank's row serves both clients")
+  for _, name in ipairs({ "Banker", "CharacterBanker" }) do
+    assertEqual(table.concat(R().READABLE_ON[name].parts, ","),
+      onRetail and "bank,tabs,warbandMoney" or "bank", name .. "'s parts")
+  end
+  -- The warband-only banker arms the bank where the warband bank is a feature, and nowhere else.
+  local account = R().READABLE_ON.AccountBanker
+  assertEqual(account ~= nil, onRetail, "AccountBanker arms the bank on Retail only")
+  if account then assertEqual(table.concat(account.parts, ","), "bank,tabs,warbandMoney") end
+  T.mocks.__warbandMoney = 70
+  assertEqual(R():IsReadable("warbandMoney"), onRetail, "warband gold is read on Retail only")
+  T.mocks.__warbandMoney = 0
+end)
+
+-- R8 (both clients): the bank readiness guard's view check and its re-read cues.
+test("Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)", function()
+  -- red under: no Compat.CanViewCharacterBank member.
+  local m = T.mocks
+  local saved, savedFn = m.__canViewBank, m.C_Bank.CanViewBank
+  local ok, err = pcall(function()
+    m.__canViewBank = { [0] = true }
+    assertEqual(NS.Compat.CanViewCharacterBank(), true)
+    m.__canViewBank = { [0] = false, [2] = true }
+    assertEqual(NS.Compat.CanViewCharacterBank(), false, "a warband-only banker hides the character bank")
+    m.C_Bank.CanViewBank = nil
+    assertEqual(NS.Compat.CanViewCharacterBank(), true, "a client with no CanViewBank always shows it")
+  end)
+  m.__canViewBank, m.C_Bank.CanViewBank = saved, savedFn
+  if not ok then error(err, 0) end
+end)
+
+test("Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)", function()
+  -- red under: no Compat.NumPurchasedCharacterBankTabs member.
+  local m = T.mocks
+  local savedFn = m.C_Bank.FetchNumPurchasedBankTabs
+  local ok, err = pcall(function()
+    m.C_Bank.FetchNumPurchasedBankTabs = function(t) return t == 0 and 3 or 1 end
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), 3)
+    m.C_Bank.FetchNumPurchasedBankTabs = function() return "x" end
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a non-number is no answer")
+    m.C_Bank.FetchNumPurchasedBankTabs = nil
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a client without it answers nil")
+  end)
+  m.C_Bank.FetchNumPurchasedBankTabs = savedFn
+  if not ok then error(err, 0) end
+end)
+
+test("Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)", function()
+  -- red under: no cue rows, so a bank tab that loads (or a socket that changes) with no BAG_UPDATE
+  -- is never looked at again while the bank is open.
+  reset()
+  local rows = {}
+  for _, row in ipairs(NS.EVENT_ROWS) do
+    if row.owner == "Reconciler" then rows[row.event] = true end
+  end
+  for _, ev in ipairs({ "BAG_CONTAINER_UPDATE", "BANK_TABS_CHANGED", "PLAYERBANKSLOTS_CHANGED", "BAG_UPDATE_DELAYED" }) do
+    assertTrue(rows[ev], ev .. " is a Reconciler row")
+  end
+  for _, ev in ipairs({ "BAG_CONTAINER_UPDATE", "BANK_TABS_CHANGED" }) do
+    reset()
+    R():OnEvent(ev, 0)
+    assertEqual(R().dirty.bank, nil, ev .. " with no banker open marks nothing")
+    R().readable.bank = true
+    R():OnEvent(ev, 0)
+    assertTrue(R().dirty.bank, ev .. " at an open bank re-reads the bank")
+    assertEqual(R().dirty.tabs == true, not T.forever, ev .. " re-reads the warband tabs where they exist")
+  end
+  reset()
+end)
+
+test("Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)", function()
+  -- red under: IsReadable("bank") true at a banker whatever CanViewBank(Character) answers.
+  reset()
+  local m = T.mocks
+  local saved = m.__canViewBank
+  m.__canViewBank = { [0] = false, [1] = true, [2] = not T.forever }
+  local ok, err = pcall(function()
+    m.__bags[6] = { [1] = { itemID = 8, link = "L8", count = 4 } }; m.__bagSlots[6] = 1
+    R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", NS.Compat.InteractionType("Banker"))
+    assertEqual(R():BankState(), "unviewable")
+    assertFalse(R():IsReadable("bank"))
+    R():Flush()
+    local e = NS.Holdings:Get(ME())
+    assertEqual(e and e.items[8], nil, "the character bank is not read")
+    assertTrue(R().dirty.bank, "and stays dirty for a banker that shows it")
+    R():OnEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE", NS.Compat.InteractionType("Banker"))
+  end)
+  m.__canViewBank = saved
+  if not ok then error(err, 0) end
+  reset()
 end)
 
 test("Reconciler: account-wide currency lands on the warband holder", function()
@@ -146,19 +276,22 @@ end
 
 test("Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)", function()
   local C = NS.Constants
+  -- The warband bank's routes are Retail's (R1): on WoW Forever a warband tab id is no part of its
+  -- own, and its two events reach no handler.
+  local tab = T.bagIndex("AccountBankTab_1")
   local cases = {
     { "BAG_UPDATE", nil, { 0 }, "bags[0] | fuse=0 | " },
     { "BAG_UPDATE", nil, { C.BANK_IDS[1] }, "bank | fuse=0 | " },
-    { "BAG_UPDATE", nil, { C.WARBAND_TAB_IDS[1] }, "tabs | fuse=0 | " },
+    { "BAG_UPDATE", nil, { tab }, T.forever and ("bags[" .. tab .. "] | fuse=0 | ") or "tabs | fuse=0 | " },
     { "BAG_UPDATE", nil, {}, "bags[] | fuse=0 | " },
     { "BAG_UPDATE_DELAYED", nil, {}, " | fuse=1 | " },
     { "PLAYER_EQUIPMENT_CHANGED", nil, {}, "equipped | fuse=1 | " },
     { "PLAYER_MONEY", nil, {}, "money | fuse=1 | " },
-    { "ACCOUNT_MONEY", nil, {}, "warbandMoney | fuse=1 | " },
+    { "ACCOUNT_MONEY", nil, {}, T.forever and " | fuse=0 | " or "warbandMoney | fuse=1 | " },
     { "CURRENCY_DISPLAY_UPDATE", nil, { 7, "x", 3, 4, 5 }, " | fuse=0 | cur:7,3,4,5" },
     { "CURRENCY_TRANSFER_LOG_UPDATE", nil, {}, "currencyDelta | fuse=1 |  | transfer" },
     { "PLAYERBANKSLOTS_CHANGED", nil, {}, "bank | fuse=1 | " },
-    { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", nil, {}, "tabs | fuse=1 | " },
+    { "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED", nil, {}, T.forever and " | fuse=0 | " or "tabs | fuse=1 | " },
     { "PLAYER_INTERACTION_MANAGER_FRAME_SHOW", nil, { 17 }, " | fuse=0 | inter:true:17" },
     { "PLAYER_INTERACTION_MANAGER_FRAME_HIDE", nil, { 17 }, " | fuse=0 | inter:false:17" },
     { "MAIL_INBOX_UPDATE", nil, {}, " | fuse=0 | " },

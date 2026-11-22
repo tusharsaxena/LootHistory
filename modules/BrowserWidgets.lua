@@ -24,7 +24,7 @@ end
 -- states actually present in the dataset are offered, kept in this logical order (not data order).
 local BOUND_LABEL = {
   NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
-  WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
+  WARBAND = NS.Constants.ACCOUNT.bound, WARBAND_UE = NS.Constants.ACCOUNT.boundUE,   -- per client (R2)
 }
 local BOUND_ORDER = { "NONE", "BOE", "BOP", "WARBAND", "WARBAND_UE" }
 B._boundLabel, B._boundOrder = BOUND_LABEL, BOUND_ORDER   -- the filter bar measures every label

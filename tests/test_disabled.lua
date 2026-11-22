@@ -107,6 +107,14 @@ local OWNED = {
   -- modules/HoldingsTab.lua: repaints the Holdings pane when the Reconciler's flush lands.
   "message:Ka0s_LootHistory_HoldingsChanged:nil",
 }
+-- The warband bank's two events are Retail-only (R1, clients-§4), and so are the keystone's four
+-- (R2): WoW Forever registers none of them.
+local RETAIL_ONLY_EVENTS = { ["event:ACCOUNT_MONEY:nil"] = true, ["event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil"] = true,
+  ["event:CHALLENGE_MODE_START:nil"] = true, ["event:CHALLENGE_MODE_COMPLETED:nil"] = true,
+  ["event:ZONE_CHANGED_NEW_AREA:nil"] = true, ["event:CHALLENGE_MODE_RESET:nil"] = true }
+if T.forever then
+  for i = #OWNED, 1, -1 do if RETAIL_ONLY_EVENTS[OWNED[i]] then table.remove(OWNED, i) end end
+end
 
 --- WHAT SURVIVES, AND WHY THE SET IS NOT SIMPLY EMPTY. §7 exempts a short named list as SETUP
 --- rather than feature, and one item on it registers: the settings PANEL's body subscribes to the

@@ -53,7 +53,7 @@ function F.SignedCount(n) return signed(n or 0, tostring) end
 function F.SignedMoney(copper) return signed(copper or 0, NS.Util.FormatMoney) end
 
 function F.HolderLabel(h)
-  if h == C.WARBAND_HOLDER then return "Warband" end
+  if h == C.WARBAND_HOLDER then return C.ACCOUNT.holder end   -- "Warband", or "Account" on WoW Forever
   return h or ""
 end
 

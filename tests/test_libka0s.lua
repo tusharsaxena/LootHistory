@@ -594,7 +594,7 @@ test("every seam file resolves its major with the silent flag", function()
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
-                          "core/Constants.lua", "core/Compat.lua",
+                          "core/Constants.lua", "core/Compat.lua", "core/CompatClient.lua",
                           "settings/Slash.lua", "settings/OptionsSetup.lua",
                           "settings/Schema.lua" }) do
     local src = Loader.readFile(path)

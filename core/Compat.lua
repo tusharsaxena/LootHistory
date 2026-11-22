@@ -2,9 +2,12 @@ local _, NS = ...
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat
 
--- Retail-only addon: no game-flavor branching. Every varying/deprecated API is gated by a
--- direct C_*/global presence check below, so a shim degrades to nil/false when its API is
--- absent — never by reading a game-flavor project id.
+-- Retail and WoW Forever, one codebase (clients-§1). Every varying/deprecated API is gated by a
+-- direct C_*/global presence check below, so a shim degrades to nil/false when its API is absent.
+-- Which client this is, and how a character is named on it, is asked only through
+-- core/CompatClient.lua (NS.Compat.ClientKey / IsForever / ForClient / RegionalNames, from
+-- LibKa0s-Compat-1.0, clients-§3); no file here or elsewhere reads a project id. A feature one
+-- client lacks is a declaration read through ForClient (clients-§4), never feature detection.
 
 -- Fold U+00A0, the no-break space, to an ordinary space.
 --
@@ -847,6 +850,28 @@ function Compat.GetWarbandMoney()
   return fn(t)
 end
 
+-- Whether this banker shows the character bank (the bank readiness guard, ruling R8, both clients).
+-- A warband-only banker opens the bank frame without it, and there the character bank's containers
+-- answer as they please (BagSync v20.41), so the Reconciler leaves its part dirty. A client with no
+-- C_Bank.CanViewBank always shows it.
+function Compat.CanViewCharacterBank()
+  local fn = C_Bank and C_Bank.CanViewBank
+  local t = Enum and Enum.BankType and Enum.BankType.Character
+  if type(fn) ~= "function" or t == nil then return true end
+  return fn(t) ~= false
+end
+
+-- How many character bank tabs the account has bought (the bank readiness guard's first-visit
+-- check, ruling R8): C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Character). Nil where the API
+-- or the enum is absent, or the answer is not a number; the guard is then not armed.
+function Compat.NumPurchasedCharacterBankTabs()
+  local fn = C_Bank and C_Bank.FetchNumPurchasedBankTabs
+  local t = Enum and Enum.BankType and Enum.BankType.Character
+  if type(fn) ~= "function" or t == nil then return nil end
+  local n = fn(t)
+  return type(n) == "number" and n or nil
+end
+
 function Compat.GetInventoryItem(slot)
   if type(GetInventoryItemID) ~= "function" then return nil end
   local id = GetInventoryItemID("player", slot)
@@ -1044,12 +1069,14 @@ function Compat.AuctionMailKind(subject)
   return nil
 end
 
--- The trade partner as a holder key. UnitName("NPC") is the open trade's other party.
+-- The trade partner as a holder key. "NPC" is the open trade's other party, read through
+-- Compat.UnitCharacterName (core/CompatClient.lua): with regional names (WoW Forever) that is the
+-- whole "First Surname" and no realm, keyed as is, never the surname read as a realm; otherwise
+-- UnitName's name and realm, a bare name getting the player's own realm (Name-Realm, as holders are).
 function Compat.TradeTargetKey()
-  if type(UnitName) ~= "function" then return nil end
-  local name, realm = UnitName("NPC")
-  if not name or name == "" then return nil end
-  if name:find("-", 1, true) then return name end
+  local name, realm = Compat.UnitCharacterName("NPC")
+  if not name then return nil end
+  if Compat.RegionalNames() or name:find("-", 1, true) then return name end
   realm = (realm and realm ~= "") and realm
     or (type(GetNormalizedRealmName) == "function" and GetNormalizedRealmName()) or nil
   return realm and (name .. "-" .. realm) or name
@@ -1057,13 +1084,15 @@ end
 
 -- The newest warband currency transfer this character made (CURRENCY_TRANSFER_LOG_UPDATE). Field
 -- names are the 11.x CurrencyTransferTransaction shape as recalled; smoke LED-P2-13 verifies them.
+-- With regional names (WoW Forever) the destination is used as the client names it, no realm added,
+-- a two-word name kept whole; whether it carries the surname there is a probe (P5).
 function Compat.LatestCurrencyTransfer()
   local fn = C_CurrencyInfo and C_CurrencyInfo.FetchCurrencyTransferTransactions
   local list = fn and fn()
   if type(list) ~= "table" or #list == 0 then return nil end
   local t = list[#list]
   local to = t.destinationCharacterName
-  if to and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
+  if to and not Compat.RegionalNames() and not to:find("-", 1, true) and type(GetNormalizedRealmName) == "function" then
     local realm = GetNormalizedRealmName()                 -- nil early in login: never a bare "Name-"
     if realm and realm ~= "" then to = to .. "-" .. realm end
   end

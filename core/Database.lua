@@ -838,6 +838,10 @@ function Database:Export(filter)
   return out
 end
 
+-- The keystone breakdown (byKeystone) only where the keystone is a feature (C.FEATURE.mythicPlus,
+-- clients-§4; ruling R2): on WoW Forever Stats answers no byKeystone at all.
+local MYTHIC_PLUS = NS.Constants.FEATURE.mythicPlus
+
 -- Nested-table increment used by the per-character category matrices.
 local function bump(matrix, k1, k2, amt)
   if k1 == nil or k2 == nil then return end
@@ -853,7 +857,7 @@ local function newAccumulator()
     bySource = {}, byQuality = {}, byDay = {}, byZone = {}, byItem = {},
     valueBySource = {}, valueByDay = {}, valueByZone = {},
     byChar = {}, byType = {}, byBound = {}, byHour = {}, byWeekday = {},
-    byKeystone = {}, byConfidence = {},
+    byKeystone = MYTHIC_PLUS and {} or nil, byConfidence = {},
     -- Per-character × category matrices (feed the "… by Character" stacked companion charts). Each
     -- mirrors its parent aggregation's guards; { [charKey] = { [categoryKey] = magnitude } }.
     charBySource = {}, charValueBySource = {}, charByQuality = {},
@@ -1001,7 +1005,7 @@ local function accumulateProvenance(A, r, value)
   local conf = r.confidence or "INFERRED"
   A.byConfidence[conf] = (A.byConfidence[conf] or 0) + 1
 
-  local kl = r.sourceDetail and r.sourceDetail.keystoneLevel
+  local kl = MYTHIC_PLUS and r.sourceDetail and r.sourceDetail.keystoneLevel
   if kl then A.byKeystone[kl] = (A.byKeystone[kl] or 0) + 1 end
 end
 

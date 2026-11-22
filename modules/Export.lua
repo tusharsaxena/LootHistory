@@ -10,9 +10,10 @@ local E = NS.Export
 -- Friendly bind-state labels, matching the Bound column's tooltip legend. nil/"NONE" = Not Bound.
 local BOUND_LABEL = {
   NONE = "Not Bound", BOE = "Bind on Equip", BOP = "Bind on Pickup",
-  WARBAND = "Warbound", WARBAND_UE = "Warbound Until Equipped",
+  WARBAND = NS.Constants.ACCOUNT.bound, WARBAND_UE = NS.Constants.ACCOUNT.boundUE,   -- per client (R2)
 }
 function E:BoundLabel(token) return BOUND_LABEL[token or "NONE"] or tostring(token) end
+E._boundLabel = BOUND_LABEL   -- the suites' golden snapshots read Retail's words on WoW Forever too
 
 -- Plain-text money for CSV: always "Ng Ns Nc" (never the in-game coin-texture markup that
 -- Util.FormatMoney emits). "" for nil so a missing vendorPrice stays blank.
@@ -28,7 +29,8 @@ end
 -- needs to reconstruct the exact item — ilvl, tertiaries, sockets). The itemString walk (field 13
 -- is the declared bonus count, 14..13+n the ids) is LibKa0s's Item.BonusIDsFromLink — see the
 -- LibKa0s docs/api/Item/version-3-docs.md; NS.Item is the library or core/ItemSetup.lua's stub.
--- Falls back to a bare item=<id>, or "".
+-- Falls back to a bare item=<id>, or "". The base is the client's (C.WOWHEAD_ITEM_BASE, ruling R7):
+-- WoW Forever's item ids resolve on Wowhead's /forever/ pages, Retail's at the root.
 function E:WowheadLink(record)
   record = record or {}
   local link = record.itemLink
@@ -36,7 +38,7 @@ function E:WowheadLink(record)
   local list = NS.Item.BonusIDsFromLink(link)
   local bonuses = list and #list > 0 and table.concat(list, ":") or nil
   if not id then return "" end
-  local url = "https://www.wowhead.com/item=" .. id
+  local url = NS.Constants.WOWHEAD_ITEM_BASE .. id
   if bonuses then url = url .. "?bonus=" .. bonuses end
   return url
 end

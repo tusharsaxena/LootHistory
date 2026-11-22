@@ -43,7 +43,7 @@ test("BrowserTable: bound legend adds a line per state", function()
   NS.BrowserTable:AddBoundLegend(fakeTip)
   assertEqual(#lines, 5)
   assertTrue(lines[1]:find("Not Bound", 1, true) ~= nil)
-  assertTrue(lines[5]:find("Warbound", 1, true) ~= nil)
+  assertTrue(lines[5]:find(NS.Constants.ACCOUNT.boundUE, 1, true) ~= nil)   -- "Warbound Until Equipped" on Retail
 end)
 
 test("BrowserTable: each legend lock is tinted, and sits on its own line", function()
@@ -89,14 +89,21 @@ test("BrowserTable: test data covers every bound state, source, quality, class",
   for _, s in ipairs(NS.Constants.SourceOrder) do
     assertTrue(source[s], "test data missing source " .. s)
   end
+  -- And none this client lacks (C.SOURCE_ABSENT: on WoW Forever the warband moves, R1, and Mythic+,
+  -- Bonus Roll, Milling, Prospecting and Deconstructed, R2).
+  for s in pairs(NS.Constants.SOURCE_ABSENT) do
+    assertFalse(source[s], "test data shows a source this client lacks: " .. s)
+  end
   -- Full quality spread Poor(0)..Legendary(5).
   for q = 0, 5 do
     assertTrue(quality[q], "test data missing quality " .. q)
   end
-  -- A range of classes so class coloring / per-character breakdowns have variety.
+  -- A range of classes so class coloring / per-character breakdowns have variety: every class the
+  -- client has (LH-05: Retail's thirteen, WoW Forever's nine).
   local classCount = 0
   for _ in pairs(class) do classCount = classCount + 1 end
-  assertTrue(classCount >= 10, "expected >=10 distinct classes, got " .. classCount)
+  local want = T.forever and 9 or 13
+  assertEqual(classCount, want, "expected " .. want .. " distinct classes, got " .. classCount)
   -- Spans at least 14 days for the range selector / time charts.
   assertTrue((maxTs - minTs) >= 14 * 86400, "test data should span >= 14 days")
 end)
@@ -573,6 +580,32 @@ test("BrowserTable: Character is the last column and Item is the flexing one", f
   assertEqual(flex, "item", "exactly the Item column absorbs the spare width")
 end)
 
+-- LH-REV (R2): the Bound column's header tooltip names the client's own bound states.
+test("BrowserTable: the Bound column tooltip reads the client's account words", function()
+  -- red under: the desc hard-coding Retail's "Warbound" on every client.
+  local col
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "bound" then col = c end end
+  assertTrue(col.desc:find("blue = " .. NS.Constants.ACCOUNT.bound .. ",", 1, true) ~= nil, col.desc)
+  if T.forever then assertTrue(col.desc:find("Warb", 1, true) == nil, "no Warband word on Forever: " .. col.desc) end
+end)
+
+-- The Character column on a two-word WoW Forever name (D12): the cell draws the holder key whole,
+-- never cut at its space, and its header tooltip names the client's key form.
+test("BrowserTable: the Character column names the client's key form and draws a two-word name whole", function()
+  -- red under: a WoW Forever build whose Character tooltip still promises a Name-Realm.
+  local col = NS.BrowserTable.COLUMNS[#NS.BrowserTable.COLUMNS]
+  assertEqual(col.key, "char")
+  if T.forever then
+    assertTrue(col.desc:find("full name and surname, class-colored", 1, true) ~= nil, col.desc)
+    assertTrue(col.desc:find("Name-Realm", 1, true) == nil, "no Realm on WoW Forever: " .. col.desc)
+  else
+    assertTrue(col.desc:find("full Name-Realm, class-colored", 1, true) ~= nil, col.desc)
+  end
+  local key = T.forever and "Sampleblade Mockvale" or "Sampleblade-Samplerealm"
+  local text = col.valueFn({ char = key, classFile = "ROGUE" })
+  assertTrue(text:sub(-#key) == key, "the cell ends with the whole holder key: " .. text)
+end)
+
 test("BrowserTable: every column except the flexing one reserves a width", function()
   for _, col in ipairs(NS.BrowserTable.COLUMNS) do
     if col.flex then
@@ -600,7 +633,9 @@ end)
 test("BrowserTable: every synthetic record carries the fields the table and charts read", function()
   for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
     assertTrue(type(r.ts) == "number" and r.ts > 0)
-    assertTrue(type(r.char) == "string" and r.char:find("-", 1, true) ~= nil, "char is Name-Realm")
+    -- The client's holder key (LH-05): Name-Realm on Retail, "First Surname" on WoW Forever.
+    local shape = T.forever and "^%u%l+ %u%l+$" or "^%u%l+%-%u%l+$"
+    assertTrue(type(r.char) == "string" and r.char:find(shape) ~= nil, "char is the client's holder key")
     assertTrue(type(r.itemName) == "string" and r.itemName ~= "")
     assertTrue(type(r.itemID) == "number")
     assertTrue(type(r.quantity) == "number" and r.quantity >= 1)
@@ -1051,7 +1086,7 @@ end)
 -- draws a plain tooltip (name in its quality color, "Type · SubType", gray "Test-mode sample"). A
 -- row WITH a link still shows the item's own tooltip, and outside test mode a link-less row is as
 -- before (nothing drawn).
-test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", function()
+test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows are unchanged", T.ka0sDefault(function()
   local BT = NS.BrowserTable
   local row, tt = BT:BuildRow(), T.mocks.GameTooltip
   local savedMode, savedColors = BT.testMode, T.mocks.ITEM_QUALITY_COLORS
@@ -1104,7 +1139,7 @@ test("BrowserTable: test-mode rows hover a sample tooltip; linked and live rows 
   T.mocks.ITEM_QUALITY_COLORS = savedColors
   tt:Hide()
   if not ok then error(err, 0) end
-end)
+end))
 
 -- AD-92-LH (LibKa0s#92): a History row is a BODY element, so every one of its tooltips (an item's,
 -- a currency's, a gold row's, a test-mode sample's) opens beside the window through
@@ -1150,7 +1185,7 @@ test("BrowserTable: group by Direction and by Holder", function()
   labels = {}
   for _, e in ipairs(BT:GroupRecords(rows)) do if e.kind == "header" then labels[#labels + 1] = e.label end end
   table.sort(labels)
-  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: Warband")
+  assertEqual(table.concat(labels, "|"), "Holder: A-Realm|Holder: " .. NS.Constants.ACCOUNT.holder)
   BT.groupBy = saved
 end)
 
@@ -1262,12 +1297,12 @@ test("BrowserTable: the Character column shows the row's holder", function()
   local W = NS.Constants.WARBAND_HOLDER
   local wb = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = W, source = "WARBAND_DEPOSIT" }
   local me = { dir = "OUT", char = "Ka0z-Realm", classFile = "MAGE", holder = "Ka0z-Realm", source = "WARBAND_DEPOSIT" }
-  assertEqual(cell("char", wb), "Warband", "the Warband half carries no class icon")
+  assertEqual(cell("char", wb), NS.Constants.ACCOUNT.holder, "the Warband half carries no class icon")
   assertTrue(cell("char", me):find("Ka0z-Realm", 1, true) ~= nil)
   assertEqual(cell("char", { char = "Old-Realm" }), "Old-Realm", "a legacy row's holder is its char")
   local sortFn
   for _, col in ipairs(NS.BrowserTable.COLUMNS) do if col.key == "char" then sortFn = col.sortFn end end
-  assertEqual(sortFn(wb), "warband")
+  assertEqual(sortFn(wb), NS.Constants.ACCOUNT.holder:lower())
   -- Group: Character follows the column.
   withTableState(function()
     local BT = NS.BrowserTable
@@ -1275,7 +1310,9 @@ test("BrowserTable: the Character column shows the row's holder", function()
     local labels = {}
     for _, e in ipairs(BT:GroupRecords({ wb, me })) do if e.kind == "header" then labels[#labels + 1] = e.label end end
     table.sort(labels)
-    assertEqual(table.concat(labels, "|"), "Character: Ka0z-Realm|Character: Warband")
+    local want = { "Character: Ka0z-Realm", "Character: " .. NS.Constants.ACCOUNT.holder }
+    table.sort(want)   -- "Account" sorts before the character on WoW Forever, "Warband" after it on Retail
+    assertEqual(table.concat(labels, "|"), table.concat(want, "|"))
   end)
 end)
 
@@ -1324,7 +1361,18 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   end
   for id, count in pairs(byPair) do assertEqual(count, 2, "pair " .. id .. " has both halves") end
   local W = NS.Constants.WARBAND_HOLDER
-  local want = {
+  local want = T.forever and {
+    -- WoW Forever's nine classes (LH-05): the alt moves walk its own class order. It has no warband
+    -- bank (R1), so no WARBAND_DEPOSIT / WITHDRAW pair: the seed walk reaches the alt moves first.
+    -- Re-pinned by LH-07: no Mythic+, Bonus Roll, Milling, Prospecting or Deconstructed seed (R2), so
+    -- the walk reaches them five rows sooner, on the Hunter.
+    "1|ALT_MAIL|OUT|{HU}|{HU}|HUNTER|{HU}/bags|{RO}/mail",
+    "2|ALT_TRADE|OUT|{RO}|{RO}|ROGUE|{RO}/bags|{PR}/bags",
+    "3|CURRENCY_TRANSFER|OUT|{PR}|{PR}|PRIEST|{PR}/bags|{SH}/bags",
+    "1|ALT_MAIL|IN|{RO}|{RO}|ROGUE|{HU}/bags|{RO}/mail",
+    "2|ALT_TRADE|IN|{PR}|{PR}|PRIEST|{RO}/bags|{PR}/bags",
+    "3|CURRENCY_TRANSFER|IN|{SH}|{SH}|SHAMAN|{PR}/bags|{SH}/bags",
+  } or {
     "1|WARBAND_DEPOSIT|OUT|{WL}|{WL}|WARLOCK|{WL}/bags|{W}/tabs",
     "2|WARBAND_WITHDRAW|OUT|{W}|{MK}|MONK|{W}/tabs|{MK}/bags",
     "3|ALT_MAIL|OUT|{DR}|{DR}|DRUID|{DR}/bags|{DH}/mail",
@@ -1338,7 +1386,8 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
   }
   -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
   -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
-  local names = { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
+  local names = T.forever and { HU = "Samplehunter Mockstride", RO = "Sampleshade Mockveil",
+    PR = "Samplemender Mockbrook", SH = "Sampletotem Mockridge" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
     DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
     WA = "Mockshield-Mockrealm" }
   assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))
@@ -1419,7 +1468,9 @@ test("Test mode: SetTestMode traces each act and falls back to a table Refresh",
     if not ok then error(err, 0) end
     assertEqual(table.concat(traced, "\n"), table.concat({
       "test mode refused: the General visibility setting keeps the window hidden.",
-      "test mode on: " .. 304 .. " sample rows",
+      -- WoW Forever's sample lacks the two warband reasons' seed rows and their receiving halves (R1).
+      -- WoW Forever's coverage seed walks its 32 sources (R1, R2), Retail's 39.
+      "test mode on: " .. (T.forever and 295 or 304) .. " sample rows",
       "test mode off (combat started)",
     }, "\n"))
   end)

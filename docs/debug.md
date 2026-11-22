@@ -135,6 +135,13 @@ counting the header. Without LibKa0s the stub in `core/DebugLogSetup.lua` prints
 with no pointer. The reserved `/lh list`, the help index, acknowledgments and refusals stay in chat.
 Pinned in `tests/test_slash_verbs.lua` (the holdings cases) and `tests/test_debuglog.lua` (the stub).
 
+## The probe verbs
+
+`/lh debug probe start|stop|status|clear` is not a log and writes nothing to this console. It is
+the WoW Forever port's probe (ruling R4, `modules/Probe.lua`): while started it records client facts
+into `db.global.probe`, and its acknowledgments and status line stay in chat. What it records, and
+how to read it after logout, is in [forever-probes.md](forever-probes.md).
+
 ## The diagnostics report
 
 ### Running it
@@ -199,7 +206,7 @@ cut out of a longer trace by tag alone.
 | settings | Every row that differs from its default, as `path = value (default)`, with a set-valued row shown as its sorted keys. `settings.enabled`, `settings.retentionDays` and `settings.auction.enabled` always print, whatever their value. Then the count printed |
 | auction | Whether AH capture is on and how many keys it captures; the priority cascade as stored; which price providers are loaded (Auctionator, TSM, Oribos) |
 | filters | The item blacklist, the whitelist and the currency blacklist: each list's size, then its ids in order |
-| attribution | The stored loot context (source, its detail as `key=value` fields, confidence, seconds until it expires); the current encounter; the keystone level, or `none` |
+| attribution | The stored loot context (source, its detail as `key=value` fields, confidence, seconds until it expires); the current encounter; the keystone level, or `none` (the keystone line on Retail only, `C.FEATURE.mythicPlus`) |
 | history | Record count with the oldest and newest timestamps; counts by source, confidence, quality, item type and bound state; distinct characters; how many records carry an AH price |
 | tail | The newest 25 records, newest first: index, timestamp, stored name, id, quantity, quality, source, confidence, bound state, zone and character |
 | bound repair | Whether the deferred bound-state repair is pending, its attempt count and its revision |

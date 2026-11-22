@@ -229,8 +229,8 @@ end
 
 -- ── the start (the descriptor's prepare) ──────────────────────────────────────────────────────
 
--- The session's own alt, the shared sample set's second character (`Sampleblade-Samplerealm`,
--- NS.SampleCharacters, LibKa0s#87), seeded into the session holdings so Attribution:IsOwnAlt answers
+-- The session's own alt, the shared sample set's second character (`Sampleblade-Samplerealm` on
+-- Retail, "Sampleblade Mockvale" on WoW Forever: NS.SampleCharacters, LibKa0s#87), seeded into the session holdings so Attribution:IsOwnAlt answers
 -- true for it (the ALT_MAIL and ALT_TRADE steps). Written through Holdings:Get, which resolves the
 -- session store.
 local function seedAlt()
@@ -303,11 +303,11 @@ end
 
 -- ── the host verb: /lh sim loot [n] ────────────────────────────────────────────────────────────
 
--- n ad hoc self-loot lines now, from a kill: one loot window over a Creature GUID (the Rookery Bat
--- the loot scenario kills), n CHAT_MSG_LOOT lines with their bag bursts cycling through the
+-- n ad hoc self-loot lines now, from a kill: one loot window over a Creature GUID (the creature
+-- the loot scenario kills, World.KILL_NPC: Retail's Rookery Bat, WoW Forever's Defias Thug), n CHAT_MSG_LOOT lines with their bag bursts cycling through the
 -- fixture's items, then the window closes. Played through the drivers (modules/SimDrivers.lua),
 -- so the engine decides the source exactly as it does for a timeline step.
-local LOOT_NPC, LOOT_DEFAULT, LOOT_MAX = 219000, 3, 10
+local LOOT_NPC, LOOT_DEFAULT, LOOT_MAX = Host.World.KILL_NPC.id, 3, 10
 local LOOT_KEYS = { "herb", "ore", "trinket" }
 
 local function parseLoot(words)

@@ -5,26 +5,41 @@ local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 -- itemString field layout: itemID(1) : 11 fields : numBonusIDs(13) : bonusID1..N.
 -- Fixtures below keep exactly 11 fields between itemID and the bonus count.
 
+-- The Wowhead item page the running profile's ids resolve on (ruling R7): WoW Forever's under
+-- /forever/, Retail's at the root. Written out here rather than read from C.WOWHEAD_ITEM_BASE, so
+-- the cases below check the constant rather than echo it.
+local WH = T.forever and "https://www.wowhead.com/forever/item=" or "https://www.wowhead.com/item="
+
+test("Export: WowheadLink builds on the running client's Wowhead base (R7)", function()
+  if T.forever then
+    assertEqual(NS.Export:WowheadLink({ itemID = 2589 }), "https://www.wowhead.com/forever/item=2589",
+      "a WoW Forever item id resolves on Wowhead's /forever/ pages")
+  else
+    assertEqual(NS.Export:WowheadLink({ itemID = 2589 }), "https://www.wowhead.com/item=2589",
+      "Retail's link is unchanged")
+  end
+end)
+
 test("Export: BoundLabel maps tokens and nil", function()
   assertEqual(NS.Export:BoundLabel(nil), "Not Bound")
   assertEqual(NS.Export:BoundLabel("NONE"), "Not Bound")
   assertEqual(NS.Export:BoundLabel("BOE"), "Bind on Equip")
-  assertEqual(NS.Export:BoundLabel("WARBAND"), "Warbound")
+  assertEqual(NS.Export:BoundLabel("WARBAND"), T.forever and "Account Bound" or "Warbound")
 end)
 
 test("Export: WowheadLink with bonus IDs", function()
   local link = "|cffa335ee|Hitem:210501:0:0:0:0:0:0:0:0:0:0:0:3:6652:1498:11144:::|h[X]|h|r"
   assertEqual(NS.Export:WowheadLink({ itemLink = link }),
-    "https://www.wowhead.com/item=210501?bonus=6652:1498:11144")
+    WH .. "210501?bonus=6652:1498:11144")
 end)
 
 test("Export: WowheadLink without bonuses is bare", function()
   local link = "|cff9d9d9d|Hitem:6948:0:0:0:0:0:0:0:0:0:0:0:0:::|h[Hearthstone]|h|r"
-  assertEqual(NS.Export:WowheadLink({ itemLink = link }), "https://www.wowhead.com/item=6948")
+  assertEqual(NS.Export:WowheadLink({ itemLink = link }), WH .. "6948")
 end)
 
 test("Export: WowheadLink falls back to itemID, then empty", function()
-  assertEqual(NS.Export:WowheadLink({ itemID = 12345 }), "https://www.wowhead.com/item=12345")
+  assertEqual(NS.Export:WowheadLink({ itemID = 12345 }), WH .. "12345")
   assertEqual(NS.Export:WowheadLink({}), "")
 end)
 
@@ -33,14 +48,14 @@ test("Export: WowheadLink stops at the declared bonus count when modifiers follo
   -- in the URL, never the modifier fields that follow them.
   local link = "|cffa335ee|Hitem:210501:0:0:0:0:0:0:0:0:0:0:0:2:6652:1498:1:9:70:::|h[X]|h|r"
   assertEqual(NS.Export:WowheadLink({ itemLink = link }),
-    "https://www.wowhead.com/item=210501?bonus=6652:1498")
+    WH .. "210501?bonus=6652:1498")
 end)
 
 test("Export: WowheadLink with a bare itemString or no link falls back to itemID", function()
-  assertEqual(NS.Export:WowheadLink({ itemLink = "item:6948" }), "https://www.wowhead.com/item=6948")
+  assertEqual(NS.Export:WowheadLink({ itemLink = "item:6948" }), WH .. "6948")
   assertEqual(NS.Export:WowheadLink({ itemLink = "no link here", itemID = 777 }),
-    "https://www.wowhead.com/item=777")
-  assertEqual(NS.Export:WowheadLink({ itemID = "4242" }), "https://www.wowhead.com/item=4242")
+    WH .. "777")
+  assertEqual(NS.Export:WowheadLink({ itemID = "4242" }), WH .. "4242")
 end)
 
 test("Export: WowheadLink reads bonuses through NS.Item.BonusIDsFromLink", function()
@@ -52,7 +67,7 @@ test("Export: WowheadLink reads bonuses through NS.Item.BonusIDsFromLink", funct
   NS.Item.BonusIDsFromLink = real
   assertTrue(ok, tostring(url))
   assertEqual(seen, link)
-  assertEqual(url, "https://www.wowhead.com/item=210501?bonus=11:22")
+  assertEqual(url, WH .. "210501?bonus=11:22")
 end)
 
 test("Export: CSV header order — ts,date,time first; computed + per-key auction cols; link last", function()
@@ -310,9 +325,11 @@ local checkCsv = dofile("tests/golden.lua").file("tests/export_golden.txt")
 -- One line per row; the closing CRLF every document ends with is asserted by the header case above.
 local function csvLines(csv) return (csv:gsub("\r\n$", ""):gsub("\r\n", "\n")) end
 
-test("Export: InsightsCSV over items and currency matches the golden document", function()
+-- Cut under Retail's account words (T.retailWords): on WoW Forever "Warbound" reads "Account Bound",
+-- which also sorts the By Bound Type rows differently.
+test("Export: InsightsCSV over items and currency matches the golden document", T.retailWords(function()
   checkCsv("rich", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.richHistory()))))
-end)
+end))
 
 test("Export: InsightsCSV over zero-value items with no currency matches the golden document", function()
   checkCsv("plain", csvLines(NS.Export:InsightsCSV(FX.statsFor(FX.plainHistory()))))

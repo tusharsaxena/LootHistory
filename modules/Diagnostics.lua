@@ -20,7 +20,8 @@ local Dx = NS.Diagnostics
 -- what the addon was working with, not to re-derive it. So the history tail prints the item NAME
 -- the record stored, never its link (which is escapes) and never a fresh lookup; the keystone line
 -- prints the stored context, never a live read; and no raw loot or currency chat text is printed,
--- because the addon never keeps any.
+-- because capture never keeps any (the probe verbs keep raw lines in db.global.probe only while
+-- started, modules/Probe.lua, and the report does not read that record).
 --
 -- It changes nothing either: no hold taken or released, no event registered, no timer armed, no
 -- cache rebuilt (the loot patterns are reported from the globals they are built from rather than by
@@ -231,6 +232,8 @@ local function attribution(out)
   else
     out:add(TAG, "attribution: encounter none")
   end
+  -- The keystone line only where the keystone is a feature (C.FEATURE.mythicPlus; ruling R2).
+  if not NS.Constants.FEATURE.mythicPlus then return end
   local k = S.keystone
   out:add(TAG, "attribution: keystone %s", type(k) == "table" and ("level " .. out:str(k.level)) or "none")
 end

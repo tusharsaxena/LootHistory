@@ -60,7 +60,7 @@ one in `settings/Slash.lua`'s `NS.OfferLedgerReset`) are registrations this tabl
 | `LOOT_OPENED` | `modules/Attribution.lua` (row) | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
 | `ENCOUNTER_START` | `modules/Attribution.lua` (row) | Two field writes, once per encounter. |
 | `ENCOUNTER_END` | `modules/Attribution.lua` (row) | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua` (row) | Two field writes, once per key. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua` (row; this row, `CHALLENGE_MODE_COMPLETED`, `ZONE_CHANGED_NEW_AREA` and `CHALLENGE_MODE_RESET` register on Retail only, `C.FEATURE.mythicPlus`) | Two field writes, once per key. |
 | `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua` (row) | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
 | `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua` (row) | Out of combat by construction. |
 | `QUEST_TURNED_IN` | `modules/Attribution.lua` (row) | One context stamp. |
@@ -127,7 +127,7 @@ shared bus or a private bus target, and all go down with the latch.
 | Event | Registered at | Work done per fire |
 |---|---|---|
 | `CHAT_MSG_MONEY` | `modules/Collector.lua` (row) | Fires in combat on looted money. Parse, then one gold row and one claim (an accumulator add on the Reconciler). Bucket `moneyLine`. |
-| `BAG_UPDATE` | `modules/Reconciler.lua` (the fourteen `ledger` rows) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
+| `BAG_UPDATE` | `modules/Reconciler.lua` (the sixteen `ledger` rows, fourteen on WoW Forever) | **The storm.** One dirty bit per fire, routed to `bags`, `bank` or `tabs` by container id. No scan, no allocation (`tests/perf.lua` scenario 2). Bucket `ledgerEvent`. |
 | `BAG_UPDATE_DELAYED` | same | Arms the 0.35 s debounce (one `NS.After`, swallowed while one is pending). |
 | `PLAYER_EQUIPMENT_CHANGED`, `PLAYER_MONEY`, `ACCOUNT_MONEY`, `PLAYERBANKSLOTS_CHANGED`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | same | One dirty bit and the debounce. |
 | `CURRENCY_DISPLAY_UPDATE` | same | One accumulator add per currency id (the signed change and its gain/loss source), one dirty bit, the debounce. |

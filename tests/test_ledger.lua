@@ -219,7 +219,9 @@ test("Ledger: PickReason — gold-out scopes", function()
 end)
 
 test("Ledger: PickReason — item losses by inference", function()
-  assertEqual(L().PickReason("ITEM", "OUT", ctx({ loot = { source = "DISENCHANT", expires = 101 } })), "DECONSTRUCT")
+  -- DECONSTRUCT is Retail's (R2): on WoW Forever a disenchanted item falls through to the rules below.
+  assertEqual(L().PickReason("ITEM", "OUT", ctx({ loot = { source = "DISENCHANT", expires = 101 } })),
+    T.forever and "OTHER" or "DECONSTRUCT")
   assertEqual(L().PickReason("ITEM", "OUT", ctx({ craftUntil = 105 })), "CRAFT_REAGENT")
   assertEqual(L().PickReason("ITEM", "OUT", ctx({ consumable = true })), "CONSUME")
   assertEqual(L().PickReason("ITEM", "OUT", ctx({})), "OTHER")

@@ -392,7 +392,7 @@ test("Widgets: history Character options pin value, label and tint over every br
     "Alt-Realm|" .. WARRIOR_ICON .. "Alt-Realm|0.78,0.61,0.43",
     "Ka0z-Realm|" .. MAGE_ICON .. "Ka0z-Realm|0.25,0.78,0.92",
     "Nomad-Other|Nomad-Other|-",
-    W .. "|Warband|-",
+    W .. "|" .. NS.Constants.ACCOUNT.holder .. "|-",
   }, "\n"))
 end)
 
@@ -414,7 +414,7 @@ test("Widgets: holders Character options pin value, label and tint over every br
     "Bare-Realm|Bare-Realm|-",
     "Ka0z-Realm|" .. MAGE_ICON .. "Ka0z-Realm|0.25,0.78,0.92",
     "Nometa-Realm|Nometa-Realm|-",
-    W .. "|Warband|-",
+    W .. "|" .. NS.Constants.ACCOUNT.holder .. "|-",
   }, "\n"))
 end)
 

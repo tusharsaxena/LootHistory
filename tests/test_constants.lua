@@ -18,12 +18,89 @@ test("Constants: every SourceType value equals its key (the stable stored form)"
   for k, v in pairs(C.SourceType) do assertEqual(v, k, "SourceType." .. k) end
 end)
 
-test("Constants: every SourceType member appears in the display order", function()
+-- A source this client lacks (C.SOURCE_CLIENTS, clients-§4) is ABSENT: still a SourceType member
+-- with its label (the export contract), never in the order, the implemented list or the reasons.
+test("Constants: every SourceType member this client serves appears in the display order", function()
   local inOrder = {}
   for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
   for k in pairs(C.SourceType) do
-    assertTrue(inOrder[k], k .. " is missing from SourceOrder")
+    if C.SOURCE_ABSENT[k] then
+      assertFalse(inOrder[k], k .. " is absent on this client yet in SourceOrder")
+    else
+      assertTrue(inOrder[k], k .. " is missing from SourceOrder")
+    end
   end
+end)
+
+test("Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever", function()
+  -- red under: a WoW Forever build that still declares the warband bank, or still offers its reasons.
+  assertEqual(C.FEATURE.warbandBank, not T.forever)
+  local inOrder = {}
+  for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
+  for _, s in ipairs({ "WARBAND_DEPOSIT", "WARBAND_WITHDRAW" }) do
+    assertEqual(C.SOURCE_ABSENT[s] == true, T.forever, s .. " absent")
+    assertEqual(inOrder[s] == true, not T.forever, s .. " in SourceOrder")
+    assertEqual(C.SOURCE_IMPLEMENTED[s] == true, not T.forever, s .. " implemented")
+    assertEqual(C.LEDGER_REASON[s] == true, not T.forever, s .. " a ledger reason")
+    assertEqual(C.SourceType[s], s, s .. " stays a SourceType member (the export contract)")
+    assertTrue(type(C.SourceLabel[s]) == "string", s .. " keeps its label")
+  end
+  local absent = 0
+  for _ in pairs(C.SOURCE_ABSENT) do absent = absent + 1 end
+  if not T.forever then assertEqual(absent, 0, "Retail lacks no source") end
+end)
+
+-- Ruling R2: the keystone (MPLUS) and the content WoW Forever does not have -- bonus rolls, Milling,
+-- Prospecting and the DECONSTRUCT reason -- are Retail's. Disenchant serves both.
+local R2_SOURCES = { "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING", "DECONSTRUCT" }
+
+test("Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)", function()
+  -- red under: a WoW Forever build that still declares the keystone, or still offers one of these
+  -- in a filter, the mute list or the reasons; or a Retail build that lost one.
+  assertEqual(C.FEATURE.mythicPlus, not T.forever)
+  local inOrder, offered = {}, {}
+  for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
+  for _, o in ipairs(C.SOURCE_OPTIONS) do offered[o.value] = true end
+  for _, s in ipairs(R2_SOURCES) do
+    assertEqual(C.SOURCE_ABSENT[s] == true, T.forever, s .. " absent")
+    assertEqual(inOrder[s] == true, not T.forever, s .. " in SourceOrder")
+    assertEqual(C.SOURCE_IMPLEMENTED[s] == true, not T.forever, s .. " implemented")
+    assertEqual(C.SourceType[s], s, s .. " stays a SourceType member (the export contract)")
+    assertTrue(type(C.SourceLabel[s]) == "string", s .. " keeps its label")
+  end
+  assertEqual(C.LEDGER_REASON.DECONSTRUCT == true, not T.forever, "DECONSTRUCT a ledger reason")
+  for _, s in ipairs({ "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }) do
+    assertEqual(offered[s] == true, not T.forever, s .. " offered as a capture mute")
+  end
+  assertTrue(inOrder.DISENCHANT and offered.DISENCHANT, "Disenchant serves both clients")
+end)
+
+test("Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever", function()
+  if T.forever then
+    assertEqual(C.ACCOUNT.holder, "Account")
+    assertEqual(C.ACCOUNT.bound, "Account Bound")
+    assertEqual(C.ACCOUNT.boundUE, "Account Bound Until Equipped")
+    assertEqual(C.ACCOUNT.boundUEShort, "Account Bound (UE)")
+  else
+    assertEqual(C.ACCOUNT.holder, "Warband")
+    assertEqual(C.ACCOUNT.bound, "Warbound")
+    assertEqual(C.ACCOUNT.boundUE, "Warbound Until Equipped")
+    assertEqual(C.ACCOUNT.boundUEShort, "Warbound (UE)")
+  end
+  assertEqual(C.WARBAND_HOLDER, "§warband", "the stored holder key is the same on both")
+end)
+
+test("Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail", function()
+  -- red under: a WoW Forever build whose History CSV links its items to Retail's Wowhead pages.
+  assertEqual(C.WOWHEAD_ITEM_BASES.retail, "https://www.wowhead.com/item=")
+  assertEqual(C.WOWHEAD_ITEM_BASES.forever, "https://www.wowhead.com/forever/item=")
+  assertEqual(C.WOWHEAD_ITEM_BASE, C.WOWHEAD_ITEM_BASES[T.forever and "forever" or "retail"])
+end)
+
+test("Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever", function()
+  assertEqual(C.CHARACTER_FORMS.retail, "Name-Realm")
+  assertEqual(C.CHARACTER_FORMS.forever, "name and surname")
+  assertEqual(C.CHARACTER_FORM, C.CHARACTER_FORMS[T.forever and "forever" or "retail"])
 end)
 
 test("Constants: the display order lists no source twice and invents none", function()
@@ -33,7 +110,7 @@ test("Constants: the display order lists no source twice and invents none", func
     assertTrue(C.SourceType[s] ~= nil, s .. " is not a SourceType member")
     seen[s] = true
   end
-  assertEqual(#C.SourceOrder, count(C.SourceType))
+  assertEqual(#C.SourceOrder, count(C.SourceType) - count(C.SOURCE_ABSENT))
 end)
 
 test("Constants: every SourceType member has a non-empty display label", function()
@@ -59,7 +136,7 @@ end)
 
 test("Constants: every source has a live capture path (SOURCE_IMPLEMENTED is total)", function()
   for k in pairs(C.SourceType) do
-    assertTrue(C.SOURCE_IMPLEMENTED[k], k .. " is not marked implemented")
+    if not C.SOURCE_ABSENT[k] then assertTrue(C.SOURCE_IMPLEMENTED[k], k .. " is not marked implemented") end
   end
 end)
 
@@ -339,21 +416,28 @@ local LEDGER_KEYS = { "SELL", "BUY", "REPAIR", "MAIL_SEND", "TRADE_GIVE", "AH_PO
   -- Phase 7 (2026-10-06): a move between two holders is a loss + gain under the action's reason.
   "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER" }
 
+-- The ledger keys this client serves, in their order (C.SOURCE_ABSENT left out).
+local function served(list)
+  local out = {}
+  for _, k in ipairs(list) do if not C.SOURCE_ABSENT[k] then out[#out + 1] = k end end
+  return out
+end
+
 test("Constants: ledger reasons are appended SourceType members with labels", function()
   for _, k in ipairs(LEDGER_KEYS) do
     assertEqual(C.SourceType[k], k)
-    assertTrue(C.LEDGER_REASON[k], k .. " missing from LEDGER_REASON")
+    assertEqual(C.LEDGER_REASON[k] == true, not C.SOURCE_ABSENT[k], k .. " in LEDGER_REASON")
     assertTrue(type(C.SourceLabel[k]) == "string" and C.SourceLabel[k] ~= "", k .. " has no label")
   end
   local n = 0; for _ in pairs(C.LEDGER_REASON) do n = n + 1 end
-  assertEqual(n, #LEDGER_KEYS)
+  assertEqual(n, #served(LEDGER_KEYS))
 end)
 
 test("Constants: existing sources keep their order positions (append-only)", function()
-  local legacy = { "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST", "TRADE", "MAIL", "AH",
-    "VENDOR", "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER" }
+  local legacy = served({ "KILL", "CONTAINER", "MPLUS", "BONUS_ROLL", "ROLL", "QUEST", "TRADE", "MAIL", "AH",
+    "VENDOR", "DISENCHANT", "MILLING", "PROSPECTING", "CRAFT", "REFUND", "OTHER" })
   for i, s in ipairs(legacy) do assertEqual(C.SourceOrder[i], s) end
-  for i, s in ipairs(LEDGER_KEYS) do assertEqual(C.SourceOrder[#legacy + i], s) end
+  for i, s in ipairs(served(LEDGER_KEYS)) do assertEqual(C.SourceOrder[#legacy + i], s) end
 end)
 
 test("Constants: no ledger reason is offered as a capture mute", function()

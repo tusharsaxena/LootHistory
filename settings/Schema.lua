@@ -342,7 +342,8 @@ local ROWS = {
 
   { path = "settings.trackLedger", default = PD.settings.trackLedger, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", subgroup = "Ledger", label = "Track holdings and losses",
-    tooltip = "Keep a ledger of what every character and your warband holds, and every gain, loss " ..
+    tooltip = "Keep a ledger of what every character and your " .. C.ACCOUNT.holder:lower() ..
+      " holds, and every gain, loss " ..
       "and transfer. Off = record loot gains only, as before.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ledger") end
@@ -440,7 +441,8 @@ local ROWS = {
   -- 020, LOO-L02); it was on History, which is otherwise about how long data is kept.
   { path = "settings.showTransfers", default = PD.settings.showTransfers, type = "bool", widget = "CheckBox",
     page = "General", group = "Interface", subgroup = "History window", label = "Show transfers by default",
-    tooltip = "Include transfers (bank deposits, warband moves, mail to your alts) in History's " ..
+    tooltip = "Include transfers (bank deposits, " .. (C.FEATURE.warbandBank and "warband moves, " or "") ..
+      "mail to your alts) in History's " ..
       "default Direction filter. Applies the next time the default view is loaded (Clear or reopen).",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
@@ -1211,9 +1213,9 @@ NS.COMMANDS = gateFeatureVerbs{
   -- (NS.OnProfileEvent, core/LootHistory.lua). Live while disabled, per LIVE_WHILE_DISABLED above.
   { "profile",  NS.L["List profiles, or switch to one: profile <name>"],
     function(rest) NS.Slash:CliProfile(rest) end },
-  { "holdings", "Search what your characters and warband hold: holdings <query>",
+  { "holdings", "Search what your characters and " .. C.ACCOUNT.holder:lower() .. " hold: holdings <query>",
     function(rest) NS.Slash:Holdings(rest) end },
-  { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events",
+  { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events; 'probe' records client facts",
     function(rest)
       -- `/lh debug diagnostics` is tested FIRST (debug-logging-§14): the same report as the
       -- `diagnostics` row below, through the same call, so the two forms cannot diverge. It is
@@ -1224,8 +1226,13 @@ NS.COMMANDS = gateFeatureVerbs{
       -- `/lh debug events` prints the event names this client refused (events-frames-taint-§1):
       -- the list core/CoreSetup.lua owns, "none" on a healthy client. It needs no console, and the
       -- report carries the same list, so a bug report does not need it run separately.
+      -- `/lh debug probe start|stop|status|clear` is the WoW Forever port's probe (ruling R4,
+      -- modules/Probe.lua): it records client facts into db.global.probe until stopped.
       local arg = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
       if arg == "diagnostics" then return NS.DebugLog:RunDiagnostics() end
+      if arg == "probe" then
+        return NS.Probe.OnVerb(tostring(rest):match("^%s*%S+%s*(%S*)"))
+      end
       if arg == "events" then
         local names = NS.RejectedEvents or {}
         return NS.Format("rejected events: %s", #names > 0 and table.concat(names, ", ") or "none")

@@ -12,14 +12,20 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 
 local Sim, Host, R, A = NS.Sim, NS.SimHost, NS.Reconciler, NS.Attribution
 local World = Host.World
+-- The kit profile this run is: the fixture is that client's own (LH-05, clients-§5).
+local CLIENT = T.forever and "forever" or "retail"
+-- The slot the fixture's epic is worn in: Retail's trinket at 13, WoW Forever's belt at 6.
+local EPIC_SLOT = ({ retail = 13, forever = 6 })[CLIENT]
+-- The session's alt, the shared sample set's second character, in this client's identity shape.
+local ALT = NS.SampleCharacters()[2].fullName
 
--- req-lh-sim §2.2's provider table, in its order.
+-- req-lh-sim §2.2's provider table, in its order, plus the bank readiness guard's view check (R8).
 local REQ_KEYS = {
   "GetContainerNumSlots", "GetContainerSlot", "GetInventoryItem", "GetMoney", "GetWarbandMoney",
   "ListCurrencies", "ScanInbox", "GetMailHeader", "ReadSendMail", "ScanOwnedAuctions", "ItemLocationID",
   "ContainerItemHasLoot", "IsSpellTargeting", "CurrentQuestID", "GetActiveKeystoneLevel", "InPartyInstance",
   "InCombatLockdown", "TradeTargetKey", "LatestCurrencyTransfer", "NumLootItems", "LootSourceGUID", "Zone",
-  "PlayerMapID",
+  "PlayerMapID", "CanViewCharacterBank", "NumPurchasedCharacterBankTabs",
 }
 
 -- A stable text for any value, tables walked with sorted keys.
@@ -59,7 +65,8 @@ test("SimWorld: the fixture world is deterministic for a seed", function()
   assertEqual(a.seed, 42)
   local bag0 = NS.Constants.BAG_IDS[1]
   assertTrue(next(a.bags[bag0]) ~= nil, "the bags are stocked from the fixture")
-  assertTrue(a.equipped[13] ~= nil and a.equipped[13].itemID == World.ITEMS.trinket.id, "the fixture's worn trinket")
+  assertTrue(a.equipped[EPIC_SLOT] ~= nil and a.equipped[EPIC_SLOT].itemID == World.ITEMS.trinket.id,
+    "the fixture's worn epic")
   assertTrue(#a.currencies == 2, "the fixture's currencies")
 end)
 
@@ -86,26 +93,44 @@ test("SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads", f
   assertEqual(table.concat(NS.Item.BonusIDsFromLink(link), ","), table.concat(spec.bonus, ","))
   assertEqual(NS.Item.ItemIDFromLink(link), spec.id)
   assertEqual(#NS.Item.BonusIDsFromLink(World.Link(World.ITEMS.herb)), 0, "no bonus ids, none read")
-  assertTrue(link:find("^|cffa335ee|Hitem:273796::::::::90::::4:") ~= nil, "the itemString shape: " .. link)
+  local shape = ({ retail = "^|cffa335ee|Hitem:273796::::::::90::::4:", forever = "^|cffa335ee|Hitem:19149::::::::60::::1:3524|h" })[CLIENT]
+  assertTrue(link:find(shape) ~= nil, "the itemString shape: " .. link)
 end)
 
--- The add-on targets Midnight (the TOC's ## Interface 120xxx), so the fixture's ids are Midnight's:
--- an id from an older expansion still answers the live reads, but prices and names from the wrong
--- expansion make a simulated history no player of this client would see (LH-11 review).
-test("SimWorld: the fixture is Midnight's: items, currencies and the situation", function()
-  local ids = {}
-  for key, s in pairs(World.ITEMS) do ids[key] = s.id end
-  assertEqual(ids.herb, 236761, "Tranquility Bloom")
-  assertEqual(ids.ore, 237359, "Refulgent Copper Ore")
-  assertEqual(ids.trinket, 273796, "Vile Vial of Volatile Venom")
-  assertEqual(ids.cache, 279287, "Corroded Pouch")
+-- The fixture is the running client's own: Midnight's ids on Retail (the TOC's ## Interface
+-- 120xxx), 1.x's on WoW Forever. An id from another expansion may still answer the live reads, but
+-- prices and names from the wrong one make a simulated history no player of this client would see
+-- (LH-11 review; LH-05 for Forever, whose ids are the owner's own captures there).
+local FIXTURE_WANT = {
+  retail = { herb = 236761, ore = 237359, trinket = 273796, cache = 279287,
+    currencies = { { 3444, false }, { 3316, true } }, zone = "Silvermoon City", mapID = 2393,
+    junk = 4865, dust = 219946, potion = 211880, npc = 219000 },
+  forever = { herb = 2449, ore = 2770, trinket = 19149, cache = 248683,
+    currencies = { { 1792, false }, { 3402, false } }, zone = "Stormwind City", mapID = 1453,
+    junk = 4865, dust = 10940, potion = 13446, npc = 38 },
+}
+
+test("SimWorld: the fixture is the client's own: items, currencies, the situation and the kill", function()
+  local want = FIXTURE_WANT[CLIENT]
+  -- red under: Midnight's fixture on WoW Forever.
+  for _, key in ipairs({ "herb", "ore", "trinket", "cache" }) do
+    assertEqual(World.ITEMS[key].id, want[key], CLIENT .. " " .. key)
+    assertEqual(World.ITEMS[key].level, CLIENT == "forever" and 60 or 90, key .. ": the player's level")
+  end
+  for _, key in ipairs({ "junk", "dust", "potion" }) do
+    assertEqual(Host.SCENARIO_ITEMS[key].id, want[key], CLIENT .. " scenario " .. key)
+  end
   local F = World.FIXTURE
-  assertEqual(F.currencies[1][1], 3444, "Champion Mistcrest, per character")
-  assertFalse(F.currencies[1][4])
-  assertEqual(F.currencies[2][1], 3316, "Voidlight Marl, warband-wide")
-  assertTrue(F.currencies[2][4])
-  assertEqual(F.instance.zone, "Silvermoon City")
-  assertEqual(F.instance.mapID, 2393)
+  assertEqual(#F.currencies, #want.currencies, "the fixture's currencies")
+  for i, c in ipairs(want.currencies) do
+    assertEqual(F.currencies[i][1], c[1], "currency " .. i)
+    assertEqual(F.currencies[i][4], c[2], "currency " .. i .. ": account-wide")
+  end
+  assertEqual(F.instance.zone, want.zone)
+  assertEqual(F.instance.mapID, want.mapID)
+  assertEqual(World.KILL_NPC.id, want.npc, "the creature the loot scenario kills")
+  assertEqual(Host.SCENARIOS.defs.loot.steps[1].label:find(World.KILL_NPC.name, 1, true) ~= nil, true,
+    "the kill step names it")
 end)
 
 test("SimWorld: the uncached fixture link falls back to the link's own name and color", function()
@@ -175,15 +200,16 @@ local function shapeWorld(w)
   w.equipped[13] = { itemID = 219915, link = "L2" }
   w.money, w.warbandMoney = 12345, 67890
   w.currencies = { { id = 3008, quantity = 5, accountWide = false } }
-  w.inbox = { { sender = "Sampleblade-Samplerealm", subject = "Hi", money = 0, items = { { itemID = 210930, link = "L3", count = 2 } } } }
+  w.inbox = { { sender = ALT, subject = "Hi", money = 0, items = { { itemID = 210930, link = "L3", count = 2 } } } }
   w.sendMail = { items = { [210796] = 4 }, money = 99 }
   w.owned = { { itemID = 210930, link = "L3", quantity = 3, status = "active" },
               { itemID = 210796, link = "L1", quantity = 1, status = "sold" } }
   w.targeting, w.combat, w.quest = true, true, { id = 4242 }
   w.instance = { party = true, keystone = 12, zone = "Z", subzone = "S", mapID = 77 }
-  w.trade = { target = "Sampleblade-Samplerealm" }
-  w.transfer = { currencyID = 3008, quantity = 1, toKey = "Sampleblade-Samplerealm" }
+  w.trade = { target = ALT }
+  w.transfer = { currencyID = 3008, quantity = 1, toKey = ALT }
   w.loot = { guid = "Creature-0-3767-2552-11111-1234-0000ABCDEF", n = 2 }
+  w.canViewBank = false                                   -- the live mock answers true
 end
 
 local WORLD_ANSWERS = {
@@ -193,16 +219,17 @@ local WORLD_ANSWERS = {
   GetMoney = "{1=12345,n=1}", GetWarbandMoney = "{1=67890,n=1}",
   ListCurrencies = "{1={1={accountWide=false,id=3008,quantity=5}},n=1}",
   ScanInbox = '{1={210930=2},2={210930="L3"},n=2}',
-  GetMailHeader = '{1="Sampleblade-Samplerealm",2="Hi",n=2}',
+  GetMailHeader = '{1="' .. ALT .. '",2="Hi",n=2}',
   ReadSendMail = "{1={210796=4},2=99,n=2}",
   ScanOwnedAuctions = '{1={210930=3},2={210930="L3"},n=2}',
   ItemLocationID = "{1=210796,n=1}", ContainerItemHasLoot = "{1=true,n=1}",
   IsSpellTargeting = "{1=true,n=1}", CurrentQuestID = "{1=4242,n=1}",
   GetActiveKeystoneLevel = "{1=12,n=1}", InPartyInstance = "{1=true,n=1}", InCombatLockdown = "{1=true,n=1}",
-  TradeTargetKey = '{1="Sampleblade-Samplerealm",n=1}',
-  LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="Sampleblade-Samplerealm"},n=1}',
+  TradeTargetKey = '{1="' .. ALT .. '",n=1}',
+  LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="' .. ALT .. '"},n=1}',
   NumLootItems = "{1=2,n=1}", LootSourceGUID = '{1="Creature-0-3767-2552-11111-1234-0000ABCDEF",n=1}',
-  Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}",
+  Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}", CanViewCharacterBank = "{1=false,n=1}",
+  NumPurchasedCharacterBankTabs = "{n=1}",
 }
 
 local function answers()

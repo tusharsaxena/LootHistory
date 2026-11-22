@@ -14,6 +14,10 @@ roll / quest / trade / mail / AH / vendor / deconstruct / craft / refund / other
 account-wide, and presents it in a standalone browser window with a filter/sort/group table plus
 an Insights analytics view.
 
+It ships on Retail and WoW Forever from one codebase; what one client lacks (the warband bank,
+Mythic+, and the sources WoW Forever has no content for) is absent there, never hidden, and the
+features each client has in a shape of its own are in [§ Per-client features](#per-client-features-clients-4).
+
 The addon splits into two internal halves:
 
 - **Collector** (capture) — `CHAT_MSG_LOOT` is the authoritative "item received (self)"
@@ -54,6 +58,52 @@ load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; c
 
 The per-file role table, the directory tree, each load-bearing position with the field it binds,
 and the AceAddon lifecycle hooks are in [module-map.md](module-map.md).
+
+### Per-client features (clients-§4)
+
+Ka0s Loot History serves Retail and WoW Forever from one codebase (the roster's `Retail · Forever`,
+`## Interface: 120105, 16001`, no load-gating line). The table names each feature that serves one
+client, or that both clients have in a shape of their own; every feature it does not name serves
+both. The Client column takes the standard's tokens alone: `retail`, `forever` or `both`. A feature
+both clients have in their own shape is two rows, one `retail` and one `forever`, its two lists
+picked once by `NS.Compat.ClientKey()` (clients-§5), never a filtered Retail list. A `both` row is a
+change the WoW Forever port made on both clients (ruling R8, or a fix the Forever client forced),
+listed so the port's surface is in one place. `C.FEATURE_CLIENTS` (`core/Constants.lua`) declares the
+Retail-only features, `C.FEATURE` holds each one's `Compat.ForClient` answer, read once, and
+`C.SOURCE_CLIENTS` declares the Retail-only sources; an event row is declared with `clients = { ... }`
+on the row itself. The client is asked only in `core/CompatClient.lua` (clients-§3), and
+`tests/test_compat_routing.lua` fails any other file that reads a `WOW_PROJECT_*` constant. The
+rulings (R1 to R8) and the lead's calls (D6, D15) are Ka0sAddonsCommonTasks
+`docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/00_DESIGN.md`; what the Forever client does that
+these rows work around is [forever-quirks.md](forever-quirks.md), and the probes that check their safe
+defaults are [forever-probes.md](forever-probes.md). `tests/test_client_shape.lua` checks this table
+names every declared feature and source, and each one's own suite checks it present where declared and
+absent elsewhere, on each kit profile (clients-§6).
+
+| Feature | Client | Gated in |
+|---|---|---|
+| The warband bank (`warbandBank`, R1): the Reconciler's `tabs` and `warbandMoney` parts and their two event rows (`ACCOUNT_MONEY`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`), the `AccountBanker` arming in `R.READABLE_ON`, the tab ids (`C.WARBAND_TAB_IDS`), the char <-> warband pairing and its two sources `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW`, the Holdings tab's Warband split, the words "warband moves" in Track transfers' tooltip, test mode's tabs and warband gold, and the simulator's warband tabs, gold and bank steps | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`, `C.WARBAND_TAB_IDS`), `modules/Reconciler.lua` (the parts, the event rows' `clients`, `R.READABLE_ON`), `modules/Holdings.lua` (`gateOf`), `modules/HoldingsTab.lua` (`ORDER`), `settings/Schema.lua`, `modules/TestData.lua`, `modules/SimWorld.lua`, `modules/SimScenario.lua` |
+| Mythic+ (`mythicPlus`, R2): the `MPLUS` source, the keystone context and its four event rows (`CHALLENGE_MODE_START`, `CHALLENGE_MODE_COMPLETED`, `CHALLENGE_MODE_RESET` and `ZONE_CHANGED_NEW_AREA`, which serves only the keystone), the Insights keystone breakdown (`Database:Stats`' `byKeystone`), the diagnostics `attribution: keystone` line and the simulator's `key` scenario | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`), `modules/Attribution.lua` (the rows, `ResolveLootSource`), `core/Database.lua`, `modules/Diagnostics.lua`, `modules/SimScenario.lua` |
+| The sources WoW Forever has no content for (R2): `BONUS_ROLL`, `MILLING`, `PROSPECTING` and the `DECONSTRUCT` reason, absent from `C.SourceOrder`, `C.SOURCE_IMPLEMENTED`, `C.LEDGER_REASON` and `C.SOURCE_OPTIONS` (so from the Source filter, the capture mute list and test mode's sample); on WoW Forever the bonus-roll line carries no source tag and a disenchanted item's loss skips `DECONSTRUCT`. `C.SourceType` and `C.SourceLabel` stay whole on both, because they are the export contract | `retail` | `core/Constants.lua` (`C.SOURCE_CLIENTS`, `C.SOURCE_ABSENT`), `core/Util.lua` (the bonus-roll line), `core/Ledger.lua` (the `DECONSTRUCT` rule), `modules/BrowserTableTestData.lua` (the source weights) |
+| The deconstruct seeds: Retail's Disenchant, Milling and Prospecting spell ids and name families, and the simulator's casts | `retail` | `modules/Attribution.lua` (`DECONSTRUCT_IDS`, `NAME_SEEDS_BY_CLIENT`), `modules/SimDrivers.lua` (`D.SPELLS`) |
+| The deconstruct seeds: Disenchant (`13262`) alone; Milling and Prospecting empty by decision (D15) | `forever` | `modules/Attribution.lua`, `modules/SimDrivers.lua` |
+| The account's words: the holder reads "Warband" and the bound states "Warbound" / "Warbound Until Equipped" | `retail` | `core/Constants.lua` (`C.ACCOUNT`), `modules/LedgerFormat.lua`, `modules/BrowserTable.lua`, `modules/BrowserTableTestData.lua`, `modules/BrowserWidgets.lua`, `modules/HoldingsTab.lua`, `modules/Export.lua`, `modules/AnalyticsFormat.lua`, `core/Database.lua`, `settings/Schema.lua`, `settings/Slash.lua` |
+| The account's words: "Account" and "Account Bound" / "Account Bound Until Equipped" (R2; the stored `§warband` holder and the `WARBAND` / `WARBAND_UE` states are the same keys on both) | `forever` | the same reads of `C.ACCOUNT` |
+| Character keys: `Name-Realm` (`Util.PlayerKey`, `Util.QualifyName`, `Compat.TradeTargetKey`, `Compat.LatestCurrencyTransfer`), and the Character column's tooltip says "full Name-Realm" | `retail` | `core/CompatClient.lua` (`RegionalNames`, `UnitCharacterName`, `CharacterKey`), `core/Util.lua`, `core/Compat.lua`, `core/Constants.lua` (`C.CHARACTER_FORM`), `modules/BrowserTable.lua` |
+| Character keys: the whole two-word name, first name and surname, with no realm (D6, forever-quirks-§4); the tooltip says "full name and surname" | `forever` | the same files |
+| The container groups: the bags are `Backpack` and the five bag slots (`C.BAG_IDS` 0..5) | `retail` | `core/Constants.lua` (`C.CONTAINER_GROUPS_BY_CLIENT`, `C.CONTAINER_GROUPS`) |
+| The container groups: the bags also hold the Keyring (`-1`, R5); a bag socketed into the bank (`-2`) is ignored for now (R6) | `forever` | `core/Constants.lua` (`C.CONTAINER_GROUPS_BY_CLIENT`) |
+| The Wowhead item base: `https://www.wowhead.com/item=` | `retail` | `core/Constants.lua` (`C.WOWHEAD_ITEM_BASE`), `modules/Export.lua` (`WowheadLink`) |
+| The Wowhead item base: `https://www.wowhead.com/forever/item=` (R7) | `forever` | the same |
+| The default skin: Ka0s Default (`NS.DEFAULT_SKIN = Skin:DefaultSkin()`, skinning-§2) | `retail` | `core/SkinSetup.lua`, `defaults/Profile.lua` (`appearance.skin`) |
+| The default skin: WoW Forever (the same read) | `forever` | `core/SkinSetup.lua`, `defaults/Profile.lua` |
+| Test mode's and the simulator's seeds: the shared sample characters, Retail's classes, zones, items, currencies and sim fixtures | `retail` | `core/SimSeam.lua` (`NS.SampleCharacters`, `NS.SAMPLE_FALLBACKS`), `modules/BrowserTableTestData.lua`, `modules/TestData.lua`, `modules/SimWorld.lua` (`ITEM_SETS`, `FIXTURES`), `modules/SimScenario.lua` (`SCENARIO_ITEMS`) |
+| Test mode's and the simulator's seeds: the "First Surname" sample characters, the nine classes, the Stormwind-area zones, 1.x items, Honor Points and Merchant's Favor, the Defias Thug kill in Stormwind City | `forever` | the same files |
+| The `CharacterBanker` interaction (`67`) arms the character bank and the bank scope (R8) | `both` | `modules/Reconciler.lua` (`R.READABLE_ON`), `modules/AttributionOut.lua` (`SCOPE_OF`) |
+| The bank readiness guard (R8): no character-bank read while `C_Bank.CanViewBank(Enum.BankType.Character)` is false, or while a bank container that had slots on the last ready read answers 0 (on a first visit, while fewer containers answer slots than the purchased tab count) within `R.READY_WAIT` (5 s); `BAG_CONTAINER_UPDATE` and `BANK_TABS_CHANGED` cue the re-read, and the slot counts are kept in `meta.bankSlots` | `both` | `modules/Reconciler.lua` (`R:BankState`, the cue rows), `core/Compat.lua` (`CanViewCharacterBank`, `NumPurchasedCharacterBankTabs`), `modules/Holdings.lua` (`NoteBankSlots`) |
+| Money text: `C_CurrencyInfo.GetCoinTextureString`, then `GetMoneyString`, then `Ng Ns Nc` text (R8; WoW Forever has no bare `GetCoinTextureString`) | `both` | `core/Util.lua` (`FormatMoney`) |
+| The roll-won line: the parser takes the global's `%s` capture, so WoW Forever's `\|HlootHistory:%d\|h` prefix is skipped; the simulator fills each `%d` and `%s` in the global's order | `both` | `core/Util.lua` (`ParseRollWon`), `modules/SimDrivers.lua` (`D.RollWonText`) |
+| The probe verbs, `/lh debug probe start\|stop\|status\|clear` (R4): session-only facts into the capped `db.global.probe`, stamped with the client and build | `both` | `modules/Probe.lua`, `settings/Schema.lua` (the `debug` row), `core/CompatClient.lua` (`ClientBuild`) |
 
 ---
 
@@ -156,7 +206,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `resetall` | Reset all settings to defaults: `options-ui-§12`'s global reset, the **profile reset** (`db:ResetProfile()`). The same act as the General page's **Defaults** button and the Master controls tab's **Reset all settings** (which confirms first): the active profile's settings, id lists, AH cascade, saved view and window geometry come back as shipped, and test mode ends. The loot history is account-wide and untouched (`/lh purge` clears it), and so is the minimap button (launcher-§3). Scope matrix in [`schema.md`](schema.md#reset-semantics) |
 | `profile` / `profile <name>` | Bare: list the profiles, the current one marked. With a name: switch to that existing profile (exact case; surrounding quotes stripped, spaces kept). An unknown name is refused with the list and never created; a switch in combat is refused. The behavior is `LibKa0s-Slash-1.0`'s `CliProfile` (Slash minor 17) over `NS.db`, and it answers while the addon is disabled. See [profiles.md](profiles.md) |
 | `holdings <query>` | Write the ten largest account-wide holdings whose name contains the query (gold as money, others as counts), from `db.global.holdings`, to the debug console as a **report** (`debug-logging-§15`, LibKa0s#79): through `NS.DebugLog:Report`, whatever the logging flag reads, revealing a hidden console, with one chat pointer line. No match answers `no holdings match '<query>'.` in chat and writes nothing. A feature verb: refused with the one disabled line while the addon is off. Reads only; never scans |
-| `debug` / `debug on` / `debug off` / `debug diagnostics` / `debug events` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `diagnostics` is tested first and runs the same report as the `diagnostics` verb. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console |
+| `debug` / `debug on` / `debug off` / `debug diagnostics` / `debug events` / `debug probe start\|stop\|status\|clear` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `diagnostics` is tested first and runs the same report as the `diagnostics` verb. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console. `probe`: the WoW Forever port's probe verbs (ruling R4, `modules/Probe.lua`), recording client facts into the capped `db.global.probe` until stopped, its lines in chat and nothing in the console; a bare `probe` is `status`. See [forever-probes.md](forever-probes.md) |
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. The run turns session logging on first when it is off (standard v2.71.0), and the console's **Diagnostics** link runs the same call. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
 | `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the five in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
 | `test` | Toggle a synthetic preview dataset for the table, Insights, Holdings and the Timeline (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it). Its people are sample characters: the collection's five (`NS.SampleCharacters`, LibKa0s-Sim-1.0's `Sample`) and a pool of the same convention for the other classes ([browser.md](browser.md#test-mode-lh-test--synthetic-preview)) |
@@ -193,8 +243,8 @@ below that is not the lifecycle's own `PLAYER_ENTERING_WORLD` or the window's `P
 is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `hooksecurefunc`
 row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The four capture modules append
 their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (nine
-`bus` rows, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
-hooks), Collector (three `bus` rows), Reconciler (fourteen `ledger` rows). Each module's Enable and
+`bus` rows, five on WoW Forever, which has no keystone, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
+hooks), Collector (three `bus` rows), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever). Each module's Enable and
 Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
 hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
 per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
@@ -210,7 +260,7 @@ two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua`
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
-The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (fourteen names; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
+The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (sixteen names, fourteen on WoW Forever; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
 | Event / hook | Handler | Module |
 |---|---|---|
@@ -219,12 +269,12 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `CHAT_MSG_CURRENCY` | `OnChatMsgCurrency` (currency capture: `recordCurrency` → per-source mute → currency blacklist, writing a `Type=Currency` row) | `modules/Collector.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
-| `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`) | `modules/Attribution.lua` |
-| `ZONE_CHANGED_NEW_AREA` | `OnZoneChanged` — clears the keystone context on leaving the party instance (`Compat.InPartyInstance`), re-arms it on re-entry to an active key | `modules/Attribution.lua` |
-| `CHALLENGE_MODE_RESET` | `OnChallengeModeReset` — clears the keystone context | `modules/Attribution.lua` |
+| `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`); Retail only (`C.FEATURE.mythicPlus`, ruling R2) | `modules/Attribution.lua` |
+| `ZONE_CHANGED_NEW_AREA` | `OnZoneChanged` — clears the keystone context on leaving the party instance (`Compat.InPartyInstance`), re-arms it on re-entry to an active key; Retail only, since it serves only the keystone | `modules/Attribution.lua` |
+| `CHALLENGE_MODE_RESET` | `OnChallengeModeReset` — clears the keystone context; Retail only | `modules/Attribution.lua` |
 | `TRADE_ACCEPT_UPDATE` | trade context (on mutual accept) | `modules/Attribution.lua` |
 | `QUEST_TURNED_IN` | `OnQuestTurnedIn` (questID detail; the reward stamp itself comes from the `GetQuestReward` hook below) | `modules/Attribution.lua` |
-| `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → DISENCHANT/MILLING/PROSPECTING by spell id first, then a locale-independent localized name-family fallback | `modules/Attribution.lua` |
+| `UNIT_SPELLCAST_SUCCEEDED` (player-only) | `OnSpellSucceeded` → DISENCHANT/MILLING/PROSPECTING by spell id first, then a locale-independent localized name-family fallback (the seed lists are per client: Disenchant alone on WoW Forever) | `modules/Attribution.lua` |
 | `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` | `ApplyVisibility` — the two combat edges the `settings.visibility` dropdown is about; only ever **hides** a window the setting has stopped allowing, never opens one. `PLAYER_REGEN_DISABLED` also ends a running test mode (`BrowserTable:EndTestModeForCombat`: one chat line, the **Test mode** box unticks, the window is not opened) | `modules/Browser.lua` |
 | `hooksecurefunc("BuyMerchantItem")` | `StampVendor` (vendor context) | `modules/Attribution.lua` |
 | `hooksecurefunc("TakeInboxItem")` / `("AutoLootMailItem")` | `StampMail` → MAIL, or AH for Auction-House mail | `modules/Attribution.lua` |
@@ -250,7 +300,8 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `CURRENCY_DISPLAY_UPDATE` | `OnCurrencyUpdate` folds the event's own change into a per-id accumulator (marks `currencyDelta`); a nil id marks `currency` for a full list rescan; arms the fuse | `modules/Reconciler.lua` |
 | `CURRENCY_TRANSFER_LOG_UPDATE` | flags an account currency transfer so the next flush pairs it as a MOVE to the own alt; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | marks `bank` / `tabs`; arms the fuse | `modules/Reconciler.lua` |
-| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | `OnInteraction`, table-driven by `R.READABLE_ON`: a Banker or AccountBanker makes the bank readable (marks bank, tabs and warband gold), the mailbox makes `mail` readable, the auction house arms `auctionHouse`; a final `Flush` on hide, then unreadable | `modules/Reconciler.lua` |
+| `BAG_CONTAINER_UPDATE` / `BANK_TABS_CHANGED` | the bank's re-read cues (both clients, ruling R8): at an open bank, marks `bank` (and on Retail `tabs`); arms the fuse | `modules/Reconciler.lua` |
+| `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` / `_HIDE` | `OnInteraction`, table-driven by `R.READABLE_ON`: a Banker or CharacterBanker (both clients, ruling R8), or on Retail an AccountBanker, makes the bank readable (marks bank, and on Retail tabs and warband gold), the mailbox makes `mail` readable, the auction house arms `auctionHouse`; a final `Flush` on hide, then unreadable | `modules/Reconciler.lua` |
 | `MAIL_INBOX_UPDATE` | marks `mail` while the mailbox is open; arms the fuse (the column is read by `modules/Escrow.lua`'s scan step) | `modules/Reconciler.lua` |
 | `OWNED_AUCTIONS_UPDATED` | while the auction house is open, makes the owned-auctions list readable and marks `auctions`; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYER_REGEN_ENABLED` | runs a login reconcile deferred by combat, else replays a deferred flush | `modules/Reconciler.lua` |
@@ -572,8 +623,8 @@ and registered below.
 | Doc | Status | Trigger |
 |---|---|---|
 | `slash-dispatch.md` | Present | The verbs in `NS.COMMANDS` |
-| `midnight-quirks.md` | Present | Always: carries the vendored client-quirks catalog (client-quirks-§1), then the addon's own bind-state and currency-API behavior it works around |
-| `forever-quirks.md` | Not applicable | Clients is `Retail (port pending)`; the Forever catalog is carried only where Clients includes Forever (documentation-§3, forever-quirks-§1) |
+| `midnight-quirks.md` | Present | Clients includes Retail (client-quirks-§1): carries the vendored client-quirks catalog, then the addon's own Retail bind-state and currency-API behavior it works around |
+| `forever-quirks.md` | Present | Clients includes Forever (`Retail · Forever`, forever-quirks-§1): the vendored Forever catalog block, then the addon's own Forever workarounds (the bank model, the keyring, the socketed bank bag, the roll-won prefix, money text, two-word names) |
 | `compat-layer.md` | Present | The shims `grep -cE '^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\.' core/Compat.lua` counts, addon-specific shimming beyond LibKa0s |
 | `message-bus.md` | Present | Shipped below the >10-message threshold, deliberately: the one-sender/one-target contract is what a receiver has to get right, and CallbackHandler's silent clobber is not something a three-row table in `ARCHITECTURE.md` can explain |
 | `profiles.md` | Present | Every setting but the retention is per profile and a Profiles page ships (`settings/Profiles.lua`); the page says what a profile holds, what stays account-wide (the history and its retention, D6), the adopt path and the v9 and v10 moves |
@@ -598,6 +649,7 @@ and registered below.
 | `browser.md` | The standalone History window: table, filter bar, menus, and the Insights tab |
 | `combat-path-sweep.md` | The whole-repo event/timer inventory with per-fire work (kept as the event census; it no longer backs an exemption) |
 | `disabled-state.md` | What *off* means here: the lifecycle latch and its holds, what stands down, what survives as setup, and the conformance suite |
+| `forever-probes.md` | The WoW Forever port's probe sheet (ruling R4): what `/lh debug probe` records, the `/run` fallback per probe, and the safe default each one checks |
 
 ## Documented deviations
 
@@ -680,6 +732,11 @@ and is 988 lines (`FU-LH-BROWSER`). On 2026-10-31 `modules/BrowserTable.lua` she
 
 ## Known limitations
 
+- **WoW Forever is built from its interface files, not yet measured in game.** Every Forever row in
+  [§ Per-client features](#per-client-features-clients-4) and [forever-quirks.md](forever-quirks.md) rests on the 1.60.1
+  interface files and other addons' Forever code. Each has a safe default and a probe
+  (`/lh debug probe`, [forever-probes.md](forever-probes.md)); an answer that contradicts its default
+  becomes a follow-up item (ruling R3), and in-client smoke on both clients is the owner's.
 - **Full source coverage.** Every `SourceType` member has a live capture path. Deconstruct abilities
   stamp their own `DISENCHANT`/`MILLING`/`PROSPECTING` source (player `UNIT_SPELLCAST_SUCCEEDED` by
   spell id); `AH` is stamped from Auction-House mail; `BONUS_ROLL`/`CRAFT`/`REFUND` are attributed

@@ -8,10 +8,15 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (37)
+### test_constants.lua (42)
 
 - Constants: every SourceType value equals its key (the stable stored form)
-- Constants: every SourceType member appears in the display order
+- Constants: every SourceType member this client serves appears in the display order
+- Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
+- Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)
+- Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
+- Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail
+- Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever
 - Constants: the display order lists no source twice and invents none
 - Constants: every SourceType member has a non-empty display label
 - Constants: SourceLabel carries no label for a non-source key
@@ -93,7 +98,7 @@ Total.
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 - ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
-### test_util.lua (47)
+### test_util.lua (58)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -103,13 +108,18 @@ Total.
 - NS.Print is reclaimed from AceConsole's :Print mixin (architecture-§2)
 - Constants: source enum + order
 - Util: RangeFrom maps range keys to a lower-bound timestamp
-- Util: PlayerKey is Name-Realm
+- Util: PlayerKey is the profile's character key (Mock-Realm on Retail, Mock Mockley on Forever)
+- Util: PlayerKey is First Surname on regional names, with no realm
+- Util: PlayerKey stays Name-Realm without regional names, spaces stripped from the realm
+- Util: QualifyName adds the realm and strips spaces without regional names
+- Util: QualifyName keeps a typed two-word name whole and adds no realm on regional names
+- Util: QualifyName on the active profile matches the profile's own key
 - Util: SplitPath splits dotted paths
 - Util: ParseSelfLoot single self-loot → link, qty 1
 - Util: ParseSelfLoot multiple self-loot → link, qty N
 - Util: ParseSelfLoot pushed variant → link, qty
 - Util: ParseSelfLoot ignores another player's loot
-- Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL
+- Util: ParseSelfLoot tags a bonus-roll self-loot line as BONUS_ROLL (Retail), untagged on Forever
 - Util: ParseSelfLoot tags a created (crafted) self-loot line as CRAFT
 - Util: ParseSelfLoot tags a refund self-loot line as REFUND
 - Util: ParseSelfLoot leaves the source tag nil for normal loot
@@ -123,10 +133,16 @@ Total.
 - Util: a rewritten LOOT_ITEM_SELF is honored on the next parse without a reload
 - Util: a rewritten CURRENCY_GAINED_MULTIPLE is honored
 - Util: LOOT_ROLL_YOU_WON appearing after a nil first parse is honored
+- Util: the mock's LOOT_ROLL_YOU_WON is the running client's own string
+- Util: ParseRollWon answers the link, not the loot-history id, on a %d-led global
+- Util: ParseRollWon answers nil when the global carries no %s at all
 - Util: an unchanged global set does not rebuild
 - Util: FormatClock is HH:MM
 - Util: FormatDate is DD-MMM-YYYY
 - Util: FormatMoney shows non-zero parts
+- Util: FormatMoney prefers C_CurrencyInfo.GetCoinTextureString and passes the glyph height
+- Util: FormatMoney falls back to GetMoneyString when C_CurrencyInfo has no coin string
+- Util: FormatMoney never reads the bare GetCoinTextureString global
 - Util: FormatBytes scales B / kB / MB
 - Database: InitDB creates the account-wide store and the Default profile
 - Schema: Set writes through the single seam
@@ -190,9 +206,9 @@ Total.
 - LedgerFormat: quantity text is signed; transfers unsigned; gold as money
 - LedgerFormat: gold quantity is pale gold; others take the direction color
 - LedgerFormat: signed count and money; zero is a gray dash
-- LedgerFormat: the warband holder reads as Warband
+- LedgerFormat: the warband holder reads as Warband (Account on WoW Forever, R2)
 
-### test_compat.lua (74)
+### test_compat.lua (79)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -201,7 +217,7 @@ Total.
 - Compat: DecodeGUID nil-safe
 - Compat: GetActiveKeystoneLevel nil when API absent (headless)
 - Compat: API-absent guards degrade to nil/false with no flavor flag
-- Compat: no game-flavor flags exposed (Retail-only addon)
+- Compat: the client flags are LibKa0s-Compat-1.0's, and no Classic flag exists
 - Compat: IsAuctionHouseMail matches AH sender + won-subject
 - Compat: an item NAME containing 'Warbound' is not a bind line
 - Compat: ScanBound separates warbound from warbound-until-equipped
@@ -242,6 +258,7 @@ Total.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 - Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
+- Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring
 - Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
 - Compat: container slot read and empty slot
 - Compat: GetMoney nets cursor and trade money
@@ -254,8 +271,12 @@ Total.
 - Compat: send-mail read returns attachments and money
 - Compat: owned auctions count only active ones
 - Compat: AuctionMailKind parses the localized subjects
-- Compat: TradeTargetKey appends the player's realm when missing
+- Compat: TradeTargetKey appends the player's realm when missing, without regional names
+- Compat: TradeTargetKey is First Surname on regional names, never the surname as a realm
+- Compat: TradeTargetKey on the active profile keys a partner like the profile's holders
 - Compat: LatestCurrencyTransfer appends the realm only when the client knows it
+- Compat: LatestCurrencyTransfer adds no realm and keeps a two-word name on regional names
+- Compat: LatestCurrencyTransfer on the active profile keys the destination like the profile's holders
 - Compat: HookSecure is presence-gated
 - Compat: ShowLinesTooltip draws a gold title and one colored double line per row
 - Compat: ShowTintedTooltip draws each line in its own color; false without lines or GameTooltip
@@ -269,10 +290,24 @@ Total.
 - Compat: PlayerInCombat asks UnitAffectingCombat about the player; false when absent
 - Compat: HookUseContainerItem and HookGetQuestReward install through HookSecure*
 
-### test_compat_routing.lua (2)
+### test_compat_routing.lua (4)
 
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
+- Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
+- Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
+
+### test_compat_client.lua (9)
+
+- CompatClient: the client questions answer the active profile, as the library does
+- CompatClient: ForClient reads a declaration for this client; nil and both mean both
+- CompatClient: a degraded install answers the same client through its own stubs
+- CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where it is absent
+- CompatClient: UnitCharacterName answers the profile's own player
+- CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
+- CompatClient: the degraded UnitCharacterName joins a surname, and never reads it as a realm
+- CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
+- CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
 ### test_tooltip_place.lua (9)
 
@@ -307,7 +342,7 @@ Total.
 - Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
 - Holdings: with NS.SimStores.holdings set, Store and every write act on the session table
 
-### test_rollup.lua (24)
+### test_rollup.lua (25)
 
 - Rollup: a holdings change writes that day's close for the thing that moved
 - Rollup: an unchanged thing writes no cell
@@ -317,6 +352,7 @@ Total.
 - Rollup: an amend tallies only its delta, on the day it happens
 - Rollup: the gate container's first scan after genesis ends the partial window
 - Rollup: the warband's gate is its tabs
+- Rollup: the account holder is partial until its tabs on Retail, never partial on WoW Forever
 - Rollup: wired through the write hook - Database:Add reaches the tally
 - Rollup: Keys indexes every thing in the rollup and learns new ones
 - Rollup: escrow and currency credits write closes too (Phase 2's direct holdings writes)
@@ -334,7 +370,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (40)
+### test_attribution.lua (42)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -346,13 +382,15 @@ Total.
 - Attribution: KILL loot inside the post-kill grace window carries the encounter
 - Attribution: KILL loot after the grace window has expired carries no encounter
 - Attribution: ENCOUNTER_END keeps the context with an expiry on a kill, clears it on a wipe
-- Attribution: ResolveLootSource GameObject in keystone → MPLUS + level
+- Attribution: ResolveLootSource GameObject in keystone → MPLUS + level (Retail), CONTAINER on Forever
 - Attribution: ResolveLootSource GameObject otherwise → CONTAINER
 - Attribution: ResolveLootSource Item GUID → CONTAINER
 - Attribution: opening a lootable bag item stamps CONTAINER
 - Attribution: using a non-lootable bag item does not stamp
 - Attribution: applying a pending spell to a bag item does not stamp CONTAINER
-- Attribution: deconstruct spells map to their own source
+- Attribution: deconstruct spells map to their own source (Milling and Prospecting Retail-only)
+- Attribution: the deconstruct seed lists are the client's (Forever: Disenchant 13262 only)
+- Attribution: on every client a non-deconstruct cast is conclusive once the seeds resolve
 - Attribution: DeconstructSource resolves enumerated ids locale-independently
 - Attribution: DeconstructSource matches un-enumerated variants by localized name family
 - Attribution: a no-break space in a localized spell name does not break the family match
@@ -369,7 +407,7 @@ Total.
 - Attribution: CHALLENGE_MODE_RESET clears the keystone
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
-- Attribution: Enable registers nine bus events, the player-only cast frame and five hooks
+- Attribution: Enable registers the client's bus events (nine on Retail, five on Forever), the player-only cast frame and five hooks
 - Attribution: read-side hooks are installed through Compat.HookSecure once
 - Attribution: a retired ENCOUNTER_START costs only itself (front gate)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
@@ -377,10 +415,11 @@ Total.
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 - Attribution: ResetContexts clears every context field and leaves registrations
 
-### test_attribution_out.lua (13)
+### test_attribution_out.lua (14)
 
 - AttributionOut: StampOut writes the outbound slot with TTL and filters
 - AttributionOut: interaction show/hide toggles scopes
+- AttributionOut: a CharacterBanker interaction opens the bank scope on both clients (R8)
 - AttributionOut: ReasonContext exposes both slots and the scopes, resetting per-call fields
 - AttributionOut: SendMail to an own alt resolves the holder and stages attachments
 - AttributionOut: SendMail to a stranger leaves `to` nil
@@ -445,7 +484,7 @@ Total.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (49)
+### test_collector.lua (50)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -466,6 +505,7 @@ Total.
 - Collector: whitelist records below threshold as a plain point-in-time row
 - Collector: end-to-end writes an attributed record
 - Collector: end-to-end attributes a bonus-roll line to BONUS_ROLL, overriding context
+- Collector: a bonus-roll line is BONUS_ROLL on Retail, the context's source on WoW Forever
 - Collector: end-to-end attributes a created line to CRAFT, overriding context
 - Collector: end-to-end attributes a refund line to REFUND
 - Collector: a roll-won line writes no record but stamps ROLL for the receive line
@@ -497,20 +537,26 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (10)
+### test_reconciler.lua (16)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
 - Reconciler: bank is unreadable until the banker interaction shows
+- Reconciler: a CharacterBanker interaction makes the bank readable on both clients (R8)
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
+- Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
+- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)
+- Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
+- Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)
+- Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)
 - Reconciler: account-wide currency lands on the warband holder
 - Reconciler: trackLedger off unregisters, on registers again
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
 
-### test_reconciler_rows.lua (33)
+### test_reconciler_rows.lua (41)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -520,6 +566,7 @@ Total.
 - Reconciler: combat potion burst lands as one CONSUME row and coalesces
 - Reconciler: rows after the 60 s window append
 - Reconciler: a warband deposit is an OUT on the character and an IN on the warband
+- Reconciler: a bank visit reads the warband tab and gold on Retail only
 - Reconciler: a warband withdraw of gold and an item is one OUT and one IN each, no MOVE
 - Reconciler: coalescing amends each half of a holder move separately
 - Reconciler: a posted claim absorbs the gain and stamps the chat row
@@ -541,6 +588,13 @@ Total.
 - Reconciler: changes made while stood down land as UNTRACKED on resume
 - Reconciler: a hidden currency's delta writes nothing, and the next login rescan writes nothing
 - Reconciler: bank drift since the last visit is UNTRACKED on the first read of the next
+- Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)
+- Reconciler: visit 2 with a partly loaded bank waits for the bank, then writes no drift (R8)
+- Reconciler: a bank container still at 0 slots after the readiness wait is read as gone (R8)
+- Reconciler: a withdraw made while the bank loads is one MOVE, not an UNTRACKED OUT and an IN (R8)
+- Reconciler: a first bank visit waits for every purchased tab before its genesis read (R8)
+- Reconciler: a banker that cannot show the character bank never reads it (R8, CanViewBank)
+- Reconciler: a Retail warband-only banker reads the warband tabs but not the character bank (R8)
 - Reconciler: a currency delta pending when the banker opens survives the drift pass
 - Reconciler: a bank never read before is a silent first read that ends partial
 - Reconciler: warband tab and gold drift lands UNTRACKED on the warband, never paired
@@ -674,7 +728,7 @@ Total.
 - Stats: respects the filter
 - Stats: empty dataset yields zeroed totals
 - Stats: vendor value (vendorPrice × quantity) totals + by source/zone
-- Stats: byType / byBound / byChar / byConfidence / byKeystone
+- Stats: byType / byBound / byChar / byConfidence / byKeystone (Retail; absent on Forever)
 - Stats: hour/weekday buckets sum to record count (TZ-independent)
 - Stats: highlights + topItemsByValue
 - Analytics.SummaryLine formats range and count
@@ -822,7 +876,7 @@ Total.
 - footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
 - footer: the resize grip sits in the footer's corner, and the right line clears it
 
-### test_browsertable.lua (86)
+### test_browsertable.lua (88)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -868,6 +922,8 @@ Total.
 - BrowserTable: ClassIconMarkup is empty for an unknown class
 - BrowserTable: every column is fully described and uniquely keyed
 - BrowserTable: Character is the last column and Item is the flexing one
+- BrowserTable: the Bound column tooltip reads the client's account words
+- BrowserTable: the Character column names the client's key form and draws a two-word name whole
 - BrowserTable: every column except the flexing one reserves a width
 - BrowserTable: the synthetic dataset is byte-identical between builds
 - BrowserTable: every synthetic record carries the fields the table and charts read
@@ -911,8 +967,9 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (37)
+### test_export.lua (38)
 
+- Export: WowheadLink builds on the running client's Wowhead base (R7)
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
@@ -1220,7 +1277,7 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (49)
+### test_analytics.lua (51)
 
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
@@ -1271,6 +1328,8 @@ Total.
 - Insights ledger: HasLedger is false for gains-only ranges
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
+- Insights: a two-word character key stays whole in every by-character label
+- Insights: a long two-word name is cut on its bar and named whole by the bar's hover
 
 ### test_analytics_layout.lua (12)
 
@@ -1324,7 +1383,7 @@ Total.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (34)
+### test_timeline.lua (35)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1355,6 +1414,7 @@ Total.
 - Timeline model: FlowLines answers nil for a day with no flow
 - Timeline model: FormatCount groups thousands, FormatHolding reads gold as coins
 - Timeline model: LegendTip colors the title by holder kind and reads the current holding
+- Timeline model: a two-word holder's line and legend tooltip carry the whole name
 - Timeline model: LegendTip's Total sums only the charted holders and says so
 - Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0
 - Timeline model: LegendTip reads the test-mode store when it is on
@@ -1417,7 +1477,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (16)
+### test_testdata.lua (21)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1425,15 +1485,20 @@ Total.
 - Test mode: ledger writes go to the real stores, never the sample
 - TestData: the History sample writes holder moves as a loss and a gain
 - TestData: the sample rollup books a holder move's loss and gain on each holder
-- TestData: the default Timeline thing is Everlight Crystal, nil without a sample
+- TestData: the default Timeline thing is the client's default item, nil without a sample
 - Test mode: the Timeline opens on the default sample item with lines drawn, saved view untouched
 - Test mode: a pick made in test mode survives refreshes and never reaches the saved view
 - Test mode: a pick of a thing the sample lacks falls back to the default
 - TestData: the seeded sample stores are byte-identical to the pinned build
-- TestData: with no Everlight Crystal the default thing is the item on most days, ties to the lowest key
+- TestData: with no default item the default thing is the item on most days, ties to the lowest key
 - Test mode: every History sample character is a sample identity, the shared five by class
 - Test mode: every Holdings sample holder is a sample identity
-- the library-absent copy of the sample five is LibKa0s-Sim-1.0's SAMPLE.retail
+- the library-absent copies of the sample five are LibKa0s-Sim-1.0's SAMPLE, per client
+- the sample five are the client's identity shape: Name-Realm on Retail, First Surname on Forever
+- Test mode: the History sample's classes are the client's own, one sample character each
+- Test mode: the History sample's zones are the client's own, with their uiMapIDs
+- Test mode: the History sample's items are the client's own names and item levels
+- Test mode: the sample currencies are the client's own
 - Sim: the stranger the social scenario trades with is a shared sample character
 
 ### test_views.lua (17)
@@ -1549,11 +1614,13 @@ Total.
 - Keybindings tab: the General page's Defaults tooltip ends with O.KEYBINDS_UNCHANGED
 - Panel: the General Defaults tooltip is the library's Reset all settings tooltip (item 020)
 
-### test_skinsetup.lua (13)
+### test_skinsetup.lua (15)
 
 - Skin seam: the owner is the folder name, and NS.Skin is its facade
-- Skin seam: the read answers Ka0s Default before the profile store exists
-- Skin seam: the appearance keys default to Ka0s Default, as two Appearance rows
+- Skin seam: the read answers the client's default skin before the profile store exists
+- Skin seam: NS.DEFAULT_SKIN is the client's default skin, Skin:DefaultSkin()
+- Skin seam: a new profile wears the client's default skin
+- Skin seam: the appearance keys default to the client's skin, as two Appearance rows
 - Skin seam: the skin row's values are every registered skin, in the library's order
 - Skin seam: /lh set refuses a skin that is not registered and applies one that is
 - Skin seam: Appearance sits after History and before Keybindings
@@ -1749,7 +1816,7 @@ Total.
 - Migrate v11->v12: a false set after the step stays false; a re-run changes nothing
 - Defaults: Show transfers is on for a new profile
 
-### test_harness.lua (7)
+### test_harness.lua (11)
 
 - Harness: the runner fed the loader exactly the TOC's files, in the TOC's order
 - Harness: every path the runner derived from the TOC exists on disk
@@ -1758,6 +1825,10 @@ Total.
 - Harness: the runner's suite list has no duplicates
 - Harness: the runner's lifecycle kick is exactly what addon:OnInitialize calls, in order
 - Harness: NS.bus is the NewAddon object and carries the message half and the listed mixins
+- Harness: the mock's client is the kit profile, and T.forever and T.bagIndex read it
+- Harness: Enum.BagIndex is the active client's own, the Keyring and type constants included
+- Harness: the banker interaction types and bank types carry each dump's numbers
+- Harness: the character, regional names and the account bank follow the client
 
 ### test_libka0s.lua (53)
 
@@ -1877,7 +1948,7 @@ Total.
 - perf: suspend and resume log to the console whatever the debug flag says
 - perf: /lh perf dispatches to the harness
 
-### test_diagnostics.lua (23)
+### test_diagnostics.lua (24)
 
 - diagnostics: the report is bracketed by this addon's brand, and no section fails
 - diagnostics: every DX-LH section writes its own lead line, in the report's order
@@ -1893,6 +1964,7 @@ Total.
 - diagnostics: a raising section costs exactly one line and the sections after it still land
 - diagnostics: an over-cap report ends with the truncated line, then the end marker
 - diagnostics: a secret value in the stored loot context does not raise the report
+- diagnostics: the attribution keystone line is printed on Retail, absent on WoW Forever
 - diagnostics: the stored context's detail prints its fields, not a table address
 - diagnostics: the COMMANDS row sits directly after debug
 - diagnostics: `/lh debug diagnostics` runs before `/lh debug events` could claim the word
@@ -1902,6 +1974,26 @@ Total.
 - diagnostics: the sim section while idle, with no stop on record
 - diagnostics: the sim section while a session runs, with its stores and the last stop
 - diagnostics: the live sim section names the real seam's wrapped count and guarded keys
+
+### test_probe.lua (17)
+
+- probe: bare and status print the status line; an unknown word prints the usage
+- probe: /lh debug probe start records under db.global.probe, stamped with the client
+- probe: start registers every probe event on its own frame and stop unregisters them
+- probe: a second start and a stop while stopped are refused with a reason
+- probe: clear drops every entry; while running the record is stamped again and goes on
+- probe: the record is capped at P.CAP, the oldest non-start entries dropped and counted
+- probe: nothing is recorded while stopped, or while a simulation runs
+- probe: the start entry carries this client's name forms, money text and strings
+- probe: the keyring's slots, contents and inventory slot are read (P3)
+- probe: a banker visit records the bank at open, +1 s and +3 s, and its cues
+- probe: a non-banker interaction is recorded and takes no bank snapshot
+- probe: a loot, money or currency chat line is kept raw with its sender fields and GUID
+- probe: a secret or long string never reaches the record as is
+- probe: a trade records the partner's name forms and the key the addon builds (P7)
+- probe: the newest currency transfer is recorded field by field (P5)
+- probe: the mail hook records the recipient as typed and as the addon keys it (P7)
+- probe: a handler that raises is recorded as an error entry, never thrown
 
 ### test_debug_coverage.lua (22)
 
@@ -1986,7 +2078,7 @@ Total.
 - SimWorld: the fixture world is deterministic for a seed
 - SimWorld: a world never mirrors the player's real bags
 - SimWorld: a fixture link carries bonus ids Item.BonusIDsFromLink reads
-- SimWorld: the fixture is Midnight's: items, currencies and the situation
+- SimWorld: the fixture is the client's own: items, currencies, the situation and the kill
 - SimWorld: the uncached fixture link falls back to the link's own name and color
 - SimWorld: the mutation helpers move stacks, money, mail and auctions
 - SimWorld: every provider answers from the world while active and live when idle
@@ -2018,7 +2110,7 @@ Total.
 - SimScenario: bank by run writes exactly its rows, no duplicates, holdings as the world
 - SimScenario: social by step writes exactly its rows, no duplicates, holdings as the world
 - SimScenario: social by run writes exactly its rows, no duplicates, holdings as the world
-- SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps
+- SimScenario: the client's scenarios (six on Retail, no key on Forever), in order, each a pure timeline of labeled, tipped steps
 - SimScenario: key: the potion drunk in combat waits for the regen edge, and the gate stays open
 - SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes
 - SimScenario: the gate is closed by a pending flush, a settle hold and an out-of-combat deferral
@@ -2098,6 +2190,18 @@ Total.
 - README.md carries no numbered list (CurseForge does not render one)
 - every deviation id the register cites is assigned by a bundle in docs/audits/
 - docs/smoke-tests.md carries a non-English-client section
+
+### test_client_shape.lua (9)
+
+- Client shape: the TOC carries the Retail and WoW Forever numbers and no load-gating line
+- Client shape: the Forever number arms the kit's missing-globals scan for both clients
+- Client shape: the README opens on the dual-client WoW badge and the supported-clients sentence
+- Client shape: the CLAUDE.md gate and DEPENDENCIES.md name both suite runs
+- Client shape: docs/forever-quirks.md carries the vendored Forever catalog, then its own section
+- Client shape: the ARCHITECTURE per-client table names every declared feature and source
+- Client shape: each declared feature's answer is the running client's
+- Client shape: a Retail-only feature's event rows exist on Retail and are absent on WoW Forever
+- Client shape: docs/smoke-tests.md names each check's client and carries the WoW Forever theme
 
 ### test_lintconfig.lua (4)
 
@@ -2355,27 +2459,28 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 37 |
+| test_constants.lua | 42 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
-| test_util.lua | 47 |
+| test_util.lua | 58 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 74 |
-| test_compat_routing.lua | 2 |
+| test_compat.lua | 79 |
+| test_compat_routing.lua | 4 |
+| test_compat_client.lua | 9 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
-| test_rollup.lua | 24 |
-| test_attribution.lua | 40 |
-| test_attribution_out.lua | 13 |
+| test_rollup.lua | 25 |
+| test_attribution.lua | 42 |
+| test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 49 |
-| test_reconciler.lua | 10 |
-| test_reconciler_rows.lua | 33 |
+| test_collector.lua | 50 |
+| test_reconciler.lua | 16 |
+| test_reconciler_rows.lua | 41 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2383,8 +2488,8 @@ Total.
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
-| test_browsertable.lua | 86 |
-| test_export.lua | 37 |
+| test_browsertable.lua | 88 |
+| test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
@@ -2397,19 +2502,19 @@ Total.
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 49 |
+| test_analytics.lua | 51 |
 | test_analytics_layout.lua | 12 |
 | test_holdingstab.lua | 34 |
-| test_timeline.lua | 34 |
+| test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 16 |
+| test_testdata.lua | 21 |
 | test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
-| test_skinsetup.lua | 13 |
+| test_skinsetup.lua | 15 |
 | test_skin_overrides.lua | 10 |
 | test_skin_outline.lua | 10 |
 | test_skin_picker.lua | 37 |
@@ -2421,12 +2526,13 @@ Total.
 | test_skin_tools.lua | 7 |
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
-| test_harness.lua | 7 |
+| test_harness.lua | 11 |
 | test_libka0s.lua | 53 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
-| test_diagnostics.lua | 23 |
+| test_diagnostics.lua | 24 |
+| test_probe.lua | 17 |
 | test_debug_coverage.lua | 22 |
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
@@ -2439,6 +2545,7 @@ Total.
 | test_sim_slash.lua | 10 |
 | test_sim_checkbox.lua | 10 |
 | test_doc_structure.lua | 8 |
+| test_client_shape.lua | 9 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
@@ -2452,4 +2559,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2054** |
+| **Total** | **2149** |

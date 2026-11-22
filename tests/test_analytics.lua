@@ -427,6 +427,34 @@ test("Insights ledger: every ledger reason has its own chart color", function()
 end)
 
 test("Insights ledger: the by-character chart names a holder, the Warband as Warband", function()
-  assertEqual(AL().HolderShort(NS.Constants.WARBAND_HOLDER), "Warband")
+  assertEqual(AL().HolderShort(NS.Constants.WARBAND_HOLDER), NS.Constants.ACCOUNT.holder)
   assertEqual(AL().HolderShort("Ka0z-Realm"), "Ka0z")
+end)
+
+-- ── Two-word names (the WoW Forever port, D12) ─────────────────────────────────
+--
+-- A WoW Forever key is "First Surname" with no realm (core/Util.lua PlayerKey), so the narrow
+-- per-character bars keep it whole: the realm cut finds no hyphen, and a first name alone would
+-- merge two characters who share one. A name longer than the bar's label cap is cut there, and the
+-- bar's hover names it whole. Run on both profiles: the Retail shapes stay as they were.
+local TWO_WORD = "Sampleblade Mockvalesworth"   -- 26 glyphs: past the bars' 16-glyph label cap
+
+test("Insights: a two-word character key stays whole in every by-character label", function()
+  assertEqual(A._shortChar(TWO_WORD), TWO_WORD)
+  assertEqual(AL().HolderShort(TWO_WORD), TWO_WORD)
+  local rows = A._buildCharStackRows({ [TWO_WORD] = { KILL = 2 } }, { [TWO_WORD] = { classFile = "ROGUE" } },
+    ORDER, color, fmt)
+  assertEqual(rows[1].label, TWO_WORD)
+  assertEqual(A._shortChar("Samplehunter-Samplerealm"), "Samplehunter", "a Retail key still drops its realm")
+end)
+
+test("Insights: a long two-word name is cut on its bar and named whole by the bar's hover", function()
+  local content = T.mocks.CreateFrame("Frame")
+  local ctx = A._newCharts({}, content)
+  local pool = NS.Pool.New()
+  ctx:renderBarSection(pool, ctx:sectionHeader(content, "Loot By Character"),
+    { { label = TWO_WORD, frac = 1, value = "2" } }, 0, 600, 8)
+  local bar = pool.active[1]
+  assertEqual(bar.label.__text, "Sampleblade M...", "cut to the 16-glyph cap, the ellipsis included")
+  assertEqual(bar._tip, TWO_WORD .. ":  2", "the hover names the character whole")
 end)

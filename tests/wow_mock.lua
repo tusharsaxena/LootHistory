@@ -10,13 +10,46 @@
 
 local base = dofile("tests/_kit/mock_base.lua")
 
+-- Enum.BagIndex for one client (the comment at its use below), built at file scope so the mock's
+-- body stays under the complexity cap.
+local function bagIndexFor(forever)
+  local bagIndex = {
+    Keyring = -1, Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
+    Characterbanktab = -2, Accountbanktab = -3,
+  }
+  local charTabs, accountTabs = forever and 9 or 6, forever and 9 or 5
+  for i = 1, charTabs do bagIndex["CharacterBankTab_" .. i] = 5 + i end
+  for i = 1, accountTabs do bagIndex["AccountBankTab_" .. i] = 5 + charTabs + i end
+  return bagIndex
+end
+
 return function()
   local M = base()
+
+  -- ── the client this mock set is shaped as (clients-§6) ──────────────────────
+  -- The kit profile (KA0S_KIT_CLIENT, retail by default; tests/_kit/mock_client.lua), read once
+  -- here because the kit stamps only the project constants, the build and a few absent globals,
+  -- and LootHistory reads none of them directly. What differs per client below follows the two
+  -- clients' own API dumps (Retail 12.1.5, WoW Forever 1.60.1): the container numbering, the
+  -- keyring, the character's surname, regional names and the account bank's viewability.
+  -- `M.__client` is "retail" or "forever"; tests/run.lua's per-profile helpers read it.
+  local CLIENT = dofile("tests/_kit/mock_client.lua").current()
+  local FOREVER = CLIENT == "forever"
+  M.__client = CLIENT
 
   -- ── identity the suites assert on ───────────────────────────────────────────
   -- The kit's defaults are "Testchar"/"Testrealm"; LootHistory's suites were written against
   -- Mock-Realm and a Mage, and the stored `char` column is part of the export contract.
-  M.UnitName = function() return "Mock" end
+  -- On Forever names are unique per region and UnitName's SECOND value is the surname, never the
+  -- realm (forever-quirks-§4), so the character is "Mock Mockley" there and RegionalUniqueNamesEnabled
+  -- answers true. Retail has no RegionalUniqueNamesEnabled at all (absent from its global list).
+  M.__surname = FOREVER and "Mockley" or nil
+  if FOREVER then
+    M.UnitName = function() return "Mock", M.__surname end
+    M.RegionalUniqueNamesEnabled = function() return true end
+  else
+    M.UnitName = function() return "Mock" end
+  end
   M.UnitClass = function() return "Mage", "MAGE", 8 end
   M.GetRealmName = function() return "Realm" end
   M.GetNormalizedRealmName = function() return "Realm" end
@@ -58,19 +91,17 @@ return function()
   }
 
   -- ── holdings reads (timeline ledger) ───────────────────────────────────────
-  -- Enum.BagIndex as 12.0.7 ships it, INCLUDING the two type constants (-2/-3) the name patterns
-  -- must not scoop up (BankLedger's double-count bug).
+  -- Enum.BagIndex as each client ships it (BagIndexConstantsDocumentation.lua), INCLUDING the two
+  -- type constants (-2/-3) the name patterns must not scoop up (BankLedger's double-count bug) and
+  -- the Keyring (-1), which both enums carry. Retail 12.1.5: six character bank tabs 6..11 and five
+  -- account tabs 12..16. WoW Forever 1.60.1: nine of each, 6..14 and 15..23, so a fixture names a
+  -- tab by member (Enum.BagIndex.AccountBankTab_1), never by number.
   M.Enum = M.Enum or {}
-  M.Enum.BagIndex = {
-    Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
-    CharacterBankTab_1 = 6, CharacterBankTab_2 = 7, CharacterBankTab_3 = 8,
-    CharacterBankTab_4 = 9, CharacterBankTab_5 = 10, CharacterBankTab_6 = 11,
-    AccountBankTab_1 = 12, AccountBankTab_2 = 13, AccountBankTab_3 = 14,
-    AccountBankTab_4 = 15, AccountBankTab_5 = 16,
-    Characterbanktab = -2, Accountbanktab = -3,
-  }
+  M.Enum.BagIndex = bagIndexFor(FOREVER)
   M.Enum.BankType = { Character = 0, Guild = 1, Account = 2 }
-  M.Enum.PlayerInteractionType = { Banker = 8, AccountBanker = 68, MailInfo = 17, Auctioneer = 21, Merchant = 5, GuildBanker = 10 }
+  -- The same numbers on both clients (PlayerInteractionType in each dump).
+  M.Enum.PlayerInteractionType = { Banker = 8, CharacterBanker = 67, AccountBanker = 68, MailInfo = 17,
+    Auctioneer = 21, Merchant = 5, GuildBanker = 10 }
   M.__bags, M.__bagSlots = {}, {}
   M.C_Container = M.C_Container or {}
   M.C_Container.GetContainerNumSlots = function(bag) return M.__bagSlots[bag] or 0 end
@@ -85,6 +116,11 @@ return function()
   M.GetCursorMoney = function() return M.__cursorMoney end
   M.GetPlayerTradeMoney = function() return M.__tradeMoney end
   M.C_Bank = { FetchDepositedMoney = function(t) if t == 2 then return M.__warbandMoney end end }
+  -- C_Bank.CanViewBank(bankType), keyed by Enum.BankType. The character bank is viewable on both;
+  -- the account bank is not on Forever, where an account may have no tab to view (the Camelot
+  -- BankFrame adds account pages only behind CanViewBank). A case flips an entry to test a guard.
+  M.__canViewBank = { [0] = true, [1] = true, [2] = not FOREVER }
+  M.C_Bank.CanViewBank = function(t) return M.__canViewBank[t] == true end
   M.INVSLOT_FIRST_EQUIPPED, M.INVSLOT_LAST_EQUIPPED = 1, 19
   M.__inventory = {}
   M.GetInventoryItemID = function(_, slot) return M.__inventory[slot] and M.__inventory[slot].itemID end
@@ -132,8 +168,10 @@ return function()
   M.LOOT_ITEM_CREATED_SELF_MULTIPLE = "You create: %sx%d."
   M.LOOT_ITEM_REFUND = "You are refunded: %s."
   M.LOOT_ITEM_REFUND_MULTIPLE = "You are refunded: %sx%d."
-  -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context.
-  M.LOOT_ROLL_YOU_WON = "You won: %s"
+  -- Roll-won line ("You won: <item>", no trailing period), used to stamp ROLL context. WoW Forever's
+  -- leads with a loot-history hyperlink whose %d comes BEFORE the item's %s (the kit's Forever
+  -- GlobalStrings, gs_forever.lua:13940; Retail's is gs_live.lua:13445).
+  M.LOOT_ROLL_YOU_WON = FOREVER and "|HlootHistory:%d|h[Loot]|h: You won: %s" or "You won: %s"
   -- Currency gain strings (CHAT_MSG_CURRENCY). Single has no qty; multiples carry xN, and the
   -- bonus/overflow variants append a parenthetical (the overflow one embeds a second %s = the
   -- currency name, which the parser ignores).
@@ -416,7 +454,7 @@ return function()
   M.Enum.AuctionStatus = { Active = 0, Sold = 1 }
   M.Enum.PlayerInteractionType = M.Enum.PlayerInteractionType or {}
   M.Enum.PlayerInteractionType.Trainer = 7
-  M.Enum.PlayerInteractionType.TaxiNode = 2
+  M.Enum.PlayerInteractionType.TaxiNode = 6
   M.__currencyAccountWide = {}
   local baseGetCurrencyInfo = M.C_CurrencyInfo.GetCurrencyInfo
   M.C_CurrencyInfo.GetCurrencyInfo = function(id)
@@ -463,10 +501,12 @@ return function()
   M.C_Item.GetItemID = function(loc) return loc and loc.__itemID end
   M.C_TradeSkillUI = { CraftRecipe = function() end, CraftSalvage = function() end, CraftEnchant = function() end }
 
-  M.__tradeTarget = nil
+  -- The open trade's partner: UnitName("NPC") answers the name and a second value, which is the
+  -- partner's realm on Retail (nil on the player's own) and the partner's SURNAME on WoW Forever.
+  M.__tradeTarget, M.__tradeTargetSecond = nil, nil
   local baseUnitName = M.UnitName
   M.UnitName = function(unit)
-    if unit == "NPC" then return M.__tradeTarget end
+    if unit == "NPC" then return M.__tradeTarget, M.__tradeTargetSecond end
     return baseUnitName(unit)
   end
 

@@ -86,6 +86,20 @@ local EXPECT = {
   },
 }
 
+-- WoW Forever has no warband bank (R1): its bank scenario is the character bank alone, so it writes
+-- the two MOVEs and no WARBAND_DEPOSIT / WITHDRAW row; and with no warband gold to draw, its seeded
+-- world's stacks come out of the stream differently, so the bags' stack sizes are its own. Named in
+-- Retail's ids, which forClient below maps, like every pin here.
+local ALT_MAIL_ORE = T.forever and 15 or 11
+if T.forever then
+  EXPECT.bank = {
+    "MOVE ITEM:219946 x8 TRANSFER @me me/bags>me/bank",
+    "MOVE ITEM:236761 x17 TRANSFER @me me/bags>me/bank",
+  }
+  local social = EXPECT.social
+  social[#social] = "OUT ITEM:237359 x" .. ALT_MAIL_ORE .. " ALT_MAIL @me me/bags>alt/mail"
+end
+
 -- What the Collector alone writes with the ledger off: no diff row, no gold, no move.
 local EXPECT_NO_LEDGER = {
   loot = {
@@ -105,9 +119,31 @@ local EXPECT_NO_LEDGER = {
   },
 }
 
+-- The pins above name Retail's fixture ids; every scenario plays the same steps on both clients, so
+-- on WoW Forever each id reads as that client's item or currency of the same fixture key (LH-05,
+-- modules/SimWorld.lua and modules/SimScenario.lua's per-client sets). The identity on Retail.
+local RETAIL_IDS = { herb = 236761, ore = 237359, trinket = 273796, cache = 279287, junk = 4865,
+  dust = 219946, potion = 211880 }
+local CLIENT_ID = {}
+for key, id in pairs(RETAIL_IDS) do CLIENT_ID[id] = (World.ITEMS[key] or Host.SCENARIO_ITEMS[key]).id end
+CLIENT_ID[3444], CLIENT_ID[3316] = World.FIXTURE.currencies[1][1], World.FIXTURE.currencies[2][1]
+
+-- A reason WoW Forever lacks reads as the one it records there instead: a disenchanted item's loss
+-- is DECONSTRUCT on Retail and falls through to OTHER on Forever (R2, core/Ledger.lua).
+local CLIENT_REASON = T.forever and { DECONSTRUCT = "OTHER" } or {}
+
+local function forClient(line)
+  line = line:gsub("(%u+):(%d+)", function(kind, id)
+    return kind .. ":" .. (CLIENT_ID[tonumber(id)] or id)
+  end)
+  return (line:gsub(" (%u[%u_]+) @", function(reason)
+    return " " .. (CLIENT_REASON[reason] or reason) .. " @"
+  end))
+end
+
 local function assertRows(rows, want, label)
   local exp = {}
-  for i, l in ipairs(want) do exp[i] = l end
+  for i, l in ipairs(want) do exp[i] = forClient(l) end
   table.sort(exp)
   assertEqual(table.concat(H.describeAll(rows), "\n"), table.concat(exp, "\n"), label .. ": the exact rows")
 end
@@ -180,6 +216,7 @@ local function assertBrowserShows(rows, label)
 end
 
 local function find(rows, line)
+  line = forClient(line)
   for _, r in ipairs(rows) do if H.describe(r) == line then return r end end
   error("no row " .. line, 2)
 end
@@ -193,7 +230,7 @@ local CHECKS = {
     for _, line in ipairs({ "IN ITEM:236761 x1 KILL @me", "IN ITEM:237359 x3 KILL @me", "IN GOLD x12345 KILL @me" }) do
       local r = find(rows, line)
       assertTrue(r.claimed, "loot: " .. line .. " is the chat row, claimed by its holdings delta")
-      assertEqual(r.sourceDetail and r.sourceDetail.npcID, 219000, "loot: " .. line .. " carries the npcID")
+      assertEqual(r.sourceDetail and r.sourceDetail.npcID, World.KILL_NPC.id, "loot: " .. line .. " carries the npcID")
     end
     assertEqual(find(rows, "IN ITEM:273796 x1 QUEST @me").sourceDetail.questID, 84000, "loot: the quest id")
   end,
@@ -214,13 +251,20 @@ local CHECKS = {
   bank = function()
     local we = NS.Holdings:Get(NS.Constants.WARBAND_HOLDER)
     assertTrue(we.meta.genesis ~= nil and we.meta.partial == false, "bank: the warband's genesis, complete once read")
+    if T.forever then
+      -- The account holder (account-wide currencies, R2) is there, but no banker reads a warband tab
+      -- or warband gold into it: the warband bank is Retail-only (R1).
+      assertEqual(we.scanned.tabs, nil, "bank: no warband tab read on WoW Forever")
+      assertEqual(we.scanned.money, nil, "bank: no warband gold read on WoW Forever")
+      assertEqual(next(we.items), nil, "bank: the account holder holds no item on WoW Forever")
+    end
     assertEqual(NS.Holdings:Get(NS.Util.PlayerKey()).meta.partial, false, "bank: the character is complete once read")
   end,
   social = function(rows)
     local alt = NS.Holdings:Get(Host.alt)
     local ore = World.ITEMS.ore.id
-    assertEqual(alt.items[ore] and alt.items[ore].mail, 11, "social: the alt's mail is credited the sent stack")
-    assertEqual(alt.escrow.mailAlt[ore], 11, "social: ...as alt mail")
+    assertEqual(alt.items[ore] and alt.items[ore].mail, ALT_MAIL_ORE, "social: the alt's mail is credited the sent stack")
+    assertEqual(alt.escrow.mailAlt[ore], ALT_MAIL_ORE, "social: ...as alt mail")
     assertEqual(alt.escrow.mailMoney, 50000, "social: and the sent gold")
     local out = find(rows, "OUT CURRENCY:3444 x20 CURRENCY_TRANSFER @me me/currency>alt/currency")
     local into = find(rows, "IN CURRENCY:3444 x20 CURRENCY_TRANSFER @alt me/currency>alt/currency")
@@ -242,16 +286,19 @@ local function playScenario(name, mode)
   end)
 end
 
+-- The `key` scenario is the keystone's (C.FEATURE.mythicPlus, R2): its cases are declared skips on
+-- WoW Forever, whose scenario list the case below pins without it.
 for _, name in ipairs({ "loot", "key", "vendor", "ah", "bank", "social" }) do
   for _, mode in ipairs({ "step", "run" }) do
     test(("SimScenario: %s by %s writes exactly its rows, no duplicates, holdings as the world"):format(name, mode),
-      function() playScenario(name, mode) end)
+      function() playScenario(name, mode) end, name == "key" and T.RETAIL_ONLY or nil)
   end
 end
 
-test("SimScenario: the six scenarios, in order, each a pure timeline of labeled, tipped steps", function()
+test("SimScenario: the client's scenarios (six on Retail, no key on Forever), in order, each a pure timeline of labeled, tipped steps", function()
   local sc = Host.SCENARIOS
-  assertEqual(table.concat(sc.names, ","), "loot,key,vendor,ah,bank,social")
+  assertEqual(table.concat(sc.names, ","), T.forever and "loot,vendor,ah,bank,social" or "loot,key,vendor,ah,bank,social")
+  assertEqual(sc.defs.key == nil, T.forever, "the key scenario is Retail's")
   for _, name in ipairs(sc.names) do
     local def = sc.defs[name]
     local a, b = def.timeline(def, { scenario = name, seed = 0 }), def.timeline(def, { scenario = name, seed = 1 })
@@ -277,7 +324,7 @@ test("SimScenario: key: the potion drunk in combat waits for the regen edge, and
     end,
   })
   assertEqual(deferredSeen, 2, "both pulls deferred their flush")
-end)
+end, T.RETAIL_ONLY)
 
 test("SimScenario: the gate: Step while it is closed prints settling and does not advance; Run polls and resumes",
 function()
@@ -339,7 +386,8 @@ function()
         assertFalse(Sim:IsActive())
       end)
     end
-    for _, name in ipairs({ "loot", "key" }) do
+    -- `key` is Retail's (R2).
+    for _, name in ipairs(T.forever and { "loot" } or { "loot", "key" }) do
       for _, mode in ipairs({ "step", "run" }) do
         H.run(name, mode, function(rows)
           assertRows(rows, EXPECT_NO_LEDGER[name], name .. " by " .. mode .. " with the ledger off")

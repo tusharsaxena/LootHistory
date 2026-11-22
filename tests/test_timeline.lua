@@ -359,7 +359,7 @@ local function tipModel(key, kind, holders)
   return { key = key, kind = kind, series = series }
 end
 
-case("Timeline model: LegendTip colors the title by holder kind and reads the current holding", function()
+case("Timeline model: LegendTip colors the title by holder kind and reads the current holding", T.ka0sDefault(function()
   local W = NS.Constants.WARBAND_HOLDER
   seedMoney({ ["A-R"] = 70000, [W] = 25000 }, noon(2026, 10, 5))
   NS.db.global.holdings["A-R"].meta.classFile = "MAGE"
@@ -371,7 +371,7 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.label, "Holding"); assertEqual(t.value, NS.Util.FormatMoney(70000))
   assertEqual(t.hint, "Click to hide/show")
   t = TM().LegendTip(m, W)
-  assertEqual(t.title, "Warband")
+  assertEqual(t.title, NS.Constants.ACCOUNT.holder)   -- "Warband"; "Account" on WoW Forever (R2)
   assertTrue(t.color == NS.Skin.Token("sem.warband"), "the Warband's title is its series color")
   assertEqual(t.color[1], 0.25); assertEqual(t.color[2], 0.75); assertEqual(t.color[3], 0.95)
   assertEqual(t.value, NS.Util.FormatMoney(25000))
@@ -380,6 +380,17 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.color[1], 1); assertEqual(t.color[2], 0.82); assertEqual(t.color[3], 0)
   assertEqual(t.label, "Holding", "every holder is charted, so the Total is the account's")
   assertEqual(t.value, NS.Util.FormatMoney(95000))
+end))
+
+-- A WoW Forever holder is "First Surname" (D12). The legend draws it in a slot capped at LEGEND_W,
+-- cut by the client when longer; its tooltip's title is the whole name, on both profiles.
+case("Timeline model: a two-word holder's line and legend tooltip carry the whole name", function()
+  local name = "Sampleblade Mockvalesworth"
+  seedMoney({ [name] = 70000 }, noon(2026, 10, 5))
+  assertEqual(TM().Label(name), name)
+  local t = TM().LegendTip(tipModel("g", "GOLD", { name }), name)
+  assertEqual(t.title, name)
+  assertEqual(t.value, NS.Util.FormatMoney(70000))
 end)
 
 case("Timeline model: LegendTip's Total sums only the charted holders and says so", function()

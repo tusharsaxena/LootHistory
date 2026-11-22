@@ -52,9 +52,10 @@ test("Compat: API-absent guards degrade to nil/false with no flavor flag", funct
   assertEqual(subject, nil)
 end)
 
-test("Compat: no game-flavor flags exposed (Retail-only addon)", function()
-  -- LH-10: IsRetail/IsClassic removed — feature code must not branch on game flavor.
-  assertEqual(NS.Compat.IsRetail, nil)
+test("Compat: the client flags are LibKa0s-Compat-1.0's, and no Classic flag exists", function()
+  -- LH-10 removed the hand-rolled IsRetail/IsClassic; the Forever port (LH-01) routes the library's
+  -- client questions through core/CompatClient.lua instead (clients-§3). Classic is no client here.
+  assertEqual(type(NS.Compat.IsRetail), "function"); assertEqual(type(NS.Compat.ClientKey), "function")
   assertEqual(NS.Compat.IsClassic, nil)
 end)
 
@@ -604,10 +605,45 @@ test("Compat: the degraded build's GetSpellName answers nil even with C_Spell pr
 end)
 
 test("Compat: bag-id groups come from Enum.BagIndex names, type constants excluded", function()
+  -- Each client's own numbering (tests/wow_mock.lua): Retail 12.1.5 has six character bank tabs and
+  -- five account tabs, WoW Forever nine of each, so the same names land on different ids. Both
+  -- enums carry the Keyring (-1), and it joins the bags on WoW Forever only (ruling R5): Retail's -1
+  -- was the legacy bank container before 11.2, so Retail keeps it out of every group.
+  -- The warband tabs are a group only where the warband bank is a feature (Retail, ruling R1): WoW
+  -- Forever's enum numbers AccountBankTab_1..9 as 15..23, and nothing scans them.
   local C = NS.Constants
-  assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
-  assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
-  assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+  if T.forever then
+    assertEqual(table.concat(C.BAG_IDS, ","), "-1,0,1,2,3,4,5")
+    assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11,12,13,14")
+    assertEqual(C.FEATURE.warbandBank, false)
+    assertEqual(#C.WARBAND_TAB_IDS, 0, "no warband tab id on WoW Forever")
+  else
+    assertEqual(table.concat(C.BAG_IDS, ","), "0,1,2,3,4,5")
+    assertEqual(table.concat(C.BANK_IDS, ","), "6,7,8,9,10,11")
+    assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), "12,13,14,15,16")
+  end
+end)
+
+test("Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring", function()
+  -- red under: one shared pattern table (the Keyring in Retail's bags, or in neither client's), or a
+  -- table picked anew per read rather than once at load by ClientKey() (clients-§5; ruling R5).
+  local C = NS.Constants
+  local function has(list, want)
+    for _, p in ipairs(list) do if p == want then return true end end
+    return false
+  end
+  local byClient = C.CONTAINER_GROUPS_BY_CLIENT
+  assertTrue(has(byClient.forever.BAGS, "^Keyring$"), "WoW Forever's bags hold the Keyring")
+  for _, client in ipairs({ "retail", "forever" }) do
+    for group, list in pairs(byClient[client]) do
+      if not (client == "forever" and group == "BAGS") then
+        assertTrue(not has(list, "^Keyring$"), client .. " " .. group .. " holds no Keyring")
+      end
+    end
+  end
+  assertTrue(C.CONTAINER_GROUPS == byClient[T.forever and "forever" or "retail"],
+    "the running client's table is the one picked")
+  assertTrue(not has(C.BAG_IDS, -2) and not has(C.BAG_IDS, -3), "the type constants stay out")
 end)
 
 test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()
@@ -617,8 +653,9 @@ test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to gue
   Loader.addonName = "LootHistory"
   local mocks = dofile("tests/wow_mock.lua")()
   mocks.Enum.BagIndex = nil
-  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here.
-  local ns = { Item = { QualityLabel = function() return "" end } }
+  -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here. core/Compat.lua
+  -- and core/CompatClient.lua load above it too: the feature declarations read ForClient at load.
+  local ns = { Item = { QualityLabel = function() return "" end }, Compat = NS.Compat }
   Loader.load("core/Constants.lua", ns, mocks)
   assertEqual(#ns.Constants.BAG_IDS, 0)
   assertEqual(#ns.Constants.BANK_IDS, 0)
@@ -746,22 +783,92 @@ test("Compat: AuctionMailKind parses the localized subjects", function()
   assertEqual(NS.Compat.AuctionMailKind("Hello"), nil)
 end)
 
-test("Compat: TradeTargetKey appends the player's realm when missing", function()
-  T.mocks.__tradeTarget = "Alt"
-  assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
-  T.mocks.__tradeTarget = nil
-  assertEqual(NS.Compat.TradeTargetKey(), nil)
+-- ── Names: the trade partner and a currency transfer's destination (forever-quirks-§4, LH-03) ──
+-- Retail: UnitName("NPC")'s second value is the partner's realm and a bare name gets the player's
+-- realm. WoW Forever: the second value is the SURNAME and names carry no realm, so a partner is
+-- "First Surname" and never "First-Surname". `withNames` plants the other shape on either profile.
+local NAME_NIL = {}
+local function withNames(fields, fn)
+  local m, saved = T.mocks, {}
+  for k, v in pairs(fields) do
+    saved[k] = { v = rawget(m, k) }
+    if v == NAME_NIL then m[k] = nil else m[k] = v end
+  end
+  local ok, err = pcall(fn)
+  for k, s in pairs(saved) do m[k] = s.v end
+  if not ok then error(err, 0) end
+end
+local REGIONAL = { RegionalUniqueNamesEnabled = function() return true end }
+local UNREGIONAL = { RegionalUniqueNamesEnabled = NAME_NIL }
+
+test("Compat: TradeTargetKey appends the player's realm when missing, without regional names", function()
+  withNames(UNREGIONAL, function()
+    T.mocks.__tradeTarget = "Alt"
+    assertEqual(NS.Compat.TradeTargetKey(), "Alt-Realm")
+    T.mocks.__tradeTargetSecond = "Other"
+    assertEqual(NS.Compat.TradeTargetKey(), "Alt-Other", "the partner's own realm")
+    T.mocks.__tradeTarget, T.mocks.__tradeTargetSecond = nil, nil
+    assertEqual(NS.Compat.TradeTargetKey(), nil)
+  end)
+end)
+
+test("Compat: TradeTargetKey is First Surname on regional names, never the surname as a realm", function()
+  local m = T.mocks
+  withNames(REGIONAL, function()
+    m.__tradeTarget, m.__tradeTargetSecond = "Traxex", "Silentshot"
+    local ok, key = pcall(NS.Compat.TradeTargetKey)
+    m.__tradeTarget, m.__tradeTargetSecond = "Traxex", nil
+    local ok2, bare = pcall(NS.Compat.TradeTargetKey)
+    m.__tradeTarget, m.__tradeTargetSecond = nil, nil
+    assertTrue(ok and ok2)
+    assertEqual(key, "Traxex Silentshot")
+    assertEqual(bare, "Traxex", "no surname known: the first name, no realm added")
+  end)
+end)
+
+test("Compat: TradeTargetKey on the active profile keys a partner like the profile's holders", function()
+  local m = T.mocks
+  m.__tradeTarget, m.__tradeTargetSecond = "Alt", T.forever and "Altley" or nil
+  local key = NS.Compat.TradeTargetKey()
+  m.__tradeTarget, m.__tradeTargetSecond = nil, nil
+  assertEqual(key, T.forever and "Alt Altley" or "Alt-Realm")
 end)
 
 test("Compat: LatestCurrencyTransfer appends the realm only when the client knows it", function()
   local m = T.mocks
   local savedRealm, savedXfer = m.GetNormalizedRealmName, m.__currencyTransfers
+  withNames(UNREGIONAL, function()
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
+    assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
+    m.GetNormalizedRealmName = function() return nil end   -- early in login
+    local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
+    assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+  end)
+end)
+
+test("Compat: LatestCurrencyTransfer adds no realm and keeps a two-word name on regional names", function()
+  local m = T.mocks
+  local saved = m.__currencyTransfers
+  withNames(REGIONAL, function()
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Traxex Silentshot" } }
+    local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 1, destinationCharacterName = "Traxex" } }
+    local ok2, bare = pcall(NS.Compat.LatestCurrencyTransfer)
+    m.__currencyTransfers = saved
+    assertTrue(ok and ok2)
+    assertEqual(t.toKey, "Traxex Silentshot")
+    assertEqual(bare.toKey, "Traxex", "a one-word destination gets no realm either")
+  end)
+end)
+
+test("Compat: LatestCurrencyTransfer on the active profile keys the destination like the profile's holders", function()
+  local m = T.mocks
+  local saved = m.__currencyTransfers
   m.__currencyTransfers = { { currencyType = 3008, quantityTransferred = 10, destinationCharacterName = "Alt" } }
-  assertEqual(NS.Compat.LatestCurrencyTransfer().toKey, "Alt-Realm")
-  m.GetNormalizedRealmName = function() return nil end   -- early in login
-  local ok, t = pcall(NS.Compat.LatestCurrencyTransfer)
-  m.GetNormalizedRealmName, m.__currencyTransfers = savedRealm, savedXfer
-  assertTrue(ok); assertEqual(t.toKey, "Alt")             -- never the bare "Alt-"
+  local t = NS.Compat.LatestCurrencyTransfer()
+  m.__currencyTransfers = saved
+  assertEqual(t.toKey, T.forever and "Alt" or "Alt-Realm")
 end)
 
 test("Compat: HookSecure is presence-gated", function()

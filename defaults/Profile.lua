@@ -55,7 +55,8 @@ NS.defaults.profile = {
     sim              = { stepDelay = 1 },
     -- The skin this addon wears (skinning-§3; owner ruling R1, per addon): where it comes from
     -- ("ka0s", the Ka0s skins, or "eui", EllesmereUI's) and which Ka0s skin. "ka0s"/"ka0s" is Ka0s
-    -- Default, today's look. New keys with defaults, so AceDB merges them into every existing
+    -- Default, today's look. The skin's default is the client's, NS.DEFAULT_SKIN (core/SkinSetup.lua,
+    -- Skin:DefaultSkin, skinning-§2): Ka0s Default on Retail, WoW Forever on Forever. New keys with defaults, so AceDB merges them into every existing
     -- profile and no migration is owed. Applied through core/SkinSetup.lua. The two exceptions
     -- (the Skin tab's Scope, LibKa0s-Skin-1.0 minor 5): leave the settings panel the client's,
     -- leave every font the client's. New keys with defaults too: a new profile leaves the settings
@@ -65,7 +66,7 @@ NS.defaults.profile = {
     -- new or reset profile shows it once (LibKa0s OptionsSkinPicker 1). `outline`: the Skin tab's
     -- Font outline (LibKa0s-Skin-1.0 minor 9, ruling D-06), "all" text, "hud" text
     -- only (the default since LibKa0s v1.83.0), or "off".
-    appearance       = { source = "ka0s", skin = "ka0s", ignorePanel = true, ignoreFonts = false,
+    appearance       = { source = "ka0s", skin = NS.DEFAULT_SKIN or "ka0s", ignorePanel = true, ignoreFonts = false,
                          font = "", texture = "", outline = "hud", pickerSeen = false },
     window           = {},     -- persisted position/size
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)

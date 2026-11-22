@@ -12,9 +12,12 @@ or a documented command. Nothing is listed on a hunch.
 
 ## 1. Runtime (in-game) — what a player needs
 
-**World of Warcraft (Retail), interface 120105 — Midnight 12.1.5.** Evidence:
-`LootHistory.toc`'s first line (`## Interface: 120105`), mirrored by the README's `[wow]` badge
-in its badge row.
+**World of Warcraft: Retail or WoW Forever.** One unsuffixed `LootHistory.toc` carries both
+numbers, `## Interface: 120105, 16001` (Retail 12.1.5 Midnight, WoW Forever 1.60.1), and no
+load-gating line (toc-file-§3, the roster's `Retail · Forever`). Evidence: the TOC's first line,
+mirrored by the README's `[wow]` badge in its badge row and pinned by `tests/test_client_shape.lua`.
+What one client lacks (the warband bank, Mythic+ and the sources WoW Forever has no content for) is
+gated per feature, in `docs/ARCHITECTURE.md`'s per-client feature table (clients-§4).
 
 **Nothing else.** Every library the addon uses is **vendored** under `libs/` and committed, so the
 player installs one addon and no dependencies. `LootHistory.toc` declares
@@ -136,6 +139,7 @@ do when it disagrees.
 
 ```bash
 lua tests/run.lua                                              # headless suite — all green
+KA0S_KIT_CLIENT=forever lua tests/run.lua                      # the same suite as WoW Forever — green too
 ~/.claude/dev-copilot/bin/ka0s-bounded luacheck .              # 0 warnings / 0 errors
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content

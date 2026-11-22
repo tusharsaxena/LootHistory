@@ -312,6 +312,23 @@ test("diagnostics: a secret value in the stored loot context does not raise the 
   if not ok then error(err, 0) end
 end)
 
+-- The keystone line is the keystone's (C.FEATURE.mythicPlus, R2): Retail prints it, WoW Forever,
+-- which has no Mythic+, does not.
+test("diagnostics: the attribution keystone line is printed on Retail, absent on WoW Forever", function()
+  local saved = NS.State.keystone
+  NS.State.keystone = { level = 7 }
+  local ok, err = pcall(function()
+    local line = find(build(), "attribution: keystone")
+    if T.forever then
+      assertEqual(line, nil, "WoW Forever prints no keystone line")
+    else
+      assertTrue(line ~= nil and line:find("level 7", 1, true) ~= nil, "Retail prints the level: " .. tostring(line))
+    end
+  end)
+  NS.State.keystone = saved
+  if not ok then error(err, 0) end
+end)
+
 test("diagnostics: the stored context's detail prints its fields, not a table address", function()
   -- Attribution:Stamp stores `detail` as a table ({ npcID, encounterID, difficulty, ... }) for a
   -- kill, a boss or a quest. red under: `out:plain(ctx.detail)`, which prints `table: 0x...`.

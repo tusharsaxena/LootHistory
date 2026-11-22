@@ -171,9 +171,11 @@ test("Sim: a start swaps in session stores, seeds the alt, resets the engine and
     assertTrue(type(S.holdings) == "table" and type(S.daily) == "table", "session holdings and daily stores")
     -- The alt is the shared sample set's second character (preview-mode's sample characters,
     -- LibKa0s#87; re-pinned by AD-87-LH from `Simalt-<the player's realm>`).
-    assertEqual(Host.alt, "Sampleblade-Samplerealm", "the simulated alt is the shared Sampleblade")
-    assertTrue(S.holdings["Sampleblade-Samplerealm"] ~= nil, "the simulated alt is seeded into the session holdings")
-    assertTrue(A:IsOwnAlt("Sampleblade-Samplerealm"), "the alt answers as an own alt")
+    -- LH-05: in the client's identity shape, "Sampleblade Mockvale" on WoW Forever.
+    local ALT = ({ retail = "Sampleblade-Samplerealm", forever = "Sampleblade Mockvale" })[T.forever and "forever" or "retail"]
+    assertEqual(Host.alt, ALT, "the simulated alt is the shared Sampleblade")
+    assertTrue(S.holdings[ALT] ~= nil, "the simulated alt is seeded into the session holdings")
+    assertTrue(A:IsOwnAlt(ALT), "the alt answers as an own alt")
     assertEqual(NS.State.lootContext, nil, "the real loot context was cleared")
     assertEqual(next(R.claims), nil, "the Reconciler's claims were cleared")
     assertTrue(NS.RealEventFilter ~= nil, "the real-event split is in place")
@@ -234,7 +236,7 @@ test("Sim: a stop announces the history and each session holder through their on
     if not ok then error(err, 0) end
     local seen = table.concat(sent, ",")
     assertTrue(seen:find(NS.MSG.HISTORY_CHANGED, 1, true) ~= nil, "HistoryChanged was sent: " .. seen)
-    assertTrue(seen:find(NS.MSG.HOLDINGS_CHANGED .. ":Sampleblade-Samplerealm", 1, true) ~= nil,
+    assertTrue(seen:find(NS.MSG.HOLDINGS_CHANGED .. ":" .. NS.SampleCharacters()[2].fullName, 1, true) ~= nil,
       "HoldingsChanged was sent for the session's alt: " .. seen)
   end)
 end)

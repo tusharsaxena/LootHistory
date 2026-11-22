@@ -63,7 +63,7 @@ local SOURCE_CATEGORY_COLOR = {
 -- BoE where History's lock is green and off-white; not reconciled in leg 1), and the table's
 -- Warbound blue and until-equipped orange, so the two views read alike there.
 local BOUND_LABEL = {
-  BOP = "Soulbound", BOE = "BoE", WARBAND = "Warbound", WARBAND_UE = "Warbound (UE)",
+  BOP = "Soulbound", BOE = "BoE", WARBAND = NS.Constants.ACCOUNT.bound, WARBAND_UE = NS.Constants.ACCOUNT.boundUEShort,
   UNBOUND = "Unbound",
 }
 local BOUND_TOKEN = {
@@ -106,7 +106,10 @@ local function qualityColor(q)
   return NS.SkinRGB("sem.unknown")
 end
 
--- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
+-- Short character label ("Name-Realm" → "Name") for narrow per-character bars. A WoW Forever key
+-- ("First Surname", no realm) has no hyphen, so it stays whole: its first name alone would merge two
+-- characters who share one. The bar cuts a long label at its cap and its hover names it whole
+-- (LibKa0s-Charts-1.0's bindBarText).
 local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
 
 -- Standard categorical palette for charts NOT tied to a predefined color (class / bound / quality /
