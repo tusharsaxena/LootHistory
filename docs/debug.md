@@ -135,6 +135,13 @@ counting the header. Without LibKa0s the stub in `core/DebugLogSetup.lua` prints
 with no pointer. The reserved `/lh list`, the help index, acknowledgments and refusals stay in chat.
 Pinned in `tests/test_slash_verbs.lua` (the holdings cases) and `tests/test_debuglog.lua` (the stub).
 
+## The probe verbs
+
+`/lh debug probe start|stop|status|clear` is not a log and writes nothing to this console. It is
+the WoW Forever port's probe (ruling R4, `modules/Probe.lua`): while started it records client facts
+into `db.global.probe`, and its acknowledgments and status line stay in chat. What it records, and
+how to read it after logout, is in [forever-probes.md](forever-probes.md).
+
 ## The diagnostics report
 
 ### Running it

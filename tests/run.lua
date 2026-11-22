@@ -154,6 +154,9 @@ local SUITES = {
   -- This addon's half of the diagnostics report (debug-logging-14): its sections, what they say
   -- and what they must not touch. After test_disabled, which leaves the addon brought up.
   "test_diagnostics",
+  -- The WoW Forever port's probe verbs (ruling R4, modules/Probe.lua). After test_diagnostics, with
+  -- the addon brought up; every case stops the probe and puts db.global.probe back.
+  "test_probe",
   -- debug-logging-8's Diagnosis lines and 9's quiet steady state. After test_diagnostics, which
   -- leaves the addon brought up: its edge cases switch it off and on again through the stored switch.
   "test_debug_coverage",

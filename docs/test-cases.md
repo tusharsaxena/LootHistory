@@ -297,7 +297,7 @@ Total.
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
 - Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
 
-### test_compat_client.lua (8)
+### test_compat_client.lua (9)
 
 - CompatClient: the client questions answer the active profile, as the library does
 - CompatClient: ForClient reads a declaration for this client; nil and both mean both
@@ -307,6 +307,7 @@ Total.
 - CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
 - CompatClient: the degraded UnitCharacterName keeps the name and drops a surname
 - CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
+- CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
 ### test_tooltip_place.lua (9)
 
@@ -1970,6 +1971,26 @@ Total.
 - diagnostics: the sim section while a session runs, with its stores and the last stop
 - diagnostics: the live sim section names the real seam's wrapped count and guarded keys
 
+### test_probe.lua (17)
+
+- probe: bare and status print the status line; an unknown word prints the usage
+- probe: /lh debug probe start records under db.global.probe, stamped with the client
+- probe: start registers every probe event on its own frame and stop unregisters them
+- probe: a second start and a stop while stopped are refused with a reason
+- probe: clear drops every entry; while running the record is stamped again and goes on
+- probe: the record is capped at P.CAP, the oldest dropped and counted
+- probe: nothing is recorded while stopped, or while a simulation runs
+- probe: the start entry carries this client's name forms, money text and strings
+- probe: the keyring's slots, contents and inventory slot are read (P3)
+- probe: a banker visit records the bank at open, +1 s and +3 s, and its cues
+- probe: a non-banker interaction is recorded and takes no bank snapshot
+- probe: a loot, money or currency chat line is kept raw with its sender fields and GUID
+- probe: a secret or long string never reaches the record as is
+- probe: a trade records the partner's name forms and the key the addon builds (P7)
+- probe: the newest currency transfer is recorded field by field (P5)
+- probe: the mail hook records the recipient as typed and as the addon keys it (P7)
+- probe: a handler that raises is recorded as an error entry, never thrown
+
 ### test_debug_coverage.lua (22)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
@@ -2432,7 +2453,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 79 |
 | test_compat_routing.lua | 4 |
-| test_compat_client.lua | 8 |
+| test_compat_client.lua | 9 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2495,6 +2516,7 @@ Total.
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
+| test_probe.lua | 17 |
 | test_debug_coverage.lua | 22 |
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
@@ -2520,4 +2542,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2118** |
+| **Total** | **2136** |

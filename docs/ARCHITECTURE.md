@@ -587,6 +587,7 @@ and registered below.
 |---|---|
 | `testing.md` | How to run the harness and lint; the green commit gate |
 | `smoke-tests.md` | The in-game smoke-test suite |
+| `forever-probes.md` | The WoW Forever port's probe sheet (ruling R4): what `/lh debug probe` records, the `/run` fallback per probe, and the safe default each one checks |
 | `test-cases.md` | The generated case inventory (authoritative pass count) |
 | `performance.md` | The harness: buckets and why, the zero-overhead evidence, how to capture |
 | `automated-tests/README.md` | What the automated-test record is and how to produce it |

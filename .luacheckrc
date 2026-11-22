@@ -28,8 +28,8 @@ read_globals = {
   "GetInboxNumItems", "GetInboxItem", "GetInboxItemLink", "GetSendMailItem", "GetSendMailItemLink", "GetSendMailMoney", "ATTACHMENTS_MAX_RECEIVE", "ATTACHMENTS_MAX_SEND", "C_TradeSkillUI", "GuildBankFrame", "YOU_LOOT_MONEY", "LOOT_MONEY_SPLIT", "YOU_LOOT_MONEY_GUILD", "GOLD_AMOUNT", "SILVER_AMOUNT", "COPPER_AMOUNT", "AUCTION_SOLD_MAIL_SUBJECT", "AUCTION_EXPIRED_MAIL_SUBJECT", "AUCTION_REMOVED_MAIL_SUBJECT", "AUCTION_WON_MAIL_SUBJECT", "debugprofilestop",
   "_G", "LibStub", "CreateFrame", "UIParent", "GetTime", "time", "date", "DEFAULT_CHAT_FRAME",
   "UnitName", "UnitGUID", "UnitClass", "GetRealmName", "GetNormalizedRealmName",
-  -- core/CompatClient.lua's library-absent stubs only (clients-§3; tests/test_compat_routing.lua)
-  "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CAMELOT", "RegionalUniqueNamesEnabled", "issecretvalue",
+  -- core/CompatClient.lua's library-absent stubs and ClientBuild only (clients-§3; tests/test_compat_routing.lua)
+  "WOW_PROJECT_ID", "WOW_PROJECT_MAINLINE", "WOW_PROJECT_CAMELOT", "RegionalUniqueNamesEnabled", "issecretvalue", "GetBuildInfo",
   "RAID_CLASS_COLORS", "CLASS_ICON_TCOORDS", "StaticPopup_Show", "YES", "NO",
   "GameFontHighlightSmall", "GetMoneyString", "BreakUpLargeNumbers",
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
@@ -131,6 +131,13 @@ files["core/LauncherSetup.lua"] = {
   read_globals = { "LootHistorySimPanel" },
 }
 
+
+-- The probe verbs (ruling R4) read client facts no handler of the addon reads, and these five only
+-- there: the bare GetCoinTextureString is read for its PRESENCE (the money text itself goes through
+-- C_CurrencyInfo, core/Util.lua), so it stays an error everywhere else.
+files["modules/Probe.lua"] = {
+  read_globals = { "GetCoinTextureString", "GetInstanceInfo", "ItemLocation", "GetUnitName", "GetLootSlotLink" },
+}
 
 -- The AceAddon object's own lifecycle hooks. AceAddon calls `addon:OnInitialize()` itself, and
 -- `OnEnterWorld` is registered on the AceEvent mixin the same object carries.

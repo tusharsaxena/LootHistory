@@ -8,7 +8,8 @@ local _, NS = ...
 -- members. This file routes them onto NS.Compat, each with the stub a degraded install (libs/
 -- missing) answers instead, so no other file asks which client it is on or how a name is spelled.
 -- The stubs below are the ONE place outside the library that reads a WOW_PROJECT_* constant or
--- RegionalUniqueNamesEnabled; tests/test_compat_routing.lua fails any other file that does.
+-- RegionalUniqueNamesEnabled, and ClientBuild the one that reads GetBuildInfo;
+-- tests/test_compat_routing.lua fails any other file that does.
 --
 -- THE RULES are core/Compat.lua's: globals read bare at call time, never captured at load; a
 -- secret answer is never concatenated or compared; a missing API or library answers its documented
@@ -119,4 +120,14 @@ end
 function Compat.RealmKey()
   if not (CompatLib and CompatLib.RealmKey) then return nil end
   return plainString(CompatLib.RealmKey())
+end
+
+-- The client's version and build as it names them ("1.60.1", "71037"), or nil without
+-- GetBuildInfo. A STAMP for a record that has to say which build answered it (the probe verbs,
+-- modules/Probe.lua, ruling R4), never a test: clients-§3 bans choosing behavior by a build or an
+-- interface number, and ClientKey() is the one client question.
+function Compat.ClientBuild()
+  if type(GetBuildInfo) ~= "function" then return nil end
+  local version, build = GetBuildInfo()
+  return plainString(version), plainString(build)
 end

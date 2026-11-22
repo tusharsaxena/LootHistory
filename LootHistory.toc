@@ -192,6 +192,9 @@ modules\Sim.lua
 # NS.Sim:AddListener at file load, so modules\Sim.lua must be above.
 modules\SimPanel.lua
 modules\Diagnostics.lua
+# CONVENTIONAL: the WoW Forever port's probe verbs (ruling R4), reached from the `debug` row in
+# settings\Schema.lua at call time; nothing here resolves at load.
+modules\Probe.lua
 
 # Settings
 # LOAD-BEARING POSITION: settings\Schema.lua composes its Master controls tab at FILE LOAD

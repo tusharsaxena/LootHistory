@@ -50,6 +50,7 @@ local CLASSIFIED = {
   -- core/CompatClient.lua (LH-01): the client and the character, answered live like any read
   IsForever = "wrapped", IsRetail = "wrapped", ClientKey = "wrapped", ForClient = "wrapped",
   RegionalNames = "wrapped", UnitCharacterName = "wrapped", CharacterKey = "wrapped", RealmKey = "wrapped",
+  ClientBuild = "wrapped",
 }
 
 local function sortedKeys(t, want)

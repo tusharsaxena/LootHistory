@@ -170,3 +170,19 @@ test("CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degrade
   local ns = loadDegraded()
   assertEqual(ns.Compat.CharacterKey(), nil); assertEqual(ns.Compat.RealmKey(), nil)
 end)
+
+-- ── The build stamp (the probe verbs, LH-13) ─────────────────────────────────────────────────
+
+test("CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it", function()
+  -- red under: ClientBuild missing, or answering the interface number (a stamp, never a test).
+  local C = NS.Compat
+  local version, build = M.GetBuildInfo()
+  local v, b = C.ClientBuild()
+  assertEqual(v, version); assertEqual(b, build)
+  assertEqual(v, PROFILE == "forever" and "1.60.1" or "12.1.5", "the profile's own version")
+  with(M, { GetBuildInfo = NIL }, function() assertEqual(C.ClientBuild(), nil) end)
+  local ns, _, m = loadDegraded()
+  local dv, db = ns.Compat.ClientBuild()
+  assertEqual(dv, version); assertEqual(db, build)
+  with(m, { GetBuildInfo = NIL }, function() assertEqual(ns.Compat.ClientBuild(), nil) end)
+end)
