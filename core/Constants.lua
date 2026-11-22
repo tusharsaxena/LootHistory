@@ -134,7 +134,7 @@ C.LEDGER_REASON = {
 -- ForClient refuses is ABSENT on this client: it is kept out of SourceOrder, SOURCE_IMPLEMENTED and
 -- LEDGER_REASON, so no filter, mute list or sample offers it, and C.SOURCE_ABSENT names it.
 -- SourceType and SourceLabel stay whole: they are the export contract, and a stored row keeps its
--- key and its label. The two warband directions are the warband bank's (C.FEATURE.warbandBank), MPLUS
+-- key and a label (a client may word one its own way, C.SOURCE_LABEL_WORDS below). The two warband directions are the warband bank's (C.FEATURE.warbandBank), MPLUS
 -- the keystone's (C.FEATURE.mythicPlus). The rest are content WoW Forever does not have (ruling R2):
 -- no bonus-roll coins and no Milling or Prospecting. Disenchant, which it has, stays a source (its
 -- seed is modules/Attribution.lua's, per client), and the DECONSTRUCT reason serves both clients
@@ -147,8 +147,10 @@ C.SOURCE_CLIENTS = {
 }
 -- The labels one client words its own way, picked once by ClientKey() (clients-§5; owner ruling
 -- F1): WoW Forever's only deconstruct is Disenchant (spell 13262), so its DECONSTRUCT loss reads
--- "Disenchant". Only the label moves: the stored key is DECONSTRUCT on both clients.
-C.SOURCE_LABEL_WORDS = { forever = { DECONSTRUCT = "Disenchant" } }
+-- "Disenchanted". Only the label moves: the stored key is DECONSTRUCT on both clients. A label is
+-- also Group by Source's key and the Source filter's only text, so it never repeats another key's:
+-- "Disenchant" is the DISENCHANT gain source's (the materials), "Disenchanted" the item's loss.
+C.SOURCE_LABEL_WORDS = { forever = { DECONSTRUCT = "Disenchanted" } }
 for s, label in pairs(C.SOURCE_LABEL_WORDS[NS.Compat.ClientKey()] or {}) do C.SourceLabel[s] = label end
 C.SOURCE_ABSENT = {}
 for s, clients in pairs(C.SOURCE_CLIENTS) do
