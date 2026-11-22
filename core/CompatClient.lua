@@ -142,20 +142,51 @@ end
 -- docs/2026-11-22-LIBKA0S_101_CONTAINER_READER/). The deadline (R.READY_WAIT) and the readiness
 -- memory (holdings meta.bankSlots) stay in modules/Reconciler.lua.
 --
--- THE STUBS degrade to nothing rather than re-implement: with the library absent the groups are the
--- library's own documented answer for a build without Enum.BagIndex (the bags 0..5, no bank, no
--- account bank), no interaction type is a banker, and every bank read answers "cannot tell" (nil).
--- A degraded install therefore never arms or reads a bank, so it can never read a closed one as
--- emptied.
+-- THE STUBS ARE THE LIBRARY'S BODIES, as the client stubs above are (K101-LH-REV): a degraded install
+-- (libs/ missing) still scans the real bags (the Keyring on Forever, R5), arms and reads the bank, and
+-- waits for a partly loaded one, as it did before the library held these reads. A stub that degraded
+-- to nothing left the bank unarmed, so every deposit read as an UNTRACKED loss, and dropped the
+-- Keyring, so a key moved onto it did too. tests/test_compat_client.lua pins each stub against the
+-- library on both kit profiles, so the two copies cannot drift apart unseen.
 
+local BAG_PATTERNS     = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" }
+local KEYRING_PATTERNS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$", "^Keyring$" }
+local BANK_PATTERNS    = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" }
+local STUB_PATTERNS = {
+  retail  = { bags = BAG_PATTERNS,     bank = BANK_PATTERNS, accountBank = { "^AccountBankTab_%d+$" } },
+  forever = { bags = KEYRING_PATTERNS, bank = BANK_PATTERNS, accountBank = {} },
+}
+local STUB_NO_CLIENT = { bags = BAG_PATTERNS, bank = BANK_PATTERNS, accountBank = {} }
 local STUB_BAGS = { 0, 1, 2, 3, 4, 5 }
+
+local function idsMatching(members, patterns)
+  local seen, ids = {}, {}
+  if type(members) ~= "table" then return ids end
+  for name, value in pairs(members) do
+    if type(name) == "string" and type(value) == "number" and not seen[value] then
+      for _, pattern in ipairs(patterns) do
+        if name:find(pattern) then
+          seen[value] = true
+          ids[#ids + 1] = value
+          break
+        end
+      end
+    end
+  end
+  table.sort(ids)
+  return ids
+end
 
 -- The container ids of each group on this client, { bags, bank, accountBank }, each sorted and
 -- de-duplicated, matched by anchored Enum.BagIndex member names. Fresh tables on every call.
 Compat.ContainerGroups = CompatLib and CompatLib.ContainerGroups or function()
-  local bags = {}
-  for i, id in ipairs(STUB_BAGS) do bags[i] = id end
-  return { bags = bags, bank = {}, accountBank = {} }
+  local row = STUB_PATTERNS[Compat.ClientKey()] or STUB_NO_CLIENT
+  local members = Enum and Enum.BagIndex
+  local bags = idsMatching(members, row.bags)
+  if #bags == 0 then
+    for i, id in ipairs(STUB_BAGS) do bags[i] = id end
+  end
+  return { bags = bags, bank = idsMatching(members, row.bank), accountBank = idsMatching(members, row.accountBank) }
 end
 
 -- The pattern rows, one per client, published for the suites (a copy: writing to it changes nothing).
@@ -163,17 +194,78 @@ Compat.CONTAINER_PATTERNS_BY_CLIENT = CompatLib and CompatLib.CONTAINER_PATTERNS
 
 -- Whether this banker shows the character bank: true, false, or nil when the build cannot tell (no
 -- C_Bank.CanViewBank, no Enum.BankType.Character, or a secret). THREE-VALUED: the caller reads nil as
--- viewable (R:BankState compares with false, the lead's call 3).
-Compat.CanViewCharacterBank = CompatLib and CompatLib.CanViewCharacterBank or function() return nil end
+-- viewable (R:BankState compares with false, the lead's call 3). A present API's own answer is
+-- normalized to a boolean, as the library does.
+Compat.CanViewCharacterBank = CompatLib and CompatLib.CanViewCharacterBank or function()
+  local fn = C_Bank and C_Bank.CanViewBank
+  local bankType = Enum and Enum.BankType and Enum.BankType.Character
+  if not fn or bankType == nil then return nil end
+  local answer = fn(bankType)
+  if isSecret(answer) then return nil end
+  return answer and true or false
+end
 
 -- How many tabs the account bought for a bank type named as Enum.BankType names it ("Character",
 -- "Account"), or nil where the API, the member or a plain number answer is absent.
-Compat.NumPurchasedBankTabs = CompatLib and CompatLib.NumPurchasedBankTabs or function() return nil end
+Compat.NumPurchasedBankTabs = CompatLib and CompatLib.NumPurchasedBankTabs or function(bankTypeName)
+  if type(bankTypeName) ~= "string" then return nil end
+  local fn = C_Bank and C_Bank.FetchNumPurchasedBankTabs
+  local bankType = Enum and Enum.BankType and Enum.BankType[bankTypeName]
+  if not fn or bankType == nil then return nil end
+  local n = fn(bankType)
+  if isSecret(n) or type(n) ~= "number" then return nil end
+  return n
+end
+
+local STUB_BANKER_KINDS = {
+  { name = "Banker",          kind = "character" },
+  { name = "CharacterBanker", kind = "character" },
+  { name = "AccountBanker",   kind = "account" },
+}
 
 -- "character" for a Banker or CharacterBanker interaction type, "account" for an AccountBanker, nil
 -- otherwise. What each kind arms is the Reconciler's call (the account bank is Retail's alone, R1).
-Compat.BankerKind = CompatLib and CompatLib.BankerKind or function() return nil end
+Compat.BankerKind = CompatLib and CompatLib.BankerKind or function(interactionType)
+  if isSecret(interactionType) or type(interactionType) ~= "number" then return nil end
+  local types = Enum and Enum.PlayerInteractionType
+  if type(types) ~= "table" then return nil end
+  for _, entry in ipairs(STUB_BANKER_KINDS) do
+    local value = types[entry.name]
+    if value ~= nil and value == interactionType then return entry.kind end
+  end
+  return nil
+end
+
+local function positive(n) return type(n) == "number" and n > 0 end
+
+local function remembersSlots(memory)
+  if type(memory) ~= "table" then return false end
+  for _, slots in pairs(memory) do
+    if positive(slots) then return true end
+  end
+  return false
+end
 
 -- Pure: the bank container ids not ready yet (a remembered container now at 0 slots), the short
 -- marker on a first visit with fewer containers answering than `purchased`, or nil when ready.
-Compat.UnreadyBankContainers = CompatLib and CompatLib.UnreadyBankContainers or function() return nil end
+Compat.UnreadyBankContainers = CompatLib and CompatLib.UnreadyBankContainers or function(shape, memory, purchased)
+  if type(shape) ~= "table" then shape = {} end
+  if remembersSlots(memory) then
+    local out
+    for id, slots in pairs(shape) do
+      if type(id) == "number" and slots == 0 and positive(memory[id]) then
+        out = out or {}
+        out[#out + 1] = id
+      end
+    end
+    if out then table.sort(out) end
+    return out
+  end
+  if type(purchased) ~= "number" then return nil end
+  local answering = 0
+  for _, slots in pairs(shape) do
+    if positive(slots) then answering = answering + 1 end
+  end
+  if answering < purchased then return { short = true, answering = answering, purchased = purchased } end
+  return nil
+end

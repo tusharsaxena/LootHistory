@@ -298,7 +298,7 @@ Total.
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
 - Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
 
-### test_compat_client.lua (9)
+### test_compat_client.lua (10)
 
 - CompatClient: the client questions answer the active profile, as the library does
 - CompatClient: ForClient reads a declaration for this client; nil and both mean both
@@ -308,6 +308,7 @@ Total.
 - CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
 - CompatClient: the degraded UnitCharacterName joins a surname, and never reads it as a realm
 - CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
+- CompatClient: a degraded install reads the container groups and the bank as the library does
 - CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
 ### test_tooltip_place.lua (9)
@@ -2473,7 +2474,7 @@ Total.
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
-| test_compat_client.lua | 9 |
+| test_compat_client.lua | 10 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2563,4 +2564,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2153** |
+| **Total** | **2154** |
