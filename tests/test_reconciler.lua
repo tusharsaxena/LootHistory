@@ -121,12 +121,10 @@ test("Reconciler: the warband bank's parts, events and reads exist only on Retai
   assertEqual(rows.ACCOUNT_MONEY == true, onRetail, "the ACCOUNT_MONEY row")
   assertEqual(rows.PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED == true, onRetail, "the tab-slot row")
   assertTrue(rows.PLAYERBANKSLOTS_CHANGED, "the character bank's row serves both clients")
-  for _, name in ipairs({ "Banker", "CharacterBanker" }) do
-    assertEqual(table.concat(R().READABLE_ON[name].parts, ","),
-      onRetail and "bank,tabs,warbandMoney" or "bank", name .. "'s parts")
-  end
+  assertEqual(table.concat(R().BANKER_ARMS.character.parts, ","),
+    onRetail and "bank,tabs,warbandMoney" or "bank", "a character banker's parts")
   -- The warband-only banker arms the bank where the warband bank is a feature, and nowhere else.
-  local account = R().READABLE_ON.AccountBanker
+  local account = R().BANKER_ARMS.account
   assertEqual(account ~= nil, onRetail, "AccountBanker arms the bank on Retail only")
   if account then assertEqual(table.concat(account.parts, ","), "bank,tabs,warbandMoney") end
   T.mocks.__warbandMoney = 70
@@ -135,8 +133,9 @@ test("Reconciler: the warband bank's parts, events and reads exist only on Retai
 end)
 
 -- R8 (both clients): the bank readiness guard's view check and its re-read cues.
-test("Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)", function()
-  -- red under: no Compat.CanViewCharacterBank member.
+test("Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), nil without it (R8)", function()
+  -- red under: no Compat.CanViewCharacterBank member, or one that guesses when the build cannot tell
+  -- (LibKa0s-Compat minor 6 is three-valued; R:BankState reads nil as viewable).
   local m = T.mocks
   local saved, savedFn = m.__canViewBank, m.C_Bank.CanViewBank
   local ok, err = pcall(function()
@@ -145,23 +144,24 @@ test("Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Charact
     m.__canViewBank = { [0] = false, [2] = true }
     assertEqual(NS.Compat.CanViewCharacterBank(), false, "a warband-only banker hides the character bank")
     m.C_Bank.CanViewBank = nil
-    assertEqual(NS.Compat.CanViewCharacterBank(), true, "a client with no CanViewBank always shows it")
+    assertEqual(NS.Compat.CanViewCharacterBank(), nil, "a client with no CanViewBank cannot tell")
   end)
   m.__canViewBank, m.C_Bank.CanViewBank = saved, savedFn
   if not ok then error(err, 0) end
 end)
 
-test("Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)", function()
-  -- red under: no Compat.NumPurchasedCharacterBankTabs member.
+test("Reconciler: Compat.NumPurchasedBankTabs(\"Character\") answers FetchNumPurchasedBankTabs(Character), nil without it (R8)", function()
+  -- red under: no Compat.NumPurchasedBankTabs member, or one that reads the bank type by number.
   local m = T.mocks
   local savedFn = m.C_Bank.FetchNumPurchasedBankTabs
   local ok, err = pcall(function()
     m.C_Bank.FetchNumPurchasedBankTabs = function(t) return t == 0 and 3 or 1 end
-    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), 3)
+    assertEqual(NS.Compat.NumPurchasedBankTabs("Character"), 3)
+    assertEqual(NS.Compat.NumPurchasedBankTabs("Account"), 1)
     m.C_Bank.FetchNumPurchasedBankTabs = function() return "x" end
-    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a non-number is no answer")
+    assertEqual(NS.Compat.NumPurchasedBankTabs("Character"), nil, "a non-number is no answer")
     m.C_Bank.FetchNumPurchasedBankTabs = nil
-    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a client without it answers nil")
+    assertEqual(NS.Compat.NumPurchasedBankTabs("Character"), nil, "a client without it answers nil")
   end)
   m.C_Bank.FetchNumPurchasedBankTabs = savedFn
   if not ok then error(err, 0) end
@@ -374,4 +374,103 @@ test("Reconciler: coalescing reads Database:History (session-aware)", function()
   r.recent = savedRecent
   if not ok then error(err, 0) end
   assertTrue(NS.db.global.history == live and #live == liveCount, "the live history was not written")
+end)
+
+-- K101-LH-02 (LibKa0s#101): characterization of the bank readiness answers and the banker arming,
+-- pinned on the addon's own copies BEFORE they were swapped for LibKa0s-Compat minor 6's readers,
+-- and kept green after. Both kit profiles.
+test("Reconciler: BankState answers the same outcome for each bank shape (R8, K101-LH-02)", function()
+  -- red under: a readiness reader that changes any row below: a warband-only banker read, a
+  -- partly loaded visit 2 taken as ready, a first visit short of its bought tabs taken as ready,
+  -- a build that cannot tell whether the bank is viewable read as unviewable, or the deadline gone.
+  local m = T.mocks
+  local savedView, savedViewFn = m.__canViewBank, m.C_Bank.CanViewBank
+  local savedFetch, savedNow = m.C_Bank.FetchNumPurchasedBankTabs, m.__now
+  local C = NS.Constants
+  local tab1, tab2 = C.BANK_IDS[1], C.BANK_IDS[2]
+  local function memory(slots) NS.Holdings:NoteBankSlots(ME(), slots) end
+  local function slots(a, b) m.__bagSlots[tab1], m.__bagSlots[tab2] = a, b end
+  local ok, err = pcall(function()
+    reset()
+    m.__now = 100
+    assertEqual(R():BankState(), nil, "no banker open: no state")
+    R().readable.bank, R()._bankOpenAt = true, 100
+    -- First visit (no memory). No bought-tab count: the read is taken as it is found.
+    m.C_Bank.FetchNumPurchasedBankTabs = nil
+    slots(0, 0)
+    assertEqual(R():BankState(), "ready", "first visit, no bought-tab count")
+    m.C_Bank.FetchNumPurchasedBankTabs = function(t) return t == 0 and 2 or 0 end
+    slots(1, 0)
+    assertEqual(R():BankState(), "loading", "first visit, fewer containers answer than tabs bought")
+    slots(1, 1)
+    assertEqual(R():BankState(), "ready", "first visit, every bought tab answers")
+    -- Visit 2 (memory kept from the last ready read).
+    memory({ [tab1] = 1, [tab2] = 1 })
+    slots(1, 0)
+    assertEqual(R():BankState(), "loading", "visit 2, a container that had slots answers 0")
+    slots(1, 1)
+    assertEqual(R():BankState(), "ready", "visit 2, every remembered container answers")
+    memory({ [tab1] = 1, [tab2] = 0 })
+    slots(1, 0)
+    assertEqual(R():BankState(), "ready", "visit 2, a container that never had slots never blocks")
+    memory({ [tab1] = 0, [tab2] = 0 })
+    slots(0, 0)
+    assertEqual(R():BankState(), "ready", "visit 2, a memory of no slots at all: the read is taken")
+    -- The deadline: past READY_WAIT a 0 is believed.
+    memory({ [tab1] = 1, [tab2] = 1 })
+    slots(1, 0)
+    m.__now = 100 + R().READY_WAIT
+    assertEqual(R():BankState(), "ready", "past the deadline")
+    m.__now = 100
+    -- Viewability.
+    m.__canViewBank = { [0] = false, [1] = true, [2] = not T.forever }
+    assertEqual(R():BankState(), "unviewable", "a banker that hides the character bank")
+    m.C_Bank.CanViewBank = nil
+    slots(1, 1)
+    assertEqual(R():BankState(), "ready", "a build that cannot tell is read as viewable")
+  end)
+  m.__canViewBank, m.C_Bank.CanViewBank = savedView, savedViewFn
+  m.C_Bank.FetchNumPurchasedBankTabs, m.__now = savedFetch, savedNow
+  reset()
+  if not ok then error(err, 0) end
+end)
+
+test("Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)", function()
+  -- red under: a banker kind that arms the wrong flag or parts, AccountBanker arming on WoW
+  -- Forever, a non-banker type arming the bank, or a nil type arming anything.
+  local onRetail = not T.forever
+  local bankParts = onRetail and "bank,tabs,warbandMoney" or "bank"
+  local function arms(t)
+    reset()
+    R().dirty = {}
+    R():OnInteraction(true, t)
+    local flags, parts = {}, {}
+    for k, v in pairs(R().readable) do if v then flags[#flags + 1] = k end end
+    for k in pairs(R().dirty) do parts[#parts + 1] = k end
+    table.sort(flags); table.sort(parts)
+    local drift = R().driftPending == true
+    R():OnInteraction(false, t)
+    return table.concat(flags, ","), table.concat(parts, ","), drift
+  end
+  local I = NS.Compat.InteractionType
+  local cases = {
+    { "Banker",          "bank",                 bankParts, true },
+    { "CharacterBanker", "bank",                 bankParts, true },
+    { "AccountBanker",   onRetail and "bank" or "", onRetail and bankParts or "", onRetail },
+    { "MailInfo",        "mail",                 "mail",    false },
+    { "Auctioneer",      "auctionHouse",         "",        false },
+    { "Merchant",        "",                     "",        false },
+  }
+  local ok, err = pcall(function()
+    for _, c in ipairs(cases) do
+      local flags, parts, drift = arms(I(c[1]))
+      assertEqual(flags, c[2], c[1] .. "'s readable flags")
+      assertEqual(parts, c[3], c[1] .. "'s dirty parts")
+      assertEqual(drift, c[4], c[1] .. " opens a drift visit")
+    end
+    local flags, parts = arms(nil)
+    assertEqual(flags .. "|" .. parts, "|", "a nil type arms nothing")
+  end)
+  reset()
+  if not ok then error(err, 0) end
 end)

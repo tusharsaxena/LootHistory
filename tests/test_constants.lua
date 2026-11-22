@@ -50,11 +50,11 @@ test("Constants: the warband bank is Retail-only (R1), its two reasons absent on
   if not T.forever then assertEqual(absent, 0, "Retail lacks no source") end
 end)
 
--- Ruling R2: the keystone (MPLUS) and the content WoW Forever does not have -- bonus rolls, Milling,
--- Prospecting and the DECONSTRUCT reason -- are Retail's. Disenchant serves both.
-local R2_SOURCES = { "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING", "DECONSTRUCT" }
+-- Ruling R2: the keystone (MPLUS) and the content WoW Forever does not have -- bonus rolls, Milling
+-- and Prospecting -- are Retail's. Disenchant serves both, and so does the DECONSTRUCT reason (F1).
+local R2_SOURCES = { "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }
 
-test("Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)", function()
+test("Constants: Mythic+, bonus roll, Milling and Prospecting are Retail-only (R2)", function()
   -- red under: a WoW Forever build that still declares the keystone, or still offers one of these
   -- in a filter, the mute list or the reasons; or a Retail build that lost one.
   assertEqual(C.FEATURE.mythicPlus, not T.forever)
@@ -68,11 +68,44 @@ test("Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are
     assertEqual(C.SourceType[s], s, s .. " stays a SourceType member (the export contract)")
     assertTrue(type(C.SourceLabel[s]) == "string", s .. " keeps its label")
   end
-  assertEqual(C.LEDGER_REASON.DECONSTRUCT == true, not T.forever, "DECONSTRUCT a ledger reason")
-  for _, s in ipairs({ "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }) do
+  for _, s in ipairs(R2_SOURCES) do
     assertEqual(offered[s] == true, not T.forever, s .. " offered as a capture mute")
   end
   assertTrue(inOrder.DISENCHANT and offered.DISENCHANT, "Disenchant serves both clients")
+end)
+
+-- Owner ruling F1 (K101-FU-01): a disenchanted item's loss keeps its reason on WoW Forever. The
+-- stored key is DECONSTRUCT on both clients; only its label is the client's, "Disenchanted" on WoW
+-- Forever (whose one deconstruct is Disenchant 13262) and "Deconstructed" on Retail, unchanged.
+test("Constants: the DECONSTRUCT reason serves both clients, labeled Disenchanted on WoW Forever (F1)", function()
+  -- red under: a WoW Forever build that drops the reason again (R2's first shape), or a Retail
+  -- build whose label moved
+  local inOrder, offered = {}, {}
+  for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
+  for _, o in ipairs(C.SOURCE_OPTIONS) do offered[o.value] = true end
+  assertEqual(C.SourceType.DECONSTRUCT, "DECONSTRUCT", "the stored key is the same on both")
+  assertFalse(C.SOURCE_ABSENT.DECONSTRUCT == true, "DECONSTRUCT absent")
+  assertTrue(inOrder.DECONSTRUCT, "DECONSTRUCT in SourceOrder")
+  assertTrue(C.SOURCE_IMPLEMENTED.DECONSTRUCT, "DECONSTRUCT implemented")
+  assertTrue(C.LEDGER_REASON.DECONSTRUCT, "DECONSTRUCT a ledger reason")
+  assertFalse(offered.DECONSTRUCT == true, "a ledger reason is never a capture mute")
+  assertEqual(C.SourceLabel.DECONSTRUCT, T.forever and "Disenchanted" or "Deconstructed")
+  assertEqual(C.SourceLabel.DISENCHANT, "Disenchant", "the gain source keeps its label")
+end)
+
+-- Group by Source keys its groups on the label (modules/BrowserTableGroup.lua), and the Source
+-- filter and the Insights legends name a key by it, so two keys sharing a label merge two groups
+-- and show two filter entries no one can tell apart. K101-FU-01 review: Forever's DECONSTRUCT read
+-- "Disenchant", the DISENCHANT gain source's own label.
+test("Constants: no two source keys share a label, on either client", function()
+  -- red under: a client wording that reuses another key's label (Forever's DECONSTRUCT = "Disenchant")
+  local owner = {}
+  for key in pairs(C.SourceType) do
+    local label = C.SourceLabel[key]
+    assertTrue(type(label) == "string", key .. " has a label")
+    assertEqual(owner[label], nil, label .. " labels both " .. tostring(owner[label]) .. " and " .. key)
+    owner[label] = key
+  end
 end)
 
 test("Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever", function()

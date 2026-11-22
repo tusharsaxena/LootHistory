@@ -8,12 +8,14 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (42)
+### test_constants.lua (44)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
 - Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
-- Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)
+- Constants: Mythic+, bonus roll, Milling and Prospecting are Retail-only (R2)
+- Constants: the DECONSTRUCT reason serves both clients, labeled Disenchanted on WoW Forever (F1)
+- Constants: no two source keys share a label, on either client
 - Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
 - Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail
 - Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever
@@ -98,7 +100,7 @@ Total.
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 - ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
-### test_util.lua (58)
+### test_util.lua (59)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -158,6 +160,7 @@ Total.
 - Coalesce: with no C_Timer it runs straight through
 - Util: ParseSelfMoney reads looted and shared money
 - Util.RangeFrom: 90d and 1y are rolling windows
+- Util.IsCutOff: the client's IsTruncated first, else the unbounded width past the string's (F2)
 
 ### test_ledger.lua (38)
 
@@ -208,7 +211,7 @@ Total.
 - LedgerFormat: signed count and money; zero is a gray dash
 - LedgerFormat: the warband holder reads as Warband (Account on WoW Forever, R2)
 
-### test_compat.lua (79)
+### test_compat.lua (80)
 
 - Compat: DecodeGUID creature → kind + npcID
 - Compat: DecodeGUID GameObject → kind, no npcID
@@ -258,8 +261,9 @@ Total.
 - Compat: a nil or empty C_Spell.GetSpellName answer falls through to GetSpellInfo's name
 - Compat: the degraded build's GetSpellName answers nil even with C_Spell present
 - Compat: bag-id groups come from Enum.BagIndex names, type constants excluded
-- Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring
-- Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers
+- Compat: the container table is per client, and only WoW Forever's bags hold the Keyring
+- Compat: the container groups are disjoint, and no group holds a type constant (K101-LH-02)
+- Compat: without Enum.BagIndex the groups are the library's documented fallback: bags 0..5, no bank
 - Compat: container slot read and empty slot
 - Compat: GetMoney nets cursor and trade money
 - Compat: GetWarbandMoney reads the account bank, nil when API absent
@@ -297,7 +301,7 @@ Total.
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
 - Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
 
-### test_compat_client.lua (9)
+### test_compat_client.lua (10)
 
 - CompatClient: the client questions answer the active profile, as the library does
 - CompatClient: ForClient reads a declaration for this client; nil and both mean both
@@ -307,6 +311,7 @@ Total.
 - CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
 - CompatClient: the degraded UnitCharacterName joins a surname, and never reads it as a realm
 - CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
+- CompatClient: a degraded install reads the container groups and the bank as the library does
 - CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
 ### test_tooltip_place.lua (9)
@@ -537,7 +542,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (16)
+### test_reconciler.lua (18)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -546,8 +551,8 @@ Total.
 - Reconciler: combat defers every scan to PLAYER_REGEN_ENABLED
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
-- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)
-- Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
+- Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), nil without it (R8)
+- Reconciler: Compat.NumPurchasedBankTabs("Character") answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
 - Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)
 - Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)
 - Reconciler: account-wide currency lands on the warband holder
@@ -555,6 +560,8 @@ Total.
 - Reconciler: every capture event routes to its dirty part, fuse and handler (LH-11)
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
+- Reconciler: BankState answers the same outcome for each bank shape (R8, K101-LH-02)
+- Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)
 
 ### test_reconciler_rows.lua (41)
 
@@ -745,7 +752,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (83)
+### test_browser.lua (87)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -830,6 +837,10 @@ Total.
 - Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)
 - Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
 - Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
+- History: a cut-off Character cell names the character whole on hover (F2)
+- History: a Character cell drawn whole adds no name to the row's hover (F2)
+- Character dropdown: a cut-off entry names the character whole, a whole one shows nothing (F2)
+- Character dropdown: a cut-off pick on the button names the character whole, a whole one nothing (F2)
 
 ### test_browser_filterbar.lua (24)
 
@@ -1830,7 +1841,7 @@ Total.
 - Harness: the banker interaction types and bank types carry each dump's numbers
 - Harness: the character, regional names and the account bank follow the client
 
-### test_libka0s.lua (53)
+### test_libka0s.lua (54)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1885,6 +1896,7 @@ Total.
 - v1.107.0: the vendored minors and the kit revision match the release
 - v1.108.0: the vendored minors and the kit revision match the release
 - v1.109.0: the vendored minors and the kit revision match the release
+- v1.110.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2459,17 +2471,17 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 42 |
+| test_constants.lua | 44 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
-| test_util.lua | 58 |
+| test_util.lua | 59 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
-| test_compat.lua | 79 |
+| test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
-| test_compat_client.lua | 9 |
+| test_compat_client.lua | 10 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2479,12 +2491,12 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 16 |
+| test_reconciler.lua | 18 |
 | test_reconciler_rows.lua | 41 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 83 |
+| test_browser.lua | 87 |
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
@@ -2527,7 +2539,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
-| test_libka0s.lua | 53 |
+| test_libka0s.lua | 54 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2559,4 +2571,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2149** |
+| **Total** | **2161** |

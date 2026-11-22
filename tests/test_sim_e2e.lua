@@ -128,16 +128,11 @@ local CLIENT_ID = {}
 for key, id in pairs(RETAIL_IDS) do CLIENT_ID[id] = (World.ITEMS[key] or Host.SCENARIO_ITEMS[key]).id end
 CLIENT_ID[3444], CLIENT_ID[3316] = World.FIXTURE.currencies[1][1], World.FIXTURE.currencies[2][1]
 
--- A reason WoW Forever lacks reads as the one it records there instead: a disenchanted item's loss
--- is DECONSTRUCT on Retail and falls through to OTHER on Forever (R2, core/Ledger.lua).
-local CLIENT_REASON = T.forever and { DECONSTRUCT = "OTHER" } or {}
-
+-- The reasons are the same on both clients: a disenchanted item's loss is DECONSTRUCT on WoW Forever
+-- too (owner ruling F1, core/Ledger.lua), so only the ids are the client's.
 local function forClient(line)
-  line = line:gsub("(%u+):(%d+)", function(kind, id)
+  return (line:gsub("(%u+):(%d+)", function(kind, id)
     return kind .. ":" .. (CLIENT_ID[tonumber(id)] or id)
-  end)
-  return (line:gsub(" (%u[%u_]+) @", function(reason)
-    return " " .. (CLIENT_REASON[reason] or reason) .. " @"
   end))
 end
 

@@ -482,6 +482,14 @@ function BrowserTable.ShowSampleTooltip(owner, r)
   return NS.Compat.ShowTintedTooltip(owner, lines)
 end
 
+-- A data row whose Character cell is cut off gets the holder's whole name (owner ruling F2), beside
+-- the window like every row hover. True when it showed one; false leaves the hover to the row.
+function BrowserTable:ShowCutOffName(row)
+  local e = row and row.entry
+  if not (e and e.kind == "row" and NS.Util.IsCutOff(row.cells.char)) then return false end
+  return NS.Compat.ShowTextTooltip(row, NS.LedgerFormat.HolderLabel(NS.Util.RowHolder(e.record))) == true
+end
+
 function BrowserTable:AcquireRow()
   return NS.Pool.Acquire(self.rowPool, function() return self:BuildRow() end)
 end
@@ -578,6 +586,29 @@ function BrowserTable:BuildRow()
     end
   end)
   row:SetScript("OnLeave", function() NS.Compat.HideTooltip() end)
+
+  -- The Character cell's own hover region (owner ruling F2): a name the column cuts off ("...") is
+  -- named whole there, on both clients. It takes pointer motion only, so a click still lands on the
+  -- row (shift-click, right-click); a client without the split leaves it inert, the row as before.
+  -- Over a name drawn whole it hands the hover to the row's own OnEnter, so nothing new shows.
+  local hit = CreateFrame("Frame", nil, row)
+  hit:SetAllPoints(row.cells.char)
+  if hit.SetMouseClickEnabled and hit.SetMouseMotionEnabled then
+    hit:SetMouseMotionEnabled(true)
+    hit:SetMouseClickEnabled(false)
+  end
+  hit:SetScript("OnEnter", function()
+    if row.LockHighlight then row:LockHighlight() end
+    if not BrowserTable:ShowCutOffName(row) then
+      local enter = row:GetScript("OnEnter")
+      if enter then enter(row) end
+    end
+  end)
+  hit:SetScript("OnLeave", function()
+    if row.UnlockHighlight then row:UnlockHighlight() end
+    NS.Compat.HideTooltip()
+  end)
+  row.charHit = hit
 
   -- Header left-click toggles collapse. Data rows: shift-left-click links the item to chat;
   -- right-click opens the row action menu.

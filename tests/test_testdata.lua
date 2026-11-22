@@ -351,8 +351,10 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- did not move with it. Re-pinned by LH-06 (was 3093:296770321 and 110993:401539997): WoW Forever
     -- has no warband bank (R1), so its sample has no Warband holder, tabs or gold. Re-pinned by LH-07
     -- (daily was 95662:1728806636): its sample has no Mythic+, Milling or Prospecting rows (R2), so
-    -- the rows the daily walk folds in moved; the holdings did not.
-    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95461:1897410143" } })[CLIENT]
+    -- the rows the daily walk folds in moved; the holdings did not. Re-pinned by K101-FU-01 (daily was
+    -- 95461:1897410143): the DECONSTRUCT reason serves WoW Forever again (owner ruling F1), so its
+    -- seed walk carries one more row; the holdings did not move.
+    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95674:1980344819" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)

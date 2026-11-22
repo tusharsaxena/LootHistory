@@ -64,9 +64,9 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 23 ledger reasons; WoW Forever lacks the
-  -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING,
-  -- PROSPECTING and DECONSTRUCT (R2), all C.SOURCE_ABSENT.
-  assertEqual(#NS.Constants.SourceOrder, T.forever and 32 or 39)
+  -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING and
+  -- PROSPECTING (R2), all C.SOURCE_ABSENT; it keeps DECONSTRUCT (owner ruling F1).
+  assertEqual(#NS.Constants.SourceOrder, T.forever and 33 or 39)
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).
@@ -633,4 +633,28 @@ test("Util.RangeFrom: 90d and 1y are rolling windows", function()
   local now = T.mocks.time()   -- the clock the addon chunks resolve (the kit binds os.time)
   assertTrue(math.abs(NS.Util.RangeFrom("90d") - (now - 90 * 86400)) <= 1)
   assertTrue(math.abs(NS.Util.RangeFrom("1y") - (now - 365 * 86400)) <= 1)
+end)
+
+-- ── Cut-off text (owner ruling F2) ─────────────────────────────────────────────────────────────
+-- The client's FontString:IsTruncated answers first; a client that gives no boolean falls back to
+-- the text's unbounded width against the string's laid-out width. Empty text, or a string not yet
+-- laid out (width 0), is never cut off.
+test("Util.IsCutOff: the client's IsTruncated first, else the unbounded width past the string's (F2)", function()
+  local fs = T.mocks.CreateFrame("Frame"):CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetText("Sampleblade Mockvalesworth")
+  assertFalse(NS.Util.IsCutOff(fs), "the headless font measures nothing, so nothing is cut")
+  fs:SetWidth(132)
+  rawset(fs, "GetUnboundedStringWidth", function() return 150 end)
+  assertTrue(NS.Util.IsCutOff(fs), "text wider than its string is cut")
+  rawset(fs, "GetUnboundedStringWidth", function() return 120 end)
+  assertFalse(NS.Util.IsCutOff(fs), "text that fits is whole")
+  rawset(fs, "IsTruncated", function() return true end)
+  assertTrue(NS.Util.IsCutOff(fs), "the client's own answer wins")
+  rawset(fs, "GetUnboundedStringWidth", function() return 150 end)
+  rawset(fs, "IsTruncated", function() return false end)
+  assertFalse(NS.Util.IsCutOff(fs), "the client's own answer wins the other way too")
+  fs:SetText("")
+  rawset(fs, "IsTruncated", nil)
+  assertFalse(NS.Util.IsCutOff(fs), "empty text is never cut")
+  assertFalse(NS.Util.IsCutOff(nil), "no FontString, no cut")
 end)

@@ -15,11 +15,12 @@
 --
 -- -- WHY IT IS NARROW --------------------------------------------------------------------------
 --
--- Seventeen members (nine at minor 1, four client helpers at minor 2, four character-identity
--- readers at minor 4), not the union of nine files.
--- `LibKa0s/Env.lua` records that the WIDE extraction was
--- measured and rejected, and that record stays true: a container reader is BankLedger's, a mail
--- decoder is LootHistory's, and a damage-meter reader is MultiMeters'. A member is here only when
+-- Twenty-three members (nine at minor 1, four client helpers at minor 2, four character-identity
+-- readers at minor 4, five container and bank readers and their pattern table at minor 6), not the
+-- union of nine files. `LibKa0s/Env.lua` records that the WIDE extraction was
+-- measured and rejected, and that record stays true: a mail decoder is LootHistory's, and a
+-- damage-meter reader is MultiMeters'. The container groups and the bank-readiness reads joined at
+-- minor 6, once three addons carried copies of them (LibKa0s#101). A member is here only when
 -- two or more addons have a PRODUCTION caller for it and every copy agrees on what the right answer
 -- is (library-stack-§7). What was looked at and left out, and why, is the rejection record below and
 -- in docs/api/Compat/version-1-docs.md, "What is not here":
@@ -90,7 +91,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Compat-1.0", 5
+local MAJOR, MINOR = "LibKa0s-Compat-1.0", 6
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -465,4 +466,218 @@ function lib.RealmKey()
   local realm = GetRealmName and GetRealmName()
   if type(realm) ~= "string" or realm == "" then return nil end
   return realm
+end
+
+-- -- containers and the bank (minor 6) ---------------------------------------------------------
+--
+-- LibKa0s#101 (Ka0sAddonsCommonTasks docs/2026-11-22-LIBKA0S_101_CONTAINER_READER/). BankLedger,
+-- LootHistory and OutfitterReborn each carried their own copy of the container groups and of the
+-- bank-readiness reads, and the copies had drifted: what CanViewCharacterBank answers when the build
+-- cannot tell, what the groups fall back to without Enum.BagIndex, and how ids are found at all.
+-- This section is the one copy. The deadlines and the readiness memory stay with each consumer.
+--
+-- IDS COME BY MEMBER NAME, NEVER BY NUMBER. Blizzard renumbers Enum.BagIndex between builds, and a
+-- numeric guess lands on an unrelated container: BankLedger once assumed AccountBankTab_1 = 13,
+-- which on 12.0.7 put warband tab 1 inside the character bank group and double-counted every stack.
+-- The patterns are ANCHORED and CASE-SENSITIVE, because the enum also carries the TYPE constants
+-- Characterbanktab = -2 and Accountbanktab = -3 beside the real CharacterBankTab_N and
+-- AccountBankTab_N, and a loose match would scan a container that does not exist.
+--
+-- PER CLIENT BY DECLARATION (clients-§5), the row picked by ClientKey() at call time and never by
+-- detecting a feature. Two rows differ:
+--   * the keyring (Keyring, -1) is in the bags on WoW Forever only. Retail's enum names -1 too, but
+--     -1 was the legacy bank container before 11.2 and nothing has shown what it answers today;
+--   * the account (warband) bank is declared on Retail only. WoW Forever numbers AccountBankTab_1..9
+--     (15..23) in its enum, but the bank is not there, so its row declares none.
+-- A client that is neither reads Retail's bags and bank and no account bank: the account bank is
+-- declared, never assumed. Socketed bank bags (-2 on Forever) are not in any group yet: the probes
+-- have not settled them.
+
+local BAG_PATTERNS     = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$" }
+local KEYRING_PATTERNS = { "^Backpack$", "^Bag_%d+$", "^ReagentBag$", "^Keyring$" }
+-- `Bank` / `BankBag_N` are the pre-tab character bank; `CharacterBankTab_N` is the tab form.
+local BANK_PATTERNS    = { "^Bank$", "^BankBag_%d+$", "^CharacterBankTab_%d+$" }
+local ACCOUNT_PATTERNS = { "^AccountBankTab_%d+$" }
+
+local CONTAINER_PATTERNS = {
+  retail  = { bags = BAG_PATTERNS,     bank = BANK_PATTERNS, accountBank = ACCOUNT_PATTERNS },
+  forever = { bags = KEYRING_PATTERNS, bank = BANK_PATTERNS, accountBank = {} },
+}
+local NO_CLIENT_PATTERNS = { bags = BAG_PATTERNS, bank = BANK_PATTERNS, accountBank = {} }
+
+-- The documented fallback when Enum.BagIndex is absent or names no bag: the backpack is id 0 on
+-- every build and predates the enum, and ids 1..5 are the four bags and the reagent bag.
+local FALLBACK_BAGS = { 0, 1, 2, 3, 4, 5 }
+
+local function copyRow(row)
+  local out = {}
+  for group, patterns in pairs(row) do
+    local list = {}
+    for i, pattern in ipairs(patterns) do list[i] = pattern end
+    out[group] = list
+  end
+  return out
+end
+
+--- The pattern table, one row per client, published so a consumer's suite can pin it. A COPY: the
+--- library reads its own file-local table, so a host writing to this one changes no other host's
+--- answer (rule 8).
+lib.CONTAINER_PATTERNS_BY_CLIENT = {
+  retail  = copyRow(CONTAINER_PATTERNS.retail),
+  forever = copyRow(CONTAINER_PATTERNS.forever),
+}
+
+--- Every id whose member name in `members` matches one of `patterns`, sorted and de-duplicated.
+local function idsMatching(members, patterns)
+  local seen, ids = {}, {}
+  if type(members) ~= "table" then return ids end
+  for name, value in pairs(members) do
+    if type(name) == "string" and type(value) == "number" and not seen[value] then
+      for _, pattern in ipairs(patterns) do
+        if name:find(pattern) then
+          seen[value] = true
+          ids[#ids + 1] = value
+          break
+        end
+      end
+    end
+  end
+  table.sort(ids)
+  return ids
+end
+
+--- The container ids of each group on this client: `{ bags = {...}, bank = {...}, accountBank = {...} }`,
+--- each sorted and de-duplicated, matched by anchored member-name patterns in Enum.BagIndex.
+---
+--- `bags`: Backpack, Bag_N, ReagentBag, and Keyring on WoW Forever only. `bank`: Bank, BankBag_N,
+--- CharacterBankTab_N. `accountBank`: AccountBankTab_N on Retail only, empty elsewhere. With no
+--- Enum.BagIndex, or one that names no bag, `bags` is `{ 0, 1, 2, 3, 4, 5 }`; `bank` and
+--- `accountBank` are then what matched, empty without the enum. Fresh tables on every call, read at
+--- call time, so a caller may keep or change the answer.
+---
+--- @return table groups
+function lib.ContainerGroups()
+  local row = CONTAINER_PATTERNS[clientKey()] or NO_CLIENT_PATTERNS
+  local members = Enum and Enum.BagIndex
+  local bags = idsMatching(members, row.bags)
+  if #bags == 0 then
+    for i, id in ipairs(FALLBACK_BAGS) do bags[i] = id end
+  end
+  return {
+    bags        = bags,
+    bank        = idsMatching(members, row.bank),
+    accountBank = idsMatching(members, row.accountBank),
+  }
+end
+
+--- Whether the character bank can be viewed at the banker the player is talking to: true or false
+--- from `C_Bank.CanViewBank(Enum.BankType.Character)`, the bank type read BY NAME, and nil when the
+--- build cannot tell (no C_Bank.CanViewBank, no Enum.BankType.Character, or a secret answer).
+--- Three-valued on purpose: a caller reads nil as readable. A warband-only banker answers false.
+--- A present API's own answer is normalized to a boolean, so a nil answer from it reads false
+--- (BankLedger's copy); no client or kit profile answers nil there.
+---
+--- @return boolean|nil
+function lib.CanViewCharacterBank()
+  local fn = C_Bank and C_Bank.CanViewBank
+  local bankType = Enum and Enum.BankType and Enum.BankType.Character
+  if not fn or bankType == nil then return nil end
+  local answer = fn(bankType)
+  if isSecret(answer) then return nil end
+  return answer and true or false
+end
+
+--- How many tabs the account has bought for a bank type, named as Enum.BankType names it
+--- (`"Character"`, `"Account"`): `C_Bank.FetchNumPurchasedBankTabs(Enum.BankType[name])`. Nil when the
+--- name is not a string, the API or the enum member is absent, or the answer is not a plain number.
+---
+--- @param bankTypeName string
+--- @return number|nil
+function lib.NumPurchasedBankTabs(bankTypeName)
+  if type(bankTypeName) ~= "string" then return nil end
+  local fn = C_Bank and C_Bank.FetchNumPurchasedBankTabs
+  local bankType = Enum and Enum.BankType and Enum.BankType[bankTypeName]
+  if not fn or bankType == nil then return nil end
+  local n = fn(bankType)
+  if isSecret(n) or type(n) ~= "number" then return nil end
+  return n
+end
+
+-- The three interaction types the bank frame opens for, read BY NAME, in the order they are asked.
+local BANKER_KINDS = {
+  { name = "Banker",          kind = "character" },
+  { name = "CharacterBanker", kind = "character" },
+  { name = "AccountBanker",   kind = "account" },
+}
+
+--- Which bank a PLAYER_INTERACTION_MANAGER_FRAME_SHOW / _HIDE type opens: `"character"` for
+--- Enum.PlayerInteractionType.Banker or .CharacterBanker, `"account"` for .AccountBanker, nil for
+--- any other type, a secret, or a build without the enum. The kind is a fact on every client; what
+--- each kind arms (the account bank is Retail's alone) is the consumer's call.
+---
+--- @param interactionType number
+--- @return string|nil
+function lib.BankerKind(interactionType)
+  if isSecret(interactionType) or type(interactionType) ~= "number" then return nil end
+  local types = Enum and Enum.PlayerInteractionType
+  if type(types) ~= "table" then return nil end
+  for _, entry in ipairs(BANKER_KINDS) do
+    local value = types[entry.name]
+    if value ~= nil and value == interactionType then return entry.kind end
+  end
+  return nil
+end
+
+local function positive(n)
+  return type(n) == "number" and n > 0
+end
+
+local function remembersSlots(memory)
+  if type(memory) ~= "table" then return false end
+  for _, slots in pairs(memory) do
+    if positive(slots) then return true end
+  end
+  return false
+end
+
+--- The bank containers that are not ready yet, or nil when the bank is ready. Pure: no client read,
+--- no state, no clock; the caller keeps the memory and the deadline.
+---
+--- `shape` maps container id to its slot count now; `memory` maps id to its slot count at the last
+--- ready read; `purchased` is the number of tabs bought (NumPurchasedBankTabs), or nil.
+---   * With a memory (any id remembered with slots): the sorted ids that read 0 in `shape` after
+---     reporting slots in `memory`, or nil when there are none. An id `shape` does not carry is not
+---     judged, and an id that never had slots (an unbought tab) never blocks.
+---   * With no memory (nil, or no id remembered with slots) and a number `purchased`: when fewer
+---     containers answer slots in `shape` than `purchased`, the MARKER, a fresh table
+---     `{ short = true, answering = <n>, purchased = <p> }` with no array part (`#marker == 0`), so
+---     a caller's `if missing then` waits and its id loop prints nothing. Otherwise nil.
+---   * With no memory and no number `purchased`: nil (a first visit takes its read as it finds it).
+---
+--- @param shape table
+--- @param memory table|nil
+--- @param purchased number|nil
+--- @return table|nil
+function lib.UnreadyBankContainers(shape, memory, purchased)
+  if type(shape) ~= "table" then shape = {} end
+  if remembersSlots(memory) then
+    local out
+    for id, slots in pairs(shape) do
+      if type(id) == "number" and slots == 0 and positive(memory[id]) then
+        out = out or {}
+        out[#out + 1] = id
+      end
+    end
+    if out then table.sort(out) end
+    return out
+  end
+  if type(purchased) ~= "number" then return nil end
+  local answering = 0
+  for _, slots in pairs(shape) do
+    if positive(slots) then answering = answering + 1 end
+  end
+  if answering < purchased then
+    return { short = true, answering = answering, purchased = purchased }
+  end
+  return nil
 end

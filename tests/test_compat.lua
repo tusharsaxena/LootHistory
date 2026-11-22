@@ -624,40 +624,71 @@ test("Compat: bag-id groups come from Enum.BagIndex names, type constants exclud
   end
 end)
 
-test("Compat: the container table is per client, picked once, and only WoW Forever's bags hold the Keyring", function()
-  -- red under: one shared pattern table (the Keyring in Retail's bags, or in neither client's), or a
-  -- table picked anew per read rather than once at load by ClientKey() (clients-§5; ruling R5).
+test("Compat: the container table is per client, and only WoW Forever's bags hold the Keyring", function()
+  -- red under: one shared pattern table (the Keyring in Retail's bags, or in neither client's), an
+  -- account bank declared on WoW Forever (R1), or C.*_IDS not the library's answer for this client
+  -- (LibKa0s-Compat minor 6, clients-§5; ruling R5).
   local C = NS.Constants
   local function has(list, want)
     for _, p in ipairs(list) do if p == want then return true end end
     return false
   end
-  local byClient = C.CONTAINER_GROUPS_BY_CLIENT
-  assertTrue(has(byClient.forever.BAGS, "^Keyring$"), "WoW Forever's bags hold the Keyring")
+  local byClient = NS.Compat.CONTAINER_PATTERNS_BY_CLIENT
+  assertTrue(has(byClient.forever.bags, "^Keyring$"), "WoW Forever's bags hold the Keyring")
   for _, client in ipairs({ "retail", "forever" }) do
     for group, list in pairs(byClient[client]) do
-      if not (client == "forever" and group == "BAGS") then
+      if not (client == "forever" and group == "bags") then
         assertTrue(not has(list, "^Keyring$"), client .. " " .. group .. " holds no Keyring")
       end
     end
   end
-  assertTrue(C.CONTAINER_GROUPS == byClient[T.forever and "forever" or "retail"],
-    "the running client's table is the one picked")
+  assertEqual(#byClient.forever.accountBank, 0, "WoW Forever declares no account bank")
+  assertTrue(has(byClient.retail.accountBank, "^AccountBankTab_%d+$"), "Retail declares the account bank")
+  local live = NS.Compat.ContainerGroups()
+  assertEqual(table.concat(C.BAG_IDS, ","), table.concat(live.bags, ","), "C.BAG_IDS is the library's")
+  assertEqual(table.concat(C.BANK_IDS, ","), table.concat(live.bank, ","), "C.BANK_IDS is the library's")
+  assertEqual(table.concat(C.WARBAND_TAB_IDS, ","), table.concat(live.accountBank, ","),
+    "C.WARBAND_TAB_IDS is the library's")
   assertTrue(not has(C.BAG_IDS, -2) and not has(C.BAG_IDS, -3), "the type constants stay out")
 end)
 
-test("Compat: bag-id groups degrade to EMPTY without Enum.BagIndex, never to guessed numbers", function()
-  -- red under: a numeric fallback such as { 0, 1, 2, 3, 4, 5 } when the enum is absent -- container
-  -- ids come from Enum.BagIndex member names only, and Blizzard has renumbered them before.
+test("Compat: the container groups are disjoint, and no group holds a type constant (K101-LH-02)", function()
+  -- red under: a loose pattern that scoops Characterbanktab (-2) or Accountbanktab (-3) into a
+  -- group, Retail's legacy -1 in any group, or one id in two groups (a stack counted twice).
+  local C = NS.Constants
+  local owner = {}
+  for _, g in ipairs({ { "bags", C.BAG_IDS }, { "bank", C.BANK_IDS }, { "tabs", C.WARBAND_TAB_IDS } }) do
+    for i, id in ipairs(g[2]) do
+      assertTrue(owner[id] == nil, ("id %d is in %s and %s"):format(id, tostring(owner[id]), g[1]))
+      owner[id] = g[1]
+      assertTrue(id ~= -2 and id ~= -3, g[1] .. " holds a type constant")
+      if i > 1 then assertTrue(g[2][i - 1] < id, g[1] .. " is sorted") end
+    end
+  end
+  assertEqual(owner[-1], T.forever and "bags" or nil, "the Keyring is a bag on WoW Forever only")
+  assertEqual(owner[T.bagIndex("AccountBankTab_1")], (not T.forever) and "tabs" or nil,
+    "the first warband tab is scanned on Retail only")
+end)
+
+test("Compat: without Enum.BagIndex the groups are the library's documented fallback: bags 0..5, no bank", function()
+  -- red under: a guessed bank or warband id when the enum is absent (Blizzard has renumbered them
+  -- before), or bags other than LibKa0s-Compat minor 6's documented { 0, 1, 2, 3, 4, 5 } (the
+  -- backpack predates the enum; the lead's call 2, LibKa0s#101).
   local Loader = dofile("tests/_kit/loader.lua")
   Loader.addonName = "LootHistory"
   local mocks = dofile("tests/wow_mock.lua")()
   mocks.Enum.BagIndex = nil
   -- core/ItemSetup.lua loads first in the TOC; only its quality label is read here. core/Compat.lua
   -- and core/CompatClient.lua load above it too: the feature declarations read ForClient at load.
+  -- The groups are read through the loaded NS.Compat, whose library reads the shared mock's Enum, so
+  -- that enum's BagIndex is taken away for the load too.
   local ns = { Item = { QualityLabel = function() return "" end }, Compat = NS.Compat }
-  Loader.load("core/Constants.lua", ns, mocks)
-  assertEqual(#ns.Constants.BAG_IDS, 0)
+  local saved = T.mocks.Enum.BagIndex
+  T.mocks.Enum.BagIndex = nil
+  local ok, err = pcall(Loader.load, "core/Constants.lua", ns, mocks)
+  T.mocks.Enum.BagIndex = saved
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(ns.Constants.BAG_IDS, ","), "0,1,2,3,4,5")
   assertEqual(#ns.Constants.BANK_IDS, 0)
   assertEqual(#ns.Constants.WARBAND_TAB_IDS, 0)
 end)

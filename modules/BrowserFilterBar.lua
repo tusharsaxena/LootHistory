@@ -232,6 +232,24 @@ local function measureLabel(fs, text)
   return type(w) == "number" and w or 0
 end
 
+-- The collapsed Character button's hover (owner ruling F2): when its label is cut off, the picked
+-- characters by their whole names, one a line; a label drawn whole shows nothing. The button is
+-- CHROME, so the tooltip is attached above it (Compat.PlaceTooltip "chrome").
+function B._charButtonTip(dd)
+  if not NS.Util.IsCutOff(dd.text) then return end
+  local names = {}
+  for k in pairs(dd._selected or {}) do names[#names + 1] = NS.LedgerFormat.HolderLabel(k) end
+  if #names == 0 then return end
+  table.sort(names)
+  local tt = NS.Compat.OwnTooltip(dd)
+  if not tt then return end
+  local r, g, b = NS.SkinColor("gtip.title")
+  for _, name in ipairs(names) do tt:AddLine(name, r, g, b) end
+  tt:Show()
+  NS.Compat.PlaceTooltip(dd, "chrome")
+  dd.__nameTip = true
+end
+
 -- The dropdown block's span left of the Export column: row 2's eight dropdowns and their gaps, or
 -- row 1's Group + Direction + a minimum Search box if that is ever the wider.
 local function spanOf(w)
@@ -487,6 +505,13 @@ function B:BuildFilterBar(bar)
   }
   -- SetCharSet keeps the char filter in sync (the window opens scoped to the current player).
   dd.char.onMultiSelect = function(set) B:SetCharSet(set) end
+  -- A single pick is a data-driven label the fit below cannot widen for, so a long name is cut off
+  -- on the button; the hover then names the pick whole (owner ruling F2). Hooked, never set: the
+  -- skin paints the button's own hover through the same script.
+  dd.char:HookScript("OnEnter", function(ddSelf) B._charButtonTip(ddSelf) end)
+  dd.char:HookScript("OnLeave", function(ddSelf)
+    if ddSelf.__nameTip then ddSelf.__nameTip = nil; NS.Compat.HideTooltip() end
+  end)
 
   -- ── Fit: each control as wide as its widest label, every label on one line ──
   -- See filterWidths above. Measured once, here: the label sets are static, so a later

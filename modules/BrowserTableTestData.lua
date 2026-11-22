@@ -56,7 +56,7 @@ local TEST_ZONES = ({
   },
 })[CLIENT]
 -- Weighted distributions ({ value, weight }) — larger weight ⇒ appears more, so no two bars match.
--- The sources this client lacks (C.SOURCE_ABSENT: Mythic+, Milling and Prospecting on WoW Forever)
+-- The sources this client lacks (C.SOURCE_ABSENT: Mythic+, Bonus Roll, Milling and Prospecting on WoW Forever)
 -- are left out, so the sample never shows one.
 local TEST_SOURCE_W = {}
 for _, w in ipairs({

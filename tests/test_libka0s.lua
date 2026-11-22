@@ -1329,7 +1329,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   local debugLog, options = modules("LibKa0s-DebugLog-1.0"), modules("LibKa0s-Options-1.0")
   local sim, browser = modules("LibKa0s-Sim-1.0"), modules("LibKa0s-IconBrowser-1.0")
   assertTrue(modules("LibKa0s-Core-1.0").Core >= 18) -- 19 since v1.108.0, pinned there
-  assertEqual(modules("LibKa0s-Compat-1.0").Compat, 5)
+  assertTrue(modules("LibKa0s-Compat-1.0").Compat >= 5) -- 6 since v1.110.0, pinned there
   assertTrue(modules("LibKa0s-Charts-1.0").Charts >= 2) -- 3 since v1.108.0, pinned there
   assertEqual(modules("LibKa0s-Media-1.0").Media, 13)
   assertEqual(modules("LibKa0s-Launcher-1.0").Launcher, 11)
@@ -1427,5 +1427,16 @@ test("v1.109.0: the vendored minors and the kit revision match the release", fun
   assertEqual(skin.SkinPaintNav, 1)
   assertEqual(options.OptionsCompose, 21)
   assertEqual(options.OptionsComposeMaster, 1)
-  assertEqual(T.KIT_VERSION, 59)
+  assertTrue(T.KIT_VERSION >= 59) -- 60 since v1.110.0, pinned there
+end)
+
+test("v1.110.0: the vendored minors and the kit revision match the release", function()
+  -- LibKa0s#101 (Ka0sAddonsCommonTasks docs/2026-11-22-LIBKA0S_101_CONTAINER_READER): Compat 6 adds
+  -- the shared container groups and bank readers, and test kit revision 60 gives the Forever profile
+  -- its 27-member Enum.BagIndex and C_Bank.CanViewBank. This addon adopts the readers in K101-LH-02;
+  -- the pins say which payload it carries.
+  local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
+  assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Compat-1.0 missing: re-vendor v1.110.0")
+  assertEqual(lib.MODULES.Compat, 6)
+  assertEqual(T.KIT_VERSION, 60)
 end)

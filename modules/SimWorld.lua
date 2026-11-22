@@ -509,7 +509,7 @@ local PROVIDERS = {
   { "CanViewCharacterBank", function(w) return w.canViewBank ~= false end },
   -- The guard's first-visit tab count: unknown in the world, so a simulated first visit is never
   -- held by the real account's purchased tabs.
-  { "NumPurchasedCharacterBankTabs", function() return nil end },
+  { "NumPurchasedBankTabs", function() return nil end },
 }
 
 --- The provided keys, in registration order.

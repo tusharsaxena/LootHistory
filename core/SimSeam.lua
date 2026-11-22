@@ -56,6 +56,7 @@ local Sim = LibStub and LibStub("LibKa0s-Sim-1.0", true)
 local PURE = {
   FoldNBSP = true, IsAuctionHouseMail = true, DecodeGUID = true, BindState = true, BestBound = true,
   CurrencyLinkID = true, AuctionMailKind = true, CurrencySourceName = true, InteractionType = true,
+  BankerKind = true, UnreadyBankContainers = true,
   ShowItemTooltip = true, ShowCurrencyTooltip = true, ShowTextTooltip = true, ShowAmountTooltip = true,
   ShowLinesTooltip = true, ShowTintedTooltip = true, ShowLineTooltip = true, HideTooltip = true,
   OwnTooltip = true, PlaceTooltip = true,
