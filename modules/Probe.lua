@@ -398,7 +398,7 @@ function P.Start()
   return true
 end
 
---- Stop recording: every event unregistered by name, every pending snapshot cancelled.
+--- Stop recording: every event unregistered by name, every pending snapshot canceled.
 function P.Stop()
   if not state.running then return false, "not running" end
   P.Record("stop", {})

@@ -43,12 +43,13 @@ touching code:
   test or release this addon.
 - Everything else — `scope.md`, `module-map.md`, `schema.md`, `profiles.md`,
   `message-bus.md`, `browser.md`, `debug.md`, `disabled-state.md`, `settings-panel.md`, `slash-dispatch.md`, `compat-layer.md`,
-  `midnight-quirks.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
+  `midnight-quirks.md`, `forever-quirks.md`, `forever-probes.md`, `performance.md`, `combat-path-sweep.md`, `smoke-tests.md`, `test-cases.md`,
   `automated-tests/`, `perf-analysis/` — is listed in ARCHITECTURE.md's `## Documentation map`, which also records which conditional docs do not apply here.
 
 ## Green gate
 
-Run `lua tests/run.lua` and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (0/0; the
+Run `lua tests/run.lua`, `KA0S_KIT_CLIENT=forever lua tests/run.lua` (Retail and WoW Forever,
+both 0 failed; clients-§6) and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (0/0; the
 kit bounds the suite on load, and `luacheck` loads no kit, so it runs through the bounded
 runner, testing-§15) before every commit; in-game checks are in
 [docs/smoke-tests.md](docs/smoke-tests.md).

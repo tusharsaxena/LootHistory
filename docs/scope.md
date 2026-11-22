@@ -8,7 +8,7 @@ Ka0s Loot History is a WoW addon with two responsibilities: **capture** every it
 
 Capture is passive and silent: the authoritative "item received (self)" signal is `CHAT_MSG_LOOT`, and peripheral events stamp a short-lived source context the collector consumes (see [data-flow.md](data-flow.md)). The window is a non-secure standalone frame, independent of the Blizzard options UI; the settings panel is a separate Blizzard Settings canvas. The message contract between collector, database, browser, analytics, and settings is documented in [architecture.md](ARCHITECTURE.md).
 
-Target client: WoW 12.1.5 (Midnight), Retail-only (`## Interface: 120105`). Mainline branch: `master`. English-only.
+Target clients: Retail, WoW 12.1.5 (Midnight), and WoW Forever 1.60.1, from one codebase (`## Interface: 120105, 16001`, no load gating; clients-§2). What WoW Forever lacks (the warband bank, Mythic+, bonus rolls, Milling and Prospecting) is absent there by declaration, listed in [ARCHITECTURE.md](ARCHITECTURE.md#per-client-features-clients-4). Mainline branch: `master`. English-only.
 
 Display name in the addon list and the Settings panel: `Ka0s Loot History`. The folder, addon ID, slash commands (`/lh`, `/loothistory`), and saved-variable namespace (`LootHistoryDB`) stay unprefixed `LootHistory` for ergonomics. The loot history and its retention live account-wide in `LootHistoryDB.global`; every other setting lives in the active AceDB profile (`LootHistoryDB.profiles`, see [profiles.md](profiles.md)).
 

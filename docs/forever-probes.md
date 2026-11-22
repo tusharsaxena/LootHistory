@@ -17,7 +17,7 @@ sheet:
 | Verb | What it does |
 |---|---|
 | `/lh debug probe start` | Starts recording, stamps the record with the client key, its version and build, and the addon version, and writes a `start` entry. |
-| `/lh debug probe stop` | Stops recording: every probe event unregistered, every pending bank snapshot cancelled. |
+| `/lh debug probe stop` | Stops recording: every probe event unregistered, every pending bank snapshot canceled. |
 | `/lh debug probe status` (or bare `/lh debug probe`) | One chat line: running or stopped, entries against the cap, dropped count, client and build. |
 | `/lh debug probe clear` | Drops the record. While running, recording goes on in a fresh record. |
 

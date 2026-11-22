@@ -249,9 +249,9 @@ Each needs an in-game probe, recorded with the build, before any section of this
 
 ## LootHistory-specific quirks
 
-## Retail-only: presence guards, not flavor branching
+## Presence guards, not flavor branching
 
-LH ships Retail-only, so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua`'s header comment). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`Compat.GetActiveKeystoneLevel`), `IsInInstance` (`Compat.InPartyInstance`), `C_Container.UseContainerItem` with a bare-global fallback (`Compat.HookUseContainerItem`), `C_Container.GetContainerItemInfo` (`Compat.ContainerItemHasLoot`), `C_TooltipInfo.GetHyperlink` (`Compat.ScanBound`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
+LH ships on Retail and WoW Forever, and asks which client it is on only in `core/CompatClient.lua` (clients-§3), so `core/Compat.lua` carries **no** `WOW_PROJECT_ID` branching. The WoW Forever behaviors are in [forever-quirks.md](forever-quirks.md). Every deprecated or flavor-varying API is gated by a direct `C_*` / global **presence check**; a missing API degrades the shim to `nil`/`false` rather than erroring (`core/Compat.lua`'s header comment). Examples: `C_ChallengeMode.GetActiveKeystoneInfo` (`Compat.GetActiveKeystoneLevel`), `IsInInstance` (`Compat.InPartyInstance`), `C_Container.UseContainerItem` with a bare-global fallback (`Compat.HookUseContainerItem`), `C_Container.GetContainerItemInfo` (`Compat.ContainerItemHasLoot`), `C_TooltipInfo.GetHyperlink` (`Compat.ScanBound`). This is the standard's compat-firewall rule: modules call `NS.Compat.X` and never test the game flavor inline.
 
 ## GUID decode — npcID in field 6, KILL vs CONTAINER
 

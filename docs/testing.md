@@ -1,6 +1,6 @@
 # Testing
 
-WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard every commit: the unit tests (`lua tests/run.lua`) and the linter (`~/.claude/dev-copilot/bin/ka0s-bounded luacheck .`; `luacheck` loads no kit, so it runs through the bounded runner). Both must be green — see [The green gate](#the-green-gate). For in-client, end-to-end scenarios that the headless harness can't reach — real `CHAT_MSG_LOOT` capture, the browser window, minimap button, combat-gated settings panel — see [smoke-tests.md](smoke-tests.md).
+WoW runs **Lua 5.1**, so the headless suite targets Lua 5.1 too. Two gates guard every commit: the unit tests, run under both kit profiles because the addon ships on Retail and WoW Forever (`lua tests/run.lua` and `KA0S_KIT_CLIENT=forever lua tests/run.lua`, clients-§6), and the linter (`~/.claude/dev-copilot/bin/ka0s-bounded luacheck .`; `luacheck` loads no kit, so it runs through the bounded runner). Both must be green — see [The green gate](#the-green-gate). For in-client, end-to-end scenarios that the headless harness can't reach — real `CHAT_MSG_LOOT` capture, the browser window, minimap button, combat-gated settings panel — see [smoke-tests.md](smoke-tests.md).
 
 ## The harness
 
@@ -161,6 +161,7 @@ These exist because of the LibKa0s adoption (the per-suite case counts are in [t
 | `test_launcher_skin_entry.lua` | the launcher menu's **Open skin selector** entry (SF-FIX, LibKa0s Launcher minor 6): the descriptor in `core/LauncherSetup.lua` passes `openSkinPicker`, which runs the skin verb (`RunSkinVerb`), and the mode strips in `core/WidgetsSetup.lua` pass `sim` or `onEnd`, so the strip's right-click menu has something to end (SF-F1). Both cases read the source text |
 | `test_vendor_sync.lua` | the vendored-payload gate, adopted from the kit in one line (`tests/_kit/vendor_sync.lua`) — that `libs/LibKa0s/` and `tests/_kit/` are exactly what the LibKa0s repo published at the tag this repo’s `CLAUDE.md` names, with the provenance line read as an **input** rather than hardcoded, one normalization (CR stripped from the working-tree side, because `.gitattributes` pins CRLF while `git show` hands back the LF blob), and a missing `../LibKa0s` sibling reporting a **skip carrying its reason** rather than a pass |
 | `test_doc_structure.lua` | the doc-shape gate — that the documentation set this repo promises is on disk and internally consistent, read off the checkout rather than off the loaded addon |
+| `test_client_shape.lua` | the **Retail · Forever shape** (clients-§2, §4, §6; toc-file-§3), read off the checkout: the TOC's `## Interface: 120105, 16001` with no load-gating line, the kit's missing-globals scan armed for both clients, the README's dual-client badge and supported-clients sentence, both suite runs named in `CLAUDE.md`, `DEPENDENCIES.md` and this file, `docs/forever-quirks.md`'s vendored block and own section, and the ARCHITECTURE per-client table naming every declared feature and source; then, on whichever profile runs, each `C.FEATURE` and `C.SOURCE_ABSENT` answer and each Retail-only feature's event rows present on Retail and absent on WoW Forever |
 | `test_lintconfig.lua` | the **lint-suppression gate** (`M4c-06`) — that `.luacheckrc` sets no top-level `ignore`, switches no warning class off wholesale, narrows every `files[...]` ignore to one file or one variable name, and that no tracked `.lua` carries a bare `-- luacheck: ignore`. It parses the config **as Lua** under a sandbox, so it inspects the table luacheck obeys rather than text a different spelling would slip past, and it fails rather than skips when it cannot look |
 | `test_eol.lua` | the kit’s own working-tree line-ending gate (`tests/_kit/`), over every path `git ls-files` reports — declared with its own `dir` in `tests/run.lua` so a re-vendor cannot land it and quietly run nothing |
 | `test_prose.lua` | the kit’s US-English prose gate (`tests/_kit/`, `localization-§5`), over every authored file `git ls-files` reports — declared by the pair in `tests/run.lua`. It replaced a hand-written `tests/test_prose.lua` that a bare `"test_prose"` entry had been running in its place. The local copy's one waiver (the British-spelled cancellation flag on `NS.After`'s handle, in `core/LifecycleSetup.lua`) was not carried over: that handle is the addon's own wrapper table, which no mock or library reads, so the field is spelled `h.canceled` and the repo ships no `tests/prose_waivers.lua` |
@@ -270,10 +271,11 @@ What the gate refuses, in all four of its cases: a top-level `ignore`; a warning
 
 ## The green gate
 
-Both checks run before every commit:
+Both checks run before every commit, the suite once per client the addon ships on (clients-§6):
 
 ```
-lua tests/run.lua                                              # all suites green (count: docs/test-cases.md)
+lua tests/run.lua                                              # all suites green on Retail (count: docs/test-cases.md)
+KA0S_KIT_CLIENT=forever lua tests/run.lua                      # the same suite as WoW Forever, green too
 ~/.claude/dev-copilot/bin/ka0s-bounded luacheck .              # 0 warnings / 0 errors
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
@@ -286,7 +288,7 @@ that takes it. That is the state today. See [The vendor gate](#the-vendor-gate) 
 halves, what each answer means, and the comparison against the tag `CLAUDE.md` names — which is the
 one that has to be empty. `lua tests/run.lua` already runs it (`tests/test_vendor_sync.lua`).
 
-A commit ships when the first two are green and the suite's vendor-sync cases have **passed rather
+A commit ships when the first three are green and the suite's vendor-sync cases have **passed rather
 than skipped** — they degrade to a skip with no sibling checkout and no `git`, and a skip is not a
 pass.
 

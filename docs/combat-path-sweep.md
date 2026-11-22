@@ -60,7 +60,7 @@ one in `settings/Slash.lua`'s `NS.OfferLedgerReset`) are registrations this tabl
 | `LOOT_OPENED` | `modules/Attribution.lua` (row) | Stamps the single-slot loot context (one table write). Not combat-gated, but a loot window is not a hot path. |
 | `ENCOUNTER_START` | `modules/Attribution.lua` (row) | Two field writes, once per encounter. |
 | `ENCOUNTER_END` | `modules/Attribution.lua` (row) | One field write (the grace expiry on a kill) or one clear (a wipe), once per encounter. |
-| `CHALLENGE_MODE_START` | `modules/Attribution.lua` (row) | Two field writes, once per key. |
+| `CHALLENGE_MODE_START` | `modules/Attribution.lua` (row; this row, `CHALLENGE_MODE_COMPLETED`, `ZONE_CHANGED_NEW_AREA` and `CHALLENGE_MODE_RESET` register on Retail only, `C.FEATURE.mythicPlus`) | Two field writes, once per key. |
 | `CHALLENGE_MODE_COMPLETED` | `modules/Attribution.lua` (row) | One keystone-level read and at most one field write, once per key. The context is kept for the reward chest. |
 | `TRADE_ACCEPT_UPDATE` | `modules/Attribution.lua` (row) | Out of combat by construction. |
 | `QUEST_TURNED_IN` | `modules/Attribution.lua` (row) | One context stamp. |

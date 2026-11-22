@@ -2187,6 +2187,17 @@ Total.
 - every deviation id the register cites is assigned by a bundle in docs/audits/
 - docs/smoke-tests.md carries a non-English-client section
 
+### test_client_shape.lua (8)
+
+- Client shape: the TOC carries the Retail and WoW Forever numbers and no load-gating line
+- Client shape: the Forever number arms the kit's missing-globals scan for both clients
+- Client shape: the README opens on the dual-client WoW badge and the supported-clients sentence
+- Client shape: the CLAUDE.md gate and DEPENDENCIES.md name both suite runs
+- Client shape: docs/forever-quirks.md carries the vendored Forever catalog, then its own section
+- Client shape: the ARCHITECTURE per-client table names every declared feature and source
+- Client shape: each declared feature's answer is the running client's
+- Client shape: a Retail-only feature's event rows exist on Retail and are absent on WoW Forever
+
 ### test_lintconfig.lua (4)
 
 - lintconfig: .luacheckrc sets no top-level ignore
@@ -2529,6 +2540,7 @@ Total.
 | test_sim_slash.lua | 10 |
 | test_sim_checkbox.lua | 10 |
 | test_doc_structure.lua | 8 |
+| test_client_shape.lua | 8 |
 | test_lintconfig.lua | 4 |
 | test_prose.lua | 15 |
 | test_vendor_sync.lua | 3 |
@@ -2542,4 +2554,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2136** |
+| **Total** | **2144** |

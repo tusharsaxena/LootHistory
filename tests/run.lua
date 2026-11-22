@@ -194,6 +194,10 @@ local SUITES = {
   -- the sim's listener refreshing it. After test_sim_slash; every case stops its session.
   "test_sim_checkbox",
   "test_doc_structure",
+  -- The Retail · Forever shape (clients-§2, §4, §6; the WoW Forever port, LH-14): the TOC, the root
+  -- docs, the Forever docs and the per-client table, read from disk, then each declared feature
+  -- present where declared and absent elsewhere on whichever kit profile runs.
+  "test_client_shape",
   -- The lint-suppression gate. Like test_doc_structure and test_eol it reads the repository
   -- from disk rather than the loaded addon, so it wants no particular slot; it sits beside
   -- the other two gates that answer for the repo rather than for the code.

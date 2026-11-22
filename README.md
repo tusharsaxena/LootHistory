@@ -1,12 +1,12 @@
 # Loot History
 
-![WoW](https://img.shields.io/badge/WoW-Midnight_12.1.5-purple)
+![WoW](https://img.shields.io/badge/WoW-Midnight_12.1.5_and_Forever_1.60.1-purple)
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-2136%2F2136_passing-green)
+![Tests](https://img.shields.io/badge/Tests-2144%2F2144_passing-green)
 
-Retail only for now; WoW Forever support is planned. Loot History is a passive loot tracker for World of Warcraft: Midnight. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
+Supports Retail and WoW Forever. Loot History is a passive loot tracker for World of Warcraft. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
 The history is account-wide. Every character writes to and reads from the same log, and it survives reloads and logouts. You pick a minimum quality, and anything below it is ignored.
 
@@ -16,8 +16,8 @@ Each item is filed under one of these sources:
 | ------ | -------------- |
 | Kill | Looting a creature you killed |
 | Container | Opening a chest, lockbox, or lootable object |
-| Mythic+ | End-of-run and Great Vault chests |
-| Bonus Roll | Items from a bonus roll |
+| Mythic+ | End-of-run and Great Vault chests (Retail only) |
+| Bonus Roll | Items from a bonus roll (Retail only) |
 | Roll | Items you won on a group-loot roll |
 | Quest | Quest rewards |
 | Trade | Items received in a trade |
@@ -26,7 +26,7 @@ Each item is filed under one of these sources:
 | Vendor | Items bought from a vendor |
 | Craft | Items you created by crafting |
 | Refund | Items returned to you by a refund |
-| Disenchant / Milling / Prospecting | Items produced by those actions |
+| Disenchant / Milling / Prospecting | Items produced by those actions (Milling and Prospecting on Retail only) |
 | Other | Anything that arrived with no clear source |
 
 Most items are filed straight from what the game reported, and those are marked **Certain**. Sometimes nothing says where an item came from. The addon still records it, under **Other** and marked **Inferred**, rather than dropping it on the floor. Every row shows which of the two it is, so you always know what you're reading.
@@ -54,7 +54,7 @@ Reading back your loot happens in the History window, in this order:
 - Open the window. Right-click the minimap button and tick **Show window**, type `/lh toggle`, or press a key you bind to **Toggle history browser**. Set it in Options > Keybindings > Ka0s Loot History, or on General > Keybindings in this addon's settings; it has no key until you pick one. A left-click on the button opens the settings instead. The window has four tabs: History, a table of every item you've recorded, Insights, Timeline and Holdings.
 - Narrow it down. Click a column header to sort. The filter bar above the table picks by date, bound, quality, type, sub-type, source, zone or character, the search box matches item names, and **Group by** folds rows together. Each tab (History, Insights, Timeline, Holdings) keeps its own filters. **Save** keeps the current tab's view as its default, **Clear** goes back to that saved view, and **Reset** forgets it and returns the tab to stock. Sorting and filters only carry over to your next session if you pressed Save.
 - Handle a row. Hover it for the item's tooltip, or shift-click it to link the item in chat. Right-click opens a menu with **Link to chat**, **Blacklist item** and **Delete**. Blacklisting stops future loots of that item being recorded but leaves this row where it is, so use Delete when you want the row gone.
-- Open the Timeline. It charts one thing at a time (gold, a currency or an item) over time: a thick Total line plus a line per character or the Warband, with daily gained and lost bars underneath. Type in the search box to pick what to chart, and hover for the day's numbers. Right-click a History or Holdings row and choose **Show in Timeline** to jump straight to it. The Timeline starts at the upgrade; there is nothing to chart before it. **Keep Timeline history for** in Settings controls how long the daily balances are kept.
+- Open the Timeline. It charts one thing at a time (gold, a currency or an item) over time: a thick Total line plus a line per character or the Warband (the Account on WoW Forever), with daily gained and lost bars underneath. Type in the search box to pick what to chart, and hover for the day's numbers. Right-click a History or Holdings row and choose **Show in Timeline** to jump straight to it. The Timeline starts at the upgrade; there is nothing to chart before it. **Keep Timeline history for** in Settings controls how long the daily balances are kept.
 - Switch to Insights. It breaks your loot down by source, value, quality and character, and gives currency a section of its own. Insights keeps its own filters, separate from History's, so narrowing one tab leaves the other's slice alone.
 - Export. The **Export** button copies the tab you're on: loot rows as CSV from History, or a summary of the charts from Insights. **Data Set** picks all your data or just the current view. The addon can't reach your clipboard, so it opens a box with the text selected and you press Ctrl+C.
 
@@ -92,7 +92,7 @@ The value shown throughout the History table and Insights is the higher of an it
 | Can I use different settings on different characters? | Yes. Settings live in profiles, and every character starts on the shared **Default** one. Pick, create, copy or reset a profile on the **Profiles** page in the settings, or switch from chat with `/lh profile <name>` (a bare `/lh profile` lists them). Your loot history is shared by every profile, so switching never hides or deletes a record. **Keep history for** is shared too: it is one setting for the whole account, so a profile switch never changes what gets cleared out. |
 | Does it record other players' loot? | No. Only items **you** pick up. |
 | What does the "confidence" marker mean? | Each item is marked **Certain** or **Inferred**. Most are Certain, filed straight from what the game reported. When the source can't be worked out, the addon still keeps the item, files it under **Other** and marks it Inferred. |
-| Which sources can I toggle on or off? | Every source it records: Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund. They're under **Capture > Record data from** in the settings. |
+| Which sources can I toggle on or off? | Every source it records: Kill, Container, Mythic+, Bonus Roll, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Milling, Prospecting, Craft and Refund. WoW Forever has no Mythic+, bonus rolls, Milling or Prospecting, so those four are not offered there. They're under **Capture > Record data from** in the settings. |
 | Will raising the quality threshold hide items I already looted? | No. The threshold only applies to new items. What you've already recorded stays until the retention setting clears it or you delete it by hand. |
 | Do I need another addon to see auction values? | Only if you want them. Prices come from **Auctionator**, **TSM** or **OribosExchange** if you have one installed. With none, every value falls back to the vendor sell price. The value shown is always the higher of the two. |
 | How do I stop tracking one specific item, or force-track one below my threshold? | Use the **Filters** tab in settings. Blacklist an item (by id, name or a shift-clicked link) to skip it from now on. Whitelist one to always record it, even if it's below **Minimum quality**, from a source unticked under **Capture > Record data from**, or a quest item. Both lists only affect future loots and never touch rows you already have. |

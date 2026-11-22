@@ -98,7 +98,7 @@ The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua`) as the single
 
 ### Instance context enrichment
 
-The encounter and keystone detail is layered on by separate rolling-context stampers that write `State.encounter` / `State.keystone` (`core/State.lua`) rather than the loot context:
+The encounter and keystone detail is layered on by separate rolling-context stampers (the keystone's, its four events and the `MPLUS` source are Retail only, `C.FEATURE.mythicPlus`, ruling R2: WoW Forever has no keystones, so a GameObject there is always `CONTAINER`) that write `State.encounter` / `State.keystone` (`core/State.lua`) rather than the loot context:
 
 - `ENCOUNTER_START` → `OnEncounterStart` sets `{ id, name, difficulty }` (`modules/Attribution.lua`); `ENCOUNTER_END` → `OnEncounterEnd` (`modules/Attribution.lua`) keeps it on a kill (`success == 1`) with `expires = GetTime() + Constants.ENCOUNTER_GRACE` (60 s, `core/Constants.lua`), because the boss corpse is looted *after* `ENCOUNTER_END`; on a wipe it clears it. `ResolveLootSource` treats the context as live while it has no `expires` or the clock is still at or before it, so KILL loot during the pull and from the corpse inside the window carries the encounter id + difficulty. Trash KILL loot inside the same window carries it too, which is accepted. The next `ENCOUNTER_START` replaces the table, so a new pull drops the old expiry.
 - `CHALLENGE_MODE_START` → `OnChallengeModeStart` records `{ level }` from `NS.Compat.GetActiveKeystoneLevel` (`core/Compat.lua`). `CHALLENGE_MODE_COMPLETED` deliberately **keeps** the keystone context (refreshing the level) rather than clearing it, because the reward chest is looted shortly *after* completion and its GameObject GUID must still resolve to `MPLUS` (`modules/Attribution.lua`, `Attribution:OnChallengeModeCompleted`); a completion-time level of 0 is ignored rather than stored.
@@ -165,7 +165,7 @@ A second, independent engine sits beside loot capture: the **Reconciler** (`modu
 | `BAG_UPDATE(bagID)` | `bags` (that bag), or `bank` / `tabs` when the bag id belongs to the bank or a warband tab | no |
 | `BAG_UPDATE_DELAYED` | nothing | yes (it ends the burst of `BAG_UPDATE`s) |
 | `PLAYER_EQUIPMENT_CHANGED` | `equipped` | yes |
-| `PLAYER_MONEY` / `ACCOUNT_MONEY` | `money` / `warbandMoney` | yes |
+| `PLAYER_MONEY` / `ACCOUNT_MONEY` | `money` / `warbandMoney` (`ACCOUNT_MONEY` and the `tabs` routing on Retail only, `C.FEATURE.warbandBank`) | yes |
 | `CURRENCY_DISPLAY_UPDATE(id, qty, change, gainSrc, lostSrc)` | `currencyDelta` (the change is folded into `pendingCur[id]`, the source enums kept for the reason); a nil id marks `currency` for a full list rescan | yes |
 | `CURRENCY_TRANSFER_LOG_UPDATE` | `currencyDelta` (sets `pendingTransfer`: the flush writes the loss as an OUT here and an IN on the own alt, both `CURRENCY_TRANSFER`, and credits the alt's stored currency) | yes |
 | `PLAYERBANKSLOTS_CHANGED` / `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED` | `bank` / `tabs` | yes |
