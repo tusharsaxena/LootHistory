@@ -1,0 +1,11 @@
+LH-REV review of the LootHistory Forever port (feat/2026-11-22-forever-port-lh-bl, LH-01..LH-15). Two independent reviewers looked at correctness (bank readiness guard R8, naming), client parity (R2 wording), release gates (complexity) and probe durability (R4). Each finding was checked against the code adversarially. Fix commit: e204308.
+1. Reconciler.lua:754, a move made while the bank loads is split into UNTRACKED OUT plus a one-sided IN. CONFIRMED. The suggested fix (drift first) is not enough on its own, because the drift read runs after the move anyway. Fix: the whole flush waits while the drift read waits (login passes excepted), and the waited drift pass also reads the bags, so the move pairs as one MOVE. Test: 'a withdraw made while the bank loads is one MOVE'.
+2. Reconciler.lua:47, a first visit with no bankSlots takes a partial genesis. CONFIRMED. Fix: with no bankSlots, the bank is 'loading' while fewer containers answer slots than Compat.NumPurchasedCharacterBankTabs (new member, C_Bank.FetchNumPurchasedBankTabs). Where the API is absent this is unguarded, as before. Tests: compat member, plus 'a first bank visit waits for every purchased tab'.
+3. Reconciler.lua:30, a 0 still showing after READY_WAIT is believed. REJECTED. This is the documented R8 deadline trade-off, and a load slower than 5 s is unverified. Follow-up: measure with probe P1.
+4. Compat.lua:1084, the currency-transfer destination may lack the surname. REJECTED. It depends on unverified client behaviour (P5), and whether Forever has the transfer API at all is also unverified. Follow-up: settle it with probe P5.
+5. BrowserTable.lua:221, the Bound tooltip says Warbound on Forever. CONFIRMED. Fix: it now uses C.ACCOUNT.bound. Test added.
+6. Reconciler R:Scan is CCN 18. CONFIRMED. Fix: readContainer was extracted. The complexity suite now reports 0 warnings, max 15.
+7. wow_mock top-level function is CCN 16. CONFIRMED. Fix: bagIndexFor moved to file scope.
+8. Probe cap drops the start entry. CONFIRMED. Fix: the cap drops the oldest entry that is not a start entry. Test updated.
+9. Degraded PlayerKey drops the surname. CONFIRMED. Fix: the stub joins the surname, as the library does. Test updated.
+Gate: retail 2149 passed / 1 skipped, forever 2129 passed / 21 skipped, luacheck 0/0, complexity 0 warnings, no source file over 1500 lines.
