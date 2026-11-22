@@ -208,6 +208,10 @@ test("parity: the Compat seam carries every LibKa0s-Compat-1.0 member it wires",
     -- LibKa0s v1.94.0 (Compat minor 4) added the four region-unique identity helpers (WoW Forever).
     -- This addon ships for Retail only, and nothing here calls them.
     "RegionalNames", "UnitCharacterName", "CharacterKey", "RealmKey",
+    -- LibKa0s v1.110.0 (Compat minor 6, LibKa0s#101) added the container groups and the bank readers.
+    -- Not wired yet: item K101-LH-02 adopts them and takes them off this list.
+    "ContainerGroups", "CONTAINER_PATTERNS_BY_CLIENT", "CanViewCharacterBank", "NumPurchasedBankTabs",
+    "BankerKind", "UnreadyBankContainers",
   })
 end)
 
