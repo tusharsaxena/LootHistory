@@ -3,43 +3,56 @@
 These are the in-client checks the headless suite cannot make: real `CHAT_MSG_LOOT` capture, the
 History window, the settings panel, the minimap button, combat locks and what the client draws. The
 pure logic is covered by `lua tests/run.lua` and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (see [testing.md](testing.md)). Run the
-suite on the live Retail client (Midnight 12.1.5, Interface 120105) before tagging a release, after a
-`## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
+suite on the live Retail client (Midnight 12.1.5, Interface 120105) and on WoW Forever (1.60.1,
+Interface 16001) before tagging a release, after a `## Interface:` bump and after a `libs/` refresh; run the themes a change touches before calling that
 change done (see *Which themes to run* below). **Fully exit and restart the WoW client after
 checking out the branch** (new font and texture files are not seen by `/reload`); later steps may
 `/reload`. Start each theme from a clean `/reload` with debug logging off unless a step turns it on. Record each check on its `Result:` line (pass, or what you
 saw). IDs are `<THEME>-<n>`: an ID is never renumbered or reused, and a new check takes the next
 free number in its theme.
 
+**Which client.** Loot History ships on Retail and WoW Forever from one codebase (the WoW Forever
+port, Ka0sAddonsCommonTasks `docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/`). The Index's
+**Client** column names the client each theme runs on: `both` means run its checks on each client
+and record each client's result on its own `Result:` line, `Retail` or `WoW Forever` means that
+client alone. A check that runs on one client inside a `both` theme says so after its title
+(`Client: Retail.`), and every check in the WoW Forever theme names its client the same way. The
+checks written before the port were run on Retail; LH-15 tagged them by theme, and on WoW Forever a
+`both` check skips its Retail-only steps as FOREVER-13 says. The [WoW Forever](#wow-forever) theme
+holds the Forever checks, the checks that what Forever lacks is not there, and the Retail regression
+checks for the port's changes to both clients (ruling R8). The in-game probes the port leaves open,
+each with its safe default, are [`forever-probes.md`](forever-probes.md).
+
 ## Index
 
-| ID range | Theme | What it covers |
-|---|---|---|
-| INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
-| SLASH-1 to 10 | [Slash commands](#slash-commands) | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version`, `/lh skin` |
-| PANEL-1 to 27 | [Settings panel](#settings-panel) | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
-| PROFILE-1 to 13 | [Profiles](#profiles) | The Profiles page, what a profile holds, `/lh profile` |
-| STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
-| TM-1 to 3 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters |
-| CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | A hidden tracking currency never writes its own row |
-| COMBAT-1 to 8 | [Combat](#combat) | The window in combat, the settings combat lock, combat-driven refusals |
-| CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 49 | [History window](#history-window) | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open |
-| FB-1 | [History window](#history-window) | The filter bar fills the window and scales with it |
-| AC-1 | [History window](#history-window) | The Search autocomplete on History, Insights, Timeline and Holdings |
-| INS-1 to 24 | [Insights](#insights) | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
-| FILT-1 to 25 | [Filter lists](#filter-lists) | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
-| LAUNCH-1 to 17 | [Launcher](#launcher) | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
-| DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
-| ICON-1 to 6 | [Vendored icons](#vendored-icons) | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
-| DEGRADED-1 to 15 | [Degraded install](#degraded-install) | LibKa0s missing from the install; the title badge as the only mode marker |
-| LED-1 to 14 | [Ledger and holdings](#ledger-and-holdings) | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin, where Holdings' tooltips open |
-| LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
-| TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
-| TL-1 to 19 | [Timeline](#timeline) | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
-| SKIN-1 to 56 | [Skins](#skins) | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
-| SIM-1 to 15 | [Simulator](#simulator) | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters |
-| LOC-1 to 5 | [Non-English client](#non-english-client) | Bind lines, AH mail, deconstruct names on deDE or frFR |
+| ID range | Theme | Client | What it covers |
+|---|---|---|---|
+| INSTALL-1 to 8 | [Install and upgrade](#install-and-upgrade) | both | Clean load, TOC order, the SavedVariables shape, the upgrade migrations |
+| SLASH-1 to 10 | [Slash commands](#slash-commands) | both | Bare `/lh`, help, `list`/`get`/`set`/`reset`/`resetall`, input refusals, `version`, `/lh skin` |
+| PANEL-1 to 27 | [Settings panel](#settings-panel) | both | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
+| PROFILE-1 to 13 | [Profiles](#profiles) | both | The Profiles page, what a profile holds, `/lh profile` |
+| STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
+| TM-1 to 3 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters |
+| CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
+| COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
+| CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
+| HIST-1 to 49 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open |
+| FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
+| AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
+| INS-1 to 24 | [Insights](#insights) | both | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
+| FILT-1 to 25 | [Filter lists](#filter-lists) | both | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
+| LAUNCH-1 to 17 | [Launcher](#launcher) | both | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
+| DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | both | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
+| ICON-1 to 6 | [Vendored icons](#vendored-icons) | both | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
+| DEGRADED-1 to 15 | [Degraded install](#degraded-install) | both | LibKa0s missing from the install; the title badge as the only mode marker |
+| LED-1 to 14 | [Ledger and holdings](#ledger-and-holdings) | both | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin, where Holdings' tooltips open |
+| LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | both | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
+| TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | both | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
+| TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
+| SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
+| SIM-1 to 15 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters |
+| LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
+| FOREVER-1 to 16 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16) |
 
 ## Before you start
 
@@ -98,7 +111,12 @@ free number in its theme.
 - Skins (`core/SkinSetup.lua`, a `NS.Skin` / `NS.SkinColor` call site, an `owner` passed to a
   LibKa0s factory, a `libs/LibKa0s/Skin*.lua` refresh): SKIN, then HIST-43, HIST-44, INS-23, TL-18,
   LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
-- Release or `## Interface:` bump: every theme, then the headless gate green.
+- Client routing or a per-client table (`core/CompatClient.lua`, `C.FEATURE`, `C.SOURCE_CLIENTS`,
+  `C.CONTAINER_GROUPS`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
+  pick): FOREVER-1 to FOREVER-13 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
+- Release or `## Interface:` bump: every theme on each client its Index row names, then the
+  headless gate green under both kit profiles (`lua tests/run.lua` and
+  `KA0S_KIT_CLIENT=forever lua tests/run.lua`).
 
 ## Install and upgrade
 
@@ -117,7 +135,7 @@ LootHistoryDB.global.schemaVersion` → `10` (the declared default is 0; the run
 through v9→v10 on the empty DB, touching no rows). `global` holds `history = {}`, `minimap` and
 `schemaVersion`; `profiles.Default` holds `settings`. Result: pass (owner-marked 2026-10-10)
 
-**INSTALL-4. An existing account upgrades into a profile.** Log in on a SavedVariables file written
+**INSTALL-4. An existing account upgrades into a profile.** Client: Retail. Log in on a SavedVariables file written
 by 1.4.0 or earlier (schema 8 or below) → `/dump LootHistoryDB.global.schemaVersion` answers `10`,
 every record is still in `global.history`, the old settings, id lists and saved view are in
 `profiles.Default`, and a stored retention sits at `global.retentionDays`, in no profile. Result: pass (owner-marked 2026-10-10)
@@ -129,17 +147,17 @@ every record is still in `global.history`, the old settings, id lists and saved 
 `savedView` (if saved); session-only state (`debug`, `testRecords`) is absent. Log back in and out:
 the file is unchanged apart from new loot (the ladder is idempotent). Result: pass (owner-marked 2026-10-10)
 
-**INSTALL-6. Currency quality backfill (v3→v4).** Skip without currency rows recorded before the
+**INSTALL-6. Currency quality backfill (v3→v4).** Client: Retail. Skip without currency rows recorded before the
 quality field existed (their `quality` is nil). `/reload` on such a file → those rows go from a
 white Name and blank Quality to a colored Name and a filled Quality; no row added or removed.
 Result: pass (owner-marked 2026-10-10)
 
-**INSTALL-7. Currency bound backfill (v4→v5).** Skip without currency rows recorded before the bound
+**INSTALL-7. Currency bound backfill (v4→v5).** Client: Retail. Skip without currency rows recorded before the bound
 field existed (`bound = nil`, blank or faint-gray glyph). `/reload` → each resolvable one shows
 **blue/Warbound** if Warband-transferable, else **green/Bind on Pickup**; no row added or removed.
 Result: pass (owner-marked 2026-10-10)
 
-**INSTALL-8. Saved view zone upgrade (v7→v8).** With a view saved while the Zone filter stored map
+**INSTALL-8. Saved view zone upgrade (v7→v8).** Client: Retail. With a view saved while the Zone filter stored map
 ids, `/reload` and open the History window → the Zone dropdown selects the same zones by name,
 never silently unfiltered. Result: pass (owner-marked 2026-10-10)
 
@@ -591,7 +609,7 @@ own history is back. Fail: an empty window in test mode, a Lua error on `/lh tes
 Timeline tab that fails to fill. Result:
 
 **TM-3. Test mode's people are the shared sample characters (AD-87-LH, LibKa0s#87; preview-mode's
-*Sample characters*).** `/lh test`, open the History **Character** dropdown → thirteen characters, one
+*Sample characters*).** Client: Retail. `/lh test`, open the History **Character** dropdown → thirteen characters, one
 per class, each named `Sample…` or `Mock…` on **Samplerealm** or **Mockrealm**: among them
 `Samplehunter-Samplerealm` (Hunter), `Sampleblade-Samplerealm` (Paladin), `Mockflame-Mockrealm` (Mage),
 `Samplemender-Samplerealm` (Priest) and `Mockshield-Mockrealm` (Warrior), each in its class color with
@@ -650,9 +668,9 @@ Result: pass (owner-marked 2026-10-10)
 **CAP-6. Trade.** Complete a trade that gives you an item → **Trade**, CERTAIN or INFERRED (review
 F-001). Result: pass (owner-marked 2026-10-10)
 
-**CAP-7. Mythic+ chest.** Loot a Mythic+ end-of-run chest → **Mythic+**, CERTAIN. Result: pass (owner-marked 2026-10-10)
+**CAP-7. Mythic+ chest.** Client: Retail. Loot a Mythic+ end-of-run chest → **Mythic+**, CERTAIN. Result: pass (owner-marked 2026-10-10)
 
-**CAP-8. Bonus roll.** Spend a bonus roll on a boss kill → **Bonus Roll**, CERTAIN, overriding the
+**CAP-8. Bonus roll.** Client: Retail. Spend a bonus roll on a boss kill → **Bonus Roll**, CERTAIN, overriding the
 kill context. Result: pass (owner-marked 2026-10-10)
 
 **CAP-9. Roll win.** `/lh debug on`, win a need/greed/transmog roll → **Roll**, CERTAIN, with an
@@ -675,7 +693,7 @@ its source from context, blank iLvl, Vendor and AH cells; the Type filter isolat
 tick it and mute that currency's source → still no row. Tick that source again in **Record data
 from**. Result: pass (owner-marked 2026-10-10)
 
-**CAP-14. The keystone context ends with the key.** `/lh debug on`, run and complete a key and loot the
+**CAP-14. The keystone context ends with the key.** Client: Retail. `/lh debug on`, run and complete a key and loot the
 chest (**Mythic+**); leave the dungeon, gather a node → **Container**, with `[Attr] keystone cleared`
 on the zone change. Zoning out and back mid-key keeps chest and object loot on **Mythic+** (`keystone
 re-armed` on re-entry); `CHALLENGE_MODE_RESET` also clears it. Result: pass (owner-marked 2026-10-10)
@@ -1662,7 +1680,7 @@ records permanently?`; **Yes** empties History (`/lh purge` would find nothing) 
 reset; the ledger starts now.`, and the Holdings tab still lists everything it held. A character
 already on schema 11 gets no popup. Result: pass (owner-marked 2026-10-10)
 
-**LED-6. Warband gold away from the bank.** Open the warband bank once, close it, walk away from any
+**LED-6. Warband gold away from the bank.** Client: Retail. Open the warband bank once, close it, walk away from any
 banker, `/reload`, and read the **Warband** line's gold on the Holdings tab → record whether the
 value is the last-read amount (the client answered `C_Bank.FetchDepositedMoney`) or the line shows
 an age far older than the others (it answered `nil`). Either is a valid outcome — this check
@@ -1801,7 +1819,7 @@ re-run. Phase 2 is signed off only when all of LED-P2-01 to LED-P2-24 are record
 half of it → only `⇄` rows (Direction filter, Transfers), `Bags` to `Bank` and back; no gain or loss
 row for the item, and the Holdings tab's bank column updates. Result: pass (owner, 2026-10-08, re-run after the fix): a split withdraw is one `⇄` Bank→Bags row, with no gain and no later `UNTRACKED`. First run failed: the split fired a bag event only, so the bank was never re-read; fixed by re-reading the bank and tabs on a bag change at an open bank.
 
-**LED-P2-02. Warband deposit.** Put an item stack and some gold into the warband bank → for each, an
+**LED-P2-02. Warband deposit.** Client: Retail. Put an item stack and some gold into the warband bank → for each, an
 `OUT WARBAND_DEPOSIT` on the character and an `IN WARBAND_DEPOSIT` on the Warband (Phase 7; no `⇄`). [`ACCOUNT_MONEY` fires on a warband gold
 deposit; `C_Bank.FetchDepositedMoney(Enum.BankType.Account)` answers while the bank is open.] Result: pass (owner-marked 2026-10-08; not every scenario was exercised).
 
@@ -1910,7 +1928,7 @@ gain on the receiver, each under the action's reason; a move inside one holder s
 History's **Character** column names the row's holder (the Warband reads **Warband**), and the
 Character filter matches it. Same setup as above (Direction **All**).
 
-**TR-1. Warband withdraw, gold and an item.** At a banker, withdraw some gold and one item stack from
+**TR-1. Warband withdraw, gold and an item.** Client: Retail. At a banker, withdraw some gold and one item stack from
 the warband bank → exactly two rows for each: a `▼ Loss` on **Warband** and a `▲ Gain` on the
 character, both reason **Warband Withdraw**, same quantity; no `⇄ Transfer` row. With the Character
 filter on **Character: Current** only the gains show; pick **Warband** and only the losses show.
@@ -2756,6 +2774,52 @@ LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST
 this client → behavior matches English (CAP-18 and CAP-19 read the localized Currency-tab headers).
 Fail: any Lua error, which here means a localized string reached code that assumed English. Result: pass (owner-marked 2026-10-10)
 
+## WoW Forever
+
+The WoW Forever port (LH-01 to LH-14, Ka0sAddonsCommonTasks
+`docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/`, rulings R1 to R8) on the WoW Forever client,
+then its Retail regression checks. The probes each check leans on are in
+[`forever-probes.md`](forever-probes.md); run `/lh debug probe start` before a check that names one,
+and leave the probe's `Result:` lines to the lead, who reads them from the SavedVariables file. You
+need a character with a surname (two words, "First Surname") and a second character on the same
+account. A check fails on any Lua error.
+
+**FOREVER-1. The install and its listing (LH-01, LH-04, LH-14).** Client: WoW Forever. Link the repo folder as `<WoW>\_forever_\Interface\AddOns\LootHistory` and start the Forever client fresh. At character select the AddOns list shows **Ka0s Loot History** enabled and not out of date (the TOC's `## Interface: 120105, 16001`, with no load-gating line). Log in, then `/reload` → no Lua error and no extra chat line. `/lh version` answers and the minimap button shows. `/lh diagnostics` opens with no error line, and `/lh debug events` reads `none` (probe P12). Settings › Profiles → create a new profile → General › Skin reads **WoW Forever**, and the History window and the settings wear it. Fail: the addon listed out of date or missing, a fresh profile on Ka0s Default. Result:
+
+**FOREVER-2. No Warband anywhere (ruling R1, LH-06).** Client: WoW Forever. Settings › General › Capture → **Track holdings and losses**' tooltip says what "every character and your account holds". Interface › History window → **Show transfers by default**' tooltip lists bank deposits and mail to your alts, with no warband moves. `/lh help` → the `holdings` line says "your characters and account". Visit a banker, then open **Holdings** → the container split is Bags, Equipped, Bank, Mail and AH, with no Warband column, and no holder has a Warband split. History's **Source** filter offers no Warband Deposit or Warband Withdraw, and Insights › Gains Vs Losses By Reason has no Warband row. An item that binds to the account reads **Account Bound** (or **Account Bound (UE)**) in the Bound column, its tooltip and the exports. If an account-wide currency ever lands, its holder reads **Account** in Holdings, the Timeline and History's Character column, never `Warband` or `§warband` (probe P5 says whether one exists). Fail: the word Warband or Warbound anywhere on Forever. Result:
+
+**FOREVER-3. No Mythic+, Bonus Roll, Milling or Prospecting (ruling R2, LH-07).** Client: WoW Forever. Settings › General › Capture › **Record data from** lists Kill, Container, Roll, Quest, Trade, Mail, Auction House, Vendor, Disenchant, Craft, Refund and Other, with no Mythic+, Bonus Roll, Milling or Prospecting (CAP-24 is Retail's list). History's **Source** filter offers none of those four either, and no Deconstructed, Warband Deposit or Warband Withdraw. Clear a dungeon and loot its last boss → **Kill** (or **Container** for a chest), never Mythic+. Disenchant an item → the materials record as **Disenchant** (probe: `start.strings.disenchant` names spell 13262). The disenchanted item's loss is not **Deconstructed**: record which reason it reads, because an owner ruling on it is open. Fail: any of those sources offered or recorded on Forever, or Disenchant materials recorded as anything else. Result:
+
+**FOREVER-4. No keystone Insights, diagnostics line or `key` scenario (ruling R2, LH-07).** Client: WoW Forever. `/lh test`, then open **Insights** → By Source, its legend and its By Character × Source companion have no Mythic+ slice or key, and no chart, KPI card or tooltip names a keystone. Export the Insights CSV → no Mythic+ row in By Source and no By Keystone section. `/lh test` off. `/lh diagnostics` → the attribution block has no `attribution: keystone` line. `/lh sim start key` → refused as an unknown scenario, and the simulation panel's picker lists loot, vendor, ah, bank and social only. Fail: a Mythic+ or keystone word on any of these, or a `key` scenario that starts. Result:
+
+**FOREVER-5. Two-word names (ruling D6, LH-03, LH-12).** Client: WoW Forever. On the character with a surname, loot an item → History's **Character** cell reads the whole "First Surname", with no realm and no hyphen; hover the Character column's header → the tooltip speaks of the "full name and surname". Log in on the second character and loot again → both show whole in the Character dropdown, on Holdings and in the Timeline legend. Mail an item to the alt, typing its "First Surname" → an **Alt Mail** loss on the sender and gain on the alt, never a plain Mail Sent (probe P7). Trade with another player → the row names them whole (probe P7). Insights › Loot By Character → hover a bar whose name is cut short → the tooltip shows the whole name. Fail: a realm on a Forever name, a surname read as a realm (`First-Surname`, or `First` alone), or a cut name with no full-name hover. Result:
+
+**FOREVER-6. The bank and the keyring (rulings R5 and R8, LH-08 to LH-10; probes P1, P2 and P3).** Client: WoW Forever. `/lh debug probe start`. At a banker, open the bank → Holdings' **Bank** column fills to what the bank shows. Deposit one item stack from your bags → one `↔ Transfer` row (Bags to Bank) and no gain or loss (TR-2 on Forever). Close the bank, open it again in the same session, then once more after a relog → no **Untracked** row appears when nothing changed, even on the first open after login. With keys in the keyring → they are counted in **Bags** on Holdings, and moving one in or out of the keyring writes no gain or loss. Record whether a key can be put in the bank (probe P3). A bag in a bank socket is ignored for now (ruling R6): note what Holdings shows for it. Fail: an empty Bank column after the bank opened, Untracked rows on an unchanged bank, or keys missing from Bags. Result:
+
+**FOREVER-7. A group roll won (LH-11; probe P8).** Client: WoW Forever. With the probe running, in a group on group loot, win a Need or Greed roll → the item's History row reads **Roll**, not Kill or Other, and its name is the item, never `[Loot]`. Fail: a Lua error at the "You won" line, or the item recorded under another source. Result:
+
+**FOREVER-8. Money shows coin glyphs (ruling R8, LH-11; probe P9).** Client: WoW Forever. Sell an item to a vendor and loot some coin → History's money values, Holdings' gold, the Timeline's gold tooltips and Insights' money all show gold, silver and copper coin glyphs, never `1g 2s 3c` text. The CSV exports still write `Ng Ns Nc` (HIST-26). Fail: plain text money in any window. Result:
+
+**FOREVER-9. The Wowhead link (ruling R7, LH-12).** Client: WoW Forever. Export the History CSV → `wowheadLink` reads `https://www.wowhead.com/forever/item=<id>` (with `?bonus=…` when the item has bonus ids). Open one in a browser → Wowhead's WoW Forever page for that same item. Fail: the Retail root URL `https://www.wowhead.com/item=`, or the wrong item. Result:
+
+**FOREVER-10. Test mode (LH-05 to LH-07).** Client: WoW Forever. TM-1 and TM-3 on Forever. `/lh test` → History's **Character** dropdown holds Forever's nine classes alone (Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock, Druid), each a whole "First Surname" such as `Sampleblade Mockvale`, with no realm. The zones are Stormwind City, Elwynn Forest, Westfall, Redridge Mountains, Duskwood and Teldrassil, and the item names are WoW Forever's. No row reads Mythic+, Bonus Roll, Milling, Prospecting, Warband Deposit or Warband Withdraw. Holdings' sample holders are characters only, with no Warband. The Timeline, with no saved pick, opens on **Arcane Crystal** with lines drawn. `/lh test` again → your own data is back. Fail: an Evoker, Death Knight, Monk or Demon Hunter, a Retail zone or item name, a realm on a sample name, or any of those sources. Result:
+
+**FOREVER-11. The simulator (LH-05 to LH-07, LH-10).** Client: WoW Forever. SIM-3 on Forever, with `key` left out (FOREVER-4). `/lh sim start loot` → the kill is a **Defias Thug** in Stormwind City. `/lh sim start bank` → the scenario is the character bank alone, labeled **Bank**, with no warband deposit or withdraw. `/lh sim start social` → the alt mail, the alt trade and the currency transfer name the alt `Sampleblade Mockvale` and read as Alt Mail and Alt Trade; the stranger's trade names `Mockflame Samplewick` and reads as a plain trade (SIM-15 on Forever). `/lh sim start vendor` → its Disenchant step's materials read Disenchant. Then SIM-5: after `/reload`, no simulated row is left. Fail: a Rookery Bat, a Retail sample name, a warband step, or a simulated row left behind. Result:
+
+**FOREVER-12. The probe session (ruling R4, LH-13).** Client: both. On WoW Forever, run the session [`forever-probes.md`](forever-probes.md) describes: `/lh debug probe start`, two banker visits, solo and dungeon loot, a group roll won, a trade, a mail to an alt, a currency transfer if any is transferable, a dungeon zone-in, then `/lh debug probe stop` and log out. `/lh debug probe status` before the stop answers running, with an entry count under the cap of 500. The file's `LootHistoryDB.global.probe` holds the client stamp (`forever`, the version and build, the addon version) and at least the `start`, `interaction`, `bank`, `cue`, `chat` and `stop` kinds. On Retail, do the P1, P2 and P9 parts again (a banker visit and the `start` entry) → stamped `retail`. `/lh sim start loot` while the probe runs → the probe records nothing during the simulation, and `/lh debug probe start` during a simulation is refused. Fail: no record, a missing stamp, or a probe entry written during a simulation. Result:
+
+**FOREVER-13. Running the `both` checks on Forever.** Client: WoW Forever. Every check in a theme whose Index row reads `both`, and not tagged `Client: Retail.`, runs on Forever too: record its Forever result on its own `Result:` line in that check, not here. Read Account where a check says Warband, and Account Bound where it says Warbound. Skip the steps that need something FOREVER-2 to FOREVER-4 list as absent: the warband bank and its gold (LED-2's warband half, and TL-7 and TL-17's Warband line unless an account holder exists), Mythic+ and the keystone (`M+ chests` in *Before you start*, SIM-3's `key`), bonus rolls, Milling and Prospecting (LOC-4), and Deconstructed (LED-P2-12 reads as FOREVER-3 says). A skipped step is no fail. Where a check names a Retail item, currency, zone or sample character (TM-1's Everlight Crystal and Sunwell Cinder, CAP-21's Timewarped Badge and Nebulous Voidcore, SIM-5's Rookery Bat, `Sampleblade-Samplerealm`), use Forever's as FOREVER-10 and FOREVER-11 give them, or any Forever item of the same kind. Run the SKIN checks under the WoW Forever skin as well as the others. The checks tagged `Client: Retail.` are the SavedVariables upgrades, which a Forever install never meets because its database is born fresh (INSTALL-4, INSTALL-6 to INSTALL-8), Retail's sample names (TM-3, whose Forever form is FOREVER-10), Mythic+, the bonus roll and the keystone (CAP-7, CAP-8, CAP-14) and the warband bank (LED-6, LED-P2-02, TR-1). The LOC theme stays Retail's. Result:
+
+### Retail regression checks (ruling R8)
+
+R8 changed three things on both clients, each in its own commit: the bank part arms on the `CharacterBanker` interaction (LH-09), the bank waits for a per-container readiness guard and `C_Bank.CanViewBank(Enum.BankType.Character)` (LH-10), and money text goes through `C_CurrencyInfo.GetCoinTextureString`, then `GetMoneyString`, then plain text (LH-11). LH-11's roll-won parse also runs on both. These checks confirm Retail behaves as it did before the port.
+
+**FOREVER-14. The bank at a banker and a warband-only banker (R8, LH-09, LH-10; probe P1).** Client: Retail. LED-2 and TR-2 again: at a banker, open the bank → the Bank and Warband columns fill; a stack deposited from your bags is one `↔ Transfer` row. Close the bank, open it again in the same session, then once more after a relog → no Untracked row when nothing changed, and a deposit made in the first seconds after opening still lands as one Transfer row. With `/lh debug probe start` running, open the warband bank where only it opens (the `AccountBanker` interaction, which the probe's `interaction` entry names) → the warband tabs read, and the character's Bank column keeps its old count and age, with no Untracked row on the bank (`CanViewBank` answers false for the character bank there). Fail: Untracked rows on an unchanged bank, a character bank emptied or re-dated by a warband-only visit, or a deposit lost. Result:
+
+**FOREVER-15. Money text and the roll-won line (R8, LH-11; probes P8 and P9).** Client: Retail. History's money values, Holdings' gold, the Timeline's gold tooltips and Insights' money show coin glyphs exactly as before the port (`C_CurrencyInfo.GetCoinTextureString`); the CSV exports still write `Ng Ns Nc`. In a group, win a Need or Greed roll → the item reads **Roll**, as CAP-9 says. Fail: plain text money in a window, glyphs of a different size than before, or a won roll recorded under another source. Result:
+
+**FOREVER-16. Everything Forever lacks is still on Retail (clients-§6).** Client: Retail. The presence side of FOREVER-2 to FOREVER-5 and FOREVER-9 to FOREVER-11: the settings tooltips speak of the warband; Holdings has its Warband column and split, and its Warband holder reads **Warband**; the Source filter and **Record data from** offer Mythic+, Bonus Roll, Milling and Prospecting (CAP-24's list), and the Source filter also Warband Deposit and Warband Withdraw; bound items read **Warbound**; `/lh diagnostics` carries the `attribution: keystone` line; `/lh sim start key` runs; the History CSV's `wowheadLink` reads `https://www.wowhead.com/item=<id>`; keys and the Character column read `Name-Realm`, and the Character tooltip speaks of the "full Name-Realm"; a new profile wears **Ka0s Default**; `/lh test` shows TM-3's sample and opens the Timeline on Everlight Crystal; `/lh sim start loot` kills a Rookery Bat. Fail: any of these missing or changed on Retail. Result:
+
 ## Pending sign-off
 
 Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
@@ -2845,3 +2909,9 @@ On 2026-11-04 the owner reported that every check of the seventh smoke round (Ka
 On 2026-11-02 the owner reported that every check on the smoke lists of the full skinning run and its smoke feedback batch (Ka0sAddonsCommonTasks `docs/2026-11-01-FULL_SKINNING/` and `docs/2026-11-01-SMOKE_FEEDBACK/`) passed, apart from DpsRace's clock font, the skinned look of the AceGUI Dropdown and the Ka0sMedia_Font and Ka0sMedia_Statusbar pickers, FadeNineSlice and IconBorder (`docs/2026-11-02-SMOKE_ROUND3/`, R3-SMOKE). Passed, recorded on each `Result:` line as `Passed (owner, 2026-11-02)`: DEGRADED-15, HIST-43, HIST-44, INS-23, LED-13, SKIN-1, SKIN-43, SKIN-44, SKIN-45, SKIN-46, SKIN-47 and TL-18.
 
 Added by the LibKa0s #94, #97, #99 and #100 run (SD-SK-LH, 2026-11-20; Ka0sAddonsCommonTasks `docs/2026-11-20-LIBKA0S_94_97_99_100/`), awaiting the owner: SKIN-55 and SKIN-56.
+
+Added by the WoW Forever port (LH-15, 2026-11-22; Ka0sAddonsCommonTasks
+`docs/2026-11-22-LOOTHISTORY_BANKLEDGER_FOREVER_PORT/`), awaiting the owner: FOREVER-1 to FOREVER-16,
+new. The Index's Client column and the `Client: Retail.` tags on INSTALL-4, INSTALL-6 to INSTALL-8,
+TM-3, CAP-7, CAP-8, CAP-14, LED-6, LED-P2-02 and TR-1 change no procedure, so those checks keep their
+Retail results. Every check in a `both` theme owes its WoW Forever result (FOREVER-13).
