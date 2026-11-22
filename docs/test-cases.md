@@ -100,7 +100,7 @@ Total.
 - ItemSetup: a stored pre-11.1.5 |cff link still reads through the hex rung
 - ItemSetup: the degraded BonusIDsFromLink answers what the library answers
 
-### test_util.lua (58)
+### test_util.lua (59)
 
 - IsConcatSafe: true for number/string, false for an un-concatenable value
 - SafeToString: passes normal values through tostring
@@ -160,6 +160,7 @@ Total.
 - Coalesce: with no C_Timer it runs straight through
 - Util: ParseSelfMoney reads looted and shared money
 - Util.RangeFrom: 90d and 1y are rolling windows
+- Util.IsCutOff: the client's IsTruncated first, else the unbounded width past the string's (F2)
 
 ### test_ledger.lua (38)
 
@@ -751,7 +752,7 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 
-### test_browser.lua (83)
+### test_browser.lua (87)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -836,6 +837,10 @@ Total.
 - Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)
 - Browser: /lh lock and /lh unlock write settings.locked and repaint the mark (AF-HDR-LH)
 - Browser: the lock mark is the History window's alone, and a degraded install builds none (AF-HDR-LH)
+- History: a cut-off Character cell names the character whole on hover (F2)
+- History: a Character cell drawn whole adds no name to the row's hover (F2)
+- Character dropdown: a cut-off entry names the character whole, a whole one shows nothing (F2)
+- Character dropdown: a cut-off pick on the button names the character whole, a whole one nothing (F2)
 
 ### test_browser_filterbar.lua (24)
 
@@ -2471,7 +2476,7 @@ Total.
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
-| test_util.lua | 58 |
+| test_util.lua | 59 |
 | test_ledger.lua | 38 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 80 |
@@ -2491,7 +2496,7 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
-| test_browser.lua | 83 |
+| test_browser.lua | 87 |
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
@@ -2566,4 +2571,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2156** |
+| **Total** | **2161** |

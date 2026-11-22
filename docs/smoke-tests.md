@@ -36,7 +36,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 49 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open |
+| HIST-1 to 52 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | both | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -1139,6 +1139,20 @@ true` and the padlock closes; click **Locked** again → it opens. `/lh lock` �
 → it opens. Switch to a profile whose **Lock frame** is ticked (`/lh profile <name>`) → the padlock
 shows closed; switch back → it matches that profile's box. Fail: a padlock that disagrees with the
 box, the menu or the verbs, or one that only updates after `/reload`. Result:
+
+**HIST-52. A cut-off character name is named whole on hover (owner ruling F2, K101-FU-02).** Client:
+both. Run it on Retail and on WoW Forever. With a character whose name is long enough to be cut off
+(a long `Name-Realm` on Retail, a long "First Surname" on Forever; drag the window to its minimum
+width if none is), open History. Hover a **Character** cell whose name ends in "..." → a tooltip
+beside the window names the character whole; move to another column of the same row → the row's
+item tooltip, as before, and the row stays highlighted throughout. Shift-click and right-click the
+cut-off cell → the item links to chat and the row menu opens, as on any other cell. Hover a Character
+cell drawn whole → the row's item tooltip alone, no name tooltip. Open the **Character** dropdown:
+hover an entry cut off at the menu's edge → its whole name beside the menu; hover a whole entry →
+nothing. Pick that long character alone so the collapsed button reads it cut off, hover the button →
+the whole name attached above it; pick a short name or "Character: All" → no tooltip. Fail: a cut-off
+name with no full-name hover, a tooltip over a name drawn whole, a click on the cell that no longer
+reaches the row, or a Lua error. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -2915,3 +2929,7 @@ Added by the WoW Forever port (LH-15, 2026-11-22; Ka0sAddonsCommonTasks
 new. The Index's Client column and the `Client: Retail.` tags on INSTALL-4, INSTALL-6 to INSTALL-8,
 TM-3, CAP-7, CAP-8, CAP-14, LED-6, LED-P2-02 and TR-1 change no procedure, so those checks keep their
 Retail results. Every check in a `both` theme owes its WoW Forever result (FOREVER-13).
+
+Added by the LibKa0s#101 run's Forever follow-ups (K101-FU-02, 2026-11-22; Ka0sAddonsCommonTasks
+`docs/2026-11-22-LIBKA0S_101_CONTAINER_READER/`, owner ruling F2), awaiting the owner: HIST-52, new,
+on both clients.

@@ -634,3 +634,27 @@ test("Util.RangeFrom: 90d and 1y are rolling windows", function()
   assertTrue(math.abs(NS.Util.RangeFrom("90d") - (now - 90 * 86400)) <= 1)
   assertTrue(math.abs(NS.Util.RangeFrom("1y") - (now - 365 * 86400)) <= 1)
 end)
+
+-- ── Cut-off text (owner ruling F2) ─────────────────────────────────────────────────────────────
+-- The client's FontString:IsTruncated answers first; a client that gives no boolean falls back to
+-- the text's unbounded width against the string's laid-out width. Empty text, or a string not yet
+-- laid out (width 0), is never cut off.
+test("Util.IsCutOff: the client's IsTruncated first, else the unbounded width past the string's (F2)", function()
+  local fs = T.mocks.CreateFrame("Frame"):CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  fs:SetText("Sampleblade Mockvalesworth")
+  assertFalse(NS.Util.IsCutOff(fs), "the headless font measures nothing, so nothing is cut")
+  fs:SetWidth(132)
+  rawset(fs, "GetUnboundedStringWidth", function() return 150 end)
+  assertTrue(NS.Util.IsCutOff(fs), "text wider than its string is cut")
+  rawset(fs, "GetUnboundedStringWidth", function() return 120 end)
+  assertFalse(NS.Util.IsCutOff(fs), "text that fits is whole")
+  rawset(fs, "IsTruncated", function() return true end)
+  assertTrue(NS.Util.IsCutOff(fs), "the client's own answer wins")
+  rawset(fs, "GetUnboundedStringWidth", function() return 150 end)
+  rawset(fs, "IsTruncated", function() return false end)
+  assertFalse(NS.Util.IsCutOff(fs), "the client's own answer wins the other way too")
+  fs:SetText("")
+  rawset(fs, "IsTruncated", nil)
+  assertFalse(NS.Util.IsCutOff(fs), "empty text is never cut")
+  assertFalse(NS.Util.IsCutOff(nil), "no FontString, no cut")
+end)

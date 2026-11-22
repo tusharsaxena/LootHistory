@@ -1232,3 +1232,117 @@ test("Browser: the lock mark is the History window's alone, and a degraded insta
   NS.MakeHeaderButtons = real
   if not ok then error(err, 0) end
 end)
+
+-- ── Cut-off character names (owner ruling F2, 2026-11-22) ─────────────────────────────────────
+-- A character name the client cuts off ("...") in the History Character column, in a Character
+-- dropdown entry or on the collapsed Character button is named whole by a hover, on both clients;
+-- one drawn whole shows nothing new. The cut is the client's, so each case sets the FontString's
+-- IsTruncated, the answer NS.Util.IsCutOff reads first (the headless font measures nothing).
+local LONG = T.forever and "Sampleblade Mockvalesworth" or "Sampleblade-Samplerealmofold"
+
+local function cutOff(fs, on) rawset(fs, "IsTruncated", function() return on end) end
+
+--- The lines GameTooltip is handed during `fn`, and whether it ended up shown.
+local function tipLines(fn)
+  local tt = T.mocks.GameTooltip
+  local lines = {}
+  tt:Hide()
+  rawset(tt, "AddLine", function(_, text) lines[#lines + 1] = tostring(text) end)
+  local ok, err = pcall(fn)
+  rawset(tt, "AddLine", nil)
+  if not ok then error(err, 0) end
+  return lines, tt:IsShown()
+end
+
+local function boundRow(record)
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  BT:BindRow(row, { kind = "row", record = record }, 1)
+  return row
+end
+
+local function withTestMode(on, fn)
+  local BT = NS.BrowserTable
+  local saved = BT.testMode
+  BT.testMode = on
+  local ok, err = pcall(fn)
+  BT.testMode = saved
+  if not ok then error(err, 0) end
+end
+
+test("History: a cut-off Character cell names the character whole on hover (F2)", function()
+  -- red under: a Character cell with no hover region of its own.
+  withTestMode(false, function()
+    local row = boundRow({ char = LONG, classFile = "ROGUE", itemName = "X", quantity = 1 })
+    local hit = row.charHit
+    assertTrue(hit ~= nil, "the Character cell has a hover region of its own")
+    cutOff(row.cells.char, true)
+    local lines, shown = tipLines(function() hit:GetScript("OnEnter")(hit) end)
+    assertTrue(shown, "a cut-off name shows a tooltip")
+    assertEqual(lines[1], LONG, "the tooltip names the character whole")
+    hit:GetScript("OnLeave")(hit)
+    assertFalse(T.mocks.GameTooltip:IsShown(), "leaving the cell hides it")
+  end)
+end)
+
+test("History: a Character cell drawn whole adds no name to the row's hover (F2)", function()
+  withTestMode(false, function()
+    local row = boundRow({ char = LONG, classFile = "ROGUE", itemName = "X", quantity = 1 })
+    cutOff(row.cells.char, false)
+    local lines, shown = tipLines(function() row.charHit:GetScript("OnEnter")(row.charHit) end)
+    assertEqual(#lines, 0, "no line names the character")
+    assertFalse(shown, "a link-less row shows nothing, as it did over any other cell")
+    -- A linked row keeps the row's own item tooltip over its Character cell.
+    local linked = boundRow({ char = LONG, itemName = "X", quantity = 1, itemLink = "|Hitem:25|h[X]|h" })
+    cutOff(linked.cells.char, false)
+    local _, shownLinked = tipLines(function() linked.charHit:GetScript("OnEnter")(linked.charHit) end)
+    assertTrue(shownLinked, "the item tooltip still opens over a whole name")
+    linked.charHit:GetScript("OnLeave")(linked.charHit)
+  end)
+end)
+
+test("Character dropdown: a cut-off entry names the character whole, a whole one shows nothing (F2)", function()
+  withFixture({ { ts = 1, char = LONG, classFile = "ROGUE", source = "KILL", itemName = "X" } }, function()
+    local opt
+    for _, o in ipairs(B._options.char()) do if o.value == LONG then opt = o end end
+    assertTrue(opt ~= nil and type(opt.tooltip) == "function", "the entry carries a tooltip renderer")
+    local row = T.mocks.CreateFrame("Button")
+    row.fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.fs:SetText(opt.label)
+    cutOff(row.fs, true)
+    local lines, shown = tipLines(function() opt.tooltip(row, opt) end)
+    assertTrue(shown, "a cut-off entry shows a tooltip")
+    assertEqual(lines[1], LONG, "the tooltip names the character whole, without the class icon")
+    cutOff(row.fs, false)
+    lines, shown = tipLines(function() opt.tooltip(row, opt) end)
+    assertEqual(#lines, 0, "a whole entry adds no line")
+    assertFalse(shown, "and shows no tooltip")
+  end)
+end)
+
+test("Character dropdown: a cut-off pick on the button names the character whole, a whole one nothing (F2)", function()
+  withFixture({ { ts = 1, char = LONG, classFile = "ROGUE", source = "KILL", itemName = "X" } }, function()
+    withSettings({ visibility = "always" }, function()
+      B:Show()
+      local dd = B._dd.char
+      local savedChar = B.activeFilter and B.activeFilter.char
+      local ok, err = pcall(function()
+        B:SetCharSet({ [LONG] = true })
+        cutOff(dd.text, true)
+        local lines, shown = tipLines(function() dd:GetScript("OnEnter")(dd) end)
+        assertTrue(shown, "a cut-off pick shows a tooltip")
+        assertEqual(lines[1], LONG, "the tooltip names the picked character whole")
+        dd:GetScript("OnLeave")(dd)
+        assertFalse(T.mocks.GameTooltip:IsShown(), "leaving the button hides it")
+        cutOff(dd.text, false)
+        lines, shown = tipLines(function() dd:GetScript("OnEnter")(dd) end)
+        assertEqual(#lines, 0, "a whole pick adds no line")
+        assertFalse(shown, "and shows no tooltip")
+      end)
+      rawset(dd.text, "IsTruncated", nil)
+      B:SetCharSet(savedChar)
+      B:Hide()
+      if not ok then error(err, 0) end
+    end)
+  end)
+end)

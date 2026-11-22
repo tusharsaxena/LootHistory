@@ -83,9 +83,18 @@ end
 -- in a label is measured by its menuWidth (a class icon plus a Name-Realm is the example in its own
 -- comment), so a label is the supported way to put art on a row. The class color still rides in
 -- `color`, matching the Character column.
+-- `tooltip` is the widget's per-row renderer (fn(rowFrame, opt)): a menu caps its width at 320 px,
+-- so a long name can be cut off on its row, and then the hover names it whole (owner ruling F2).
+-- An entry drawn whole shows nothing. The library places a tooltip the row owns beside its menu.
+local function charEntryTip(row, opt)
+  if not NS.Util.IsCutOff(row and row.fs) then return end
+  NS.Compat.ShowTextTooltip(row, NS.LedgerFormat.HolderLabel(opt.value))
+end
+
 local function charItem(h, cf)
   local icon, name = classIcon(cf), NS.LedgerFormat.HolderLabel(h)
-  return { value = h, label = (icon ~= "" and (icon .. " " .. name) or name), color = classColor(cf) }
+  return { value = h, label = (icon ~= "" and (icon .. " " .. name) or name), color = classColor(cf),
+           tooltip = charEntryTip }
 end
 
 -- The class of a history row's holder, through the same seam the Character column reads.

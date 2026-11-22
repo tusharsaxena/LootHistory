@@ -368,6 +368,25 @@ function Util.RowKind(r)
 end
 function Util.RowHolder(r) return r.holder or r.char end
 
+-- Whether a one-line FontString draws its text cut off (the client's "..."), for the full-name
+-- hovers on cut-off character names (owner ruling F2). The client's own FontString:IsTruncated
+-- answers first; a client that gives no boolean falls back to the text's unbounded width against
+-- the string's laid-out width (the measure modules/BrowserFilterBar.lua sizes its controls by).
+-- Empty text, or a string not yet laid out (width 0), is never cut off. Read at hover time only.
+function Util.IsCutOff(fs)
+  if type(fs) ~= "table" or not fs.GetText then return false end
+  local text = fs:GetText()
+  if text == nil or text == "" then return false end
+  if fs.IsTruncated then
+    local cut = fs:IsTruncated()
+    if type(cut) == "boolean" then return cut end
+  end
+  local w = fs.GetWidth and fs:GetWidth()
+  local u = fs.GetUnboundedStringWidth and fs:GetUnboundedStringWidth()
+  if type(w) ~= "number" or type(u) ~= "number" or w <= 0 then return false end
+  return u > w + 0.5
+end
+
 -- CHAT_MSG_MONEY (timeline-ledger spec §5.4 "Gold gains"): the player's own looted money and their
 -- party share. The money text is the localized "1 Gold, 2 Silver, 3 Copper" built from
 -- GOLD_AMOUNT / SILVER_AMOUNT / COPPER_AMOUNT, any part omitted when zero.
