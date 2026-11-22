@@ -219,9 +219,14 @@ test("Ledger: PickReason — gold-out scopes", function()
 end)
 
 test("Ledger: PickReason — item losses by inference", function()
-  -- DECONSTRUCT is Retail's (R2): on WoW Forever a disenchanted item falls through to the rules below.
+  -- A disenchanted item reads DECONSTRUCT on both clients (owner ruling F1; "Disenchant" on WoW Forever).
   assertEqual(L().PickReason("ITEM", "OUT", ctx({ loot = { source = "DISENCHANT", expires = 101 } })),
-    T.forever and "OTHER" or "DECONSTRUCT")
+    "DECONSTRUCT")
+  -- Milling and Prospecting stamp nothing on WoW Forever (R2); on Retail they read DECONSTRUCT too.
+  for _, src in ipairs({ "MILLING", "PROSPECTING" }) do
+    assertEqual(L().PickReason("ITEM", "OUT", ctx({ loot = { source = src, expires = 101 } })),
+      T.forever and "OTHER" or "DECONSTRUCT", src)
+  end
   assertEqual(L().PickReason("ITEM", "OUT", ctx({ craftUntil = 105 })), "CRAFT_REAGENT")
   assertEqual(L().PickReason("ITEM", "OUT", ctx({ consumable = true })), "CONSUME")
   assertEqual(L().PickReason("ITEM", "OUT", ctx({})), "OTHER")

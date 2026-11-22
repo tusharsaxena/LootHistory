@@ -223,10 +223,13 @@ end
 function Ledger.Signed(dir, qty) return (qty or 0) * (Ledger.DirSign[dir] or 0) end
 
 -- ── Reasons (timeline-ledger spec §5.4) ─────────────────────────────────────────────────────
--- A deconstruct's own item loss reads DECONSTRUCT where that reason is served: on WoW Forever it is
--- absent (C.SOURCE_ABSENT, ruling R2), so a disenchanted item there falls through to the rules below.
-local DECONSTRUCT_SOURCE = not NS.Constants.SOURCE_ABSENT.DECONSTRUCT
-  and { DISENCHANT = true, MILLING = true, PROSPECTING = true } or {}
+-- A deconstruct's own item loss reads DECONSTRUCT, on both clients (owner ruling F1). The sources
+-- that stamp it are the ones this client serves: on WoW Forever Disenchant alone, since Milling and
+-- Prospecting are absent there (C.SOURCE_ABSENT, ruling R2).
+local DECONSTRUCT_SOURCE = {}
+for _, s in ipairs({ "DISENCHANT", "MILLING", "PROSPECTING" }) do
+  if not NS.Constants.SOURCE_ABSENT[s] then DECONSTRUCT_SOURCE[s] = true end
+end
 
 local function stampApplies(o, kind, dir, now)
   return o and o.expires >= now and (not o.dirs or o.dirs[dir]) and (not o.kinds or o.kinds[kind])

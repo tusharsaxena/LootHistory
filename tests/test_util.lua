@@ -64,9 +64,9 @@ test("Constants: source enum + order", function()
   assertEqual(NS.Constants.SourceLabel.REFUND, "Refund")
   assertEqual(NS.Constants.Confidence.CERTAIN, "CERTAIN")
   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 23 ledger reasons; WoW Forever lacks the
-  -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING,
-  -- PROSPECTING and DECONSTRUCT (R2), all C.SOURCE_ABSENT.
-  assertEqual(#NS.Constants.SourceOrder, T.forever and 32 or 39)
+  -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING and
+  -- PROSPECTING (R2), all C.SOURCE_ABSENT; it keeps DECONSTRUCT (owner ruling F1).
+  assertEqual(#NS.Constants.SourceOrder, T.forever and 33 or 39)
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).

@@ -8,12 +8,13 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (42)
+### test_constants.lua (43)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
 - Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
-- Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)
+- Constants: Mythic+, bonus roll, Milling and Prospecting are Retail-only (R2)
+- Constants: the DECONSTRUCT reason serves both clients, labeled Disenchant on WoW Forever (F1)
 - Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
 - Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail
 - Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever
@@ -2464,7 +2465,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 42 |
+| test_constants.lua | 43 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2564,4 +2565,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2154** |
+| **Total** | **2155** |

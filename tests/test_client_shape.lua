@@ -140,9 +140,7 @@ test("Client shape: each declared feature's answer is the running client's", fun
   for s, clients in pairs(C.SOURCE_CLIENTS) do
     local here = serves(clients)[CLIENT] == true
     assertEqual(C.SOURCE_ABSENT[s] == true, not here, s .. " absent on " .. CLIENT)
-    if s ~= "DECONSTRUCT" then
-      assertEqual(inOrder[s] == true, here, s .. " in SourceOrder on " .. CLIENT)
-    end
+    assertEqual(inOrder[s] == true, here, s .. " in SourceOrder on " .. CLIENT)
     assertEqual(C.SourceType[s], s, s .. " stays a SourceType member on every client (the export contract)")
   end
 end)

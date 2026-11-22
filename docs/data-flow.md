@@ -230,7 +230,7 @@ Precedence, first match wins:
 2. A live **outbound stamp** that applies to this direction and kind (`REPAIR`, `BUY`, `DESTROY`, `AH_SOLD`, `TRADE_GIVE`, ...).
 3. A **currency source** reason (`CURRENCY_DISPLAY_UPDATE`'s gain or destroy enum, mapped through `C.CURRENCY_SOURCE_REASON`).
 4. An open **scope**: guild bank (`GUILD_DEPOSIT` / `GUILD_WITHDRAW`); merchant (`SELL` / `BUY` for what leaves, `VENDOR` for an item that arrives, `SELL` for gold that arrives); for gold leaving: trainer `TRAINING`, taxi `TRAVEL`, auction house `AH_POST_FEE`, mailbox `MAIL_SEND`.
-5. For an **item loss**: a fresh deconstruct loot context gives `DECONSTRUCT`, a craft window (`CRAFT_TTL` = 6 s after a `C_TradeSkillUI` craft call) gives `CRAFT_REAGENT`, a consumable item gives `CONSUME`.
+5. For an **item loss**: a fresh deconstruct loot context gives `DECONSTRUCT` (on both clients; on WoW Forever only Disenchant stamps one, and the reason reads "Disenchant" there, owner ruling F1), a craft window (`CRAFT_TTL` = 6 s after a `C_TradeSkillUI` craft call) gives `CRAFT_REAGENT`, a consumable item gives `CONSUME`.
 6. For a **gain**: the live loot context's source, else `MAIL` at an open mailbox, else `AH` at the auction house.
 7. `OTHER`.
 
