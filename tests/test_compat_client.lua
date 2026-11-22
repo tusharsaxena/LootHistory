@@ -127,7 +127,10 @@ test("CompatClient: UnitCharacterName joins first name and surname, and never re
   assertEqual(C.UnitCharacterName(nil), nil)
 end)
 
-test("CompatClient: the degraded UnitCharacterName keeps the name and drops a surname", function()
+-- LH-REV: the degraded stub is the library's body, so a degraded install keys a regional-names
+-- character by its whole two-word name too, never the bare first name two alts can share.
+test("CompatClient: the degraded UnitCharacterName joins a surname, and never reads it as a realm", function()
+  -- red under: the stub dropping the surname, so PlayerKey answers "Traxex" on a degraded install.
   local ns, _, m = loadDegraded()
   local C = ns.Compat
   with(m, { UnitName = surnamed }, function()
@@ -137,7 +140,11 @@ test("CompatClient: the degraded UnitCharacterName keeps the name and drops a su
     end)
     with(m, REGIONAL, function()
       local name, realm = C.UnitCharacterName("NPC")
-      assertEqual(name, "Traxex"); assertEqual(realm, nil, "never the surname as a realm")
+      assertEqual(name, "Traxex Silentshot"); assertEqual(realm, nil, "never the surname as a realm")
+      assertEqual(ns.Util.PlayerKey(), "Traxex Silentshot", "the degraded key is the whole name")
+    end)
+    with(m, { UnitName = function() return "Traxex", "" end }, function()
+      with(m, REGIONAL, function() assertEqual(C.UnitCharacterName("NPC"), "Traxex", "no surname: the name") end)
     end)
   end)
 end)

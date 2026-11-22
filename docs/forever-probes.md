@@ -22,7 +22,7 @@ sheet:
 | `/lh debug probe clear` | Drops the record. While running, recording goes on in a fresh record. |
 
 The record is `db.global.probe` inside `LootHistoryDB`. There is no new SavedVariables global. It
-holds at most 500 entries (`NS.Probe.CAP`) and drops the oldest first, counting them in `dropped`.
+holds at most 500 entries (`NS.Probe.CAP`) and drops the oldest first, counting them in `dropped`; a `start` entry is never the one dropped, so its facts survive a long session.
 It is **session-only**: a reload or relog stops it, the record stays, and you start it again. It
 records nothing while a simulation runs, and the start refuses during one, so every fact comes from
 the live client. Every value is cut to 400 characters, and a secret value is stored as `<secret>`.

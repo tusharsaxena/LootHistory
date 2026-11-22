@@ -34,17 +34,29 @@ R.dirty, R.readable = {}, {}
 --- The open bank's state (ruling R8, both clients), or nil with no banker open:
 ---   "unviewable"  this banker does not show the character bank (a warband-only banker);
 ---   "loading"     a character-bank container that had slots on the last ready read answers 0,
----                 and the visit is younger than READY_WAIT;
+---                 or, with no remembered counts (a first visit), fewer containers answer slots
+---                 than the account has bought tabs; and the visit is younger than READY_WAIT;
 ---   "ready"       otherwise.
 --- A per-container check, not "every container answers 0": a partly loaded bank (tab 1 ready, the
---- rest still 0) must wait too, or its unloaded tabs read as an UNTRACKED loss.
+--- rest still 0) must wait too, or its unloaded tabs read as an UNTRACKED loss. A first visit's
+--- read is the bank's genesis, so a partial one would book the late tabs as gains (LH-REV).
+local function firstVisitLoading()
+  local bought = Compat.NumPurchasedCharacterBankTabs()
+  if not bought then return false end
+  local answering = 0
+  for _, id in ipairs(C.BANK_IDS) do
+    if Compat.GetContainerNumSlots(id) > 0 then answering = answering + 1 end
+  end
+  return answering < bought
+end
+
 function R:BankState()
   if not self.readable.bank then return nil end
   if not Compat.CanViewCharacterBank() then return "unviewable" end
   if self._bankOpenAt and GetTime() - self._bankOpenAt >= R.READY_WAIT then return "ready" end
   local e = NS.Holdings:Get(NS.Util.PlayerKey())
   local last = e and e.meta.bankSlots
-  if not last then return "ready" end
+  if not last then return firstVisitLoading() and "loading" or "ready" end
   for _, id in ipairs(C.BANK_IDS) do
     if (last[id] or 0) > 0 and Compat.GetContainerNumSlots(id) == 0 then return "loading" end
   end
@@ -119,10 +131,12 @@ function R:OnInteraction(shown, interactionType)
         for _, p in ipairs(spec.parts) do self:MarkDirty(p) end
         scheduleFlush(self)
       else
-        self:Flush()                                       -- final read while still readable
+        local waited = self:Flush() == "waiting"           -- final read while still readable
         self.readable[spec.flag] = nil
-        if spec.drift then self.driftPending, self._bankOpenAt = nil, nil end
+        if spec.drift then self.driftPending, self._bankOpenAt, self._driftWaited = nil, nil, nil end
         if spec.flag == "auctionHouse" then self.readable.auctions = nil end
+        -- A bank shut while still loading read nothing: what the wait held is read without it.
+        if waited then scheduleFlush(self) end
       end
     end
   end
@@ -247,6 +261,21 @@ if WARBAND_BANK then
   CONTAINER_READS.tabs = { mine = false, c = CT.TABS, ids = function() return C.WARBAND_TAB_IDS end }
 end
 
+-- One dirty, readable container part into the snapshot; a `slots` read also keeps each
+-- container's slot count.
+local function readContainer(snap, me, spec)
+  local S = NS.Scanner
+  local counts, links
+  if spec.ids then counts, links = S.ScanContainers(spec.ids()) else counts, links = S.ScanEquipped() end
+  local s = snapFor(snap, spec.mine and me or WARBAND)
+  s.items[spec.c] = counts
+  addLinks(s.links, links)
+  if not spec.slots then return end
+  local sizes = {}
+  for _, id in ipairs(spec.ids()) do sizes[id] = Compat.GetContainerNumSlots(id) end
+  s.bankSlots = sizes
+end
+
 function R:Scan(me)
   local snap, d, S = {}, self.dirty, NS.Scanner
   -- At an open bank a bag change re-reads the bank and the warband tabs too: a shift-click split
@@ -254,18 +283,7 @@ function R:Scan(me)
   -- bank's own event would leave the withdraw one-sided. Both reads are bounded to the banker visit.
   if d.bags and self.readable.bank then d.bank, d.tabs = true, WARBAND_BANK or nil end
   for part, spec in pairs(CONTAINER_READS) do
-    if d[part] and self:IsReadable(part) then
-      local counts, links
-      if spec.ids then counts, links = S.ScanContainers(spec.ids()) else counts, links = S.ScanEquipped() end
-      local s = snapFor(snap, spec.mine and me or WARBAND)
-      s.items[spec.c] = counts
-      addLinks(s.links, links)
-      if spec.slots then
-        local sizes = {}
-        for _, id in ipairs(spec.ids()) do sizes[id] = Compat.GetContainerNumSlots(id) end
-        s.bankSlots = sizes
-      end
-    end
+    if d[part] and self:IsReadable(part) then readContainer(snap, me, spec) end
   end
   if d.money then snapFor(snap, me).money = S.ReadMoney() end
   if d.warbandMoney and self:IsReadable("warbandMoney") then
@@ -711,13 +729,21 @@ end
 -- over these parts alone, like a login: UNTRACKED, no hold, no pairing, no claims. Every other dirty
 -- part keeps normal classification in the pass that follows. A container never read before has no
 -- baseline, so its first read is its genesis (no rows) either way.
+-- A drift read that waited for a loading bank (R8) runs after whatever the player did meanwhile,
+-- so it reads the bags beside the bank: a stack moved between them in the wait then pairs as one
+-- MOVE (an intra-holder move is classified even here), where a bank-only read would book its bank
+-- half as UNTRACKED and leave the bags half one-sided (LH-REV). Any other bag change of the wait is
+-- UNTRACKED with the rest of the drift.
 local DRIFT_PARTS = bankParts()
+local DRIFT_PARTS_WAITED = bankParts()
+DRIFT_PARTS_WAITED[#DRIFT_PARTS_WAITED + 1] = "bags"
 
 local function driftPass(self)
   local rest, only = self.dirty, {}
-  for _, p in ipairs(DRIFT_PARTS) do
-    if rest[p] then only[p], rest[p] = true, nil end
+  for _, p in ipairs(self._driftWaited and DRIFT_PARTS_WAITED or DRIFT_PARTS) do
+    if rest[p] then only[p], rest[p] = rest[p], nil end
   end
+  self._driftWaited = nil
   -- A hold the normal pass is in (its start, its memoized reasons) survives the drift pass.
   -- So does a login's UNTRACKED (a combat login deferred to the regen edge with the banker open).
   local memo, since, prevForce = self.reasonMemo, self._holdSince, self.forceReason
@@ -746,15 +772,21 @@ end
 
 --- Scan, plan, then hold or commit. A part that is not readable (the bank with no banker open, or
 --- a bank still loading or not shown at this banker, R8) stays dirty for the next flush; in combat
---- the whole pass waits for the regen edge. The visit's drift read waits while the bank loads.
+--- the whole pass waits for the regen edge. While the visit's drift read waits for a loading bank,
+--- the whole pass waits with it (every part stays dirty), so nothing is classified before the bank
+--- is; it answers "waiting" then. A login pass (silent or UNTRACKED) never waits: it is its own
+--- read, and its genesis stamp follows it.
 function R:Flush()
   if Compat.InCombatLockdown() then self.deferred = true; return end
   self._flushing = true
   local state = self:BankState()
-  if self.driftPending and state and state ~= "loading" then self.driftPending = nil; driftPass(self) end
-  flushBody(self)
+  local waiting = self.driftPending and state == "loading" and not (self.silent or self.forceReason)
+  if waiting then self._driftWaited = true
+  elseif self.driftPending and state and state ~= "loading" then self.driftPending = nil; driftPass(self) end
+  if not waiting then flushBody(self) end
   if state == "loading" then scheduleReadyCheck(self) end
   self._flushing = nil
+  return waiting and "waiting" or nil
 end
 
 --- Genesis for this character, and for the warband when its gold was read (spec §5.6). Called as
@@ -848,7 +880,7 @@ function R:ResetState()
   NS.CancelDeferral(self._readyCheck)
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil
-  self._readyCheck, self._bankOpenAt = nil, nil
+  self._readyCheck, self._bankOpenAt, self._driftWaited = nil, nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil
   self._holdSince, self._recheck = nil, nil

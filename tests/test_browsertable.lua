@@ -580,6 +580,15 @@ test("BrowserTable: Character is the last column and Item is the flexing one", f
   assertEqual(flex, "item", "exactly the Item column absorbs the spare width")
 end)
 
+-- LH-REV (R2): the Bound column's header tooltip names the client's own bound states.
+test("BrowserTable: the Bound column tooltip reads the client's account words", function()
+  -- red under: the desc hard-coding Retail's "Warbound" on every client.
+  local col
+  for _, c in ipairs(NS.BrowserTable.COLUMNS) do if c.key == "bound" then col = c end end
+  assertTrue(col.desc:find("blue = " .. NS.Constants.ACCOUNT.bound .. ",", 1, true) ~= nil, col.desc)
+  if T.forever then assertTrue(col.desc:find("Warb", 1, true) == nil, "no Warband word on Forever: " .. col.desc) end
+end)
+
 -- The Character column on a two-word WoW Forever name (D12): the cell draws the holder key whole,
 -- never cut at its space, and its header tooltip names the client's key form.
 test("BrowserTable: the Character column names the client's key form and draws a two-word name whole", function()

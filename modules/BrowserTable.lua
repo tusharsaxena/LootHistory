@@ -218,7 +218,7 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return r.itemLevel or 0 end },
   { key = "bound", label = "", width = 20, align = "CENTER", icon = true,
     desc = "Binding: gray = not bound, white = Bind on Equip, green = Bind on Pickup, "
-      .. "blue = Warbound, orange = Warbound until equipped.",
+      .. "blue = " .. C.ACCOUNT.bound .. ", orange = " .. C.ACCOUNT.bound .. " until equipped.",
     valueFn = function() return "" end,   -- rendered as an icon, not text
     -- Sort the ladder explicitly (BOUND_RANK), not by the token text: the display order is a
     -- product decision, not an alphabetical accident.

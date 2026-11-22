@@ -110,7 +110,18 @@ local function stamp(store)
   store.addonVersion = plain(NS.Version and NS.Version() or nil)
 end
 
---- Append one entry; drop the oldest past CAP. Nothing while stopped or while a simulation runs.
+-- The oldest entry the cap may drop: the first that is not a `start` one. A start entry holds the
+-- facts read once per start (P3, P5, P8, P9), so a long session never pushes them out; with
+-- nothing else left, the oldest entry goes.
+local function oldestDroppable(list)
+  for i, e in ipairs(list) do
+    if e.kind ~= "start" then return i end
+  end
+  return 1
+end
+
+--- Append one entry; drop the oldest non-start entry past CAP. Nothing while stopped or while a
+--- simulation runs.
 function P.Record(kind, fields)
   if not state.running then return nil end
   if NS.Sim and NS.Sim.IsActive and NS.Sim:IsActive() then return nil end
@@ -121,7 +132,7 @@ function P.Record(kind, fields)
   local list = store.entries
   list[#list + 1] = entry
   while #list > P.CAP do
-    table.remove(list, 1)
+    table.remove(list, oldestDroppable(list))
     store.dropped = (store.dropped or 0) + 1
   end
   return entry

@@ -124,13 +124,17 @@ test("probe: clear drops every entry; while running the record is stamped again 
   end)
 end)
 
-test("probe: the record is capped at P.CAP, the oldest dropped and counted", function()
+-- LH-REV: the cap drops the oldest entry that is not a `start` one; the start facts (P3, P5, P8,
+-- P9) are read once per start, so a long session must never push them out.
+test("probe: the record is capped at P.CAP, the oldest non-start entries dropped and counted", function()
+  -- red under: a cap that drops entry 1, which is always the start entry.
   fresh(function()
     assertTrue(P.Start())
     for i = 1, P.CAP + 5 do P.Record("note", { i = i }) end
     assertEqual(#entries(), P.CAP)
-    assertEqual(NS.db.global.probe.dropped, 6, "the start entry and the five oldest notes")
-    assertEqual(entries()[1].i, 6); assertEqual(entries()[P.CAP].i, P.CAP + 5)
+    assertEqual(NS.db.global.probe.dropped, 6, "the six oldest notes")
+    assertEqual(entries()[1].kind, "start", "the start entry is kept")
+    assertEqual(entries()[2].i, 7); assertEqual(entries()[P.CAP].i, P.CAP + 5)
     assertTrue(P.StatusLine():find("6 dropped", 1, true) ~= nil, P.StatusLine())
   end)
 end)

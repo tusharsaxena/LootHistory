@@ -861,6 +861,17 @@ function Compat.CanViewCharacterBank()
   return fn(t) ~= false
 end
 
+-- How many character bank tabs the account has bought (the bank readiness guard's first-visit
+-- check, ruling R8): C_Bank.FetchNumPurchasedBankTabs(Enum.BankType.Character). Nil where the API
+-- or the enum is absent, or the answer is not a number; the guard is then not armed.
+function Compat.NumPurchasedCharacterBankTabs()
+  local fn = C_Bank and C_Bank.FetchNumPurchasedBankTabs
+  local t = Enum and Enum.BankType and Enum.BankType.Character
+  if type(fn) ~= "function" or t == nil then return nil end
+  local n = fn(t)
+  return type(n) == "number" and n or nil
+end
+
 function Compat.GetInventoryItem(slot)
   if type(GetInventoryItemID) ~= "function" then return nil end
   local id = GetInventoryItemID("player", slot)

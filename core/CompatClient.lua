@@ -92,9 +92,10 @@ end
 
 -- A unit's whole character name and its realm: "Traxex Silentshot" and a nil realm with regional
 -- names (WoW Forever, where UnitName's second value is the SURNAME); UnitName's name and realm
--- otherwise (the realm nil on the player's own). With the library absent, UnitName's first value,
--- and its second as the realm only without regional names: never a surname read as a realm. The
--- name is nil for no unit, a secret or ""; the realm nil for a secret or "".
+-- otherwise (the realm nil on the player's own). With the library absent the stub is the library's
+-- body: with regional names the second value is joined on as the surname (the bare first name when
+-- there is none), never read as a realm, so a degraded install keys a character as the library
+-- does. The name is nil for no unit, a secret or ""; the realm nil for a secret or "".
 function Compat.UnitCharacterName(unit)
   local read = CompatLib and CompatLib.UnitCharacterName or UnitName
   if not (unit and read) then return nil end
@@ -102,7 +103,10 @@ function Compat.UnitCharacterName(unit)
   name = plainString(name)
   if not name then return nil end
   realm = plainString(realm)
-  if not CompatLib and Compat.RegionalNames() then realm = nil end
+  if not CompatLib and Compat.RegionalNames() then
+    if realm then name = name .. " " .. realm end
+    realm = nil
+  end
   return name, realm
 end
 

@@ -507,6 +507,9 @@ local PROVIDERS = {
   -- shows the character bank (unless a case sets w.canViewBank = false), whatever the real client
   -- answers away from a bank.
   { "CanViewCharacterBank", function(w) return w.canViewBank ~= false end },
+  -- The guard's first-visit tab count: unknown in the world, so a simulated first visit is never
+  -- held by the real account's purchased tabs.
+  { "NumPurchasedCharacterBankTabs", function() return nil end },
 }
 
 --- The provided keys, in registration order.

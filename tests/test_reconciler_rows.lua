@@ -660,6 +660,62 @@ case("Reconciler: a bank container still at 0 slots after the readiness wait is 
   closeBank()
 end)
 
+-- LH-REV: a move made while the bank is still loading. The visit's drift read can only run once the
+-- bank is trusted, and by then the move has happened, so the drift pass reads the bags beside the
+-- bank and the move pairs as one MOVE; nothing is classified while the bank loads.
+case("Reconciler: a withdraw made while the bank loads is one MOVE, not an UNTRACKED OUT and an IN (R8)", function()
+  -- red under: bags classified (held) while the bank loads, then a bank-only drift pass that books
+  -- the withdrawn stack as an UNTRACKED OUT and leaves the bags gain one-sided.
+  reset()
+  bankVisitOne()
+  m.__now = 200
+  m.__bags[TAB2], m.__bagSlots[TAB2] = nil, 0
+  openBank(); R():Flush()
+  m.__now = 200.5
+  m.__bags[6] = {}                                        -- tab 6 keeps its slot, the stack leaves it
+  setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 }, [2] = { itemID = 7, link = "L7", count = 5 } })
+  R():OnEvent("BAG_UPDATE", 6); R():OnEvent("BAG_UPDATE", 0); R():Flush()
+  assertEqual(#H(), 0, "nothing is classified while the bank loads")
+  m.__now = 201
+  setBag(TAB2, { [1] = { itemID = 8, link = "L8", count = 2 } })
+  R():OnEvent("BAG_CONTAINER_UPDATE"); R():Flush()
+  local rows7 = rowsBy(ME, 7)
+  assertEqual(#rows7, 1, "one row for the withdraw")
+  assertEqual(rows7[1].dir, "MOVE"); assertEqual(rows7[1].source, "TRANSFER")
+  assertEqual(#H(), 1)
+  m.__now = 220; R():Flush()
+  assertEqual(#H(), 1, "no one-sided half left to commit")
+  closeBank()
+end)
+
+-- LH-REV: a first visit has no remembered slot counts, so the purchased tab count is what says a
+-- container is still loading: a partial first read must not become the bank's genesis.
+case("Reconciler: a first bank visit waits for every purchased tab before its genesis read (R8)", function()
+  -- red under: no baseline answers "ready", so tab 2's later load diffs as gains against a
+  -- genesis taken with tab 1 alone.
+  reset()
+  local savedFetch = m.C_Bank.FetchNumPurchasedBankTabs
+  local ok, err = pcall(function()
+    m.C_Bank.FetchNumPurchasedBankTabs = function(t) return t == 0 and 2 or 0 end
+    setBag(0, { [1] = { itemID = 191, link = "L191", count = 3 } })
+    genesis()
+    setBag(6, { [1] = { itemID = 7, link = "L7", count = 5 } })
+    openBank(); R():Flush()                               -- tab 2 not loaded yet
+    assertEqual(R():BankState(), "loading")
+    assertEqual(NS.Holdings:Get(ME).scanned.bank, nil, "no genesis from a partial first read")
+    m.__now = 101
+    setBag(TAB2, { [1] = { itemID = 8, link = "L8", count = 2 } })
+    R():OnEvent("BAG_CONTAINER_UPDATE"); R():Flush()
+    assertEqual(NS.Holdings:Get(ME).items[8].bank, 2, "the genesis holds both tabs")
+    R():OnEvent("BAG_CONTAINER_UPDATE"); R():Flush()
+    m.__now = 120; R():Flush()
+    assertEqual(#H(), 0, "a first visit writes nothing")
+    closeBank()
+  end)
+  m.C_Bank.FetchNumPurchasedBankTabs = savedFetch
+  if not ok then error(err, 0) end
+end)
+
 case("Reconciler: a banker that cannot show the character bank never reads it (R8, CanViewBank)", function()
   -- red under: no C_Bank.CanViewBank(Character) check, so a warband-only banker reads the character
   -- bank as it answers there (BagSync v20.41) and the visit writes it as UNTRACKED drift.

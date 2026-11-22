@@ -151,6 +151,22 @@ test("Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Charact
   if not ok then error(err, 0) end
 end)
 
+test("Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)", function()
+  -- red under: no Compat.NumPurchasedCharacterBankTabs member.
+  local m = T.mocks
+  local savedFn = m.C_Bank.FetchNumPurchasedBankTabs
+  local ok, err = pcall(function()
+    m.C_Bank.FetchNumPurchasedBankTabs = function(t) return t == 0 and 3 or 1 end
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), 3)
+    m.C_Bank.FetchNumPurchasedBankTabs = function() return "x" end
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a non-number is no answer")
+    m.C_Bank.FetchNumPurchasedBankTabs = nil
+    assertEqual(NS.Compat.NumPurchasedCharacterBankTabs(), nil, "a client without it answers nil")
+  end)
+  m.C_Bank.FetchNumPurchasedBankTabs = savedFn
+  if not ok then error(err, 0) end
+end)
+
 test("Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)", function()
   -- red under: no cue rows, so a bank tab that loads (or a socket that changes) with no BAG_UPDATE
   -- is never looked at again while the bank is open.

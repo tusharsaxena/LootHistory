@@ -305,7 +305,7 @@ Total.
 - CompatClient: RegionalNames reads RegionalUniqueNamesEnabled, false where it is absent
 - CompatClient: UnitCharacterName answers the profile's own player
 - CompatClient: UnitCharacterName joins first name and surname, and never reads a surname as a realm
-- CompatClient: the degraded UnitCharacterName keeps the name and drops a surname
+- CompatClient: the degraded UnitCharacterName joins a surname, and never reads it as a realm
 - CompatClient: CharacterKey and RealmKey are AceDB's keys; nil on a degraded install
 - CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
@@ -537,7 +537,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (15)
+### test_reconciler.lua (16)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -547,6 +547,7 @@ Total.
 - Reconciler: LoginScan seeds genesis, partial until bank seen
 - Reconciler: the warband bank's parts, events and reads exist only on Retail (R1)
 - Reconciler: Compat.CanViewCharacterBank answers C_Bank.CanViewBank(Character), true without it (R8)
+- Reconciler: Compat.NumPurchasedCharacterBankTabs answers FetchNumPurchasedBankTabs(Character), nil without it (R8)
 - Reconciler: BAG_CONTAINER_UPDATE and BANK_TABS_CHANGED re-read an open bank on both clients (R8)
 - Reconciler: a warband-only banker leaves the character bank unread and dirty (R8)
 - Reconciler: account-wide currency lands on the warband holder
@@ -555,7 +556,7 @@ Total.
 - Reconciler: ResetState clears every working table and cancels _pending and _recheck but leaves registrations
 - Reconciler: coalescing reads Database:History (session-aware)
 
-### test_reconciler_rows.lua (39)
+### test_reconciler_rows.lua (41)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
 - Reconciler: a one-sided change at an open bank is held, then paired
@@ -590,6 +591,8 @@ Total.
 - Reconciler: a CharacterBanker visit reads the bank like a Banker one (R8)
 - Reconciler: visit 2 with a partly loaded bank waits for the bank, then writes no drift (R8)
 - Reconciler: a bank container still at 0 slots after the readiness wait is read as gone (R8)
+- Reconciler: a withdraw made while the bank loads is one MOVE, not an UNTRACKED OUT and an IN (R8)
+- Reconciler: a first bank visit waits for every purchased tab before its genesis read (R8)
 - Reconciler: a banker that cannot show the character bank never reads it (R8, CanViewBank)
 - Reconciler: a Retail warband-only banker reads the warband tabs but not the character bank (R8)
 - Reconciler: a currency delta pending when the banker opens survives the drift pass
@@ -873,7 +876,7 @@ Total.
 - footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
 - footer: the resize grip sits in the footer's corner, and the right line clears it
 
-### test_browsertable.lua (87)
+### test_browsertable.lua (88)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -919,6 +922,7 @@ Total.
 - BrowserTable: ClassIconMarkup is empty for an unknown class
 - BrowserTable: every column is fully described and uniquely keyed
 - BrowserTable: Character is the last column and Item is the flexing one
+- BrowserTable: the Bound column tooltip reads the client's account words
 - BrowserTable: the Character column names the client's key form and draws a two-word name whole
 - BrowserTable: every column except the flexing one reserves a width
 - BrowserTable: the synthetic dataset is byte-identical between builds
@@ -1978,7 +1982,7 @@ Total.
 - probe: start registers every probe event on its own frame and stop unregisters them
 - probe: a second start and a stop while stopped are refused with a reason
 - probe: clear drops every entry; while running the record is stamped again and goes on
-- probe: the record is capped at P.CAP, the oldest dropped and counted
+- probe: the record is capped at P.CAP, the oldest non-start entries dropped and counted
 - probe: nothing is recorded while stopped, or while a simulation runs
 - probe: the start entry carries this client's name forms, money text and strings
 - probe: the keyring's slots, contents and inventory slot are read (P3)
@@ -2475,8 +2479,8 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 15 |
-| test_reconciler_rows.lua | 39 |
+| test_reconciler.lua | 16 |
+| test_reconciler_rows.lua | 41 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2484,7 +2488,7 @@ Total.
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
-| test_browsertable.lua | 87 |
+| test_browsertable.lua | 88 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2555,4 +2559,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2145** |
+| **Total** | **2149** |

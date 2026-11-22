@@ -10,6 +10,19 @@
 
 local base = dofile("tests/_kit/mock_base.lua")
 
+-- Enum.BagIndex for one client (the comment at its use below), built at file scope so the mock's
+-- body stays under the complexity cap.
+local function bagIndexFor(forever)
+  local bagIndex = {
+    Keyring = -1, Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
+    Characterbanktab = -2, Accountbanktab = -3,
+  }
+  local charTabs, accountTabs = forever and 9 or 6, forever and 9 or 5
+  for i = 1, charTabs do bagIndex["CharacterBankTab_" .. i] = 5 + i end
+  for i = 1, accountTabs do bagIndex["AccountBankTab_" .. i] = 5 + charTabs + i end
+  return bagIndex
+end
+
 return function()
   local M = base()
 
@@ -84,14 +97,7 @@ return function()
   -- account tabs 12..16. WoW Forever 1.60.1: nine of each, 6..14 and 15..23, so a fixture names a
   -- tab by member (Enum.BagIndex.AccountBankTab_1), never by number.
   M.Enum = M.Enum or {}
-  local bagIndex = {
-    Keyring = -1, Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5,
-    Characterbanktab = -2, Accountbanktab = -3,
-  }
-  local charTabs, accountTabs = FOREVER and 9 or 6, FOREVER and 9 or 5
-  for i = 1, charTabs do bagIndex["CharacterBankTab_" .. i] = 5 + i end
-  for i = 1, accountTabs do bagIndex["AccountBankTab_" .. i] = 5 + charTabs + i end
-  M.Enum.BagIndex = bagIndex
+  M.Enum.BagIndex = bagIndexFor(FOREVER)
   M.Enum.BankType = { Character = 0, Guild = 1, Account = 2 }
   -- The same numbers on both clients (PlayerInteractionType in each dump).
   M.Enum.PlayerInteractionType = { Banker = 8, CharacterBanker = 67, AccountBanker = 68, MailInfo = 17,

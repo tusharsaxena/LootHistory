@@ -25,7 +25,7 @@ local REQ_KEYS = {
   "ListCurrencies", "ScanInbox", "GetMailHeader", "ReadSendMail", "ScanOwnedAuctions", "ItemLocationID",
   "ContainerItemHasLoot", "IsSpellTargeting", "CurrentQuestID", "GetActiveKeystoneLevel", "InPartyInstance",
   "InCombatLockdown", "TradeTargetKey", "LatestCurrencyTransfer", "NumLootItems", "LootSourceGUID", "Zone",
-  "PlayerMapID", "CanViewCharacterBank",
+  "PlayerMapID", "CanViewCharacterBank", "NumPurchasedCharacterBankTabs",
 }
 
 -- A stable text for any value, tables walked with sorted keys.
@@ -229,6 +229,7 @@ local WORLD_ANSWERS = {
   LatestCurrencyTransfer = '{1={currencyID=3008,quantity=1,toKey="' .. ALT .. '"},n=1}',
   NumLootItems = "{1=2,n=1}", LootSourceGUID = '{1="Creature-0-3767-2552-11111-1234-0000ABCDEF",n=1}',
   Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}", CanViewCharacterBank = "{1=false,n=1}",
+  NumPurchasedCharacterBankTabs = "{n=1}",
 }
 
 local function answers()
