@@ -1,0 +1,5 @@
+K101-LH-REV review record (LootHistory, LibKa0s#101 adoption, ec4ed15).
+Lenses: correctness against master behaviour; lead's calls 1-8 (call 3: behaviour unchanged); degraded install (libs/ absent); both kit profiles.
+F1 (core/CompatClient.lua:167, low) CanViewCharacterBank maps a present API's nil to false, old copy read it as viewable. Verdict: NOT A DEFECT. The library documents the normalization as deliberate; no client or kit profile answers nil; failure direction is safe (bank part left unread, nothing booked). Possible library follow-up only. No fix.
+F2 (core/CompatClient.lua:155, low) degraded stubs answered bags 0..5, no bank, nil banker kind: regression vs master (bank never armed, deposits read as UNTRACKED loss; Forever Keyring dropped). Verdict: CONFIRMED. Fix: stubs are the library's bodies (ContainerGroups, CanViewCharacterBank, NumPurchasedBankTabs, BankerKind, UnreadyBankContainers); test-first case in tests/test_compat_client.lua, red on both profiles before the fix.
+Gate: retail 2154 passed/0 failed/1 skipped; forever 2134/0/21; luacheck 0/0 (171 files); largest file 1477 lines.
