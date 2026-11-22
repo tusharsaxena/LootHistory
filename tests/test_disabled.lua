@@ -70,6 +70,7 @@ local OWNED = {
   "event:CHAT_MSG_LOOT:nil",
   "event:CHAT_MSG_CURRENCY:nil",
   "event:CHAT_MSG_MONEY:nil",
+  "event:LOOT_CLOSED:nil",
   "event:LOOT_OPENED:nil",
   "event:ENCOUNTER_START:nil",
   "event:ENCOUNTER_END:nil",

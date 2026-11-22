@@ -51,10 +51,13 @@ local function world()
   return Host.world
 end
 
--- The name a CHAT_MSG_* line the player wrote carries: the character's first name, without the
--- realm of a Retail `Name-Realm` key or the surname of a WoW Forever "First Surname" one (RPGLootFeed
--- compares a Forever sender with UnitName's first return; probe P4 confirms the client's form).
-local function playerName() return (NS.Util.PlayerKey():match("^([^%-%s]+)")) end
+-- The name a CHAT_MSG_* line the player wrote carries: on WoW Forever the whole "First Surname"
+-- (probe P4, build 71037), on Retail the name without the realm of its `Name-Realm` key.
+local function playerName()
+  local key = NS.Util.PlayerKey()
+  if NS.Compat.RegionalNames() then return key end
+  return (key:match("^([^%-%s]+)"))
+end
 
 local function playerGUID()
   return type(UnitGUID) == "function" and UnitGUID("player") or "Player-0-00000000"

@@ -786,7 +786,14 @@ end
 --- is; it answers "waiting" then. A login pass (silent or UNTRACKED) never waits: it is its own
 --- read, and its genesis stamp follows it.
 function R:Flush()
-  if Compat.InCombatLockdown() then self.deferred = true; return end
+  if Compat.InCombatLockdown() then
+    self.deferred, self._deferredAt = true, self._deferredAt or GetTime()
+    return
+  end
+  if self._deferredAt then
+    L.HoldClaims(self.claims, self._deferredAt, GetTime())
+    self._deferredAt = nil
+  end
   self._flushing = true
   local state = self:BankState()
   local waiting = self.driftPending and state == "loading" and not (self.silent or self.forceReason)
@@ -889,6 +896,7 @@ function R:ResetState()
   NS.CancelDeferral(self._readyCheck)
   self.dirty, self.readable = {}, {}
   self.deferred, self._pending, self.driftPending = nil, nil, nil
+  self._deferredAt = nil
   self._readyCheck, self._bankOpenAt, self._driftWaited = nil, nil, nil
   self.claims, self.recent, self.reasonMemo = {}, {}, {}
   self.pendingCur, self.curGain, self.curLoss, self.pendingTransfer, self.loginPending = {}, {}, {}, nil, nil

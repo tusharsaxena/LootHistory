@@ -193,6 +193,16 @@ function Ledger.ConsumeClaim(claims, key, gain, now)
   return gain, matched
 end
 
+-- Combat defers the flush, and a claim must not age while it waits: each claim still live when the
+-- wait began (`since`), or posted during it, gets a full CLAIM_TTL from the flush that ends it.
+function Ledger.HoldClaims(claims, since, now)
+  for _, list in pairs(claims) do
+    for _, c in ipairs(list) do
+      if c.expires >= since then c.expires = math.max(c.expires, now + Ledger.CLAIM_TTL) end
+    end
+  end
+end
+
 function Ledger.PruneClaims(claims, now)
   for key, list in pairs(claims) do
     for i = #list, 1, -1 do if list[i].expires < now then table.remove(list, i) end end
