@@ -8,13 +8,15 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (40)
+### test_constants.lua (42)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
 - Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
 - Constants: Mythic+, bonus roll, Milling, Prospecting and Deconstructed are Retail-only (R2)
 - Constants: the account's words are the client's (R2): Warband on Retail, Account on WoW Forever
+- Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail
+- Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever
 - Constants: the display order lists no source twice and invents none
 - Constants: every SourceType member has a non-empty display label
 - Constants: SourceLabel carries no label for a non-source key
@@ -870,7 +872,7 @@ Total.
 - footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
 - footer: the resize grip sits in the footer's corner, and the right line clears it
 
-### test_browsertable.lua (86)
+### test_browsertable.lua (87)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -916,6 +918,7 @@ Total.
 - BrowserTable: ClassIconMarkup is empty for an unknown class
 - BrowserTable: every column is fully described and uniquely keyed
 - BrowserTable: Character is the last column and Item is the flexing one
+- BrowserTable: the Character column names the client's key form and draws a two-word name whole
 - BrowserTable: every column except the flexing one reserves a width
 - BrowserTable: the synthetic dataset is byte-identical between builds
 - BrowserTable: every synthetic record carries the fields the table and charts read
@@ -959,8 +962,9 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (37)
+### test_export.lua (38)
 
+- Export: WowheadLink builds on the running client's Wowhead base (R7)
 - Export: BoundLabel maps tokens and nil
 - Export: WowheadLink with bonus IDs
 - Export: WowheadLink without bonuses is bare
@@ -1268,7 +1272,7 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (49)
+### test_analytics.lua (51)
 
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
@@ -1319,6 +1323,8 @@ Total.
 - Insights ledger: HasLedger is false for gains-only ranges
 - Insights ledger: every ledger reason has its own chart color
 - Insights ledger: the by-character chart names a holder, the Warband as Warband
+- Insights: a two-word character key stays whole in every by-character label
+- Insights: a long two-word name is cut on its bar and named whole by the bar's hover
 
 ### test_analytics_layout.lua (12)
 
@@ -1372,7 +1378,7 @@ Total.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_timeline.lua (34)
+### test_timeline.lua (35)
 
 - Timeline model: NextDay and DayStart walk local calendar days
 - Timeline model: DailySeries carries the last close forward
@@ -1403,6 +1409,7 @@ Total.
 - Timeline model: FlowLines answers nil for a day with no flow
 - Timeline model: FormatCount groups thousands, FormatHolding reads gold as coins
 - Timeline model: LegendTip colors the title by holder kind and reads the current holding
+- Timeline model: a two-word holder's line and legend tooltip carry the whole name
 - Timeline model: LegendTip's Total sums only the charted holders and says so
 - Timeline model: LegendTip counts currencies and items with separators, and a holder with none reads 0
 - Timeline model: LegendTip reads the test-mode store when it is on
@@ -2415,7 +2422,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 40 |
+| test_constants.lua | 42 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2444,8 +2451,8 @@ Total.
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
-| test_browsertable.lua | 86 |
-| test_export.lua | 37 |
+| test_browsertable.lua | 87 |
+| test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
@@ -2458,10 +2465,10 @@ Total.
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 49 |
+| test_analytics.lua | 51 |
 | test_analytics_layout.lua | 12 |
 | test_holdingstab.lua | 34 |
-| test_timeline.lua | 34 |
+| test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 21 |
@@ -2513,4 +2520,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2111** |
+| **Total** | **2118** |

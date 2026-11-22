@@ -176,7 +176,9 @@ end
 function BrowserTable:HolderClassFile(r) return holderClassFile(r) end
 
 -- Class-colored, icon-prefixed display value for the row's holder. Shows the full "Name-Realm" so
--- same-named characters on different realms stay distinct, and the Warband as "Warband".
+-- same-named characters on different realms stay distinct, and the Warband as "Warband". On WoW
+-- Forever the key is "First Surname" (no realm), drawn whole: the column was sized for a
+-- Name-Realm, which runs at least as long.
 local function charDisplay(r)
   local name = NS.LedgerFormat.HolderLabel(r.holder or r.char)
   local icon = classIconMarkup(holderClassFile(r))
@@ -263,7 +265,7 @@ BrowserTable.COLUMNS = {
     sortFn = function(r) return (NS.AuctionPrice:Pick(r.auctionPrice)) or 0 end },
   -- Character is always the last column (see order note above).
   { key = "char", label = "Character", width = 132, align = "LEFT",
-    desc = "Character the row belongs to — full Name-Realm, class-colored; " .. C.ACCOUNT.holder ..
+    desc = "Character the row belongs to — full " .. C.CHARACTER_FORM .. ", class-colored; " .. C.ACCOUNT.holder ..
       " for the " .. C.ACCOUNT.holder:lower() .. "'s half of a move.",
     valueFn = function(r) return charDisplay(r) end,
     sortFn = function(r) return NS.LedgerFormat.HolderLabel(r.holder or r.char):lower() end },

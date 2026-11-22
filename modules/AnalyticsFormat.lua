@@ -106,7 +106,10 @@ local function qualityColor(q)
   return NS.SkinRGB("sem.unknown")
 end
 
--- Short character label ("Name-Realm" → "Name") for narrow per-character bars.
+-- Short character label ("Name-Realm" → "Name") for narrow per-character bars. A WoW Forever key
+-- ("First Surname", no realm) has no hyphen, so it stays whole: its first name alone would merge two
+-- characters who share one. The bar cuts a long label at its cap and its hover names it whole
+-- (LibKa0s-Charts-1.0's bindBarText).
 local function shortChar(key) return (key and key:match("^[^-]+")) or key or "?" end
 
 -- Standard categorical palette for charts NOT tied to a predefined color (class / bound / quality /

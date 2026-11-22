@@ -75,7 +75,9 @@ function AL.BackToBackRows(inMap, outMap, labelOf, labelColorOf, signedFmt, plai
 end
 
 -- The by-character chart's label for a holder key (the stats key it by holder, as History's
--- Character column does): the Warband as "Warband", a character by its name without the realm.
+-- Character column does): the Warband as "Warband", a character by its name without the realm. A
+-- WoW Forever "First Surname" has no realm and stays whole; the bar's label is cut to LABEL_W by the
+-- client and its hover (_fullLabel) names it whole.
 function AL.HolderShort(k)
   local s = NS.LedgerFormat.HolderLabel(k)
   return s:match("^[^-]+") or s

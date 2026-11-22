@@ -580,6 +580,23 @@ test("BrowserTable: Character is the last column and Item is the flexing one", f
   assertEqual(flex, "item", "exactly the Item column absorbs the spare width")
 end)
 
+-- The Character column on a two-word WoW Forever name (D12): the cell draws the holder key whole,
+-- never cut at its space, and its header tooltip names the client's key form.
+test("BrowserTable: the Character column names the client's key form and draws a two-word name whole", function()
+  -- red under: a WoW Forever build whose Character tooltip still promises a Name-Realm.
+  local col = NS.BrowserTable.COLUMNS[#NS.BrowserTable.COLUMNS]
+  assertEqual(col.key, "char")
+  if T.forever then
+    assertTrue(col.desc:find("full name and surname, class-colored", 1, true) ~= nil, col.desc)
+    assertTrue(col.desc:find("Name-Realm", 1, true) == nil, "no Realm on WoW Forever: " .. col.desc)
+  else
+    assertTrue(col.desc:find("full Name-Realm, class-colored", 1, true) ~= nil, col.desc)
+  end
+  local key = T.forever and "Sampleblade Mockvale" or "Sampleblade-Samplerealm"
+  local text = col.valueFn({ char = key, classFile = "ROGUE" })
+  assertTrue(text:sub(-#key) == key, "the cell ends with the whole holder key: " .. text)
+end)
+
 test("BrowserTable: every column except the flexing one reserves a width", function()
   for _, col in ipairs(NS.BrowserTable.COLUMNS) do
     if col.flex then

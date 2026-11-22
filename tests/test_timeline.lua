@@ -382,6 +382,17 @@ case("Timeline model: LegendTip colors the title by holder kind and reads the cu
   assertEqual(t.value, NS.Util.FormatMoney(95000))
 end))
 
+-- A WoW Forever holder is "First Surname" (D12). The legend draws it in a slot capped at LEGEND_W,
+-- cut by the client when longer; its tooltip's title is the whole name, on both profiles.
+case("Timeline model: a two-word holder's line and legend tooltip carry the whole name", function()
+  local name = "Sampleblade Mockvalesworth"
+  seedMoney({ [name] = 70000 }, noon(2026, 10, 5))
+  assertEqual(TM().Label(name), name)
+  local t = TM().LegendTip(tipModel("g", "GOLD", { name }), name)
+  assertEqual(t.title, name)
+  assertEqual(t.value, NS.Util.FormatMoney(70000))
+end)
+
 case("Timeline model: LegendTip's Total sums only the charted holders and says so", function()
   seedMoney({ ["A-R"] = 70000, ["B-R"] = 10000 }, noon(2026, 10, 5))
   local t = TM().LegendTip(tipModel("g", "GOLD", { "B-R" }), TM().TOTAL)

@@ -35,6 +35,21 @@ C.ACCOUNT_WORDS = {
 }
 C.ACCOUNT = C.ACCOUNT_WORDS[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
 
+-- The Wowhead item page each client's ids resolve on, picked once by ClientKey() (clients-§5;
+-- ruling R7): WoW Forever's items live under /forever/, Retail's at the root. modules/Export.lua
+-- builds the History CSV's wowheadLink on it. Both are published for the suites.
+C.WOWHEAD_ITEM_BASES = {
+  retail = "https://www.wowhead.com/item=",
+  forever = "https://www.wowhead.com/forever/item=",
+}
+C.WOWHEAD_ITEM_BASE = C.WOWHEAD_ITEM_BASES[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
+
+-- How a character key reads to a player, per client (the port's D6, core/Util.lua PlayerKey): Retail
+-- keys a character "Name-Realm", WoW Forever by its two-word name and surname with no realm. The
+-- History Character column's tooltip names it (modules/BrowserTable.lua).
+C.CHARACTER_FORMS = { retail = "Name-Realm", forever = "name and surname" }
+C.CHARACTER_FORM = C.CHARACTER_FORMS[NS.Compat.ClientKey() == "forever" and "forever" or "retail"]
+
 -- Source enum. Values are the stored string keys (stable — do not RENAME; they are the export
 -- contract). Extending it is fine (additive/forward-compatible): DISENCHANT/MILLING/PROSPECTING
 -- are first-class deconstruct sources so the Source column reads the ability, not a generic "Craft".

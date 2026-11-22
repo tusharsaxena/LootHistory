@@ -894,7 +894,7 @@ and one row per record: `date` DD-MMM-YYYY, `time` HH:MM; `quality` a label besi
 prices as `Ng Ns Nc` beside copper `*Raw` (auction blank when no price is selectable); `value` the
 higher of the picked auction price and `vendorPrice`; `auctionSource` the provenance tag (e.g.
 `tsm:dbmarket`); `auc_*` the raw captured copper per key; `bound` a label; comma names quoted;
-`wowheadLink` a `wowhead.com/item=…` URL with `?bonus=…` when bonus IDs exist; currency rows fill
+`wowheadLink` a `wowhead.com/item=…` URL (`wowhead.com/forever/item=…` on WoW Forever) with `?bonus=…` when bonus IDs exist; currency rows fill
 `currencyID` and leave `itemID` blank. `itemLink`, `sourceDetail`, `mapID`, `subzone`, `confidence`
 are absent. Result: pass (owner-marked 2026-10-10)
 

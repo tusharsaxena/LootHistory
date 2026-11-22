@@ -90,6 +90,19 @@ test("Constants: the account's words are the client's (R2): Warband on Retail, A
   assertEqual(C.WARBAND_HOLDER, "§warband", "the stored holder key is the same on both")
 end)
 
+test("Constants: the Wowhead item base is the client's (R7): /forever/ on WoW Forever, the root on Retail", function()
+  -- red under: a WoW Forever build whose History CSV links its items to Retail's Wowhead pages.
+  assertEqual(C.WOWHEAD_ITEM_BASES.retail, "https://www.wowhead.com/item=")
+  assertEqual(C.WOWHEAD_ITEM_BASES.forever, "https://www.wowhead.com/forever/item=")
+  assertEqual(C.WOWHEAD_ITEM_BASE, C.WOWHEAD_ITEM_BASES[T.forever and "forever" or "retail"])
+end)
+
+test("Constants: a character key's form is the client's (D6): Name-Realm on Retail, a two-word name on WoW Forever", function()
+  assertEqual(C.CHARACTER_FORMS.retail, "Name-Realm")
+  assertEqual(C.CHARACTER_FORMS.forever, "name and surname")
+  assertEqual(C.CHARACTER_FORM, C.CHARACTER_FORMS[T.forever and "forever" or "retail"])
+end)
+
 test("Constants: the display order lists no source twice and invents none", function()
   local seen = {}
   for _, s in ipairs(C.SourceOrder) do
