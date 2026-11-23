@@ -3,7 +3,7 @@ local NS, mocks = T.NS, T.mocks
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 local function resetContext()
-  NS.State.lootContext = nil
+  NS.State.lootContext, NS.State.lootWindow = nil, nil
   mocks.__now = 0
 end
 
@@ -524,13 +524,13 @@ end, T.RETAIL_ONLY)
 -- next suite would run against a half-stubbed client with nine stray registrations on the bus.
 
 -- Sorted: this asserts the SET Enable registers, and the registration order carries no meaning.
--- The keystone's four are Retail's (C.FEATURE.mythicPlus, R2): WoW Forever registers the other five.
+-- The keystone's four are Retail's (C.FEATURE.mythicPlus, R2): WoW Forever registers the other six.
 local KEYSTONE_EVENTS = { CHALLENGE_MODE_COMPLETED = true, CHALLENGE_MODE_RESET = true,
   CHALLENGE_MODE_START = true, ZONE_CHANGED_NEW_AREA = true }
 local ENABLE_EVENTS = {}
 for _, e in ipairs({
   "CHALLENGE_MODE_COMPLETED", "CHALLENGE_MODE_RESET", "CHALLENGE_MODE_START", "ENCOUNTER_END",
-  "ENCOUNTER_START", "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
+  "ENCOUNTER_START", "LOOT_CLOSED", "LOOT_OPENED", "QUEST_TURNED_IN", "TRADE_ACCEPT_UPDATE",
   "ZONE_CHANGED_NEW_AREA",
 }) do
   if not (T.forever and KEYSTONE_EVENTS[e]) then ENABLE_EVENTS[#ENABLE_EVENTS + 1] = e end
@@ -586,11 +586,11 @@ local function withClientStubs(body)
   if not ok then error(err, 0) end
 end
 
-test("Attribution: Enable registers the client's bus events (nine on Retail, five on Forever), the player-only cast frame and five hooks",
+test("Attribution: Enable registers the client's bus events (ten on Retail, six on Forever), the player-only cast frame and five hooks",
 function()
   withClientStubs(function(rec)
     NS.Attribution:Enable()
-    assertEqual(#ENABLE_EVENTS, T.forever and 5 or 9)
+    assertEqual(#ENABLE_EVENTS, T.forever and 6 or 10)
 
     local added = {}
     for event in pairs(NS.addon.__events) do
@@ -762,4 +762,69 @@ test("Attribution: ResetContexts clears every context field and leaves registrat
   assertTrue(A._enabled == enabled and A.__outEv == outEv and A.__spellFrame == spell,
     "ResetContexts must not touch the targets or the enabled flag")
   assertEqual(#mocks.__registrations(), regs, "ResetContexts changed the registrations")
+end)
+
+-- The Forever probe of 2026-11-23: the window opened at :48, its three lines landed at :50, and all
+-- three read OTHER, the 1.5 s stamp gone.
+local function lootWindow(n, guid)
+  local C = NS.Compat
+  local num, src = C.NumLootItems, C.LootSourceGUID
+  C.NumLootItems = function() return n end
+  C.LootSourceGUID = function() return guid or "Creature-0-43487-0-16773598-2371-2CD47A1650" end
+  NS.Attribution:ResetContexts()
+  mocks.__now = 100
+  NS.Attribution:OnLootOpened()
+  C.NumLootItems, C.LootSourceGUID = num, src
+end
+
+test("Attribution: every line of an open loot window is its kill's, however late", function()
+  lootWindow(3)
+  mocks.__now = 109
+  for i = 1, 3 do
+    -- red under: the stamp's TTL alone
+    local source, detail = NS.Attribution:Consume()
+    assertEqual(source, "KILL", "line " .. i)
+    assertEqual(detail.npcID, 2371)
+  end
+  assertEqual((NS.Attribution:Consume()), "OTHER", "a fourth line is not the window's")
+  NS.Attribution:ResetContexts()
+end)
+
+test("Attribution: a closed loot window covers its lines for a short grace", function()
+  lootWindow(2)
+  mocks.__now = 100.2; NS.Attribution:OnLootClosed()
+  mocks.__now = 102.4
+  assertEqual((NS.Attribution:Consume()), "KILL", "a line two seconds after an autoloot close")
+  mocks.__now = 100.2 + NS.Constants.LOOT_LINE_GRACE + 1
+  assertEqual((NS.Attribution:Consume()), "OTHER", "past the grace")
+  NS.Attribution:ResetContexts()
+end)
+
+test("Attribution: a fresh stamp outranks an open loot window", function()
+  lootWindow(3)
+  mocks.__now = 104
+  NS.Attribution:Stamp("QUEST")
+  assertEqual((NS.Attribution:Consume()), "QUEST")
+  NS.Attribution:ResetContexts()
+end)
+
+test("Attribution: a loot window that never closes stops covering", function()
+  lootWindow(3)
+  mocks.__now = 100 + NS.Constants.LOOT_WINDOW_MAX + 1
+  assertEqual((NS.Attribution:Consume()), "OTHER")
+  NS.Attribution:ResetContexts()
+end)
+
+test("Attribution: a container opened from the bags covers contents that land in two waves", function()
+  NS.Attribution:ResetContexts()
+  local C = NS.Compat
+  local has, targeting = C.ContainerItemHasLoot, C.IsSpellTargeting
+  C.ContainerItemHasLoot, C.IsSpellTargeting = function() return true end, function() return false end
+  mocks.__now = 100
+  NS.Attribution:OnContainerItemUse(0, 1)
+  C.ContainerItemHasLoot, C.IsSpellTargeting = has, targeting
+  mocks.__now = 102.5
+  -- red under: the clam's meat reading Other a second after its pearl read Container
+  assertEqual((NS.Attribution:Consume()), "CONTAINER")
+  NS.Attribution:ResetContexts()
 end)

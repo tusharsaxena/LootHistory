@@ -474,3 +474,34 @@ test("Reconciler: each interaction type arms what it arms, per client (R1, R8, K
   reset()
   if not ok then error(err, 0) end
 end)
+
+test("Reconciler: a claim waits out combat, so one loot is one row", function()
+  reset()
+  local m, r = T.mocks, R()
+  local savedNow, savedICL, savedEnabled = m.__now, m.InCombatLockdown, r._enabled
+  local savedForce, savedSilent = r.forceReason, r.silent
+  local function combat(on)
+    m.InCombatLockdown = function() return on end
+    rawset(_G, "InCombatLockdown", m.InCombatLockdown)
+  end
+  r._enabled, r.forceReason, r.silent, r.claims = true, nil, nil, {}
+  m.__now = 100
+  combat(false)
+  r:MarkDirty("bags", 0); r:Flush()
+  NS.Holdings:MarkGenesis(ME(), 1)
+  local row = { itemID = 17058, quantity = 1, source = "KILL" }
+  local before = #NS.db.global.history
+  combat(true)
+  r:PostClaim(NS.Ledger.ThingKey("ITEM", 17058), 1, row)
+  m.__bags[0] = { [1] = { itemID = 17058, link = "L17058", count = 1 } }; m.__bagSlots[0] = 1
+  r:MarkDirty("bags", 0); r:Flush()
+  m.__now = 110
+  combat(false)
+  r:OnEvent("PLAYER_REGEN_ENABLED")
+  local after = #NS.db.global.history
+  m.__now, r._enabled, r.forceReason, r.silent, r.claims = savedNow, savedEnabled, savedForce, savedSilent, {}
+  m.InCombatLockdown = savedICL; rawset(_G, "InCombatLockdown", savedICL)
+  -- red under: the claim aging out (5 s) while the flush waited for combat to end
+  assertEqual(after, before, "a second row for the same loot")
+  assertTrue(row.claimed == true, "the chat row took the delta")
+end)

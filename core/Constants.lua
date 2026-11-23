@@ -221,6 +221,13 @@ C.FONT_MONO = NS.MediaFont and NS.MediaFont(C.FONT_MONO_NAME) or _G.STANDARD_TEX
 
 -- Seconds a stamped loot context stays fresh before CHAT_MSG_LOOT falls back to OTHER.
 C.CONTEXT_TTL = 1.5
+-- A loot window outlives that stamp: its lines can land seconds after it opened (the WoW Forever probe
+-- of 2026-11-23 read two). It covers one line per slot while it is open, for LOOT_LINE_GRACE seconds
+-- after it closes (autoloot closes first), and never longer than LOOT_WINDOW_MAX.
+C.LOOT_LINE_GRACE = 5
+C.LOOT_WINDOW_MAX = 120
+-- A container opened from the bags delivers in waves with no window (a clam's meat after its pearl).
+C.CONTAINER_TTL = 4
 
 -- Seconds a WON encounter's context outlives ENCOUNTER_END. The boss corpse is looted after
 -- ENCOUNTER_END fires, so clearing the context there would strip encounterID / difficulty from

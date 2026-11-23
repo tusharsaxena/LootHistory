@@ -142,8 +142,8 @@ end
 
 -- Stamp the single-slot loot context. Consumed by the collector on the next self-loot line(s)
 -- within CONTEXT_TTL. Not cleared on consume: one loot window emits many lines sharing a source.
--- `trigger` is an optional label for the debug trace only.
-function Attribution:Stamp(source, detail, confidence, trigger)
+-- `trigger` is an optional label for the debug trace only; `ttl` overrides CONTEXT_TTL.
+function Attribution:Stamp(source, detail, confidence, trigger, ttl)
   -- THE hooksecurefunc CARVE-OUT (slash-commands-§7), one of two funnels gated this way; the other
   -- is the loss side's StampOut and On* bodies in modules/AttributionOut.lua. Five hooks reach this
   -- one -- BuyMerchantItem, TakeInboxItem, AutoLootMailItem, UseContainerItem and GetQuestReward --
@@ -157,7 +157,7 @@ function Attribution:Stamp(source, detail, confidence, trigger)
     source = source,
     detail = detail,
     confidence = confidence or Constants.Confidence.CERTAIN,
-    expires = GetTime() + Constants.CONTEXT_TTL,
+    expires = GetTime() + (ttl or Constants.CONTEXT_TTL),
   }
   if NS.State.debug and NS.Debug then
     NS.Debug("Attr", "stamp %s%s%s", source, trigger and (" via " .. trigger) or "", detailStr(detail))
@@ -170,9 +170,19 @@ end
 -- It does NOT clear what it read, despite the name: the context is TTL-scoped by design and
 -- expiry alone ends it, so two loots inside CONTEXT_TTL both attribute to the one stamp. That is
 -- the intent -- one LOOT_READY can deliver several items -- and it is why this reads like a peek.
+-- The loot window is the exception: it is counted down a line at a time, so a line past its slot
+-- count cannot borrow it. A fresh stamp of another source outranks it.
 function Attribution:Consume()
-  local c = State.lootContext
-  if c and c.expires >= GetTime() then
+  local c, now = State.lootContext, GetTime()
+  local w = State.lootWindow
+  if w and (w.left <= 0 or w.expires < now) then w, State.lootWindow = nil, nil end
+  local fresh = c and c.expires >= now
+  if w and (not fresh or c.source == w.source) then
+    w.left = w.left - 1
+    if not fresh then c = w end
+    fresh = true
+  end
+  if fresh then
     if NS.State.debug and NS.Debug then
       NS.Debug("Attr", "consume -> %s (%s)%s", c.source, c.confidence, detailStr(c.detail))
     end
@@ -225,6 +235,7 @@ function Attribution:OnLootOpened()
   -- spell just stamped rather than overwriting it with this, its own, mat window.
   local c = State.lootContext
   if c and c.expires >= GetTime() and DECONSTRUCT_SOURCE[c.source] then
+    self:OpenLootWindow(NS.Compat.NumLootItems(), c.source, c.detail, c.confidence)
     if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
     return
   end
@@ -239,10 +250,31 @@ function Attribution:OnLootOpened()
           detailStr(detail))
       end
       self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
+      self:OpenLootWindow(n, source, detail, Constants.Confidence.CERTAIN)
       return
     end
   end
   if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED (%s slots, no source GUID)", n) end
+end
+
+-- The window's coverage (Constants.LOOT_LINE_GRACE). A second window of the same source adds its slots
+-- to the lines still owed; any other replaces them.
+function Attribution:OpenLootWindow(slots, source, detail, confidence)
+  if NS.IsStoodDown and NS.IsStoodDown() then return end
+  if not slots or slots <= 0 then return end
+  local now, w = GetTime(), State.lootWindow
+  local owed = w and w.source == source and w.expires >= now and w.left or 0
+  State.lootWindow = {
+    source = source, detail = detail, confidence = confidence or Constants.Confidence.CERTAIN,
+    left = slots + owed, expires = now + Constants.LOOT_WINDOW_MAX,
+  }
+end
+
+-- LOOT_CLOSED: autoloot closes the window before its lines land, so it covers them a little longer.
+function Attribution:OnLootClosed()
+  local w = State.lootWindow
+  if not w then return end
+  w.expires = math.min(w.expires, GetTime() + Constants.LOOT_LINE_GRACE)
 end
 
 function Attribution:OnEncounterStart(_, encounterID, encounterName, difficultyID)
@@ -353,7 +385,8 @@ function Attribution:OnContainerItemUse(bag, slot)
     end
     return
   end
-  self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open")
+  self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open",
+    Constants.CONTAINER_TTL)
 end
 
 -- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so the
@@ -443,10 +476,11 @@ end
 -- target would replace that handler.
 local function busRow(event, fn) NS.EventRow("Attribution", "bus", event, fn) end
 busRow("LOOT_OPENED", function() Attribution:OnLootOpened() end)
+busRow("LOOT_CLOSED", function() Attribution:OnLootClosed() end)
 busRow("ENCOUNTER_START", function(...) Attribution:OnEncounterStart(...) end)
 busRow("ENCOUNTER_END", function(...) Attribution:OnEncounterEnd(...) end)
 -- The keystone's rows only where it is a feature (MYTHIC_PLUS): ZONE_CHANGED_NEW_AREA serves the
--- keystone context alone, so WoW Forever registers five bus rows, Retail nine.
+-- keystone context alone, so WoW Forever registers six bus rows, Retail ten.
 if MYTHIC_PLUS then
   busRow("CHALLENGE_MODE_START", function() Attribution:OnChallengeModeStart() end)
   busRow("CHALLENGE_MODE_COMPLETED", function() Attribution:OnChallengeModeCompleted() end)
@@ -526,7 +560,7 @@ end
 --- the tables. Both Disables call it; the simulator calls it at start and stop.
 function Attribution:ResetContexts()
   local S = NS.State
-  S.lootContext, S.encounter, S.keystone = nil, nil, nil
+  S.lootContext, S.lootWindow, S.encounter, S.keystone = nil, nil, nil, nil
   S.outContext, S.pendingMail, S.soldMail, S.tradeTarget, S.craftUntil = nil, nil, nil, nil, nil
   S.mailTaken = nil
   for k in pairs(S.scopes) do S.scopes[k] = nil end

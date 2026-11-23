@@ -18,7 +18,7 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
   "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:ENCOUNTER_END",
-  "bus:ENCOUNTER_START", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
+  "bus:ENCOUNTER_START", "bus:LOOT_CLOSED", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
   "bus:ZONE_CHANGED_NEW_AREA",
   "ledger:ACCOUNT_MONEY", "ledger:BAG_CONTAINER_UPDATE", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
   "ledger:BANK_TABS_CHANGED",

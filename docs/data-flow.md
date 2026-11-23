@@ -360,7 +360,7 @@ Reconciler's stand-up rescan covers it.
 
 ## Known limitation
 
-The whole design assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). **Slow manual click-looting** — opening a corpse or container and hovering before clicking an item well past the TTL — lets the stamp expire, so that item falls back to `OTHER` / `INFERRED`. This is an accepted trade-off: a longer TTL would risk bleeding a stale source onto an unrelated later loot. Auto-loot (the common case) fires the loot lines immediately, comfortably inside the window.
+The stamp assumes the peripheral event and its loot line fall within `CONTEXT_TTL` (~1.5s). A loot window does not rely on that alone (the WoW Forever probe of 2026-11-23 read kill loot two seconds after its window): `State.lootWindow` keeps the window's source for one line per slot while it is open, for `LOOT_LINE_GRACE` (5 s) after `LOOT_CLOSED`, and never past `LOOT_WINDOW_MAX`. A fresh stamp of another source outranks it. A container opened from the bags stamps for `CONTAINER_TTL` (4 s), because its contents land in waves. The Reconciler's side of the same problem is a chat claim aging out while combat defers the flush: `Ledger.HoldClaims` carries each claim across the wait, so one loot is one row.
 
 ## Tracing attribution
 

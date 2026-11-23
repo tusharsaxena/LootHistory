@@ -5,6 +5,8 @@ local State = NS.State
 -- Short-lived source context, stamped by peripheral events and consumed by CHAT_MSG_LOOT.
 -- Shape: { source, detail, confidence, expires }
 State.lootContext = nil
+-- The loot window whose lines are still to land: { source, detail, confidence, left, expires }.
+State.lootWindow = nil
 
 -- Rolling instance context for enriching KILL/MPLUS attribution.
 State.encounter = nil   -- { id, name, difficulty }

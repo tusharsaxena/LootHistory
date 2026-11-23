@@ -72,8 +72,9 @@ test("SimDrivers: a loot driver produces a line ParseSelfLoot accepts", function
         assertEqual(n, qty, form .. " x" .. qty .. ": the quantity parses back")
         -- The bonus-roll tag is Retail's (R2): WoW Forever parses the line untagged.
         assertEqual(source, (form == "bonus" and not T.forever) and "BONUS_ROLL" or nil)
-        -- The character's first name on both clients: no realm (Retail), no surname (WoW Forever).
-        assertEqual(r.args[2], (M.UnitName("player")), "the player's own first name")
+        -- WoW Forever writes "First Surname" (probe P4, build 71037); Retail the name with no realm.
+        local want = NS.Compat.RegionalNames() and NS.Util.PlayerKey() or (M.UnitName("player"))
+        assertEqual(r.args[2], want, "the player's own name, as this client writes it")
         assertEqual(r.args[12], M.UnitGUID and M.UnitGUID("player") or "Player-0-00000000", "the player's GUID")
       end
     end

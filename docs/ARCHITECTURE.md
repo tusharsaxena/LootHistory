@@ -270,6 +270,7 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
 | `CHAT_MSG_CURRENCY` | `OnChatMsgCurrency` (currency capture: `recordCurrency` → per-source mute → currency blacklist, writing a `Type=Currency` row) | `modules/Collector.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
+| `LOOT_CLOSED` | `OnLootClosed` (the window's lines get `LOOT_LINE_GRACE` more) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
 | `CHALLENGE_MODE_START` / `CHALLENGE_MODE_COMPLETED` | keystone context (`Compat.GetActiveKeystoneLevel`); Retail only (`C.FEATURE.mythicPlus`, ruling R2) | `modules/Attribution.lua` |
 | `ZONE_CHANGED_NEW_AREA` | `OnZoneChanged` — clears the keystone context on leaving the party instance (`Compat.InPartyInstance`), re-arms it on re-entry to an active key; Retail only, since it serves only the keystone | `modules/Attribution.lua` |
@@ -752,10 +753,9 @@ and is 988 lines (`FU-LH-BROWSER`). On 2026-10-31 `modules/BrowserTable.lua` she
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable
   `sourceDetail` (npcID / encounter / keystone / questID); the human name is no longer captured or
   displayed.
-- **Slow manual click-looting.** The source context uses a fixed `CONTEXT_TTL` (1.5s). Looting
-  items more than ~1.5s apart from one open window can let later items fall back to
-  `OTHER`/`INFERRED`. The single-slot context with a fixed TTL is a settled design decision, not an
-  open backlog item — see [scope.md](scope.md) *Resolved design decisions*.
+- **Loot past a window's cover.** An open loot window names one line per slot however late it lands,
+  and a closed one for `LOOT_LINE_GRACE` (5 s). A container opened from the bags has `CONTAINER_TTL`
+  (4 s); anything later falls back to `OTHER` / `INFERRED`.
 - **A currency under a collapsed Currency-tab header has no category.** `Compat.CurrencyCategory`
   rebuilds its cache once on a miss, but `C_CurrencyInfo.GetCurrencyListInfo` enumerates only the
   children of expanded headers, so such a row keeps `itemSubType = nil` and falls out of the subtype

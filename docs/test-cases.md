@@ -375,7 +375,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (42)
+### test_attribution.lua (47)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -412,13 +412,18 @@ Total.
 - Attribution: CHALLENGE_MODE_RESET clears the keystone
 - Attribution: a completion-time keystone level of 0 does not overwrite the started level
 - Attribution: zoning back into an active key re-arms the keystone at its level
-- Attribution: Enable registers the client's bus events (nine on Retail, five on Forever), the player-only cast frame and five hooks
+- Attribution: Enable registers the client's bus events (ten on Retail, six on Forever), the player-only cast frame and five hooks
 - Attribution: read-side hooks are installed through Compat.HookSecure once
 - Attribution: a retired ENCOUNTER_START costs only itself (front gate)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (front gate)
 - Attribution: a retired ENCOUNTER_START costs only itself (pcall rung)
 - Attribution: a retired UNIT_SPELLCAST_SUCCEEDED leaves the bus events bound (pcall rung)
 - Attribution: ResetContexts clears every context field and leaves registrations
+- Attribution: every line of an open loot window is its kill's, however late
+- Attribution: a closed loot window covers its lines for a short grace
+- Attribution: a fresh stamp outranks an open loot window
+- Attribution: a loot window that never closes stops covering
+- Attribution: a container opened from the bags covers contents that land in two waves
 
 ### test_attribution_out.lua (14)
 
@@ -542,7 +547,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reconciler.lua (18)
+### test_reconciler.lua (19)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -562,6 +567,7 @@ Total.
 - Reconciler: coalescing reads Database:History (session-aware)
 - Reconciler: BankState answers the same outcome for each bank shape (R8, K101-LH-02)
 - Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)
+- Reconciler: a claim waits out combat, so one loot is one row
 
 ### test_reconciler_rows.lua (41)
 
@@ -2486,12 +2492,12 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 42 |
+| test_attribution.lua | 47 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reconciler.lua | 18 |
+| test_reconciler.lua | 19 |
 | test_reconciler_rows.lua | 41 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
@@ -2571,4 +2577,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2161** |
+| **Total** | **2167** |

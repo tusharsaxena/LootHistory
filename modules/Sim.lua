@@ -161,7 +161,7 @@ end
 -- ── the real-event split ──────────────────────────────────────────────────────────────────────
 
 local INTERFERENCE = {
-  LOOT_OPENED = true, ENCOUNTER_START = true, CHALLENGE_MODE_START = true, QUEST_TURNED_IN = true,
+  LOOT_OPENED = true, LOOT_CLOSED = true, ENCOUNTER_START = true, CHALLENGE_MODE_START = true, QUEST_TURNED_IN = true,
   TRADE_ACCEPT_UPDATE = true, MAIL_SEND_SUCCESS = true, PLAYER_INTERACTION_MANAGER_FRAME_SHOW = true,
 }
 

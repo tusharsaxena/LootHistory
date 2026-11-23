@@ -2933,3 +2933,6 @@ Retail results. Every check in a `both` theme owes its WoW Forever result (FOREV
 Added by the LibKa0s#101 run's Forever follow-ups (K101-FU-02, 2026-11-22; Ka0sAddonsCommonTasks
 `docs/2026-11-22-LIBKA0S_101_CONTAINER_READER/`, owner ruling F2), awaiting the owner: HIST-52, new,
 on both clients.
+
+Added on 2026-11-23 (Ka0sAddonsCommonTasks `docs/2026-11-23-R2_RESTORE_AND_PROBE_FIXES/`, R2P-LH), awaiting the owner: kill loot reads Kill however late its line
+lands, a clam's contents all read Container, and loot taken in combat is one row.
