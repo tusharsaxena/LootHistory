@@ -1022,8 +1022,8 @@ Total.
 - Export: CSV ledger columns follow wowheadLink and default for legacy rows
 - Export: InsightsCSV appends Ledger sections only when the range has losses
 - Export: InsightsCSV writes a negative copper value with a leading minus
-- Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
-- Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)
+- Export: the modal is a companion, its title bar reads the close alone (FB-LH-01)
+- Export: the modal's close hides it (FB-LH-01)
 
 ### test_debuglog.lua (21)
 
@@ -2316,8 +2316,8 @@ Total.
 - skin switch: the export modal's edge changes with the Scope ignored
 - skin switch: the export modal's title changes
 - skin switch: the export modal's title changes with the Scope ignored
-- skin switch: the export modal's settings mark changes
-- skin switch: the export modal's settings mark changes with the Scope ignored
+- skin switch: the export modal's close control changes
+- skin switch: the export modal's close control changes with the Scope ignored
 - skin switch: the export modal's CSV button changes
 - skin switch: the export modal's CSV button changes with the Scope ignored
 - skin switch: the test strip changes

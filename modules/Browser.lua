@@ -87,17 +87,19 @@ end
 
 -- The title-bar marks of every window this addon owns, the History browser and the export modal
 -- (AD-86-LH, LibKa0s#86; standalone-windows *Title-bar controls*, standard v2.113.0): W.HeaderButtons
--- through core/WidgetsSetup.lua's NS.MakeHeaderButtons, left to right settings · close, the close
+-- through core/WidgetsSetup.lua's NS.MakeHeaderButtons, left to right settings · close (the close alone on a companion), the close
 -- still B:MakeCloseButton's (the one wrapper) and the settings mark opening this addon's settings
--- through the launcher's registered opener. `hideOnSettings` is the window to hide first, for one
--- that would cover the settings panel (the DIALOG-strata export modal). `extras` are W.HeaderButtons'
--- own, left of the settings mark: the History window passes its lock (AF-HDR-LH). On a degraded
--- install (no HeaderButtons) the close alone, 6 px in from the bar's right, as before. Sets
--- `win.closeButton`, `win.settingsButton`, `win.lockButton` (the `lock` extra, if any) and answers
--- the S.Header `right` list (outermost first).
-function B:MakeTitleMarks(bar, win, onClose, hideOnSettings, extras)
+-- through the launcher's registered opener. `companion` true marks a companion window (the export
+-- modal, which belongs to the History browser): W.HeaderButtons' `companion = true` (WidgetsHeader 2,
+-- LibKa0s v1.112.0) builds the close alone, with no settings mark and no waiver reason
+-- (standalone-windows, *Settings is on every window but a companion*, standard v2.119.0; FB-LH-01).
+-- `extras` are W.HeaderButtons' own, left of the settings mark: the History window passes its lock
+-- (AF-HDR-LH). On a degraded install (no HeaderButtons) the close alone, 6 px in from the bar's
+-- right, as before. Sets `win.closeButton`, `win.settingsButton` (nil on a companion),
+-- `win.lockButton` (the `lock` extra, if any) and answers the S.Header `right` list (outermost first).
+function B:MakeTitleMarks(bar, win, onClose, companion, extras)
   local hb = NS.MakeHeaderButtons and NS.MakeHeaderButtons(bar, {
-    close = onClose, frame = win, hideOnSettings = hideOnSettings, extras = extras,
+    close = onClose, frame = win, companion = companion == true or nil, extras = extras,
     makeClose = function(parent, onClick) return B:MakeCloseButton(parent, onClick) end,
   })
   if hb then

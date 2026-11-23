@@ -36,7 +36,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 52 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names |
+| HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone) |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | both | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -1100,6 +1100,7 @@ HIST-47. Hover each → the same tooltips and colors. Click the gear → the mod
 addon's settings open, with nothing left over them. Open the modal again and close it with the ✕ →
 it closes as before. Fail: no gear, the modal left drawn over the settings panel, or a gear that opens
 nothing. Result:
+Superseded on 2026-11-24 by HIST-53: the export modal is a companion and carries no gear.
 
 **HIST-49. Where the History window's tooltips open (AD-92-LH, LibKa0s#92; standalone-windows'
 *Tooltip placement*).** `/lh show` with the window in the screen's middle. Hover an item row, a
@@ -1153,6 +1154,15 @@ nothing. Pick that long character alone so the collapsed button reads it cut off
 the whole name attached above it; pick a short name or "Character: All" → no tooltip. Fail: a cut-off
 name with no full-name hover, a tooltip over a name drawn whole, a click on the cell that no longer
 reaches the row, or a Lua error. Result:
+
+**HIST-53. The export modal carries the close alone; the History window keeps its gear (FB-LH-01;
+standalone-windows, *Settings is on every window but a companion*, standard v2.119.0, S-T5).**
+Client: both. `/lh show`, click the filter bar's **Export** → the modal's title bar carries the ✕
+alone in the corner, 6 px in, with no gear and no padlock beside it; hover it → *Close*, the ✕ red;
+click it → the modal closes. The History window's own title bar still reads padlock · gear · ✕ and
+its gear opens this addon's settings. Pick **Obsidian** → the same. This replaces HIST-48, and the
+export-modal sentence of HIST-50 now reads "its title bar reads ✕ alone". Fail: a gear on the export
+modal, a History window without its gear, or a Lua error. Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -2936,3 +2946,7 @@ on both clients.
 
 Added on 2026-11-23 (Ka0sAddonsCommonTasks `docs/2026-11-23-R2_RESTORE_AND_PROBE_FIXES/`, R2P-LH), awaiting the owner: kill loot reads Kill however late its line
 lands, a clam's contents all read Container, and loot taken in combat is one row.
+
+Added by the owner's 2026-11-24 feedback batch (FB-LH-01, Ka0sAddonsCommonTasks
+`docs/2026-11-24-FEEDBACK_BATCH/`), awaiting the owner: HIST-53, new, on both clients. HIST-48 is
+superseded by it.
