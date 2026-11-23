@@ -51,7 +51,10 @@ local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
 -- Minor 1 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86).
-local HEADER_MINOR = 1
+-- Minor 2 (FB-LK-03 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, standalone-windows
+-- v2.119.0): `spec.companion = true` marks a companion window (a popup, dialog or confirm that belongs
+-- to another window), which carries no settings mark and needs no `settingsOptOut`: `hb.companion`.
+local HEADER_MINOR = 2
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__headerMinor and lib.__headerMinor >= HEADER_MINOR
   and lib.__headerShellMinor == lib.MINOR then return end
@@ -231,8 +234,10 @@ local function buildClose(bar, spec)
   return tipClose(make(bar, onClose, spec.owner), spec)
 end
 
---- The settings mark, or nil where the window opted out (`settings = false`, with its reason).
+--- The settings mark, or nil for a companion (minor 2) or where the window opted out (`settings =
+--- false`, with its reason).
 local function buildSettings(bar, spec)
+  if spec.companion == true then return nil end
   if spec.settings == false then
     if type(spec.settingsOptOut) ~= "string" or spec.settingsOptOut == "" then
       error("LibKa0s-Widgets-1.0:HeaderButtons: settings = false needs spec.settingsOptOut, the reason", 3)
@@ -258,6 +263,13 @@ local function place(bar, list, spec)
   return offsets, right
 end
 
+--- The answer's empty shell: a companion (minor 2) records `companion` and never an opt-out.
+local function newAnswer(spec)
+  local companion = spec.companion == true or nil
+  return { extras = {}, order = {}, companion = companion,
+    optOut = (not companion and spec.settings == false) and spec.settingsOptOut or nil }
+end
+
 --- Build a window's header marks on `bar` (minor 1), right-aligned, left to right `spec.extras` in
 --- their order, settings, close.
 ---
@@ -268,7 +280,11 @@ end
 ---   makeClose      fn       optional: the host's close factory, makeClose(parent, onClick, owner)
 ---   closeButton    btn      optional: adopt a close the window already has
 ---   settings       fn|bool  nil or true: the owner's registered opener; a function overrides it;
----                           false opts out and needs `settingsOptOut`, the reason, or it raises
+---                           false opts out and needs `settingsOptOut`, the reason, or it raises (the
+---                           waiver path, for a window that is not a companion)
+---   companion      bool     optional (minor 2): true for a companion window (standalone-windows: a
+---                           popup, dialog, confirm or docked panel owned by one other frame), which
+---                           draws no settings mark, needs no reason and wins over `settings`
 ---   hideOnSettings frame    optional: hidden before settings opens (a FULLSCREEN window)
 ---   settingsTip    string   optional: the settings mark's tooltip (default HEADER_STRINGS.SETTINGS_TIP)
 ---   closeTip       string   optional: the close mark's tooltip (default Tooltip's CloseTip(owner), "Close")
@@ -283,10 +299,11 @@ end
 ---
 --- @return table  { close, settings, extras = { [key] = btn }, order = { keys, left to right },
 ---                  offsets = { [key] = x from the corner, negative }, right = { { frame, x }, ... }
----                  outermost first for S.Header, optOut = the reason or nil }
+---                  outermost first for S.Header, optOut = the reason or nil,
+---                  companion = true for a companion (minor 2), else nil }
 function lib.HeaderButtons(bar, spec)
   spec = type(spec) == "table" and spec or {}
-  local hb = { extras = {}, order = {}, optOut = spec.settings == false and spec.settingsOptOut or nil }
+  local hb = newAnswer(spec)
   hb.settings = buildSettings(bar, spec)
   hb.close = buildClose(bar, spec)
   local list = {}

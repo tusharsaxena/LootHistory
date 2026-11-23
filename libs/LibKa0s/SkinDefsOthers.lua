@@ -96,7 +96,9 @@ if lib.__defsShellMinor ~= lib.MINOR or not lib.skins.ka0s then return end   -- 
 -- at least 20 ΔE00 off it with `btnPrimary.text` reading on it at least as well as at rest, or
 -- 4.5:1 (tests/test_footer_button_hover.lua). `btnPrimary.hover` keeps its value for a host that
 -- reads it; no library painter does.
-local OTHERS_MINOR = 10
+-- Minor 11 (FB-LK-04 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, the owner's A finding):
+-- High Contrast drops its `hud.shadowX` 2 / `hud.shadowY` -2 `extra` and inherits 1, -1 (HUD_SHADOW).
+local OTHERS_MINOR = 11
 -- Paired on the SHELL's minor as well as this file's own: see SkinDefs.lua.
 if lib.__othersMinor and lib.__othersMinor >= OTHERS_MINOR
   and lib.__othersShellMinor == lib.MINOR then return end
@@ -319,8 +321,10 @@ local HUD_SIZE = {
 
 -- Each skin's HUD text shadow (minor 6, cause D6): the darkest color of its own palette, so the shadow
 -- sits in the skin; Glass's is translucent, like its panels. The mockups draw none. A skin's `extra`
--- may still override. `hud.shadowX` and `hud.shadowY` inherit Ka0s Default's 1, -1, High Contrast's
--- heavier 2, -2 being the one `extra`. Ka0s Default's is its token, `false`.
+-- may still override. `hud.shadowX` and `hud.shadowY` inherit Ka0s Default's 1, -1 in every skin. High
+-- Contrast's heavier 2, -2 went at minor 11 (FB-LK-04, the owner's 2026-11-24 A finding): under an
+-- outlined HUD glyph it drew a second, solid black copy of the letter, and High Contrast's edge comes
+-- from the HUD outline (on by default since v1.82.0). Ka0s Default's is its token, `false`.
 local HUD_SHADOW = {
   obsidian = hex("#000000"), azeroth = hex("#1a110a"), glass = rgba(0, 0, 0, 0.6), contrast = hex("#000000"),
   ember = hex("#140a07"), wow = hex("#000000"), midnight = hex("#08091a"), forever = hex("#0a0908"),
@@ -668,8 +672,6 @@ register("contrast", "High Contrast", "Black and white with yellow focus, crisp 
     -- LootHistory's other grays in the palette's own (white stays white).
     ["text.value"] = hex("#E0E0E0"), ["text.bodyAlt"] = HC_WHITE, ["text.subtle"] = HC_WHITE,
     ["icon.dim"] = hex("#B0B0B0"), ["sem.unknown"] = hex("#B0B0B0"), ["gtip.subtle"] = hex("#E0E0E0"),
-    -- A heavier HUD shadow (minor 6, cause D6): white text over its yellow bar fill needs the edge.
-    ["hud.shadowX"] = 2, ["hud.shadowY"] = -2,
     -- A dimmer rest under a white hot (minor 10, LibKa0s#82). Its yellow heading is near the lightness
     -- ceiling, so the hot stands 9.3 L* off it: the owner's named exemption (Q2).
     ["icon.tint"] = hex("#A0A0A0"), ["icon.hot"] = HC_WHITE,

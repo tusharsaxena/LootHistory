@@ -15,14 +15,10 @@
 -- Depends on LibStub and nothing else, deliberately — no Ace3, so the lib is adoptable by addons
 -- that are not on the Ace substrate.
 
--- Minor 12: lib.RaiseStaticPopups (frame-layering-§4, XS-08). Minor 13: ApplySkin and MakeCloseButton
--- paint through a registered skin owner's facade. Minor 14 (LK-06b, ruling R-5): MakeResizable's
--- `opts.owner` tints the grip in `icon.grip`. Minor 16 (SF1-L1): pixel edges, moved unchanged to
--- CorePixel.lua at minor 17 (FU-L2). Minor 18 (LK-86, LibKa0s#86): the settings-opener registry
--- (RegisterSettingsOpener, HasSettings, OpenSettings), and MakeCloseButton's "Close" tooltip (SR-L2).
--- Minor 19 (SD-LK-97.16, LibKa0s#97): ApplySkin's host `skin` table with `skinBands` and a registered
--- `owner` draws that owner's gradient and art bands under the host's own edge (S.Shell's keepEdge).
-local MAJOR, MINOR = "LibKa0s-Core-1.0", 19
+-- Minors 12-19, each in its API document (docs/api/Core/): RaiseStaticPopups, the skin owner's facade,
+-- the grip tint, pixel edges (CorePixel.lua since 17), the settings-opener registry, skinBands.
+-- Minor 20 (FB-LK-01): ClassColor/ResolveColor's `standIn` and FollowColor, class -> skin -> swatch.
+local MAJOR, MINOR = "LibKa0s-Core-1.0", 20
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -437,44 +433,36 @@ end
 
 -- ── the class color, and the swatch it defers to ───────────────────────────────────────────
 --
--- Every addon in the collection is growing a "use class color" companion beside every color
--- swatch it draws (options-ui-§17), and each was about to answer the same three questions its own
--- way. They ARE the same three questions, and answering them differently is how a collection stops
--- reading as one author's work: a bar that keeps its alpha under a class color beside a border
--- that does not.
---
--- Three implementations existed before this one and two of them disagreed about the SOURCE:
--- AbsorbTracker read `C_ClassColor.GetClassColor`, PanelMaster and MultiMeters read
--- `RAID_CLASS_COLORS`. PanelMaster's recorded argument wins, and it is not a coin toss --
--- RAID_CLASS_COLORS is the table every other UI on the player's screen is already reading, so it
--- is what the unit frames next to ours are showing. One source, here, once.
+-- Every color swatch in the collection has a "use class color" companion (options-ui-§17), answered
+-- here once. The source is RAID_CLASS_COLORS, the table the unit frames beside ours already read.
 
---- Does `c` carry all three channels as numbers?
----
---- A palette entry that half-knows a class -- a table with a hex string and nothing else -- is not
---- a color, and two thirds of one is worse than none.
+--- Does `c` carry all three channels as numbers? A half-known entry (a hex string alone) is no color.
 local function hasChannels(c)
   return type(c) == "table"
      and type(c.r) == "number" and type(c.g) == "number" and type(c.b) == "number"
 end
 
--- The PLAYER's own class cannot change inside a session, so it is looked up once. NO OTHER UNIT IS
--- EVER CACHED: target and focus change class every time the player retargets, and a per-unit cache
--- would need invalidating on PLAYER_TARGET_CHANGED and PLAYER_FOCUS_CHANGED to save one table
--- index. Cached on SUCCESS ONLY, which is what lets a class the client has not answered for yet
--- resolve on the next read rather than being pinned nil for the session.
+-- The PLAYER's class is looked up once, cached on SUCCESS ONLY (an unanswered class resolves on the
+-- next read). NO OTHER UNIT IS EVER CACHED: a target or focus changes class with every retarget.
 local playerColor
+
+--- `unit`, or `standIn` while `unit` does not exist (minor 20: a host previewing passes "player").
+local function classUnit(unit, standIn)
+  if standIn == nil or unit == nil or unit == standIn or type(UnitExists) ~= "function" then return unit end
+  local ok, exists = pcall(UnitExists, unit)
+  if ok and not exists then return standIn end
+  return unit
+end
 
 --- The class color for a unit, or NIL.
 ---
---- NIL IS AN ANSWER. An NPC, an unresolvable unit, a unit whose class the client has not answered
---- for -- none of them is a color, and substituting one (white, gray, anything) invents a hue
---- nobody chose, appearing only in the cases nobody tests. Every caller falls through to the
---- stored swatch instead; see ResolveColor.
----
---- @param unit string|nil   a unit token; nil or omitted means the player
+--- NIL IS AN ANSWER: an NPC or an unresolvable unit is no color, and substituting one invents a hue
+--- nobody chose. Every caller falls through (ResolveColor, FollowColor).
+--- @param unit string|nil     a unit token; nil or omitted means the player
+--- @param standIn string|nil  optional (minor 20): resolved instead while `unit` does not exist
 --- @return number|nil r, number|nil g, number|nil b
-function lib.ClassColor(unit)
+function lib.ClassColor(unit, standIn)
+  unit = classUnit(unit, standIn)
   local isPlayer = (unit == nil or unit == "player")
   if isPlayer and playerColor then
     return playerColor.r, playerColor.g, playerColor.b
@@ -496,31 +484,50 @@ end
 function lib.__ResetClassColor() playerColor = nil end
 
 --- Resolve a stored swatch through its class-color companion. Four numbers out, always.
----
---- Three rules, and all three were already unanimous across the three implementations this
---- replaces -- written down in none of them, which is why they are stated here:
----
----   1. THE CONFIGURED ALPHA SURVIVES THE MODE. No class-color source carries an alpha, so the
----      swatch's is always the one used -- which is also why the swatch is never disabled.
----   2. AN UNRESOLVABLE CLASS FALLS THROUGH TO THE STORED SWATCH, never to a default color.
----   3. The swatch is read under BOTH modes, so it is never grayed and never `disabledIf`
----      (options-ui-§17, anti-patterns #74): setting the color before turning the mode on is the
----      normal order of operations, and a disabled control makes it a two-visit job.
----
---- The stored value goes through lib.RGBA, so both persisted shapes -- keyed and positional --
---- work here exactly as they do everywhere else in this collection. A host with a codec of its own
---- may decode first; it does not have to.
----
+--- 1. THE STORED ALPHA SURVIVES THE MODE. 2. AN UNRESOLVABLE CLASS FALLS THROUGH TO THE STORED
+--- SWATCH. 3. The swatch is read under both modes, so it is never `disabledIf` (anti-patterns #74).
+--- The stored value goes through lib.RGBA, keyed or positional.
 --- @param stored table|nil  the stored swatch, keyed or positional
 --- @param on any            the companion checkbox's stored value
---- @param unit string|nil   the unit the SURFACE DESCRIBES; nil means the player
+--- @param unit string|nil     the unit the SURFACE DESCRIBES; nil means the player
+--- @param standIn string|nil  optional (minor 20): see ClassColor
 --- @return number r, number g, number b, number a
-function lib.ResolveColor(stored, on, unit)
+function lib.ResolveColor(stored, on, unit, standIn)
   local r, g, b, a = lib.RGBA(stored, 1, 1, 1, 1)
   if not on then return r, g, b, a end
-  local cr, cg, cb = lib.ClassColor(unit)
+  local cr, cg, cb = lib.ClassColor(unit, standIn)
   if cr == nil then return r, g, b, a end
   return cr, cg, cb, a
+end
+
+--- The skin rung's answer as four numbers, or nil: a reader may answer numbers or a color table.
+local function skinRung(skinReader, token, a)
+  if type(skinReader) ~= "function" then return nil end
+  local sr, sg, sb, sa = skinReader(token)
+  if type(sr) == "table" then
+    if not (type(sr.r) == "number" or type(sr[1]) == "number") then return nil end
+    return lib.RGBA(sr, 1, 1, 1, a)
+  end
+  if type(sr) ~= "number" then return nil end
+  return sr, sg, sb, type(sa) == "number" and sa or a
+end
+
+--- One color as it draws (minor 20, options-ui-§17): 1. a class color that RESOLVED, stored alpha
+--- kept, whatever the skin companion says; 2. else, while `fromSkin` is true, `skinReader(token)`
+--- (r, g, b[, a] or a color table; nil where the skin leaves it alone), so an unresolved class follows
+--- the skin; 3. else the stored swatch. `standIn` as ClassColor's.
+--- @return number r, number g, number b, number a, string from  "class", "skin" or "stored"
+function lib.FollowColor(stored, classOn, unit, fromSkin, skinReader, token, standIn)
+  local r, g, b, a = lib.RGBA(stored, 1, 1, 1, 1)
+  if classOn then
+    local cr, cg, cb = lib.ClassColor(unit, standIn)
+    if cr ~= nil then return cr, cg, cb, a, "class" end
+  end
+  if fromSkin == true then
+    local sr, sg, sb, sa = skinRung(skinReader, token, a)
+    if sr ~= nil then return sr, sg, sb, sa, "skin" end
+  end
+  return r, g, b, a, "stored"
 end
 
 -- ── the pcalled event registration helper ──────────────────────────────────────────────────
@@ -530,19 +537,12 @@ end
 -- retired by a patch takes an addon's whole enable path down (events-frames-taint-§1). These three
 -- are the collection's one helper for that, since minor 8.
 --
--- The name is asked about BEFORE the target sees it, because the target's own answer lies for
--- AceEvent: CallbackHandler stores the callback and only then asks the client's frame, and only
--- for the event's FIRST registrant in a registry the whole client shares. The raise leaves that
--- callback behind, so every later registrant -- the same target again, a second module, another
--- addon -- gets a call that does not raise for a name the client never registered.
---
--- So: when `C_EventUtils.IsEventValid` exists and answers a boolean, that is the answer. Otherwise
--- a private probe frame, made once, registers the name under pcall and unregisters it at once; a
--- raw frame asks the client every time. A refused name is NEVER handed to the target. Only where
--- neither is available (no CreateFrame: a load path with no UI) does the target's own pcall decide
--- alone, and that rung inherits AceEvent's first-registrant blind spot. The target call is pcall'd
--- on every rung all the same, so a raise for any other reason (a missing method name) rejects too.
--- The helper never unregisters on the target: that would drop a live earlier registration.
+-- The name is asked about BEFORE the target sees it: AceEvent's CallbackHandler asks the client only
+-- for an event's FIRST registrant, so a raise leaves a callback behind that later registrants never
+-- see raise. `C_EventUtils.IsEventValid` answers when it can; else a private probe frame registers
+-- the name under pcall and unregisters it at once. A refused name is NEVER handed to the target.
+-- With neither (no CreateFrame), the target's own pcall decides alone. The target call is pcall'd on
+-- every rung, and the helper never unregisters on the target (a live earlier registration).
 --
 -- The library keeps no registration state and prints nothing; the probe frame registers nothing
 -- between calls. `rejected` is the CALLER'S array, appended once per

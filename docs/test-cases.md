@@ -1847,7 +1847,7 @@ Total.
 - Harness: the banker interaction types and bank types carry each dump's numbers
 - Harness: the character, regional names and the account bank follow the client
 
-### test_libka0s.lua (54)
+### test_libka0s.lua (55)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1903,6 +1903,7 @@ Total.
 - v1.108.0: the vendored minors and the kit revision match the release
 - v1.109.0: the vendored minors and the kit revision match the release
 - v1.110.0: the vendored minors and the kit revision match the release
+- v1.112.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2545,7 +2546,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
-| test_libka0s.lua | 54 |
+| test_libka0s.lua | 55 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2577,4 +2578,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 27 |
 | Skipped | 1 |
-| **Total** | **2167** |
+| **Total** | **2168** |

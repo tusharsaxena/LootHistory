@@ -125,12 +125,13 @@ if not lib then return end
 -- HELP_HIT = 14 wide (the strip's full HEIGHT tall), so the arts have 6px of air between them where
 -- they had 10, and the corner art keeps its 9px from the strip's edge (HELP_INSET 6, the header's
 -- PAD + its gutter). RESERVE is still 29; each further mark adds 14 where it added 18. The tints are
--- the window header's (WidgetsHeader.lua's paint, Core.MakeCloseButton): `icon.tint` at rest, the
--- "?" and the gear `text.link` under the pointer, the X `close.rest` / `close.hot`; the "?" lights on
--- every strip, as a header mark does. ApplyLevel re-levels the settings mark too (LibKa0s#96).
+-- the window header's (HELP_TINT below). ApplyLevel re-levels the settings mark too (LibKa0s#96).
 -- Minor 16 (SD-LK-97.5 and 97.1, LibKa0s#97): a host's `spec.edge` is called again, under pcall,
 -- with the new `handle.edge` on each repaint; a strip runs the shell's owner check.
-local DRAG_MINOR = 16
+-- Minor 17 (SRC-LK-01, Ka0sAddonsCommonTasks docs/2026-11-23-STRIP_RIGHT_CLICK): with no `onRightClick`
+-- a strip with the settings mark answers a right-click, on the strip and each mark, with the mark's own
+-- action, so it cannot open another page than the gear; `settings = false` and none: no click (dhRightClick).
+local DRAG_MINOR = 17
 -- Paired on the SHELL's minor as well as this file's own: a handle that attached to an older shell
 -- would publish `lib.DragHandle` beside a `lib.MODULES` the shell owns, and nothing would say the
 -- two came from different vendored copies.
@@ -166,10 +167,7 @@ lib.MODULES.WidgetsDragHandle = DRAG_MINOR
 -- its dot at 100% UI scale, and a mark nobody can read is the same failure from the other side.
 -- The click target does not move with the art (HELP_HIT), so shrinking it costs no hittability.
 --
--- The cap height above is the REASON for a fixed number, not an input to one. An earlier draft
--- computed the art from the label's font height and capped it at 12 -- a derivation in name only,
--- since the cap equalled the default, and it rested on an unevidenced, locale-dependent claim
--- about GameFontNormalSmall. Nothing here reads a font.
+-- The cap height above is the REASON for a fixed number, not an input to one: nothing here reads a font.
 --
 -- HELP_HIT is the WIDTH of the FRAME the art sits in, and it is deliberately bigger than the art;
 -- the frame's height is the full strip HEIGHT. This control is the only right-click affordance on
@@ -469,14 +467,14 @@ local function dhHideTooltip()
   if kit then kit.hide() end
 end
 
---- NO CLICK REGISTRATION AT ALL without a handler, on either frame. ConsumableMaster's strip has
---- no right-click action, and a button registered for a click it does nothing with swallows it.
-local function dhSetClick(frame, spec, gated)
-  if not spec.onRightClick then return end
+--- NO CLICK REGISTRATION AT ALL without a handler (`fn`, the strip's dhRightClick), on either frame:
+--- a button registered for a click it does nothing with swallows it.
+local function dhSetClick(frame, fn, gated)
+  if not fn then return end
   frame:RegisterForClicks("RightButtonUp")
   frame:SetScript("OnClick", function(_, button)
     if gated and button ~= "RightButton" then return end
-    spec.onRightClick()
+    fn()
   end)
 end
 
@@ -542,7 +540,7 @@ end
 --- close outermost. It rests in `close.rest` and lights `close.hot`, as Core.MakeCloseButton's X.
 ---
 --- THE CLICK IS THE LEFT BUTTON'S. A left click calls `spec.onClose`; a right click is passed to
---- `spec.onRightClick` when the host wired one, as the "?" passes it, so the X is not a dead zone
+--- the strip's right-click (dhRightClick, minor 17) as the "?" passes it, so the X is not a dead zone
 --- for the strip's own right-click either. With no right-click the X registers the left alone. A
 --- drag is not a click: the client does not fire OnClick for a press that became a drag. Its tooltip
 --- is `spec.closeTooltip`, falling back to `spec.tooltip`, read on every hover.
@@ -552,16 +550,13 @@ local function dhBuildClose(handle, spec)
     handle.__pal.closeTint)
   if not btn then return nil end
   dhMarkHover(handle, btn, spec, spec.closeTooltip or spec.tooltip, "CLOSE_TIP", "closeTint", "closeOver")
-  if spec.onRightClick then
-    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  else
-    btn:RegisterForClicks("LeftButtonUp")
-  end
+  local rc = handle.__rightClick
+  if rc then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") else btn:RegisterForClicks("LeftButtonUp") end
   btn:SetScript("OnClick", function(_, button)
     if button == "LeftButton" then
       spec.onClose()
-    elseif button == "RightButton" and spec.onRightClick then
-      spec.onRightClick()
+    elseif button == "RightButton" and rc then
+      rc()
     end
   end)
   return btn
@@ -589,6 +584,13 @@ local function dhHasSettings(spec)
   return spec.settings ~= false
 end
 
+--- The strip's right-click (minor 17), resolved at build for the strip and every mark: the host's
+--- `onRightClick`, else the gear's own action where the strip has the gear, else nil (no click).
+local function dhRightClick(spec)
+  if spec.onRightClick then return spec.onRightClick end
+  if dhHasSettings(spec) then return function() dhOpenSettings(spec) end end
+end
+
 --- The settings mark (minor 14; standard from minor 15): the X's twin in frame, art size, drag
 --- scripts and right-click pass-through, anchored against the X (else in the corner), resting in
 --- `icon.tint` and lighting `text.link`, the window header's gear. Its tooltip is
@@ -599,10 +601,11 @@ local function dhBuildSettings(handle, spec)
     dhMarkArt(handle, spec, "settingsIcon", "settings", SETTINGS_FALLBACK), handle.__pal.tint)
   if not btn then return nil end
   dhMarkHover(handle, btn, spec, spec.settingsTooltip or spec.tooltip, "SETTINGS_TIP", "tint", "over")
-  if spec.onRightClick then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") else btn:RegisterForClicks("LeftButtonUp") end
+  local rc = handle.__rightClick
+  if rc then btn:RegisterForClicks("LeftButtonUp", "RightButtonUp") else btn:RegisterForClicks("LeftButtonUp") end
   btn:SetScript("OnClick", function(_, button)
     if button == "LeftButton" then return dhOpenSettings(spec) end
-    if button == "RightButton" and spec.onRightClick then spec.onRightClick() end
+    if button == "RightButton" and rc then rc() end
   end)
   return btn
 end
@@ -622,7 +625,7 @@ local function dhBuildHelp(handle, spec)
     dhMarkArt(handle, spec, "helpIcon", "info", HELP_FALLBACK), handle.__pal.tint)
   if not help then return nil end
   dhMarkHover(handle, help, spec, spec.helpTooltip or spec.tooltip, "HELP_TIP", "tint", "over")
-  dhSetClick(help, spec, false)
+  dhSetClick(help, handle.__rightClick, false)
   return help
 end
 
@@ -884,7 +887,8 @@ end
 ---   canDrag     function|nil      asked at OnDragStart; a false answer moves nothing.
 ---   onDragStart function|nil      called once the move has started.
 ---   onDragStop  function|nil      called once it has stopped -- where a host saves the position.
----   onRightClick function|nil     without it NEITHER the strip NOR the mark registers for clicks.
+---   onRightClick function|nil     the right-click of the strip and every mark. Without it (minor 17)
+---                                 the settings mark's action; with `settings = false` too, no click.
 ---   onClose     function|nil      minor 3. Builds the close mark (an X), from minor 15 in the
 ---                                 strip's corner (rightmost), and calls this on its left click.
 ---                                 Every host MUST pass one (the standard's HUD header rule): it
@@ -917,15 +921,10 @@ end
 ---                                 `tooltip` and this stays absent; ConsumableMaster titles its
 ---                                 strip "Consumable Master" and its mark "Macro bar", with
 ---                                 different bodies and different anchors, and writes both.
----   tooltipOwner string|nil       RETIRED at minor 14 (accepted, not read). Every tooltip is owned
----                                 by UIParent at ANCHOR_NONE and attached centered above the strip
----                                 (LibKa0s-Tooltip-1.0's PlaceAttached; WidgetsDragHandleTip.lua).
----   tooltipAnchor string|nil      RETIRED at minor 14, as `tooltipOwner`.
+---   tooltipOwner, tooltipAnchor   RETIRED at minor 14 (accepted, not read): every tooltip is owned by
+---                                 UIParent, attached centered above the strip (WidgetsDragHandleTip.lua).
 ---   tooltipPlace function|nil     minor 4. RETIRED at WidgetsDragHandleTip minor 2 (accepted, never
----                                 called; deprecated, a host drops it): the strip's tooltip and its
----                                 marks' always attach centered above the strip, below only without
----                                 room. Through Tip minor 1 it was called after Show and kept its
----                                 point on a literal `true`. A descriptor's `place` is retired with it.
+---                                 called; a host drops it), with a descriptor's `place`.
 ---   edge        function|nil      the host's own 1px edge painter, called as
 ---                                 edge(frame, size, r, g, b, a). Defaults to four strips of ours.
 ---                                 Called again with an owned strip's new `handle.edge` on each
@@ -980,7 +979,8 @@ function lib.DragHandle(parent, spec)
   dhSetDragScripts(handle, spec)
   handle:SetScript("OnEnter", function() dhShowTooltip(handle, handle, spec, spec.tooltip) end)
   handle:SetScript("OnLeave", dhHideTooltip)
-  dhSetClick(handle, spec, true)
+  handle.__rightClick = dhRightClick(spec)   -- minor 17
+  dhSetClick(handle, handle.__rightClick, true)
 
   -- Right to left (minor 15): the X in the corner, the gear against it, the "?" leftmost.
   handle.close = dhBuildClose(handle, spec)
