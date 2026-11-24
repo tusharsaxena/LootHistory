@@ -1,0 +1,4 @@
+FB2 independent review (workflow wf_0f1c645f-6fa, 2026-11-24): ok
+Fixes: c358b4c FB2-LH-REV: TM-3's Holdings sentence no longer names the retired Sampleshade
+Gate: Re-run by the reviewer on HEAD before the docs-only fix, which changes no code. Retail: 2176 passed, 0 failed, 1 skipped (2177 total), exit 0. Forever (KA0S_KIT_CLIENT=forever; the TOC's Interface is 120105, 16001): 2156 passed, 0 failed, 21 skipped (2177 total), exit 0. Bounded luacheck: 0 warnings / 0 errors in 171 files, exit 0. 1500-line cap holds; the largest first-party .lua files are tests/test_browsertable.lua at 1479 and tests/test_libka0s.lua at 1478. docs/test-cases.md matches a fresh `lua tests/run.lua --list` once trailing CRs are ignored.
+Open:
