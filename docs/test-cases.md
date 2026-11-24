@@ -985,6 +985,10 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
+### test_itemsources.lua (1)
+
+- ItemSources: characterization, an item row's hover with no ForeverDB, call for call
+
 ### test_export.lua (38)
 
 - Export: WowheadLink builds on the running client's Wowhead base (R7)
@@ -2518,6 +2522,7 @@ Total.
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 88 |
+| test_itemsources.lua | 1 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2588,4 +2593,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2178** |
+| **Total** | **2179** |

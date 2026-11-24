@@ -77,7 +77,7 @@ local SUITES = {
   "test_ledgerformat",
   "test_compat", "test_compat_routing", "test_compat_client", "test_tooltip_place", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
-  "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_export", "test_debuglog",
+  "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_itemsources", "test_export", "test_debuglog",
   -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
   -- Builds its own layer-recording instance, so its slot is free.
   "test_layers",
