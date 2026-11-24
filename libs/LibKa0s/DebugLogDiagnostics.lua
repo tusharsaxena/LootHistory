@@ -47,7 +47,11 @@
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 if not lib then return end
 
-local DIAG_MINOR = 11
+local DIAG_MINOR = 12
+-- Minor 12 (LibKa0s#105, SF-LK-01 of Ka0sAddonsCommonTasks docs/2026-11-25-SEEDS_AND_FOREVERDB): the
+-- identity header names LibKa0s-ForeverDB-1.0 among the running majors, and prints one ForeverDB
+-- line (present, loaded, its version, and its build and hash when loaded) through that major's
+-- Status(), which never loads the data addon, so the report never does either.
 -- Minor 11 (LibKa0s#79, LK-79 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS): the
 -- report seam `D:Report(tag, title, fn)`, the serializer `lib.Serialize` with its instance
 -- forwarder `D:Serialize`, and the strip read from the shell (`lib.__stripEscapes`, DebugLog minor
@@ -83,10 +87,10 @@ local FLOOR    = 3     -- the smallest cap that still fits the begin marker, tru
 -- libraries it holds (its IterateLibraries is not on every copy), so the names are written down.
 -- A major missing from this client is skipped, not reported as an error. The list is in
 -- tests/majors.lua order, and tests/test_debuglog_diagnostics.lua fails naming the file when a major
--- that file ships is missing here. Minor 11 adds Tooltip (v1.105.0); minor 10 added WaypointArrow (v1.99.0); minor 9 adds Callout (v1.96.0); minor 8 added Role (v1.95.0); minor 7 added IconBrowser (v1.86.0),
+-- that file ships is missing here. Minor 12 adds ForeverDB (v1.114.0); minor 11 added Tooltip (v1.105.0); minor 10 added WaypointArrow (v1.99.0); minor 9 adds Callout (v1.96.0); minor 8 added Role (v1.95.0); minor 7 added IconBrowser (v1.86.0),
 -- minor 6 Charts (v1.84.0), minor 5 Toast (v1.79.0), minor 4 Skin, minor 3 Glow and Sim.
 local MAJORS = {
-  "Core", "Tooltip", "Env", "Compat", "Role", "Lifecycle", "Bus", "Schema", "Pool", "Item", "Glow", "Toast", "Callout",
+  "Core", "Tooltip", "Env", "Compat", "Role", "Lifecycle", "Bus", "Schema", "Pool", "Item", "ForeverDB", "Glow", "Toast", "Callout",
   "WaypointArrow",
   "Charts", "Media", "Skin", "Widgets", "DebugLog", "Slash", "Launcher", "Options", "IconBrowser", "Perf", "Sim",
 }
@@ -300,6 +304,22 @@ local function runningMinors()
   return parts
 end
 
+--- The ForeverDB line (minor 12): LibKa0s-ForeverDB-1.0's Status(), when that major is running in
+--- this client. Status() never loads the data addon and is not gated on the client, so the line
+--- reports what is installed and loaded on either client and the report never loads anything.
+local function foreverDB(out)
+  local F = LibStub("LibKa0s-ForeverDB-1.0", true)
+  if type(F) ~= "table" or type(F.Status) ~= "function" then return end
+  local s = F.Status()
+  if type(s) ~= "table" then return end
+  local parts = { ("ForeverDB: present=%s loaded=%s"):format(s.present and "yes" or "no",
+    s.loaded and "yes" or "no") }
+  for _, key in ipairs({ "version", "build", "hash" }) do
+    if type(s[key]) == "string" then parts[#parts + 1] = key .. "=" .. s[key] end
+  end
+  out:add(TAG, "%s", table.concat(parts, " "))
+end
+
 local function identity(out, D, d)
   -- pcall'd like the client reads: the summary is host code, and a raise here must not cost the
   -- client, locale, flag, combat and minor lines below it, which a broken addon needs most.
@@ -319,6 +339,8 @@ local function identity(out, D, d)
   out:add(TAG, "combat: InCombatLockdown=%s UnitAffectingCombat=%s", read(InCombatLockdown),
     read(UnitAffectingCombat, "player"))
   out:joined(TAG, "LibKa0s running:", runningMinors())
+  -- pcall'd like the reads above: Status() asks the client about an addon most clients lack.
+  if not pcall(foreverDB, out) then out:add(TAG, "ForeverDB: unreadable") end
 end
 
 -- ── the report ─────────────────────────────────────────────────────────────────────────────

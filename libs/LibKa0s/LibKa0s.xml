@@ -10,6 +10,7 @@
 	<Script file="Schema.lua"/>
 	<Script file="Pool.lua"/>
 	<Script file="Item.lua"/>
+	<Script file="ForeverDB.lua"/>
 	<Script file="Glow.lua"/>
 	<Script file="Toast.lua"/>
 	<Script file="Callout.lua"/>
