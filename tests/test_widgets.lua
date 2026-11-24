@@ -275,7 +275,12 @@ end)
 -- player selected: the preset row and the selected character both paint the library's selected
 -- color (W.SelectedColor), which differs from a plain row's and from the class color the selected
 -- character would otherwise wear. Red under WidgetsDropdown 3 (v1.112.0), which has no
--- W.SelectedColor and painted Azeroth's selection in its accent, 16 ΔE00 off its body text.
+-- W.SelectedColor and painted Azeroth's selection in its accent, 16 ΔE00 off its body text. Then the
+-- owner's ruling of 2026-11-24 on round 2 (FB2-LH-02, the re-cut v1.113.0): round 2 kept a skin's
+-- accent where it stood 20 ΔE00 off the skin's text, so WoW Forever's default skin painted its tan;
+-- "leave it as gold". The selection is now Ka0s Default's gold in every shipped skin, WoW Forever's
+-- included, so the case also asserts gold on each one (no shipped skin's text sits under the floor
+-- off the gold).
 local function rgbOf(fs) local c = fs.__color or {}; return { c[1] or -1, c[2] or -1, c[3] or -1 } end
 local function apart(a, b)
   return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) + math.abs(a[3] - b[3]) > 0.15
@@ -315,9 +320,10 @@ test("Widgets: the Character menu's selected rows stand off plain rows in every 
         tag .. "the selection replaces the selected character's class color")
       assertTrue(not apart(alt, rgbOf({ __color = opts[at["Alt-Realm"]].color })),
         tag .. "an unselected character keeps its own class color")
-      if def.key == "ka0s" then
-        assertTrue(isGold(m.buttons[at.current].fs), "Ka0s Default: the Current preset is gold")
-      end
+      assertTrue(sel[1] == GOLD[1] and sel[2] == GOLD[2] and sel[3] == GOLD[3],
+        tag .. "W.SelectedColor answers Ka0s Default's gold")
+      assertTrue(isGold(m.buttons[at.current].fs), tag .. "the Current preset is gold")
+      assertTrue(isGold(m.buttons[at[me]].fs), tag .. "the selected character is gold")
       walked = walked + 1
     end
     assertTrue(walked >= 9, "every shipped skin walked: " .. walked)

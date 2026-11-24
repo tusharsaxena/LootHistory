@@ -36,7 +36,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows in a color of their own in every skin |
+| HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows gold in every skin |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | both | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -1179,17 +1179,19 @@ its gear opens this addon's settings. Pick **Obsidian** → the same. This repla
 export-modal sentence of HIST-50 now reads "its title bar reads ✕ alone". Fail: a gear on the export
 modal, a History window without its gear, or a Lua error. Result:
 
-**HIST-54. The Character menu's selected rows wear a color of their own in every skin (FB2-LH-01;
+**HIST-54. The Character menu's selected rows are gold in every skin (FB2-LH-01, FB2-LH-02;
 LibKa0s v1.113.0, WidgetsDropdown 4; skinning-§4, *A selected entry reads apart*, standard v2.120.0).**
 Client: both. On **Ka0s Default**, `/lh show`, open the **Character** dropdown and click **Character:
 Current** → reopen it: **Character: Current** and your own character's row are **gold**, apart from
 the white **Character: All** row, and your character's row is gold rather than its class color; every
-other character keeps its class color. Pick **Azeroth** on the Skin tab and reopen the dropdown → the
-same two rows are **gold** (Azeroth's own accent sits too close to its body text). Pick **Obsidian**,
-then **Glass** → the two rows wear the skin's accent, plainly a different color from the All row and
-from the class colors. Open any other filter dropdown (Quality, Source) with an entry picked → the
-picked entry reads in the same selected color. Fail: a selected row in the same color as a plain row
-or as its class color, Character: Current not lit while only you are selected, or a Lua error.
+other character keeps its class color. Pick **Azeroth**, then **Obsidian**, then **Glass** on the Skin
+tab, reopening the dropdown each time → the same two rows are the same **gold** in every skin, never
+the skin's own accent (the owner's ruling of 2026-11-24, FB2-LH-02: "leave it as gold"). On WoW
+Forever, under the default **WoW Forever** skin, the two rows are **gold** too, not the skin's tan.
+Open any other filter dropdown (Quality, Source) with an entry picked → the picked entry reads in the
+same gold. Fail: a selected row in the skin's accent (WoW Forever's tan included), in the same color
+as a plain row or as its class color, Character: Current not lit while only you are selected, or a
+Lua error.
 Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
@@ -2993,4 +2995,5 @@ superseded by it.
 Added by round 2 of the owner's 2026-11-24 feedback batch (FB2-LH-01, Ka0sAddonsCommonTasks
 `docs/2026-11-24-FEEDBACK_BATCH/R2_SMOKE_FEEDBACK.md`; LibKa0s v1.113.0), awaiting the owner, each new
 and on both clients: TM-4 (every sample person the library's; it replaces TM-3's Holdings sentence),
-HIST-54 (the Character menu's selected rows) and SIM-16 (every start shows the step panel).
+HIST-54 (the Character menu's selected rows) and SIM-16 (every start shows the step panel). HIST-54
+was amended by FB2-LH-02 for the owner's ruling on round 2: a selected row is gold in every skin.

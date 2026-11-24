@@ -40,11 +40,13 @@ local DROPDOWN_MINOR = 4
 -- (Multi Meters' segment picker under the Combat restriction) opens the skinned menu at its
 -- `opts.width`, where it fell back to the client's (the owner's U-21). Still minor 3 (SD-LK-97.1):
 -- a dropdown runs the shell's owner check (Widgets.lua's THE OWNER CHECK).
--- Minor 4 (FB2-LK-02 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, decision D3): a selected
--- row's label always stands visibly off a plain row's. An owned menu's selection is `menu.textSel`
--- only while it stands SEL_DE00_MIN CIEDE2000 off `menu.text`; otherwise Ka0s Default's gold (THE
--- SELECTION'S CONTRAST, below). The selection still replaces a row's value color, and a W.ContextMenu
--- row with a tick column (`radio`, `selected`) paints selected while it is ticked.
+-- Minor 4 (FB2-LK-02 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, decision D3, then the
+-- owner's ruling of 2026-11-24 on round 2, FB2-LK-04): a selected row's label always stands visibly
+-- off a plain row's. An owned menu's selection is Ka0s Default's gold in every skin; only where the
+-- gold stands under SEL_DE00_MIN CIEDE2000 off the skin's `menu.text` does its `menu.textSel` stand
+-- in, and the gold again when that is under the floor too (THE SELECTION'S CONTRAST, below). A title
+-- row keeps the raw `menu.textSel`. The selection still replaces a row's value color, and a
+-- W.ContextMenu row with a tick column (`radio`, `selected`) paints selected while it is ticked.
 -- Paired on the SHELL's minor as well as this file's own, as WidgetsCopyWindow.lua is.
 if lib.__dropdownMinor and lib.__dropdownMinor >= DROPDOWN_MINOR
   and lib.__dropdownShellMinor == lib.MINOR then return end
@@ -77,13 +79,18 @@ local MENU_PAL = { sel = { 1, 0.82, 0 }, text = { 0.9, 0.9, 0.9 }, hover = { 1, 
                    arrow = { 0.7, 0.7, 0.72 } }   -- a submenu row's arrow (minor 3), on the art's own hue
 -- THE SELECTION'S CONTRAST (minor 4). The owner, 2026-11-24, on Loot History's character dropdown:
 -- "make the current selected always be a different color than the other texts - e.g. gold in ka0s
--- default". Every skin but Ka0s Default maps its accent onto `menu.textSel`, and Azeroth's gold accent
--- stood 16.3 CIEDE2000 off its parchment `menu.text`, under the library's hover floor of 20 (the
--- lowest pair the owner accepted, SR2-L1). Lightness alone cannot judge this pair: Ka0s Default's
--- gold on its gray is almost the same luminance and plainly distinct by hue. So the test is ΔE00, as
--- tests/fixture_de00.lua states it (Sharma, Wu and Dalal 2005, kL = kC = kH = 1), computed once per
--- menu open; a pair under the floor paints SEL_FALLBACK, Ka0s Default's gold.
-local SEL_DE00_MIN, SEL_FALLBACK = 20, MENU_PAL.sel
+-- default". Every skin but Ka0s Default maps its accent onto `menu.textSel`. Round 2 kept that accent
+-- while it stood 20 CIEDE2000 off `menu.text` (the library's hover floor, the lowest pair the owner
+-- accepted, SR2-L1), which kept WoW Forever's tan #C9A07A (27 off its white) for every addon on
+-- Forever; the owner saw it on Loot History's Character dropdown, ruled that the issue "has not been
+-- fixed", and of the gold: "leave it as gold". So the selection is SEL_GOLD, Ka0s Default's gold, in
+-- every skin. Only a skin whose `menu.text` sits under the floor off the gold takes its own
+-- `menu.textSel` instead, and the gold again if that is under the floor too; none of the nine shipped
+-- skins does today (Azeroth's parchment is the nearest, 20.7). Lightness alone cannot judge a pair:
+-- Ka0s Default's gold on its gray is almost the same luminance and plainly distinct by hue. So the test
+-- is ΔE00, as tests/fixture_de00.lua states it (Sharma, Wu and Dalal 2005, kL = kC = kH = 1), computed
+-- once per menu open. A title row is not a selection and keeps the skin's raw `menu.textSel`.
+local SEL_DE00_MIN, SEL_GOLD = 20, MENU_PAL.sel
 local sqrt, cos, sin, exp, abs, rad, deg = math.sqrt, math.cos, math.sin, math.exp, math.abs, math.rad, math.deg
 local atan2 = math.atan2 or math.atan
 
@@ -142,11 +149,13 @@ local function de00(p, q)
   return sqrt((dL / sl) ^ 2 + (dC / sc) ^ 2 + (dH / sh) ^ 2 + rt * (dC / sc) * (dH / sh))
 end
 
---- The selected row's color for a menu whose plain rows are `text`: `sel` while it stands
---- SEL_DE00_MIN off, else Ka0s Default's gold.
+--- The selected row's color for a menu whose plain rows are `text` and whose skin's `menu.textSel` is
+--- `sel`: Ka0s Default's gold while it stands SEL_DE00_MIN off `text`, else `sel` while that does,
+--- else the gold.
 local function distinctSel(sel, text)
+  if de00(SEL_GOLD, text) >= SEL_DE00_MIN then return SEL_GOLD end
   if de00(sel, text) >= SEL_DE00_MIN then return sel end
-  return SEL_FALLBACK
+  return SEL_GOLD
 end
 -- Internal test seams (library-stack-§7's `__` clause): tests/test_widgets_menu_selected.lua.
 lib.__menuSelColor, lib.__menuDE00 = distinctSel, de00
@@ -393,8 +402,8 @@ local function paintMenuRow(b, dd, opt, selected, pal, glyphFace, hover)
   end
   b.glyph:SetText(opt.glyph or "")
   b.glyph:SetShown(opt.glyph ~= nil and glyphFace ~= nil)
-  -- The selected row goes gold (an owned menu's `menu.textSel`, held off `menu.text` by THE
-  -- SELECTION'S CONTRAST, minor 4) to mark the selection; otherwise the value keeps its own color
+  -- The selected row goes gold (in every skin; the skin's `menu.textSel` only where the gold sits
+  -- too near `menu.text`, THE SELECTION'S CONTRAST, minor 4) to mark the selection; otherwise the value keeps its own color
   -- (store / direction / class), so the menu reads like the column it filters. The glyph always
   -- keeps the direction's color — it IS the value, not a selection state.
   local c = rowColor(dd, opt, selected, pal)
@@ -950,16 +959,16 @@ function lib.CloseMenu()
   closeFrom(2)   -- minor 23: every cascading level, which OnHide closes too in the client
 end
 
---- The color `owner`'s selected menu row paints (minor 4, FB2-LK-REV): its skin's `menu.textSel`
---- while that stands SEL_DE00_MIN CIEDE2000 off its `menu.text`, else Ka0s Default's gold (THE
---- SELECTION'S CONTRAST). The shared menu paints the same color; a host that draws its own menu or
+--- The color `owner`'s selected menu row paints (minor 4, FB2-LK-REV, FB2-LK-04): Ka0s Default's gold
+--- in every skin, its skin's `menu.textSel` only where the gold stands under SEL_DE00_MIN CIEDE2000
+--- off its `menu.text` (THE SELECTION'S CONTRAST). The shared menu paints the same color; a host that draws its own menu or
 --- picker list reads its selected row's color here rather than the raw token (WowAddonStandards
 --- skinning-§4, *A selected entry reads apart*). An unregistered or missing owner reads the gold.
 --- Read at call time, so it follows the owner's skin choice. Answers r, g, b.
 --- @param owner string|nil
 --- @return number, number, number
 function lib.SelectedColor(owner)
-  local Skin, c = skinOf(owner), SEL_FALLBACK
+  local Skin, c = skinOf(owner), SEL_GOLD
   if Skin then
     c = distinctSel(token(Skin, owner, "menu.textSel", MENU_PAL.sel), token(Skin, owner, "menu.text", MENU_PAL.text))
   end
