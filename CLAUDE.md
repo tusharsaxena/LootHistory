@@ -51,8 +51,9 @@ touching code:
 Run `lua tests/run.lua`, `KA0S_KIT_CLIENT=forever lua tests/run.lua` (Retail and WoW Forever,
 both 0 failed; clients-§6) and `~/.claude/dev-copilot/bin/ka0s-bounded luacheck .` (0/0; the
 kit bounds the suite on load, and `luacheck` loads no kit, so it runs through the bounded
-runner, testing-§15) before every commit; in-game checks are in
-[docs/smoke-tests.md](docs/smoke-tests.md).
+runner, testing-§15) before every commit, plus `python3 -m pytest -q tools/seeds` (the seed tool's
+cases, [docs/validate-seeds.md](docs/validate-seeds.md)'s `## Gate`; `python3 -m unittest discover
+-s tools/seeds` without pytest); in-game checks are in [docs/smoke-tests.md](docs/smoke-tests.md).
 
 ## Vendored LibKa0s
 

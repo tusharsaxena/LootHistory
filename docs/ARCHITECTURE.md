@@ -80,6 +80,13 @@ defaults are [forever-probes.md](forever-probes.md). `tests/test_client_shape.lu
 names every declared feature and source, and each one's own suite checks it present where declared and
 absent elsewhere, on each kit profile (clients-§6).
 
+The deconstruct seeds are re-validated against each client's own DB2 on wago.tools (clients-§10):
+`tools/seeds/seeds.py` checks `modules/Attribution.lua`'s `DECONSTRUCT_IDS`, `NAME_SEEDS_BY_CLIENT`
+and the simulator's `D.SPELLS` against `SpellName` and `SkillLineAbility` (product `wow` for Retail,
+`wowf` for WoW Forever, where Milling and Prospecting stay empty by decision). Every candidate and
+flag is ruled as data (`tools/seeds/<flavor>_rulings.json`), and each run is a frozen bundle under
+`docs/seed-research/`. The procedure is [`validate-seeds.md`](validate-seeds.md).
+
 | Feature | Client | Gated in |
 |---|---|---|
 | The warband bank (`warbandBank`, R1): the Reconciler's `tabs` and `warbandMoney` parts and their two event rows (`ACCOUNT_MONEY`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`), the `AccountBanker` arming in `R.BANKER_ARMS`, the tab ids (`C.WARBAND_TAB_IDS`), the char <-> warband pairing and its two sources `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW`, the Holdings tab's Warband split, the words "warband moves" in Track transfers' tooltip, test mode's tabs and warband gold, and the simulator's warband tabs, gold and bank steps | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`, `C.WARBAND_TAB_IDS`), `modules/Reconciler.lua` (the parts, the event rows' `clients`, `R.READABLE_ON`), `modules/Holdings.lua` (`gateOf`), `modules/HoldingsTab.lua` (`ORDER`), `settings/Schema.lua`, `modules/TestData.lua`, `modules/SimWorld.lua`, `modules/SimScenario.lua` |
@@ -607,7 +614,7 @@ Every `.md` under `docs/` appears in exactly one table below (`documentation-§3
 generated material is out of scope, named once per directory and never enumerated per run:
 `docs/audits/`, `docs/reviews/`, `docs/automated-tests/<run>/`, `docs/perf-analysis/<run>/`,
 `docs/revendor/<date>-v<tag>/` (the three earliest bundles, `2026-08-25`, `2026-09-03` and
-`2026-09-12`, predate the `-v<tag>` suffix) and `docs/superpowers/`. The stores' own
+`2026-09-12`, predate the `-v<tag>` suffix), `docs/seed-research/<date>-<flavor>/` and `docs/superpowers/`. The stores' own
 `automated-tests/README.md`, `automated-tests/RESULTS.md` and `perf-analysis/README.md` are live
 and registered below.
 
@@ -655,6 +662,7 @@ and registered below.
 | `combat-path-sweep.md` | The whole-repo event/timer inventory with per-fire work (kept as the event census; it no longer backs an exemption) |
 | `disabled-state.md` | What *off* means here: the lifecycle latch and its holds, what stands down, what survives as setup, and the conformance suite |
 | `forever-probes.md` | The WoW Forever port's probe sheet (ruling R4): what `/lh debug probe` records, the `/run` fallback per probe, and the safe default each one checks |
+| `validate-seeds.md` | The seed-validation contract `/dev-copilot:validate-seeds` runs: the deconstruct seeds' flavors (`retail` on `wow`, `forever` on `wowf`), `tools/seeds/seeds.py`'s steps, the precedent a ruling follows and the gate |
 
 ## Documented deviations
 

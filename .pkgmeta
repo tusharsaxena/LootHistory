@@ -20,6 +20,7 @@ ignore:
   - .pytest_cache    # untracked; listed under packaging
   - docs
   - tests
+  - tools            # the seed-validation tool (docs/validate-seeds.md): dev-only Python
   - _dev
   - "*.bak"
   # Tracked, and the only entries here that change a download. media/screenshots

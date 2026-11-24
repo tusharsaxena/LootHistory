@@ -375,7 +375,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (47)
+### test_attribution.lua (48)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -397,6 +397,7 @@ Total.
 - Attribution: the deconstruct seed lists are the client's (Forever: Disenchant 13262 only)
 - Attribution: on every client a non-deconstruct cast is conclusive once the seeds resolve
 - Attribution: DeconstructSource resolves enumerated ids locale-independently
+- Attribution: the 2026-11-25 seed run's added ids attribute by id and its removed ids do not
 - Attribution: DeconstructSource matches un-enumerated variants by localized name family
 - Attribution: a no-break space in a localized spell name does not break the family match
 - Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution
@@ -2501,7 +2502,7 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 47 |
+| test_attribution.lua | 48 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -2586,4 +2587,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2176** |
+| **Total** | **2177** |

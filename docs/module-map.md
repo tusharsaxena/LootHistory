@@ -306,6 +306,11 @@ Ka0s Loot History (AceAddon: NS promoted in place)
                            DebugLog helper writes the markers, header, cap and pcalls around them.
 ```
 
+Outside the addon, never loaded by the client and left out of the package by `.pkgmeta`:
+`tools/seeds/seeds.py` and `tools/seeds/test_seeds.py`, the seed-validation tool for
+`modules/Attribution.lua`'s deconstruct seeds, with its rulings files (`retail_rulings.json`,
+`forever_rulings.json`). The procedure is [validate-seeds.md](validate-seeds.md).
+
 See [schema.md](schema.md) for the record shape, [message-bus.md](message-bus.md) for the closed bus, [slash-dispatch.md](slash-dispatch.md) for the command table, [settings-panel.md](settings-panel.md) for the canvas panel, [compat-layer.md](compat-layer.md) for the API firewall, [data-flow.md](data-flow.md) for source resolution, and [browser.md](browser.md) for the window.
 
 ## TOC load order

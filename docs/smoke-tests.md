@@ -35,7 +35,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TM-1 to 4 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters, every one of them the library's |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
-| CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
+| CAP-1 to 38 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads, the 2026-11-25 deconstruct seed changes (Retail) |
 | HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows gold in every skin |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
@@ -805,6 +805,33 @@ the same rows, with the same sources and reasons, as before the dispatch refacto
 and `/lh enable` → capture resumes (loot a mob: a row appears). Untick **Track holdings and losses** (General → Capture) →
 only loot rows appear (no ledger rows for a vendor sale or a bank deposit); tick it again. Every
 capture event and read-side hook now comes from `core/Dispatch.lua`'s row tables. Result: pass (owner-marked 2026-10-23)
+
+The four checks below cover the shipped-data changes of the 2026-11-25 Retail seed run
+(`docs/seed-research/2026-11-25-retail/`, SF-LH-01), one check per change. Each is **Client: Retail.**
+WoW Forever's list did not change (Disenchant 13262 alone). Run each with `/lh debug on`, so the
+`[Attr]` line names the spell id the cast fired.
+
+**CAP-35. Mass Mill attributes again (the name seed is 311413).** Client: Retail. `/dump
+C_Spell.GetSpellName(311413)` → "Mass Mill Deathblossom" (or the client's own words for it). Mass-mill
+any herb stack (any expansion's **Mass Mill** recipe) → every pigment row reads **Milling**. Before
+the run the seed was 434926, which this build names Lingering Influence, so its stem was "Lingering"
+and no mass mill matched. Fail: a mass-mill row reading Container or Other. Result:
+
+**CAP-36. The per-expansion Milling ids attribute by id.** Client: Retail. Mill herbs through one of
+the ids the run added: Khaz Algar Milling (444181), or any of Shadowlands, Kul Tiras and Zandalar,
+Legion, Draenor, Pandaria, Cataclysm, Northrend, Outland or Classic Milling (382982 to 382994) → the
+pigment rows read **Milling**, and the debug line names the id. Fail: Container or Other. Result:
+
+**CAP-37. The per-expansion Prospecting ids attribute by id.** Client: Retail. Prospect ore through
+Shadowlands Prospecting (325248), Cataclysm Prospecting (382978) or Classic Prospecting (382995) → the
+gem and dust rows read **Prospecting**. Fail: Container or Other. Result:
+
+**CAP-38. Nothing that worked before stopped (the four removed ids).** Client: Retail. The run
+removed 434913 (DB2: Cheat to Hunger Phase), 434926 (Lingering Influence), and 382971 and 382972 (no
+spell of either id), none of them a deconstruct. Disenchant an item, mill with Dragon Isles Milling or
+Midnight Milling, and prospect with Algari or Midnight Prospecting → **Disenchant**, **Milling** and
+**Prospecting** as before, and the deconstructed item's loss reads **Deconstructed**. Fail: any of
+them unattributed. Result:
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -2834,7 +2861,7 @@ auction house. Fail: mail-from-a-player or nothing, meaning a localized `AUCTION
 → every row carries its deconstruct source. Plain casts resolve by spell id; the mass variants build
 a stem from the localized name minus its last word, which a German or French name may break. Fail:
 a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
-Record `/dump C_Spell.GetSpellName(434926)` and `/dump C_Spell.GetSpellName(225904)`. Result: pass (owner-marked 2026-10-10)
+Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: pass (owner-marked 2026-10-10)
 
 **LOC-5. Nothing else moved.** Walk INSTALL-1 to INSTALL-4, SLASH-1 to SLASH-3, STATE-1 to STATE-4,
 LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST-15 and INSTALL-8 on
@@ -3007,3 +3034,8 @@ and #100 run passed. Passed, recorded on each `Result:` line as `PASS (owner, 20
 per client where the check runs on both: FOREVER-1 to FOREVER-16, SKIN-55 and SKIN-56. The owner's
 probe answers (P3, a key can go into the bank; a surname cannot carry a hyphen; the Waylaid Crate
 opens) are on their `Result:` lines in [`forever-probes.md`](forever-probes.md).
+
+Added by the 2026-11-25 seed run (SF-LH-01, Ka0sAddonsCommonTasks `docs/2026-11-25-SEEDS_AND_FOREVERDB/`;
+`docs/seed-research/2026-11-25-retail/`), awaiting the owner, each new and Retail only: CAP-35 to
+CAP-38, one per shipped-data change to `modules/Attribution.lua`'s deconstruct seeds. LOC-4 now
+dumps the new mass-mill seed 311413 in place of 434926 and keeps its result. The procedure is unchanged.

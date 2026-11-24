@@ -1,0 +1,867 @@
+{
+ "build": "12.1.5.70961",
+ "buildCreated": null,
+ "candidates": [
+  {
+   "id": 190381,
+   "key": "ids:190381",
+   "list": "ids",
+   "name": "Mass Mill Frostweed",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 190382,
+   "key": "ids:190382",
+   "list": "ids",
+   "name": "Mass Mill Fireweed",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 190383,
+   "key": "ids:190383",
+   "list": "ids",
+   "name": "Mass Mill Gorgrond Flytrap",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 190384,
+   "key": "ids:190384",
+   "list": "ids",
+   "name": "Mass Mill Starflower",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 190385,
+   "key": "ids:190385",
+   "list": "ids",
+   "name": "Mass Mill Nagrand Arrowbloom",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 190386,
+   "key": "ids:190386",
+   "list": "ids",
+   "name": "Mass Mill Talador Orchid",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209658,
+   "key": "ids:209658",
+   "list": "ids",
+   "name": "Mass Mill Aethril",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209659,
+   "key": "ids:209659",
+   "list": "ids",
+   "name": "Mass Mill Dreamleaf",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209660,
+   "key": "ids:209660",
+   "list": "ids",
+   "name": "Mass Mill Foxflower",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209661,
+   "key": "ids:209661",
+   "list": "ids",
+   "name": "Mass Mill Fjarnskaggl",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209662,
+   "key": "ids:209662",
+   "list": "ids",
+   "name": "Mass Mill Starlight Rose",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 209664,
+   "key": "ids:209664",
+   "list": "ids",
+   "name": "Mass Mill Felwort",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 210116,
+   "key": "ids:210116",
+   "list": "ids",
+   "name": "Mass Mill Yseralline Seeds",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 225902,
+   "key": "ids:225902",
+   "list": "ids",
+   "name": "Mass Prospect Leystone",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 247761,
+   "key": "ids:247761",
+   "list": "ids",
+   "name": "Mass Prospect Empyrium",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 247861,
+   "key": "ids:247861",
+   "list": "ids",
+   "name": "Mass Mill Astral Glory",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256217,
+   "key": "ids:256217",
+   "list": "ids",
+   "name": "Mass Mill Riverbud",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256218,
+   "key": "ids:256218",
+   "list": "ids",
+   "name": "Mass Mill Star Moss",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256219,
+   "key": "ids:256219",
+   "list": "ids",
+   "name": "Mass Mill Akunda's Bite",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256220,
+   "key": "ids:256220",
+   "list": "ids",
+   "name": "Mass Mill Winter's Kiss",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256221,
+   "key": "ids:256221",
+   "list": "ids",
+   "name": "Mass Mill Siren's Pollen",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256223,
+   "key": "ids:256223",
+   "list": "ids",
+   "name": "Mass Mill Sea Stalk",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256308,
+   "key": "ids:256308",
+   "list": "ids",
+   "name": "Mass Mill Anchor Weed",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 256611,
+   "key": "ids:256611",
+   "list": "ids",
+   "name": "Mass Prospect Monelite",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 256613,
+   "key": "ids:256613",
+   "list": "ids",
+   "name": "Mass Prospect Storm Silver",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 256622,
+   "key": "ids:256622",
+   "list": "ids",
+   "name": "Mass Prospect Platinum",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 298927,
+   "key": "ids:298927",
+   "list": "ids",
+   "name": "Mass Mill Zin'anthid",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 300381,
+   "key": "ids:300381",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 300382,
+   "key": "ids:300382",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 300619,
+   "key": "ids:300619",
+   "list": "ids",
+   "name": "Mass Prospect Osmenite",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 302690,
+   "key": "ids:302690",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 302691,
+   "key": "ids:302691",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 302692,
+   "key": "ids:302692",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 302693,
+   "key": "ids:302693",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 302694,
+   "key": "ids:302694",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 302695,
+   "key": "ids:302695",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 311413,
+   "key": "ids:311413",
+   "list": "ids",
+   "name": "Mass Mill Deathblossom",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311414,
+   "key": "ids:311414",
+   "list": "ids",
+   "name": "Mass Mill Vigil's Torch",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311415,
+   "key": "ids:311415",
+   "list": "ids",
+   "name": "Mass Mill Widowbloom",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311416,
+   "key": "ids:311416",
+   "list": "ids",
+   "name": "Mass Mill Marrowroot",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311417,
+   "key": "ids:311417",
+   "list": "ids",
+   "name": "Mass Mill Rising Glory",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311418,
+   "key": "ids:311418",
+   "list": "ids",
+   "name": "Mass Mill Nightshade",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 311948,
+   "key": "ids:311948",
+   "list": "ids",
+   "name": "Mass Prospect Laestrite",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 311949,
+   "key": "ids:311949",
+   "list": "ids",
+   "name": "Mass Prospect Solenium",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 311950,
+   "key": "ids:311950",
+   "list": "ids",
+   "name": "Mass Prospect Oxxein",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 311951,
+   "key": "ids:311951",
+   "list": "ids",
+   "name": "Mass Prospect Phaedrum",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 311952,
+   "key": "ids:311952",
+   "list": "ids",
+   "name": "Mass Prospect Sinvyr",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 311953,
+   "key": "ids:311953",
+   "list": "ids",
+   "name": "Mass Prospect Elethium",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 324750,
+   "key": "ids:324750",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 325248,
+   "key": "ids:325248",
+   "list": "ids",
+   "name": "Shadowlands Prospecting",
+   "notes": [
+    "shape expansion",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 359490,
+   "key": "ids:359490",
+   "list": "ids",
+   "name": "Mass Mill First Flower",
+   "notes": [
+    "shape mass",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 359492,
+   "key": "ids:359492",
+   "list": "ids",
+   "name": "Mass Prospect Progenium",
+   "notes": [
+    "shape mass",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 382978,
+   "key": "ids:382978",
+   "list": "ids",
+   "name": "Cataclysm Prospecting",
+   "notes": [
+    "shape expansion",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 382982,
+   "key": "ids:382982",
+   "list": "ids",
+   "name": "Shadowlands Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382984,
+   "key": "ids:382984",
+   "list": "ids",
+   "name": "Kul Tiras and Zandalar Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382986,
+   "key": "ids:382986",
+   "list": "ids",
+   "name": "Legion Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382987,
+   "key": "ids:382987",
+   "list": "ids",
+   "name": "Draenor Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382988,
+   "key": "ids:382988",
+   "list": "ids",
+   "name": "Pandaria Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382989,
+   "key": "ids:382989",
+   "list": "ids",
+   "name": "Cataclysm Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382990,
+   "key": "ids:382990",
+   "list": "ids",
+   "name": "Northrend Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382991,
+   "key": "ids:382991",
+   "list": "ids",
+   "name": "Outland Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382994,
+   "key": "ids:382994",
+   "list": "ids",
+   "name": "Classic Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 382995,
+   "key": "ids:382995",
+   "list": "ids",
+   "name": "Classic Prospecting",
+   "notes": [
+    "shape expansion",
+    "taught under Jewelcrafting (755)"
+   ],
+   "source": "PROSPECTING"
+  },
+  {
+   "id": 392888,
+   "key": "ids:392888",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 444181,
+   "key": "ids:444181",
+   "list": "ids",
+   "name": "Khaz Algar Milling",
+   "notes": [
+    "shape expansion",
+    "taught under Inscription (773)"
+   ],
+   "source": "MILLING"
+  },
+  {
+   "id": 455970,
+   "key": "ids:455970",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  },
+  {
+   "id": 1280952,
+   "key": "ids:1280952",
+   "list": "ids",
+   "name": "Disenchant",
+   "notes": [
+    "shape plain",
+    "taught under Enchanting (333)"
+   ],
+   "source": "DISENCHANT"
+  }
+ ],
+ "checked": 28,
+ "counts": {
+  "ids": 20,
+  "names": 5,
+  "sim": 3
+ },
+ "date": "2026-11-25",
+ "flags": [
+  {
+   "id": 434913,
+   "key": "shipped:family:ids:434913",
+   "kind": "family",
+   "list": "ids",
+   "name": "Cheat to Hunger Phase",
+   "shipped": "MILLING",
+   "why": "'Cheat to Hunger Phase' is not a MILLING family name"
+  },
+  {
+   "id": 434926,
+   "key": "shipped:family:ids:434926",
+   "kind": "family",
+   "list": "ids",
+   "name": "Lingering Influence",
+   "shipped": "MILLING",
+   "why": "'Lingering Influence' is not a MILLING family name"
+  },
+  {
+   "id": 382971,
+   "key": "shipped:gone:ids:382971",
+   "kind": "gone",
+   "list": "ids",
+   "name": "",
+   "shipped": "PROSPECTING",
+   "why": "SpellName has no row 382971"
+  },
+  {
+   "id": 382972,
+   "key": "shipped:gone:ids:382972",
+   "kind": "gone",
+   "list": "ids",
+   "name": "",
+   "shipped": "PROSPECTING",
+   "why": "SpellName has no row 382972"
+  },
+  {
+   "id": 31252,
+   "key": "shipped:unlined:ids:31252",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Prospecting",
+   "shipped": "PROSPECTING",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 51005,
+   "key": "shipped:unlined:ids:51005",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Milling",
+   "shipped": "MILLING",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 289991,
+   "key": "shipped:unlined:ids:289991",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Disenchanting",
+   "shipped": "DISENCHANT",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 302710,
+   "key": "shipped:unlined:ids:302710",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Prospecting",
+   "shipped": "PROSPECTING",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 434913,
+   "key": "shipped:unlined:ids:434913",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Cheat to Hunger Phase",
+   "shipped": "MILLING",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 434926,
+   "key": "shipped:unlined:ids:434926",
+   "kind": "unlined",
+   "list": "ids",
+   "name": "Lingering Influence",
+   "shipped": "MILLING",
+   "why": "no SkillLineAbility row teaches it"
+  },
+  {
+   "id": 434926,
+   "key": "shipped:token:names:434926",
+   "kind": "token",
+   "list": "names",
+   "name": "Lingering Influence",
+   "shipped": "MILLING dropLast",
+   "why": "its stem is 'Lingering'; a MILLING dropLast seed needs 'Mass Mill'"
+  }
+ ],
+ "flavor": "retail",
+ "info": {
+  "outOfScope": [],
+  "professionLines": {
+   "Enchanting": true,
+   "Inscription": true,
+   "Jewelcrafting": true
+  }
+ },
+ "product": "wow",
+ "rows": {
+  "SkillLine": 397,
+  "SkillLineAbility": 3480,
+  "SpellName": 3482
+ },
+ "tool": "tools/seeds/seeds.py derive"
+}

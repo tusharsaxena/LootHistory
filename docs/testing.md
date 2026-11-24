@@ -279,9 +279,15 @@ Both checks run before every commit, the suite once per client the addon ships o
 lua tests/run.lua                                              # all suites green on Retail (count: docs/test-cases.md)
 KA0S_KIT_CLIENT=forever lua tests/run.lua                      # the same suite as WoW Forever, green too
 ~/.claude/dev-copilot/bin/ka0s-bounded luacheck .              # 0 warnings / 0 errors
+python3 -m pytest -q tools/seeds                               # the seed tool's cases
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 ```
+
+The seed tool's cases (`tools/seeds/test_seeds.py`, [validate-seeds.md](validate-seeds.md)) use
+invented fixture tables and never the network. They sit outside the Lua gate (layout, *A non-Lua
+generator sits outside the green gate*), and without pytest `python3 -m unittest discover -s
+tools/seeds` runs the same cases. A seed-validation run lists them in its `## Gate`.
 
 The two diffs need `../LibKa0s` checked out beside this repo, and on their own they are **not**
 pass/fail: they compare the vendored payload against whatever the sibling currently has checked out,
