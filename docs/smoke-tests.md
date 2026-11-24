@@ -613,9 +613,9 @@ Timeline tab that fails to fill. Result:
 per class, each named `Sample…` or `Mock…` on **Samplerealm** or **Mockrealm**: among them
 `Samplehunter-Samplerealm` (Hunter), `Sampleblade-Samplerealm` (Paladin), `Mockflame-Mockrealm` (Mage),
 `Samplemender-Samplerealm` (Priest) and `Mockshield-Mockrealm` (Warrior), each in its class color with
-its class icon. Open **Holdings** → the four characters are `Mockflame-Mockrealm`,
-`Mockshield-Mockrealm`, `Samplemender-Samplerealm` and `Sampleshade-Samplerealm`, plus the Warband; the
-Timeline's legend names the same. Fail: any `-Ravencrest` name, a name that is not `Sample…` or
+its class icon. Open **Holdings** → the four characters are the ones TM-4 lists (since FB2-LH-01
+the Rogue is the library's `Mockcopper-Mockrealm`, no longer this addon's own `Sampleshade`), plus the
+Warband; the Timeline's legend names the same. Fail: any `-Ravencrest` name, a name that is not `Sample…` or
 `Mock…`, or a class color that does not match the class. Result:
 
 **TM-4. Every sample person is the library's (FB2-LH-01; LibKa0s#104, LibKa0s v1.113.0's
@@ -629,7 +629,7 @@ five shared ones as in TM-3, and every other class a person from the library's c
 `Samplecoal Mockkiln` (Warlock). Open **Holdings** → the four characters are the Mage, the Warrior, the
 Priest and `Mockcopper-Mockrealm` (Retail; `Mockcopper Samplecoin` on WoW Forever), plus the Warband
 on Retail; the Timeline's legend names the same. `/lh test` off, then on again, and `/reload` → the
-same names each time. This replaces TM-3's Holdings sentence, whose Rogue was this addon's own
+same names each time. TM-3's Holdings sentence now points here; its Rogue was this addon's own
 `Sampleshade`. Fail: a `Sampleshade`, `Sampletotem`, `Mockhex` or other name not listed here, a name
 that moves between runs, or a Lua error. Result:
 
