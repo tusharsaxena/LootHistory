@@ -34,7 +34,8 @@
 -- closures over a private state table, so nothing a host can index mutates them:
 --
 --   Start(opts)      -> ok, line   unknown scenario, already running, refusal (inside seam:Live),
---                                  the stood-down backstop; then the session, STARTED, prepare.
+--                                  the stood-down backstop; then the session, STARTED, prepare,
+--                                  and the step panel shown (minor 5: every start shows it).
 --                                  The scenarios are read at call time (a def listed after New
 --                                  starts, checked as New checks), and prepare gets a copy of the
 --                                  caller's opts, extra fields kept (minor 2)
@@ -94,7 +95,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Sim-1.0", 4
+local MAJOR, MINOR = "LibKa0s-Sim-1.0", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -294,8 +295,10 @@ for key, line in pairs({
 -- The collection's one set of named sample characters, the protagonists a test mode, a sim or a
 -- showcase draws, so the same five people appear in every Ka0s addon. The owner's ruling Q4 of
 -- 2026-11-16 (Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS/): the standard owns the
--- naming convention (preview-mode) and this table is its data. A roster pool (DropWatcher's crowd,
--- MultiMeters' world) stays the host's, for its seeded determinism.
+-- naming convention (preview-mode) and this table is its data. Since minor 5 (LibKa0s#104, the
+-- owner's "adopt the predefined test mode names consistently") every named sample person in every
+-- addon comes from here: the five, and SampleCrowd's seeded crowd beyond them (below). No host keeps
+-- a roster pool of its own; it seeds the library's crowd for its determinism.
 --
 -- The convention, which tests/test_sim_sample.lua holds the data to: a name, surname or pet is one
 -- capitalized word of 2-12 letters that starts "Sample" or "Mock"; the realm is "Samplerealm" or
@@ -306,6 +309,19 @@ for key, line in pairs({
 -- host that draws a spec name asks the client for its own. Names are data, never localized.
 --
 -- Read-only by contract: a host reads SAMPLE, or takes its own copy through Sample(client).
+
+--- `client` named, or nil asked of LibKa0s-Compat-1.0 at call time (Retail without it); else raise
+--- at the caller's caller, naming `member`.
+local function clientOf(client, member)
+  if client == nil then
+    local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
+    return compat and compat.ClientKey and compat.ClientKey() == "forever" and "forever" or "retail"
+  end
+  if client ~= "retail" and client ~= "forever" then
+    error(member .. ': unknown client "' .. tostring(client) .. '" (expected "retail" or "forever")', 3)
+  end
+  return client
+end
 
 local function character(name, realm, classFile, spec, role, extra)
   local c = { name = name, realm = realm, classFile = classFile, spec = spec, role = role }
@@ -341,17 +357,165 @@ lib.SAMPLE = {
 --- @param client string|nil
 --- @return table[]
 function lib.Sample(client)
-  if client == nil then
-    local compat = LibStub and LibStub("LibKa0s-Compat-1.0", true)
-    client = compat and compat.ClientKey and compat.ClientKey() == "forever" and "forever" or "retail"
-  elseif client ~= "retail" and client ~= "forever" then
-    error('Sample: unknown client "' .. tostring(client) .. '" (expected "retail" or "forever")', 2)
-  end
+  client = clientOf(client, "Sample")
   local out = {}
   for i, row in ipairs(lib.SAMPLE[client]) do
     local c = {}
     for k, v in pairs(row) do c[k] = v end
     out[i] = c
+  end
+  return out
+end
+
+-- -- THE CROWD (minor 5, LibKa0s#104) ---------------------------------------------------------
+--
+-- SampleCrowd(client, n, seed) answers n people beyond the five, up to CROWD_MAX: enough for a
+-- 40-player raid roster (DropWatcher's `/dw sim raid`) with the protagonists. Each person is a fixed
+-- name and Forever surname from CROWD; a seed (Park-Miller, exact in doubles, so it replays on every
+-- client) orders the names, the class order its ties break by and each spec. Slot i takes the role
+-- TANK, HEALER, DAMAGER, DAMAGER, DAMAGER in turn, and the least-used class with a spec of that role
+-- (a pure damage class first in a tie), so a crowd as large as the client's class count holds every
+-- class. Hunters and Warlocks carry a pet; every third person is from Mockrealm. The convention above
+-- binds every row.
+
+lib.CROWD_MAX = 64
+local CROWD = {   -- name, WoW Forever surname
+  { "Mockgrove", "Samplethorn" }, { "Sampledagger", "Mockquill" }, { "Mockaxe", "Samplehelm" },
+  { "Samplemist", "Mockwind" }, { "Mockwing", "Samplesky" }, { "Samplebrew", "Mockkeg" },
+  { "Mockgrave", "Samplegloom" }, { "Samplelight", "Mockhalo" }, { "Mockstorm", "Samplerock" },
+  { "Mockveil", "Samplemoon" }, { "Mockdawn", "Samplemane" }, { "Mockarrow", "Samplebow" },
+  { "Samplehex", "Mockshadow" }, { "Samplebear", "Mockpaw" }, { "Mockember", "Samplestar" },
+  { "Mocktide", "Samplemoss" }, { "Samplefrost", "Mocklace" }, { "Mockshade", "Sampledusk" },
+  { "Samplehorn", "Mockpale" }, { "Mockfrost", "Sampleice" }, { "Mockhex", "Samplefen" },
+  { "Mockscale", "Samplefin" }, { "Sampleglaive", "Mockedge" }, { "Samplepalm", "Mockreed" },
+  { "Sampleshade", "Mockdune" }, { "Sampletotem", "Mockridge" }, { "Samplestep", "Mockpath" },
+  { "Mocktotem", "Sampletide" }, { "Samplegrove", "Mockbark" }, { "Samplescale", "Mockfern" },
+  { "Mockbrew", "Samplecask" }, { "Samplerogue", "Mockknife" }, { "Mockbristle", "Samplefur" },
+  { "Sampleshaman", "Mockspirit" }, { "Samplealt", "Mockbank" }, { "Mockrune", "Samplecairn" },
+  { "Samplespark", "Mockflint" }, { "Mockbloom", "Samplepetal" }, { "Samplestone", "Mockpeak" },
+  { "Mockriver", "Sampleford" }, { "Samplegale", "Mockgust" }, { "Mockcinder", "Sampleash" },
+  { "Sampleoak", "Mockacorn" }, { "Mockhawk", "Sampletalon" }, { "Sampleraven", "Mockcrow" },
+  { "Mockwolf", "Samplehowl" }, { "Samplefox", "Mockden" }, { "Mocklynx", "Sampleprowl" },
+  { "Sampleboar", "Mocktusk" }, { "Mockelk", "Sampleantler" }, { "Samplestag", "Mockhart" },
+  { "Mockowl", "Samplehoot" }, { "Samplecliff", "Mockcrag" }, { "Mockglen", "Sampledell" },
+  { "Samplemarsh", "Mockbog" }, { "Mocktwig", "Samplebranch" }, { "Sampleflare", "Mockblaze" },
+  { "Mockquartz", "Samplegem" }, { "Sampleiron", "Mockanvil" }, { "Mockcopper", "Samplecoin" },
+  { "Mocksilver", "Samplevein" }, { "Samplecoal", "Mockkiln" }, { "Mockpine", "Samplecone" },
+  { "Samplemoor", "Mockheath" },
+}
+local CROWD_PETS = { HUNTER = { "Mockclaw", "Mockpounce", "Samplestalk", "Mockmane", "Sampleroar", "Mockbite" },
+  WARLOCK = { "Mockimp", "Samplefiend", "Mockvoid", "Samplefel" } }
+-- Each client's specs by class: Retail's { specID, label, role }, WoW Forever's { tree, label, role },
+-- the tree in LibKa0s-Role-1.0's TALENT_GROUP_ROLE order (the suite holds the two to each other).
+local T, H, D = "TANK", "HEALER", "DAMAGER"
+local CROWD_SPECS = {
+  retail = {
+    WARRIOR = { { 71, "Arms", D }, { 72, "Fury", D }, { 73, "Protection", T } },
+    PALADIN = { { 65, "Holy", H }, { 66, "Protection", T }, { 70, "Retribution", D } },
+    HUNTER = { { 253, "Beast Mastery", D }, { 254, "Marksmanship", D }, { 255, "Survival", D } },
+    ROGUE = { { 259, "Assassination", D }, { 260, "Outlaw", D }, { 261, "Subtlety", D } },
+    PRIEST = { { 256, "Discipline", H }, { 257, "Holy", H }, { 258, "Shadow", D } },
+    DEATHKNIGHT = { { 250, "Blood", T }, { 251, "Frost", D }, { 252, "Unholy", D } },
+    SHAMAN = { { 262, "Elemental", D }, { 263, "Enhancement", D }, { 264, "Restoration", H } },
+    MAGE = { { 62, "Arcane", D }, { 63, "Fire", D }, { 64, "Frost", D } },
+    WARLOCK = { { 265, "Affliction", D }, { 266, "Demonology", D }, { 267, "Destruction", D } },
+    MONK = { { 268, "Brewmaster", T }, { 269, "Windwalker", D }, { 270, "Mistweaver", H } },
+    DRUID = { { 102, "Balance", D }, { 103, "Feral", D }, { 104, "Guardian", T }, { 105, "Restoration", H } },
+    DEMONHUNTER = { { 577, "Havoc", D }, { 581, "Vengeance", T } },
+    EVOKER = { { 1467, "Devastation", D }, { 1468, "Preservation", H }, { 1473, "Augmentation", D } },
+  },
+  forever = {
+    WARRIOR = { { 1, "Arms", D }, { 2, "Fury", D }, { 3, "Protection", T } },
+    PALADIN = { { 1, "Holy", H }, { 2, "Protection", T }, { 3, "Retribution", D } },
+    PRIEST = { { 1, "Discipline", H }, { 2, "Holy", H }, { 3, "Shadow", D } },
+    SHAMAN = { { 1, "Elemental", D }, { 2, "Enhancement", D }, { 3, "Restoration", H } },
+    DRUID = { { 1, "Balance", D }, { 2, "Feral", D }, { 3, "Restoration", H } },
+    HUNTER = { { 1, "Beast Mastery", D }, { 2, "Marksmanship", D }, { 3, "Survival", D } },
+    ROGUE = { { 1, "Assassination", D }, { 2, "Combat", D }, { 3, "Subtlety", D } },
+    MAGE = { { 1, "Arcane", D }, { 2, "Fire", D }, { 3, "Frost", D } },
+    WARLOCK = { { 1, "Affliction", D }, { 2, "Demonology", D }, { 3, "Destruction", D } },
+  },
+}
+local CROWD_ROLES = { T, H, D, D, D }
+
+--- A seeded source: rnd(k) in 1..k (Park-Miller).
+local function crowdRandom(seed)
+  local state = seed % 2147483647
+  if state <= 0 then state = state + 2147483646 end
+  return function(k)
+    state = state * 16807 % 2147483647
+    return 1 + math.floor((state - 1) / 2147483646 * k)
+  end
+end
+
+--- A seeded shuffle of a copy of `list` (Fisher-Yates).
+local function shuffled(list, rnd)
+  local out = {}
+  for i, v in ipairs(list) do out[i] = v end
+  for i = #out, 2, -1 do
+    local j = rnd(i)
+    out[i], out[j] = out[j], out[i]
+  end
+  return out
+end
+
+--- How many of the three roles a class's specs cover.
+local function roleCount(list)
+  local seen, k = {}, 0
+  for _, spec in ipairs(list) do
+    if not seen[spec[3]] then seen[spec[3]], k = true, k + 1 end
+  end
+  return k
+end
+
+--- The class slot `role` takes, and its specs of that role: the least used, then the one with the
+--- fewest roles (a pure damage class before a hybrid, so the hybrids are left for the tank and
+--- healer slots), then the first in `order`.
+local function crowdClass(specs, order, used, role)
+  local best, bestSpecs, bestKey
+  for _, classFile in ipairs(order) do
+    local fit = {}
+    for _, spec in ipairs(specs[classFile]) do if spec[3] == role then fit[#fit + 1] = spec end end
+    local key = used[classFile] * 4 + roleCount(specs[classFile])
+    if #fit > 0 and (not best or key < bestKey) then best, bestSpecs, bestKey = classFile, fit, key end
+  end
+  return best, bestSpecs
+end
+
+--- One crowd row in the client's shape.
+local function crowdRow(client, person, i, classFile, spec, pet)
+  local realm = (i % 3 == 0) and "Mockrealm" or "Samplerealm"
+  local extra = client == "forever" and { surname = person[2], tree = spec[1] } or { specID = spec[1] }
+  extra.pet = pet
+  return character(person[1], realm, classFile, spec[2], spec[3], extra)
+end
+
+--- `n` sample people beyond the five, which the caller owns: rows shaped as Sample(client)'s.
+--- `client` as Sample takes it; `n` an integer 0..CROWD_MAX; `seed` an integer, nil meaning 1. The
+--- same seed answers the same crowd on every call, and a smaller crowd is a larger one's head.
+--- @param client string|nil
+--- @param n number
+--- @param seed number|nil
+--- @return table[]
+function lib.SampleCrowd(client, n, seed)
+  client = clientOf(client, "SampleCrowd")
+  if type(n) ~= "number" or n < 0 or n > lib.CROWD_MAX or n ~= math.floor(n) then
+    error("SampleCrowd: n must be an integer from 0 to " .. lib.CROWD_MAX .. ", got " .. tostring(n), 2)
+  end
+  if seed ~= nil and type(seed) ~= "number" then error("SampleCrowd: seed must be a number or nil", 2) end
+  local rnd = crowdRandom(math.floor(seed or 1))
+  local people, specs = shuffled(CROWD, rnd), CROWD_SPECS[client]
+  local classes = {}
+  for classFile in pairs(specs) do classes[#classes + 1] = classFile end
+  sort(classes)
+  local order, used, pets, out = shuffled(classes, rnd), {}, {}, {}
+  for _, classFile in ipairs(classes) do used[classFile] = 0 end
+  for i = 1, n do
+    local classFile, fit = crowdClass(specs, order, used, CROWD_ROLES[(i - 1) % 5 + 1])
+    used[classFile] = used[classFile] + 1
+    local list, pet = CROWD_PETS[classFile], nil
+    if list then pets[classFile] = (pets[classFile] or 0) % #list + 1; pet = list[pets[classFile]] end
+    out[i] = crowdRow(client, people[i], i, classFile, fit[rnd(#fit)], pet)
   end
   return out
 end
@@ -608,6 +772,17 @@ local function runPrepare(S, session, def, opts)
   if S.session == session then S.sim:Stop("error") end
 end
 
+--- Every start shows the step panel (minor 5, FB2-LK-01 of Ka0sAddonsCommonTasks
+--- docs/2026-11-24-FEEDBACK_BATCH, decision D2): this is the one choke point the typed `start`,
+--- the panel's Start row and picker, a Restart, the Master controls Sim box and a host's own Start
+--- all go through. ShowPanel is read at call time, so a headless session (the shell's fallback
+--- answers false) stays headless, and SimPanel's own ShowPanel refuses while stood down. A panel
+--- that raises is a debug line, never a failed start.
+local function showOnStart(S)
+  local ok, err = pcall(function() return S.sim:ShowPanel() end)
+  if not ok then debugOut(S, "start: ShowPanel failed: %s", tostring(err)) end
+end
+
 -- ── the session's members ────────────────────────────────────────────────────────────────────
 
 --- Start, Stop and the two predicates.
@@ -627,6 +802,7 @@ local function installLifecycle(sim, S)
     debugOut(S, "started %s (size %s, seed %s)", tostring(opts.scenario), tostring(size), tostring(seed))
     runPrepare(S, session, def, resolvedOpts(opts, size, seed))
     if S.session ~= session then return false end   -- it ended inside prepare; its stop line printed
+    showOnStart(S)
     notify(S)
     return true, started
   end

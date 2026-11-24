@@ -1355,7 +1355,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(options.OptionsSkinPickerQueue, 1)
   assertTrue(browser.IconBrowserWindow >= 2) -- 3 since v1.112.0, pinned there
   assertEqual(browser.IconBrowser, 2)
-  assertEqual(sim.Sim, 4)
+  assertTrue(sim.Sim >= 4) -- 5 since v1.113.0, pinned there
   assertEqual(sim.SimPanel, 11)
   assertEqual(sim.SimPanelRender, 4)
   assertTrue(T.KIT_VERSION >= 57) -- 58 since v1.108.0, pinned there
@@ -1398,7 +1398,7 @@ test("v1.108.0: the vendored minors and the kit revision match the release", fun
   assertEqual(skin.SkinPaintHud, 2)
   assertTrue(skin.SkinPaintControls >= 19) -- 20 since v1.109.0, pinned there
   assertEqual(widgets.Widgets, 30)
-  assertEqual(widgets.WidgetsDropdown, 3)
+  assertTrue(widgets.WidgetsDropdown >= 3) -- 4 since v1.113.0, pinned there
   assertTrue(widgets.WidgetsDragHandle >= 16) -- 17 since v1.111.0, pinned in v1.112.0's case
   assertEqual(widgets.WidgetsDragHandleTip, 3)
   assertEqual(widgets.WidgetsLineChart, 8)
@@ -1460,5 +1460,19 @@ test("v1.112.0: the vendored minors and the kit revision match the release", fun
   assertEqual(widgets.WidgetsCopyWindow, 7)
   assertEqual(widgets.WidgetsDragHandle, 17)
   assertEqual(modules("LibKa0s-IconBrowser-1.0").IconBrowserWindow, 3)
+  assertEqual(T.KIT_VERSION, 60)
+end)
+
+test("v1.113.0: the vendored minors and the kit revision match the release", function()
+  -- Round 2 of the 2026-11-24 feedback batch (Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH/
+  -- R2_SMOKE_FEEDBACK.md): Sim 5 (every start shows the step panel, and SampleCrowd, LibKa0s#104)
+  -- and WidgetsDropdown 4 (a selected row stands off a plain row). The kit stays at revision 60.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.113.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Sim-1.0").Sim, 5)
+  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDropdown, 4)
   assertEqual(T.KIT_VERSION, 60)
 end)
