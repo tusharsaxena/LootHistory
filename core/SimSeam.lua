@@ -77,54 +77,34 @@ Host.GUARDED_KEYS = {}
 for key in pairs(GUARDED) do Host.GUARDED_KEYS[#Host.GUARDED_KEYS + 1] = key end
 table.sort(Host.GUARDED_KEYS)
 
--- ── the sample characters (preview-mode "Sample characters", LibKa0s#87) ─────────────────────
+-- ── the sample characters (preview-mode "Sample characters", LibKa0s#87 and #104) ───────────
 --
--- The made-up people test mode and the simulator draw are the collection's five, LibKa0s-Sim-1.0's
--- SAMPLE (Sim minor 3, LibKa0s v1.105.0), read for the client running, picked once at file load by
+-- The made-up people test mode and the simulator draw are the library's and only the library's
+-- (LibKa0s#104, decision D1 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH; Sim minor 5,
+-- LibKa0s v1.113.0): LibKa0s-Sim-1.0's five protagonists (Sim.Sample) and its seeded crowd beyond
+-- them (Sim.SampleCrowd), read for the client running, picked once at file load by
 -- NS.Compat.ClientKey() (clients-§5): Retail's are `Name-Realm`, WoW Forever's "First Surname" with no
 -- realm in the key (forever-quirks-§4), each the shape NS.Util.PlayerKey gives a holder on that
--- client. Without the library the copies below answer, field for field the library's names, realms,
--- surnames and classes; tests/test_testdata.lua holds each to its SAMPLE row. Names are data, never
--- localized. Users: the History sample (modules/BrowserTableTestData.lua) and through it the
+-- client. This addon keeps no copy of either: without the library both answer an empty list, and
+-- tests/test_testdata.lua holds the shipped code to typing no sample name at all. Names are data,
+-- never localized. Users: the History sample (modules/BrowserTableTestData.lua) and through it the
 -- Holdings and Timeline samples (modules/TestData.lua), and the simulator's alt and stranger
 -- (modules/Sim.lua, modules/SimScenario.lua).
 local SAMPLE_CLIENT = NS.Compat.ClientKey() == "forever" and "forever" or "retail"
 
-local function forever(name, realm, classFile, surname)
-  return { name = name, realm = realm, classFile = classFile, surname = surname, fullName = name .. " " .. surname }
-end
-
-NS.SAMPLE_FALLBACKS = {
-  retail = {
-    { name = "Samplehunter", realm = "Samplerealm", classFile = "HUNTER", fullName = "Samplehunter-Samplerealm" },
-    { name = "Sampleblade", realm = "Samplerealm", classFile = "PALADIN", fullName = "Sampleblade-Samplerealm" },
-    { name = "Mockflame", realm = "Mockrealm", classFile = "MAGE", fullName = "Mockflame-Mockrealm" },
-    { name = "Samplemender", realm = "Samplerealm", classFile = "PRIEST", fullName = "Samplemender-Samplerealm" },
-    { name = "Mockshield", realm = "Mockrealm", classFile = "WARRIOR", fullName = "Mockshield-Mockrealm" },
-  },
-  forever = {
-    forever("Samplehunter", "Samplerealm", "HUNTER", "Mockstride"),
-    forever("Sampleblade", "Samplerealm", "PALADIN", "Mockvale"),
-    forever("Mockflame", "Mockrealm", "MAGE", "Samplewick"),
-    forever("Samplemender", "Samplerealm", "PRIEST", "Mockbrook"),
-    forever("Mockshield", "Mockrealm", "WARRIOR", "Sampleforge"),
-  },
-}
---- The running client's copy (NS.SAMPLE_FALLBACKS[client]), the one NS.SampleCharacters answers
---- without the library.
-NS.SAMPLE_FALLBACK = NS.SAMPLE_FALLBACKS[SAMPLE_CLIENT]
-
 --- A fresh copy of the five sample characters, the caller's own: the library's set for this client,
---- else the copy above.
+--- else none.
 function NS.SampleCharacters()
   if Sim and Sim.Sample then return Sim.Sample(SAMPLE_CLIENT) end
-  local out = {}
-  for i, row in ipairs(NS.SAMPLE_FALLBACK) do
-    local c = {}
-    for k, v in pairs(row) do c[k] = v end
-    out[i] = c
-  end
-  return out
+  return {}
+end
+
+--- `n` sample people beyond the five, the caller's own: the library's crowd for this client at
+--- `seed` (the same seed answers the same crowd), `n` clamped to its CROWD_MAX, else none.
+function NS.SampleCrowd(n, seed)
+  if not (Sim and Sim.SampleCrowd) then return {} end
+  n = math.max(0, math.min(math.floor(tonumber(n) or 0), Sim.CROWD_MAX or 0))
+  return Sim.SampleCrowd(SAMPLE_CLIENT, n, seed)
 end
 
 -- ── the reference stubs (LibKa0s tests/test_sim_stub.lua) ────────────────────────────────────

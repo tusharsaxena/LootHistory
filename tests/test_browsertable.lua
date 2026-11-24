@@ -1385,12 +1385,13 @@ test("BrowserTable: the sample's holder-move pairs are pinned whole", function()
     "4|ALT_TRADE|IN|{EV}|{EV}|EVOKER|{DH}/bags|{EV}/bags",
     "5|CURRENCY_TRANSFER|IN|{WA}|{WA}|WARRIOR|{EV}/bags|{WA}/bags",
   }
-  -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`): the shared set's
-  -- Mockshield for the Warrior, the host pool's names on Samplerealm for the classes it lacks.
-  local names = T.forever and { RO = "Sampleshade Mockveil",
-    PR = "Samplemender Mockbrook", SH = "Sampletotem Mockridge", MA = "Mockflame Samplewick" } or { W = W, WL = "Mockhex-Samplerealm", MK = "Samplepalm-Samplerealm",
-    DR = "Mockgrove-Samplerealm", DH = "Sampleglaive-Samplerealm", EV = "Mockscale-Samplerealm",
-    WA = "Mockshield-Mockrealm" }
+  -- The sample characters (re-pinned by AD-87-LH from `<Class>-Ravencrest`, and by FB2-LH-01 onto
+  -- the library's crowd, LibKa0s#104): each class's person is BrowserTable.TestSample.charKey's,
+  -- which tests/test_testdata.lua holds to LibKa0s-Sim-1.0's Sample and SampleCrowd.
+  local key = NS.BrowserTable.TestSample.charKey
+  local names = T.forever and { RO = key("ROGUE"), PR = key("PRIEST"), SH = key("SHAMAN"), MA = key("MAGE") }
+    or { W = W, WL = key("WARLOCK"), MK = key("MONK"), DR = key("DRUID"), DH = key("DEMONHUNTER"),
+      EV = key("EVOKER"), WA = key("WARRIOR") }
   assertEqual(table.concat(rows, "\n"), (table.concat(want, "\n"):gsub("{(%u+)}", names)))
 end)
 

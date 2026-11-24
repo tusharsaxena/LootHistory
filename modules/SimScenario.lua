@@ -211,7 +211,7 @@ function OPS.takeMailItem(key)
 end
 
 --- Send the first stack of `key` and `money` copper to the session's own alt, by its full
---- Name-Realm (the alt is a sample character on Samplerealm, not on the player's realm).
+--- Name-Realm (the alt is a sample character on a sample realm, not on the player's realm).
 function OPS.sendAlt(key, money)
   local bagID, slot = slotOf("bags", key)
   return D.Send(altKey(), bagID and { { bagID, slot } } or {}, money)
@@ -260,9 +260,10 @@ local function step(kind, label, tip, calls) return { kind = kind, label = label
 
 local STEPS = {}
 
--- The stranger the social scenario trades with: the shared sample set's Mockflame, from Mockrealm,
--- never one of the session's holders (NS.SampleCharacters, LibKa0s#87).
-local STRANGER = NS.SampleCharacters()[3].fullName
+-- The stranger the social scenario trades with: the shared sample set's third character, on a
+-- realm none of the session's holders share (NS.SampleCharacters, LibKa0s#87 and #104). Nil
+-- without the library, whose absence leaves the simulator a stub that runs no scenario.
+local STRANGER = (NS.SampleCharacters()[3] or {}).fullName
 
 STEPS.loot = {
   step("kill", L["Kill: %s"]:format(NPC.name),

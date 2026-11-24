@@ -229,10 +229,10 @@ end
 
 -- ── the start (the descriptor's prepare) ──────────────────────────────────────────────────────
 
--- The session's own alt, the shared sample set's second character (`Sampleblade-Samplerealm` on
--- Retail, "Sampleblade Mockvale" on WoW Forever: NS.SampleCharacters, LibKa0s#87), seeded into the session holdings so Attribution:IsOwnAlt answers
--- true for it (the ALT_MAIL and ALT_TRADE steps). Written through Holdings:Get, which resolves the
--- session store.
+-- The session's own alt, the shared sample set's second character (NS.SampleCharacters, LibKa0s#87
+-- and #104: a `Name-Realm` on Retail, a "First Surname" on WoW Forever), seeded into the session
+-- holdings so Attribution:IsOwnAlt answers true for it (the ALT_MAIL and ALT_TRADE steps). Written
+-- through Holdings:Get, which resolves the session store.
 local function seedAlt()
   local key = NS.SampleCharacters()[2].fullName
   NS.Holdings:Get(key, true)
