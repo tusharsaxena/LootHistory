@@ -68,6 +68,14 @@ The ceilings are pinned numbers in `tests/perf.lua`, with the reason beside them
 one that does real work: an unchanged pass over 216 occupied slots, behind the debounce and never
 in combat.
 
+**ForeverDB (SF-LH-02).** The History table's item tooltip reads the optional ForeverDB addon on WoW
+Forever. ForeverDB is about 12 MB on disk, and loading it adds its tables to the client's Lua memory,
+outside this addon's own figure. It is LoadOnDemand, and the load happens on first use: the first
+item-row hover of the session with **Item sources (ForeverDB)** on, through the library's
+`Available()`, never at login and never on Retail. Each later hover is a handful of table reads and
+one fresh answer table per lookup. No scenario in `tests/perf.lua` covers it: the load is the
+client's, and a hover is not a hot path.
+
 The runner is **outside the green gate**: `lua tests/run.lua` does not run it. It asserts only
 deterministic quantities (bytes with the GC stopped, call counts), never time. Run it with
 `lua tests/perf.lua [--out <path>] [--label <text>]`; the vendored automated-test runner records it

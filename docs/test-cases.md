@@ -985,9 +985,21 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_itemsources.lua (1)
+### test_itemsources.lua (13)
 
 - ItemSources: characterization, an item row's hover with no ForeverDB, call for call
+- ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and Sold by
+- ItemSources: the lines' colors are the skin's tooltip tokens
+- ItemSources: the top three, then how many more; a vendor with no price seen; unknown names
+- ItemSources: an item ForeverDB names no source for adds nothing
+- ItemSources: the row's id is read from its link when the record carries none
+- ItemSources: missing, failing to load or reshaped, the hover is exactly as before
+- ItemSources: with the setting off, nothing is added and nothing loads
+- ItemSources: on Retail the hover is exactly as before and ForeverDB is never asked
+- ItemSources: the addon's load asked ForeverDB nothing
+- ItemSources: chances read as percentages, an unknown rate as ?
+- ItemSources: the setting sits with the History window rows, on by default, Forever only
+- ItemSources: the TOC and .pkgmeta name ForeverDB as optional, never required
 
 ### test_export.lua (38)
 
@@ -1914,7 +1926,7 @@ Total.
 - v1.113.0: the vendored minors and the kit revision match the release
 - v1.114.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (21)
+### test_surface_parity.lua (22)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1937,6 +1949,7 @@ Total.
 - parity: each host-copy skin token is the live library's Ka0s Default value
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
+- parity: the ForeverDB stand-in carries the whole live surface, at its all-absent answers
 
 ### test_disabled.lua (25)
 
@@ -2522,7 +2535,7 @@ Total.
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 88 |
-| test_itemsources.lua | 1 |
+| test_itemsources.lua | 13 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2562,7 +2575,7 @@ Total.
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
 | test_libka0s.lua | 57 |
-| test_surface_parity.lua | 21 |
+| test_surface_parity.lua | 22 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
@@ -2593,4 +2606,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2179** |
+| **Total** | **2192** |

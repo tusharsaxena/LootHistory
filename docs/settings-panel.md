@@ -109,14 +109,14 @@ The **row vocabulary is LibKa0s's** (`O.RenderField` in `libs/LibKa0s/OptionsWid
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Thirty-two rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
+**Thirty-three rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 9 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode`, `state.sim` |
 | General | **Capture** | 6 | *Loot:* `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.recordCurrency`, `settings.excludedSources`; *Ledger:* `settings.trackLedger`, `settings.recordGold` |
 | General | **AH price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
-| General | **Interface** | 5 | *History window:* `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines`, `settings.showTransfers`; *Simulator:* `settings.sim.stepDelay` |
+| General | **Interface** | 6 | *History window:* `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines`, `settings.showTransfers`, `settings.itemSources` (WoW Forever only: drawn disabled on Retail; SF-LH-02); *Simulator:* `settings.sim.stepDelay` |
 | General | **History** | 2 | `settings.retentionDays`, `settings.rollupRetentionDays` |
 | General | **Skin** (key `Appearance`) | 8 | `settings.appearance.source`, `settings.appearance.skin`, `settings.appearance.ignorePanel`, `settings.appearance.ignoreFonts`, `settings.appearance.font`, `settings.appearance.texture`, `settings.appearance.outline`, `settings.appearance.pickerSeen` (all `skipRender`: the library's Skin tab draws the first seven, and nothing draws the picker's memory) |
 

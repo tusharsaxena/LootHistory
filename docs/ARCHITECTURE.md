@@ -104,6 +104,7 @@ flag is ruled as data (`tools/seeds/<flavor>_rulings.json`), and each run is a f
 | The container groups: the bags also hold the Keyring (`-1`, R5); a bag socketed into the bank (`-2`) is ignored for now (R6) | `forever` | `core/Constants.lua` (`C.BAG_IDS`, read from LibKa0s-Compat's `ContainerGroups()` through `core/CompatClient.lua`; the pattern rows are `NS.Compat.CONTAINER_PATTERNS_BY_CLIENT`) |
 | The Wowhead item base: `https://www.wowhead.com/item=` | `retail` | `core/Constants.lua` (`C.WOWHEAD_ITEM_BASE`), `modules/Export.lua` (`WowheadLink`) |
 | The Wowhead item base: `https://www.wowhead.com/forever/item=` (R7) | `forever` | the same |
+| The History table's item tooltip adds **Drops from** and **Sold by** from the optional ForeverDB addon (SF-LH-02, LibKa0s#105, clients-§11); the setting's row is drawn disabled on Retail | `forever` | `modules/ItemSources.lua` (`IS.Active`, through `NS.Compat.IsForever` at hover), `settings/Schema.lua` (`settings.itemSources`'s `disabledIf`); the adapter itself answers `false, "client"` off Forever |
 | The default skin: Ka0s Default (`NS.DEFAULT_SKIN = Skin:DefaultSkin()`, skinning-§2) | `retail` | `core/SkinSetup.lua`, `defaults/Profile.lua` (`appearance.skin`) |
 | The default skin: WoW Forever (the same read) | `forever` | `core/SkinSetup.lua`, `defaults/Profile.lua` |
 | Test mode's and the simulator's seeds: the shared sample characters, Retail's classes, zones, items, currencies and sim fixtures | `retail` | `core/SimSeam.lua` (`NS.SampleCharacters`, `NS.SampleCrowd`), `modules/BrowserTableTestData.lua`, `modules/TestData.lua`, `modules/SimWorld.lua` (`ITEM_SETS`, `FIXTURES`), `modules/SimScenario.lua` (`SCENARIO_ITEMS`) |
@@ -143,7 +144,7 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Thirty-two rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Thirty-three rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
 Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
 `Appearance`) holds eight: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and

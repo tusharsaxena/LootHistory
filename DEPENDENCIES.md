@@ -21,7 +21,7 @@ gated per feature, in `docs/ARCHITECTURE.md`'s per-client feature table (clients
 
 **Nothing else.** Every library the addon uses is **vendored** under `libs/` and committed, so the
 player installs one addon and no dependencies. `LootHistory.toc` declares
-`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI`
+`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI, ForeverDB`
 — that line exists only to fix **load order** when a player happens to have those libraries as
 standalone addons; the copies under `libs/` (loaded by the TOC's `# Libraries` block) are what the addon
 actually uses (`library-stack`). The Ace3 set includes AceConfig-3.0 (with its Registry, Cmd and
@@ -30,6 +30,12 @@ Dialog parts) and AceDBOptions-3.0, which only the Profiles settings page uses (
 EllesmereUI is the exception on that line: a separate addon, never vendored and never required,
 listed so it loads first when the player has it, because the Skin tab offers it as a skin source
 (`core/SkinSetup.lua`).
+ForeverDB is the other exception: WoW Forever's data addon (<https://www.curseforge.com/wow/addons/forever-db>,
+GPL-3.0 data), never vendored, never copied and never required (WowAddonStandards clients-§11). The
+History table's item tooltip reads it when it is installed, through the vendored
+`LibKa0s-ForeverDB-1.0` (`core/ForeverDBSetup.lua`, `modules/ItemSources.lua`), and `.pkgmeta` lists it
+under `optional-dependencies` so CurseForge shows the relationship. It is LoadOnDemand: the first item
+hover on WoW Forever loads it, never login. Without it the addon is unchanged.
 There is no `## Dependencies` line, and there must not be one.
 Ace3: WoWUIDev/Ace3@ac3d1225 (untagged master; LibKa0s#76).
 

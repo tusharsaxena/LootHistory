@@ -567,6 +567,9 @@ function BrowserTable:BuildRow()
     elseif r.itemLink then
       NS.Compat.OwnTooltip(self2)
       GameTooltip:SetHyperlink(r.itemLink)
+      -- Where it drops and who sells it, on WoW Forever with ForeverDB (modules/ItemSources.lua,
+      -- SF-LH-02). The first such hover is what loads ForeverDB; elsewhere it adds nothing.
+      if NS.ItemSources then NS.ItemSources.AddTo(GameTooltip, r.itemID or NS.Item.ItemIDFromLink(r.itemLink)) end
       shown = true
     elseif r.currencyID and GameTooltip.SetCurrencyByID then
       NS.Compat.OwnTooltip(self2)

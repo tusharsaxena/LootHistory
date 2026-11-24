@@ -384,6 +384,7 @@ settings.auction.enabled | bool | true | nil | nil | nil
 settings.enabled | bool | true | nil | nil | nil
 settings.excludeQuestItems | bool | true | nil | nil | nil
 settings.excludedSources | table | {} | nil | nil | nil
+settings.itemSources | bool | true | nil | nil | nil
 settings.locked | bool | false | nil | nil | nil
 settings.qualityThreshold | number | 1 | nil | nil | nil
 settings.recordCurrency | bool | true | nil | nil | nil
@@ -443,10 +444,10 @@ test("Schema: Interface and History read as item 020 laid them out", function()
     if r.group == "Interface" then order[#order + 1] = r.path end
   end
   assertEqual(table.concat(order, " "), "settings.windowScale settings.rowHeight "
-    .. "settings.timelineMaxLines settings.showTransfers settings.sim.stepDelay",
-    "Show transfers by default follows Timeline lines on Interface")
+    .. "settings.timelineMaxLines settings.showTransfers settings.itemSources settings.sim.stepDelay",
+    "Show transfers by default follows Timeline lines on Interface; Item sources (SF-LH-02) follows it")
   for _, path in ipairs({ "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
-                          "settings.showTransfers" }) do
+                          "settings.showTransfers", "settings.itemSources" }) do
     assertEqual(row(path).subgroup, "History window", path .. " subsection")
   end
   assertEqual(row("settings.windowScale").tooltip,

@@ -448,6 +448,18 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "view") end
     end },
 
+  -- The History table's item tooltip lines from ForeverDB (modules/ItemSources.lua, SF-LH-02,
+  -- LibKa0s#105; WowAddonStandards clients-§11). A display option of the History window, so it sits
+  -- with its rows. WoW Forever only (clients-§4): on Retail the row is drawn disabled, read at draw
+  -- time, and its tooltip says why. No onChange: the tooltip reads the setting at each hover.
+  { path = "settings.itemSources", default = PD.settings.itemSources, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "History window",
+    label = NS.L["Item sources (ForeverDB)"],
+    disabledIf = function() return not (NS.Compat.IsForever and NS.Compat.IsForever()) end,
+    tooltip = NS.L["Adds where an item drops (the top three creatures, with their chances) and who "
+      .. "sells it (the lowest price seen) to the History table's item tooltip. WoW Forever only, and "
+      .. "needs the ForeverDB addon: it loads the first time you hover an item (about 12 MB)."] },
+
   -- The pace of a playing simulation: the seconds between two steps.
   -- The range and the validator are the simulator host's (modules/Sim.lua, which loads before this
   -- file); the descriptor's `stepDelay` reads the stored value at use, falling back to the default
