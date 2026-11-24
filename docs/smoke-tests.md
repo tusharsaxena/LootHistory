@@ -32,11 +32,11 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | PANEL-1 to 27 | [Settings panel](#settings-panel) | both | Landing page, the General strip, Master controls, reset and purge dialogs, panel chrome, AH price, the item 020 layout, the Skin tab, the AH price table on the skin, the panel's own controls and the Scope, the Font outline, the media pickers |
 | PROFILE-1 to 13 | [Profiles](#profiles) | both | The Profiles page, what a profile holds, `/lh profile` |
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
-| TM-1 to 3 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters |
+| TM-1 to 4 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters, every one of them the library's |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
-| HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone) |
+| HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows in a color of their own in every skin |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
 | INS-1 to 24 | [Insights](#insights) | both | Filter scope, KPI cards, chart order, colors, legends, tooltips, the currency block, Insights on the skin |
@@ -50,7 +50,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | both | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
 | TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
-| SIM-1 to 15 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters |
+| SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | FOREVER-1 to 16 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16) |
 
@@ -618,6 +618,21 @@ its class icon. Open **Holdings** → the four characters are `Mockflame-Mockrea
 Timeline's legend names the same. Fail: any `-Ravencrest` name, a name that is not `Sample…` or
 `Mock…`, or a class color that does not match the class. Result:
 
+**TM-4. Every sample person is the library's (FB2-LH-01; LibKa0s#104, LibKa0s v1.113.0's
+`SampleCrowd`).** Client: both. `/lh test`, open the History **Character** dropdown → one character
+per class (thirteen on Retail, nine on WoW Forever), each in its class color with its class icon: the
+five shared ones as in TM-3, and every other class a person from the library's crowd. On Retail:
+`Mockfrost-Samplerealm` (Death Knight), `Samplepalm-Mockrealm` (Demon Hunter), `Mockrune-Samplerealm`
+(Druid), `Sampleiron-Samplerealm` (Evoker), `Mockbloom-Samplerealm` (Monk), `Mockcopper-Mockrealm`
+(Rogue), `Samplecliff-Samplerealm` (Shaman) and `Samplecoal-Samplerealm` (Warlock). On WoW Forever:
+`Samplemarsh Mockbog` (Druid), `Mockcopper Samplecoin` (Rogue), `Sampleiron Mockanvil` (Shaman) and
+`Samplecoal Mockkiln` (Warlock). Open **Holdings** → the four characters are the Mage, the Warrior, the
+Priest and `Mockcopper-Mockrealm` (Retail; `Mockcopper Samplecoin` on WoW Forever), plus the Warband
+on Retail; the Timeline's legend names the same. `/lh test` off, then on again, and `/reload` → the
+same names each time. This replaces TM-3's Holdings sentence, whose Rogue was this addon's own
+`Sampleshade`. Fail: a `Sampleshade`, `Sampletotem`, `Mockhex` or other name not listed here, a name
+that moves between runs, or a Lua error. Result:
+
 ## Combat
 
 **COMBAT-1. The window works in combat.** With the window open, attack a dummy; click a row, drag and
@@ -1163,6 +1178,19 @@ click it → the modal closes. The History window's own title bar still reads pa
 its gear opens this addon's settings. Pick **Obsidian** → the same. This replaces HIST-48, and the
 export-modal sentence of HIST-50 now reads "its title bar reads ✕ alone". Fail: a gear on the export
 modal, a History window without its gear, or a Lua error. Result:
+
+**HIST-54. The Character menu's selected rows wear a color of their own in every skin (FB2-LH-01;
+LibKa0s v1.113.0, WidgetsDropdown 4; skinning-§4, *A selected entry reads apart*, standard v2.120.0).**
+Client: both. On **Ka0s Default**, `/lh show`, open the **Character** dropdown and click **Character:
+Current** → reopen it: **Character: Current** and your own character's row are **gold**, apart from
+the white **Character: All** row, and your character's row is gold rather than its class color; every
+other character keeps its class color. Pick **Azeroth** on the Skin tab and reopen the dropdown → the
+same two rows are **gold** (Azeroth's own accent sits too close to its body text). Pick **Obsidian**,
+then **Glass** → the two rows wear the skin's accent, plainly a different color from the All row and
+from the class colors. Open any other filter dropdown (Quality, Source) with an entry picked → the
+picked entry reads in the same selected color. Fail: a selected row in the same color as a plain row
+or as its class color, Character: Current not lit while only you are selected, or a Lua error.
+Result:
 
 **FB-1. The filter bar fills the window (P6).** `/lh show`, drag the grip down to the minimum width
 → both filter rows end the same distance in from the right border as they start from the left
@@ -2244,6 +2272,17 @@ moves to your own alt (Alt mail, Alt trade); the trade with a stranger names `Mo
 reads as a plain trade, not an alt move. `/lh sim stop`. Fail: a `Simalt-` or `Stranger-` name, the
 alt's rows read as plain mail or trades, or a Lua error. Result:
 
+**SIM-16. Every start shows the step panel (FB2-LH-01; LibKa0s v1.113.0, Sim 5; preview-mode's sim
+start rule, standard v2.120.0).** Client: both. With the sim panel closed and no simulation running,
+type `/lh sim start loot` → the History window **and the step panel** open and the run plays. Close the
+panel with its close button while it runs, type `/lh sim restart` → the panel opens again. `/lh sim
+stop`, close the panel. `/lh sim` → the panel opens idle; start **vendor** from its picker → it stays
+open; close it and tick **Sim mode** under **Master controls** → it opens; right-click the minimap
+button and untick **Sim mode**, tick it again → it opens. In combat, `/lh sim start loot` → refused
+(*A simulation cannot start in combat.*) and no panel opens. On WoW Forever run `/lh sim start loot`
+alone. Fail: a start that plays with the panel closed, a refused start that opens it, or a Lua error.
+Result:
+
 ## Skins
 
 The skinning run's checks, leg 1 (Ka0sAddonsCommonTasks `docs/2026-10-25-SKINNING/`, its
@@ -2950,3 +2989,8 @@ lands, a clam's contents all read Container, and loot taken in combat is one row
 Added by the owner's 2026-11-24 feedback batch (FB-LH-01, Ka0sAddonsCommonTasks
 `docs/2026-11-24-FEEDBACK_BATCH/`), awaiting the owner: HIST-53, new, on both clients. HIST-48 is
 superseded by it.
+
+Added by round 2 of the owner's 2026-11-24 feedback batch (FB2-LH-01, Ka0sAddonsCommonTasks
+`docs/2026-11-24-FEEDBACK_BATCH/R2_SMOKE_FEEDBACK.md`; LibKa0s v1.113.0), awaiting the owner, each new
+and on both clients: TM-4 (every sample person the library's; it replaces TM-3's Holdings sentence),
+HIST-54 (the Character menu's selected rows) and SIM-16 (every start shows the step panel).
