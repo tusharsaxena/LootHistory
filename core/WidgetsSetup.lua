@@ -396,7 +396,7 @@ end
 --- and the caller builds its close alone, as before.
 ---
 --- @param bar table   the title bar the marks sit on
---- @param spec table  W.HeaderButtons' spec (close, makeClose, settings, hideOnSettings, extras, frame, ...)
+--- @param spec table  W.HeaderButtons' spec (close, makeClose, settings, companion, extras, frame, ...)
 --- @return table|nil  W.HeaderButtons' answer: { close, settings, extras, order, offsets, right, optOut }
 function NS.MakeHeaderButtons(bar, spec)
   if not (W and type(W.HeaderButtons) == "function") then return nil end

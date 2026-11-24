@@ -1022,8 +1022,8 @@ Total.
 - Export: CSV ledger columns follow wowheadLink and default for legacy rows
 - Export: InsightsCSV appends Ledger sections only when the range has losses
 - Export: InsightsCSV writes a negative copper value with a leading minus
-- Export: the modal's title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
-- Export: the modal's settings mark hides the modal and opens this addon's settings (AD-86-LH)
+- Export: the modal is a companion, its title bar reads the close alone (FB-LH-01)
+- Export: the modal's close hides it (FB-LH-01)
 
 ### test_debuglog.lua (21)
 
@@ -1494,7 +1494,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (21)
+### test_testdata.lua (23)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1510,7 +1510,9 @@ Total.
 - TestData: with no default item the default thing is the item on most days, ties to the lowest key
 - Test mode: every History sample character is a sample identity, the shared five by class
 - Test mode: every Holdings sample holder is a sample identity
-- the library-absent copies of the sample five are LibKa0s-Sim-1.0's SAMPLE, per client
+- the sample five are LibKa0s-Sim-1.0's Sample, and the addon keeps no copy of its own
+- the classes the five lack draw the library's crowd, seeded, one per class (LibKa0s#104)
+- no Sample* or Mock* name literal lives in the shipped code (LibKa0s#104)
 - the sample five are the client's identity shape: Name-Realm on Retail, First Surname on Forever
 - Test mode: the History sample's classes are the client's own, one sample character each
 - Test mode: the History sample's zones are the client's own, with their uiMapIDs
@@ -1847,7 +1849,7 @@ Total.
 - Harness: the banker interaction types and bank types carry each dump's numbers
 - Harness: the character, regional names and the account bank follow the client
 
-### test_libka0s.lua (54)
+### test_libka0s.lua (56)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1903,6 +1905,8 @@ Total.
 - v1.108.0: the vendored minors and the kit revision match the release
 - v1.109.0: the vendored minors and the kit revision match the release
 - v1.110.0: the vendored minors and the kit revision match the release
+- v1.112.0: the vendored minors and the kit revision match the release
+- v1.113.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2143,7 +2147,7 @@ Total.
 - SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
 
-### test_sim_panel.lua (26)
+### test_sim_panel.lua (30)
 
 - sim panel: the descriptor carries LootHistory's presentation fields and nothing else
 - sim panel: anchorTo is the History window while it is shown, else nil (the panel floats)
@@ -2166,6 +2170,10 @@ Total.
 - sim window: the panel's Start row and the picker's Start button open it too
 - sim window: a panel floating before the start docks beside the window the start opened
 - sim window: a refused start leaves the window closed
+- sim panel: `/lh sim start loot` shows the step panel (FB2-LH-01)
+- sim panel: `/lh sim restart` and the host's own Start show the step panel (FB2-LH-01)
+- sim panel: the Start row, the picker, the box and the launcher entry show it (FB2-LH-01)
+- sim panel: a refused start shows no step panel (FB2-LH-01)
 - sim step delay: one second by default, read from the setting; a bad value falls back
 - sim step delay: ValidStepDelay takes 0.5 to 10 in steps of 0.5
 - sim step delay: the row sits on General > Interface, and `/lh set` clamps and refuses a quarter step
@@ -2315,8 +2323,8 @@ Total.
 - skin switch: the export modal's edge changes with the Scope ignored
 - skin switch: the export modal's title changes
 - skin switch: the export modal's title changes with the Scope ignored
-- skin switch: the export modal's settings mark changes
-- skin switch: the export modal's settings mark changes with the Scope ignored
+- skin switch: the export modal's close control changes
+- skin switch: the export modal's close control changes with the Scope ignored
 - skin switch: the export modal's CSV button changes
 - skin switch: the export modal's CSV button changes with the Scope ignored
 - skin switch: the test strip changes
@@ -2443,13 +2451,14 @@ Total.
 - lizard sighted: parity names every file whose counts differ, and only those
 - lizard sighted: lizard lists every function of a hazard fixture once it is sanitized
 
-### test_widgets.lua (27)
+### test_widgets.lua (28)
 
 - Widgets: the seam builds a real library dropdown, art passed as parameters
 - Widgets: no option table in this addon sets a glyph
 - Widgets: the first click builds real menu rows through the library's own makeMenuRow
 - Widgets: a selected multi-select row is ticked and gold
 - Widgets: the Character preset row lights up through its own isActive
+- Widgets: the Character menu's selected rows stand off plain rows in every skin (FB2-LH-01)
 - Widgets: the Character preset is a one-click 'only me', not a toggle of its own value
 - Widgets: a selected character with no option row still counts in the collapsed label
 - Widgets: the filter bar builds all ten of its dropdowns through the seam
@@ -2526,7 +2535,7 @@ Total.
 | test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 21 |
+| test_testdata.lua | 23 |
 | test_views.lua | 17 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
@@ -2545,7 +2554,7 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
-| test_libka0s.lua | 54 |
+| test_libka0s.lua | 56 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2559,7 +2568,7 @@ Total.
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
-| test_sim_panel.lua | 26 |
+| test_sim_panel.lua | 30 |
 | test_sim_slash.lua | 10 |
 | test_sim_checkbox.lua | 10 |
 | test_doc_structure.lua | 8 |
@@ -2575,6 +2584,6 @@ Total.
 | test_skin_surfaces.lua | 3 |
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
-| test_widgets.lua | 27 |
+| test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2167** |
+| **Total** | **2176** |

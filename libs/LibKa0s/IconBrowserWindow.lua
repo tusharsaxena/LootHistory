@@ -66,7 +66,11 @@ local lib = LibStub and LibStub("LibKa0s-IconBrowser-1.0", true)
 if not lib then return end   -- the shell refused (no Core or Media): nothing to attach to
 
 -- Minor 1: the window, the four owner tokens and the window icon edge, lifted from Quick Comms.
-local WINDOW_MINOR = 2
+local WINDOW_MINOR = 3
+-- Minor 3 (FB-LK-03 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, standalone-windows
+-- v2.119.0): the browser is a companion of the settings row that opened it, recorded through
+-- HeaderButtons' `companion` (WidgetsHeader minor 2). The opt-out stays in the spec for a Widgets copy
+-- older than that, which reads it as before.
 -- Minor 2 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): both
 -- chrome paths hand their close to LibKa0s-Widgets-1.0's HeaderButtons, which records it and OPTS OUT
 -- of the settings mark (SETTINGS_OPT_OUT): the browser is opened from a settings row, so the panel is
@@ -258,15 +262,16 @@ local function bgArt(bg)
   return out
 end
 
--- Why the browser carries no settings mark (minor 2, standalone-windows' header-button rule).
+-- Why the browser carries no settings mark (minor 2): read only by a Widgets older than WidgetsHeader
+-- minor 2, since minor 3 records the browser as a companion.
 W.SETTINGS_OPT_OUT = "opened from a settings row; the panel is already beneath it"
 
---- Record `close` as the window's header (minor 2): HeaderButtons with the settings opt-out, placing
+--- Record `close` as the window's header (minor 2): HeaderButtons as a companion (minor 3), placing
 --- nothing. Without HeaderButtons (an older Widgets), nothing is recorded.
 local function headerOf(window, close, owner)
   local Wd = LibStub("LibKa0s-Widgets-1.0", true)
   if not (Wd and type(Wd.HeaderButtons) == "function") then return end
-  Wd.HeaderButtons(window, { owner = owner, closeButton = close or false, settings = false,
+  Wd.HeaderButtons(window, { owner = owner, closeButton = close or false, companion = true, settings = false,
     settingsOptOut = W.SETTINGS_OPT_OUT, place = false, frame = window })
 end
 

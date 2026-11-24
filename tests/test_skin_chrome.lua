@@ -437,12 +437,17 @@ local function spyAllPoints(f)
   rawset(f, "ClearAllPoints", function(self) rawset(self, "__allRect", nil) end)
 end
 
-local function assertHeader(frame, bar, title, close, key, what)
+local function assertHeader(frame, bar, title, close, key, what, companion)
   local band = assertBand(frame, key, what)
   assertTrue(rawget(bar, "__allRect") == band, what .. ": the title bar takes the band's rect")
   assertOnBand(title, band, what .. " title")
   assertOnBand(close, band, what .. " close")
   assertEqual(points(close)[1][4], -6, what .. ": the close is 6 px in from the band's right")
+  -- FB-LH-01: a companion window (the export modal) carries the close alone (standard v2.119.0).
+  if companion then
+    assertTrue(frame.settingsButton == nil, what .. ": a companion carries no settings mark")
+    return
+  end
   -- AD-86-LH: the settings mark the close's width and W.HeaderButtons' 6 px gap inward of it.
   local settings = frame.settingsButton
   assertTrue(settings ~= nil, what .. ": the title bar has its settings mark")
@@ -462,7 +467,8 @@ end
 -- either title bar joins its window's list below, or the window is not covered.
 local TITLE_CONTROLS = {
   { what = "History", controls = function(win) return { close = win.closeButton, settings = win.settingsButton } end },
-  { what = "export", controls = function(_, exp) return { close = exp.closeButton, settings = exp.settingsButton } end },
+  -- The export modal is a companion (FB-LH-01, standard v2.119.0): the close alone.
+  { what = "export", controls = function(_, exp) return { close = exp.closeButton } end },
 }
 
 -- Hover `b` and answer what the tooltip was given: { text, color } or nil, and whether leave hid it.
@@ -513,7 +519,7 @@ test("skin chrome: both windows' headers sit on the title band, and every title-
     for _, def in ipairs(Skin:Skins()) do
       Skin:SetChoice(OWNER, "ka0s", def.key)
       assertHeader(win, win.titleBar, win.title, win.closeButton, def.key, def.key .. ": History")
-      assertHeader(exp, exp.titleBar, exp.titleFS, exp.closeButton, def.key, def.key .. ": export")
+      assertHeader(exp, exp.titleBar, exp.titleFS, exp.closeButton, def.key, def.key .. ": export", true)
       assertTitleControls(win, exp, def.key)
       local badge = points(win.testBadge)
       assertEqual(#badge, 1, def.key .. ": the badge has one anchor")

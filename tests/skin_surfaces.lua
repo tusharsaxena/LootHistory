@@ -369,8 +369,9 @@ return function(NS, mocks)
     { name = "the export modal's title", build = function()
       local _, exp = windows(); return exp.titleFS
     end },
-    { name = "the export modal's settings mark", build = function()
-      local _, exp = windows(); return exp.settingsButton
+    -- The export modal is a companion (FB-LH-01): its close, and no settings mark.
+    { name = "the export modal's close control", build = function()
+      local _, exp = windows(); return exp.closeButton
     end },
     { name = "the export modal's CSV button", build = function()
       local _, exp = windows(); return csvButton(exp)

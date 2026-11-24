@@ -205,34 +205,28 @@ local function testSubType(ty, idBase)
   return list[(idBase % #list) + 1]
 end
 
--- The sample characters, one per class (preview-mode "Sample characters", LibKa0s#87): the five of
--- the collection's shared set (NS.SampleCharacters, core/SimSeam.lua) for their classes, and for the
--- classes those five lack this addon's own pool, named to the same convention (a 2-12 letter name
--- starting Sample or Mock). Each is that client's holder key: `Name-Samplerealm` on Retail, which
--- lacks eight, and "First Surname" on WoW Forever, which lacks four (forever-quirks-§4). Keyed at
--- file load; draws nothing from the PRNG, so the dataset's shape does not move with the names.
-local SAMPLE_POOLS = {
-  retail = {
-    ROGUE = "Sampleshade-Samplerealm", DEATHKNIGHT = "Mockfrost-Samplerealm",
-    SHAMAN = "Sampletotem-Samplerealm", WARLOCK = "Mockhex-Samplerealm", MONK = "Samplepalm-Samplerealm",
-    DRUID = "Mockgrove-Samplerealm", DEMONHUNTER = "Sampleglaive-Samplerealm", EVOKER = "Mockscale-Samplerealm",
-  },
-  forever = {
-    ROGUE = "Sampleshade Mockveil", SHAMAN = "Sampletotem Mockridge", WARLOCK = "Mockhex Samplefen",
-    DRUID = "Mockgrove Samplethorn",
-  },
-}
+-- The sample characters, one per class (preview-mode "Sample characters", LibKa0s#87 and #104): the
+-- five of the collection's shared set (NS.SampleCharacters, core/SimSeam.lua) for their classes, and
+-- for each class those five lack the first person of that class in the library's seeded crowd
+-- (NS.SampleCrowd at CROWD_SEED, every class the client has; LibKa0s v1.113.0). Each is that client's
+-- holder key: `Name-Realm` on Retail, which the five leave eight classes short, and "First Surname"
+-- on WoW Forever, four short (forever-quirks-§4). Keyed at file load; draws nothing from the
+-- dataset's PRNG, so the dataset's shape does not move with the names. Without the library no
+-- class has a person and every sample row falls to the player's own key (testCharKey).
+local CROWD_SEED = 1
 local SAMPLE_KEYS = {}
 for _, c in ipairs(NS.SampleCharacters()) do SAMPLE_KEYS[c.classFile] = c.fullName end
-for cls, key in pairs(SAMPLE_POOLS[CLIENT]) do SAMPLE_KEYS[cls] = SAMPLE_KEYS[cls] or key end
+for _, c in ipairs(NS.SampleCrowd(math.huge, CROWD_SEED)) do   -- the whole crowd (CROWD_MAX)
+  SAMPLE_KEYS[c.classFile] = SAMPLE_KEYS[c.classFile] or c.fullName
+end
 
 --- The sample character of class `cls`, as its holder key on this client.
-local function testCharKey(cls) return SAMPLE_KEYS[cls] end
+local function testCharKey(cls) return SAMPLE_KEYS[cls] or NS.Util.PlayerKey() end
 
 -- The sample's universe, shared with test mode's ledger half (modules/TestData.lua), so the Holdings
 -- and Timeline samples hold the same items, under the same names, as the History sample's rows.
 BrowserTable.TestSample = { itemNames = TEST_ITEM_NAMES, rng = testRng, subType = testSubType, idBase = 100000,
-  charKey = testCharKey, defaultItem = TEST_DEFAULT_ITEM }
+  charKey = testCharKey, defaultItem = TEST_DEFAULT_ITEM, crowdSeed = CROWD_SEED }
 
 -- The other end of a sample holder-move row: the Warband for a warband move, else the sample class
 -- after the row's own (wrapping), as that character's sample key and its class.

@@ -353,8 +353,11 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- (daily was 95662:1728806636): its sample has no Mythic+, Milling or Prospecting rows (R2), so
     -- the rows the daily walk folds in moved; the holdings did not. Re-pinned by K101-FU-01 (daily was
     -- 95461:1897410143): the DECONSTRUCT reason serves WoW Forever again (owner ruling F1), so its
-    -- seed walk carries one more row; the holdings did not move.
-    local pin = ({ retail = { "3180:521769667", "118617:161303863" }, forever = { "2628:515834675", "95674:1980344819" } })[CLIENT]
+    -- seed walk carries one more row; the holdings did not move. Re-pinned by FB2-LH-01 (Retail was
+    -- 3180:521769667 and 118617:161303863, WoW Forever 2628:515834675 and 95674:1980344819): the
+    -- classes the five lack are the library's crowd now (LibKa0s#104), so the holder keys moved, and
+    -- with them their sorted order and the order the daily walk reaches each series.
+    local pin = ({ retail = { "3177:219167296", "119843:1100208386" }, forever = { "2629:796976170", "95975:732178341" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)
@@ -448,28 +451,71 @@ test("Test mode: every Holdings sample holder is a sample identity", function()
   assertEqual(n, 4, "the History sample's four mains hold things")
 end)
 
-test("the library-absent copies of the sample five are LibKa0s-Sim-1.0's SAMPLE, per client", function()
-  -- The fallback NS.SampleCharacters answers without the library (core/SimSeam.lua). A copy that
-  -- drifts from the library's rows goes red here, as the skin fallback does in surface parity. Both
-  -- clients' copies are held on every run; the one answering is the running client's.
-  local SAMPLE = T.mocks.LibStub("LibKa0s-Sim-1.0").SAMPLE
-  for _, client in ipairs({ "retail", "forever" }) do
-    local live, copy = SAMPLE[client], (NS.SAMPLE_FALLBACKS or {})[client]
-    assertTrue(copy ~= nil, client .. ": a library-absent copy")
-    assertEqual(#copy, #live, client .. ": five rows")
-    for i, row in ipairs(live) do
-      for _, field in ipairs({ "name", "realm", "classFile", "fullName", "surname" }) do
-        assertEqual(copy[i][field], row[field], client .. " row " .. i .. " " .. field)
-      end
-    end
+test("the sample five are LibKa0s-Sim-1.0's Sample, and the addon keeps no copy of its own", function()
+  -- LibKa0s#104 (FB2-LH-01, decision D1): every named sample person comes from the library. The
+  -- library-absent copies (NS.SAMPLE_FALLBACKS) and the host pool are gone; without the library
+  -- NS.SampleCharacters and NS.SampleCrowd answer none.
+  local Sim = T.mocks.LibStub("LibKa0s-Sim-1.0")
+  assertEqual(NS.SAMPLE_FALLBACKS, nil, "no library-absent copy of the five")
+  assertEqual(NS.SAMPLE_FALLBACK, nil, "no running client's copy")
+  local live, rows = Sim.Sample(CLIENT), NS.SampleCharacters()
+  assertEqual(#rows, #live, "the five")
+  for i, row in ipairs(live) do
+    -- red under: Sim.Sample("retail") on both clients ("Samplehunter-Samplerealm" on WoW Forever).
+    assertEqual(rows[i].fullName, row.fullName, "row " .. i .. ": the library's rows for this client")
   end
-  assertTrue(NS.SAMPLE_FALLBACK == NS.SAMPLE_FALLBACKS[CLIENT], "the running client's copy answers")
-  local live = SAMPLE[CLIENT]
-  local rows = NS.SampleCharacters()
-  -- red under: Sim.Sample("retail") on both clients ("Samplehunter-Samplerealm" on WoW Forever).
-  assertEqual(rows[1].fullName, live[1].fullName, "with the library, the library's rows for this client")
   rows[1].fullName = "changed"
   assertEqual(NS.SampleCharacters()[1].fullName, live[1].fullName, "each call answers a fresh copy")
+end)
+
+test("the classes the five lack draw the library's crowd, seeded, one per class (LibKa0s#104)", function()
+  -- The History sample keeps one character per class (preview-mode "Sample characters"): the
+  -- five's own classes are the five, and each other class is the first person of that class in
+  -- LibKa0s-Sim-1.0's SampleCrowd at the addon's fixed seed (BrowserTable.TestSample.crowdSeed), so
+  -- the names replay on every run. red under: the host pool (`Sampleshade-Samplerealm` and the rest).
+  local Sim = T.mocks.LibStub("LibKa0s-Sim-1.0")
+  local TS = NS.BrowserTable.TestSample
+  assertEqual(type(TS.crowdSeed), "number", "the crowd's seed is the addon's own constant")
+  local want = {}
+  for _, c in ipairs(Sim.Sample(CLIENT)) do want[c.classFile] = c.fullName end
+  for _, c in ipairs(Sim.SampleCrowd(CLIENT, Sim.CROWD_MAX, TS.crowdSeed)) do
+    want[c.classFile] = want[c.classFile] or c.fullName
+  end
+  local n = 0
+  for cls, key in pairs(want) do
+    n = n + 1
+    assertEqual(TS.charKey(cls), key, cls .. ": the library's person for the class")
+    assertTrue(conventional(key), cls .. ": off the convention: " .. tostring(key))
+  end
+  assertEqual(n, CLIENT == "forever" and 9 or 13, "every class of the client has its person")
+  local crowd = NS.SampleCrowd(3, TS.crowdSeed)
+  assertEqual(#crowd, 3, "NS.SampleCrowd answers the library's crowd for this client")
+  assertEqual(crowd[1].fullName, Sim.SampleCrowd(CLIENT, 3, TS.crowdSeed)[1].fullName)
+end)
+
+test("no Sample* or Mock* name literal lives in the shipped code (LibKa0s#104)", function()
+  -- Every file the TOC loads outside libs/, and the TOC itself: a sample person's name is the
+  -- library's data, read through NS.SampleCharacters or NS.SampleCrowd, never typed here. Comments
+  -- count too, so a name a comment quotes cannot go stale when the library's crowd moves.
+  local files = { "LootHistory.toc" }
+  for line in assert(io.open("LootHistory.toc", "r")):lines() do
+    local path = line:gsub("\r$", ""):gsub("\\", "/")
+    if path ~= "" and not path:find("^#") and not path:find("^libs/") then files[#files + 1] = path end
+  end
+  assertTrue(#files > 40, "the TOC's load list was read: " .. #files)
+  local hits = {}
+  for _, path in ipairs(files) do
+    local fh = assert(io.open(path, "rb"), "cannot open " .. path)
+    local n = 0
+    for line in fh:lines() do
+      n = n + 1
+      for word in (" " .. line):gmatch("[^%a](%u%l+)") do
+        if word:find("^Sample%l") or word:find("^Mock%l") then hits[#hits + 1] = path .. ":" .. n .. " " .. word end
+      end
+    end
+    fh:close()
+  end
+  assertEqual(table.concat(hits, ", "), "", "sample names typed into shipped code")
 end)
 
 test("the sample five are the client's identity shape: Name-Realm on Retail, First Surname on Forever", function()

@@ -1336,15 +1336,15 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(modules("LibKa0s-Perf-1.0").PerfPanel, 14)
   assertEqual(skin.Skin, 18)
   assertEqual(skin.SkinDefs, 28)
-  assertEqual(skin.SkinDefsOthers, 10)
+  assertTrue(skin.SkinDefsOthers >= 10) -- 11 since v1.112.0, pinned there
   assertTrue(skin.SkinPaintControls >= 18) -- 19 since v1.108.0, pinned there
   assertTrue(widgets.Widgets >= 28)   -- v1.106.0: the HUD dock guards its measurements; 29 since v1.107.0, pinned there
   assertTrue(widgets.WidgetsDropdown >= 2) -- 3 since v1.108.0, pinned there
   assertEqual(widgets.WidgetsReorder, 7)
   assertTrue(widgets.WidgetsDragHandle >= 14) -- 15 since v1.107.0, pinned there
   assertTrue(widgets.WidgetsDragHandleTip >= 1) -- 2 since v1.107.0, pinned there
-  assertEqual(widgets.WidgetsCopyWindow, 6)
-  assertEqual(widgets.WidgetsHeader, 1)
+  assertTrue(widgets.WidgetsCopyWindow >= 6) -- 7 since v1.112.0, pinned there
+  assertTrue(widgets.WidgetsHeader >= 1) -- 2 since v1.112.0, pinned there
   assertTrue(widgets.WidgetsBar >= 1) -- 2 since v1.108.0, pinned there
   assertEqual(debugLog.DebugLog, 23)
   assertEqual(debugLog.DebugLogDiagnostics, 11)
@@ -1353,9 +1353,9 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertEqual(options.OptionsNav, 7)
   assertEqual(options.OptionsSkinPicker, 12)
   assertEqual(options.OptionsSkinPickerQueue, 1)
-  assertEqual(browser.IconBrowserWindow, 2)
+  assertTrue(browser.IconBrowserWindow >= 2) -- 3 since v1.112.0, pinned there
   assertEqual(browser.IconBrowser, 2)
-  assertEqual(sim.Sim, 4)
+  assertTrue(sim.Sim >= 4) -- 5 since v1.113.0, pinned there
   assertEqual(sim.SimPanel, 11)
   assertEqual(sim.SimPanelRender, 4)
   assertTrue(T.KIT_VERSION >= 57) -- 58 since v1.108.0, pinned there
@@ -1387,7 +1387,7 @@ test("v1.108.0: the vendored minors and the kit revision match the release", fun
   local widgets, skin = modules("LibKa0s-Widgets-1.0"), modules("LibKa0s-Skin-1.0")
   local charts, callout = modules("LibKa0s-Charts-1.0"), modules("LibKa0s-Callout-1.0")
   local arrow = modules("LibKa0s-WaypointArrow-1.0")
-  assertEqual(modules("LibKa0s-Core-1.0").Core, 19)
+  assertTrue(modules("LibKa0s-Core-1.0").Core >= 19) -- 20 since v1.112.0, pinned there
   assertTrue(callout.Callout >= 5) -- 6 since v1.109.0, pinned there
   assertEqual(callout.CalloutSettings, 6)
   assertEqual(arrow.WaypointArrow, 3)
@@ -1398,8 +1398,8 @@ test("v1.108.0: the vendored minors and the kit revision match the release", fun
   assertEqual(skin.SkinPaintHud, 2)
   assertTrue(skin.SkinPaintControls >= 19) -- 20 since v1.109.0, pinned there
   assertEqual(widgets.Widgets, 30)
-  assertEqual(widgets.WidgetsDropdown, 3)
-  assertEqual(widgets.WidgetsDragHandle, 16)
+  assertTrue(widgets.WidgetsDropdown >= 3) -- 4 since v1.113.0, pinned there
+  assertTrue(widgets.WidgetsDragHandle >= 16) -- 17 since v1.111.0, pinned in v1.112.0's case
   assertEqual(widgets.WidgetsDragHandleTip, 3)
   assertEqual(widgets.WidgetsLineChart, 8)
   assertEqual(widgets.WidgetsBar, 2)
@@ -1423,7 +1423,7 @@ test("v1.109.0: the vendored minors and the kit revision match the release", fun
   assertEqual(callout.Callout, 6)
   assertEqual(callout.CalloutRoute, 1)
   assertEqual(callout.CalloutSound, 1)
-  assertEqual(skin.SkinPaintControls, 20)
+  assertTrue(skin.SkinPaintControls >= 20) -- 21 since v1.112.0, pinned there
   assertEqual(skin.SkinPaintNav, 1)
   assertEqual(options.OptionsCompose, 21)
   assertEqual(options.OptionsComposeMaster, 1)
@@ -1438,5 +1438,41 @@ test("v1.110.0: the vendored minors and the kit revision match the release", fun
   local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
   assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Compat-1.0 missing: re-vendor v1.110.0")
   assertEqual(lib.MODULES.Compat, 6)
+  assertEqual(T.KIT_VERSION, 60)
+end)
+
+test("v1.112.0: the vendored minors and the kit revision match the release", function()
+  -- The 2026-11-24 feedback batch (Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH): Core 20
+  -- (the preview stand-in and FollowColor), SkinDefsOthers 11 (High Contrast's HUD shadow 1, -1),
+  -- SkinPaintControls 21 (a disabled primary looks disabled), WidgetsHeader 2 (companion = true),
+  -- WidgetsCopyWindow 7 and IconBrowserWindow 3 (both companions), with WidgetsDragHandle 17 from
+  -- v1.111.0. The kit stays at revision 60.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.112.0")
+    return lib.MODULES
+  end
+  local widgets, skin = modules("LibKa0s-Widgets-1.0"), modules("LibKa0s-Skin-1.0")
+  assertEqual(modules("LibKa0s-Core-1.0").Core, 20)
+  assertEqual(skin.SkinDefsOthers, 11)
+  assertEqual(skin.SkinPaintControls, 21)
+  assertEqual(widgets.WidgetsHeader, 2)
+  assertEqual(widgets.WidgetsCopyWindow, 7)
+  assertEqual(widgets.WidgetsDragHandle, 17)
+  assertEqual(modules("LibKa0s-IconBrowser-1.0").IconBrowserWindow, 3)
+  assertEqual(T.KIT_VERSION, 60)
+end)
+
+test("v1.113.0: the vendored minors and the kit revision match the release", function()
+  -- Round 2 of the 2026-11-24 feedback batch (Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH/
+  -- R2_SMOKE_FEEDBACK.md): Sim 5 (every start shows the step panel, and SampleCrowd, LibKa0s#104)
+  -- and WidgetsDropdown 4 (a selected row stands off a plain row). The kit stays at revision 60.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.113.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-Sim-1.0").Sim, 5)
+  assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDropdown, 4)
   assertEqual(T.KIT_VERSION, 60)
 end)

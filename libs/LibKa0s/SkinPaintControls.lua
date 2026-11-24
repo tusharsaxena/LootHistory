@@ -91,7 +91,10 @@ if lib.__paintShellMinor ~= lib.MINOR or not lib.__P then return end   -- no hel
 -- Minor 20 (FU-LK-PAINTCTL of Ka0sAddonsCommonTasks docs/2026-11-21-SYNC_FOLLOWUPS, layout-§1): the tabs
 -- and the navigation, drawer and list-row sections (Tab, SetTabSelection, NavItem, Drawer, ListRow)
 -- moved, unchanged, to SkinPaintNav.lua, handed `labelOf` as `lib.__controlsKit`. No behavior change.
-local CONTROLS_MINOR = 20
+-- Minor 21 (FB-LK-02 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, the owner's O2): a
+-- disabled primary Button paints the plain `btn.*` box under `text.disabled`, as a disabled normal
+-- button does, unless the host remapped its own `bg`; enabled again it is a primary.
+local CONTROLS_MINOR = 21
 if lib.__controlsMinor and lib.__controlsMinor >= CONTROLS_MINOR
   and lib.__controlsShellMinor == lib.MINOR then return end
 lib.__controlsMinor      = CONTROLS_MINOR
@@ -194,16 +197,29 @@ local function buttonLabel(btn, rec, hot)
   if fs and c then paintColor(fs, "SetTextColor", c) end
 end
 
---- A boxed primary's fill (minor 18): `btnPrimary.hoverBg` while hovered and enabled, unless a remapped
---- `bg` has no `hoverBg` of its own; else `btnPrimary.bg`. Repainted only when the state moves.
+--- A boxed primary's state and box: "off" and the plain `btn.*` box while disabled (minor 21), unless
+--- the host remapped its own `bg` (its look stands, "rest"); "hot" and `btnPrimary.hoverBg` while
+--- hovered and enabled, unless a remapped `bg` has no `hoverBg` of its own (minor 18); else "rest" and
+--- `btnPrimary.bg`.
+local function primaryLook(btn, rec, hot, T)
+  local tk = rec.regions.btnTokens
+  local ownBg = tk ~= nil and tk.bg ~= nil
+  if not enabled(btn) then
+    if ownBg then return "rest", BTN_PRIMARY end
+    return "off", BTN
+  end
+  if hot and T["btnPrimary.hoverBg"] ~= nil and not (ownBg and not tk.hoverBg) then return "hot", BTN_PRIMARY_HOT end
+  return "rest", BTN_PRIMARY
+end
+
+--- A boxed primary's fill, repainted only when its state (primaryLook) moves.
 local function primaryFill(btn, rec, hot)
   local r, T = rec.regions, buttonTokens(rec.owner, rec)
   if not r.btnBox then return end
-  local tk = r.btnTokens
-  local lit = hot and enabled(btn) and T["btnPrimary.hoverBg"] ~= nil and not (tk and tk.bg and not tk.hoverBg)
-  if r.btnLit == (lit or false) then return end
-  r.btnLit = lit or false
-  P.box(rec, btn, T, lit and BTN_PRIMARY_HOT or BTN_PRIMARY, r.btnBox)
+  local state, look = primaryLook(btn, rec, hot, T)
+  if r.btnLit == state then return end
+  r.btnLit = state
+  P.box(rec, btn, T, look, r.btnBox)
 end
 
 local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on); primaryFill(btn, rec, on) end
@@ -212,7 +228,8 @@ local function buttonHover(btn, rec, on) buttonLabel(btn, rec, on); primaryFill(
 --- `btnPrimary.*` with `opts.primary`): backdrop, gradient, non-flat edge on the holder; the stock
 --- textures faded unless kept (`keepKeys == true` or `opts.keep`); the label in `btn.text` and the
 --- body font, `btn.hover` under the pointer; `btn.icon` (a texture) in `btn.icon`, under every
---- skin, Ka0s Default included; a primary's label stays put and its fill hovers (minor 18). `opts.tokens`
+--- skin, Ka0s Default included; a primary's label stays put and its fill hovers (minor 18), and a
+--- disabled primary draws the plain `btn.*` box (minor 21). `opts.tokens`
 --- (minor 9) remaps `bg`, `border`, `text`, `hover`, `icon`, `disabled` (and a primary's `hoverBg`,
 --- minor 18) to a library or owner token by NAME (a danger button), for the
 --- first paint, every repaint and the hover and enable hooks. Draws no Media icon.
@@ -225,7 +242,7 @@ prim.Button = function(owner, btn, a)
   rec.regions.btnTokens = type(opts.tokens) == "table" and opts.tokens or nil
   local T = buttonTokens(owner, rec)
   rec.regions.btnBox = (opts.primary and not opts.keep) and opts or nil
-  rec.regions.btnLit = false
+  rec.regions.btnLit = "rest"
   if not opts.keep then
     P.fadeAll(rec, P.stockRegions(btn, opts))
     P.box(rec, btn, T, opts.primary and BTN_PRIMARY or BTN, opts)
@@ -242,7 +259,7 @@ prim.Button = function(owner, btn, a)
   P.hook(rec, btn, "OnLeave", function(self, r) buttonHover(self, r, false) end)
   P.hook(rec, btn, "OnEnable", function(self, r) buttonHover(self, r, false) end)
   P.hook(rec, btn, "OnDisable", function(self, r) buttonHover(self, r, false) end)
-  if not enabled(btn) then buttonLabel(btn, rec, false) end
+  if not enabled(btn) then buttonHover(btn, rec, false) end
 end
 
 --- S.WhiteButtonLabel(btn): the button's label in `btn.text` and the body font.

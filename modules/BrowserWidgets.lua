@@ -136,7 +136,9 @@ local function charOptions(holdersMode)
   local opts = withAll("Character: All", items, function(o) return o.value end)
   -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
   -- inserted right after the "All" sentinel so the menu reads All / Current / <each character>. Its
-  -- `isActive` lights it gold (like "All") when the selection is exactly the current player.
+  -- `isActive` lights it in the menu's selected color (W.SelectedColor: Ka0s Default's gold in every
+  -- skin, and never a plain row's color in any skin; WidgetsDropdown 4) when the selection is exactly
+  -- the current player.
   table.insert(opts, 2, {
     value = "current", label = "Character: Current",
     isActive = function(dd)

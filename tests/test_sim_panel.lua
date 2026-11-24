@@ -466,6 +466,73 @@ test("sim window: a refused start leaves the window closed", function()
   end)
 end)
 
+-- ── every start shows the step panel (FB2-LH-01; LibKa0s v1.113.0, Sim 5; decision D2) ───────
+
+-- The owner, 2026-11-24: "When i do /lh sim start loot - it plays the simulation but doesnt show
+-- the simulation window". Until Sim 5 only the bare `/lh sim` showed the panel. The library's Start
+-- now shows it on every successful start, so each of this addon's start routes is held to it here:
+-- the typed start, the typed restart, the host's own Start, the panel's Start row and picker, and
+-- the Master controls box and launcher entry (NS.ToggleSim, which from off is the bare verb). Every
+-- case closes the panel first, so a panel already up cannot pass it. Red under Sim 4 (v1.112.0):
+-- the typed start, the restart and the host's own Start left the panel closed.
+
+test("sim panel: `/lh sim start loot` shows the step panel (FB2-LH-01)", function()
+  clean(function()
+    Sim:HidePanel()
+    assertFalse(Sim:IsPanelShown(), "closed before the start")
+    slash("sim start loot")
+    assertTrue(Sim:IsActive(), "the start went ahead")
+    assertTrue(Sim:IsPanelShown(), "the typed start shows the step panel")
+  end)
+end)
+
+test("sim panel: `/lh sim restart` and the host's own Start show the step panel (FB2-LH-01)", function()
+  clean(function()
+    start("loot")
+    assertTrue(Sim:IsPanelShown(), "Sim:Start, the host's own start, shows the panel")
+    Sim:HidePanel()
+    slash("sim restart")
+    assertTrue(Sim:IsActive(), "the restart went ahead")
+    assertTrue(Sim:IsPanelShown(), "the restart shows the panel again")
+  end)
+end)
+
+test("sim panel: the Start row, the picker, the box and the launcher entry show it (FB2-LH-01)", function()
+  clean(function()
+    assertTrue(Sim:ShowPanel())   -- builds the frame, so its buttons exist to click
+    Sim:HidePanel()
+    panel().__rowButtons[1]:__fire("OnClick")
+    assertTrue(Sim:IsActive(), "the Start row starts it")
+    assertTrue(Sim:IsPanelShown(), "the Start row's start shows the panel")
+    Sim:Stop("stop")
+    Sim:HidePanel()
+    local pk = panel().picker
+    pk.scenario.onSelect("vendor")
+    pk.start:__fire("OnClick")
+    assertTrue(Sim:IsActive(), "the picker starts it")
+    assertTrue(Sim:IsPanelShown(), "the picker's start shows the panel")
+    Sim:Stop("stop")
+    Sim:HidePanel()
+    NS.Schema:Set("state.sim", true)   -- the Master controls Sim mode box
+    assertTrue(Sim:IsPanelShown(), "ticking the box shows the panel, as `/lh sim` does")
+    NS.Schema:Set("state.sim", false)
+    assertFalse(Sim:IsPanelShown(), "unticking closes it")
+    NS.ToggleSim()                     -- the launcher's Sim mode entry
+    assertTrue(Sim:IsPanelShown(), "the launcher's entry shows the panel")
+  end)
+end)
+
+test("sim panel: a refused start shows no step panel (FB2-LH-01)", function()
+  clean(function()
+    Sim:HidePanel()
+    M.__inCombat = true
+    local ok = Sim:Start({ scenario = "loot", seed = 7 })
+    M.__inCombat = false
+    assertFalse(ok, "refused in combat")
+    assertFalse(Sim:IsPanelShown(), "a refused start shows nothing")
+  end)
+end)
+
 -- ── the step delay (`settings.sim.stepDelay`, the owner's simulator feedback, 2026-10-23) ──────
 
 local DELAY = "settings.sim.stepDelay"

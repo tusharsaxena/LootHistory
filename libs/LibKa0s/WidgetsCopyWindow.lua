@@ -19,7 +19,11 @@
 local lib = LibStub and LibStub("LibKa0s-Widgets-1.0", true)
 if not lib then return end
 
-local COPY_MINOR = 6
+local COPY_MINOR = 7
+-- Minor 7 (FB-LK-03 of Ka0sAddonsCommonTasks docs/2026-11-24-FEEDBACK_BATCH, standalone-windows
+-- v2.119.0): the copy window is a COMPANION of the export modal or console that opened it, so its
+-- title bar carries the close alone (HeaderButtons' `companion`, WidgetsHeader minor 2). The
+-- descriptor's `onSettings` is accepted and read by nothing; `f.settingsButton` is nil.
 -- Minor 6 (LK-86 of Ka0sAddonsCommonTasks docs/2026-11-16-LIBKA0S_ISSUES_75_PLUS, LibKa0s#86): the
 -- title bar's marks are HeaderButtons' (WidgetsHeader.lua): settings beside the close, its click
 -- hiding this window FIRST (it is FULLSCREEN, so the settings panel would open under it), then the
@@ -120,7 +124,8 @@ local function copyDescriptor(d)
     -- minor 12 converged its copy window onto this member, a hardcoded Core x here would have
     -- quietly narrowed a contract a host had already been told it could rely on.
     makeCloseButton = d.makeCloseButton,
-    -- Optional, minor 6: what the settings mark opens, in place of the addon's registered opener.
+    -- Minor 6 named what the settings mark opened; minor 7 draws no settings mark (a companion), so
+    -- it is accepted unread.
     onSettings = d.onSettings,
   }
   out.editWidth = d.editWidth or (out.width - 50)
@@ -224,10 +229,9 @@ local function buildCopyFrame(d)
   -- easier to keep than two.
   local coreLib = LibStub and LibStub("LibKa0s-Core-1.0", true)
   local makeClose = d.makeCloseButton or (coreLib and coreLib.MakeCloseButton)
-  if type(lib.HeaderButtons) == "function" then   -- minor 6: settings, then close, in the corner
+  if type(lib.HeaderButtons) == "function" then   -- minor 7: a companion, the close alone in the corner
     local hb = lib.HeaderButtons(bar, { owner = d.addonName, makeClose = makeClose, frame = f,
-      close = function() f:Hide() end, hideOnSettings = f,
-      settings = type(d.onSettings) == "function" and d.onSettings or true })
+      close = function() f:Hide() end, companion = true })
     f.closeButton, f.settingsButton = hb.close, hb.settings
   elseif makeClose then
     local close = makeClose(bar, function() f:Hide() end, d.addonName)

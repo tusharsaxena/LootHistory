@@ -488,10 +488,11 @@ local function EnsureFrame()
   -- (which anchored the title to the bar rather than the band) is not passed.
   NS.Skin.TitleBar(tbar, { text = t })
   frame.titleBar = tbar
-  -- The title-bar marks, settings · close (AD-86-LH), through the History window's helper. The
-  -- modal is DIALOG strata, above the settings panel, so the settings mark hides it first.
+  -- The title-bar marks through the History window's helper (AD-86-LH). The modal is a companion
+  -- of the History browser (it opens only from the browser's Export button, or the ledger reset
+  -- slash through the browser, and keeps no position), so it carries the close alone (FB-LH-01).
   local marks = NS.Browser and NS.Browser.MakeTitleMarks
-    and NS.Browser:MakeTitleMarks(tbar, frame, function() frame:Hide() end, frame) or {}
+    and NS.Browser:MakeTitleMarks(tbar, frame, function() frame:Hide() end, true) or {}
   -- The header on the window's title band (R5-WIN, as the History window's, modules/Browser.lua):
   -- the bar takes the band's rect, the title is anchored by title.align and the marks at
   -- W.HeaderButtons' offsets (the close 6 px in from the right), all at the band's vertical middle
