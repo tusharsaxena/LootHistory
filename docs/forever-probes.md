@@ -88,7 +88,8 @@ Safe default: the keyring (-1) is in the bags group on Forever only (ruling R5,
 LibKa0s-Compat's `CONTAINER_PATTERNS_BY_CLIENT`), and there is no keyring-to-bank pairing. If a key can go into the
 bank, keyring-to-bank moves are real transfers and need one. An `inventorySlot` that is not nil means
 the equipped-bag scan (`Scanner.ScanEquipped`) reads that slot too; check it adds nothing. On
-Retail, a -1 that answers slots is a finding. Result:
+Retail, a -1 that answers slots is a finding. Result: WoW Forever: the game lets a key go into the
+bank (owner, 2026-11-24).
 
 **P4. The self loot line, its sender, and the loot source.** Forever, solo and in a dungeon.
 Recorded: `chat` and `loot`. Read whether the loot strings match the Retail shapes, whether a
@@ -159,6 +160,7 @@ These ride along with the probes above. The `start` entry records the first thre
 - **The self-chat sender form** (P4's `chat.sender`): the first name or "First Surname". Result:
 - **A hyphen in a surname.** Check whether a Forever surname can carry a hyphen (character
   creation). If it can, the realm cut in `shortChar` and `HolderShort` would cut it and needs a
-  `RegionalNames()` guard. Result:
+  `RegionalNames()` guard. Result: WoW Forever: no, the game does not allow a hyphen in a
+  surname (owner, 2026-11-24).
 - **Waylaid Crate.** Check that 248683 (Waylaid Crate: Apprentice Ore) can be opened on Forever;
-  it is the simulator's uncached cache. Result:
+  it is the simulator's uncached cache. Result: PASS (owner, 2026-11-24): it opens.
