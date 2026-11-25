@@ -42,7 +42,8 @@ local LIB_FILES = {
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
   -- New in v1.114.0: LibKa0s-ForeverDB-1.0 (ForeverDB 1), the ForeverDB reader (LibKa0s#105). The
-  -- History browser's item tooltip adopts it in SF-LH-02.
+  -- addon reads nothing from it since IS-LH-01 removed Item sources; the client loads every file
+  -- of the XML, so the suite must too.
   "libs/LibKa0s/ForeverDB.lua",
   -- New in v1.75.0: LibKa0s-Glow-1.0, the stateless LibCustomGlow driver. This addon draws no
   -- glow and wires nothing from it; the client loads every file of the XML, so the suite must too.
