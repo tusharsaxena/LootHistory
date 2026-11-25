@@ -816,23 +816,23 @@ WoW Forever's list did not change (Disenchant 13262 alone). Run each with `/lh d
 C_Spell.GetSpellName(311413)` → "Mass Mill Deathblossom" (or the client's own words for it). Mass-mill
 any herb stack (any expansion's **Mass Mill** recipe) → every pigment row reads **Milling**. Before
 the run the seed was 434926, which this build names Lingering Influence, so its stem was "Lingering"
-and no mass mill matched. Fail: a mass-mill row reading Container or Other. Result:
+and no mass mill matched. Fail: a mass-mill row reading Container or Other. Result: PASS (owner, 2026-11-25)
 
 **CAP-36. The per-expansion Milling ids attribute by id.** Client: Retail. Mill herbs through one of
 the ids the run added: Khaz Algar Milling (444181), or any of Shadowlands, Kul Tiras and Zandalar,
 Legion, Draenor, Pandaria, Cataclysm, Northrend, Outland or Classic Milling (382982 to 382994) → the
-pigment rows read **Milling**, and the debug line names the id. Fail: Container or Other. Result:
+pigment rows read **Milling**, and the debug line names the id. Fail: Container or Other. Result: PASS (owner, 2026-11-25)
 
 **CAP-37. The per-expansion Prospecting ids attribute by id.** Client: Retail. Prospect ore through
 Shadowlands Prospecting (325248), Cataclysm Prospecting (382978) or Classic Prospecting (382995) → the
-gem and dust rows read **Prospecting**. Fail: Container or Other. Result:
+gem and dust rows read **Prospecting**. Fail: Container or Other. Result: PASS (owner, 2026-11-25)
 
 **CAP-38. Nothing that worked before stopped (the four removed ids).** Client: Retail. The run
 removed 434913 (DB2: Cheat to Hunger Phase), 434926 (Lingering Influence), and 382971 and 382972 (no
 spell of either id), none of them a deconstruct. Disenchant an item, mill with Dragon Isles Milling or
 Midnight Milling, and prospect with Algari or Midnight Prospecting → **Disenchant**, **Milling** and
 **Prospecting** as before, and the deconstructed item's loss reads **Deconstructed**. Fail: any of
-them unattributed. Result:
+them unattributed. Result: PASS (owner, 2026-11-25)
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -2862,7 +2862,7 @@ auction house. Fail: mail-from-a-player or nothing, meaning a localized `AUCTION
 → every row carries its deconstruct source. Plain casts resolve by spell id; the mass variants build
 a stem from the localized name minus its last word, which a German or French name may break. Fail:
 a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
-Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: pending (the 2026-10-10 owner pass was for the procedure that dumped 434926, not this one)
+Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: PASS (owner, 2026-11-25)
 
 **LOC-5. Nothing else moved.** Walk INSTALL-1 to INSTALL-4, SLASH-1 to SLASH-3, STATE-1 to STATE-4,
 LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST-15 and INSTALL-8 on
@@ -2877,13 +2877,13 @@ CurseForge (`forever-db`) into the Forever client's AddOns folder. You need a fe
 History that drop from creatures, and one that a vendor sells. A check fails on any Lua error.
 
 **SEEDS-LH-1. With ForeverDB on WoW Forever.** Client: WoW Forever. With ForeverDB enabled in the AddOns list, log in, then before opening anything run `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` → `false` (nothing loads it at login). `/lh diagnostics` → the report's `ForeverDB:` line reads `present=yes loaded=no` with its version, and the report did not load it. Open History and hover a creature drop → under the item's own tooltip, **Drops from** heads up to three creature names, most likely first, each with its chance (`?` where the rate is unknown), then `and N more` when there are more; for a vendor item, **Sold by** *vendor* with a price in coin glyphs. The first such hover may hitch once; `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` now answers `true`, and later hovers do not hitch. An item ForeverDB has no source for shows its tooltip as before. Settings › General › Interface › History window → **Item sources (ForeverDB)** is ticked, and its tooltip says it needs the ForeverDB addon. Untick it, hover the same row → the tooltip is as it was before this feature; tick it again → the lines come back. Fail: ForeverDB loaded at login or by the diagnostics report, a source line with no name, a chance over 100%, or the lines shown with the box unticked.
-Result:
+Result: PASS (owner, 2026-11-25)
 
 **SEEDS-LH-2. Without ForeverDB.** Client: WoW Forever. Disable ForeverDB in the AddOns list (or remove it) and log in. Hover the same History rows → each tooltip is the item's own with the click hint, exactly as before, with no Drops from or Sold by and no error. **Item sources (ForeverDB)** is still drawn and enabled, and its tooltip says the feature needs ForeverDB. `/lh diagnostics` → the `ForeverDB:` line reads `present=no` (removed) or `present=yes loaded=no` (disabled). Fail: an error, an empty heading, or any line ForeverDB would have supplied.
-Result:
+Result: PASS (owner, 2026-11-25)
 
 **SEEDS-LH-3. On Retail.** Client: Retail. Hover History rows → each tooltip is exactly as before, with no Drops from or Sold by. Settings › General › Interface › History window → there is no **Item sources (ForeverDB)** row at all (the feature is WoW Forever's alone, clients-§4), and `/lh set settings.itemSources false` is refused with `Setting not found`. `/dump LibStub("LibKa0s-ForeverDB-1.0").Available()` → `false, "client"`. Fail: any ForeverDB line on Retail, the row present in any form (enabled, grayed out or disabled), or an error.
-Result:
+Result: PASS (owner, 2026-11-25)
 
 ## WoW Forever
 
@@ -3061,3 +3061,7 @@ amended and awaits the owner beside CAP-35: it now dumps the new mass-mill seed 
 Added by the same run's ForeverDB adoption (SF-LH-02, LibKa0s#105), awaiting the owner, each new:
 SEEDS-LH-1 and SEEDS-LH-2 (WoW Forever, with and without ForeverDB) and SEEDS-LH-3 (Retail, where
 the setting's row is absent).
+
+On 2026-11-25 the owner reported that every check of the seeds and ForeverDB run (Ka0sAddonsCommonTasks
+`docs/2026-11-25-SEEDS_AND_FOREVERDB/`, SF-LH-01 and SF-LH-02) passed. Passed, recorded on each
+`Result:` line as `PASS (owner, 2026-11-25)`: CAP-35 to CAP-38, LOC-4 and SEEDS-LH-1 to SEEDS-LH-3.
