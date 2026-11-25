@@ -186,9 +186,9 @@ test("Attribution: the deconstruct seed lists are the client's (Forever: Disench
     assertEqual(table.concat(names, ","), "13262=DISENCHANT")
     assertEqual(table.concat(sources, ","), "DISENCHANT")
   else
-    assertEqual(#ids, 20)
+    assertEqual(#ids, 30)
     assertEqual(table.concat(names, ","),
-      "13262=DISENCHANT,51005=MILLING,434926=MILLING,31252=PROSPECTING,225904=PROSPECTING")
+      "13262=DISENCHANT,51005=MILLING,311413=MILLING,31252=PROSPECTING,225904=PROSPECTING")
     assertEqual(table.concat(sources, ","), "DISENCHANT,MILLING,PROSPECTING")
   end
   -- Disenchant attributes by id on both; a Retail Milling id is no deconstruct on WoW Forever.
@@ -203,7 +203,7 @@ test("Attribution: on every client a non-deconstruct cast is conclusive once the
   local orig = NS.Compat.GetSpellName
   NS.Compat.GetSpellName = function(id)
     local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
-                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+                [311413] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
     return n[id]
   end
   local ok, err = pcall(function()
@@ -224,7 +224,7 @@ test("Attribution: DeconstructSource resolves enumerated ids locale-independentl
   assertEqual(A:DeconstructSource(289991, "Disenchanting"), "DISENCHANT")
   assertEqual(A:DeconstructSource(51005, "Milling"), "MILLING")
   assertEqual(A:DeconstructSource(382981, "Dragon Isles Milling"), "MILLING")
-  assertEqual(A:DeconstructSource(434926, "Mass Mill Mycobloom"), "MILLING")
+  assertEqual(A:DeconstructSource(311413, "Mass Mill Mycobloom"), "MILLING")
   assertEqual(A:DeconstructSource(31252, "Prospecting"), "PROSPECTING")
   assertEqual(A:DeconstructSource(434018, "Algari Prospecting"), "PROSPECTING")
   assertEqual(A:DeconstructSource(225904, "Mass Prospect Felslate"), "PROSPECTING")
@@ -233,6 +233,22 @@ test("Attribution: DeconstructSource resolves enumerated ids locale-independentl
   assertEqual(A:DeconstructSource(1269575, nil), "MILLING")   -- id fallback, name unavailable
   assertEqual(A:DeconstructSource(374627, nil), "PROSPECTING")
   assertEqual(A:DeconstructSource(99999, nil), nil)
+end, T.RETAIL_ONLY)
+
+-- SF-LH-01: the 2026-11-25 Retail seed run (docs/seed-research/2026-11-25-retail/). The per-expansion
+-- ids the list lacked attribute by id with no name to hand, and the four ids DB2 says were never a
+-- deconstruct (434913 and 434926 name other spells, 382971 and 382972 name none) no longer do.
+test("Attribution: the 2026-11-25 seed run's added ids attribute by id and its removed ids do not", function()
+  local A = NS.Attribution
+  for _, id in ipairs({ 382982, 382984, 382986, 382987, 382988, 382989, 382990, 382991, 382994, 444181 }) do
+    assertEqual(A:DeconstructSource(id, nil), "MILLING", "per-expansion Milling " .. id)
+  end
+  for _, id in ipairs({ 325248, 382978, 382995 }) do
+    assertEqual(A:DeconstructSource(id, nil), "PROSPECTING", "per-expansion Prospecting " .. id)
+  end
+  for _, id in ipairs({ 434913, 434926, 382971, 382972 }) do
+    assertEqual(A:DeconstructSource(id, nil), nil, "removed id " .. id)
+  end
 end, T.RETAIL_ONLY)
 
 -- Un-enumerated per-herb/expansion variants are matched by their *localized* name family, resolved
@@ -246,7 +262,7 @@ test("Attribution: DeconstructSource matches un-enumerated variants by localized
   -- enUS client: seed names give the "Milling"/"Prospecting" word and the "Mass Mill/Prospect" stem.
   NS.Compat.GetSpellName = function(id)
     local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
-                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+                [311413] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
     return n[id]
   end
   assertEqual(A:DeconstructSource(990001, "Mass Mill Arthran"), "MILLING")        -- unknown id, "Mass Mill" stem
@@ -257,7 +273,7 @@ test("Attribution: DeconstructSource matches un-enumerated variants by localized
   -- deDE client: the same code follows the localized seed names — no enUS literal is ever compared.
   NS.Compat.GetSpellName = function(id)
     local n = { [13262] = "Entzaubern", [51005] = "Mahlen", [31252] = "Prospektieren",
-                [434926] = "Mahlen von Mycobloom", [225904] = "Prospektieren von Felslit" }
+                [311413] = "Mahlen von Mycobloom", [225904] = "Prospektieren von Felslit" }
     return n[id]
   end
   assertEqual(A:DeconstructSource(990010, "Entzaubern"), "DISENCHANT")
@@ -279,7 +295,7 @@ test("Attribution: a no-break space in a localized spell name does not break the
   -- "prospection\194\160" and no cast written with an ordinary space can contain it.
   NS.Compat.GetSpellName = function(id)
     local n = { [13262] = "Désenchanter", [51005] = "Broyage", [31252] = "Prospection\194\160",
-                [434926] = "Broyage de masse Mycoflore",
+                [311413] = "Broyage de masse Mycoflore",
                 [225904] = "Prospection de masse Ardoise" }
     return n[id]
   end
@@ -306,7 +322,7 @@ test("Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell ski
   local orig = NS.Compat.GetSpellName
   local calls = {}
   local names = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
-                  [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate",
+                  [311413] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate",
                   [990300] = "Fireball" }   -- a non-deconstruct cast; seeds resolve, so its miss caches
   NS.Compat.GetSpellName = function(id) calls[id] = (calls[id] or 0) + 1; return names[id] end
 
@@ -334,7 +350,7 @@ test("Attribution: a memoized deconstruct source survives a later name change", 
   NS.Compat.GetSpellName = function(id)
     if id == 990400 then return castName end
     local n = { [13262] = "Disenchant", [51005] = "Milling", [31252] = "Prospecting",
-                [434926] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
+                [311413] = "Mass Mill Mycobloom", [225904] = "Mass Prospect Felslate" }
     return n[id]
   end
 

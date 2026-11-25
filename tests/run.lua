@@ -26,6 +26,12 @@ Loader.loadAll(Loader.xmlFiles("libs/LibKa0s/LibKa0s.xml"), NS, mocks)
 -- derivation itself: tests/test_harness.lua compares what the loader was ACTUALLY handed against a
 -- fresh derivation, checks every path exists, and checks no `libs/` path leaked in.
 local ADDON_FILES = Loader.tocFiles("LootHistory.toc")
+-- ForeverDB INSTALLED AND NOT YET LOADED for the addon's file load and the lifecycle kick below (the
+-- kit's fake, invented rows; SF-LH-02). Nothing in that path may ask the adapter, which would load it:
+-- the count is published as BOOT_FOREVERDB for tests/test_itemsources.lua, and the fake comes off and
+-- the adapter's session answer is forgotten straight after the kick, so no suite inherits either.
+local FDBK = dofile("tests/_kit/mock_foreverdb.lua")
+local bootFdb = FDBK.install(mocks, { preset = "present" })
 Loader.loadAll(ADDON_FILES, NS, mocks)
 
 -- The lifecycle kick the client's OnInitialize does. Register() only builds the canvas frames and
@@ -60,6 +66,11 @@ kick("NS.Launcher:Register", function() if NS.Launcher then NS.Launcher:Register
 -- tests/test_disabled.lua wants the whole addon registered underneath it.
 kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
 
+local fdbLib = mocks.LibStub("LibKa0s-ForeverDB-1.0")
+local BOOT_FOREVERDB = { loads = bootFdb.loads, loaded = fdbLib.IsLoaded() }
+bootFdb.restore()
+fdbLib.__reset()
+
 -- The client keeps a settings canvas hidden until the player opens its category; the mock builds every
 -- frame shown. Hidden here, as in the client, so a profile write in an early suite marks the pages
 -- dirty instead of rendering them before tests/test_panel.lua opens them (panel_support.lua's show
@@ -77,7 +88,7 @@ local SUITES = {
   "test_ledgerformat",
   "test_compat", "test_compat_routing", "test_compat_client", "test_tooltip_place", "test_scanner", "test_holdings", "test_rollup", "test_attribution", "test_attribution_out",
   "test_filters", "test_auctionprice", "test_collector", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
-  "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_export", "test_debuglog",
+  "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_itemsources", "test_export", "test_debuglog",
   -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
   -- Builds its own layer-recording instance, so its slot is free.
   "test_layers",
@@ -263,6 +274,8 @@ Kit.setSurfaceSource{
   -- resolved major unchanged as NS.Item / NS.Pool, so each stub mirrors the library table itself.
   ["LibKa0s-Item-1.0"]     = mocks.LibStub("LibKa0s-Item-1.0", true),
   ["LibKa0s-Pool-1.0"]     = mocks.LibStub("LibKa0s-Pool-1.0", true),
+  -- ForeverDB too: core/ForeverDBSetup.lua publishes the resolved major unchanged as NS.ForeverDB.
+  ["LibKa0s-ForeverDB-1.0"] = mocks.LibStub("LibKa0s-ForeverDB-1.0", true),
 }
 
 -- The kit's diagnostics contract (tests/_kit/test_diagnostics_contract.lua) runs against THIS
@@ -324,6 +337,10 @@ end
 -- Retail, which runs it (DropWatcher's tests/run.lua precedent).
 local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1/R2): absent on WoW Forever, "
   .. "which its per-client case asserts" or nil
+-- `FOREVER_ONLY` is its mirror for the one WoW Forever-only feature, the History item tooltip's lines
+-- from ForeverDB (C.FEATURE.itemSources, SF-LH-02): the skip reason on Retail, nil on WoW Forever.
+local FOREVER_ONLY = (not FOREVER) and "WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent "
+  .. "on Retail, which its per-client case asserts" or nil
 -- `rollWonLine(link, id)` is the client's own roll-won chat line (LOOT_ROLL_YOU_WON) for `link`.
 -- Retail's global is "You won: %s"; WoW Forever's leads with a loot-history id,
 -- "|HlootHistory:%d|h[Loot]|h: You won: %s" (forever-quirks), so a plain string.format(global, link)
@@ -380,7 +397,11 @@ _G.LH_TEST = Kit.expose{
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
   forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
-  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords, rollWonLine = rollWonLine,
+  RETAIL_ONLY = RETAIL_ONLY, FOREVER_ONLY = FOREVER_ONLY, bootForeverDB = BOOT_FOREVERDB, retailWords = retailWords, rollWonLine = rollWonLine,
 }
 
-Kit.run{ dir = "tests/", suites = SUITES }
+-- The leak gate's budget is 288 MB here, not the kit's 256: a raised budget, recorded with its measured
+-- figures and its re-check trigger as the `testing-§15` row of docs/ARCHITECTURE.md's Documented
+-- deviations (2026-11-25). A WoW Forever run ends about 256 MB above its start, nearly all of it frames
+-- the skin, Insights and panel suites build and the mock never frees.
+Kit.run{ dir = "tests/", suites = SUITES, leakBudgetMB = 288 }

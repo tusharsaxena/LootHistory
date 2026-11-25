@@ -41,18 +41,25 @@ local MYTHIC_PLUS = Constants.FEATURE.mythicPlus
 -- table, and never filtered out of Retail's, whose ids may be other spells there. A seed that does
 -- not resolve keeps every negative unmemoized (DeconstructSource's `allSeedsResolved`), so every
 -- player cast would re-resolve the list: Retail's other seeds are not carried over.
+--
+-- Every id is re-validated against the client's own DB2 (SpellName, SkillLineAbility) by
+-- tools/seeds/seeds.py under docs/validate-seeds.md; the rulings are tools/seeds/<flavor>_rulings.json.
 local CLIENT = NS.Compat.ClientKey() == "forever" and "forever" or "retail"
 local DECONSTRUCT_IDS = { retail = {
   [13262] = "DISENCHANT", [289991] = "DISENCHANT",
   -- Milling: generic + per-expansion + a representative per-herb "Mass Mill" (seed for the name family)
-  [51005] = "MILLING", [382981] = "MILLING", [434913] = "MILLING", [1269575] = "MILLING",
-  [434926] = "MILLING",
+  [51005] = "MILLING", [382981] = "MILLING", [1269575] = "MILLING",
+  [311413] = "MILLING", [382982] = "MILLING", [382984] = "MILLING",
+  [382986] = "MILLING", [382987] = "MILLING", [382988] = "MILLING",
+  [382989] = "MILLING", [382990] = "MILLING", [382991] = "MILLING",
+  [382994] = "MILLING", [444181] = "MILLING",
   -- Prospecting: base + per-expansion + a representative per-ore "Mass Prospect" (name-family seed)
   [31252] = "PROSPECTING", [434018] = "PROSPECTING", [1231127] = "PROSPECTING",
   [374627] = "PROSPECTING", [302710] = "PROSPECTING", [382980] = "PROSPECTING",
-  [382979] = "PROSPECTING", [382971] = "PROSPECTING", [382977] = "PROSPECTING",
-  [382973] = "PROSPECTING", [382975] = "PROSPECTING", [382972] = "PROSPECTING",
+  [382979] = "PROSPECTING", [382977] = "PROSPECTING",
+  [382973] = "PROSPECTING", [382975] = "PROSPECTING",
   [225904] = "PROSPECTING",
+  [325248] = "PROSPECTING", [382978] = "PROSPECTING", [382995] = "PROSPECTING",
 }, forever = { [13262] = "DISENCHANT" } }
 local DECONSTRUCT_ID = DECONSTRUCT_IDS[CLIENT]
 -- The deconstruct source names this client serves, for the OnLootOpened guard (C.SOURCE_ABSENT
@@ -72,7 +79,7 @@ local NAME_SEEDS_BY_CLIENT = {
   retail = {
     { source = "DISENCHANT",  id = 13262 },                    -- "Disenchant" (prefix of "Disenchanting")
     { source = "MILLING",     id = 51005 },                    -- "Milling"
-    { source = "MILLING",     id = 434926, dropLast = true },  -- "Mass Mill <Herb>"
+    { source = "MILLING",     id = 311413, dropLast = true },  -- "Mass Mill <Herb>" (Deathblossom)
     { source = "PROSPECTING", id = 31252 },                    -- "Prospecting"
     { source = "PROSPECTING", id = 225904, dropLast = true },  -- "Mass Prospect <Ore>"
   },

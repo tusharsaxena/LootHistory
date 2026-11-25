@@ -35,7 +35,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TM-1 to 4 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters, every one of them the library's |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
-| CAP-1 to 34 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads |
+| CAP-1 to 38 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads, the 2026-11-25 deconstruct seed changes (Retail) |
 | HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows gold in every skin |
 | FB-1 | [History window](#history-window) | both | The filter bar fills the window and scales with it |
 | AC-1 | [History window](#history-window) | both | The Search autocomplete on History, Insights, Timeline and Holdings |
@@ -52,6 +52,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
+| SEEDS-LH-1 to 3 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | The History table's item tooltip with ForeverDB on WoW Forever (Drops from, Sold by, the first hover loading it, the setting off), without it, and on Retail |
 | FOREVER-1 to 16 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16) |
 
 ## Before you start
@@ -805,6 +806,33 @@ the same rows, with the same sources and reasons, as before the dispatch refacto
 and `/lh enable` → capture resumes (loot a mob: a row appears). Untick **Track holdings and losses** (General → Capture) →
 only loot rows appear (no ledger rows for a vendor sale or a bank deposit); tick it again. Every
 capture event and read-side hook now comes from `core/Dispatch.lua`'s row tables. Result: pass (owner-marked 2026-10-23)
+
+The four checks below cover the shipped-data changes of the 2026-11-25 Retail seed run
+(`docs/seed-research/2026-11-25-retail/`, SF-LH-01), one check per change. Each is **Client: Retail.**
+WoW Forever's list did not change (Disenchant 13262 alone). Run each with `/lh debug on`, so the
+`[Attr]` line names the spell id the cast fired.
+
+**CAP-35. Mass Mill attributes again (the name seed is 311413).** Client: Retail. `/dump
+C_Spell.GetSpellName(311413)` → "Mass Mill Deathblossom" (or the client's own words for it). Mass-mill
+any herb stack (any expansion's **Mass Mill** recipe) → every pigment row reads **Milling**. Before
+the run the seed was 434926, which this build names Lingering Influence, so its stem was "Lingering"
+and no mass mill matched. Fail: a mass-mill row reading Container or Other. Result:
+
+**CAP-36. The per-expansion Milling ids attribute by id.** Client: Retail. Mill herbs through one of
+the ids the run added: Khaz Algar Milling (444181), or any of Shadowlands, Kul Tiras and Zandalar,
+Legion, Draenor, Pandaria, Cataclysm, Northrend, Outland or Classic Milling (382982 to 382994) → the
+pigment rows read **Milling**, and the debug line names the id. Fail: Container or Other. Result:
+
+**CAP-37. The per-expansion Prospecting ids attribute by id.** Client: Retail. Prospect ore through
+Shadowlands Prospecting (325248), Cataclysm Prospecting (382978) or Classic Prospecting (382995) → the
+gem and dust rows read **Prospecting**. Fail: Container or Other. Result:
+
+**CAP-38. Nothing that worked before stopped (the four removed ids).** Client: Retail. The run
+removed 434913 (DB2: Cheat to Hunger Phase), 434926 (Lingering Influence), and 382971 and 382972 (no
+spell of either id), none of them a deconstruct. Disenchant an item, mill with Dragon Isles Milling or
+Midnight Milling, and prospect with Algari or Midnight Prospecting → **Disenchant**, **Milling** and
+**Prospecting** as before, and the deconstructed item's loss reads **Deconstructed**. Fail: any of
+them unattributed. Result:
 
 **CUR-1. A hidden tracking currency never writes its own row (P7).** Loot a currency the client also
 tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3513 beside listed
@@ -2834,12 +2862,28 @@ auction house. Fail: mail-from-a-player or nothing, meaning a localized `AUCTION
 → every row carries its deconstruct source. Plain casts resolve by spell id; the mass variants build
 a stem from the localized name minus its last word, which a German or French name may break. Fail:
 a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
-Record `/dump C_Spell.GetSpellName(434926)` and `/dump C_Spell.GetSpellName(225904)`. Result: pass (owner-marked 2026-10-10)
+Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: pending (the 2026-10-10 owner pass was for the procedure that dumped 434926, not this one)
 
 **LOC-5. Nothing else moved.** Walk INSTALL-1 to INSTALL-4, SLASH-1 to SLASH-3, STATE-1 to STATE-4,
 LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST-15 and INSTALL-8 on
 this client → behavior matches English (CAP-18 and CAP-19 read the localized Currency-tab headers).
 Fail: any Lua error, which here means a localized string reached code that assumed English. Result: pass (owner-marked 2026-10-10)
+
+## Item sources (ForeverDB)
+
+The History table's item tooltip reads the optional ForeverDB addon on WoW Forever (SF-LH-02,
+Ka0sAddonsCommonTasks `docs/2026-11-25-SEEDS_AND_FOREVERDB/`, LibKa0s#105). Install ForeverDB from
+CurseForge (`forever-db`) into the Forever client's AddOns folder. You need a few looted items in
+History that drop from creatures, and one that a vendor sells. A check fails on any Lua error.
+
+**SEEDS-LH-1. With ForeverDB on WoW Forever.** Client: WoW Forever. With ForeverDB enabled in the AddOns list, log in, then before opening anything run `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` → `false` (nothing loads it at login). `/lh diagnostics` → the report's `ForeverDB:` line reads `present=yes loaded=no` with its version, and the report did not load it. Open History and hover a creature drop → under the item's own tooltip, **Drops from** heads up to three creature names, most likely first, each with its chance (`?` where the rate is unknown), then `and N more` when there are more; for a vendor item, **Sold by** *vendor* with a price in coin glyphs. The first such hover may hitch once; `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` now answers `true`, and later hovers do not hitch. An item ForeverDB has no source for shows its tooltip as before. Settings › General › Interface › History window → **Item sources (ForeverDB)** is ticked, and its tooltip says it needs the ForeverDB addon. Untick it, hover the same row → the tooltip is as it was before this feature; tick it again → the lines come back. Fail: ForeverDB loaded at login or by the diagnostics report, a source line with no name, a chance over 100%, or the lines shown with the box unticked.
+Result:
+
+**SEEDS-LH-2. Without ForeverDB.** Client: WoW Forever. Disable ForeverDB in the AddOns list (or remove it) and log in. Hover the same History rows → each tooltip is the item's own with the click hint, exactly as before, with no Drops from or Sold by and no error. **Item sources (ForeverDB)** is still drawn and enabled, and its tooltip says the feature needs ForeverDB. `/lh diagnostics` → the `ForeverDB:` line reads `present=no` (removed) or `present=yes loaded=no` (disabled). Fail: an error, an empty heading, or any line ForeverDB would have supplied.
+Result:
+
+**SEEDS-LH-3. On Retail.** Client: Retail. Hover History rows → each tooltip is exactly as before, with no Drops from or Sold by. Settings › General › Interface › History window → there is no **Item sources (ForeverDB)** row at all (the feature is WoW Forever's alone, clients-§4), and `/lh set settings.itemSources false` is refused with `Setting not found`. `/dump LibStub("LibKa0s-ForeverDB-1.0").Available()` → `false, "client"`. Fail: any ForeverDB line on Retail, the row present in any form (enabled, grayed out or disabled), or an error.
+Result:
 
 ## WoW Forever
 
@@ -3007,3 +3051,13 @@ and #100 run passed. Passed, recorded on each `Result:` line as `PASS (owner, 20
 per client where the check runs on both: FOREVER-1 to FOREVER-16, SKIN-55 and SKIN-56. The owner's
 probe answers (P3, a key can go into the bank; a surname cannot carry a hyphen; the Waylaid Crate
 opens) are on their `Result:` lines in [`forever-probes.md`](forever-probes.md).
+
+Added by the 2026-11-25 seed run (SF-LH-01, Ka0sAddonsCommonTasks `docs/2026-11-25-SEEDS_AND_FOREVERDB/`;
+`docs/seed-research/2026-11-25-retail/`), awaiting the owner, each new and Retail only: CAP-35 to
+CAP-38, one per shipped-data change to `modules/Attribution.lua`'s deconstruct seeds. LOC-4 is
+amended and awaits the owner beside CAP-35: it now dumps the new mass-mill seed 311413 in place of
+434926, so its 2026-10-10 pass (which was for the 434926 procedure) is cleared to pending.
+
+Added by the same run's ForeverDB adoption (SF-LH-02, LibKa0s#105), awaiting the owner, each new:
+SEEDS-LH-1 and SEEDS-LH-2 (WoW Forever, with and without ForeverDB) and SEEDS-LH-3 (Retail, where
+the setting's row is absent).

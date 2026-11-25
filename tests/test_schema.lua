@@ -663,7 +663,9 @@ local PARTITION = {
   ["General"] = {
     { "Master controls", 9 }, { "Capture", 6 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
-    { "Interface", 5 }, { "History", 2 },
+    -- Item sources (ForeverDB) joined the History window rows on WoW Forever alone (SF-LH-02,
+    -- C.FEATURE.itemSources): five rows on Retail, six on WoW Forever.
+    { "Interface", T.forever and 6 or 5 }, { "History", 2 },
     -- The skin's two rows (skinning-§3), the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5), the
     -- font and texture overrides (minor 6) and the first-run picker's memory, after History in the
     -- strip's order; the library's Skin tab draws six of them and nothing draws the seventh, so all
@@ -819,6 +821,7 @@ local NUMBER_WORD = {
   ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23, ["twenty-four"] = 24,
   ["twenty-five"] = 25, ["twenty-six"] = 26, ["twenty-seven"] = 27, ["twenty-eight"] = 28,
   ["twenty-nine"] = 29, thirty = 30, ["thirty-one"] = 31, ["thirty-two"] = 32,
+  ["thirty-three"] = 33, ["thirty-four"] = 34, ["thirty-five"] = 35,
 }
 
 local COUNT_CLAIMS = {
@@ -828,10 +831,22 @@ local COUNT_CLAIMS = {
   { "docs/module-map.md",     "`NS%.Schema` %(alias `S`%): %*%*([%a%-]+)%*%* rows, one per setting" },
 }
 
+-- The rows one client alone has (clients-§4): the docs count the rows both clients ship and name
+-- these beside the count, so a count reads the same on either kit profile. Item sources is WoW
+-- Forever's (C.FEATURE.itemSources, SF-LH-02); Retail has no row of its own.
+local ONE_CLIENT_ROWS = { ["settings.itemSources"] = true }
+local function sharedRows()
+  local out = {}
+  for _, row in ipairs(S.Schema) do
+    if not ONE_CLIENT_ROWS[row.path] then out[#out + 1] = row end
+  end
+  return out
+end
+
 test("Schema: every doc that counts the rows counts the same number the schema ships", function()
   -- red under: adding or removing a schema row without touching the docs, and equally under
   -- rewriting one of these four numbers to something the schema does not ship.
-  local want = #S.Schema
+  local want = #sharedRows()
   assertTrue(want > 0, "the schema is empty")
   for _, claim in ipairs(COUNT_CLAIMS) do
     local path, pattern = claim[1], claim[2]
@@ -849,7 +864,7 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   -- wrong, and a breakdown is what a reader actually navigates by.
   -- red under: moving a row between tabs, or editing the module-map sentence away from the schema.
   local live, order = {}, {}
-  for _, row in ipairs(S.Schema) do
+  for _, row in ipairs(sharedRows()) do
     if not live[row.group] then live[row.group] = 0; order[#order + 1] = row.group end
     live[row.group] = live[row.group] + 1
   end

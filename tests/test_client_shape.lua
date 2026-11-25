@@ -169,9 +169,10 @@ end)
 
 -- ── The smoke file (clients-§6) ──────────────────────────────────────────────────────────────
 
--- The word each Retail-only feature's absence check must name in the WoW Forever theme. A feature
+-- The word each one-client feature's check must name in the WoW Forever theme (a Retail-only
+-- feature's absence there, the WoW Forever-only Item sources' absence on Retail). A feature
 -- declared in core/Constants.lua with no word here fails the case below until its smoke check exists.
-local FEATURE_WORD = { warbandBank = "Warband", mythicPlus = "keystone" }
+local FEATURE_WORD = { warbandBank = "Warband", mythicPlus = "keystone", itemSources = "Item sources (ForeverDB)" }
 
 test("Client shape: docs/smoke-tests.md names each check's client and carries the WoW Forever theme", function()
   -- clients-§6: every check names the client it runs on; a feature absent on a client gets a check
@@ -207,10 +208,20 @@ test("Client shape: docs/smoke-tests.md names each check's client and carries th
       "FOREVER-" .. id .. " names its client, not " .. client)
   end
   assertTrue(n >= 10 and tagged == n, "every FOREVER check names its client (" .. tagged .. " of " .. n .. ")")
-  for name in pairs(C.FEATURE_CLIENTS) do
+  for name, clients in pairs(C.FEATURE_CLIENTS) do
     local word = FEATURE_WORD[name]
-    assertTrue(word ~= nil and forever:find(word, 1, true) ~= nil,
-      "the WoW Forever theme has an absence check for the feature " .. name)
+    assertTrue(word ~= nil, "the feature " .. name .. " has a FEATURE_WORD")
+    if serves(clients).retail then
+      assertTrue(forever:find(word, 1, true) ~= nil,
+        "the WoW Forever theme has an absence check for the feature " .. name)
+    else
+      -- A WoW Forever-only feature's absence check is a Retail check, in its own theme.
+      local found = false
+      for line in body:gmatch("\n(%*%*[^\n]*)") do
+        if line:find("%*%* Client: Retail%.") and line:find(word, 1, true) then found = true end
+      end
+      assertTrue(found, "a `Client: Retail.` check names the WoW Forever-only feature " .. name)
+    end
   end
   for s in pairs(C.SOURCE_CLIENTS) do
     assertTrue(forever:find(C.SourceLabel[s], 1, true) ~= nil,

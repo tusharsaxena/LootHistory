@@ -1,0 +1,32 @@
+{
+ "build": "1.60.1.71091",
+ "buildCreated": null,
+ "candidates": [],
+ "checked": 3,
+ "counts": {
+  "ids": 1,
+  "names": 1,
+  "sim": 1
+ },
+ "date": "2026-11-25",
+ "flags": [],
+ "flavor": "forever",
+ "info": {
+  "outOfScope": [
+   "MILLING",
+   "PROSPECTING"
+  ],
+  "professionLines": {
+   "Enchanting": true,
+   "Inscription": false,
+   "Jewelcrafting": false
+  }
+ },
+ "product": "wowf",
+ "rows": {
+  "SkillLine": 154,
+  "SkillLineAbility": 273,
+  "SpellName": 271
+ },
+ "tool": "tools/seeds/seeds.py derive"
+}

@@ -41,6 +41,9 @@ local LIB_FILES = {
   "libs/LibKa0s/Schema.lua",
   "libs/LibKa0s/Pool.lua",
   "libs/LibKa0s/Item.lua",
+  -- New in v1.114.0: LibKa0s-ForeverDB-1.0 (ForeverDB 1), the ForeverDB reader (LibKa0s#105). The
+  -- History browser's item tooltip adopts it in SF-LH-02.
+  "libs/LibKa0s/ForeverDB.lua",
   -- New in v1.75.0: LibKa0s-Glow-1.0, the stateless LibCustomGlow driver. This addon draws no
   -- glow and wires nothing from it; the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/Glow.lua",
@@ -594,6 +597,7 @@ test("every seam file resolves its major with the silent flag", function()
   -- would look fine, because a lookup table that never raises resolves to nil and passes.
   for _, path in ipairs({ "core/CoreSetup.lua", "core/DebugLogSetup.lua", "core/WidgetsSetup.lua",
                           "core/EnvSetup.lua", "core/PoolSetup.lua", "core/ItemSetup.lua",
+                          "core/ForeverDBSetup.lua",
                           "core/Constants.lua", "core/Compat.lua", "core/CompatClient.lua",
                           "settings/Slash.lua", "settings/OptionsSetup.lua",
                           "settings/Schema.lua" }) do
@@ -1347,7 +1351,7 @@ test("v1.105.0: the vendored minors and the kit revision match the release", fun
   assertTrue(widgets.WidgetsHeader >= 1) -- 2 since v1.112.0, pinned there
   assertTrue(widgets.WidgetsBar >= 1) -- 2 since v1.108.0, pinned there
   assertEqual(debugLog.DebugLog, 23)
-  assertEqual(debugLog.DebugLogDiagnostics, 11)
+  assertTrue(debugLog.DebugLogDiagnostics >= 11) -- 12 since v1.114.0, pinned there
   assertEqual(debugLog.DebugLogWindow, 5)
   assertEqual(options.OptionsWidgets, 46)
   assertEqual(options.OptionsNav, 7)
@@ -1438,7 +1442,7 @@ test("v1.110.0: the vendored minors and the kit revision match the release", fun
   local lib = T.mocks.LibStub("LibKa0s-Compat-1.0", true)
   assertTrue(lib ~= nil and type(lib.MODULES) == "table", "LibKa0s-Compat-1.0 missing: re-vendor v1.110.0")
   assertEqual(lib.MODULES.Compat, 6)
-  assertEqual(T.KIT_VERSION, 60)
+  assertTrue(T.KIT_VERSION >= 60) -- 62 since v1.114.0, pinned there
 end)
 
 test("v1.112.0: the vendored minors and the kit revision match the release", function()
@@ -1460,7 +1464,7 @@ test("v1.112.0: the vendored minors and the kit revision match the release", fun
   assertEqual(widgets.WidgetsCopyWindow, 7)
   assertEqual(widgets.WidgetsDragHandle, 17)
   assertEqual(modules("LibKa0s-IconBrowser-1.0").IconBrowserWindow, 3)
-  assertEqual(T.KIT_VERSION, 60)
+  assertTrue(T.KIT_VERSION >= 60) -- 62 since v1.114.0, pinned there
 end)
 
 test("v1.113.0: the vendored minors and the kit revision match the release", function()
@@ -1474,5 +1478,19 @@ test("v1.113.0: the vendored minors and the kit revision match the release", fun
   end
   assertEqual(modules("LibKa0s-Sim-1.0").Sim, 5)
   assertEqual(modules("LibKa0s-Widgets-1.0").WidgetsDropdown, 4)
-  assertEqual(T.KIT_VERSION, 60)
+  assertTrue(T.KIT_VERSION >= 60) -- 62 since v1.114.0, pinned there
+end)
+
+test("v1.114.0: the vendored minors and the kit revision match the release", function()
+  -- Ka0sAddonsCommonTasks docs/2026-11-25-SEEDS_AND_FOREVERDB: the new major LibKa0s-ForeverDB-1.0
+  -- (ForeverDB 1, LibKa0s#105), DebugLogDiagnostics 12 (the report's ForeverDB line), and test kit
+  -- revision 62 (kit 61's mock_foreverdb.lua and kit 62's regenerated Forever name set).
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.114.0")
+    return lib.MODULES
+  end
+  assertEqual(modules("LibKa0s-ForeverDB-1.0").ForeverDB, 1)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 12)
+  assertEqual(T.KIT_VERSION, 62)
 end)

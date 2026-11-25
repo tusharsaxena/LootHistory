@@ -21,7 +21,7 @@ gated per feature, in `docs/ARCHITECTURE.md`'s per-client feature table (clients
 
 **Nothing else.** Every library the addon uses is **vendored** under `libs/` and committed, so the
 player installs one addon and no dependencies. `LootHistory.toc` declares
-`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI`
+`## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI, ForeverDB`
 — that line exists only to fix **load order** when a player happens to have those libraries as
 standalone addons; the copies under `libs/` (loaded by the TOC's `# Libraries` block) are what the addon
 actually uses (`library-stack`). The Ace3 set includes AceConfig-3.0 (with its Registry, Cmd and
@@ -30,6 +30,12 @@ Dialog parts) and AceDBOptions-3.0, which only the Profiles settings page uses (
 EllesmereUI is the exception on that line: a separate addon, never vendored and never required,
 listed so it loads first when the player has it, because the Skin tab offers it as a skin source
 (`core/SkinSetup.lua`).
+ForeverDB is the other exception: WoW Forever's data addon (<https://www.curseforge.com/wow/addons/forever-db>,
+GPL-3.0 data), never vendored, never copied and never required (WowAddonStandards clients-§11). The
+History table's item tooltip reads it when it is installed, through the vendored
+`LibKa0s-ForeverDB-1.0` (`core/ForeverDBSetup.lua`, `modules/ItemSources.lua`), and `.pkgmeta` lists it
+under `optional-dependencies` so CurseForge shows the relationship. It is LoadOnDemand: the first item
+hover on WoW Forever loads it, never login. Without it the addon is unchanged.
 There is no `## Dependencies` line, and there must not be one.
 Ace3: WoWUIDev/Ace3@ac3d1225 (untagged master; LibKa0s#76).
 
@@ -62,6 +68,7 @@ never touches them at load, only when a price is gathered.
 | **git** | any recent | Beyond version control: `tests/_kit/vendor_sync.lua`'s `gitOut` shells out to `git -C ../LibKa0s …` (and `gitShowMany` for the `cat-file --batch` bulk read, `shippedNames` for `ls-tree -r`) to prove the vendored payload matches the LibKa0s tag `CLAUDE.md` names. Without `git` on `PATH` those cases skip rather than fail. The commit gate itself needs it, though: the doc, lint-config, line-ending and layout-cap suites read the git index (`tests/test_doc_structure.lua`'s `trackedMarkdown`, `tests/test_lintconfig.lua`'s `trackedLua`, `tests/_kit/test_eol.lua`'s `trackedAttrs`, `tests/_kit/test_layout_cap.lua`'s `trackedFiles`) and fail rather than skip without it. | `git --version` |
 | **A POSIX shell with `find`** | any | `localNames` (`tests/_kit/vendor_sync.lua`) lists a directory by shelling out through `io.popen` — `find` under every shell this suite is actually run under, `dir /b /s` for `cmd.exe` (Lua 5.1 has no directory API and this repo does not depend on LuaFileSystem). Under WSL2 the `find` path is the one taken. | `find --version` |
 | **bash** | **4.0+ — a hard requirement** | `tests/_kit/run-automated-tests.sh` is `#!/usr/bin/env bash` and declares associative arrays (`declare -A ST DUR NOTE`), which `sh`/`dash` cannot parse; its timing setup additionally prefers bash 5.0's `EPOCHREALTIME` for millisecond timing and falls back cleanly below it. Only the automated-test **bundle** needs it — `lua tests/run.lua` and `luacheck .` do not. | `bash --version` |
+| **python3** | **3.8+**, standard library only | The seed-validation tool `tools/seeds/seeds.py` and its cases `tools/seeds/test_seeds.py` ([`docs/validate-seeds.md`](docs/validate-seeds.md)); `python3 -m pytest -q tools/seeds` is in the commit gate. Not needed to build, run or test the addon itself. `pytest` is optional: `python3 -m unittest discover -s tools/seeds` runs the same cases | `python3 --version` |
 | **`../LibKa0s` checked out beside this repo** | matching the tag `CLAUDE.md` names | Not a package — a **sibling git checkout**. Two of the four vendor-gate diffs and the `test_vendor_sync` suite compare `libs/LibKa0s/` and `tests/_kit/` against it (`tests/test_vendor_sync.lua`, `docs/testing.md` → "The vendor gate"). Everything else passes without it. | `ls ../LibKa0s/LibKa0s` |
 
 ### Install (WSL2 / Ubuntu)
@@ -124,11 +131,10 @@ bash --version           # 4.0+ <- the automated-test runner uses associative ar
   `lua tests/run.lua --list > docs/test-cases.md` (`docs/testing.md`, *Keeping the inventory & badge in sync*) and the `lizard`
   invocation in `performance-§10`.
 
-**Python is not a dependency of this addon.** Two things on disk suggest otherwise and both are
-residue: `.gitignore:8-10` ignores `__pycache__/` for a `tools/` directory that does not exist, and
-an untracked `.pytest_cache/` sits at the root. There are **no** `.py` files in the repo and nothing
-imports Python. The only Python in the picture is `lizard`'s own interpreter, which `pipx` manages
-for you.
+**Python is a development dependency only.** The one Python in the repo is the seed-validation tool
+under `tools/seeds/` (section 2), which `.pkgmeta` leaves out of the package and nothing in the addon
+imports. `.gitignore` ignores its `__pycache__/` and its per-build download cache
+`tools/seeds/.cache/`. `lizard` brings its own interpreter, which `pipx` manages for you.
 
 ---
 
@@ -141,13 +147,14 @@ do when it disagrees.
 lua tests/run.lua                                              # headless suite — all green
 KA0S_KIT_CLIENT=forever lua tests/run.lua                      # the same suite as WoW Forever — green too
 ~/.claude/dev-copilot/bin/ka0s-bounded luacheck .              # 0 warnings / 0 errors
+python3 -m pytest -q tools/seeds                               # the seed tool's cases
 diff -r --strip-trailing-cr ../LibKa0s/LibKa0s libs/LibKa0s    # vendored library, content
 diff -r --strip-trailing-cr ../LibKa0s/testkit tests/_kit      # vendored test kit, content
 bash tests/_kit/run-automated-tests.sh --suite complexity --no-bundle   # complexity (release gate)
 bash tests/_kit/run-automated-tests.sh                         # the frozen bundle (all four suites)
 ```
 
-The first two are the commit gate. The two diffs need `../LibKa0s` beside this repo. The complexity
+The first four are the commit gate. The two diffs need `../LibKa0s` beside this repo. The complexity
 suite is a **release** step and is never a commit gate (`performance-§10`).
 
 ---

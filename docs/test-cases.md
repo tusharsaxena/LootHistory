@@ -375,7 +375,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (47)
+### test_attribution.lua (48)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -397,6 +397,7 @@ Total.
 - Attribution: the deconstruct seed lists are the client's (Forever: Disenchant 13262 only)
 - Attribution: on every client a non-deconstruct cast is conclusive once the seeds resolve
 - Attribution: DeconstructSource resolves enumerated ids locale-independently
+- Attribution: the 2026-11-25 seed run's added ids attribute by id and its removed ids do not
 - Attribution: DeconstructSource matches un-enumerated variants by localized name family
 - Attribution: a no-break space in a localized spell name does not break the family match
 - Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution
@@ -983,6 +984,22 @@ Total.
 - BrowserTable: GroupRecords pins nil, unknown and column-less group modes
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
+
+### test_itemsources.lua (13)
+
+- ItemSources: characterization, an item row's hover with no ForeverDB, call for call
+- ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and Sold by (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the lines' colors are the skin's tooltip tokens (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the top three, then how many more; a vendor with no price seen; unknown names (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: an item ForeverDB names no source for adds nothing (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the row's id is read from its link when the record carries none (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: missing, failing to load or reshaped, the hover is exactly as before (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: with the setting off, nothing is added and nothing loads (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: on Retail the hover is exactly as before and ForeverDB is never asked
+- ItemSources: the addon's load asked ForeverDB nothing
+- ItemSources: chances read as percentages, an unknown rate as ?
+- ItemSources: the setting is WoW Forever's alone: its row sits with the History window rows there, absent on Retail
+- ItemSources: the TOC and .pkgmeta name ForeverDB as optional, never required
 
 ### test_export.lua (38)
 
@@ -1849,7 +1866,7 @@ Total.
 - Harness: the banker interaction types and bank types carry each dump's numbers
 - Harness: the character, regional names and the account bank follow the client
 
-### test_libka0s.lua (56)
+### test_libka0s.lua (57)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1907,8 +1924,9 @@ Total.
 - v1.110.0: the vendored minors and the kit revision match the release
 - v1.112.0: the vendored minors and the kit revision match the release
 - v1.113.0: the vendored minors and the kit revision match the release
+- v1.114.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (21)
+### test_surface_parity.lua (22)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1931,6 +1949,7 @@ Total.
 - parity: each host-copy skin token is the live library's Ka0s Default value
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
+- parity: the ForeverDB stand-in carries the whole live surface, at its all-absent answers
 
 ### test_disabled.lua (25)
 
@@ -2501,7 +2520,7 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 47 |
+| test_attribution.lua | 48 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -2516,6 +2535,7 @@ Total.
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 88 |
+| test_itemsources.lua | 6 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2554,8 +2574,8 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
-| test_libka0s.lua | 56 |
-| test_surface_parity.lua | 21 |
+| test_libka0s.lua | 57 |
+| test_surface_parity.lua | 22 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
@@ -2585,5 +2605,5 @@ Total.
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
-| Skipped | 1 |
-| **Total** | **2176** |
+| Skipped | 8 |
+| **Total** | **2185** |

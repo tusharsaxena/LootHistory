@@ -8,3 +8,6 @@ Thumbs.db
 # Python bytecode (tools/ dev tooling)
 __pycache__/
 *.pyc
+
+# The seed tool's per-build download cache (tools/seeds/seeds.py, docs/validate-seeds.md)
+tools/seeds/.cache/

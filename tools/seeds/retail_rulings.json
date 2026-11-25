@@ -1,0 +1,314 @@
+{
+  "ids:1280952": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:190381": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:190382": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:190383": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:190384": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:190385": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:190386": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209658": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209659": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209660": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209661": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209662": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:209664": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:210116": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:225902": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:247761": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:247861": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256217": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256218": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256219": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256220": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256221": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256223": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256308": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256611": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256613": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:256622": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:298927": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:300381": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:300382": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:300619": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:302690": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:302691": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:302692": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:302693": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:302694": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:302695": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:311413": {
+    "reason": "the new representative per-herb Mass Mill (one-word herb, so dropLast leaves 'Mass Mill'); replaces 434926, which this build names Lingering Influence (judgment call: which herb)",
+    "ruling": "accept"
+  },
+  "ids:311414": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311415": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311416": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311417": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311418": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311948": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311949": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311950": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311951": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311952": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:311953": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:324750": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:325248": {
+    "reason": "per-expansion Prospecting spell on its profession line (Shadowlands Prospecting); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:359490": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Mill' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:359492": {
+    "reason": "per-herb/ore mass variant: the header lists one representative and leaves the rest to the localized name family ('Mass Prospect' stem), which covers this name",
+    "ruling": "reject"
+  },
+  "ids:382978": {
+    "reason": "per-expansion Prospecting spell on its profession line (Cataclysm Prospecting); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382982": {
+    "reason": "per-expansion Milling spell on its profession line (Shadowlands Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382984": {
+    "reason": "per-expansion Milling spell on its profession line (Kul Tiras and Zandalar Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382986": {
+    "reason": "per-expansion Milling spell on its profession line (Legion Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382987": {
+    "reason": "per-expansion Milling spell on its profession line (Draenor Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382988": {
+    "reason": "per-expansion Milling spell on its profession line (Pandaria Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382989": {
+    "reason": "per-expansion Milling spell on its profession line (Cataclysm Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382990": {
+    "reason": "per-expansion Milling spell on its profession line (Northrend Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382991": {
+    "reason": "per-expansion Milling spell on its profession line (Outland Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382994": {
+    "reason": "per-expansion Milling spell on its profession line (Classic Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:382995": {
+    "reason": "per-expansion Prospecting spell on its profession line (Classic Prospecting); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:392888": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "ids:444181": {
+    "reason": "per-expansion Milling spell on its profession line (Khaz Algar Milling); Attribution.lua's header enumerates the generic and per-expansion ids, so the list was incomplete without it",
+    "ruling": "accept"
+  },
+  "ids:455970": {
+    "reason": "another Enchanting-line spell named exactly Disenchant: the 13262 name seed matches it in every locale (same string), and the header enumerates only generic ids for Disenchant; which id a cast fires cannot be read from DB2",
+    "ruling": "reject"
+  },
+  "shipped:family:ids:434913": {
+    "reason": "this build names 434913 Cheat to Hunger Phase, no Inscription spell: not a Milling id (Khaz Algar Milling is 444181, accepted as ids:444181)",
+    "ruling": "remove"
+  },
+  "shipped:family:ids:434926": {
+    "reason": "this build names 434926 Lingering Influence, no Inscription spell: not a Mass Mill id; 311413 Mass Mill Deathblossom replaces it",
+    "ruling": "remove"
+  },
+  "shipped:gone:ids:382971": {
+    "reason": "SpellName has no row: the id names no spell on this build, so it can never match a cast",
+    "ruling": "remove"
+  },
+  "shipped:gone:ids:382972": {
+    "reason": "SpellName has no row: the id names no spell on this build, so it can never match a cast",
+    "ruling": "remove"
+  },
+  "shipped:token:names:434926": {
+    "reason": "Lingering Influence's stem is 'Lingering', so any cast containing that word attributed as Milling and no Mass Mill cast matched; hand edit: the dropLast seed becomes 311413 Mass Mill Deathblossom",
+    "ruling": "fix"
+  },
+  "shipped:unlined:ids:289991": {
+    "reason": "Disenchanting, a family name; no skill line teaches it, and the data cannot say whether a client still fires it, so it stays",
+    "ruling": "keep"
+  },
+  "shipped:unlined:ids:302710": {
+    "reason": "Prospecting, the plain family name; no skill line teaches it, and the data cannot say whether a client still fires it, so it stays",
+    "ruling": "keep"
+  },
+  "shipped:unlined:ids:31252": {
+    "reason": "Prospecting, the plain family word and the Prospecting name seed; untaught since the per-expansion split but still the name the family resolves",
+    "ruling": "keep"
+  },
+  "shipped:unlined:ids:434913": {
+    "reason": "the same id as shipped:family:ids:434913, removed there",
+    "ruling": "remove"
+  },
+  "shipped:unlined:ids:434926": {
+    "reason": "the same id as shipped:family:ids:434926, removed there",
+    "ruling": "remove"
+  },
+  "shipped:unlined:ids:51005": {
+    "reason": "Milling, the plain family word and the Milling name seed; untaught since the per-expansion split but still the name the family resolves",
+    "ruling": "keep"
+  }
+}
