@@ -23,7 +23,8 @@ local _, NS = ...
 --
 -- WITHOUT IT. With the setting off (`settings.itemSources`, General > Interface > History window),
 -- on Retail, or with ForeverDB not installed or disabled, the tooltip is exactly what it was. The
--- setting's row says it needs ForeverDB, and is drawn disabled on Retail.
+-- setting's row says it needs ForeverDB. The feature is WoW Forever only (C.FEATURE.itemSources,
+-- clients-§4): on Retail the row and its default are absent, and Active() answers false at once.
 
 local IS = {}
 NS.ItemSources = IS
@@ -37,12 +38,13 @@ function IS.Enabled()
   return v ~= false
 end
 
---- Whether a hover should read ForeverDB: the setting on, WoW Forever, and the adapter available.
---- The client and the setting are asked first, so the Retail client and a player who turned it
---- off never reach the adapter, and never load anything.
+--- Whether a hover should read ForeverDB: WoW Forever, the setting on, and the adapter available.
+--- The feature (read once, at file load) and the setting are asked first, so the Retail client and
+--- a player who turned it off never reach the adapter, and never load anything.
+local FEATURE = NS.Constants.FEATURE.itemSources
 function IS.Active()
+  if not FEATURE then return false end
   if not IS.Enabled() then return false end
-  if not (NS.Compat.IsForever and NS.Compat.IsForever()) then return false end
   return (NS.ForeverDB.Available()) == true
 end
 

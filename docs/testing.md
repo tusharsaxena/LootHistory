@@ -61,7 +61,7 @@ stays in [smoke-tests.md](smoke-tests.md), which complements rather than replace
 
 It is **collect-then-run**: `test()` only records, and nothing executes until `Kit.run`. `--list` is then a pure filter over the same registry and cannot disagree with what actually runs — which is what makes `docs/test-cases.md` authoritative rather than a second code path through the same file.
 
-The kit bounds the run (testing-§15). Its **leak gate** fails a run whose live heap ends a suite more than a budget above where it started; this repo passes `leakBudgetMB = 288` to `Kit.run` rather than the kit's 256 (SF-LH-02, 2026-11-25). On the WoW Forever profile a whole run grows by about 256 MB, nearly all of it frames the panel, skin and Insights suites build and the mock never frees (`test_skin_settings` about 66 MB, `test_analytics_layout` 50, `test_panel_auction` 36, `test_profiles` 26), and it sat at 255 MB before the item-sources row and `test_itemsources.lua` tipped it over. The extra 32 MB is headroom, not a fix: trimming what those suites retain is open work.
+The kit bounds the run (testing-§15). Its **leak gate** fails a run whose live heap ends a suite more than a budget above where it started; this repo passes `leakBudgetMB = 288` to `Kit.run` rather than the kit's 256, a raised budget recorded with its measured figures and re-check trigger as the `testing-§15` row of [ARCHITECTURE.md](ARCHITECTURE.md)'s `## Documented deviations` (2026-11-25). In short: a WoW Forever run ends about 256 MB above its start, nearly all of it frames the skin, Insights and panel suites build and the mock never frees, and `test_itemsources.lua` adds about 0.1 MB of it.
 
 ## The suites
 

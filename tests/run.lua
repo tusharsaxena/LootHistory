@@ -26,6 +26,12 @@ Loader.loadAll(Loader.xmlFiles("libs/LibKa0s/LibKa0s.xml"), NS, mocks)
 -- derivation itself: tests/test_harness.lua compares what the loader was ACTUALLY handed against a
 -- fresh derivation, checks every path exists, and checks no `libs/` path leaked in.
 local ADDON_FILES = Loader.tocFiles("LootHistory.toc")
+-- ForeverDB INSTALLED AND NOT YET LOADED for the addon's file load and the lifecycle kick below (the
+-- kit's fake, invented rows; SF-LH-02). Nothing in that path may ask the adapter, which would load it:
+-- the count is published as BOOT_FOREVERDB for tests/test_itemsources.lua, and the fake comes off and
+-- the adapter's session answer is forgotten straight after the kick, so no suite inherits either.
+local FDBK = dofile("tests/_kit/mock_foreverdb.lua")
+local bootFdb = FDBK.install(mocks, { preset = "present" })
 Loader.loadAll(ADDON_FILES, NS, mocks)
 
 -- The lifecycle kick the client's OnInitialize does. Register() only builds the canvas frames and
@@ -59,6 +65,11 @@ kick("NS.Launcher:Register", function() if NS.Launcher then NS.Launcher:Register
 -- It does NOT bring the addon up -- `addon:OnEnable` is what does that, and no suite but
 -- tests/test_disabled.lua wants the whole addon registered underneath it.
 kick("NS.BindLifecycle", function() NS.BindLifecycle() end)
+
+local fdbLib = mocks.LibStub("LibKa0s-ForeverDB-1.0")
+local BOOT_FOREVERDB = { loads = bootFdb.loads, loaded = fdbLib.IsLoaded() }
+bootFdb.restore()
+fdbLib.__reset()
 
 -- The client keeps a settings canvas hidden until the player opens its category; the mock builds every
 -- frame shown. Hidden here, as in the client, so a profile write in an early suite marks the pages
@@ -326,6 +337,10 @@ end
 -- Retail, which runs it (DropWatcher's tests/run.lua precedent).
 local RETAIL_ONLY = FOREVER and "Retail-only feature (the WoW Forever port, R1/R2): absent on WoW Forever, "
   .. "which its per-client case asserts" or nil
+-- `FOREVER_ONLY` is its mirror for the one WoW Forever-only feature, the History item tooltip's lines
+-- from ForeverDB (C.FEATURE.itemSources, SF-LH-02): the skip reason on Retail, nil on WoW Forever.
+local FOREVER_ONLY = (not FOREVER) and "WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent "
+  .. "on Retail, which its per-client case asserts" or nil
 -- `rollWonLine(link, id)` is the client's own roll-won chat line (LOOT_ROLL_YOU_WON) for `link`.
 -- Retail's global is "You won: %s"; WoW Forever's leads with a loot-history id,
 -- "|HlootHistory:%d|h[Loot]|h: You won: %s" (forever-quirks), so a plain string.format(global, link)
@@ -382,13 +397,11 @@ _G.LH_TEST = Kit.expose{
   NS = NS, mocks = mocks, Loader = Loader,
   addonFiles = ADDON_FILES, suites = SUITES, lifecycle = LIFECYCLE,
   forever = FOREVER, bagIndex = bagIndex, ME = ME, nameKey = nameKey, ka0sDefault = ka0sDefault,
-  RETAIL_ONLY = RETAIL_ONLY, retailWords = retailWords, rollWonLine = rollWonLine,
+  RETAIL_ONLY = RETAIL_ONLY, FOREVER_ONLY = FOREVER_ONLY, bootForeverDB = BOOT_FOREVERDB, retailWords = retailWords, rollWonLine = rollWonLine,
 }
 
--- The leak gate's budget is 288 MB here, not the kit's 256 (SF-LH-02, 2026-11-25). Measured per suite
--- on the Forever profile, the live heap grows by about 256 MB over a whole run, nearly all of it
--- frames the panel, skin and Insights suites build and the mock never frees (test_skin_settings
--- about 66 MB, test_analytics_layout 50, test_panel_auction 36, test_profiles 26). The run sat at
--- 255 MB before the item-sources row and its suite, which tipped it over by under 1 MB. The extra
--- 32 MB is headroom, not a fix: trimming what those suites retain is its own piece of work.
+-- The leak gate's budget is 288 MB here, not the kit's 256: a raised budget, recorded with its measured
+-- figures and its re-check trigger as the `testing-§15` row of docs/ARCHITECTURE.md's Documented
+-- deviations (2026-11-25). A WoW Forever run ends about 256 MB above its start, nearly all of it frames
+-- the skin, Insights and panel suites build and the mock never frees.
 Kit.run{ dir = "tests/", suites = SUITES, leakBudgetMB = 288 }

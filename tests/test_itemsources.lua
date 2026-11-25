@@ -4,10 +4,16 @@
 -- case is the CHARACTERIZATION written before the feature: an item row's hover, call for call, as
 -- it stands with no ForeverDB. Every case after it must leave that sequence alone wherever the
 -- feature is off, absent or on Retail.
+--
+-- The feature is WoW Forever only (C.FEATURE.itemSources, clients-§4), read once at file load from
+-- the kit profile: the cases that need it are declared skips on Retail (T.FOREVER_ONLY), and the
+-- per-client case asserts each profile's own shape, present on WoW Forever and absent on Retail.
 
 local T = _G.LH_TEST
 local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
+local FOREVER_ONLY = T.FOREVER_ONLY
+local function C_FEATURE() return NS.Constants.FEATURE end
 
 local function dataEntry(rec) return { kind = "row", record = rec } end
 
@@ -30,11 +36,14 @@ local function recordTooltip(fn)
   return calls
 end
 
+-- ONE row frame for the whole suite, built on the first hover and re-bound for each: the mock
+-- never frees a frame, so a row built per hover is retained for the rest of the run.
+local ROW
 local function hover(record)
   local BT = NS.BrowserTable
-  local row = BT:BuildRow()
-  BT:BindRow(row, dataEntry(record), 1)
-  return recordTooltip(function() row:GetScript("OnEnter")(row) end)
+  ROW = ROW or BT:BuildRow()
+  BT:BindRow(ROW, dataEntry(record), 1)
+  return recordTooltip(function() ROW:GetScript("OnEnter")(ROW) end)
 end
 
 local APPLE = "|Hitem:7|h[Apple]|h"
@@ -57,17 +66,17 @@ local BLADE = "|Hitem:" .. IDS.blade .. "|h[Fixture Blade]|h"
 local BLADE_ROW = { itemName = "Fixture Blade", itemLink = BLADE, itemID = IDS.blade, quantity = 1 }
 local UNCHANGED = "SetOwner(row) SetHyperlink(" .. BLADE .. ") " .. HINT .. " Show(nil)"
 
--- Run `fn(fake)` with the fake installed under `opts` (client "forever" unless it says otherwise) and
--- the adapter's session answer forgotten on both sides, so no case leaks a cached Available() into
--- the next. The setting is put back too.
+-- Run `fn(fake)` with the fake installed under `opts` (on the profile's own client) and the
+-- adapter's session answer forgotten on both sides, so no case leaks a cached Available() into the
+-- next. The setting is put back too, where it exists (WoW Forever).
 local function withForeverDB(opts, fn)
   local lib = T.mocks.LibStub("LibKa0s-ForeverDB-1.0", true)
-  opts.client = opts.client or "forever"
+  local feature = NS.Constants.FEATURE.itemSources
   lib.__reset()
   local fake = FDBK.install(T.mocks, opts)
-  local saved = NS.Schema:Get(NS.ItemSources.PATH)
+  local saved = feature and NS.Schema:Get(NS.ItemSources.PATH)
   local ok, err = pcall(fn, fake)
-  NS.Schema:Set(NS.ItemSources.PATH, saved)
+  if feature then NS.Schema:Set(NS.ItemSources.PATH, saved) end
   fake.restore()
   lib.__reset()
   if not ok then error(err, 0) end
@@ -90,7 +99,7 @@ test("ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and 
     hover(BLADE_ROW)
     assertEqual(fake.loads, 1, "one load a session")
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: the lines' colors are the skin's tooltip tokens", function()
   withForeverDB({ preset = "present" }, function()
@@ -108,7 +117,7 @@ test("ItemSources: the lines' colors are the skin's tooltip tokens", function()
     assertTrue(same(got[2], 2, "gtip.body") and same(got[2], 6, "gtip.value"), "a source, its chance a value")
     assertTrue(same(got[4], 2, "gtip.title") and same(got[4], 6, "gtip.value"), "Sold by, its price a value")
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: the top three, then how many more; a vendor with no price seen; unknown names", function()
   local data = FDBK.fixture()
@@ -123,7 +132,7 @@ test("ItemSources: the top three, then how many more; a vendor with no price see
       "Drops from=nil", "  #990903=90.0%", "  Fixture Gnoll=25.0%", "  #990901=1.0%",
       "  and 2 more=nil", "Sold by Fixture Vendor=nil" }, " | "))
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: an item ForeverDB names no source for adds nothing", function()
   withForeverDB({ preset = "present" }, function()
@@ -132,24 +141,29 @@ test("ItemSources: an item ForeverDB names no source for adds nothing", function
       itemID = IDS.pebble, quantity = 1 })
     assertEqual(#calls, 4, table.concat(calls, " "))
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: the row's id is read from its link when the record carries none", function()
   withForeverDB({ preset = "present" }, function()
     local calls = hover({ itemName = "Fixture Blade", itemLink = BLADE, quantity = 1 })
     assertEqual(calls[3], "AddLine(Drops from)", table.concat(calls, " "))
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: missing, failing to load or reshaped, the hover is exactly as before", function()
   for _, preset in ipairs({ "missing", "loadfails", "reshaped" }) do
     withForeverDB({ preset = preset }, function(fake)
       assertEqual(table.concat(hover(BLADE_ROW), " "), UNCHANGED, preset)
       assertEqual(NS.ItemSources.Active(), false, preset)
-      assertTrue(fake.loads <= 1, preset .. ": at most the one load attempt")
+      -- A missing addon is answered without a LoadAddOn call; the other two make the one attempt.
+      if preset == "missing" then
+        assertEqual(fake.loads, 0, preset .. ": nothing to load")
+      else
+        assertTrue(fake.loads <= 1, preset .. ": at most the one load attempt")
+      end
     end)
   end
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: with the setting off, nothing is added and nothing loads", function()
   withForeverDB({ preset = "present" }, function(fake)
@@ -157,31 +171,51 @@ test("ItemSources: with the setting off, nothing is added and nothing loads", fu
     assertEqual(table.concat(hover(BLADE_ROW), " "), UNCHANGED)
     assertEqual(fake.loads, 0)
   end)
-end)
+end, FOREVER_ONLY)
 
 test("ItemSources: on Retail the hover is exactly as before and ForeverDB is never asked", function()
-  withForeverDB({ preset = "present", client = "retail" }, function(fake)
+  -- red under: IS.Active() asking the client at hover rather than the declared feature, or a Retail
+  -- hover that reaches the adapter
+  withForeverDB({ preset = "present" }, function(fake)
     assertEqual(table.concat(hover(BLADE_ROW), " "), UNCHANGED)
     assertEqual(NS.ItemSources.Active(), false)
     assertEqual(fake.loads, 0, "the Retail client never loads it")
   end)
-end)
+end, (T.forever and "Retail's half of the per-client shape: on WoW Forever the feature is present, "
+  .. "which the hover cases assert" or nil))
 
 test("ItemSources: the addon's load asked ForeverDB nothing", function()
-  -- The suites before this one loaded the whole addon and brought it up with no fake installed;
-  -- nothing in the shipped code may have reached the adapter's Available() on its own, or the
-  -- session answer would already be cached here.
+  -- tests/run.lua loads every addon file and runs the lifecycle kick (OnInitialize's steps) with
+  -- the kit's fake INSTALLED and not loaded, and records what that cost. red under: a file-load or
+  -- login-time Available(), NS.ItemSources.Active() or Lines() call
+  local boot = T.bootForeverDB
+  assertTrue(type(boot) == "table", "tests/run.lua publishes the boot record")
+  assertEqual(boot.loads, 0, "the file load and OnInitialize loaded nothing")
+  assertEqual(boot.loaded, false, "ForeverDB was still unloaded after OnInitialize")
+  -- Then the rest of the boot, with the fake installed and NO reset: OnEnable (NS.StandUp, every
+  -- module's Enable) and the world-entry event, taken back down after.
+  local fake = FDBK.install(T.mocks, { preset = "present" })
+  local ok, err = pcall(function()
+    NS.addon:OnEnable()
+    T.mocks.__fireEvent("PLAYER_ENTERING_WORLD", true, false)
+    assertEqual(fake.loads, 0, "OnEnable and the world entry loaded nothing")
+    assertEqual(NS.ForeverDB.IsLoaded(), false, "IsLoaded never loads")
+    if T.forever then
+      -- And the session answer was not cached by any of it: the first hover is what loads it.
+      hover(BLADE_ROW)
+      assertEqual(fake.loads, 1, "the first hover still makes the session's one load")
+    end
+  end)
+  NS.StandDown()
+  fake.restore()
+  T.mocks.LibStub("LibKa0s-ForeverDB-1.0").__reset()
+  if not ok then error(err, 0) end
   local src = T.Loader.readFile("modules/ItemSources.lua") .. T.Loader.readFile("core/ForeverDBSetup.lua")
     .. T.Loader.readFile("modules/BrowserTable.lua")
   local code = src:gsub("%-%-[^\n]*", "")
   assertTrue(code:find("LoadAddOn", 1, true) == nil, "only the adapter loads ForeverDB")
   assertTrue(code:find("_G.ForeverDB", 1, true) == nil and code:find("ForeverDB%.[a-z]") == nil,
     "nothing here reads the ForeverDB global's tables")
-  withForeverDB({ preset = "present" }, function(fake)
-    assertEqual(fake.loads, 0)
-    assertEqual(NS.ForeverDB.IsLoaded(), false, "IsLoaded never loads")
-    assertEqual(fake.loads, 0)
-  end)
 end)
 
 test("ItemSources: chances read as percentages, an unknown rate as ?", function()
@@ -192,21 +226,23 @@ test("ItemSources: chances read as percentages, an unknown rate as ?", function(
   assertEqual(C(nil), "?")
 end)
 
-test("ItemSources: the setting sits with the History window rows, on by default, Forever only", function()
+test("ItemSources: the setting is WoW Forever's alone: its row sits with the History window rows there, absent on Retail", function()
+  -- clients-§4: a one-client feature is absent on the other client, never drawn disabled. red under:
+  -- the row registered on Retail (hidden, grayed out or disabled), or a disabledIf on it anywhere
   local row = NS.Schema:FindRow(NS.ItemSources.PATH)
-  assertTrue(row ~= nil, "the row exists")
+  assertEqual(C_FEATURE().itemSources, T.forever == true, "the feature is declared WoW Forever's")
+  if not T.forever then
+    assertEqual(row, nil, "no row on Retail")
+    assertEqual(NS.defaults.profile.settings.itemSources, nil, "no default on Retail")
+    return
+  end
+  assertTrue(row ~= nil, "the row exists on WoW Forever")
   assertEqual(row.type, "bool")
   assertEqual(row.default, true)
   assertEqual(NS.defaults.profile.settings.itemSources, true)
   assertEqual(row.group, "Interface"); assertEqual(row.subgroup, "History window")
-  assertTrue(row.tooltip:find("needs the ForeverDB addon", 1, true) ~= nil, "the row says it needs ForeverDB")
-  assertTrue(row.tooltip:find("WoW Forever only", 1, true) ~= nil)
-  withForeverDB({ preset = "missing", client = "retail" }, function()
-    assertEqual(row.disabledIf(row), true, "drawn disabled on Retail")
-  end)
-  withForeverDB({ preset = "missing", client = "forever" }, function()
-    assertEqual(row.disabledIf(row), false, "drawn live on WoW Forever, installed or not")
-  end)
+  assertEqual(row.disabledIf, nil, "never drawn disabled")
+  assertTrue(row.tooltip:find("Needs the ForeverDB addon", 1, true) ~= nil, "the row says it needs ForeverDB")
 end)
 
 test("ItemSources: the TOC and .pkgmeta name ForeverDB as optional, never required", function()

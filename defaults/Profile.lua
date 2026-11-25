@@ -43,8 +43,9 @@ NS.defaults.profile = {
     showTransfers    = true,   -- History's Direction filter includes transfers by default
     -- The History table's item tooltip adds where the item drops and who sells it, from the optional
     -- ForeverDB addon, on WoW Forever (modules/ItemSources.lua, SF-LH-02). A new key with a default,
-    -- so AceDB merges it into every existing profile and no migration is owed.
-    itemSources      = true,
+    -- so AceDB merges it into every existing profile and no migration is owed. WoW Forever only
+    -- (C.FEATURE.itemSources, clients-§4): on Retail the key has no default, as it has no row.
+    itemSources      = NS.Constants.FEATURE.itemSources or nil,
     excludedSources  = {},     -- set of muted SourceType keys
     -- NO retentionDays here: it governs the account-wide history, so it is account-wide too
     -- (defaults/Global.lua, D6).

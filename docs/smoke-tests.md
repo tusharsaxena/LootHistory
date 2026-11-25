@@ -2862,7 +2862,7 @@ auction house. Fail: mail-from-a-player or nothing, meaning a localized `AUCTION
 → every row carries its deconstruct source. Plain casts resolve by spell id; the mass variants build
 a stem from the localized name minus its last word, which a German or French name may break. Fail:
 a mass mill or mass prospect row with no source or the wrong one while the plain cast is right.
-Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: pass (owner-marked 2026-10-10)
+Record `/dump C_Spell.GetSpellName(311413)` and `/dump C_Spell.GetSpellName(225904)` (the mass seed was 434926 until the 2026-11-25 seed run, CAP-35). Result: pending (the 2026-10-10 owner pass was for the procedure that dumped 434926, not this one)
 
 **LOC-5. Nothing else moved.** Walk INSTALL-1 to INSTALL-4, SLASH-1 to SLASH-3, STATE-1 to STATE-4,
 LAUNCH-5, CAP-1 to CAP-21, INSTALL-6, INSTALL-7, INS-20, HIST-5 to HIST-11, HIST-15 and INSTALL-8 on
@@ -2882,7 +2882,7 @@ Result:
 **SEEDS-LH-2. Without ForeverDB.** Client: WoW Forever. Disable ForeverDB in the AddOns list (or remove it) and log in. Hover the same History rows → each tooltip is the item's own with the click hint, exactly as before, with no Drops from or Sold by and no error. **Item sources (ForeverDB)** is still drawn and enabled, and its tooltip says the feature needs ForeverDB. `/lh diagnostics` → the `ForeverDB:` line reads `present=no` (removed) or `present=yes loaded=no` (disabled). Fail: an error, an empty heading, or any line ForeverDB would have supplied.
 Result:
 
-**SEEDS-LH-3. On Retail.** Client: Retail. Hover History rows → each tooltip is exactly as before, with no Drops from or Sold by. Settings › General › Interface › History window → **Item sources (ForeverDB)** is drawn disabled, and its tooltip says it is for WoW Forever only. `/dump LibStub("LibKa0s-ForeverDB-1.0").Available()` → `false, "client"`. Fail: any ForeverDB line on Retail, the row enabled, or an error.
+**SEEDS-LH-3. On Retail.** Client: Retail. Hover History rows → each tooltip is exactly as before, with no Drops from or Sold by. Settings › General › Interface › History window → there is no **Item sources (ForeverDB)** row at all (the feature is WoW Forever's alone, clients-§4), and `/lh set settings.itemSources false` is refused with `Setting not found`. `/dump LibStub("LibKa0s-ForeverDB-1.0").Available()` → `false, "client"`. Fail: any ForeverDB line on Retail, the row present in any form (enabled, grayed out or disabled), or an error.
 Result:
 
 ## WoW Forever
@@ -3054,8 +3054,10 @@ opens) are on their `Result:` lines in [`forever-probes.md`](forever-probes.md).
 
 Added by the 2026-11-25 seed run (SF-LH-01, Ka0sAddonsCommonTasks `docs/2026-11-25-SEEDS_AND_FOREVERDB/`;
 `docs/seed-research/2026-11-25-retail/`), awaiting the owner, each new and Retail only: CAP-35 to
-CAP-38, one per shipped-data change to `modules/Attribution.lua`'s deconstruct seeds. LOC-4 now
-dumps the new mass-mill seed 311413 in place of 434926 and keeps its result. The procedure is unchanged.
+CAP-38, one per shipped-data change to `modules/Attribution.lua`'s deconstruct seeds. LOC-4 is
+amended and awaits the owner beside CAP-35: it now dumps the new mass-mill seed 311413 in place of
+434926, so its 2026-10-10 pass (which was for the 434926 procedure) is cleared to pending.
 
 Added by the same run's ForeverDB adoption (SF-LH-02, LibKa0s#105), awaiting the owner, each new:
-SEEDS-LH-1 and SEEDS-LH-2 (WoW Forever, with and without ForeverDB) and SEEDS-LH-3 (Retail).
+SEEDS-LH-1 and SEEDS-LH-2 (WoW Forever, with and without ForeverDB) and SEEDS-LH-3 (Retail, where
+the setting's row is absent).

@@ -384,8 +384,7 @@ settings.auction.enabled | bool | true | nil | nil | nil
 settings.enabled | bool | true | nil | nil | nil
 settings.excludeQuestItems | bool | true | nil | nil | nil
 settings.excludedSources | table | {} | nil | nil | nil
-settings.itemSources | bool | true | nil | nil | nil
-settings.locked | bool | false | nil | nil | nil
+<ITEM_SOURCES>settings.locked | bool | false | nil | nil | nil
 settings.qualityThreshold | number | 1 | nil | nil | nil
 settings.recordCurrency | bool | true | nil | nil | nil
 settings.recordGold | bool | true | nil | nil | nil
@@ -414,6 +413,8 @@ test("Schema: the stored settings (path, type, default, range) are the pinned se
   local got = table.concat(lines, "\n") .. "\n"
   -- The skin's default is the client's (skinning-§2): Ka0s Default on Retail, WoW Forever on Forever.
   local want = STORED_SETTINGS:gsub("<DEFAULT_SKIN>", T.forever and "forever" or "ka0s")
+  -- Item sources is WoW Forever's alone (C.FEATURE.itemSources, SF-LH-02): no row on Retail.
+  want = want:gsub("<ITEM_SOURCES>", T.forever and "settings.itemSources | bool | true | nil | nil | nil\n" or "")
   assertEqual(got, want, "a stored setting's path, type, default or range moved")
 end)
 
@@ -443,11 +444,15 @@ test("Schema: Interface and History read as item 020 laid them out", function()
   for _, r in ipairs(NS.Schema.Schema) do
     if r.group == "Interface" then order[#order + 1] = r.path end
   end
+  -- Item sources (SF-LH-02) follows Show transfers on WoW Forever, and is absent on Retail.
+  local itemSources = T.forever and "settings.itemSources " or ""
   assertEqual(table.concat(order, " "), "settings.windowScale settings.rowHeight "
-    .. "settings.timelineMaxLines settings.showTransfers settings.itemSources settings.sim.stepDelay",
+    .. "settings.timelineMaxLines settings.showTransfers " .. itemSources .. "settings.sim.stepDelay",
     "Show transfers by default follows Timeline lines on Interface; Item sources (SF-LH-02) follows it")
-  for _, path in ipairs({ "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
-                          "settings.showTransfers", "settings.itemSources" }) do
+  local windowRows = { "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
+                       "settings.showTransfers" }
+  if T.forever then windowRows[#windowRows + 1] = "settings.itemSources" end
+  for _, path in ipairs(windowRows) do
     assertEqual(row(path).subgroup, "History window", path .. " subsection")
   end
   assertEqual(row("settings.windowScale").tooltip,

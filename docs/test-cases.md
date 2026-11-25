@@ -988,17 +988,17 @@ Total.
 ### test_itemsources.lua (13)
 
 - ItemSources: characterization, an item row's hover with no ForeverDB, call for call
-- ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and Sold by
-- ItemSources: the lines' colors are the skin's tooltip tokens
-- ItemSources: the top three, then how many more; a vendor with no price seen; unknown names
-- ItemSources: an item ForeverDB names no source for adds nothing
-- ItemSources: the row's id is read from its link when the record carries none
-- ItemSources: missing, failing to load or reshaped, the hover is exactly as before
-- ItemSources: with the setting off, nothing is added and nothing loads
+- ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and Sold by (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the lines' colors are the skin's tooltip tokens (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the top three, then how many more; a vendor with no price seen; unknown names (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: an item ForeverDB names no source for adds nothing (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: the row's id is read from its link when the record carries none (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: missing, failing to load or reshaped, the hover is exactly as before (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
+- ItemSources: with the setting off, nothing is added and nothing loads (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
 - ItemSources: on Retail the hover is exactly as before and ForeverDB is never asked
 - ItemSources: the addon's load asked ForeverDB nothing
 - ItemSources: chances read as percentages, an unknown rate as ?
-- ItemSources: the setting sits with the History window rows, on by default, Forever only
+- ItemSources: the setting is WoW Forever's alone: its row sits with the History window rows there, absent on Retail
 - ItemSources: the TOC and .pkgmeta name ForeverDB as optional, never required
 
 ### test_export.lua (38)
@@ -2535,7 +2535,7 @@ Total.
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 88 |
-| test_itemsources.lua | 13 |
+| test_itemsources.lua | 6 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2605,5 +2605,5 @@ Total.
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
-| Skipped | 1 |
-| **Total** | **2192** |
+| Skipped | 8 |
+| **Total** | **2185** |
