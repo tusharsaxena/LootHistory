@@ -684,7 +684,7 @@ Total.
 - Database: StorageStats on empty history is zeroed
 - Database: RunMigrations sets schemaVersion when absent
 - Database: defaults declare schemaVersion 0, and the target is the ladder's highest step
-- Database: a fresh store at schemaVersion 0 walks every step to 15
+- Database: a fresh store at schemaVersion 0 walks every step to 16
 - Database: RunMigrations leaves an already-current DB unchanged
 - Database: RunMigrations is idempotent across repeated runs
 - Database: RunMigrations is a safe no-op when the DB is absent
@@ -984,22 +984,6 @@ Total.
 - BrowserTable: GroupRecords pins nil, unknown and column-less group modes
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
-
-### test_itemsources.lua (13)
-
-- ItemSources: characterization, an item row's hover with no ForeverDB, call for call
-- ItemSources: on WoW Forever with ForeverDB, the hover adds Drops from and Sold by (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: the lines' colors are the skin's tooltip tokens (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: the top three, then how many more; a vendor with no price seen; unknown names (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: an item ForeverDB names no source for adds nothing (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: the row's id is read from its link when the record carries none (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: missing, failing to load or reshaped, the hover is exactly as before (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: with the setting off, nothing is added and nothing loads (skipped: WoW Forever-only feature (C.FEATURE.itemSources, SF-LH-02): absent on Retail, which its per-client case asserts)
-- ItemSources: on Retail the hover is exactly as before and ForeverDB is never asked
-- ItemSources: the addon's load asked ForeverDB nothing
-- ItemSources: chances read as percentages, an unknown rate as ?
-- ItemSources: the setting is WoW Forever's alone: its row sits with the History window rows there, absent on Retail
-- ItemSources: the TOC and .pkgmeta name ForeverDB as optional, never required
 
 ### test_export.lua (38)
 
@@ -1537,7 +1521,7 @@ Total.
 - Test mode: the sample currencies are the client's own
 - Sim: the stranger the social scenario trades with is a shared sample character
 
-### test_views.lua (17)
+### test_views.lua (18)
 
 - Views: Save on each tab writes only that tab's slot
 - Views: Clear on one tab applies its saved view, touching no other tab and no slot
@@ -1556,6 +1540,7 @@ Total.
 - Migrate v13->v14: a second run changes nothing
 - Migrate v13->v14: a corrupt (non-table) saved view is dropped, and no slot is made of it
 - Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in every profile, Blizzard's Friz kept
+- Migrate v15->v16: the removed Item sources switch leaves every stored profile, other settings kept
 
 ### test_panel.lua (48)
 
@@ -1926,7 +1911,7 @@ Total.
 - v1.113.0: the vendored minors and the kit revision match the release
 - v1.114.0: the vendored minors and the kit revision match the release
 
-### test_surface_parity.lua (22)
+### test_surface_parity.lua (21)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -1949,7 +1934,6 @@ Total.
 - parity: each host-copy skin token is the live library's Ka0s Default value
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
-- parity: the ForeverDB stand-in carries the whole live surface, at its all-absent answers
 
 ### test_disabled.lua (25)
 
@@ -2535,7 +2519,6 @@ Total.
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 88 |
-| test_itemsources.lua | 6 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2556,7 +2539,7 @@ Total.
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 23 |
-| test_views.lua | 17 |
+| test_views.lua | 18 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
@@ -2575,7 +2558,7 @@ Total.
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
 | test_libka0s.lua | 57 |
-| test_surface_parity.lua | 22 |
+| test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
@@ -2605,5 +2588,5 @@ Total.
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
-| Skipped | 8 |
-| **Total** | **2185** |
+| Skipped | 1 |
+| **Total** | **2179** |

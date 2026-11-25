@@ -270,6 +270,26 @@ local function retireFontsInProfiles()
   return n
 end
 
+-- v15 -> v16 helper (IS-LH-01, Ka0sAddonsCommonTasks docs/2026-11-25-ITEM_SEARCH/ section 5): Item
+-- sources (SF-LH-02, the History item tooltip's ForeverDB lines) is removed, so its stored switch
+-- `settings.itemSources` leaves every stored profile; nothing reads it any more. The row count is the
+-- profiles changed. Idempotent: a second pass finds no key.
+local function dropItemSourcesSetting()
+  local n = 0
+  local sv = NS.db and NS.db.sv
+  local profiles = type(sv) == "table" and sv.profiles
+  if type(profiles) == "table" then
+    for _, prof in pairs(profiles) do
+      local s = type(prof) == "table" and prof.settings
+      if type(s) == "table" and s.itemSources ~= nil then
+        s.itemSources = nil
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
 local MIGRATIONS = {
   -- v1 -> v2: point-in-time filtering (removed soft-add/soft-delete). Strip the retired
   -- per-record `viaWhitelist` flag; rows are never hidden/resurrected after capture. Non-
@@ -416,6 +436,10 @@ local MIGRATIONS = {
   -- Ka0s Ubuntu in its place (R3-L6). A stored skin Font override naming the deleted face moves to its
   -- successor in every stored profile; Blizzard's own "Friz Quadrata TT" stays. Idempotent.
   { to = 15, apply = function() return retireFontsInProfiles() end },
+
+  -- v15 -> v16 (IS-LH-01): Item sources is removed; `settings.itemSources` leaves every stored
+  -- profile. Idempotent.
+  { to = 16, apply = function() return dropItemSourcesSetting() end },
 }
 
 -- The runner's target (savedvariables-§1): the ladder's highest step, which is the version a migrated

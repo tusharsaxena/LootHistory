@@ -352,7 +352,7 @@ test("Migrate v13->v14: a profile's saved view becomes four identical per-tab vi
     },
   }
   local n = migrate({ global = sv.global, sv = sv })
-  assertEqual(sv.global.schemaVersion, 15)
+  assertEqual(sv.global.schemaVersion, 16)
   assertEqual(n, 2, "the two profiles with a saved view")
   local d = sv.profiles.Default
   assertEqual(d.savedView, nil, "the single view is retired")
@@ -400,9 +400,35 @@ test("Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in ev
     },
   }
   migrate({ global = sv.global, sv = sv })
-  assertEqual(sv.global.schemaVersion, 15)
+  assertEqual(sv.global.schemaVersion, 16)
   assertEqual(sv.profiles.Default.skin.font, "Ka0s Ubuntu", "the Default profile's override")
   assertEqual(sv.profiles.Alt.skin.font, "Ka0s Ubuntu", "another profile's override")
   assertEqual(sv.profiles.Plain.skin.font, "Friz Quadrata TT", "Blizzard's own Friz stays")
   assertEqual(NS.RetireFonts(sv.profiles.Alt), 0, "a second pass moves nothing")
+end)
+
+-- IS-LH-01 (Ka0sAddonsCommonTasks docs/2026-11-25-ITEM_SEARCH/ section 5): Item sources is removed, so
+-- v16 drops the stored `settings.itemSources` from every stored profile, whatever it held. red under:
+-- no v16 step, one that reaches only the active profile, or one that touches another setting.
+test("Migrate v15->v16: the removed Item sources switch leaves every stored profile, other settings kept", function()
+  local sv = {
+    global = { schemaVersion = 15, history = {} },
+    profiles = {
+      Default = { settings = { itemSources = false, qualityThreshold = 3 } },
+      Alt     = { settings = { itemSources = true } },
+      Plain   = { settings = { showTransfers = false } },
+      Empty   = {},
+    },
+  }
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(sv.global.schemaVersion, 16)
+  assertEqual(sv.profiles.Default.settings.itemSources, nil, "the Default profile's switch is gone")
+  assertEqual(sv.profiles.Default.settings.qualityThreshold, 3, "another setting is kept")
+  assertEqual(sv.profiles.Alt.settings.itemSources, nil, "another profile's switch is gone")
+  assertEqual(sv.profiles.Plain.settings.showTransfers, false, "a profile with no switch is untouched")
+  assertEqual(sv.profiles.Empty.settings, nil, "a profile with no settings gains none")
+  local after = ser(sv.profiles)
+  sv.global.schemaVersion = 15
+  migrate({ global = sv.global, sv = sv })
+  assertEqual(ser(sv.profiles), after, "a second run changes nothing")
 end)
