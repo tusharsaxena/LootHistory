@@ -457,23 +457,3 @@ test("parity: the degraded facade draws today's edge, and the file-load markup s
   assertTrue(degradedNS.BrowserTable ~= nil and degradedNS.HoldingsTab ~= nil and degradedNS.Panel ~= nil,
     "the degraded load did not finish the files that build markup at load")
 end)
-
--- ── ForeverDB ──────────────────────────────────────────────────────────────────────────────────
-
-test("parity: the ForeverDB stand-in carries the whole live surface, at its all-absent answers", function()
-  -- core/ForeverDBSetup.lua publishes the library table itself as NS.ForeverDB, so the by-name form
-  -- names the major (tests/run.lua registers its live half). The stand-in's answers are the ones
-  -- docs/api/ForeverDB/version-1-docs.md's *Degradation* names (SF-LH-02).
-  T.assertSurfaceParity(degradedNS.ForeverDB, "LibKa0s-ForeverDB-1.0", {})
-  local F = degradedNS.ForeverDB
-  local ok, reason = F.Available()
-  assertTrue(ok == false and reason == "missing", "the stand-in is not available: " .. tostring(reason))
-  assertEqual(F.IsLoaded(), false)
-  local s = F.Status()
-  assertTrue(s.present == false and s.loaded == false, "the stand-in's Status is all absent")
-  local price, npc = F.VendorPrice(1)
-  assertTrue(price == nil and npc == nil, "the stand-in's VendorPrice is nil, nil")
-  for _, name in ipairs({ "Meta", "NPC", "Item", "Quest", "ItemSources", "Spots", "TrainerSpells" }) do
-    assertEqual(F[name](1), nil, name)
-  end
-end)

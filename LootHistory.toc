@@ -5,7 +5,7 @@
 ## Version: 1.5.0
 ## IconTexture: Interface\AddOns\LootHistory\media\logos\loothistory.logo.128.tga
 ## SavedVariables: LootHistoryDB, LootHistoryPerfDB
-## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI, ForeverDB
+## OptionalDeps: Ace3, LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0, EllesmereUI
 ## DefaultState: enabled
 ## Category-enUS: Misc
 ## X-License: MIT
@@ -52,7 +52,6 @@ core\EnvSetup.lua
 # core\Constants.lua calls at file load to build the quality threshold labels. Below
 # Constants and that loop raises on a nil field.
 core\ItemSetup.lua
-core\ForeverDBSetup.lua
 # LOAD-BEARING POSITION: publishes NS.MediaFont, which core\Constants.lua reads at file
 # load to resolve FONT_MONO. Below Constants and every consumer silently gets the client font.
 core\MediaSetup.lua
@@ -136,7 +135,6 @@ modules\Reconciler.lua
 modules\Escrow.lua
 modules\AuctionPrice.lua
 modules\LedgerFormat.lua
-modules\ItemSources.lua
 # LOAD-BEARING POSITION: publishes B._dataset, B._withAll, B._options and the Bound labels, which
 # modules\Browser.lua binds as file-scope locals at load; it must be above modules\Browser.lua.
 modules\BrowserWidgets.lua

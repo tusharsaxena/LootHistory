@@ -15,13 +15,9 @@ local C = NS.Constants
 -- split (modules/HoldingsTab.lua) and the simulator's warband steps (modules/SimScenario.lua). The
 -- account holder itself (`§warband`) serves both clients: WoW Forever has account-wide currencies,
 -- and the holder reads "Account" there (C.ACCOUNT below).
--- `itemSources` is the one WoW Forever-only feature: the History table's item tooltip lines from the
--- optional ForeverDB addon (modules/ItemSources.lua, SF-LH-02, LibKa0s#105) and their setting's row
--- (settings/Schema.lua) and default (defaults/Profile.lua), none of which exist on Retail.
 C.FEATURE_CLIENTS = {
   warbandBank = { "retail" },
   mythicPlus = { "retail" },
-  itemSources = { "forever" },
 }
 C.FEATURE = {}
 for name, clients in pairs(C.FEATURE_CLIENTS) do C.FEATURE[name] = NS.Compat.ForClient(clients) end

@@ -3,12 +3,6 @@ package-as: LootHistory
 # Libraries are vendored in-tree under libs/ (committed to git), NOT pulled as externals.
 # This is a deliberate project choice; the packager ships libs/ as-is.
 
-# ForeverDB (WoW Forever's data addon) is OPTIONAL: the History table's item tooltip reads it when it
-# is installed, through LibKa0s-ForeverDB-1.0, and the addon is unchanged without it. Never a
-# required dependency (WowAddonStandards clients-§11).
-optional-dependencies:
-  - forever-db
-
 ignore:
   - .luacheckrc
   - .gitignore
