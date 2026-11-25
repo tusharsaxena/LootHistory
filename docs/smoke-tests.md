@@ -2890,7 +2890,7 @@ Result: PASS (owner, 2026-11-25)
 Superseded on 2026-11-25 by ITEM-SEARCH (IS-LH-01): Item sources is removed; SEEDS-LH-4 checks it is gone.
 
 **SEEDS-LH-4. Item sources is gone.** Client: both. With Drop Watcher disabled (its Item Search adds a block to every item tooltip) and, on WoW Forever, ForeverDB enabled, log in and run `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` → `false`. Open History and hover item rows → each tooltip is the item's own with the click hint, as before Item sources: no Drops from and no Sold by. `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` still answers `false` (nothing in Loot History loads it). Settings › General › Interface › History window → there is no **Item sources (ForeverDB)** row, and `/lh set settings.itemSources false` is refused with `Setting not found`. A profile that saved the setting before this change (`/dump LootHistoryDB.profiles` after `/reload` on such a profile) no longer carries `itemSources`. Fail: any Drops from or Sold by line, ForeverDB loaded by Loot History, the row present, or an error.
-Result:
+Result: PASS (owner, 2026-11-25)
 
 ## WoW Forever
 
@@ -3076,3 +3076,5 @@ On 2026-11-25 the owner reported that every check of the seeds and ForeverDB run
 Added by the Item Search run (IS-LH-01, 2026-11-25; Ka0sAddonsCommonTasks `docs/2026-11-25-ITEM_SEARCH/`),
 awaiting the owner: SEEDS-LH-4, new, on both clients. The run removed Item sources, so SEEDS-LH-1 to
 SEEDS-LH-3 are superseded by ITEM-SEARCH after they passed.
+On 2026-11-25 the owner reported that SEEDS-LH-4 passed; its `Result:` line records it as
+`PASS (owner, 2026-11-25)`.
