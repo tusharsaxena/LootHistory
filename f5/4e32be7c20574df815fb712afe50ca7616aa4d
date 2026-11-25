@@ -1,0 +1,7 @@
+Independent review, Ka0sAddonsCommonTasks docs/2026-11-25-SEEDS_AND_FOREVERDB (workflows wf_df07c1ab-8d1, wf_219c4c4a-92a)
+SF-LH-01+02: 4 findings (blocker, major, minor, minor); fix pass: f54e32b SF-LH-01: review fixes (Item sources absent on Retail, leak-budget deviation row, boot test, LOC-4 pending); fix gate green=True
+  - [blocker] settings/Schema.lua:455 The new `settings.itemSources` row is registered on both clients and greyed out on Retail with `disabledIf = not IsForever()` (line 458). clients-§4 says a one-client feature must not be registered an
+  - [major] tests/run.lua:394 `Kit.run{ ..., leakBudgetMB = 288 }` raises the kit's 256 MB leak budget. testing-§15 says a raised `leakBudgetMB` MUST be recorded as a row in `## Documented deviations`, with the measured figure and
+  - [minor] tests/test_itemsources.lua:170 The case 'the addon's load asked ForeverDB nothing' does not test what it claims. `withForeverDB` calls `lib.__reset()` and installs a fresh fake before the body runs. That wipes any session answer th
+  - [minor] docs/smoke-tests.md:2865 LOC-4's procedure now dumps the new mass-mill seed 311413 instead of 434926, but its line still reads 'Result: pass (owner-marked 2026-10-10)'. The run's own ANALYSIS ('The LOC-4 history') says the ol
+Lead gate re-run 2026-11-25 at this head: green (see EXECUTION_RECORD.md).
