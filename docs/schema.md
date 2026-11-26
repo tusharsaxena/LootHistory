@@ -19,7 +19,7 @@ Defaults are declared in `defaults/Global.lua`; AceDB merges them under `db.glob
 
 ```lua
 db.global = {
-  schemaVersion = 15,          -- DB schema stamp; declared 0, carried to 15 by NS:RunMigrations at init
+  schemaVersion = 16,          -- DB schema stamp; declared 0, carried to 16 by NS:RunMigrations at init
   history = {},                -- dense array of loot records (one per loot event)
   retentionDays = 30,          -- "Keep history for" (row settings.retentionDays); 0 == keep Always. Account-wide (D6)
   minimap = { hide = false },  -- LibDBIcon visibility state (global by launcher-§3)
