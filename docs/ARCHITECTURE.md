@@ -143,7 +143,7 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Thirty-two rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Thirty-three rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
 Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
 `Appearance`) holds eight: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and

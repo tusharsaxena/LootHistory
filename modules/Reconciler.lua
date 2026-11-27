@@ -542,7 +542,11 @@ end
 local function rowAllowed(kind, id)
   local p = NS.db.profile
   local s = p.settings
-  if kind == "ITEM" then return not (p.blacklist and p.blacklist[id]) end
+  if kind == "ITEM" then
+    if p.blacklist and p.blacklist[id] then return false end
+    -- arrows, bullets and thrown weapons, while the setting is on (WoW Forever's default)
+    return not (s.excludeAmmo == true and Compat.IsAmmo(id))
+  end
   if kind == "CURRENCY" then
     return s.recordCurrency ~= false and not (p.currencyBlacklist and p.currencyBlacklist[id])
   end

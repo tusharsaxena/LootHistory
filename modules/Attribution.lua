@@ -248,9 +248,11 @@ function Attribution:OnLootOpened()
   end
   -- Through Compat, so the Sim-1.0 answer seam can play a loot window (LootHistory#37).
   local n = NS.Compat.NumLootItems()
-  -- Fishing loot (the owner, 2026-11-27): the client says so itself. Its slots carry the bobber's or
-  -- no source GUID, which read as CONTAINER or OTHER, so the client's answer wins over the slots.
-  if NS.Compat.IsFishingLoot() then
+  -- Fishing loot (the owner, 2026-11-27): the client says so (IsFishingLoot), or a Fishing cast armed
+  -- it (noteFishing) and the window's first slot has no source or the bobber's GameObject. A creature's
+  -- or an item's window is never a catch, however soon after a cast.
+  if NS.Compat.IsFishingLoot() or self:FishingArmed() then
+    State.fishingUntil = nil
     self:Stamp(Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN, "LOOT_OPENED")
     self:OpenLootWindow(n, Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN)
     return
@@ -273,6 +275,16 @@ end
 
 -- The window's coverage (Constants.LOOT_LINE_GRACE). A second window of the same source adds its slots
 -- to the lines still owed; any other replaces them.
+--- Whether a Fishing cast armed the loot window open now: within FISHING_TTL of the cast, and its first
+--- slot's source is none or a GameObject (the bobber).
+function Attribution:FishingArmed()
+  local untilT = State.fishingUntil
+  if not (untilT and untilT >= GetTime()) then return false end
+  local guid = NS.Compat.NumLootItems() > 0 and NS.Compat.LootSourceGUID(1) or nil
+  if not guid then return true end
+  return (NS.Compat.DecodeGUID(guid)) == "GameObject"
+end
+
 function Attribution:OpenLootWindow(slots, source, detail, confidence)
   if NS.IsStoodDown and NS.IsStoodDown() then return end
   if not slots or slots <= 0 then return end
@@ -411,8 +423,45 @@ end
 -- rotation). Only conclusive results are cached (see DeconstructSource): a positive always, a
 -- negative only once the seed names have resolved, so a not-yet-cached name can't freeze a wrong miss.
 -- Debug logs ONLY the deconstruct hits (not the non-deconstruct majority) — no per-cast spam.
+-- Fishing by its cast (the owner, 2026-11-27: on WoW Forever a catch's loot window carries no source
+-- GUID and IsFishingLoot does not answer, so its rows read Other). The Fishing spell is every rank's
+-- and every client's: an id below, or a cast whose localized name is Fishing's (spell 7620's name, as
+-- the deconstruct seeds match theirs). A cast arms FISHING_TTL; the next loot window with no source,
+-- or the bobber's GameObject, is a catch. Memoized per spellID like the deconstruct answer.
+local FISHING_IDS = { [7620] = true, [7731] = true, [7732] = true, [18248] = true, [33095] = true,
+  [51294] = true, [88868] = true, [131474] = true }
+local FISHING_SEED = 7620
+
+-- Answers hit, conclusive. The seed's name is read first: while the client has not cached it, the
+-- cast's own name is never asked for (an inconclusive miss, retried on the next cast).
+function Attribution:IsFishingSpell(spellID)
+  if FISHING_IDS[spellID] then return true, true end
+  local seed = NS.Compat.GetSpellName(FISHING_SEED)
+  if not (seed and seed ~= "") then return false, false end
+  local name = NS.Compat.GetSpellName(spellID)
+  if not (name and name ~= "") then return false, false end
+  local fold = NS.Compat.FoldNBSP
+  return fold(name):lower() == fold(seed):lower(), true
+end
+
+local function noteFishing(self, spellID)
+  local cache = self._fishCache
+  if not cache then cache = {}; self._fishCache = cache end
+  local hit = cache[spellID]
+  if hit == nil then
+    local conclusive
+    hit, conclusive = self:IsFishingSpell(spellID)
+    if conclusive then cache[spellID] = hit end
+  end
+  if not hit then return end
+  if NS.IsStoodDown and NS.IsStoodDown() then return end
+  State.fishingUntil = GetTime() + Constants.FISHING_TTL
+  if NS.State.debug and NS.Debug then NS.Debug("Cast", "fishing cast %s: the next catch is FISHING", tostring(spellID)) end
+end
+
 local function spellCast(self, unit, spellID)
   if unit ~= "player" then return end
+  noteFishing(self, spellID)
   local cache = self._deconCache
   if not cache then cache = {}; self._deconCache = cache end
   local memo = cache[spellID]

@@ -395,6 +395,32 @@ test("Attribution: a fishing loot window stamps FISHING, whatever its slots say 
   assertEqual(NS.Constants.SourceLabel.FISHING, "Fishing")
 end)
 
+test("Attribution: a Fishing cast makes the next sourceless loot window a catch; a creature's never (2026-11-27)", function()
+  resetContext()
+  NS.State.fishingUntil = nil
+  local A = NS.Attribution
+  local oNum, oSrc, oFish = mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot
+  mocks.IsFishingLoot = function() return false end   -- WoW Forever: the client does not say
+  mocks.GetNumLootItems = function() return 1 end
+  mocks.GetLootSourceInfo = function() return nil end  -- and the catch's slot has no source
+  A:OnSpellSucceeded(nil, "player", "c", 7620)         -- Fishing
+  A:OnLootOpened()
+  -- red under (the owner's second report): OTHER, no stamp at all
+  assertEqual(A:Consume(), "FISHING")
+  assertEqual(NS.State.fishingUntil, nil, "one catch per cast")
+  resetContext()
+  A:OnSpellSucceeded(nil, "player", "c", 7620)
+  mocks.GetLootSourceInfo = function() return "Creature-0-0-0-0-31146-000000AAAA" end
+  A:OnLootOpened()
+  assertEqual(A:Consume(), "KILL", "a creature looted after a cast is a kill")
+  resetContext()
+  NS.State.fishingUntil = nil
+  mocks.GetLootSourceInfo = function() return nil end
+  A:OnLootOpened()
+  assertEqual(A:Consume(), "OTHER", "no cast: a sourceless window stays Other")
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot = oNum, oSrc, oFish
+end)
+
 test("OnLootOpened logs ONE coalesced summary, not one line per slot", function()
   resetContext()
   local oNum, oSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo

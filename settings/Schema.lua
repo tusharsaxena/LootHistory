@@ -321,6 +321,14 @@ local ROWS = {
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "questfilter") end
     end },
 
+  { path = "settings.excludeAmmo", default = PD.settings.excludeAmmo, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Ignore ammunition and thrown weapons",
+    tooltip = "Skip arrows, bullets and thrown weapons: no loot record and no ledger row for them. " ..
+      "On by default on WoW Forever, where every shot spends one.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "ammofilter") end
+    end },
+
   { path = "settings.recordCurrency", default = PD.settings.recordCurrency, type = "bool", widget = "CheckBox",
     page = "General", group = "Capture", subgroup = "Loot", label = "Record currency",
     tooltip = "Record looted currency (Valorstones, crests, etc.) as Type=Currency rows. " ..

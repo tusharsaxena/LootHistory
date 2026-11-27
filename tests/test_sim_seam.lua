@@ -32,7 +32,7 @@ local CLASSIFIED = {
   -- guarded: the one member that changes client state (it expands and collapses currency headers)
   ListCurrencies = "guarded",
   -- wrapped: answered live until a provider is set
-  GetActiveKeystoneLevel = "wrapped", InPartyInstance = "wrapped", NumLootItems = "wrapped", IsFishingLoot = "wrapped",
+  GetActiveKeystoneLevel = "wrapped", InPartyInstance = "wrapped", NumLootItems = "wrapped", IsFishingLoot = "wrapped", IsAmmo = "wrapped",
   LootSourceGUID = "wrapped", Zone = "wrapped", PlayerMapID = "wrapped", InInstance = "wrapped",
   InGroup = "wrapped", PlayerInCombat = "wrapped", ContainerItemHasLoot = "wrapped",
   CurrentQuestID = "wrapped", IsSpellTargeting = "wrapped", GetSpellName = "wrapped",

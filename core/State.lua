@@ -5,6 +5,7 @@ local State = NS.State
 -- Short-lived source context, stamped by peripheral events and consumed by CHAT_MSG_LOOT.
 -- Shape: { source, detail, confidence, expires }
 State.lootContext = nil
+State.fishingUntil = nil   -- GetTime() a Fishing cast keeps the next loot window a catch until
 -- The loot window whose lines are still to land: { source, detail, confidence, left, expires }.
 State.lootWindow = nil
 
