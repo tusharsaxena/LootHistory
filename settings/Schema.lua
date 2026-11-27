@@ -484,31 +484,34 @@ local ROWS = {
     page = "General", group = "Interface", subgroup = "Holdings in tooltips",
     label = "Show holdings in item and currency tooltips",
     tooltip = "List who on your account holds the item or currency under the mouse, and how many. "
-      .. "Needs Track holdings and losses.",
+      .. "Needs Track holdings and losses (General > Capture).",
     onChange = tooltipChanged },
   { path = "settings.tooltip.containers", default = PD.settings.tooltip.containers, type = "bool", widget = "CheckBox",
     page = "General", group = "Interface", subgroup = "Holdings in tooltips",
     label = "Show where each holder keeps it",
     tooltip = "Split each holder's count into bags, equipped, bank, mail and auction house"
       .. (C.FEATURE.warbandBank and ", and the warband bank" or "")
-      .. ", each shown as an icon and a count. Needs Track holdings and losses.",
+      .. ", each shown as an icon and a count. "
+      .. "Needs Track holdings and losses (General > Capture). Needs Show holdings in item and currency tooltips.",
     onChange = tooltipChanged },
   { path = "settings.tooltip.warband", default = PD.settings.tooltip.warband, type = "bool", widget = "CheckBox",
     page = "General", group = "Interface", subgroup = "Holdings in tooltips",
     label = "Include the " .. C.ACCOUNT.holder,
     tooltip = "Add a line for what your " .. C.ACCOUNT.holder:lower() .. " holds"
       .. (C.FEATURE.warbandBank and ": the warband bank and account-wide currencies" or ": account-wide currencies")
-      .. ". Needs Track holdings and losses.",
+      .. ". Needs Track holdings and losses (General > Capture). Needs Show holdings in item and currency tooltips.",
     onChange = tooltipChanged },
   { path = "settings.tooltip.totalMin2", default = PD.settings.tooltip.totalMin2, type = "bool", widget = "CheckBox",
     page = "General", group = "Interface", subgroup = "Holdings in tooltips",
     label = "Show the Total only with 2 or more holders",
-    tooltip = "Off: a Total line closes every block, even with one holder. Needs Track holdings and losses.",
+    tooltip = "Off: a Total line closes every block, even with one holder. "
+      .. "Needs Track holdings and losses (General > Capture). Needs Show holdings in item and currency tooltips.",
     onChange = tooltipChanged },
   { path = "settings.tooltip.modifier", default = PD.settings.tooltip.modifier, type = "string", widget = "Dropdown",
     values = C.TOOLTIP_MODIFIER_OPTIONS, solo = true,
     page = "General", group = "Interface", subgroup = "Holdings in tooltips", label = "Only while holding",
-    tooltip = "Show the block only while this key is held. None: always. Needs Track holdings and losses.",
+    tooltip = "Show the block only while this key is held. None: always. "
+      .. "Needs Track holdings and losses (General > Capture). Needs Show holdings in item and currency tooltips.",
     onChange = tooltipChanged },
 
   -- ── General ▸ History ──

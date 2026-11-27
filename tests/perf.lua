@@ -17,6 +17,11 @@ local BYTE_CEILING = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBagU
                        reconcileCleanBags = 124000 }
 local SCANS_PER_ITER = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBagUpdate = 0,
                          reconcileCleanBags = 1 }
+-- RECORDED, NOT GATED (spec docs/superpowers/specs/2026-11-27-34-tooltip-holdings-design.md, 9.2):
+-- the holdings tally over a 200-holder store, cold (a cache miss per call) and warm, and the
+-- tooltip block's replay path. They carry no ceiling; the headless suite pins the replay's zero
+-- (tests/test_holdings_tip.lua), and these rows are the orientation numbers beside it.
+local RECORDED_ONLY = { tallyItemCold = true, tallyItemWarm = true, tooltipBlockReplay = true }
 
 local USAGE = "usage: lua tests/perf.lua [--out <path>] [--label <text>]\n"
 
@@ -121,12 +126,41 @@ measure("reconcileCleanBags", 200, function()
 end)
 NS.Scanner.ScanContainers = baseScan
 
-for _, r in ipairs(results) do
+-- Scenario 4 — the holdings tally (#34) over a 200-holder saved store: a cold T:Item builds the
+-- entry from the store each call; a warm one composes the live overlay over the cached entry.
+local TIP_ITEM = 990777
+for i = 1, 200 do
+  NS.Holdings:ApplyContainer(("Alt%03d-Realm"):format(i), "bags", { [TIP_ITEM] = i }, {}, 1000000)
+end
+mocks.C_Item.GetItemCount = function(id, includeBank) return id == TIP_ITEM and (includeBank and 5 or 3) or 0 end
+local Tally = NS.HoldingsTally
+measure("tallyItemCold", 1000, function() Tally:Invalidate(); Tally:Item(TIP_ITEM, 1000000) end)
+Tally:Invalidate()
+measure("tallyItemWarm", 1000, function() Tally:Item(TIP_ITEM, 1000000) end)
+
+-- Scenario 5 — the tooltip block's replay: one post call on an unchanged thing, the mark cleared
+-- between calls as the client's OnTooltipCleared clears it, the paint a no-op on a bare tooltip.
+local cleared = {}
+local tip = { AddLine = function() end, AddDoubleLine = function() end, Show = function() end,
+              HasScript = function() return true end,
+              HookScript = function(_, _, fn) cleared[#cleared + 1] = fn end }
+local tipData = { id = TIP_ITEM }
+NS.HoldingsTip:RefreshConfig()
+NS.HoldingsTip.OnTooltip(tip, tipData, 1)
+measure("tooltipBlockReplay", 1000, function()
+  for i = 1, #cleared do cleared[i](tip) end
+  NS.HoldingsTip.OnTooltip(tip, tipData, 1)
+end)
+
+local function gate(r)
   local ceiling, want = BYTE_CEILING[r.name], SCANS_PER_ITER[r.name]
   check(r.name .. ": bytes under the ceiling", ceiling ~= nil and r.bytesPerIter <= ceiling,
     ("%.1f B/iter, ceiling %s"):format(r.bytesPerIter, tostring(ceiling)))
   check(r.name .. ": scans pinned", want ~= nil and math.abs(r.scansPerIter - want) < 1e-9,
     ("%.2f scans/iter, pinned at %s"):format(r.scansPerIter, tostring(want)))
+end
+for _, r in ipairs(results) do
+  if not RECORDED_ONLY[r.name] then gate(r) end
 end
 
 -- The report. Five columns, exactly: tests/_kit/run-automated-tests.sh counts scenarios as the

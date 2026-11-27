@@ -120,12 +120,14 @@ test("Compat routing: only core/CompatClient.lua reads the client's project cons
   assertEqual(#hits, 0, "client reads outside the compat family:\n  " .. table.concat(hits, "\n  "))
 end)
 
-test("Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam", function()
+test("Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, straight above the Sim seam", function()
   -- red under: CompatClient below core/SimSeam.lua, where its members escape the wrap; or above
   -- core/Compat.lua, which publishes the NS.Compat it adds to.
   local order = {}
   for i, path in ipairs(shippedFiles("core/")) do order[path] = i end
   assertTrue(order["core/CompatClient.lua"] ~= nil, "the TOC lists core/CompatClient.lua")
   assertEqual(order["core/CompatClient.lua"], order["core/Compat.lua"] + 1, "straight after core/Compat.lua")
-  assertEqual(order["core/SimSeam.lua"], order["core/CompatClient.lua"] + 1, "straight before core/SimSeam.lua")
+  assertTrue(order["core/CompatTooltip.lua"] ~= nil, "the TOC lists core/CompatTooltip.lua")
+  assertEqual(order["core/CompatTooltip.lua"], order["core/CompatClient.lua"] + 1, "the family stays contiguous")
+  assertEqual(order["core/SimSeam.lua"], order["core/CompatTooltip.lua"] + 1, "straight before core/SimSeam.lua")
 end)

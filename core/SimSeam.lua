@@ -5,12 +5,13 @@ local _, NS = ...
 --
 -- ── THE SEAM ─────────────────────────────────────────────────────────────────────────────────
 --
--- At file load, straight after core/Compat.lua and before any other file can read a member,
+-- At file load, straight after the compat family (core/Compat.lua, core/CompatClient.lua,
+-- core/CompatTooltip.lua) and before any other file can read a member,
 -- Sim:NewSeam wraps every NS.Compat function but the PURE ones in place, once. While a simulation
 -- runs (modules/Sim.lua's NS.Sim) a wrapped member answers through its provider (registered by the
 -- simulator's world module with NS.SimSeam:SetProvider); with no provider, or with no simulation
 -- running, it answers live. Idle, the cost is one field test per call. This file names no client
--- API: core/Compat.lua stays the only caller (compat).
+-- API: the compat family stays the only caller (compat).
 --
 -- H1 and H2 are what keep it whole. Every client read the simulator answers is a Compat member read
 -- at CALL time (`NS.Compat.Member(...)`); a member captured into a local at load would be the live

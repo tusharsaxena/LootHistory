@@ -301,7 +301,7 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
-- Compat routing: core/CompatClient.lua loads straight after core/Compat.lua, above the Sim seam
+- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, straight above the Sim seam
 
 ### test_compat_client.lua (10)
 
@@ -316,7 +316,7 @@ Total.
 - CompatClient: a degraded install reads the container groups and the bank as the library does
 - CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
-### test_compat_tooltip.lua (20)
+### test_compat_tooltip.lua (22)
 
 - Compat tooltip: IsSecret answers a boolean, true only for a secret
 - Compat tooltip: HookTooltipType registers a post call for Item and for Currency
@@ -332,6 +332,8 @@ Total.
 - Compat tooltip: TooltipTint wraps text in the token's components, no byte typed
 - Compat tooltip: FormatCount groups digits with BreakUpLargeNumbers, else tostring
 - Compat tooltip: LiveItemCounts subtracts worn gear and splits the bank out
+- Compat tooltip: LiveItemCounts reads worn ids only, and never through the wrapped member
+- Compat tooltip: LiveItemCounts skips the worn scan when nothing is carried or it cannot be worn
 - Compat tooltip: LiveItemCounts' account part is nil while the warband feature is off
 - Compat tooltip: LiveItemCounts never goes below zero
 - Compat tooltip: a secret or absent count gives nil for that part only
@@ -375,7 +377,7 @@ Total.
 - Holdings: SavedStore answers db.global.holdings under test mode and under a sim store
 - Holdings: SavedStore answers an empty table before InitDB
 
-### test_holdings_tally.lua (30)
+### test_holdings_tally.lua (33)
 
 - HoldingsTally: three characters and the warband, per holder, per container, warband last
 - HoldingsTally: equal counts sort by holder; a zero holder is dropped, me included
@@ -386,7 +388,10 @@ Total.
 - HoldingsTally: zero-suspect -- live 0 with stored 5 away from the bank reads 5
 - HoldingsTally: live 7 with stored 5 away from the bank reads 7
 - HoldingsTally: a nil live part falls back to the store
-- HoldingsTally: equipped, mail and auctions always come from the store
+- HoldingsTally: with no live worn count equipped is stored; mail and auctions always are
+- HoldingsTally: my equipped count is live, so a swap never undercounts or doubles
+- HoldingsTally: a live count handed in is used, and the client is not read again
+- HoldingsTally: while a simulation runs no bank reads as authoritative
 - HoldingsTally: another holder's counts are never overlaid
 - HoldingsTally: the warband tabs are overlaid live on Retail
 - HoldingsTally: on WoW Forever the warband is never overlaid and never lifted (skipped: WoW Forever-only case (clients-§6): Retail runs the warband overlay case)
@@ -1322,7 +1327,7 @@ Total.
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
 
-### test_schema_seam.lua (25)
+### test_schema_seam.lua (26)
 
 - seam: Set answers true, or false and a reason, in the host's own words
 - seam: one write logs its [Set] line, then runs onChange, once each
@@ -1346,6 +1351,7 @@ Total.
 - Retention: with no StaticPopup_Show a shorter value prunes at once
 - Retention: a value that would delete nothing raises no confirm and prunes nothing
 - Schema: the stored settings (path, type, default, range) are the pinned set
+- Schema: the tooltip rows name their parents, and where trackLedger lives (options-ui-§21)
 - Schema: the Capture tooltips name the controls a player can find (item 020)
 - Schema: Interface and History read as item 020 laid them out
 - Schema: Test mode keeps the composed tooltip and appends the host's note (item 020)
@@ -1469,7 +1475,7 @@ Total.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
-### test_holdings_tip.lua (27)
+### test_holdings_tip.lua (29)
 
 - HoldingsTip: an item block is a spacer, the header, the holders and the Total, in order
 - HoldingsTip: a character's name is in its class color, else gtip.body
@@ -1491,6 +1497,8 @@ Total.
 - HoldingsTip: a re-entrant post call writes nothing, and an error inside releases busy
 - HoldingsTip: the block never owns placement (no SetOwner, no PlaceTooltip)
 - HoldingsTip: an unchanged refresh replays the lines: no tally compose, no icon markup
+- HoldingsTip: a changed worn count rebuilds, and a rebuild reads the live counts once
+- HoldingsTip: a replay with the real live reads allocates nothing
 - HoldingsTip: a skin switch reaches the block's colors on the next refresh
 - HoldingsTip: ORDER draws the warband bank's tabs only where it is a feature
 - HoldingsTip: WoW Forever never builds the locked-chest mark and says Account
@@ -2066,7 +2074,7 @@ Total.
 - lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running
 - lifecycle: loginSettled flips at the 20 s deferral
 
-### test_holdings_api.lua (23)
+### test_holdings_api.lua (26)
 
 - HoldingsAPI: the file publishes _G.LootHistory holding exactly API, its NS.API, holding exactly v1
 - HoldingsAPI: v1 holds exactly the eleven functions, and Version() is 1
@@ -2077,6 +2085,7 @@ Total.
 - HoldingsAPI: ItemCount for the logged-in character equals the tally's live overlay
 - HoldingsAPI: CurrencyCount per holder; bad and unheld ids
 - HoldingsAPI: Money is live for me and the warband where answered, stored otherwise; nil sums all
+- HoldingsAPI: while a simulation runs, Money reads the real purse and deposit, never the sim's
 - HoldingsAPI: Holdings is the stored snapshot, without escrow or bankSlots
 - HoldingsAPI: Scanned copies e.scanned; nil for unknown
 - HoldingsAPI: no answer is or holds a store table, and writing into one changes nothing
@@ -2085,6 +2094,8 @@ Total.
 - HoldingsAPI: a perf capture's hold answers empty
 - HoldingsAPI: degraded arm -- without CallbackHandler both registrations answer false
 - HoldingsAPI: live arm -- a registration hears ('HoldingsChanged', holder) on ForgetHolder
+- HoldingsAPI: live arm -- a re-query inside HoldingsChanged sees the new store
+- HoldingsAPI: live arm -- an availability flip wipes the tally before it fires
 - HoldingsAPI: live arm -- a Reconciler flush relays each changed holder
 - HoldingsAPI: live arm -- nothing is relayed during an active simulation
 - HoldingsAPI: live arm -- nil on a trackLedger flip, and once each on Disable and Enable
@@ -2227,7 +2238,7 @@ Total.
 - Sim: the History row's Delete refuses while a simulation runs
 - Sim: a retention change that would prune refuses and keeps the confirmed value
 
-### test_sim_world.lua (10)
+### test_sim_world.lua (11)
 
 - SimWorld: the fixture world is deterministic for a seed
 - SimWorld: a world never mirrors the player's real bags
@@ -2239,6 +2250,7 @@ Total.
 - SimWorld: the item, spell and currency reads and the three world rules have no provider
 - SimWorld: SetProvider twice for one key raises
 - SimWorld: a start seeds the session world from the fixture and the session seed
+- SimWorld: the holdings tooltip's and API's live reads stay real while a session runs (#34)
 
 ### test_sim_drivers.lua (7)
 
@@ -2629,11 +2641,11 @@ Total.
 | test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 10 |
-| test_compat_tooltip.lua | 20 |
+| test_compat_tooltip.lua | 22 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 13 |
-| test_holdings_tally.lua | 29 |
+| test_holdings_tally.lua | 32 |
 | test_rollup.lua | 25 |
 | test_attribution.lua | 50 |
 | test_attribution_out.lua | 14 |
@@ -2661,12 +2673,12 @@ Total.
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 8 |
 | test_schema.lua | 48 |
-| test_schema_seam.lua | 25 |
+| test_schema_seam.lua | 26 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 52 |
 | test_analytics_layout.lua | 12 |
 | test_holdingstab.lua | 34 |
-| test_holdings_tip.lua | 27 |
+| test_holdings_tip.lua | 29 |
 | test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
@@ -2693,7 +2705,7 @@ Total.
 | test_libka0s_releases.lua | 28 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
-| test_holdings_api.lua | 23 |
+| test_holdings_api.lua | 26 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 17 |
@@ -2701,7 +2713,7 @@ Total.
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 26 |
-| test_sim_world.lua | 10 |
+| test_sim_world.lua | 11 |
 | test_sim_drivers.lua | 7 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
@@ -2723,4 +2735,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2292** |
+| **Total** | **2304** |

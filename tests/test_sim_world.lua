@@ -289,3 +289,24 @@ test("SimWorld: a start seeds the session world from the fixture and the session
   end)
   assertEqual(Host.world, nil, "the stop drops the world")
 end)
+
+test("SimWorld: the holdings tooltip's and API's live reads stay real while a session runs (#34)", function()
+  -- red under: LiveItemCounts' worn scan reading the provided GetInventoryItem (real carried less
+  -- simulated worn), or api.Money reading the provided GetMoney / GetWarbandMoney.
+  local count = M.C_Item.GetItemCount
+  M.C_Item.GetItemCount = function(id) return id == 219915 and 1 or 0 end
+  local ok, err = pcall(withSession, function()
+    assertTrue(Sim:Start({ scenario = "lhworld", seed = 5 }))
+    shapeWorld(Host.world)                                -- the sim wears 219915 in slot 13
+    local bags, _, _, worn = NS.Compat.LiveItemCounts(219915)
+    assertEqual(bags, 1, "the real carried copy is in the bags"); assertEqual(worn, 0, "the real slots")
+    local me = NS.Util.PlayerKey()
+    assertEqual(NS.Compat.GetMoney(), 12345, "the seam answers the simulated purse")
+    assertTrue(NS.API.v1.IsAvailable(), "the API answers during a session")
+    local real = NS.SimSeam:Live(NS.Compat.GetMoney)
+    assertTrue(real ~= 12345, "the mock's purse is not the world's")
+    assertEqual(NS.API.v1.Money(me), real, "the API reads the real one")
+  end)
+  M.C_Item.GetItemCount = count
+  if not ok then error(err, 0) end
+end)

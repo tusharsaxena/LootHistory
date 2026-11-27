@@ -36,11 +36,15 @@ locales\enUS.lua
 core\Compat.lua
 # LOAD-BEARING POSITION: the client and the character (clients-§3): IsForever / IsRetail / ClientKey /
 # ForClient and the name readers, LibKa0s-Compat-1.0's, routed onto NS.Compat. Straight after
-# core\Compat.lua and straight before core\SimSeam.lua, so the seam wraps its members too.
+# core\Compat.lua and above core\SimSeam.lua, so the seam wraps its members too.
 core\CompatClient.lua
+# LOAD-BEARING POSITION: the holdings tooltip's client reads (#34), split out of core\Compat.lua.
+# Below core\CompatClient.lua (its IsSecret is read at call time) and straight before
+# core\SimSeam.lua, so the seam wraps its live reads too.
+core\CompatTooltip.lua
 # LOAD-BEARING POSITION: LibKa0s-Sim-1.0's answer seam (H2). Sim:NewSeam wraps every NS.Compat
 # member in place at FILE LOAD, so it must load STRAIGHT after the compat family (core\Compat.lua,
-# core\CompatClient.lua) and before any file
+# core\CompatClient.lua, core\CompatTooltip.lua) and before any file
 # that reads a Compat member; a member added below it escapes the wrap (NS.SimSeam:Unwrapped(),
 # asserted empty by tests/test_sim_seam.lua). Publishes NS.SimSeam (or the inert stub without the
 # library) and NS.SimHost; NS.State and NS.Debug are read at call time.
@@ -165,8 +169,9 @@ modules\AnalyticsCharts.lua
 modules\AnalyticsLedger.lua
 # LOAD-BEARING POSITION: calls NS.Browser:RegisterTab at file load; modules\Browser.lua must be above.
 modules\HoldingsTab.lua
-# CONVENTIONAL: the holdings tally (#34). Reads NS.Holdings, NS.Compat and NS.Constants at call
-# time only; kept beside the Holdings tab because both read the same store.
+# CONVENTIONAL: the holdings tally (#34). Reads NS.Constants at load (core\, fixed by section
+# order) and NS.Holdings, NS.Compat, NS.Reconciler, NS.Sim and NS.Util at call time; kept beside
+# the Holdings tab because both read the same store.
 modules\HoldingsTally.lua
 # LOAD-BEARING POSITION: binds NS.HoldingsTally and NS.Perf as file-scope upvalues at load (the
 # tooltip post call's hot path, events-frames-taint-§7 / performance-§2); modules\HoldingsTally.lua

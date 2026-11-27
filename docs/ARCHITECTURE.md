@@ -89,7 +89,7 @@ flag is ruled as data (`tools/seeds/<flavor>_rulings.json`), and each run is a f
 
 | Feature | Client | Gated in |
 |---|---|---|
-| The warband bank (`warbandBank`, R1): the Reconciler's `tabs` and `warbandMoney` parts and their two event rows (`ACCOUNT_MONEY`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`), the `AccountBanker` arming in `R.BANKER_ARMS`, the tab ids (`C.WARBAND_TAB_IDS`), the char <-> warband pairing and its two sources `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW`, the Holdings tab's Warband split, the holdings tooltip's warband-bank icon, live count and wording (#34: the `tabs` container, the `account` part of `Compat.LiveItemCounts` and the tally's `tabs` overlay, the warband bank named in two of its settings' tooltips), the words "warband moves" in Track transfers' tooltip, test mode's tabs and warband gold, and the simulator's warband tabs, gold and bank steps | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`, `C.WARBAND_TAB_IDS`), `modules/Reconciler.lua` (the parts, the event rows' `clients`, `R.READABLE_ON`), `modules/Holdings.lua` (`gateOf`), `modules/HoldingsTab.lua` (`ORDER`), `modules/HoldingsTip.lua` (`ORDER`), `modules/HoldingsTally.lua` (the live overlay), `core/Compat.lua` (`LiveItemCounts`), `settings/Schema.lua`, `modules/TestData.lua`, `modules/SimWorld.lua`, `modules/SimScenario.lua` |
+| The warband bank (`warbandBank`, R1): the Reconciler's `tabs` and `warbandMoney` parts and their two event rows (`ACCOUNT_MONEY`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`), the `AccountBanker` arming in `R.BANKER_ARMS`, the tab ids (`C.WARBAND_TAB_IDS`), the char <-> warband pairing and its two sources `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW`, the Holdings tab's Warband split, the holdings tooltip's warband-bank icon, live count and wording (#34: the `tabs` container, the `account` part of `Compat.LiveItemCounts` and the tally's `tabs` overlay, the warband bank named in two of its settings' tooltips), the words "warband moves" in Track transfers' tooltip, test mode's tabs and warband gold, and the simulator's warband tabs, gold and bank steps | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`, `C.WARBAND_TAB_IDS`), `modules/Reconciler.lua` (the parts, the event rows' `clients`, `R.READABLE_ON`), `modules/Holdings.lua` (`gateOf`), `modules/HoldingsTab.lua` (`ORDER`), `modules/HoldingsTip.lua` (`ORDER`), `modules/HoldingsTally.lua` (the live overlay), `core/CompatTooltip.lua` (`LiveItemCounts`), `settings/Schema.lua`, `modules/TestData.lua`, `modules/SimWorld.lua`, `modules/SimScenario.lua` |
 | Mythic+ (`mythicPlus`, R2): the `MPLUS` source, the keystone context and its four event rows (`CHALLENGE_MODE_START`, `CHALLENGE_MODE_COMPLETED`, `CHALLENGE_MODE_RESET` and `ZONE_CHANGED_NEW_AREA`, which serves only the keystone), the Insights keystone breakdown (`Database:Stats`' `byKeystone`), the diagnostics `attribution: keystone` line and the simulator's `key` scenario | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`), `modules/Attribution.lua` (the rows, `ResolveLootSource`), `core/Database.lua`, `modules/Diagnostics.lua`, `modules/SimScenario.lua` |
 | The sources WoW Forever has no content for (R2): `BONUS_ROLL`, `MILLING` and `PROSPECTING`, absent from `C.SourceOrder`, `C.SOURCE_IMPLEMENTED` and `C.SOURCE_OPTIONS` (so from the Source filter, the capture mute list and test mode's sample); on WoW Forever the bonus-roll line carries no source tag, and Milling and Prospecting stamp no `DECONSTRUCT` loss. `C.SourceType` and `C.SourceLabel` stay whole on both, because they are the export contract (a label may be worded per client, `C.SOURCE_LABEL_WORDS`, never to another key's label) | `retail` | `core/Constants.lua` (`C.SOURCE_CLIENTS`, `C.SOURCE_ABSENT`), `core/Util.lua` (the bonus-roll line), `core/Ledger.lua` (the `DECONSTRUCT` rule's stampers), `modules/BrowserTableTestData.lua` (the source weights) |
 | The `DECONSTRUCT` reason (a deconstructed item's loss) reads "Deconstructed", stamped by Disenchant, Milling and Prospecting | `retail` | `core/Constants.lua` (`C.SourceLabel`), `core/Ledger.lua` (`DECONSTRUCT_SOURCE`) |
@@ -278,12 +278,14 @@ in place: query again after `HoldingsChanged`.
 The API reads the saved ledger only. Test mode's sample and a `/lh sim` session's store never reach
 it. On top of the ledger, the logged-in character's counts are read live:
 
-- **Items.** The logged-in character's `bags`, and its `bank`, come from the client's item counts.
-  On Retail the warband's `tabs` do too. Everyone else's containers, and the logged-in character's
-  `equipped`, `mail` and `auctions`, are stored.
+- **Items.** The logged-in character's `bags`, `equipped` (worn gear and the bags in its bag slots)
+  and `bank` come from the client's item counts. On Retail the warband's `tabs` do too. Everyone
+  else's containers, and the logged-in character's `mail` and `auctions`, are stored.
 - **The zero-suspect fallback.** Away from a banker, a live bank or tabs count of 0 over a stored
   count above 0 answers the stored count, because the client has not loaded that bank this session.
-  At a banker the live count is authoritative.
+  At a banker the live count is authoritative. While a `/lh sim` session runs no bank is: the
+  simulated bank step never makes the real client's count authoritative, and every live read above
+  is the real client's, never the simulated world's.
 - **Currencies.** The logged-in character's quantity is live. An account-wide currency's is live on
   `"§warband"`. Other holders are stored.
 - **Money.** The logged-in character's purse is live. The warband's deposit is live where the client
@@ -311,6 +313,8 @@ The payload is `(event, holder)`, with `event = "HoldingsChanged"`.
 - With `holder = nil`, it means everything may have changed. It fires when availability flips (a
   `trackLedger` change or a profile switch), when the addon stands down and when it stands up again.
   Re-query on it.
+- The relay wipes the tally's cache before it fires, so a query made inside the callback already
+  reads the new store.
 - It never fires during `/lh sim`. A simulation's flushes concern its own session store, which the
   API never reads.
 - The logged-in character's own bag moves fire after the ledger's debounced flush, never mid-combat.
@@ -838,9 +842,11 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1426 lines,
-then `core/Database.lua` at 1308, `settings/Schema.lua` at 1277,
-`tests/test_database.lua` at 1252 and `tests/test_browser.lua` at 1234 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-21).
+Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1494 lines,
+then `tests/test_browser.lua` at 1348, `settings/Schema.lua` at 1337, `core/Database.lua` at 1336
+and `tests/test_database.lua` at 1252 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-27).
+On 2026-11-27 (#34, M1.6) `core/Compat.lua` (1326 lines, past its 1200 re-check) shed the holdings
+tooltip's reads verbatim to `core/CompatTooltip.lua` (277 lines), leaving 1105.
 On 2026-11-27 the v1.118.0 re-vendor took `tests/test_libka0s.lua` to 1510 lines, and its per-tag release-pin
 cases moved verbatim to `tests/test_libka0s_releases.lua` (796 lines), leaving 723.
 On 2026-11-21 `modules/Browser.lua` (1477 lines) shed its per-tab view layer to `modules/BrowserViews.lua`

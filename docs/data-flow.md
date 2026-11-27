@@ -261,7 +261,7 @@ The bank and the warband tabs are not part of that scan: outside a banker the cl
 
 ### Combat
 
-A handler in combat does **nothing but set a dirty bit**, or, for `CURRENCY_DISPLAY_UPDATE`, add to the per-id accumulator (a table write, no allocation after a currency's first event). No scan, plan, claim or row work runs; `PLAYER_REGEN_ENABLED` flushes once. A login in combat defers the scan and its genesis stamp to the same edge. The five handlers that do run in combat are the `LibKa0s-Perf` buckets (`core/PerfSetup.lua`, [performance.md](performance.md)).
+A handler in combat does **nothing but set a dirty bit**, or, for `CURRENCY_DISPLAY_UPDATE`, add to the per-id accumulator (a table write, no allocation after a currency's first event). No scan, plan, claim or row work runs; `PLAYER_REGEN_ENABLED` flushes once. A login in combat defers the scan and its genesis stamp to the same edge. The six handlers that do run in combat are the `LibKa0s-Perf` buckets (`core/PerfSetup.lua`, [performance.md](performance.md)).
 
 ## Daily rollup
 

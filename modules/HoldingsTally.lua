@@ -8,7 +8,7 @@ local T = NS.HoldingsTally
 -- TWO LAYERS. The SAVED store (NS.Holdings:SavedStore, never test mode's sample, never the
 -- simulator's session table) is read once per thing into a cached entry, keyed by numeric id in two
 -- maps, so no thing-key string is built on the hot path. The LIVE overlay -- the logged-in
--- character's bags and bank, and the warband bank where C.FEATURE.warbandBank, from
+-- character's bags, worn gear and bank, and the warband bank where C.FEATURE.warbandBank, from
 -- NS.Compat.LiveItemCounts; a currency from NS.Compat.CurrencyQuantity -- is composed on every call
 -- and never cached, so the player's own bag changes need no event.
 --
@@ -17,12 +17,13 @@ local T = NS.HoldingsTally
 -- C.TIP_CACHE_MAX things. Another holder's counts change only on a flush, and a flush never runs in
 -- combat, so a cached entry is never stale in combat.
 --
--- Reads NS.Holdings, NS.Compat, NS.Reconciler and NS.Util at call time only.
+-- Reads NS.Constants at load, and NS.Holdings, NS.Compat, NS.Reconciler, NS.Sim and NS.Util at call
+-- time.
 
 local C = NS.Constants
 local WARBAND = C.WARBAND_HOLDER
 local CONT = C.Container
-local BAGS, BANK, TABS = CONT.BAGS, CONT.BANK, CONT.TABS
+local BAGS, EQUIPPED, BANK, TABS = CONT.BAGS, CONT.EQUIPPED, CONT.BANK, CONT.TABS
 local DAY = 86400
 
 -- Every container, in the Holdings tab's order (modules/HoldingsTab.lua ORDER), for the fixed key
@@ -54,10 +55,15 @@ function T._resolve(live, stored, readable)
 end
 local resolve = T._resolve
 
-local function readable(part)
+--- Whether the Reconciler reads `part` ("bank", "tabs") as authoritative now. Never while a /lh sim
+--- session runs: its bank step marks the simulated bank readable, and the real client's count is
+--- then no reason to drop the stored one. HoldingsTip reads the same answer for its replay memo.
+function T.Readable(part)
+  if NS.Sim and NS.Sim:IsActive() then return false end
   local R = NS.Reconciler
   return R ~= nil and R.IsReadable ~= nil and R:IsReadable(part) == true
 end
+local readable = T.Readable
 
 -- ── building an entry (a cache miss) ──────────────────────────────────────────────────────────
 
@@ -174,6 +180,8 @@ local function fillItem(o, row, live, now)
     local v, fromStore = s, true
     if row.isMe and c == BAGS then
       v, fromStore = resolve(live.bags, s, true)
+    elseif row.isMe and c == EQUIPPED then
+      v, fromStore = resolve(live.worn, s, true)
     elseif row.isMe and c == BANK and live.bank ~= nil then
       v, fromStore = resolve(live.bank, s, readable("bank"))
     elseif row.isWarband and c == TABS and live.account ~= nil and C.FEATURE.warbandBank then
@@ -202,19 +210,24 @@ local function finish(n, prev)
   return total
 end
 
---- Who holds base item `itemID`, and where. `now` defaults to time() (the staleness clock).
+--- Who holds base item `itemID`, and where. `now` defaults to time() (the staleness clock). `live`,
+--- when given, is NS.Compat.LiveItemCounts(itemID) already read by the caller, as { bags, bank,
+--- account, worn } (HoldingsTip's replay check reads it first, so a rebuild reads it once).
 --- @return number total, table rows, number n  rows[i] = { holder, isMe, isWarband, classFile,
 ---   count, containers, staleContainer, staleAt }; rows is scratch, valid until the next call.
-function T:Item(itemID, now)
+function T:Item(itemID, now, live)
   local prev = #OUT
   if type(itemID) ~= "number" then finish(0, prev); return 0, OUT, 0 end
   local entry = self:ItemEntry(itemID)
-  LIVE.bags, LIVE.bank, LIVE.account = NS.Compat.LiveItemCounts(itemID)
+  if not live then
+    live = LIVE
+    live.bags, live.bank, live.account, live.worn = NS.Compat.LiveItemCounts(itemID)
+  end
   now = now or time()
   local n, rows = 0, entry.rows
   for i = 1, #rows do
     local o = pooled(n + 1)
-    fillItem(o, rows[i], LIVE, now)
+    fillItem(o, rows[i], live, now)
     if o.count > 0 then
       claim(o, rows[i]); o.containers = o._c
       n = n + 1; OUT[n] = o

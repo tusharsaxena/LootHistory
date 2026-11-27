@@ -244,8 +244,9 @@ test("Compat tooltip: LiveItemCounts subtracts worn gear and splits the bank out
   local bagSlot = NS.Compat.BagInventorySlot(1)
   with(M.__inventory, { [slot] = { itemID = ITEM }, [bagSlot] = { itemID = ITEM } }, function()
     withCounts({ bags = 5, bank = 7, account = 3 }, 2, function()
-      local bags, bank, account = C().LiveItemCounts(ITEM)
+      local bags, bank, account, worn = C().LiveItemCounts(ITEM)
       assertEqual(bags, 5, "the worn piece and the equipped bag are not in the bags")
+      assertEqual(worn, 2, "the worn count is the fourth answer (the EQUIPPED container)")
       assertEqual(bank, 7, "the bank is withBank less carried")
       if FOREVER then
         assertNil(account, "WoW Forever has no warband bank (C.FEATURE.warbandBank)")
@@ -253,6 +254,54 @@ test("Compat tooltip: LiveItemCounts subtracts worn gear and splits the bank out
         assertEqual(account, 3, "Retail: the warband bank is withAcct less withBank")
       end
     end)
+  end)
+end)
+
+-- Count the client's inventory reads for the length of `fn`.
+local function countingInventory(fn)
+  local calls = { id = 0, link = 0 }
+  local id, link = M.GetInventoryItemID, M.GetInventoryItemLink
+  with(M, {
+    GetInventoryItemID = function(...) calls.id = calls.id + 1; return id(...) end,
+    GetInventoryItemLink = function(...) calls.link = calls.link + 1; return link(...) end,
+  }, function() fn(calls) end)
+end
+
+test("Compat tooltip: LiveItemCounts reads worn ids only, and never through the wrapped member", function()
+  -- red under: wornCount calling Compat.GetInventoryItem, which builds a link per occupied slot and
+  -- which a /lh sim session answers from the simulated world's gear.
+  local slot = NS.Constants.EQUIP_SLOTS[1]
+  local member = NS.Compat.GetInventoryItem
+  with(M.__inventory, { [slot] = { itemID = ITEM, link = "L" } }, function()
+    withCounts({ bags = 1, bank = 0, account = 0 }, 1, function()
+      countingInventory(function(calls)
+        rawset(NS.Compat, "GetInventoryItem", function() error("the wrapped member was read") end)
+        local ok, err = pcall(function()
+          local bags, _, _, worn = C().LiveItemCounts(ITEM)
+          assertEqual(bags, 1); assertEqual(worn, 1)
+        end)
+        rawset(NS.Compat, "GetInventoryItem", member)
+        if not ok then error(err, 0) end
+        assertTrue(calls.id > 0, "the ids are read"); assertEqual(calls.link, 0, "no link is built")
+      end)
+    end)
+  end)
+end)
+
+test("Compat tooltip: LiveItemCounts skips the worn scan when nothing is carried or it cannot be worn", function()
+  countingInventory(function(calls)
+    withCounts({ bags = 0, bank = 4, account = 0 }, 0, function()
+      local bags, bank, _, worn = C().LiveItemCounts(ITEM)
+      assertEqual(bags, 0); assertEqual(bank, 4); assertEqual(worn, 0)
+    end)
+    assertEqual(calls.id, 0, "carried 0: no slot is read")
+    with(M.C_Item, { GetItemInfoInstant = function() return ITEM, "Trade Goods", "Herb", "", 1, 7, 9 end }, function()
+      withCounts({ bags = 3, bank = 0, account = 0 }, 0, function()
+        local bags, _, _, worn = C().LiveItemCounts(ITEM)
+        assertEqual(bags, 3); assertEqual(worn, 0)
+      end)
+    end)
+    assertEqual(calls.id, 0, "an empty equip location: no slot is read")
   end)
 end)
 
@@ -287,8 +336,8 @@ test("Compat tooltip: a secret or absent count gives nil for that part only", fu
     end)
   end)
   with(M.C_Item, { GetItemCount = NIL }, function()
-    local bags, bank, account = C().LiveItemCounts(ITEM)
-    assertNil(bags); assertNil(bank); assertNil(account)
+    local bags, bank, account, worn = C().LiveItemCounts(ITEM)
+    assertNil(bags); assertNil(bank); assertNil(account); assertNil(worn, "no carried count, no worn count")
   end)
   withCounts({ bags = 1, bank = 1, account = 1 }, 0, function()
     local bags, bank, account = C().LiveItemCounts("990101")

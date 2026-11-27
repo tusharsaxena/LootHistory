@@ -424,6 +424,20 @@ test("Schema: the stored settings (path, type, default, range) are the pinned se
   assertEqual(got, want, "a stored setting's path, type, default or range moved")
 end)
 
+test("Schema: the tooltip rows name their parents, and where trackLedger lives (options-ui-§21)", function()
+  -- red under: a bare "Needs Track holdings and losses." on an Interface row, whose parent is on
+  -- General > Capture; or a sub-row that does not say it needs the enabled row.
+  local function tip(path) return NS.Schema:FindRow(path).tooltip end
+  assertEqual(NS.Schema:FindRow("settings.trackLedger").group, "Capture")
+  assertEqual(NS.Schema:FindRow("settings.tooltip.enabled").label, "Show holdings in item and currency tooltips")
+  for _, key in ipairs({ "enabled", "containers", "warband", "totalMin2", "modifier" }) do
+    local t = tip("settings.tooltip." .. key)
+    assertTrue(t:find("Needs Track holdings and losses (General > Capture).", 1, true) ~= nil, key .. ": the location")
+    local sub = t:find("Needs Show holdings in item and currency tooltips.", 1, true) ~= nil
+    assertEqual(sub, key ~= "enabled", key .. ": the in-subsection parent")
+  end
+end)
+
 test("Schema: the Capture tooltips name the controls a player can find (item 020)", function()
   -- LOO-L05/L06/L07: one name per control, the dependency said in words, no stale "next update".
   local function tip(path) return NS.Schema:FindRow(path).tooltip end

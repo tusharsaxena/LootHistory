@@ -301,10 +301,14 @@ calling again. Output row: `{ holder, isMe, isWarband, classFile, count, contain
 
 Items:
 
-1. `bags, bank, account = NS.Compat.LiveItemCounts(itemID)`: one call, three or four client reads.
+1. `bags, bank, account, worn = NS.Compat.LiveItemCounts(itemID)`: one call, three or four client
+   reads (or the four the caller already read, `T:Item(itemID, now, live)`).
 2. For each cached row, write the output containers:
-   - **me**: `bags` = the live bags (else stored); `bank` = `resolve(bank, stored.bank, R:IsReadable("bank"))`;
-     `equipped`, `mail` and `auctions` = stored.
+   - **me**: `bags` = the live bags (else stored); `equipped` = the live worn count (else stored);
+     `bank` = `resolve(bank, stored.bank, R:IsReadable("bank"))`; `mail` and `auctions` = stored.
+     *(M1.6 review amendment: `equipped` was stored here, which undercounted a swap until the next
+     flush, all of combat; `LiveItemCounts` already reads the worn slots, so it is live now.)*
+     While a `/lh sim` session runs no bank or tabs count reads as authoritative (`T.Readable`).
    - **§warband** (Retail only, `C.FEATURE.warbandBank`): `tabs` = `resolve(account, stored.tabs, R:IsReadable("tabs"))`.
    - **everyone else**: stored, unchanged.
 3. `count` = the sum of the containers. Rows with a count of 0 are dropped.
@@ -835,7 +839,7 @@ green against today's code, before the change lands.
   - my bank comes from live when readable;
   - live 0 with stored 5, away from the bank, reads 5 (zero-suspect);
   - live 7 with stored 5, away from the bank, reads 7;
-  - equipped, mail and auctions always come from the store;
+  - my equipped count is live (M1.6); mail and auctions always come from the store;
   - `tabs` is overlaid on Retail and untouched on Forever.
 - Currencies: a character currency goes live on me; an account-wide one goes live on `§warband`.
 - Staleness:

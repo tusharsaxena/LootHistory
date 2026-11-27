@@ -24,7 +24,7 @@ local TIP_KEYS = { "enabled", "containers", "warband", "totalMin2", "modifier" }
 
 local function setTip(key, v) NS.Schema:Set("settings.tooltip." .. key, v) end
 
---- Run `fn(h, tip)` with the block up on a fresh double. `stubs`: "live" ({ bags, bank, account }),
+--- Run `fn(h, tip)` with the block up on a fresh double. `stubs`: "live" ({ bags, bank, account, worn }),
 --- "quantity", "accountWide". The store starts empty.
 local function with(stubs, fn)
   local Cm, H, TL = NS.Compat, HT(), NS.HoldingsTally
@@ -33,7 +33,7 @@ local function with(stubs, fn)
                   NS.db.global.holdings, NS.Schema:Get("settings.trackLedger") }
   local wasTally, wasTip = TL.__ev ~= nil, H.__ev ~= nil
   local live = stubs.live or {}
-  Cm.LiveItemCounts = function() return live[1], live[2], live[3] end
+  Cm.LiveItemCounts = function() return live[1], live[2], live[3], live[4] end
   Cm.CurrencyQuantity = function() return stubs.quantity end
   Cm.CurrencyIsAccountWide = function() return stubs.accountWide == true end
   NS.db.global.holdings = {}
@@ -398,6 +398,61 @@ test("HoldingsTip: an unchanged refresh replays the lines: no tally compose, no 
     NS.IconMarkup, TL.Item = iconMarkup, item
     if not ok then error(err, 0) end
     assertEqual(lineOf(tip, short(ME)).right, markup("bags") .. " 5")
+  end)
+end)
+
+test("HoldingsTip: a changed worn count rebuilds, and a rebuild reads the live counts once", function()
+  with({ live = { 2, nil, nil, 0 } }, function(h, tip, live)
+    put(ANN, "bags", { [ITEM] = 3 })
+    h.show(tip, "Item", { id = ITEM })
+    local Cm = NS.Compat
+    local stub, reads = Cm.LiveItemCounts, 0
+    Cm.LiveItemCounts = function(...) reads = reads + 1; return stub(...) end
+    local ok, err = pcall(function()
+      live[1], live[4] = 1, 1                                 -- equipped one from the bags
+      h.refresh(tip, "Item", { id = ITEM })
+      assertEqual(reads, 1, "readLive's read is handed to the tally")
+    end)
+    Cm.LiveItemCounts = stub
+    if not ok then error(err, 0) end
+    assertEqual(lineOf(tip, short(ME)).right, markup("bags") .. " 1  " .. markup("equipped") .. " 1")
+  end)
+end)
+
+test("HoldingsTip: a replay with the real live reads allocates nothing", function()
+  -- The post call alone, on the real NS.Compat.LiveItemCounts (C_Item.GetItemCount and the worn
+  -- slots mocked) and the real Reconciler readability; the paint is stubbed out, so the double's
+  -- own line records are not billed. The mark is cleared between calls as the client clears it.
+  local real = NS.Compat.LiveItemCounts
+  with({}, function(_, tip)
+    put(ANN, "bags", { [ITEM] = 3 })
+    local Cm, count = NS.Compat, M.C_Item.GetItemCount
+    local paint = Cm.AppendTooltipRows
+    Cm.LiveItemCounts = real
+    M.C_Item.GetItemCount = function(id, includeBank) return id == ITEM and (includeBank and 6 or 2) or 0 end
+    Cm.AppendTooltipRows = function() return true end
+    local data = { id = ITEM }
+    local function once()
+      tip:__fire("OnTooltipCleared")
+      HT().OnTooltip(tip, data, 1)
+    end
+    local ok, err = pcall(function()
+      assertTrue(HT().OnTooltip(tip, data, 1), "the block is written")
+      local builds = HT()._builds
+      for _ = 1, 50 do once() end
+      collectgarbage("collect"); collectgarbage("collect")
+      collectgarbage("stop")
+      once()
+      local before = collectgarbage("count")
+      for _ = 1, 500 do once() end
+      local after = collectgarbage("count")
+      collectgarbage("restart")
+      assertEqual(HT()._builds, builds, "every call replayed")
+      assertTrue((after - before) * 1024 / 500 < 1, ("%.1f bytes per replay"):format((after - before) * 1024 / 500))
+    end)
+    collectgarbage("restart")
+    M.C_Item.GetItemCount, Cm.AppendTooltipRows = count, paint
+    if not ok then error(err, 0) end
   end)
 end)
 

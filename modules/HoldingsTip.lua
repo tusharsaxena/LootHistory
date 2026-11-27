@@ -22,7 +22,7 @@ local HT = NS.HoldingsTip
 -- the settings version, the tint triples and the minute -- and a refresh that matches all of them
 -- repaints those lines with no tally compose, no icon markup and no concatenation.
 --
--- Reads NS.Compat, NS.Constants, NS.HoldingsTab, NS.Reconciler and NS.Skin at call time; binds
+-- Reads NS.Compat, NS.Constants, NS.HoldingsTab and NS.Skin at call time; binds
 -- NS.HoldingsTally and NS.Perf at load (the TOC places this file below both).
 
 local Tally = NS.HoldingsTally
@@ -211,32 +211,32 @@ end
 
 -- ── the replay memo (spec section 6.3) ────────────────────────────────────────────────────────
 
-local LIVE = { a = nil, b = nil, c = nil, rb = nil, rt = nil }
+-- The live tuple: an item's four counts under the names HoldingsTally:Item takes them by (so a
+-- rebuild hands this table over and reads the client once), or a currency's quantity in `bags`.
+local LIVE = { bags = nil, bank = nil, account = nil, worn = nil, rb = nil, rt = nil }
 
-local function readable(part)
-  local R = NS.Reconciler
-  return R ~= nil and R.IsReadable ~= nil and R:IsReadable(part) == true
-end
-
--- The live tuple a build depends on: the three item counts and the two bank readabilities (the
--- zero-suspect rule turns on them), or the currency's quantity.
+-- The live tuple a build depends on: the four item counts and the two bank readabilities (the
+-- zero-suspect rule turns on them, HoldingsTally.Readable), or the currency's quantity.
 local function readLive(kind, id)
   if kind == ITEM then
-    LIVE.a, LIVE.b, LIVE.c = NS.Compat.LiveItemCounts(id)
-    LIVE.rb, LIVE.rt = readable("bank"), readable("tabs")
+    LIVE.bags, LIVE.bank, LIVE.account, LIVE.worn = NS.Compat.LiveItemCounts(id)
+    LIVE.rb, LIVE.rt = Tally.Readable("bank"), Tally.Readable("tabs")
   else
-    LIVE.a, LIVE.b, LIVE.c, LIVE.rb, LIVE.rt = NS.Compat.CurrencyQuantity(id), nil, nil, nil, nil
+    LIVE.bags, LIVE.bank, LIVE.account, LIVE.worn = NS.Compat.CurrencyQuantity(id), nil, nil, nil
+    LIVE.rb, LIVE.rt = nil, nil
   end
 end
 
 local function memoMatches(m, minute)
-  return m.cfgVer == cfg.cfgVer and m.minute == minute and m.a == LIVE.a and m.b == LIVE.b
-    and m.c == LIVE.c and m.rb == LIVE.rb and m.rt == LIVE.rt and sameTints(m, tint)
+  return m.cfgVer == cfg.cfgVer and m.minute == minute and m.bags == LIVE.bags and m.bank == LIVE.bank
+    and m.account == LIVE.account and m.worn == LIVE.worn and m.rb == LIVE.rb and m.rt == LIVE.rt
+    and sameTints(m, tint)
 end
 
 local function stamp(m, minute)
   m.cfgVer, m.minute = cfg.cfgVer, minute
-  m.a, m.b, m.c, m.rb, m.rt = LIVE.a, LIVE.b, LIVE.c, LIVE.rb, LIVE.rt
+  m.bags, m.bank, m.account, m.worn = LIVE.bags, LIVE.bank, LIVE.account, LIVE.worn
+  m.rb, m.rt = LIVE.rb, LIVE.rt
   copyTints(tint, m)
 end
 
@@ -255,7 +255,7 @@ local function linesFor(kind, id)
   HT._builds = HT._builds + 1
   refreshIcons()
   local _, rows, n
-  if kind == ITEM then _, rows, n = Tally:Item(id, now) else _, rows, n = Tally:Currency(id, now) end
+  if kind == ITEM then _, rows, n = Tally:Item(id, now, LIVE) else _, rows, n = Tally:Currency(id, now) end
   m.nLines = buildLines(m, rows, n, now)
   stamp(m, minute)
   return m.lines, m.nLines

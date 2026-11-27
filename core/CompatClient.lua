@@ -17,9 +17,9 @@ local _, NS = ...
 -- client, so a typo in a declaration cannot ship silently). Feature presence is a declaration read
 -- through ForClient (clients-§4), never feature detection.
 --
--- LOAD-BEARING POSITION: straight after core/Compat.lua (whose NS.Compat it adds to) and straight
--- before core/SimSeam.lua, which wraps every NS.Compat member at file load; below the seam these
--- members would escape the wrap.
+-- LOAD-BEARING POSITION: straight after core/Compat.lua (whose NS.Compat it adds to) and above
+-- core/SimSeam.lua (core/CompatTooltip.lua between them), which wraps every NS.Compat member at
+-- file load; below the seam these members would escape the wrap.
 
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat

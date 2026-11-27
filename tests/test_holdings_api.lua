@@ -201,6 +201,33 @@ test("HoldingsAPI: Money is live for me and the warband where answered, stored o
   end)
 end)
 
+test("HoldingsAPI: while a simulation runs, Money reads the real purse and deposit, never the sim's", function()
+  -- red under: moneyOf calling the wrapped NS.Compat.GetMoney / GetWarbandMoney straight, which a
+  -- /lh sim session answers from the simulated world (modules/SimWorld.lua's providers).
+  with(function()
+    local Cp, seam, active = NS.Compat, NS.SimSeam, NS.Sim.IsActive
+    local bypass = false
+    Cp.GetMoney = function() return bypass and 77 or 31337 end
+    Cp.GetWarbandMoney = function() return bypass and 1200 or 4242 end
+    NS.SimSeam = { Live = function(_, fn, ...)
+      bypass = true
+      local ok, v = pcall(fn, ...)
+      bypass = false
+      if not ok then error(v, 0) end
+      return v
+    end }
+    NS.Sim.IsActive = function() return true end
+    local ok, err = pcall(function()
+      assertEqual(api().Money(ME), 77, "the real purse")
+      assertEqual(api().Money(WB), 1200, "the real deposit")
+      assertEqual(api().Money(), 77 + 5000 + 0 + 1200)
+    end)
+    NS.SimSeam, NS.Sim.IsActive = seam, active
+    if not ok then error(err, 0) end
+    assertEqual(api().Money(ME), 31337, "idle, the member is called straight")
+  end)
+end)
+
 test("HoldingsAPI: Holdings is the stored snapshot, without escrow or bankSlots", function()
   with(function()
     local h = api().Holdings(ANN)
@@ -345,6 +372,61 @@ test("HoldingsAPI: live arm -- a registration hears ('HoldingsChanged', holder) 
     listening(function(log)
       assertTrue(NS.Reconciler:ForgetHolder(BOB))
       assertEqual(table.concat(log, ","), "HoldingsChanged:" .. BOB)
+    end)
+  end)
+end)
+
+-- The bus walks its targets in hash order, so the tally's own receiver may run after the relay.
+-- With the tally's target down, only the relay can have wiped the cache.
+local function tallyDown(fn)
+  local Tl = NS.HoldingsTally
+  local wasUp = Tl.__ev ~= nil
+  Tl:Disable()
+  local ok, err = pcall(fn)
+  if wasUp then Tl:Enable() end
+  if not ok then error(err, 0) end
+end
+
+test("HoldingsAPI: live arm -- a re-query inside HoldingsChanged sees the new store", function()
+  -- red under: onHoldingsChanged firing before Tally:Invalidate, so ItemCount inside the callback
+  -- reads the pre-flush cached entry and still lists the holder ForgetHolder just removed.
+  with(function()
+    loadCallbackHandler()
+    assertTrue(A()._BindCallbacks())
+    tallyDown(function()
+      local _, before = api().ItemCount(7)
+      assertTrue(before[BOB] ~= nil, "Bob's mail is in the warmed cache")
+      local owner, seen = {}, nil
+      api().RegisterCallback(owner, "HoldingsChanged", function()
+        local _, per = api().ItemCount(7)
+        seen = per
+      end)
+      local ok, err = pcall(NS.Reconciler.ForgetHolder, NS.Reconciler, BOB)
+      api().UnregisterCallback(owner, "HoldingsChanged")
+      if not ok then error(err, 0) end
+      assertTrue(seen ~= nil, "the callback ran")
+      assertEqual(seen[BOB], nil, "the forgotten holder is gone inside the callback")
+      assertTrue(seen[ANN] ~= nil, "the others are still there")
+    end)
+  end)
+end)
+
+test("HoldingsAPI: live arm -- an availability flip wipes the tally before it fires", function()
+  with(function()
+    loadCallbackHandler()
+    assertTrue(A()._BindCallbacks())
+    tallyDown(function()
+      local owner, gens = {}, {}
+      api().RegisterCallback(owner, "HoldingsChanged", function() gens[#gens + 1] = NS.HoldingsTally._gen end)
+      local g0 = NS.HoldingsTally._gen
+      local ok, err = pcall(function()
+        NS.Schema:Set("settings.trackLedger", false)
+        NS.Schema:Set("settings.trackLedger", true)
+      end)
+      api().UnregisterCallback(owner, "HoldingsChanged")
+      if not ok then error(err, 0) end
+      assertEqual(#gens, 2)
+      assertTrue(gens[1] > g0 and gens[2] > gens[1], "each fire follows its own wipe")
     end)
   end)
 end)

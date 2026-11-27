@@ -14,7 +14,7 @@ local ANN, BOB = T.nameKey("Ann"), T.nameKey("Bob")
 local NOW, DAY = 1000000, 86400
 local WARBAND_BANK = NS.Constants.FEATURE.warbandBank
 
---- Run `fn` with `stubs` in place: keys "live" (bags, bank, account), "quantity", "accountWide",
+--- Run `fn` with `stubs` in place: keys "live" (bags, bank, account, worn), "quantity", "accountWide",
 --- "readable" ({ [part] = bool }). Everything is restored, the cache wiped, and the store reset.
 --- The harness does not stand the addon up (tests/run.lua), so the tally is brought up for the case
 --- and taken back down after it when it was down before.
@@ -24,7 +24,7 @@ local function with(stubs, fn)
   TL():Enable()
   local saved = { C.LiveItemCounts, C.CurrencyQuantity, C.CurrencyIsAccountWide, R.IsReadable }
   local live = stubs.live or {}
-  C.LiveItemCounts = function() return live[1], live[2], live[3] end
+  C.LiveItemCounts = function() return live[1], live[2], live[3], live[4] end
   C.CurrencyQuantity = function() return stubs.quantity end
   C.CurrencyIsAccountWide = function() return stubs.accountWide == true end
   R.IsReadable = function(_, part) return (stubs.readable or {})[part] == true end
@@ -153,7 +153,7 @@ test("HoldingsTally: a nil live part falls back to the store", function()
   end)
 end)
 
-test("HoldingsTally: equipped, mail and auctions always come from the store", function()
+test("HoldingsTally: with no live worn count equipped is stored; mail and auctions always are", function()
   fresh()
   put(ME, "equipped", { [7] = 1 }); put(ME, "mail", { [7] = 2 }); put(ME, "auctions", { [7] = 3 })
   with({ live = { 0, 0, 0 }, readable = { bank = true } }, function()
@@ -161,6 +161,57 @@ test("HoldingsTally: equipped, mail and auctions always come from the store", fu
     assertEqual(total, 6)
     assertEqual(rows[1].containers.equipped, 1); assertEqual(rows[1].containers.mail, 2)
     assertEqual(rows[1].containers.auctions, 3)
+  end)
+end)
+
+test("HoldingsTally: my equipped count is live, so a swap never undercounts or doubles", function()
+  -- red under: EQUIPPED read from the store for me while bags read live -- equipping the only copy
+  -- drops live bags to 0 while stored equipped is still 0 until the next flush (all of combat).
+  fresh()
+  put(ME, "bags", { [7] = 1 })
+  with({ live = { 0, nil, nil, 1 } }, function()
+    local total, rows, n = TL():Item(7, NOW)
+    assertEqual(total, 1, "just equipped: the copy is still counted"); assertEqual(n, 1)
+    assertEqual(rows[1].containers.equipped, 1); assertEqual(rows[1].containers.bags, nil)
+  end)
+  fresh()
+  put(ME, "equipped", { [7] = 1 })
+  with({ live = { 1, nil, nil, 0 } }, function()
+    local total, rows = TL():Item(7, NOW)
+    assertEqual(total, 1, "just unequipped: never counted twice")
+    assertEqual(rows[1].containers.bags, 1); assertEqual(rows[1].containers.equipped, nil)
+  end)
+end)
+
+test("HoldingsTally: a live count handed in is used, and the client is not read again", function()
+  fresh()
+  with({ live = { 99, nil, nil, 99 } }, function()
+    local reads, orig = 0, NS.Compat.LiveItemCounts
+    NS.Compat.LiveItemCounts = function(...) reads = reads + 1; return orig(...) end
+    local total, rows = TL():Item(7, NOW, { bags = 2, worn = 1 })
+    NS.Compat.LiveItemCounts = orig
+    assertEqual(reads, 0, "the caller's read stands")
+    assertEqual(total, 3); assertEqual(rows[1].containers.bags, 2); assertEqual(rows[1].containers.equipped, 1)
+  end)
+end)
+
+test("HoldingsTally: while a simulation runs no bank reads as authoritative", function()
+  -- red under: a /lh sim bank step marks the simulated bank readable, so the real client's 0 at the
+  -- bank (not loaded this session) would wipe the stored count.
+  fresh()
+  put(ME, "bank", { [7] = 5 })
+  with({ live = { 0, 0, nil, 0 }, readable = { bank = true, tabs = true } }, function()
+    local orig = NS.Sim.IsActive
+    NS.Sim.IsActive = function() return true end
+    local ok, res = pcall(function()
+      assertFalse(TL().Readable("bank")); assertFalse(TL().Readable("tabs"))
+      local _, rows = TL():Item(7, NOW)
+      return rows[1].containers.bank
+    end)
+    NS.Sim.IsActive = orig
+    if not ok then error(res, 0) end
+    assertEqual(res, 5, "the zero-suspect rule keeps the stored bank")
+    assertTrue(TL().Readable("bank"), "idle again, the banker's answer is authoritative")
   end)
 end)
 

@@ -19,12 +19,14 @@ local api = NS.API.v1
 --
 -- THE RELAY. HOLDINGS_CHANGED (the Reconciler is its one sender, architecture-§4) is re-fired as
 -- `HoldingsChanged` through this module's own CallbackHandler registry, which is not the bus, so
--- this module is one more receiver and never a second sender. A simulation's flushes concern its
--- session store, which the API never reads, so they are not relayed. Without CallbackHandler the
--- two registration functions are no-ops that answer false, so the v1 shape is the same either way.
+-- this module is one more receiver and never a second sender. It wipes the tally's cache before
+-- each fire, so a re-query inside the callback never reads a pre-flush entry. A simulation's flushes
+-- concern its session store, which the API never reads, so they are not relayed; its live money
+-- reads go through NS.SimSeam:Live. Without CallbackHandler the two registration functions are
+-- no-ops that answer false, so the v1 shape is the same either way.
 --
--- Reads NS.Holdings, NS.Compat, NS.Util, NS.Sim and NS.db at call time; binds NS.HoldingsTally at
--- load (the TOC places this file below it).
+-- Reads NS.Holdings, NS.Compat, NS.Util, NS.Sim, NS.SimSeam and NS.db at call time; binds
+-- NS.HoldingsTally at load (the TOC places this file below it).
 
 local Tally = NS.HoldingsTally
 local C = NS.Constants
@@ -120,12 +122,20 @@ function api.CurrencyCount(currencyID)
   return total, per
 end
 
+-- A live money read with the simulator's seam off: while a /lh sim session runs, NS.Compat.GetMoney
+-- and GetWarbandMoney answer the simulated world (modules/SimWorld.lua's providers), which never
+-- reaches the API. The member is read at call time and handed to NS.SimSeam:Live, no closure.
+local function liveMoney(member)
+  if NS.Sim and NS.Sim:IsActive() then return NS.SimSeam:Live(member) end
+  return member()
+end
+
 -- One holder's copper: the logged-in character's purse live, the warband's deposit live where the
 -- client answers, everyone else's stored.
 local function moneyOf(holder, e, me)
-  if holder == me then return NS.Compat.GetMoney() end
+  if holder == me then return liveMoney(NS.Compat.GetMoney) end
   if holder == WARBAND then
-    local w = NS.Compat.GetWarbandMoney()
+    local w = liveMoney(NS.Compat.GetWarbandMoney)
     if w ~= nil then return w end
   end
   return e and e.money or 0
@@ -186,8 +196,12 @@ local function fire(holder)
   if A._registry then A._registry:Fire(EVENT, holder) end
 end
 
+-- Each relay wipes the tally's cache BEFORE it fires, so a consumer that re-queries inside its
+-- callback reads the new store. The tally's own receiver wipes it too, but the bus walks its targets
+-- in hash order, so which of the two runs first is not defined; Invalidate is idempotent.
 local function onHoldingsChanged(_, holder)
   if NS.Sim and NS.Sim:IsActive() then return end
+  Tally:Invalidate()
   fire(holder)
 end
 
@@ -196,6 +210,7 @@ local function onSettingsChanged(_, reason)
   local now = available()
   if now == A._lastAvailable then return end
   A._lastAvailable = now
+  Tally:Invalidate()
   fire(nil)
 end
 

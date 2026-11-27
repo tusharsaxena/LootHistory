@@ -94,7 +94,7 @@ restore, the visibility dropdown — asks one question. An imperative hide alone
 the next combat transition or settings change, and the addon would be visibly running while it
 claimed to be off.
 
-**The one sanctioned gate is `hooksecurefunc`**, which has no un-hook. Five hooks reach
+**A hook that cannot be undone gates its own body.** The first such funnel is `hooksecurefunc`, which has no un-hook. Five hooks reach
 `Attribution:Stamp` — `BuyMerchantItem`, `TakeInboxItem`, `AutoLootMailItem`, `UseContainerItem` and
 `GetQuestReward` — and that one funnel gates its body and returns. It is not license to gate
 anything that has a real unregister.

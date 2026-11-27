@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-2292%2F2292_passing-green)
+![Tests](https://img.shields.io/badge/Tests-2304%2F2304_passing-green)
 
 Supports Retail and WoW Forever. Loot History is a passive loot tracker for World of Warcraft. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -61,7 +61,7 @@ Reading back your loot happens in the History window, in this order:
 
 Want to see how a session would record without playing one? `/lh sim start loot` opens the window and runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIM while it runs. Once started it plays on its own, a second between steps; Pause holds it, and clicking a row plays it by hand. **Interface > Simulation step delay (seconds)** in the settings changes the pace. Nothing it records is saved, and `/lh sim stop` ends it. The **Sim mode** box on Master controls and **Sim mode** in the minimap button's menu do the same as typing the command. It stays ticked while the panel is open or a simulation runs: ticking it opens the panel, where you pick what to simulate, and unticking it ends the run and closes the panel. A simulation only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
 
-Holdings in tooltips: every item and currency tooltip gets a short **Ka0s Loot History** block listing who on your account holds it, and where. Each character gets a line in its class color, plus the Warband (the Account on WoW Forever), with a small icon and a count for the bags, worn gear, bank, mail, auction house and, on Retail, the warband bank, and a Total when two or more hold it. Your own counts are read live, so they change as you move things; an alt's come from the last time it played, and a bank not seen for a day or more shows how old it is. **Interface > Holdings in tooltips** in the settings turns the block off, drops the icons or the Warband line, changes when the Total shows, or shows the block only while Shift, Ctrl or Alt is held. It needs **Track holdings and losses**.
+Holdings in tooltips: every item and currency tooltip gets a short **Ka0s Loot History** block listing who on your account holds it, and where. Each character gets a line in its class color, plus the Warband (the Account on WoW Forever), with a small icon and a count for the bags, worn gear, bank, mail, auction house and, on Retail, the warband bank, and a Total when two or more hold it. Your own counts are read live, so they change as you move things; an alt's come from the last time it played, and a count last read a day or more ago shows how old it is (with the mark of the oldest place it was read). **Interface > Holdings in tooltips** in the settings turns the block off, drops the icons or the Warband line, changes when the Total shows, or shows the block only while Shift, Ctrl or Alt is held. It needs **Track holdings and losses**.
 
 A public API for other addons: `LootHistory.API.v1` answers the same counts (who holds an item or currency, how much gold, when each bag and bank was last read) and calls back with `HoldingsChanged` when they move. Every answer is a copy, so another addon can't change your records through it.
 
@@ -158,6 +158,6 @@ Bound lock, the History window's lock and unlock marks, the dropdown chevron and
 info and drag-handle marks, the window close buttons and settings gears, the skin picker's eye and gear, the debug console's copy and clear
 buttons, and the small marks LibKa0s draws beside skinned controls. Only the icons the addon draws are shipped, with their license text beside them.
 
-Container icons in the tooltip come from [game-icons.net](https://game-icons.net)
-(CC BY 3.0) by their authors listed in `libs/LibKa0s/media/icons/game-icons/AUTHORS.txt`, changed
-from the original: rasterized and recolored white.
+Container icons in the tooltip come from [Game-icons.net](https://game-icons.net)
+(CC BY 3.0): bank and chest-armor by Delapouite; envelope, gavel, knapsack and locked-chest by
+Lorc. Changed from the originals: rasterized, background removed and recolored white.
