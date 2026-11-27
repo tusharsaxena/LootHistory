@@ -1,0 +1,8 @@
+Icons in this folder that are not Open Iconic marks
+
+dash.tga
+    Drawn for LibKa0s by tools/artwork/dash_icon.py from named constants, nothing traced or
+    sampled: a thick horizontal bar with rounded ends, in the weight of Phosphor's fat arrow.
+    Copyright (c) 2026 Ka0s. MIT, the same terms as the rest of LibKa0s (LibKa0s/LICENSE).
+
+Every other TGA in this folder is an Open Iconic mark; LICENSE-open-iconic.txt is its license.

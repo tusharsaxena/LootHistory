@@ -53,7 +53,7 @@ local core = LibStub and LibStub("LibKa0s-Core-1.0", true)
 local NEEDS_CORE = 1
 if not core or (core.MINOR or 0) < NEEDS_CORE then return end   -- no NewLibrary; module absent
 
-local MAJOR, MINOR = "LibKa0s-Media-1.0", 13
+local MAJOR, MINOR = "LibKa0s-Media-1.0", 14
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
@@ -89,6 +89,14 @@ local TEXTURE_DIR = "media\\textures"
 -- TWO MARKS DELIBERATELY ABSENT, because Open Iconic has no glyph for them and a hand-drawn
 -- substitute would be the one icon in the set that looks foreign: `save` (no floppy; `confirm`
 -- carries the meaning) and `hidden` (no crossed-out eye; `eye` drawn dimmed is the state).
+--
+-- ONE MARK THE LIBRARY DRAWS ITSELF (minor 14): `dash`, a thick bar with rounded ends in the weight
+-- of Phosphor's fat arrow (`ph:arrow-fat-up`), as wide as its stem and 14/64 tall. Drop Watcher
+-- draws it beside that arrow as a recipe's "no skill-up" mark (owner feedback round 4, R4-LK-01),
+-- and no set has one: Open Iconic's `minus` and Phosphor's are hairlines beside the fat arrow. It
+-- sits in `media/icons/` with the Open Iconic marks, so it is unprefixed, and it follows the 113
+-- names above, so none of them moves. `tools/artwork/dash_icon.py` draws it (MIT, the library's
+-- own art), and `media/icons/CREDITS.txt` says so beside it.
 lib.ICONS = {
   -- the window header strip
   "close", "minimise", "expand", "lock", "unlock", "settings", "segment", "reset", "export",
@@ -134,6 +142,8 @@ lib.ICONS = {
   "account-login", "account-logout",
   -- entities
   "person", "people", "target", "shield",
+  -- drawn by the library (minor 14; tools/artwork/dash_icon.py)
+  "dash",
 }
 
 -- Every font in `media/fonts/`, keyed by the LSM name it registers under. `file` is the basename;

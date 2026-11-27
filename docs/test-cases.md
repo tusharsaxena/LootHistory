@@ -375,7 +375,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (48)
+### test_attribution.lua (50)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -403,6 +403,8 @@ Total.
 - Attribution: OnSpellSucceeded memoizes the lookup — a repeated spell skips re-resolution
 - Attribution: a memoized deconstruct source survives a later name change
 - Attribution: deconstruct's own loot window does not clobber its source
+- Attribution: a fishing loot window stamps FISHING, whatever its slots say (the owner, 2026-11-27)
+- Attribution: a Fishing cast makes the next sourceless loot window a catch; a creature's never (2026-11-27)
 - OnLootOpened logs ONE coalesced summary, not one line per slot
 - OnLootOpened reads the loot source through Compat
 - Attribution: an unrelated player spell does not stamp a source
@@ -570,9 +572,12 @@ Total.
 - Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)
 - Reconciler: a claim waits out combat, so one loot is one row
 
-### test_reconciler_rows.lua (41)
+### test_reconciler_rows.lua (44)
 
 - Reconciler: bag to bank deposit writes one MOVE and no gain or loss
+- Reconciler: equipping and unequipping writes no row, and no gain or loss (the owner, 2026-11-27)
+- Reconciler: ammunition writes no row while Ignore ammunition is on (2026-11-27)
+- Collector: the capture gate drops ammunition while Ignore ammunition is on (2026-11-27)
 - Reconciler: a one-sided change at an open bank is held, then paired
 - Reconciler: a split withdraw that fires only a bag event is still one MOVE bank to bags
 - Reconciler: a bag change with the bank closed never reads the bank
@@ -1851,7 +1856,7 @@ Total.
 - Harness: the banker interaction types and bank types carry each dump's numbers
 - Harness: the character, regional names and the account bank follow the client
 
-### test_libka0s.lua (57)
+### test_libka0s.lua (30)
 
 - NS.LIBKA0S_MISSING is the shared cause clause, verbatim
 - the cause clause is published on the HEALTHY path too, not only when the lib is absent
@@ -1883,6 +1888,9 @@ Total.
 - degraded install: the SafeRegister stubs isolate a refused name and record it once
 - v1.69.0: the line chart is vendored and attached to the Widgets major
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
+
+### test_libka0s_releases.lua (28)
+
 - v1.71.0: the vendored minors and the kit revision match the release
 - v1.75.0: the vendored minors and the kit revision match the release
 - v1.75.1: the vendored minors and the kit revision match the release
@@ -1910,6 +1918,7 @@ Total.
 - v1.112.0: the vendored minors and the kit revision match the release
 - v1.113.0: the vendored minors and the kit revision match the release
 - v1.114.0: the vendored minors and the kit revision match the release
+- v1.118.0: the vendored minors and the kit revision match the release
 
 ### test_surface_parity.lua (21)
 
@@ -2504,13 +2513,13 @@ Total.
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 48 |
+| test_attribution.lua | 50 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
 | test_reconciler.lua | 19 |
-| test_reconciler_rows.lua | 41 |
+| test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
 | test_stats.lua | 26 |
@@ -2557,7 +2566,8 @@ Total.
 | test_glyphs.lua | 5 |
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
-| test_libka0s.lua | 57 |
+| test_libka0s.lua | 30 |
+| test_libka0s_releases.lua | 28 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
 | test_perf.lua | 7 |
@@ -2589,4 +2599,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2179** |
+| **Total** | **2185** |

@@ -66,8 +66,8 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 
 | Task | What | Status | Commit |
 |---|---|---|---|
-| M0.1 | Save mockups + this plan | in progress | |
-| M0.2 | Re-vendor LibKa0s v1.114.0 → v1.118.0 (both payloads, provenance line, icon prune, gate) | todo | |
+| M0.1 | Save mockups + this plan | done | `M0.1` commit |
+| M0.2 | Re-vendor LibKa0s v1.114.0 → v1.118.0 (both payloads, provenance line, icon prune, gate) | done | `M0.2` commit (bundle `docs/revendor/2026-11-27-v1.118.0/`) |
 | M0.3 | Push M0 | todo | |
 | M1.1 | Compat: item and currency tooltip post-call hooks, tooltip id readers, live count reads (Retail + Forever) | todo | |
 | M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | todo | |

@@ -138,7 +138,7 @@ local SUITES = {
   "test_glyphs",
   -- After the panel suites, which build the General page the adopt path refreshes; before
   -- test_disabled, which brings the whole addon up. Leaves the harness on `Default`.
-  "test_profiles", "test_harness", "test_libka0s",
+  "test_profiles", "test_harness", "test_libka0s", "test_libka0s_releases",
   -- After test_libka0s and after test_debuglog, both deliberately. It shares the degraded
   -- environment with the first, and the second is what attaches the library's `_frameForTest`
   -- seams to the live DebugLog instance -- the ignore entries naming them describe the state this

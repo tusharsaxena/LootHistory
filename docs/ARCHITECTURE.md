@@ -739,8 +739,10 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1426 lines,
-then `tests/test_libka0s.lua` at 1400, `core/Database.lua` at 1308, `settings/Schema.lua` at 1277,
+then `core/Database.lua` at 1308, `settings/Schema.lua` at 1277,
 `tests/test_database.lua` at 1252 and `tests/test_browser.lua` at 1234 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-21).
+On 2026-11-27 the v1.118.0 re-vendor took `tests/test_libka0s.lua` to 1510 lines, and its per-tag release-pin
+cases moved verbatim to `tests/test_libka0s_releases.lua` (796 lines), leaving 723.
 On 2026-11-21 `modules/Browser.lua` (1477 lines) shed its per-tab view layer to `modules/BrowserViews.lua`
 and is 988 lines (`FU-LH-BROWSER`). On 2026-10-31 `modules/BrowserTable.lua` shed its sample dataset to `modules/BrowserTableTestData.lua`,
 `settings/Panel.lua` its AH price table to `settings/PanelAuction.lua`, and `tests/test_browser.lua`,
