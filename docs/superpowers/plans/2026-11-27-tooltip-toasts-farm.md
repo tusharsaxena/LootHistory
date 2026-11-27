@@ -60,6 +60,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | D19 | #39: gains come from the same pre-gate feed as the toasts; costs (repairs, buys, AH fees) from recorded `OUT` rows in the session window. |
 | D20 | #39 surfaces: companion panel (headline, live numbers, activity tally, Pause/Finish/Details/Sessions, minimize to headline + buttons), a Details window (Items, Money, Currencies, Costs, Activity, Log tabs), a summary at Finish, a Farm tab in the History window, and the panel's own sessions list. |
 | D21 | #39 ingress: a title-bar button on the History window, two key bindings (Toggle farm session, Start / finish farm session), `/lh farm [start|pause|resume|finish]`, the launcher menu. |
+| D23 | Settings layout (options-ui-§13, at most 8 tabs on a page): #34's rows are a "Holdings in tooltips" subgroup on the Interface tab; #38 Toasts and #39 Farm are settings pages of their own beside General and Profiles (Toasts' tabs are the feeds and their sections). No deviation. |
 | D22 | #39 activity tally (each line configurable): mobs looted (distinct corpses from loot windows; Retail 12.x gives addons no reliable kill count), items looted, nodes gathered, fish caught, quests turned in, quest rewards, containers opened, drops by quality, reputation, experience, skill-ups, new appearances; currencies gained and deaths off by default. |
 
 ## Status ledger
