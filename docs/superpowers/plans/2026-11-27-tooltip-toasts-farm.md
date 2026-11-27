@@ -40,7 +40,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | Id | Decision |
 |---|---|
 | D1 | Re-vendor LibKa0s to v1.118.0 first (M0). No upstream LibKa0s change planned; a need found later is flagged, not silently worked around. |
-| D2 | #34: the logged-in character's counts are live client reads (bags, bank, warband bank via `C_Item.GetItemCount` diffs, currency via `C_CurrencyInfo`); every other holder and the Warband from `db.global.holdings`. |
+| D2 | #34: the logged-in character's counts are live client reads (bags, bank, warband bank via `C_Item.GetItemCount` diffs, currency via `C_CurrencyInfo`); every other holder and the Warband from `db.global.holdings`. Amended in M1.6 review: the equipped count is live too (worn slots are readable); see spec §5.3. |
 | D3 | #34: with `settings.trackLedger` off the tooltip block is hidden entirely. |
 | D4 | #34: containers render as LibKa0s catalog icons plus a count, never words. Icons are added to the CLAUDE.md `LibKa0s icons:` line and the vendored `media/icons/` in the same commit. |
 | D5 | #34: a public API, `LootHistory.API.v1`, published `_G.LootHistory = { API = NS.API }` (public-api section): holders, holder info, item and currency counts per holder, money, a read-only holder copy, scan times, and `RegisterCallback(owner, "HoldingsChanged", fn)`. Every answer is a copy. Contract documented in ARCHITECTURE.md. |
@@ -62,6 +62,10 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | D21 | #39 ingress: a title-bar button on the History window, two key bindings (Toggle farm session, Start / finish farm session), `/lh farm [start|pause|resume|finish]`, the launcher menu. |
 | D23 | Settings layout (options-ui-§13, at most 8 tabs on a page): #34's rows are a "Holdings in tooltips" subgroup on the Interface tab; #38 Toasts and #39 Farm are settings pages of their own beside General and Profiles (Toasts' tabs are the feeds and their sections). No deviation. |
 | D22 | #39 activity tally (each line configurable): mobs looted (distinct corpses from loot windows; Retail 12.x gives addons no reliable kill count), items looted, nodes gathered, fish caught, quests turned in, quest rewards, containers opened, drops by quality, reputation, experience, skill-ups, new appearances; currencies gained and deaths off by default. |
+| D24 | #38 toast host: extend LibKa0s upstream with a feed capability (task M3.0, in ../LibKa0s on a branch, vendored here in the unreleased provenance form; tag cut only at the owner's merge go-ahead). No library-stack-§7 deviation. |
+| D25 | #38: hiding Blizzard's chat lines is dropped from scope (owner: skip). Hiding Blizzard's loot/money alert toasts stays, off by default. |
+| D26 | #39: the farm panel uses a new MEDIUM persistent-window layers key (frame-layering-§1); if the standard lacks the key it is added upstream first (task M4.0). |
+| D27 | #39: the existing localization-§4 register row widens to cover Gathering and the shipped Fishing name match. |
 
 ## Status ledger
 
@@ -69,18 +73,19 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 |---|---|---|---|
 | M0.1 | Save mockups + this plan | done | `M0.1` commit |
 | M0.2 | Re-vendor LibKa0s v1.114.0 → v1.118.0 (both payloads, provenance line, icon prune, gate) | done | `M0.2` commit (bundle `docs/revendor/2026-11-27-v1.118.0/`) |
-| M0.3 | Push M0 | todo | |
+| M0.3 | Push M0 | done | pushed to origin |
 | M1.1 | Compat: item and currency tooltip post-call hooks, tooltip id readers, live count reads (Retail + Forever) | done | `M1.1: Add Compat tooltip post calls, id readers, painters and live reads` |
 | M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | done | `M1.2: Add the holdings tally over the saved store with a live overlay` |
 | M1.3 | Tooltip block: icons + counts, staleness age, Total rule, settings rows (Interface tab subgroup "Holdings in tooltips", owner ruling), modifier mode, disabled-state, tests | done | `M1.3: Add the holdings tooltip block, its settings and container icons` |
 | M1.4 | Public API v1 + CallbackHandler + tests + ARCHITECTURE contract | done | `M1.4: Add the public holdings API v1 with a CallbackHandler relay` |
 | M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | done | `M1.5: Document the holdings tooltip, its API and their smoke checks` |
-| M1.6 | Review pass (workflow) + fixes; push M1 | done (push by lead) | `M1.6: Review fixes` |
+| M1.6 | Review pass (workflow) + fixes; push M1 | done | `M1.6: Review fixes`; pushed to origin |
 | M2.1 | Kinds `REPUTATION` / `APPEARANCE`, feature gate (appearance Retail-only), Compat reads | todo | |
 | M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | todo | |
 | M2.3 | Appearance capture (collected IN, removed OUT; Retail) + tests | todo | |
 | M2.4 | History / filters / Insights / Export / test data / sim for the new kinds; capture switches | todo | |
 | M2.5 | Docs + review pass + fixes; push M2 | todo | |
+| M3.0 | LibKa0s-Feed-1.0 upstream (`../LibKa0s` branch `feat/2026-11-27-feed`, L-steps + review fixes, pushed); re-vendor here as `v1.119.0 (unreleased, branch feat/2026-11-27-feed)` | upstream done; re-vendor todo | LibKa0s `749ae79d` |
 | M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | todo | |
 | M3.2 | Feed host spike: LibKa0s Toast v4 vs own frames for slots / styling / motion; decide, record | todo | |
 | M3.3 | Feed engine: 3 feeds, slots + nudge, grow, alignment + icon side, merge, stack, pin on hover, clicks | todo | |
@@ -88,6 +93,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M3.5 | Styling overrides (skin by default) + motion (enter, fade, pulse, timer bar, smooth reposition) | todo | |
 | M3.6 | Settings (Toasts page, per-feed tabs), test toasts, unlock/drag, Blizzard-duplicate hiding, disabled-state, perf, sim | todo | |
 | M3.7 | Docs + review pass + fixes; push M3 | todo | |
+| M4.0 | Standards upstream: PERSISTENT MEDIUM layers key (frame-layering-§1) if missing; ADDONS.md launcher column | todo | |
 | M4.1 | Farm session model: start/pause/resume/finish, clock, AFK + idle, logout finishes, reload keeps, tallies, costs, activity, log cap, storage + cap | todo | |
 | M4.2 | Companion panel (headline, numbers, activity, buttons, minimize, paused view) | todo | |
 | M4.3 | Details window (6 tabs) + summary at Finish | todo | |
