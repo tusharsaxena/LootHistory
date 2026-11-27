@@ -66,16 +66,19 @@ test("Constants: source enum + order", function()
   -- + DISENCHANT/MILLING/PROSPECTING + BONUS_ROLL + REFUND + 23 ledger reasons; WoW Forever lacks the
   -- two warband directions (the warband bank is Retail-only, R1) and MPLUS, BONUS_ROLL, MILLING and
   -- PROSPECTING (R2), all C.SOURCE_ABSENT; it keeps DECONSTRUCT (owner ruling F1).
-  assertEqual(#NS.Constants.SourceOrder, T.forever and 33 or 39)
+  -- + FISHING (2026-11-27, both clients)
+  assertEqual(#NS.Constants.SourceOrder, T.forever and 34 or 40)
   -- Every enum member now has a live capture path, so all are offered in the mute list: CRAFT (from
   -- "You create"), REFUND (from "You are refunded") and ROLL (from the "You won:" roll line) joined
   -- the wired sources (deconstruct abilities, AH from mail, BONUS_ROLL from the bonus-roll line).
   -- WoW Forever offers no Mythic+, Bonus Roll, Milling or Prospecting mute (R2).
-  assertEqual(#NS.Constants.SOURCE_OPTIONS, T.forever and 12 or 16)
+  -- FISHING is muteable on both (2026-11-27).
+  assertEqual(#NS.Constants.SOURCE_OPTIONS, T.forever and 13 or 17)
+  assertTrue(#NS.Constants.SOURCE_OPTIONS > 0)
   local muteable = {}
   for _, o in ipairs(NS.Constants.SOURCE_OPTIONS) do muteable[o.value] = true end
   assertTrue(muteable.ROLL); assertTrue(muteable.CRAFT); assertTrue(muteable.REFUND)
-  assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.DISENCHANT)
+  assertTrue(muteable.KILL); assertTrue(muteable.AH); assertTrue(muteable.DISENCHANT); assertTrue(muteable.FISHING)
   for _, s in ipairs({ "MPLUS", "BONUS_ROLL", "MILLING", "PROSPECTING" }) do
     assertEqual(muteable[s] == true, not T.forever, s .. " muteable")
   end

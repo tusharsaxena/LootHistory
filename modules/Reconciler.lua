@@ -626,13 +626,21 @@ local function writePair(self, p, now, from, to)
   self:Write(p.to, p.key, "IN", reason, p.qty, now, from, to, out and out.pairId or nil)
 end
 
+-- A swap between the bags and what you wear (a fishing pole equipped in place of a weapon, a bag put in
+-- a bag slot) moves nothing anywhere, so it writes no row (the owner, 2026-11-27: "Swapping a weapon
+-- for a fishing pole counts as a transfer - this should not happen"). It is still classified as a move,
+-- so neither side reads as a loss or a gain; only the Transfer row is left out.
+local function isSwap(mv)
+  return (mv.from == CT.BAGS and mv.to == CT.EQUIPPED) or (mv.from == CT.EQUIPPED and mv.to == CT.BAGS)
+end
+
 local function writeMoves(self, plan, now)
   for _, mv in ipairs(plan.moves) do
     local key, from, to = L.ThingKey("ITEM", mv.id), mv.holder .. "/" .. mv.from, mv.holder .. "/" .. mv.to
     -- What an own alt mailed is that alt's move landing here: a gain (Escrow marks it `alt`).
     local alt = mv.alt or 0
     if alt > 0 then self:Write(mv.holder, key, "IN", "ALT_MAIL", alt, now, from, to) end
-    self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - alt, now, from, to)
+    if not isSwap(mv) then self:Write(mv.holder, key, "MOVE", "TRANSFER", mv.qty - alt, now, from, to) end
   end
 end
 
