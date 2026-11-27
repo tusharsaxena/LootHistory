@@ -53,6 +53,13 @@ end
 -- default when the global is absent. docs/compat-layer.md lists the reads left bare on purpose.
 
 -- Slots in the open loot window; 0 with no window or no API.
+--- Whether the loot window open now is fishing loot (the client's IsFishingLoot, both clients). False
+--- when the client has no such function.
+function Compat.IsFishingLoot()
+  if type(IsFishingLoot) ~= "function" then return false end
+  return IsFishingLoot() == true
+end
+
 function Compat.NumLootItems()
   if type(GetNumLootItems) ~= "function" then return 0 end
   return GetNumLootItems() or 0

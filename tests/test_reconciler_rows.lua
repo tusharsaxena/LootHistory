@@ -89,6 +89,22 @@ case("Reconciler: bag to bank deposit writes one MOVE and no gain or loss", func
   assertEqual(r.pairId, nil)                              -- one holder: a single MOVE, no pair (Review Focus 2)
 end)
 
+case("Reconciler: equipping and unequipping writes no row, and no gain or loss (the owner, 2026-11-27)", function()
+  reset()
+  setBag(0, { [1] = { itemID = 6256, link = "L6256", count = 1 } })   -- a fishing pole in the bags
+  m.__inventory = { [16] = { itemID = 7, link = "L7" } }               -- a weapon worn
+  genesis()
+  -- the swap: the pole worn, the weapon in the bags
+  setBag(0, { [1] = { itemID = 7, link = "L7", count = 1 } })
+  m.__inventory = { [16] = { itemID = 6256, link = "L6256" } }
+  R():MarkDirty("bags"); R():MarkDirty("equipped"); R():Flush()
+  -- red under: a MOVE/TRANSFER row each way (the owner: "Swapping a weapon for a fishing pole counts as
+  -- a transfer - this should not happen")
+  assertEqual(#H(), 0, "no row for a swap")
+  assertEqual(NS.Holdings:Get(ME).items[6256].equipped, 1, "the holdings still follow it")
+  assertEqual(NS.Holdings:Get(ME).items[7].bags, 1)
+end)
+
 case("Reconciler: a one-sided change at an open bank is held, then paired", function()
   reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 2 } })

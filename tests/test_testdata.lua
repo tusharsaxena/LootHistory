@@ -357,7 +357,9 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- 3180:521769667 and 118617:161303863, WoW Forever 2628:515834675 and 95674:1980344819): the
     -- classes the five lack are the library's crowd now (LibKa0s#104), so the holder keys moved, and
     -- with them their sorted order and the order the daily walk reaches each series.
-    local pin = ({ retail = { "3177:219167296", "119843:1100208386" }, forever = { "2629:796976170", "95975:732178341" } })[CLIENT]
+    -- Re-pinned by the FISHING source (2026-11-27; daily was Retail 119843:1100208386, WoW Forever
+    -- 95975:732178341): the coverage seed walk carries one more source's row; the holdings did not move.
+    local pin = ({ retail = { "3177:219167296", "119728:2090753730" }, forever = { "2629:796976170", "95970:1042530535" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)

@@ -71,6 +71,9 @@ C.SourceType = {
   -- TRANSFER stays the reason of a move inside one holder (bags <-> bank, a post).
   WARBAND_DEPOSIT = "WARBAND_DEPOSIT", WARBAND_WITHDRAW = "WARBAND_WITHDRAW", ALT_MAIL = "ALT_MAIL",
   ALT_TRADE = "ALT_TRADE", CURRENCY_TRANSFER = "CURRENCY_TRANSFER",
+  -- APPENDED 2026-11-27 (the owner: "This was caught by fishing, any way to capture that?"): a loot
+  -- window the client marks as fishing loot (IsFishingLoot), on both clients.
+  FISHING = "FISHING",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
@@ -83,6 +86,7 @@ C.SourceOrder = {
   "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
   "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
   "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER",
+  "FISHING",
 }
 
 -- Short human labels for the UI.
@@ -99,6 +103,7 @@ C.SourceLabel = {
   TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
   WARBAND_DEPOSIT = "Warband Deposit", WARBAND_WITHDRAW = "Warband Withdraw", ALT_MAIL = "Alt Mail",
   ALT_TRADE = "Alt Trade", CURRENCY_TRANSFER = "Currency Transfer",
+  FISHING = "Fishing",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the
@@ -115,6 +120,7 @@ C.SOURCE_IMPLEMENTED = {
   DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
   TRANSFER = true, UNTRACKED = true,
   WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
+  FISHING = true,
 }
 
 -- The reasons only the LEDGER writes (holdings diffs, timeline-ledger spec §5.4). They have live

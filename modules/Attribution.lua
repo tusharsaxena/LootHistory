@@ -248,6 +248,13 @@ function Attribution:OnLootOpened()
   end
   -- Through Compat, so the Sim-1.0 answer seam can play a loot window (LootHistory#37).
   local n = NS.Compat.NumLootItems()
+  -- Fishing loot (the owner, 2026-11-27): the client says so itself. Its slots carry the bobber's or
+  -- no source GUID, which read as CONTAINER or OTHER, so the client's answer wins over the slots.
+  if NS.Compat.IsFishingLoot() then
+    self:Stamp(Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN, "LOOT_OPENED")
+    self:OpenLootWindow(n, Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN)
+    return
+  end
   for slot = 1, n do
     local guid = NS.Compat.LootSourceGUID(slot)
     if guid then

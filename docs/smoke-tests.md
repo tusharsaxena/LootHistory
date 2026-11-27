@@ -3078,3 +3078,16 @@ awaiting the owner: SEEDS-LH-4, new, on both clients. The run removed Item sourc
 SEEDS-LH-3 are superseded by ITEM-SEARCH after they passed.
 On 2026-11-25 the owner reported that SEEDS-LH-4 passed; its `Result:` line records it as
 `PASS (owner, 2026-11-25)`.
+
+Added on 2026-11-27 (owner feedback), awaiting the owner, each new and on both clients: CAP-39 and
+LEDGER-SWAP-1.
+
+**CAP-39. A fishing catch reads Fishing.** Client: both. Fish anywhere (Dustwallow Marsh's Oily
+Blackmouth will do), with auto loot on and then off. Open the Browser → each catch's Source reads
+**Fishing**, marked Certain, never Other or Container. Loot a creature next: it still reads Kill. The
+Source filter and the capture mute list offer Fishing. Result:
+
+**LEDGER-SWAP-1. Equipping is not a transfer.** Client: both. Swap a weapon for a fishing pole, then
+back, and put a bag into a bag slot and take it out. Browser → Timeline/ledger view with Transfers
+shown: no Transfer rows for any of it, and no Loss or Gain either; the weapon and the pole are still
+counted as yours. Move an item bags → bank: that still writes its Transfer row. Result:
