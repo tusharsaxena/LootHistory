@@ -231,8 +231,8 @@ function AL.Layout(inst, stats, y, w, pad)
   local function srcLabel(k) return C.SourceLabel[k] or k end
   local function classOf(ch) local ce = stats.byChar and stats.byChar[ch]; return ce and ce.classFile end
   local function charColor(ch)
-    local cc = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classOf(ch) or ""]
-    return cc and { cc.r, cc.g, cc.b } or nil
+    local cr, cg, cb = NS.Compat.ClassColor(classOf(ch))
+    return cr and { cr, cg, cb } or nil
   end
   y = section(inst, "reason", AL.BackToBackRows(L.reasonIn, L.reasonOut, srcLabel, nil, LF.SignedCount, tostring),
     y, w, pad)

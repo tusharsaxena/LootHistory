@@ -939,8 +939,8 @@ function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
     fs:SetTextColor(qualityColor(r.quality))
   elseif colKey == "char" then
     local cf = holderClassFile(r)
-    local cc = RAID_CLASS_COLORS and cf and RAID_CLASS_COLORS[cf]
-    if cc then fs:SetTextColor(cc.r, cc.g, cc.b) else fs:SetTextColor(NS.SkinColor("text.body")) end
+    local cr, cg, cb = NS.Compat.ClassColor(cf)
+    if cr then fs:SetTextColor(cr, cg, cb) else fs:SetTextColor(NS.SkinColor("text.body")) end
   elseif colKey == "qty" then
     fs:SetTextColor(NS.LedgerFormat.QtyColor(r))
   else

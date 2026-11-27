@@ -47,6 +47,7 @@ read_globals = {
   "BuyMerchantItem", "GetMerchantItemLink", "GetTitleText", "AUCTION_HOUSE",
   "InCombatLockdown", "UnitAffectingCombat", "IsInInstance", "IsInGroup", "hooksecurefunc", "strsplit", "strjoin", "strtrim", "SpellIsTargeting",
   "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
+  "TooltipDataProcessor",   -- core/Compat.lua's HookTooltipType only (#34; tests/test_compat_routing.lua)
   "CombatLogGetCurrentEventInfo", "GetDetailedItemLevelInfo",
   "GameTooltip", "GetCursorPosition", "ChatEdit_InsertLink", "ChatFrame_OpenChat",
   "FauxScrollFrame_Update", "FauxScrollFrame_GetOffset", "FauxScrollFrame_OnVerticalScroll",

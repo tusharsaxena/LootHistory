@@ -199,6 +199,14 @@ test("Analytics._classColor: a known class returns its class color", function()
   assertFalse(c[1] == 0.7 and c[2] == 0.7, "a known class must not use the fallback")
 end)
 
+-- #34 M1.1 characterization: the exact class color, pinned before AnalyticsFormat's read moved from
+-- RAID_CLASS_COLORS to NS.Compat.ClassColor.
+test("Analytics._classColor: a known class answers RAID_CLASS_COLORS' components exactly", function()
+  local cc, c = T.mocks.RAID_CLASS_COLORS.MAGE, A._classColor("MAGE")
+  assertEqual(c[1], cc.r); assertEqual(c[2], cc.g); assertEqual(c[3], cc.b)
+  assertEqual(#c, 3, "a fresh { r, g, b } triple")
+end)
+
 test("Analytics._classColor: an unknown or missing class falls back to neutral gray", function()
   assertEqual(A._classColor("NOTACLASS")[1], 0.7)
   assertEqual(A._classColor(nil)[1], 0.7)

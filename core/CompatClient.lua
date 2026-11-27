@@ -77,6 +77,11 @@ local function isSecret(v)
   return issecretvalue ~= nil and issecretvalue(v) and true or false
 end
 
+-- Whether `v` is a secret value: LibKa0s-Compat-1.0's IsSecret, else the client's issecretvalue,
+-- normalized to a boolean (false on a client without the secrets system). Published so
+-- core/Compat.lua's tooltip readers (#34) ask it at call time. PURE: it answers for nobody.
+Compat.IsSecret = isSecret
+
 -- A plain (non-secret), non-empty string, or nil.
 local function plainString(v)
   if isSecret(v) or type(v) ~= "string" or v == "" then return nil end

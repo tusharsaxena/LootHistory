@@ -28,6 +28,10 @@ local BANNED = {
   { pat = "%f[%w_]UnitAffectingCombat%f[^%w_]",   use = "Compat.PlayerInCombat()" },
   { pat = "%f[%w_]hooksecurefunc%f[^%w_]",        use = "Compat.HookSecure / HookSecureMember" },
   { pat = "%f[%w_]UnitClass%s*%(%s*[\"']player",  use = "Compat.PlayerClassFile()" },
+  -- The holdings tooltip (#34): the post-call registry, the live item count and the class colors.
+  { pat = "%f[%w_]TooltipDataProcessor%f[^%w_]",  use = "Compat.HookTooltipType(typeName, fn)" },
+  { pat = "%f[%w_]C_Item%.GetItemCount%f[^%w_]",  use = "Compat.LiveItemCounts(itemID)" },
+  { pat = "%f[%w_]RAID_CLASS_COLORS%f[^%w_]",     use = "Compat.ClassColor(classFile)" },
 }
 
 local function shippedFiles(prefix)

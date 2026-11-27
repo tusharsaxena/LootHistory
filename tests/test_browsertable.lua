@@ -553,6 +553,20 @@ test("BrowserTable: the Character cell prefixes a class icon when the class is k
   assertTrue(withClass:find("Ka0z-Realm", 1, true) ~= nil, "the full Name-Realm is still shown")
 end)
 
+-- #34 M1.1 characterization: the Character cell's tint, pinned before BrowserTable's read moved from
+-- RAID_CLASS_COLORS to NS.Compat.ClassColor. A known class paints its class color; none, text.body.
+test("BrowserTable: the Character cell paints the class color, else text.body", function()
+  local fs = { SetText = function() end, SetTextColor = function(self, r, g, b) self.c = { r, g, b } end }
+  local cc = T.mocks.RAID_CLASS_COLORS.MAGE
+  NS.BrowserTable:PaintCell(fs, "char", { char = "Ka0z-Realm", classFile = "MAGE" })
+  assertEqual(fs.c[1], cc.r); assertEqual(fs.c[2], cc.g); assertEqual(fs.c[3], cc.b)
+  local br, bg, bb = NS.SkinColor("text.body")
+  NS.BrowserTable:PaintCell(fs, "char", { char = "Ka0z-Realm", classFile = "NOTACLASS" })
+  assertEqual(fs.c[1], br); assertEqual(fs.c[2], bg); assertEqual(fs.c[3], bb)
+  NS.BrowserTable:PaintCell(fs, "char", { char = "Ka0z-Realm" })
+  assertEqual(fs.c[1], br); assertEqual(fs.c[2], bg); assertEqual(fs.c[3], bb)
+end)
+
 test("BrowserTable: ClassIconMarkup is empty for an unknown class", function()
   assertEqual(NS.BrowserTable:ClassIconMarkup(nil), "")
   assertEqual(NS.BrowserTable:ClassIconMarkup("NOTACLASS"), "")

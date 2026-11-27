@@ -93,8 +93,8 @@ end
 
 -- Class color for a per-character bar (falls back to the skin's chart.otherLine gray).
 local function classColor(classFile)
-  local c = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile]
-  if c then return { c.r, c.g, c.b } end
+  local r, g, b = NS.Compat.ClassColor(classFile)
+  if r then return { r, g, b } end
   return NS.SkinRGB("chart.otherLine")
 end
 

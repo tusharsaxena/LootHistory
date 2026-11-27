@@ -21,7 +21,7 @@ local _, NS = ...
 -- ── PURE, GUARDED, WRAPPED ───────────────────────────────────────────────────────────────────
 --
 --   PURE      never wrapped. The text and parse helpers answer for nobody; the tooltip family only
---             draws; the four hook installers run once at stand-up, never during a simulation.
+--             draws; the hook installers run once at stand-up, never during a simulation.
 --   GUARDED   the one member that changes client state. ListCurrencies expands and collapses the
 --             player's Currency-tab headers to walk the list, so while a session is active it
 --             answers the simulated world's list (NS.SimHost.world.currencies, modules/SimWorld.lua)
@@ -61,6 +61,11 @@ local PURE = {
   ShowLinesTooltip = true, ShowTintedTooltip = true, ShowLineTooltip = true, HideTooltip = true,
   OwnTooltip = true, PlaceTooltip = true,
   HookUseContainerItem = true, HookGetQuestReward = true, HookSecure = true, HookSecureMember = true,
+  -- The holdings tooltip (#34): the post-call installer, the id readers and guards, and the painters
+  -- answer for nobody; IsSecret is the secret test they all ask.
+  HookTooltipType = true, TooltipItemID = true, TooltipCurrencyID = true, TooltipWritable = true,
+  IsComparisonTooltip = true, AppendTooltipRows = true, TooltipTint = true, FormatCount = true,
+  IsSecret = true,
 }
 
 -- The safe answers while a session is active (req-lh-sim §2.4). A provider, when one is set, gets

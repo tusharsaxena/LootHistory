@@ -21,7 +21,7 @@ local loadDegraded = dofile("tests/degraded_env.lua")
 -- reach the client while a simulation runs (guarded), or is wrapped (answered live until a provider
 -- is set) is a decision, and a member that slips in unclassified is one nobody made.
 local CLASSIFIED = {
-  -- pure: text and parse helpers, the tooltip family and the four hook installers (req-lh-sim §2.2)
+  -- pure: text and parse helpers, the tooltip family and the hook installers (req-lh-sim §2.2)
   FoldNBSP = "pure", IsAuctionHouseMail = "pure", DecodeGUID = "pure", BindState = "pure",
   BestBound = "pure", CurrencyLinkID = "pure", AuctionMailKind = "pure", CurrencySourceName = "pure",
   InteractionType = "pure",
@@ -29,6 +29,13 @@ local CLASSIFIED = {
   ShowAmountTooltip = "pure", ShowLinesTooltip = "pure", ShowTintedTooltip = "pure", HideTooltip = "pure",
   ShowLineTooltip = "pure", OwnTooltip = "pure", PlaceTooltip = "pure",
   HookUseContainerItem = "pure", HookGetQuestReward = "pure", HookSecure = "pure", HookSecureMember = "pure",
+  -- the holdings tooltip (#34): the post-call installer, id readers, guards and painters are pure,
+  -- with core/CompatClient.lua's IsSecret; the four live reads are wrapped (the simulated player is
+  -- the real player, so live is right with no provider)
+  HookTooltipType = "pure", TooltipItemID = "pure", TooltipCurrencyID = "pure", TooltipWritable = "pure",
+  IsComparisonTooltip = "pure", AppendTooltipRows = "pure", TooltipTint = "pure", FormatCount = "pure",
+  IsSecret = "pure",
+  LiveItemCounts = "wrapped", CurrencyQuantity = "wrapped", ModifierDown = "wrapped", ClassColor = "wrapped",
   -- guarded: the one member that changes client state (it expands and collapses currency headers)
   ListCurrencies = "guarded",
   -- wrapped: answered live until a provider is set

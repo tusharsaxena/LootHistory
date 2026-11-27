@@ -233,6 +233,18 @@ test("skin insights: on Ka0s Default the cards, panels and chart chrome draw tod
   end)
 end)
 
+-- #34 M1.1 characterization: the GAINS & LOSSES by-character label takes its holder's class color
+-- (the fixture's Alpha-Realm is a WARRIOR), pinned before AnalyticsLedger's read moved from
+-- RAID_CLASS_COLORS to NS.Compat.ClassColor.
+test("skin insights: the ledger's by-character label is the holder's class color", function()
+  withInsights(function()
+    local cc, hit = mocks.RAID_CLASS_COLORS.WARRIOR, nil
+    for _, b in ipairs(A.ledgerUI.pools.char.active) do if b._fullLabel == "Alpha" then hit = b end end
+    assertTrue(hit ~= nil, "the fixture drew no Alpha bar in the by-character ledger")
+    assertEqual(textColor(hit.label), rgba({ cc.r, cc.g, cc.b }), "the class color")
+  end)
+end)
+
 test("skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default", function()
   local want = { { 0.90, 0.25, 0.25 }, { 0.95, 0.55, 0.15 }, { 0.50, 0.28, 0.62 } }
   for i, rank in ipairs({ 1, 2, 21 }) do

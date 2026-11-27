@@ -236,8 +236,8 @@ end
 
 function TM.Color(holder, meta)
   if holder == NS.Constants.WARBAND_HOLDER then return tok("sem.warband") end
-  local cc = meta and meta.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[meta.classFile]
-  if cc then return { cc.r, cc.g, cc.b, 1 } end
+  local r, g, b = NS.Compat.ClassColor(meta and meta.classFile)
+  if r then return { r, g, b, 1 } end
   return tok("chart.otherLine")
 end
 

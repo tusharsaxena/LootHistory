@@ -314,6 +314,29 @@ Total.
 - CompatClient: a degraded install reads the container groups and the bank as the library does
 - CompatClient: ClientBuild answers GetBuildInfo's version and build, nil without it
 
+### test_compat_tooltip.lua (20)
+
+- Compat tooltip: IsSecret answers a boolean, true only for a secret
+- Compat tooltip: HookTooltipType registers a post call for Item and for Currency
+- Compat tooltip: HookTooltipType answers false and installs nothing when it cannot
+- Compat tooltip: HookTooltipType answers false with no Enum.TooltipDataType at all
+- Compat tooltip: TooltipItemID reads data.id, else the hyperlink's item id
+- Compat tooltip: TooltipCurrencyID reads data.id, else the hyperlink's currency id
+- Compat tooltip: a secret id, hyperlink or data table reads nil and is never touched
+- Compat tooltip: TooltipWritable is false when forbidden or without AddLine
+- Compat tooltip: IsComparisonTooltip names the four shopping tooltips only
+- Compat tooltip: AppendTooltipRows paints each row in its token, then Shows, never SetOwner
+- Compat tooltip: AppendTooltipRows writes nothing to a forbidden or absent tooltip
+- Compat tooltip: TooltipTint wraps text in the token's components, no byte typed
+- Compat tooltip: FormatCount groups digits with BreakUpLargeNumbers, else tostring
+- Compat tooltip: LiveItemCounts subtracts worn gear and splits the bank out
+- Compat tooltip: LiveItemCounts' account part is nil while the warband feature is off
+- Compat tooltip: LiveItemCounts never goes below zero
+- Compat tooltip: a secret or absent count gives nil for that part only
+- Compat tooltip: CurrencyQuantity reads GetCurrencyInfo's plain quantity
+- Compat tooltip: ModifierDown reads each key, false for anything else
+- Compat tooltip: ClassColor answers RAID_CLASS_COLORS' components, nil otherwise
+
 ### test_tooltip_place.lua (9)
 
 - tooltip placement: LibKa0s-Tooltip-1.0 is loaded for core/Compat.lua to place through
@@ -899,7 +922,7 @@ Total.
 - footer: every pane ends FOOTER.HEIGHT above the window's bottom edge
 - footer: the resize grip sits in the footer's corner, and the right line clears it
 
-### test_browsertable.lua (88)
+### test_browsertable.lua (89)
 
 - BrowserTable: CellText renders each column
 - BrowserTable: iLvl column shows level only when present
@@ -942,6 +965,7 @@ Total.
 - BrowserTable: quantity defaults to 1 when a record omits it
 - BrowserTable: type and subtype cells are blank rather than nil-crashing
 - BrowserTable: the Character cell prefixes a class icon when the class is known
+- BrowserTable: the Character cell paints the class color, else text.body
 - BrowserTable: ClassIconMarkup is empty for an unknown class
 - BrowserTable: every column is fully described and uniquely keyed
 - BrowserTable: Character is the last column and Item is the flexing one
@@ -1300,7 +1324,7 @@ Total.
 - Schema stub: SetMany takes a writeThrough entry, and stores nothing when a sibling refuses
 - Schema live: settings.enabled still takes its composed row, not the writeThrough path
 
-### test_analytics.lua (51)
+### test_analytics.lua (52)
 
 - Analytics.paletteColor: rank 1 is the first palette entry
 - Analytics.paletteColor: adjacent ranks differ
@@ -1325,6 +1349,7 @@ Total.
 - Analytics._shortChar: drops the realm from a Name-Realm key
 - Analytics._shortChar: a missing character reads '?'
 - Analytics._classColor: a known class returns its class color
+- Analytics._classColor: a known class answers RAID_CLASS_COLORS' components exactly
 - Analytics._classColor: an unknown or missing class falls back to neutral gray
 - Analytics._qualityColor: returns an rgb triple for a real quality
 - Analytics._money: zero and negative values read as a plain '0'
@@ -1756,9 +1781,10 @@ Total.
 - skin table: the degraded facade draws the row menu today's way
 - skin table: a skin with a face reaches the table's cells, and Ka0s Default leaves them stock
 
-### test_skin_insights.lua (20)
+### test_skin_insights.lua (21)
 
 - skin insights: on Ka0s Default the cards, panels and chart chrome draw today's values
+- skin insights: the ledger's by-character label is the holder's class color
 - skin insights: the palette, the Other gray and the bind colors are today's on Ka0s Default
 - skin insights: a switch repaints Insights live, the free list too, and syncs the palette
 - skin insights: the headline cards follow a skin switch and a live Font outline change
@@ -2509,6 +2535,7 @@ Total.
 | test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 10 |
+| test_compat_tooltip.lua | 20 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 10 |
@@ -2527,7 +2554,7 @@ Total.
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
-| test_browsertable.lua | 88 |
+| test_browsertable.lua | 89 |
 | test_export.lua | 38 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
@@ -2541,7 +2568,7 @@ Total.
 | test_schema.lua | 48 |
 | test_schema_seam.lua | 25 |
 | test_schema_stub.lua | 9 |
-| test_analytics.lua | 51 |
+| test_analytics.lua | 52 |
 | test_analytics_layout.lua | 12 |
 | test_holdingstab.lua | 34 |
 | test_timeline.lua | 35 |
@@ -2560,7 +2587,7 @@ Total.
 | test_skin_verb.lua | 4 |
 | test_skin_chrome.lua | 11 |
 | test_skin_table.lua | 8 |
-| test_skin_insights.lua | 20 |
+| test_skin_insights.lua | 21 |
 | test_skin_settings.lua | 8 |
 | test_skin_tools.lua | 7 |
 | test_glyphs.lua | 5 |
@@ -2599,4 +2626,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 1 |
-| **Total** | **2185** |
+| **Total** | **2208** |

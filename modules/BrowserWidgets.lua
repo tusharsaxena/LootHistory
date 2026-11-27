@@ -72,9 +72,9 @@ end
 
 -- The class color as an {r, g, b} triple, nil with no class or an unknown one.
 local function classColor(cf)
-  local cc = cf and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cf]
-  if not cc then return nil end
-  return { cc.r, cc.g, cc.b }
+  local r, g, b = NS.Compat.ClassColor(cf)
+  if not r then return nil end
+  return { r, g, b }
 end
 
 -- One Character option for holder `h` of class `cf` (nil for the Warband or an unclassed row).
