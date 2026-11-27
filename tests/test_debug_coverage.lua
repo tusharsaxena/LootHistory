@@ -301,6 +301,26 @@ test("coverage: a currency line refused before it names a currency says why", fu
   assertEqual(count(lines, "[Drop] currency line reason=unresolved-link"), 1, table.concat(lines, "\n"))
 end)
 
+test("coverage: a reputation change not written says why, only while logging", function()
+  -- red under: a bare return for a guard in modules/Reputation.lua's repEvent, or a [Drop] line
+  -- written with logging off. tests/test_reputation.lua walks every reason; this pins the gate.
+  local R = NS.Reputation
+  local savedFlag = NS.State.debug
+  NS.State.debug = false
+  local quiet = {}
+  local saved = NS.Debug
+  NS.Debug = function(tag) quiet[#quiet + 1] = tag end
+  R:OnStandingChanged(nil, nil)
+  R:OnStandingChanged(nil, 987654)
+  NS.Debug, NS.State.debug = saved, savedFlag
+  assertEqual(#quiet, 0, "a [Drop] line was built with logging off")
+  local lines = capture(function()
+    R:OnStandingChanged(nil, nil)
+    R:OnStandingChanged(nil, 987654)
+  end)
+  assertEqual(table.concat(lines, "\n"), "[Drop] rep reason=no-id\n[Drop] rep 987654 reason=unreadable")
+end)
+
 test("coverage: a container use logs only the spell-targeting refusal, never a non-loot item", function()
   -- red under: restoring the per-use [Open] line (a merchant sale or a bag addon's bulk action is
   -- one UseContainerItem per item, debug-logging-§9), or dropping the targeting refusal.

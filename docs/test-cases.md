@@ -637,6 +637,33 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
+### test_reputation.lua (24)
+
+- Reputation Delta: a base gain and a base loss are the absolute difference
+- Reputation Delta: a loss across a rank boundary is negative and the right size
+- Reputation Delta: renown on the same level, a level-up and a two-level jump
+- Reputation Delta: renown that falls, a type change and no baseline are reseeds
+- Reputation Delta: paragon accrues at the cap and a paragon rollover is a reseed
+- Reputation Delta: an unchanged standing is 0
+- Reputation capture: a gain writes one REPUTATION row with every field
+- Reputation capture: a renown level-up and a warband faction
+- Reputation capture: a loss writes OUT, and with trackLedger off it is dropped
+- Reputation capture: a fresh quest stamp gives QUEST with its quest id and CERTAIN
+- Reputation capture: in combat it is a KILL, out of combat OTHER, and a VENDOR stamp is ignored
+- Reputation capture: the source read never spends the loot window or the fishing cast
+- Reputation capture: a muted source drops the change
+- Reputation capture: same faction, direction and source inside 60 s grow one row
+- Reputation capture: a direction change, a source change or 61 s start a new row
+- Reputation capture: a row no longer at its index is not amended
+- Reputation capture: a faction first seen at an event is seed-only, and a reseed writes nothing
+- Reputation capture: a reload (ResetState then Seed) writes nothing
+- Reputation capture: the seed waits out combat and retries
+- Reputation capture: the seed opens collapsed headers and shuts them in reverse
+- Reputation capture: a secret or missing faction id and a secret name drop
+- Reputation capture: the unchanged path allocates nothing beyond the client's own reads
+- Reputation capture: Database:HistoryRow answers the store's row
+- Reputation capture: each drop reason writes its [Drop] line, only while logging
+
 ### test_reconciler.lua (19)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
@@ -1298,7 +1325,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (48)
+### test_schema.lua (49)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1314,6 +1341,7 @@ Total.
 - Schema: auction rows exist with the AH price group and defaults
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
+- Schema: recordReputation row exists, defaults true, sits in Loot and fires its reason
 - Constants: CURRENCY_TYPE is "Currency"
 - Schema: every row is uniquely pathed and fully described
 - Schema: every row's default matches its declared type
@@ -2184,7 +2212,7 @@ Total.
 - probe: a reputation or appearance event is kept with its arguments (P13)
 - probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event
 
-### test_debug_coverage.lua (22)
+### test_debug_coverage.lua (23)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
 - coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
@@ -2197,6 +2225,7 @@ Total.
 - coverage: the visibility refusal and the visibility hide name the mode
 - coverage: a refused schema write is one [Set] line with the seam's reason
 - coverage: a currency line refused before it names a currency says why
+- coverage: a reputation change not written says why, only while logging
 - coverage: a container use logs only the spell-targeting refusal, never a non-loot item
 - coverage: a price provider that raises is one [AHPrice] line per distinct error
 - coverage: the deferred bound repair's end names done or gave up, with the real attempt
@@ -2209,15 +2238,16 @@ Total.
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 - coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
 
-### test_dispatch.lua (7)
+### test_dispatch.lua (8)
 
 - Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
-- Dispatch: row order is Attribution, AttributionOut, Collector, Reconciler
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Reconciler
 - Dispatch: registered follows Enable/Disable, including trackLedger off
 - Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
 - Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
 - Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
+- Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it
 
 ### test_sim_seam.lua (11)
 
@@ -2677,6 +2707,7 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
+| test_reputation.lua | 24 |
 | test_reconciler.lua | 19 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -2697,7 +2728,7 @@ Total.
 | test_slash_verbs.lua | 16 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 8 |
-| test_schema.lua | 48 |
+| test_schema.lua | 49 |
 | test_schema_seam.lua | 26 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 52 |
@@ -2734,8 +2765,8 @@ Total.
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 19 |
-| test_debug_coverage.lua | 22 |
-| test_dispatch.lua | 7 |
+| test_debug_coverage.lua | 23 |
+| test_dispatch.lua | 8 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 26 |
 | test_sim_world.lua | 11 |
@@ -2760,4 +2791,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2325** |
+| **Total** | **2352** |

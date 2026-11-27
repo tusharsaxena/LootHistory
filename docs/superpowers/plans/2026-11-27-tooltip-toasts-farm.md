@@ -81,7 +81,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | done | `M1.5: Document the holdings tooltip, its API and their smoke checks` |
 | M1.6 | Review pass (workflow) + fixes; push M1 | done | `M1.6: Review fixes`; pushed to origin |
 | M2.1 | Kinds `REPUTATION` / `APPEARANCE`, feature gate (appearance Retail-only), Compat reads | done | `M2.1: Add the reputation and appearance kinds, feature gate and Compat reads` |
-| M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | todo | |
+| M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | done | `M2.2: Add the reputation capture with its switch, seed and coalescing` |
 | M2.3 | Appearance capture (collected IN, removed OUT; Retail) + tests | todo | |
 | M2.4 | History / filters / Insights / Export / test data / sim for the new kinds; capture switches | todo | |
 | M2.5 | Docs + review pass + fixes; push M2 | todo | |

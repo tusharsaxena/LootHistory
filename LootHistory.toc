@@ -79,8 +79,8 @@ core\CoreSetup.lua
 # facade's Shell calls (at call time) and whose NS.Print the reload line uses.
 core\SkinSetup.lua
 # LOAD-BEARING POSITION: publishes NS.EVENT_ROWS / NS.HOOK_ROWS and NS.EventRow / NS.HookRow,
-# which modules\Attribution.lua, modules\AttributionOut.lua, modules\Collector.lua and
-# modules\Reconciler.lua call at FILE LOAD to append their capture rows; it must be above every
+# which modules\Attribution.lua, modules\AttributionOut.lua, modules\Collector.lua,
+# modules\Reputation.lua and modules\Reconciler.lua call at FILE LOAD to append their capture rows; it must be above every
 # module. Row order is TOC order. Nothing here resolves at load (NS.SafeRegisterEvent, from
 # core\CoreSetup.lua above, is read at call time).
 core\Dispatch.lua
@@ -91,7 +91,8 @@ core\Dispatch.lua
 core\LifecycleSetup.lua
 # LOAD-BEARING POSITION: the LibKa0s-Perf-1.0 seam (performance-§1). lib:New reads NS.Lifecycle
 # (above) and NS.Version (core\EnvSetup.lua, above) at file load, and it must sit above every module
-# that takes `local Perf = NS.Perf` as a load-time upvalue (Collector, Attribution, Reconciler).
+# that takes `local Perf = NS.Perf` as a load-time upvalue (Collector, Reputation, Attribution,
+# Reconciler).
 core\PerfSetup.lua
 # CONVENTIONAL: the dropdown and reorder art resolves through NS.Icon (core\MediaSetup.lua) at
 # call time, inside NS.MakeDropdown / NS.MakeReorderList; nothing is read at load. Kept below Media.
@@ -127,8 +128,12 @@ modules\AttributionOut.lua
 # CONVENTIONAL as a load position, but kept directly below the two Attribution files and above
 # modules\Reconciler.lua on purpose: its capture rows append to NS.EVENT_ROWS at file load, and
 # row order is TOC order, which this keeps equal to the stand-up order (Attribution,
-# AttributionOut, Collector, Reconciler; core\LifecycleSetup.lua).
+# AttributionOut, Collector, Reputation, Reconciler; core\LifecycleSetup.lua).
 modules\Collector.lua
+# CONVENTIONAL as a load position, kept directly below modules\Collector.lua for the same reason:
+# its one capture row (FACTION_STANDING_CHANGED) appends at file load, and the stand-up order puts
+# the Reputation owner straight after the Collector.
+modules\Reputation.lua
 modules\Filters.lua
 modules\Scanner.lua
 modules\Holdings.lua

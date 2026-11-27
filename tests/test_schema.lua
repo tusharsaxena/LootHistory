@@ -270,6 +270,23 @@ test("Schema: recordCurrency row exists, defaults true, settable", function()
   NS.Schema:Set("settings.recordCurrency", true)   -- restore default
 end)
 
+test("Schema: recordReputation row exists, defaults true, sits in Loot and fires its reason", function()
+  local row = NS.Schema:FindRow("settings.recordReputation")
+  assertTrue(row ~= nil)
+  assertEqual(row.label, "Record reputation"); assertEqual(row.subgroup, "Loot")
+  assertEqual(NS.Schema:Default("settings.recordReputation"), true)
+  assertEqual(NS.defaults.profile.settings.recordReputation, true)
+  assertTrue(row.tooltip:find("Obeys Record data from; losses need Track holdings and losses.", 1, true) ~= nil)
+  local seen
+  local t = NS.NewBusTarget()
+  t:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, reason) seen = reason end)
+  assertTrue(NS.Schema:Set("settings.recordReputation", false))
+  assertEqual(NS.Schema:Get("settings.recordReputation"), false)
+  assertEqual(seen, "reputation")
+  NS.Schema:Set("settings.recordReputation", true)   -- restore default
+  t:UnregisterAllMessages()
+end)
+
 test("Constants: CURRENCY_TYPE is \"Currency\"", function()
   assertEqual(NS.Constants.CURRENCY_TYPE, "Currency")
 end)
@@ -661,7 +678,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 9 }, { "Capture", 7 }, { "AH price", 2 },
+    { "Master controls", 9 }, { "Capture", 8 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     -- The holdings tooltip's five rows (#34) are Interface's third subsection, "Holdings in
     -- tooltips" (the owner's ruling, 2026-11-27: no ninth tab, options-ui-§13).

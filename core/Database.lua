@@ -622,6 +622,12 @@ function Database:History()
   return historyStore()
 end
 
+--- One row of the capture-path store by index (the session store during a simulation), or nil. The
+--- reputation capture's coalescing reads it to check its last row is still at that index.
+function Database:HistoryRow(i)
+  return historyStore()[i]
+end
+
 -- The dataset every read-path query (Query/Stats/Export, and thus the table + Insights tab)
 -- resolves against. In Browser test mode this is the synthetic preview dataset published to
 -- State by BrowserTable:ToggleTestMode; otherwise it is the live account-wide history. Filtering

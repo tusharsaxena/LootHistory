@@ -81,6 +81,8 @@ local OWNED = {
   "event:QUEST_TURNED_IN:nil",
   "event:ZONE_CHANGED_NEW_AREA:nil",
   "event:CHALLENGE_MODE_RESET:nil",
+  -- modules/Reputation.lua (Record reputation defaults on); its SettingsChanged is named below.
+  "event:FACTION_STANDING_CHANGED:nil",
   "event:PLAYER_REGEN_DISABLED:nil",
   "event:PLAYER_REGEN_ENABLED:nil",
   "unit:UNIT_SPELLCAST_SUCCEEDED:player",
@@ -140,6 +142,7 @@ local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
                             NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
+                            NS.Reputation._settings,
                             NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
                             NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev }) do
     if target then t[target] = true end
@@ -840,7 +843,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- surface is reached exactly once, and that every step keeps its own nil-guard (an addon with none
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
-local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
+local SURFACES = { "addon", "Collector", "Reputation", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
   "Timeline", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
@@ -869,7 +872,7 @@ end
 local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
-  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
+  for _, k in ipairs({ "Collector", "Reputation", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
                         "HoldingsTip", "HoldingsAPI" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
@@ -897,7 +900,8 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       -- H6: the simulation stops FIRST, while every module still holds its state.
       "SimStop",
       "addon:UnregisterAllEvents",
-      "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
+      "Collector:Disable", "Reputation:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable",
+      "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
       "HoldingsTally:Disable", "HoldingsTip:Disable", "HoldingsAPI:Disable",
       "Attribution:DisableOut",
@@ -916,7 +920,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
     assertEqual(table.concat(log, "\n"), table.concat({
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
-      "Collector:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
+      "Collector:Enable", "Reputation:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
       "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "HoldingsAPI:Enable",
       "Debug:State:stand-up: capture registered",

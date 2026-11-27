@@ -389,6 +389,7 @@ settings.locked | bool | false | nil | nil | nil
 settings.qualityThreshold | number | 1 | nil | nil | nil
 settings.recordCurrency | bool | true | nil | nil | nil
 settings.recordGold | bool | true | nil | nil | nil
+settings.recordReputation | bool | true | nil | nil | nil
 settings.retentionDays | number | 30 | nil | nil | nil
 settings.rollupRetentionDays | number | 0 | nil | nil | nil
 settings.rowHeight | number | 18 | 14 | 28 | 1

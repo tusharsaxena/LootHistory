@@ -91,7 +91,7 @@ local function legacySv()
       history = { { ts = 1, itemID = 11 }, { ts = 2, itemID = 12 } },
       minimap = { hide = true, minimapPos = 200 },
       settings = {
-        qualityThreshold = 4, recordCurrency = false, retentionDays = 90,
+        qualityThreshold = 4, recordCurrency = false, recordReputation = false, retentionDays = 90,
         window = { point = "TOP", x = 1, y = 2, w = 900, h = 600 },
         auction = { capture = { ["auctionator:minbuyout"] = false },
                     priority = { "tsm:dbmarket", "auctionator:minbuyout" } },
@@ -122,6 +122,7 @@ test("Migrate v8->v9: every stored setting lands in the Default profile and leav
   assertTrue(d ~= nil, "the Default profile was created")
   assertEqual(d.settings.qualityThreshold, 4)
   assertEqual(d.settings.recordCurrency, false, "a stored false survives the move")
+  assertEqual(d.settings.recordReputation, false, "and so does the reputation switch's")
   assertEqual(d.settings.window.point, "TOP", "the window geometry moved with the settings")
   assertEqual(d.settings.auction.priority[1], "tsm:dbmarket", "the cascade order moved as stored")
   assertTrue(d.blacklist[5] and d.whitelist[6] and d.currencyBlacklist[7], "the three id lists moved")

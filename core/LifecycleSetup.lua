@@ -175,11 +175,13 @@ local STAND_DOWN_STEPS = {
   -- state, so its stop steps reset the Reconciler and release the session stores before the
   -- modules below take themselves down. modules/Sim.lua's NS.SimStop, reason `standDown`.
   call("SimStop"),
-  -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the two Collector and
-  -- nine Attribution events that register through it. UnregisterAllEvents reaches every one; it
-  -- does not touch messages, and this target subscribes to none.
+  -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the Collector's three,
+  -- the Reputation owner's one and Attribution's ten (six on WoW Forever) that register through
+  -- it. UnregisterAllEvents reaches every one; it does not touch messages, and this target
+  -- subscribes to none.
   method("addon", "UnregisterAllEvents"),
-  method("Collector", "Disable"), method("Reconciler", "Disable"), method("Attribution", "Disable"),
+  method("Collector", "Disable"), method("Reputation", "Disable"), method("Reconciler", "Disable"),
+  method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"), method("Rollup", "Disable"),
   method("HoldingsTally", "Disable"), method("HoldingsTip", "Disable"), method("HoldingsAPI", "Disable"),
@@ -201,7 +203,8 @@ local STAND_DOWN_STEPS = {
 local STAND_UP_STEPS = {
   registerEnterWorldStep,
   method("Attribution", "Enable"), method("Attribution", "EnableOut"),
-  method("Collector", "Enable"), method("Reconciler", "Enable"), method("Rollup", "Enable"),
+  method("Collector", "Enable"), method("Reputation", "Enable"), method("Reconciler", "Enable"),
+  method("Rollup", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
   method("Timeline", "Enable"), method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
   method("HoldingsAPI", "Enable"),

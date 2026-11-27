@@ -306,11 +306,12 @@ local ROWS = {
   -- TWO SUBJECTS, SO TWO SUBSECTION HEADINGS (options-ui-§7; item 020, LOO-L04): `Loot` is what a
   -- loot record keeps, `Ledger` is the holdings ledger. Row order drives the two-column pairing, so
   -- declaration order IS the layout: under Loot, Minimum quality pairs with Exclude quest items (the
-  -- two item-level gates) on the first line, Record currency opens the second, and the wide source
-  -- picker lands under it -- Record currency obeys that picker, so they sit together. Under Ledger,
-  -- Track holdings and losses pairs with Record gold, the parent left of its dependant. The picker is
-  -- host-drawn, so settings/Panel.lua renders this tab in one O.RenderRows call, with Loot's
-  -- afterSubgroup hook drawing the picker (RENDER_OPTS there).
+  -- two item-level gates) on the first line, Ignore ammunition pairs with Record currency on the
+  -- second, Record reputation opens the third, and the wide source picker lands under them --
+  -- both record rows obey that picker, so they sit together. Under Ledger, Track holdings and
+  -- losses pairs with Record gold, the parent left of its dependant. The picker is host-drawn, so
+  -- settings/Panel.lua renders this tab in one O.RenderRows call, with Loot's afterSubgroup hook
+  -- drawing the picker (RENDER_OPTS there).
   { path = "settings.qualityThreshold", default = PD.settings.qualityThreshold, type = "number", widget = "Dropdown",
     page = "General", group = "Capture", subgroup = "Loot", label = "Minimum quality", values = C.QUALITY_OPTIONS,
     tooltip = "Items at or above this quality get a detailed loot record (source, zone, encounter). " ..
@@ -341,6 +342,15 @@ local ROWS = {
       "Obeys Record data from; ignores Minimum quality.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "currency") end
+    end },
+
+  -- Unticking it UNREGISTERS the Reputation owner's row (modules/Reputation.lua), never a draw gate.
+  { path = "settings.recordReputation", default = PD.settings.recordReputation, type = "bool", widget = "CheckBox",
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record reputation",
+    tooltip = "Record reputation gains and losses as Type=Reputation rows, with the faction and its standing. " ..
+      "Obeys Record data from; losses need Track holdings and losses.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "reputation") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted

@@ -42,6 +42,7 @@ NS.defaults.profile = {
     -- history (the owner, 2026-11-27: "too spammy otherwise"); Retail has neither.
     excludeAmmo      = NS.Compat.ClientKey() == "forever",
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
+    recordReputation = true,   -- reputation gains and losses as Type=Reputation rows
     trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
     recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)
     showTransfers    = true,   -- History's Direction filter includes transfers by default

@@ -145,7 +145,7 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   local created = clickTab(mocks.__subcategories["General"], ctx, tabAt("Capture"))
   assertEqual(ctx.activeTab, "Capture", "tab 2 is Capture")
 
-  for _, label in ipairs({ "Minimum quality", "Record currency", "Exclude quest items" }) do
+  for _, label in ipairs({ "Minimum quality", "Record currency", "Record reputation", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
   end
   local quality = findByLabel(created, "Minimum quality")
@@ -184,6 +184,7 @@ test("Panel: Capture draws Loot, then the source picker, then Ledger", function(
   end
   local order = {
     heading("Loot"), label("Minimum quality"), label("Exclude quest items"), label("Record currency"),
+    label("Record reputation"),
     at(function(w) return w.type == "InlineGroup" end, "the Record data from picker"),
     heading("Ledger"), label("Track holdings and losses"), label("Record gold"),
   }
@@ -579,10 +580,12 @@ end)
 test("Panel: the General Defaults click restores every schema default", function()
   NS.Schema:Set("settings.qualityThreshold", 4)
   NS.Schema:Set("settings.recordCurrency", false)
+  NS.Schema:Set("settings.recordReputation", false)
   show(mocks.__subcategories["General"])
   mocks.__subcategories["General"].defaultsOnClick()
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1)
   assertEqual(NS.Schema:Get("settings.recordCurrency"), true)
+  assertEqual(NS.Schema:Get("settings.recordReputation"), true)
 end)
 
 test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade",

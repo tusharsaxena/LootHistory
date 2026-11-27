@@ -14,11 +14,12 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 -- off the kit's registration survey with the hand-written Enable lists still in place and pasted
 -- here as data. A list derived from NS.EVENT_ROWS would agree with the rows however wrong they got.
 -- Rows added since, by hand and with their own case: the bank's two re-read cues,
--- ledger:BAG_CONTAINER_UPDATE and ledger:BANK_TABS_CHANGED (the WoW Forever port, ruling R8).
+-- ledger:BAG_CONTAINER_UPDATE and ledger:BANK_TABS_CHANGED (the WoW Forever port, ruling R8); the
+-- Reputation owner's bus:FACTION_STANDING_CHANGED (rep/appearance spec §3.1, M2.2).
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
   "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:ENCOUNTER_END",
-  "bus:ENCOUNTER_START", "bus:LOOT_CLOSED", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
+  "bus:ENCOUNTER_START", "bus:FACTION_STANDING_CHANGED", "bus:LOOT_CLOSED", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
   "bus:ZONE_CHANGED_NEW_AREA",
   "ledger:ACCOUNT_MONEY", "ledger:BAG_CONTAINER_UPDATE", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
   "ledger:BANK_TABS_CHANGED",
@@ -108,9 +109,9 @@ test("Dispatch: every capture registration comes from NS.EVENT_ROWS and the (tar
   assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT, "one row per (target, event) registration")
 end)
 
-test("Dispatch: row order is Attribution, AttributionOut, Collector, Reconciler", function()
+test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Reconciler", function()
   -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS).
-  assertEqual(ownersInOrder(), "Attribution,AttributionOut,Collector,Reconciler")
+  assertEqual(ownersInOrder(), "Attribution,AttributionOut,Collector,Reputation,Reconciler")
   local hooks, seen = {}, {}
   for _, row in ipairs(NS.HOOK_ROWS or {}) do
     if not seen[row.owner] then seen[row.owner] = true; hooks[#hooks + 1] = row.owner end
@@ -131,7 +132,7 @@ end
 
 test("Dispatch: registered follows Enable/Disable, including trackLedger off", function()
   restoring(function()
-    for _, owner in ipairs({ "Attribution", "AttributionOut", "Collector", "Reconciler" }) do
+    for _, owner in ipairs({ "Attribution", "AttributionOut", "Collector", "Reputation", "Reconciler" }) do
       local n, total = registeredBy(owner)
       assertTrue(total > 0, owner .. " owns no rows")
       assertEqual(n, total, owner .. ": every row is registered while the addon is up")
@@ -291,4 +292,25 @@ test("Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns", funct
     assertEqual(NS.DeliverAll("hook:NotAHook"), 0)
     State.outContext, State.lootContext = nil, nil
   end)
+end)
+
+test("Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it", function()
+  -- red under: a draw gate (the row left registered and the handler returning early), or a listener
+  -- that hears only the module's own reason and not the switch (slash-commands-§7, anti-pattern #85).
+  local function live()
+    for _, k in ipairs(liveCapture()) do if k == "bus:FACTION_STANDING_CHANGED" then return true end end
+    return false
+  end
+  local ok, err = pcall(function()
+    assertTrue(live(), "precondition: the row is live while the addon is up")
+    NS.Schema:Set("settings.recordReputation", false)
+    assertFalse(live(), "the switch off takes the registration down")
+    assertEqual((registeredBy("Reputation")), 0)
+    assertTrue(NS.Reputation._settings ~= nil, "the settings listener stays, so the switch can come back")
+    NS.Schema:Set("settings.recordReputation", true)
+    assertTrue(live(), "the switch on registers it again")
+    assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+  end)
+  NS.Schema:Set("settings.recordReputation", true)
+  if not ok then error(err, 0) end
 end)
