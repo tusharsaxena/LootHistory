@@ -378,6 +378,23 @@ test("Attribution: deconstruct's own loot window does not clobber its source", f
   assertEqual(NS.Attribution:Consume(), "DISENCHANT")
 end)
 
+test("Attribution: a fishing loot window stamps FISHING, whatever its slots say (the owner, 2026-11-27)", function()
+  resetContext()
+  local oNum, oSrc, oFish = mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot
+  mocks.GetNumLootItems = function() return 1 end
+  mocks.GetLootSourceInfo = function() return "GameObject-0-0-0-0-35591-000000BBBB" end   -- the bobber
+  mocks.IsFishingLoot = function() return true end
+  NS.Attribution:OnLootOpened()
+  -- red under: CONTAINER from the bobber's GameObject GUID (or OTHER with none)
+  assertEqual(NS.Attribution:Consume(), "FISHING")
+  resetContext()
+  mocks.IsFishingLoot = function() return false end
+  NS.Attribution:OnLootOpened()
+  assertEqual(NS.Attribution:Consume(), "CONTAINER", "a chest is still a container")
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot = oNum, oSrc, oFish
+  assertEqual(NS.Constants.SourceLabel.FISHING, "Fishing")
+end)
+
 test("OnLootOpened logs ONE coalesced summary, not one line per slot", function()
   resetContext()
   local oNum, oSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo
