@@ -87,11 +87,11 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M2.5 | Docs + review pass + fixes; push M2 | done | `M2.5: Review fixes`; pushed to origin |
 | M3.0 | LibKa0s-Feed-1.0 upstream (`../LibKa0s` branch `feat/2026-11-27-feed`, pushed) and its re-vendor here as `v1.119.0 (unreleased, branch feat/2026-11-27-feed)`; the revendor bundle is written with the tagged re-vendor (M5.1) | done | `M3.0: Re-vendor LibKa0s v1.119.0 (unreleased, branch feat/2026-11-27-feed)` |
 | M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | todo | |
-| M3.2 | Feed host spike: LibKa0s Toast v4 vs own frames for slots / styling / motion; decide, record | todo | |
-| M3.3 | Feed engine: 3 feeds, slots + nudge, grow, alignment + icon side, merge, stack, pin on hover, clicks | todo | |
+| M3.2 | Feed host alignment: host is LibKa0s-Feed-1.0 (D24); spec aligned | done | `M3.2: Align the toast spec to LibKa0s-Feed-1.0` |
+| M3.3 | Feed seam + wiring: `core/FeedSetup.lua` (ten adopted majors), 3 Feed instances, slots + nudge, grow, alignment + icon side, merge, stack, pin on hover, clicks, combat, unlock (all through LibKa0s-Feed-1.0) | todo | |
 | M3.4 | Row content: counts icons, price mode, ilvl badge, upgrade line, highlights + sounds, cap coloring, per-kind rows | todo | |
-| M3.5 | Styling overrides (skin by default) + motion (enter, fade, pulse, timer bar, smooth reposition) | todo | |
-| M3.6 | Settings (Toasts page, per-feed tabs), test toasts, unlock/drag, Blizzard-duplicate hiding, disabled-state, perf, sim | todo | |
+| M3.5 | Styling overrides (skin by default) + motion (enter, fade, pulse, timer bar, smooth reposition), mapped onto the Feed's style and motion keys | todo | |
+| M3.6 | Settings (Toasts page, per-feed tabs), test toasts, Blizzard alert hiding (D25), disabled-state, perf, sim | todo | |
 | M3.7 | Docs + review pass + fixes; push M3 | todo | |
 | M4.0 | Standards upstream: `WINDOW_PERSISTENT` T4 key (frame-layering-§1, v2.122.0) + Loot History launcher column `Farm session` (ADDONS.md, v2.122.1) | done | WowAddonStandards `feat/2026-11-27-lh-farm-standard` (`e171172`, `ed98e68`), pushed |
 | M4.1 | Farm session model: start/pause/resume/finish, clock, AFK + idle, logout finishes, reload keeps, tallies, costs, activity, log cap, storage + cap | todo | |

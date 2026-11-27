@@ -8,9 +8,10 @@
 **Builds on:** M1 `docs/superpowers/specs/2026-11-27-34-tooltip-holdings-design.md` (Compat live reads, the holdings
 tally, `C.TIP_ICONS`) and M2 `2026-11-27-rep-appearance-capture-design.md` (the `REPUTATION` and `APPEARANCE`
 capture paths and `Attribution:Peek`).
-**Status:** Architect's design. M3.1 can start now. **M3.3 onwards waits for the owner's ruling on deviation
-X1** (section 15). Line anchors are from the tree at `4e64d17` plus the M1 working tree. `core/Compat.lua` was
-under concurrent edit while this was written, so re-check every anchor before you edit.
+**Status:** Architect's design, **aligned at M3.2 to `LibKa0s-Feed-1.0`** (D24; vendored as `v1.119.0
+(unreleased, branch feat/2026-11-27-feed)`; contract `LibKa0s/docs/api/Feed/version-1.1.1.1-docs.md`, the
+*Feed doc*, which wins over this spec where they differ). No ruling is open. Line anchors are from the tree at
+`4e64d17` plus the M1 working tree; re-check every anchor before you edit.
 
 ---
 
@@ -26,6 +27,12 @@ under concurrent edit while this was written, so re-check every anchor before yo
 >   branch and is vendored here in the **unreleased** provenance form (`v1.118.0 (unreleased, branch <name>)`,
 >   CLAUDE.md "Vendored LibKa0s"); the tag is cut only when the owner gives the merge go-ahead. Every
 >   addon-specific part (kinds, row content, settings, gain feed) stays in this addon.
+> - **M3.2 alignment (2026-11-28).** M3.0 chose the new major `LibKa0s-Feed-1.0`. Sections 2, 7, 8, 10, 13 to 16
+>   now build on its API: the library owns containers, slots, grow, alignment/icon side, merge window, stacking,
+>   hover pin, timer bar, enter/fade/slide, pulse, smooth reposition, glow, style over the skin, unlock/drag, the
+>   strips and the preview; the addon owns the gain feed, kinds, filters, the content builders, settings,
+>   sounds, alert hiding, click actions through the Feed's callbacks, and the sim. The seam is
+>   `core/FeedSetup.lua`. Section 15.2 lists every place the old text gave way to the Feed contract.
 > - **X2 → skip (plan D25).** Hiding Blizzard's **chat lines** is dropped from scope entirely: no message
 >   filter, no global-string override, no chat rows. Hiding Blizzard's loot/money **alert toasts** stays
 >   (D14), off by default, restored on disable.
@@ -55,13 +62,13 @@ more feeds ship disabled.
 | # | Ruling | Why |
 |---|---|---|
 | T1 | **The newest toast sits at the anchor** and older ones move away from it in the Grow direction. Bottom Right growing Up puts the newest at the bottom. | `mockups.html:303` ("▲ newest at the bottom · Bottom Right slot"). D13's "summed one at the newest slot" is the same slot. |
-| T2 | **The feed host is this addon's own frames, built on LibKa0s parts** (Skin facade, tokens, composers, Pool, Media, Widgets `DragHandle`/`TestStrip`), not `LibKa0s-Toast-1.0` v4. This needs the owner's ruling, X1. | Toast v4 cannot do T1 (it presents at the tail, `libs/LibKa0s/Toast.lua:436-441`, and the oldest is the head that holds the saved point, `:277-288`). It hides a frame on expiry with no hook, so no fade-out (`:461-485`). It re-anchors every follower on reflow, so no pin (`:285-287`). It has no in-place update, so a merge would replay the enter animation. Its countdown is private (`:155-195`). Its own "not here" table rules out fade and per-toast position (`LibKa0s/docs/api/Toast/version-4-docs.md:227-238`). D1 rules out an upstream change. |
-| T3 | **One ticker per feed drives all motion** (enter, hold, fade, pulse, countdown bar, smooth reposition): an `OnUpdate` that is set only while the feed has a row in motion or a timer running, and cleared when it is idle. No AnimationGroups. | One deterministic clock that headless tests can step (`feed:_tick(dt)`). A merge restarts the hold without replaying the enter. Pause is one flag. The idle cost is zero (performance-§2). |
-| T4 | **Pin on hover freezes the whole feed** while the pointer is over any of its rows: no row moves, no row fades, a merge updates its row in place, and new gains wait in the feed's queue. On leave, everything resumes. With Pin off, hovering pauses only that row's fade. | The mockup's "pins the row in place" (`mockups.html:333`) holds only if nothing else moves under the pointer either. RLF's skip-the-pinned-anchor approach lets rows overlap. |
-| T5 | **A full feed drops its oldest toast** to make room (a 0.2 s fade, or instantly when Fade is 0). | A loot feed is about the newest gain. Queueing behind a full stack would show stale loot. |
-| T6 | **Highlight glow is drawn by the host**: an `ADD`-blend edge texture in the skin's `glow.color` (fallback `sem.gold`), pulsing in alpha through the ticker. No `LibKa0s-Glow-1.0`. | That driver needs `LibCustomGlow-1.0` (`LibKa0s/docs/api/Glow/version-2-docs.md:34-39`, `:151-153`), which `libs/` does not carry. Adoption is optional (library-stack-§7, `standards/library-stack.md:121`), and an edge tint is not the LibCustomGlow mapping that #47 guards. Section 15, note N3. |
+| T2 | **The feed host is `LibKa0s-Feed-1.0`** (D24, ruling X1), through the seam `core/FeedSetup.lua` (`NS.NewFeed`, `NS.FeedStub`). Not `LibKa0s-Toast-1.0` v4, and not this addon's own frames. | Toast v4 cannot do T1 (it presents at the tail, `libs/LibKa0s/Toast.lua:436-441`, and the oldest is the head that holds the saved point, `:277-288`). It hides a frame on expiry with no hook, so no fade-out (`:461-485`). It re-anchors every follower on reflow, so no pin (`:285-287`). It has no in-place update, so a merge would replay the enter animation. Its countdown is private (`:155-195`). Its own "not here" table rules out fade and per-toast position (`LibKa0s/docs/api/Toast/version-4-docs.md:227-238`). The owner ruled the upstream extension (D24, superseding D1 for this need), and M3.0 shipped it as a new major. |
+| T3 | **The Feed's one clock drives all motion** (enter, hold, fade, pulse, countdown bar, smooth reposition): armed only while a row needs a tick (`Stats().awake`), no AnimationGroups. The host adds no OnUpdate. | Feed doc *Motion: one clock and the phase machine*. A merge restarts the hold without replaying the enter. The idle cost is zero (performance-§2). Headless cases step it through the internal `__Step(dt)` seam after checking it exists. |
+| T4 | **Pin on hover freezes the whole feed** (the Feed's `motion.pin = true`; `false` pauses only the hovered row) while the pointer is over any of its rows: no row moves, no row fades, a merge updates its row in place, and new gains wait in the feed's queue. On leave, everything resumes. With Pin off, hovering pauses only that row's fade. | The mockup's "pins the row in place" (`mockups.html:333`) holds only if nothing else moves under the pointer either. RLF's skip-the-pinned-anchor approach lets rows overlap. |
+| T5 | **A full feed drops its oldest toast** to make room (the Feed's only overflow policy, its `DROP_FADE`). | A loot feed is about the newest gain. Queueing behind a full stack would show stale loot. |
+| T6 | **Highlight glow is the Feed's**: the content sets `spec.highlight = true` and the Feed draws its `ADD`-blend edge in the skin's glow colour (then `sem.gold`), breathing on its clock. No `LibKa0s-Glow-1.0`. | That driver needs `LibCustomGlow-1.0` (`LibKa0s/docs/api/Glow/version-2-docs.md:34-39`, `:151-153`), which `libs/` does not carry. Adoption is optional (library-stack-§7, `standards/library-stack.md:121`), and an edge tint is not the LibCustomGlow mapping that #47 guards. Section 15.2, the glow. |
 | T7 | **Default sounds are None** for all four highlights. | The mockup's "Ka0s Chime" and "Blizzard" are examples (`mockups.html` lede: "Names and numbers are examples"). No such sound ships in `libs/LibKa0s/media/sounds/`, which is empty. |
-| T8 | Hiding Blizzard's chat lines hides a kind's lines **only while some enabled feed shows that kind**, and only the player's own loot/currency/money lines. | Without this, hiding the XP lines with no feed showing XP would leave the player blind to XP. The mockup's row ("Chat lines for loot · currency · money · XP · reputation · skill") stays one checkbox. |
+| T8 | *Withdrawn by D25* (chat-line hiding is out of scope). Was: hide a kind's chat lines only while some enabled feed shows that kind. | The mockup's chat-lines row is not built. |
 | T9 | **Dedupe across chat and diff uses feed claims** owned by GainFeed, separate from `R.claims`. | A quality-gated item posts no Reconciler claim (`modules/Collector.lua:151-159`). The diff then writes it as a row (M0 spec D2), and that would toast it a second time. |
 | T10 | The **attribution consume moves above the record switches** on the currency and money lines, so a gain toasts with its source. It consumes whatever the switches say. | The source must not depend on toast settings (one answer per question). Section 6.2 covers the behaviour change. |
 | T11 | Every chat handler gains a **secret guard**: a secret `msg` writes `[Drop] reason=secret` and returns. | Fixes an existing gap (`core/Util.lua:223-228` matches with no guard) that the taps widen. client-quirks-§2. |
@@ -73,7 +80,7 @@ more feeds ship disabled.
 ### 1.2 Scope
 
 - **In:** GainFeed and its taps; the Progress observer (XP, skill-ups); three feeds; row content; style, motion and
-  behaviour; the Toasts page; test toasts, test mode and the sim; unlock and drag; Blizzard-duplicate hiding;
+  behaviour; the Toasts page; test toasts, test mode and the sim; unlock and drag; Blizzard alert hiding (no chat-line hiding, D25);
   disabled state, perf and taint posture; docs.
 - **Out:** farm mode (M4 subscribes to GAIN). Item tooltips on toast hover. Guild bank counts (D9). Party loot and
   rolls (D7). Item and money losses (D7). A slash verb for toasts (every setting is already reachable through
@@ -83,57 +90,81 @@ more feeds ship disabled.
 
 ## 2. Files
 
+The toasts are drawn by **`LibKa0s-Feed-1.0`** (D24; vendored at `v1.119.0 (unreleased, branch
+feat/2026-11-27-feed)`, contract `LibKa0s/docs/api/Feed/version-1.1.1.1-docs.md`, cited below as *Feed doc*). The
+library owns the containers, slots, grow, alignment and icon side, the merge window, stacking and the full-feed
+drop, hover pin, the countdown bar, enter/hold/fade/slide, the pulse, smooth reposition, the glow, style
+application over the owner's skin, unlock and drag, the test/sim strip and the preview. This addon owns the gain
+feed, the kinds, the filters, the content builders that turn a gain into the Feed's row spec, the settings, the
+sounds, Blizzard alert hiding, the click actions (through the Feed's callbacks) and the sim. Nothing in the first
+list is rebuilt here (anti-pattern #47).
+
 ### 2.1 New
 
 | File | Responsibility | Est. lines |
 |---|---|---|
-| `core/CompatGain.lua` | New `NS.Compat` members (section 3). It is its own file because `core/Compat.lua` is at 1326 lines and M2 adds about 120; this file keeps both under the layout-§1 cap of 1500. | 230 |
+| `core/CompatGain.lua` | New `NS.Compat` members (section 3). It is its own file because `core/Compat.lua` and its split siblings are near the layout-§1 re-check; this keeps every file under 1500. | 200 |
+| `core/FeedSetup.lua` | **The LibKa0s-Feed-1.0 seam** (section 8.1). Resolves `LibStub("LibKa0s-Feed-1.0", true)` silently at load and publishes `NS.FeedLib` (the library table or nil), `NS.NewFeed(d)` (sets `d.owner = addonName`, answers `Feed:New(d)`, or `NS.FeedStub` when the major is absent) and `NS.FeedStub`, the instance stub of the Feed doc's *The degradation stub* table, member for member. | 60 |
 | `modules/GainFeed.lua` | `NS.GainFeed`: the only `GAIN` sender, the reused scratch payload, `wants`/`on`, the feed claims, the diff tap helper, and `Recompute` → `SyncCapture` fan-out. | 260 |
 | `modules/Progress.lua` | `NS.Progress`: the XP and skill-up observer. Rows registered only while the feed wants `XP`/`SKILL`. | 260 |
-| `modules/ToastModel.lua` | `NS.ToastModel`: pure. Feed config snapshot, filters, merge key and merge, the entry pool, the price, cap, upgrade and line builders, the slot/nudge geometry and the layout offsets, lifecycle phase maths. No frames. | 520 |
-| `modules/ToastRow.lua` | `NS.ToastRow`: builds one pooled row frame (regions made once) and paints an entry onto it through the Skin facade. | 420 |
-| `modules/ToastFeed.lua` | `NS.Toasts`: the three feed containers, the GAIN receiver, the queue, the ticker, clicks, pin, combat hold and click-through, unlock and drag, test mode and the sim strips, and Enable/Disable. | 640 |
-| `modules/ToastSample.lua` | `NS.ToastSample`: a fixed sample gain set per kind for test mode, the per-feed Test act and the unlocked view. It never goes through GAIN. | 140 |
-| `modules/ToastBlizz.lua` | `NS.ToastBlizz`: alert-event suppression and the chat message filters, each with an exact restore. | 200 |
-| `settings/SchemaToasts.lua` | `NS.SchemaToasts.Rows()`: builds every Toasts row (three feeds times the per-feed set, plus two page-wide rows) from one per-feed builder. | 420 |
+| `modules/ToastModel.lua` | `NS.ToastModel`: pure. The host config snapshot (`M.Config`), the three descriptor getters (`M.LayoutFor`, `M.MotionFor`, `M.StyleFor`) that map profile leaves onto the Feed's `layout`, `motion` and `style` keys, the filter (`M.Accepts`), the merge key (`M.Key`), the payload copy and its spare list (`M.NewPayload`, `M.FreePayload`), the merge reducer handed to the Feed as `d.merge` (`M.Merge`), and the appearance absorb (`M.Absorb`). No frames. | 320 |
+| `modules/ToastContent.lua` | `NS.ToastContent`: pure. `TC.Content(fid, spec, payload, key)`, behind the Feed's `d.content` callback (one closure per feed), filling the Feed's reused row spec (`icon`, `tint`, `badge`, `title`, `count`, `prefix`, `lines[1..3]`, `sub`, `highlight`) from a payload: the price, cap, counts, progress and upgrade builders and the per-kind lines (section 7.4). Replaces the old `ToastRow.lua`, whose frame work is now the library's. | 380 |
+| `modules/ToastFeed.lua` | `NS.Toasts`: builds the three Feed instances through `NS.NewFeed`, the GAIN receiver and its routing, the sounds, the click handler, the combat rows (`Hold`/`Release`, `SetClickThrough`, `SetLocked(true)`), unlock, the test mode, the Test act and the sim strip, and Enable/Disable. | 330 |
+| `modules/ToastSample.lua` | `NS.ToastSample`: a fixed sample payload set per kind for test mode, the per-feed Test act and the unlocked view. It never goes through GAIN. | 140 |
+| `modules/ToastBlizz.lua` | `NS.ToastBlizz`: alert-event suppression with an exact restore (chat-line hiding is out of scope, D25). | 90 |
+| `settings/SchemaToasts.lua` | `NS.SchemaToasts.Rows()`: builds every Toasts row (three feeds times the per-feed set, plus one page-wide row) from one per-feed builder. | 400 |
 | `settings/PanelToasts.lua` | The Toasts page: the banner picker plus the *Add feed* action, the tab strip, the General tab's acts, the Hide sources multi-check, Reset style to skin and Reset feed. | 330 |
-| `tests/test_gain_feed.lua`, `tests/test_progress.lua`, `tests/test_toast_model.lua`, `tests/test_toast_feed.lua`, `tests/test_toast_blizz.lua`, `tests/test_panel_toasts.lua` | Section 13. | |
+| `tests/test_gain_feed.lua`, `tests/test_progress.lua`, `tests/test_toast_model.lua`, `tests/test_toast_content.lua`, `tests/test_toast_feed.lua`, `tests/test_toast_blizz.lua`, `tests/test_panel_toasts.lua` | Section 13. | |
 
 ### 2.2 Changed
 
 | File | Change |
 |---|---|
-| `modules/Collector.lua` | Taps on the three chat lines, the secret guard, the currency and money reorder (section 6.2), and `local GainFeed = NS.GainFeed` at load. |
-| `modules/Reconciler.lua` | The `writeNet` tap (section 6.3). `GainFeed:HoldClaims` beside `L.HoldClaims` in `R:Flush` (`:809-812`). |
-| `modules/Reputation.lua`, `modules/Appearance.lua` (M2) | The taps, and **`SyncCapture`**: rows are registered while the record switch is on **or** `GainFeed.wants[kind]`, and the record switch then gates only `Add` (section 6.4, an amendment to M2 §5). |
+| `modules/Collector.lua` | Taps on the three chat lines, the secret guard, the currency and money reorder (section 5.2), and `local GainFeed = NS.GainFeed` at load. |
+| `modules/Reconciler.lua` | The `writeNet` tap (section 5.3). `GainFeed:HoldClaims` beside `L.HoldClaims` in `R:Flush` (`:809-812`). |
+| `modules/Reputation.lua`, `modules/Appearance.lua` (M2) | The taps, and **`SyncCapture`**: rows are registered while the record switch is on **or** `GainFeed.wants[kind]`, and the record switch then gates only `Add` (section 5.4, an amendment to M2 §5). |
 | `modules/BrowserViews.lua` | `B:ShowGain(gain)` (T12), beside `B:ShowTimeline` (`:295-303`). |
 | `modules/BrowserTable.lua` | `SetTestMode` (`:~420-447`) also calls `NS.Toasts:SetTestMode(on)` after its own switch succeeds. |
-| `core/Constants.lua` | `MSG.GAIN`; `C.GainKind`; `C.LAYERS.STRATA.ALERT = "HIGH"` plus the header stack comment (frame-layering-§5); the `C.TOAST_*` constants (section 4.3); `C.PROFESSION_SKILL_LINES`; `C.CLASS_ARMOR`; `C.BLIZZ_ALERT_EVENTS`; `C.BLIZZ_CHAT_EVENTS`. |
+| `core/Constants.lua` | `MSG.GAIN`; `C.GainKind`; the `C.TOAST_*` constants (section 4.3); `C.PROFESSION_SKILL_LINES`; `C.CLASS_ARMOR`; `C.BLIZZ_ALERT_EVENTS`. **No `C.LAYERS.STRATA` key**: the addon never sets a strata on a toast frame (the container takes the Feed's `STRATA`, `"HIGH"`, Feed doc *Frame layering*); the header stack comment (frame-layering-§5) gains one pointer line for it. |
 | `core/SimSeam.lua` | Classifies the new members (section 3.2). The header's GUARDED paragraph names `ListSkillLines` beside `ListCurrencies`. |
 | `core/LifecycleSetup.lua` | Stand-up and stand-down steps (section 10.1). |
 | `core/PerfSetup.lua` | Buckets `gainSend`, `toastPaint`, `xpEvent` and `skillScan`, appended last (`:63-69`). |
 | `core/SkinSetup.lua` | Owner tokens for the kind colours (section 8.4) in `Skin:RegisterOwner(addonName, { tokens = ... })` (`:802-806`), and the degraded `NS.SKIN_FALLBACK` entries for them. |
-| `core/WidgetsSetup.lua` | `NS.MakeDragHandle(parent, spec)` over `W.DragHandle` (nil when degraded), beside `NS.MakeTestStrip` (`:325`). |
 | `defaults/Profile.lua` | `settings.toasts` (section 9.2). |
 | `settings/Schema.lua` | Appends `NS.SchemaToasts.Rows()` to `S.Schema` before `SchemaLib:New` (`:~870`). The page/group header comment (`:32-37`) now says there are two pages. The Test mode note says "and the toast feeds". |
 | `settings/Panel.lua` | Publishes `P._makeMultiCheck`. `P:Register` registers the Toasts page after General and before Profiles (`:789-810`). |
-| `modules/SimWorld.lua`, `modules/SimDrivers.lua`, `modules/SimScenario.lua`, `modules/Sim.lua` | Section 11. |
+| `modules/SimWorld.lua`, `modules/SimDrivers.lua`, `modules/SimScenario.lua`, `modules/Sim.lua` | Section 12. |
 | `LootHistory.toc` | Section 2.3. |
-| `.luacheckrc` | `read_globals` gains `UnitXP`, `UnitXPMax`, `UnitLevel`, `IsXPUserDisabled`, `GetMaxPlayerLevel`, `GetProfessions`, `GetProfessionInfo`, `C_SkillInfo`, `C_MountJournal`, `C_TransmogCollection`, `GetDetailedItemLevelInfo`, `HandleModifiedItemClick`, `ChatFrameUtil`, `ChatFrame_AddMessageEventFilter`, `ChatFrame_RemoveMessageEventFilter`, `AlertFrame`, `PlaySoundFile`, `GetCursorPosition`, `UIParent`, as each is first read. |
+| `.luacheckrc` | `read_globals` gains `UnitXP`, `UnitXPMax`, `UnitLevel`, `IsXPUserDisabled`, `GetMaxPlayerLevel`, `GetProfessions`, `GetProfessionInfo`, `C_SkillInfo`, `C_MountJournal`, `C_TransmogCollection`, `GetDetailedItemLevelInfo`, `HandleModifiedItemClick`, `AlertFrame`, `PlaySoundFile`, as each is first read. |
+| `tests/test_libka0s.lua` | **M3.3:** the case *"the nine adopted majors all resolved, and the seams are wired to them"* becomes *"the ten adopted majors ..."*: `LibKa0s-Feed-1.0` joins its major list and it asserts `type(NS.NewFeed) == "function"` and `type(NS.FeedStub) == "table"`; `core/FeedSetup.lua` joins the silent-flag case's path list. The rename regenerates `docs/test-cases.md` in that commit. |
+| `tests/test_surface_parity.lua` | **M3.3:** the instance parity pair against a live feed, `T.assertSurfaceParity(liveFeed, NS.FeedStub, "Feed instance")` and the reverse (Feed doc *The degradation stub*). |
 | tests, docs | Sections 13 and 14. |
 
+Not changed (the old engine needed them, the Feed does not): `core/WidgetsSetup.lua` (no `NS.MakeDragHandle`; the
+Feed docks a Widgets `DragHandle` itself, and its strip through `SetStrip`), `core/PoolSetup.lua` (the Feed pools
+its own rows).
+
 `CLAUDE.md`'s `LibKa0s icons:` line gains nothing. The toasts reuse M1's six `gi:` container marks (`C.TIP_ICONS`)
-and the declared `chevron-up` (the upgrade arrow).
+and the declared `chevron-up` (the upgrade arrow); the Feed draws no library icon and the drag handle's `move`
+is already declared.
 
 ### 2.3 TOC placement
 
 ```
 core\CompatClient.lua
+...
 # LOAD-BEARING POSITION: adds members to NS.Compat at file load (the gain feed's client reads, #38).
 # Below core\Compat.lua, whose table it extends; ABOVE core\SimSeam.lua, which wraps every member in
 # place at its own load, so a member defined below the seam escapes it (H2, NS.SimSeam:Unwrapped()).
 core\CompatGain.lua
 core\SimSeam.lua
+...
+core\PoolSetup.lua
+# The LibKa0s-Feed seam (#38). CONVENTIONAL: it resolves the major (libs\LibKa0s\LibKa0s.xml, above)
+# and publishes NS.NewFeed / NS.FeedStub; nothing calls NS.NewFeed at load (modules\ToastFeed.lua
+# builds its feeds from Toasts:Enable). Kept beside the other LibKa0s seams.
+core\FeedSetup.lua
+core\LootHistory.lua
 ...
 modules\AttributionOut.lua
 # LOAD-BEARING POSITION: the gain feed (#38), the one sender of Ka0s_LootHistory_Gain. Collector,
@@ -150,17 +181,17 @@ modules\Appearance.lua
 modules\Progress.lua
 ...
 modules\TestData.lua
-# CONVENTIONAL: pure toast maths (#38); binds NS.Constants at load only.
+# CONVENTIONAL: pure toast config, filter and merge (#38); binds NS.Constants at load only.
 modules\ToastModel.lua
-# LOAD-BEARING POSITION: binds NS.ToastModel and NS.Skin as file-scope locals at load;
-# modules\ToastModel.lua and core\SkinSetup.lua must be above.
-modules\ToastRow.lua
-# LOAD-BEARING POSITION: binds NS.ToastModel, NS.ToastRow and NS.Perf at load; appends its regen
-# rows to NS.EVENT_ROWS at file load. modules\ToastModel.lua and modules\ToastRow.lua must be above.
+# CONVENTIONAL: pure row content (#38); binds NS.Constants at load only, every other read at call time.
+modules\ToastContent.lua
+# LOAD-BEARING POSITION: binds NS.ToastModel, NS.ToastContent and NS.Perf as file-scope locals at
+# load and appends its combat rows to NS.EVENT_ROWS at file load; modules\ToastModel.lua and
+# modules\ToastContent.lua must be above. NS.NewFeed (core\FeedSetup.lua) is read at call time.
 modules\ToastFeed.lua
-# CONVENTIONAL: the sample gains; reached from NS.Toasts at call time only.
+# CONVENTIONAL: the sample payloads; reached from NS.Toasts at call time only.
 modules\ToastSample.lua
-# CONVENTIONAL: Blizzard-duplicate hiding; reads NS.GainFeed and NS.Util at call time only.
+# CONVENTIONAL: Blizzard alert hiding; reads NS.GainFeed and NS.Compat at call time only.
 modules\ToastBlizz.lua
 modules\SimWorld.lua
 ...
@@ -180,7 +211,8 @@ settings\Profiles.lua
 ```
 
 M2 puts `modules\Reputation.lua` and `modules\Appearance.lua` straight after Collector (M2 §5). M3 inserts GainFeed
-above Collector and Progress below Appearance. In `tests/run.lua`, the load order mirrors the TOC.
+above Collector and Progress below Appearance. `tests/run.lua` derives its load order from the TOC
+(`Loader.tocFiles`), so it needs no list edit.
 
 ---
 
@@ -240,41 +272,37 @@ function Compat.CurrencyIcon(id)           --> fileID | nil
 --- LibSharedMedia sound `key` ("" = none) played on the Master channel via PlaySoundFile.
 function Compat.PlayMediaSound(key)        --> bool             (PURE)
 
---- Add / remove a chat message event filter: ChatFrameUtil.AddMessageEventFilter when present,
---- else ChatFrame_AddMessageEventFilter (and the matching Remove). Answers false when neither exists.
-function Compat.AddChatFilter(event, fn)   --> bool             (PURE)
-function Compat.RemoveChatFilter(event, fn) --> bool            (PURE)
+--- C_Item.GetItemIconByID(itemID), a plain fileID, else nil (the item toast's icon, section 7.4).
+function Compat.ItemIcon(itemID)           --> fileID | nil
 
 --- AlertFrame event suppression: for each name in `events`, when AlertFrame:IsEventRegistered(name)
 --- answers true, UnregisterEvent it and record it in `into`; Restore re-registers exactly `into`'s
 --- names, in the same order, and wipes it.
 function Compat.SuppressAlertEvents(events, into) --> n         (PURE)
 function Compat.RestoreAlertEvents(into)          --> n         (PURE)
-
---- UIParent's width and height, and its effective scale (for the nudge from a drag), plain numbers.
-function Compat.ScreenRect()               --> w, h, scale
 ```
+
+Not built (M3.2): `AddChatFilter`/`RemoveChatFilter` (chat-line hiding is out of scope, D25) and `ScreenRect`
+(the Feed turns a drag into the nudge itself, `onMoved`).
 
 ### 3.2 Sim-seam classification
 
-- **PURE** (`core/SimSeam.lua`): `ModifiedLinkClick`, `PlayMediaSound`, `AddChatFilter`, `RemoveChatFilter`,
-  `SuppressAlertEvents`, `RestoreAlertEvents`, `ScreenRect`.
+- **PURE** (`core/SimSeam.lua`): `ModifiedLinkClick`, `PlayMediaSound`, `SuppressAlertEvents`, `RestoreAlertEvents`.
 - **GUARDED:** `ListSkillLines`. It expands and collapses skill headers, which is UI state, so during a session it
   answers the world's `skills` and never walks.
 - **WRAPPED** (the default): `PlayerXP`, `ProfessionSkills`, `CurrencyCap`, `ItemEquipInfo`, `ItemLevelOf`,
-  `EquippedLink`, `IsMountItem`, `IsUncollectedLook`, `CurrencyLink`, `CurrencyIcon`.
-- `tests/test_sim_seam.lua` `CLASSIFIED` gains all nineteen (with `ItemIcon`, WRAPPED). `tests/test_compat_routing.lua` `BANNED` gains bare
+  `EquippedLink`, `IsMountItem`, `IsUncollectedLook`, `CurrencyLink`, `CurrencyIcon`, `ItemIcon`.
+- `tests/test_sim_seam.lua` `CLASSIFIED` gains all sixteen. `tests/test_compat_routing.lua` `BANNED` gains bare
   reads in `modules/` of `UnitXP`, `UnitXPMax`, `GetProfessions`, `GetProfessionInfo`, `C_SkillInfo`,
-  `GetInventoryItemLink`, `HandleModifiedItemClick`, `PlaySoundFile`, `AlertFrame`, `ChatFrame_AddMessageEventFilter`
-  and `ChatFrameUtil`, each with `use =` its member.
+  `GetInventoryItemLink`, `HandleModifiedItemClick`, `PlaySoundFile` and `AlertFrame`, each with `use =` its member.
 
 ### 3.3 Verification gates (events-frames-taint-§9)
 
-`AlertFrame`, the alert event names in `C.BLIZZ_ALERT_EVENTS`, and both chat-filter API names are not in the kit's
-lists (`tests/_kit/client_globals_live.lua` has neither `ChatFrame_AddMessageEventFilter` nor `ChatFrameUtil`). M3.6
+`AlertFrame` and the alert event names in `C.BLIZZ_ALERT_EVENTS` are not in the kit's lists
+(`tests/_kit/client_globals_live.lua`). M3.6
 cites each one against a commit-pinned `wow-ui-source` (Retail, and the `forever` branch where one exists) in
 `docs/ARCHITECTURE.md` *Taint notes*, before the rows ship. A name that does not resolve is skipped at run time (the
-members are presence-gated). `/lh debug probe` lists `AlertFrame`, the filter API, `GetProfessionInfo`'s seventh
+members are presence-gated). `/lh debug probe` lists `AlertFrame`, `GetProfessionInfo`'s seventh
 return and the Forever skill-list shape (section 12).
 
 ---
@@ -350,19 +378,17 @@ C.TOAST_SLOT_LABEL   = { TOPLEFT = "Top Left", TOP = "Top Center", TOPRIGHT = "T
                          BOTTOM = "Bottom Center", BOTTOMRIGHT = "Bottom Right" }
 C.TOAST_SLOT_GROW    = { TOPLEFT = "down", TOP = "down", TOPRIGHT = "down", LEFT = "down", CENTER = "down",
                          RIGHT = "down", BOTTOMLEFT = "up", BOTTOM = "up", BOTTOMRIGHT = "up" }
-C.TOAST_SLOT_INSET   = 40      -- px from the screen edge a slot's point sits at before the nudge
-C.TOAST_NUDGE_MAX    = 2000
-C.TOAST_DROP_FADE    = 0.2     -- the fade of a toast dropped by a full feed or a right-click
-C.TOAST_SLIDE_TIME   = 0.15    -- smooth reposition
-C.TOAST_PULSE_TIME   = 0.4
-C.TOAST_COUNT_SETTLE = 0.5     -- counts re-read once this long after the paint (client-quirks-§3)
+C.TOAST_NUDGE_MAX    = 600     -- = LibKa0s-Feed-1.0 NUDGE_MAX (pinned by test); the nudge sliders' range
+C.TOAST_SHOWN_MAX    = 10      -- = Feed SHOWN_MAX (pinned by test); the "Shown at once" slider's top
+C.TOAST_COUNT_SETTLE = 0.5     -- motion.settle: the Feed re-runs content once this long after the paint (client-quirks-§3)
 C.TOAST_SOUND_GAP    = 1       -- at most one highlight sound per feed per second
-C.TOAST_HOLD_MAX     = 20      -- combat-held gains kept per feed (oldest dropped)
+-- No inset, drop-fade, slide, pulse or hold-cap constants: those are the Feed's (SLOT_INSET, DROP_FADE,
+-- SLIDE_TIME, PULSE_TIME, MAX_QUEUE; section 15.2).
 C.TOAST_PRICE_OPTIONS = { { value = "none", text = "None" }, { value = "vendor", text = "Vendor" },
   { value = "ah", text = "AH" }, { value = "both", text = "Vendor + AH" }, { value = "highest", text = "Highest" } }
 C.TOAST_QUALITY_OPTIONS -- built like C.QUALITY_OPTIONS (core/Constants.lua:272-278) over 0..5; text for 0 is
                         -- "Poor (everything)", the rest "<colored quality> and above"
-C.TOAST_ENTER_OPTIONS = { none, fade, slideLeft "Slide from left", slideRight, slideUp, slideDown }
+C.TOAST_ENTER_OPTIONS = { none, fade, left "Slide from left", right, up, down }   -- the Feed's motion.enter values
 C.TOAST_GROW_OPTIONS / C.TOAST_SIDE_OPTIONS -- { up "Up", down "Down" } / { left "Left", right "Right" }
 C.PROFESSION_SKILL_LINES = { [129]=1,[164]=1,[165]=1,[171]=1,[182]=1,[185]=1,[186]=1,[197]=1,[202]=1,
                              [333]=1,[356]=1,[393]=1 }   -- vanilla profession skill lines (Forever, T14)
@@ -561,13 +587,31 @@ otherwise OTHER/INFERRED. It always reseeds after. The baseline is seeded in `Sy
 
 ---
 
-## 7. The toast model (`modules/ToastModel.lua`, pure)
+## 7. The toast model (`modules/ToastModel.lua` and `modules/ToastContent.lua`, pure)
 
-### 7.1 Feed config snapshot
+Geometry (slot offsets, the row stack, the nudge from a drag) and the lifecycle phases (enter, hold, fade, drop,
+pulse, the bar, the glow's breath) are the Feed's (Feed doc *Placement*, *Motion: one clock and the phase
+machine*). The addon keeps only what decides **what** a row says and **which** feed takes a gain.
 
-`M.Config(fid)` reads `NS.db.profile.settings.toasts.feeds[fid]` into a cached flat table `cfg[fid]`, rebuilt on
-`SETTINGS_CHANGED` (`toasts`, `profile`, `enabled`) by `NS.Toasts`. Draw paths read only `cfg`, never the profile.
-`cfg.kinds` is keyed by `C.GainKind`. `cfg.hideSources` is the set.
+### 7.1 Config snapshot and the descriptor getters
+
+- `M.Config(fid)` reads `NS.db.profile.settings.toasts.feeds[fid]` into a cached flat table `cfg[fid]` for the
+  host's own reads (kinds keyed by `C.GainKind`, `minQuality`, `hideSources` as a set, `price`, `ilvl`, `counts`,
+  `source`, `hl`, `colors`, `showInCombat`, `clickThrough`, `enabled`). It is rebuilt on `SETTINGS_CHANGED`
+  (`toasts`, `profile`, `enabled`) by `NS.Toasts`, which then calls each feed's `Refresh()`. Draw paths read only
+  `cfg`, never the profile.
+- The three getters are the Feed descriptor's `layout`, `motion` and `style` fields (Feed doc *The descriptor
+  `d`*). Each fills one reused table per feed from the profile and answers it. The Feed reads them only on the
+  first build and on `Refresh()`, never per frame.
+
+| Getter | Feed key ← profile leaf (`settings.toasts.feeds[fid].*`) |
+|---|---|
+| `M.LayoutFor(fid)` | `slot` ← `slot`; `x`, `y` ← `x`, `y`; `grow` ← `grow == "down" and "DOWN" or "UP"`; `shown` ← `shown`; `width`, `rowHeight`, `iconSize`, `padding`, `gap` ← the same leaves; `align` ← `align`; `iconSide` ← `iconSide` |
+| `M.MotionFor(fid)` | `enter` ← `enter` (stored in the Feed's own vocabulary, `"none"`, `"fade"`, `"left"`, `"right"`, `"up"`, `"down"`); `enterTime` ← `enterTime`; `hold` ← `hold`; `fadeTime` ← `fade`; `mergeWindow` ← `merge`; `pulse`, `timerBar`, `smooth`, `pin` ← the same leaves; `rightDismiss` ← `true` (D14, not a setting); `settle` ← `C.TOAST_COUNT_SETTLE` |
+| `M.StyleFor(fid)` | `bgColorFromSkin`, `bgType`, `bgColor`, `bgColor2`, `bgTexture`; `borderStyleFromSkin`, `borderStyle`, `borderSize`, `borderColorFromSkin`, `borderColor` ← the same leaves; `borderTint` ← `borderByQuality`; `borderClass` ← `useClassColorBorder`; `fontFromSkin`, `font`, `fontSize`, `fontSize2`, `fontFlags`, `fontShadowFromSkin`, `fontShadow`, `fontColorFromSkin`, `fontColor` ← the same leaves; `fontClass` ← `useClassColorFont`; `fontSizeFromSkin` ← `false` (font size stays a stored value, Options' cause L11, so the player's sizes draw). The countdown bar and the glow take no rows: their `*FromSkin` keys are left out, so the Feed's defaults (`true`, the skin) apply |
+
+The exact leaf names of the composed groups are read off the emitted rows at M3.6 (section 9.2); the getter's
+right-hand side follows them. `tests/test_toast_model.lua` pins each mapping against a profile fixture.
 
 ### 7.2 Filter (`M.Accepts(cfg, g)`)
 
@@ -576,51 +620,78 @@ The gain passes when all of these hold: `cfg.enabled`; `cfg.kinds[g.kind]`; `g.k
 and `g.kind ~= "GOLD" and g.kind ~= "ITEM"` or `g.dir == "IN"`, which is D7's no item or money losses (the taps
 already send only IN for those).
 
-### 7.3 Entries, keys and merge
+### 7.3 Keys, payloads, the merge reducer and the absorb
 
-- **The entry** is a pooled table (`M.NewEntry()` takes from a free list, `M.FreeEntry(e)` wipes it and returns it)
-  holding a copy of the payload fields the row needs, plus the row state: `key`, `qty`, `value`, `lastAt`, `t` (the
-  phase clock), `phase`, `pulse`, `highlight`, `paintedAt`, `y` and `targetY`, and `frame`.
 - **Keys** (`M.Key(g)`): ITEM `"i:"..id`; CURRENCY `"c:"..id`; GOLD `"g"`; REPUTATION `"r:"..id..":"..dir`; XP
   `"x"`; SKILL `"s:"..id`; APPEARANCE `"a"`. All appearances share one key, so a burst reads "x3" with the latest
-  name.
-- **Merge** (`M.Merge(feed, g, now)`). A live or queued entry with the same `key` and `now - e.lastAt <= cfg.merge`
-  (and `cfg.merge > 0`) takes the merge:
-  - It sums `qty`, and `value` too. It refreshes the fields that move with each gain (`standing`, `level`, `cur`,
-    `max`, `new`) and keeps the original `old` on SKILL.
-  - It sets `lastAt = now`, and restarts the hold: `t = cfg.enter`, which skips the enter. When `cfg.pulse` is on
-    it sets `pulse = C.TOAST_PULSE_TIME`.
-  - It moves the entry to index 1 (the newest slot, D13). Under a pin freeze (T4) it stays where it is.
-  - It answers the entry.
-  - Otherwise `nil`, and the caller makes a new entry.
-- **Absorbing an appearance into its item.** An APPEARANCE gain whose `itemID` matches a live ITEM entry inside the
-  merge window does not make an appearance entry. It sets `e.newLook = true` and `e.highlight = "appearance"` on the
-  item entry, with a repaint and a pulse. An ITEM gain that arrives while an APPEARANCE entry for its itemID is live
-  takes that flag and frees the appearance entry. `M.Absorb(feed, g)` does both and answers true when it consumed
-  the gain.
+  name. The key is the Feed's `Push(key, payload)` key, so the Feed's merge window (`mergeWindow`) does the
+  matching.
+- **The payload** (`M.NewPayload(g)`). The GAIN table is a reused scratch, and the Feed stores the payload
+  untouched (Feed doc *The payload and the row spec*), so each feed that accepts a gain gets its own copy of the
+  fields the content needs (`kind`, `dir`, `id`, `qty`, `link`, `name`, `quality`, `icon`, `classID`, `source`,
+  `recorded`, `record`, the per-kind fields of 4.2) plus host state `value`, `newLook` and `highlight`. It takes a
+  table from a spare list when one is there. `M.FreePayload(p)` wipes it back onto that list.
+- **The merge reducer** (`M.Merge(old, new, key)`, the descriptor's `d.merge`). It sums `qty` (and `value`),
+  refreshes the fields that move with each gain (`standing`, `level`, `levelUp`, `cur`, `max`, `new`), keeps the
+  original `old` on SKILL, carries `newLook`/`highlight` forward, frees `new` onto the spare list and answers
+  `old`. Everything else in a merge (the window, the hold restart with no replayed enter, the pulse, the move to
+  the newest slot, staying put under a freeze, the repaint) is the Feed's (Feed doc *Merge in place*).
+- **Pool accounting.** A merge allocates nothing once warm (the reducer returns the spare). A new toast keeps its
+  payload until the Feed lets the row go, and Feed-1.0 has no close callback (Feed doc *What is not here*, "A
+  close-reason callback"), so that payload is never handed back to the spare list: it is collected. That is one
+  small table per new toast per feed, never per frame (section 15.2).
+- **Push outcomes** (`NS.Toasts`, 8.3): `"new"` → the sound; `"merged"` and `"queued"` → nothing more; `false` →
+  `M.FreePayload(payload)` (the Feed kept nothing).
+- **Absorbing an appearance into its item** (`M.Absorb(feed, g)`, answers true when it consumed the gain). An
+  APPEARANCE gain whose `itemID` matches the payload `feed:Get("i:"..itemID)` answers sets `p.newLook = true` and
+  `p.highlight = "appearance"` on it and calls `feed:Repaint("i:"..itemID)`. An ITEM gain that arrives while
+  `feed:Get("a")` answers a payload with the same `itemID` and `qty == 1` sets the flag on the new item payload and
+  calls `feed:Dismiss("a")`. `Repaint` carries no pulse (Feed doc: `Update` and `Repaint` are "no hold restart, no
+  pulse, no move"), so an absorb shows as the glow and the extra line, not a pulse (section 15.2).
 
-### 7.4 Content builders (`M.Lines(cfg, e, out)`, filling a reused `out`)
+### 7.4 Content builders (`NS.ToastContent`, `TC.Content(fid, spec, payload, key)`)
 
-| Field | Rule |
+`TC.Content` sits behind the descriptor's `d.content`. The Feed wipes the spec (and its three `lines` tables) before each
+call and runs it under `pcall` on present, merge, `Update`, `Repaint`, `RepaintAll`, a skin switch and the settle
+re-read (Feed doc). It answers nothing (draw) or `false` (skip). `fid` comes from the per-feed closure that is the
+descriptor's `content` (8.2), and it reads `cfg = M.Config(fid)`. Spec fields:
+
+| Spec field | Rule |
 |---|---|
-| `title` | ITEM, CURRENCY, APPEARANCE: `name` in the quality colour (meaning colour, skinning-§9). REPUTATION: `name` in kind colour `rep`. XP: `"+%s XP"` in kind colour `xp`. SKILL: `name` in kind colour `skill`, then the new rank, then `"+N"` in `sem.good`. GOLD: `Util.FormatMoney(qty)` (coloured coins, `.gc .sc .cc` in the mockup) |
-| `count` | `"x"..qty` for ITEM and CURRENCY; nil otherwise. It is drawn in `sem.gold` while `pulse > 0` |
-| `prefix` | REPUTATION `"‹"..label.."›"`, XP `"‹"..level.."›"`, drawn dim (`hud.label`) |
-| `counts` (`cfg.counts`) | ITEM: M1's `NS.HoldingsTally:Item(itemID)`, the logged-in holder's `bags`, `bank` and (Retail) warband `tabs`, while `trackLedger` is on; else `Compat.LiveItemCounts(itemID)` (M1 §4.3). Each nonzero part is a `C.TIP_ICONS` mark plus a count. GOLD: `Compat.GetMoney()` with the bags mark, plus the warband's stored money (`NS.Holdings:Get("§warband").money`, Retail with ledger on) with the tabs mark. CURRENCY: the cap line below |
-| `cap` | CURRENCY: `q, max, earned, uses = Compat.CurrencyCap(id)`. With `max`, the text is `FormatCount(uses and earned or q).." / "..FormatCount(max)` and the ratio `r = (uses and earned or q)/max`; colour `sem.bad` when `r >= 0.9`, `sem.warn` when `r >= 0.7`, else `hud.label`. Without `max`, the text is `FormatCount(q)` |
-| `progress` | REPUTATION: `FormatCount(standing).." / "..FormatCount(threshold)` when both are numbers (as M2's `FactionSnapshot` reports them; check against M2's final shape in M3.4). XP: `("%.1f%% of level"):format(cur/max*100)`; on `levelUp` the text is `"Level "..level` |
-| `source` (`cfg.source`) | `C.SourceLabel[source]`, drawn in `hud.label`. Shown for ITEM, CURRENCY, GOLD, APPEARANCE and REPUTATION |
-| `value` | ITEM only, by `cfg.price`. `vendor = sellPrice * qty`, where `sellPrice` is the 3rd return of `Compat.GetItemExtras(link)`. `ah = Pick(GatherAll(link, itemID)) * qty`, taken from `record.auctionPrice` when the gain was recorded and gathered lazily otherwise. `none` gives nothing. `vendor` gives `"Vendor "..fmt(vendor)`. `ah` gives `"AH "..fmt(ah)`. `both` gives both on one line (left vendor, right AH). `highest` gives `"Value "..fmt(max(vendor, ah))`. A zero or missing part is left out. GatherAll runs only when the entry passed the filter and the mode needs AH |
-| `ilvl` (`cfg.ilvl`) | ITEM: the 1st return of `Compat.GetItemExtras(link)` (weapons and armour only), drawn in the icon's top-left corner |
-| `upgrade` | ITEM, when `cfg.hl.upgrade`. The rule is T13: see `M.Upgrade` below. The text is the `chevron-up` mark (in `sem.good`) and `"+"..diff.." over equipped"` |
-| `subtitle` | APPEARANCE: `"Appearance collected"`. An item with `newLook` gets the same line under its value line |
-| `highlight` | the first that applies, in this order: `mount` (`Compat.IsMountItem`), `legendary` (quality 5), `upgrade`, `appearance` (`newLook`, or `Compat.IsUncollectedLook(link)` on Retail). Each needs its `cfg.hl.*` switch |
+| `icon` | ITEM: `payload.icon`, else `Compat.ItemIcon(id)` (WRAPPED, 3.1), else the `?` icon. CURRENCY: `Compat.CurrencyIcon(id)`. GOLD: `Interface\\Icons\\INV_Misc_Coin_01` (game art). REPUTATION, XP, SKILL, APPEARANCE: `C.TOAST_KIND_ICON[kind]` (game art) |
+| `tint` | the quality colour (meaning, skinning-§6) for ITEM, CURRENCY, APPEARANCE; nil otherwise. The Feed draws it on the icon edge, and on the row border when `style.borderTint` (`borderByQuality`) is on |
+| `badge` | `cfg.ilvl` and ITEM weapons/armour: the 1st return of `Compat.GetItemExtras(link)` |
+| `title`, `titleColor` | ITEM, CURRENCY, APPEARANCE: `name` in the quality colour. REPUTATION: `name` in kind colour `rep`. XP: `"+%s XP"` in kind colour `xp`. SKILL: `name` in kind colour `skill`, then the new rank, then `"+N"` in `sem.good` (inline colour codes). GOLD: `Util.FormatMoney(qty)` (coloured coins). A kind colour is `S.Token("toast.<kind>")` while `cfg.colors.<kind>FromSkin`, else the stored swatch |
+| `count` | `"x"..qty` for ITEM and CURRENCY; nil otherwise. `countColor` is left nil, so the Feed draws the count in the glow colour while the row pulses |
+| `prefix`, `prefixColor` | REPUTATION `"‹"..label.."›"`, XP `"‹"..level.."›"`; colour nil (the Feed's label colour) |
+| `lines[1]` | left: the counts (`cfg.counts`) or the cap or the progress (below); right: the source tag (`cfg.source`, `C.SourceLabel[source]`) for ITEM, CURRENCY, GOLD, APPEARANCE and REPUTATION |
+| `lines[2]` | ITEM: the value line by `cfg.price`: `both` → left `"Vendor "..fmt(vendor)`, right `"AH "..fmt(ah)`; `vendor`/`ah`/`highest` → left only; `none` → nothing |
+| `lines[3]` | ITEM with `cfg.hl.upgrade` and an `M.Upgrade` answer: left `NS.IconMarkup(chevron-up)` in `sem.good` plus `"+"..diff.." over equipped"` |
+| `sub` | APPEARANCE, and an item with `newLook`: `"Appearance collected"` |
+| `highlight` | `true` when the first that applies of `mount` (`Compat.IsMountItem`), `legendary` (quality 5), `upgrade`, `appearance` (`newLook`, or `Compat.IsUncollectedLook(link)` on Retail) has its `cfg.hl.*` switch on; the Feed draws the glow. The highlight name is stored on the payload (`p.highlight`) for the sound |
 
-`M.Upgrade(equipLoc, classID, subclassID, ilvl, quality, classFile, equippedFn)` answers `diff` or nil:
+The builders behind the lines are unchanged from the M3 design:
 
-- The item must be equippable gear: `equipLoc ~= ""` and in `C.EQUIP_LOC_SLOTS`, a new constant mapping each
-  `INVTYPE_*` to its slot or slots (`INVTYPE_FINGER` → {11, 12}, `INVTYPE_TRINKET` → {13, 14},
-  `INVTYPE_WEAPON` → {16, 17}, ... — RLF's `equipSlotMap` contents, written fresh).
+- **counts** (`cfg.counts`). ITEM: M1's `NS.HoldingsTally:Item(itemID)`, the logged-in holder's `bags`, `bank` and
+  (Retail) warband `tabs`, while `trackLedger` is on; else `Compat.LiveItemCounts(itemID)` (M1 §4.3). Each nonzero
+  part is `NS.IconMarkup(C.TIP_ICONS[container], nil, iconPx)` plus a count. GOLD: `Compat.GetMoney()` with the
+  bags mark, plus the warband's stored money (`NS.Holdings:Get("§warband").money`, Retail with ledger on) with the
+  tabs mark. These are re-read by the Feed's settle call (`motion.settle`, client-quirks-§3).
+- **cap** (CURRENCY). `q, max, earned, uses = Compat.CurrencyCap(id)`. With `max`, the text is
+  `FormatCount(uses and earned or q).." / "..FormatCount(max)` and `r = (uses and earned or q)/max`; colour
+  `sem.bad` when `r >= 0.9`, `sem.warn` when `r >= 0.7`, else nil. Without `max`, `FormatCount(q)`.
+- **progress**. REPUTATION: `FormatCount(standing).." / "..FormatCount(threshold)` when both are numbers (M2's
+  `FactionSnapshot` shape). XP: `("%.1f%% of level"):format(cur/max*100)`; on `levelUp` the text is
+  `"Level "..level`.
+- **value** (ITEM). `vendor = sellPrice * qty` (`Compat.GetItemExtras(link)`'s 3rd return). `ah =
+  Pick(GatherAll(link, itemID)) * qty`, from `record.auctionPrice` when the gain was recorded, gathered lazily
+  otherwise, and only when the mode needs AH. The result is cached on the payload (`p.value`, `p.vendor`, `p.ah`)
+  so a repaint or the settle call does not gather again; the merge reducer sums them. A zero or missing part is
+  left out.
+
+`TC.Upgrade(equipLoc, classID, subclassID, ilvl, quality, classFile, equippedFn)` answers `diff` or nil:
+
+- The item must be equippable gear: `equipLoc ~= ""` and in `C.EQUIP_LOC_SLOTS`.
 - For each slot, `link = equippedFn(slot)`. Any empty slot gives nil (no line). Equipped ilvl is
   `Compat.ItemLevelOf(link)`, and a two-slot item takes the **lower** of the two.
 - Armour (`classID == 4`, subclass 1 to 4) must have a subclass equal to `C.CLASS_ARMOR[classFile]` on Retail, and
@@ -628,136 +699,92 @@ already send only IN for those).
   piece's.
 - Following RLF (`Features/ItemLoot/ItemLoot.lua:266-279`), a Poor item over a better equipped piece, or a Common
   item over one above Common, gives nil.
-- `diff = ilvl - equippedIlvl`. It answers `diff` when `diff > 0`, else nil. An equal ilvl is never an upgrade,
-  because the stat-delta check RLF uses is Retail-only and costly.
+- `diff = ilvl - equippedIlvl`. It answers `diff` when `diff > 0`, else nil.
 
-### 7.5 Geometry
+### 7.5 What the library owns instead
 
-- **The container's point** is `M.SlotOffset(slot, x, y)`. It answers `point, ox, oy` with `ox = x + inset.x`,
-  `oy = y + inset.y`. The inset is `C.TOAST_SLOT_INSET` pointing inward from each edge the slot touches (LEFT
-  column `+inset`, RIGHT column `-inset`, CENTER column 0; TOP row `-inset`, BOTTOM row `+inset`, MID row 0). The
-  container is set with `SetPoint(point, UIParent, point, ox, oy)`.
-- **The row stack** comes from `M.Layout(feed)`, which sets `e.targetY` for entry index `i` (1 = newest). For
-  grow up: `y_1 = 0` and `y_i = y_{i-1} + h_{i-1} + gap`, rows anchored `BOTTOM` on the container's `BOTTOM`. For
-  grow down: `y_i = -(sum of h + gap)` with rows anchored `TOP` on `TOP`. The rows fill the container's width, so
-  the horizontal position is always 0. `h_i = max(cfg.rowHeight, pad*2 + lineCount * lineHeight)`, where
-  `lineHeight = fontSize + 2` for the title line and `fontSize2 + 2` for each secondary line.
-- **The nudge from a drag** comes from `M.NudgeFromRect(slot, left, bottom, right, top, screenW, screenH)`. It takes
-  the container rect in UIParent units and answers `x, y` such that `M.SlotOffset(slot, x, y)` reproduces the rect,
-  each clamped to `±C.TOAST_NUDGE_MAX`.
-- **Alignment and icon side.** `cfg.align == "right"` right-justifies every text line and puts the right-hand
-  fields (source tag, AH part) on the left. `cfg.iconSide == "right"` puts the icon on the row's right edge and
-  insets the text from the left by `pad`. Both are inputs to `ToastRow.Layout`, as in the mockup's flipped rows
-  (`mockups.html:281-302`).
-
-### 7.6 Lifecycle phases (`M.Advance(e, cfg, dt, paused)`)
-
-`t` runs only while not `paused` (pinned, or hovered with Pin off). It answers `alpha`, `dx`, `dy`, `bar` and
-`done`:
-
-- `phase = "enter"` while `t < cfg.enterTime`, with `k = t / enterTime` eased out. Fade gives `alpha = k`. A slide
-  gives an offset of `(1-k) * dist`, where `dist` is the feed width (left/right) or the row height (up/down); the
-  sign comes from the direction. None gives `enterTime = 0`.
-- `"hold"` while `t < enter + hold`, with `alpha = 1` and `bar = 1 - (t - enter) / hold`.
-- `"fade"` while `t < enter + hold + fade`, with `alpha = 1 - (t - enter - hold) / fade` and `bar = 0`.
-- `done` past that. A dropped or right-clicked entry has its `phase` forced to `"drop"`, fading over
-  `C.TOAST_DROP_FADE` from its current alpha.
-- `pulse` counts down independently, even while paused, so a merge under a pin still pulses. The border alpha is
-  `0.6 + 0.4 * sin(pulse / PULSE_TIME * pi)`.
-- The highlight glow alpha loops `0.35 + 0.35 * sin(GetTime() * 4)` while `e.highlight` is set.
+| Old spec part | Now | Feed member or key |
+|---|---|---|
+| `M.SlotOffset`, `C.TOAST_SLOT_INSET` | the Feed's placement (inset `SLOT_INSET`, 20) | `layout.slot`, `layout.x/y` |
+| `M.Layout` (row stack, mixed heights) | the Feed's stack (a row grows by `fontSize2 + 2` per filled line) | `layout.*`, the spec's `lines`/`sub` |
+| `M.NudgeFromRect`, `Compat.ScreenRect` | the Feed's drag stop | `onMoved(x, y)` |
+| `M.Advance`, the ticker (T3) | the Feed's one clock | `motion.*`, `Stats().awake` |
+| entry pool, `feed.live`, `feed.waiting` | the Feed's entries and waiting list | `Push`, `Get`, `Hold`/`Release`, `maxQueue` |
+| merge window, move to newest, freeze | the Feed | `motion.mergeWindow`, `motion.pin`, `d.merge` |
+| full feed drops oldest (T5) | the Feed (no overflow option) | `layout.shown` |
 
 ---
 
-## 8. Rows and feeds (frames)
+## 8. Feeds on LibKa0s-Feed-1.0
 
-### 8.1 Containers (`modules/ToastFeed.lua`)
+### 8.1 The seam (`core/FeedSetup.lua`)
 
-- One `Frame` per feed, `"LootHistoryToastFeed_"..fid`, parent `UIParent`. Strata `C.LAYERS.STRATA.ALERT`
-  (`"HIGH"`, frame-layering-§1 T5, interactive). Not toplevel, clamped to screen. Its width is `cfg.width` and its
-  height 1. It is the parent of every row in the feed. It is built lazily on the feed's first gain, first test or
-  first unlock.
-- `C.LAYERS` becomes `STRATA = { WINDOW = "HIGH", ALERT = "HIGH", MODAL = "DIALOG", POPUP = "FULLSCREEN_DIALOG" }`.
-  The header stack comment gains a line: `HIGH ALERT  the three toast feeds (#38), not toplevel, clamped; peer of
-  the History window, which keeps its own toplevel raise`. `LEVEL` stays empty: every toast part is a region (a
-  texture or font string) on the row frame, or the library's drag handle and strip, which set their own levels.
-  The "empty on purpose" sentence stays true.
-- `grep -rn 'SetFrameStrata("' modules` still finds nothing. The feed reads `C.LAYERS.STRATA.ALERT`.
+```lua
+local addonName, NS = ...
+local Feed = LibStub and LibStub("LibKa0s-Feed-1.0", true)   -- silent: a missing major degrades
+NS.FeedLib = Feed                                            -- the constants (SLOTS, NUDGE_MAX, SHOWN_MAX), or nil
+NS.FeedStub = { ... }   -- the Feed doc's *The degradation stub* table, member for member
+function NS.NewFeed(d)
+  if not Feed then return NS.FeedStub end
+  d.owner = addonName   -- rows, handle and strips follow this addon's skin owner
+  return Feed:New(d)
+end
+```
 
-### 8.2 Row frame (`modules/ToastRow.lua`)
+- Every stub member answers what an empty, locked feed answers (`Push` → `false`, `Get` → nil, `Update`,
+  `Repaint`, `Dismiss` → `false`, `Preview` → `0`, `SetLocked`/`IsLocked` → `true`, `Visible` → `{}`, `Stats` →
+  the all-zero table with `locked = true`, `Frame` → nil, the rest nothing). One stub serves all three feeds; it is
+  stateless.
+- Parity: `tests/test_surface_parity.lua` builds a live feed (`NS.FeedLib:New{ content = function() end }`) and runs
+  `T.assertSurfaceParity(liveFeed, NS.FeedStub, "Feed instance")` and the reverse. `__Step` is outside the parity
+  surface.
+- The schema reads no Feed constant at load (it loads before any feed exists and must load without the major):
+  `C.TOAST_SLOTS`, `C.TOAST_NUDGE_MAX = 600` and `C.TOAST_SHOWN_MAX = 10` are constants, and
+  `tests/test_toast_model.lua` pins each equal to `NS.FeedLib.SLOTS`, `NUDGE_MAX` and `SHOWN_MAX`.
 
-`ToastRow.Build(parent)` makes a `Frame` with `BackdropTemplate` and `EnableMouse(true)`, and creates once:
+### 8.2 The three feeds (`modules/ToastFeed.lua`)
 
-- `bg` (BACKGROUND), and `edge` (the backdrop's edge, or the skin Shell's).
-- `glow` (OVERLAY, `ADD` blend, the `WHITE8X8` edge strips from `NS.Skin` primitives). It is hidden unless
-  highlighted.
-- `icon` (ARTWORK) with an `iconBorder` texture, and the `ilvl` font string over its corner.
-- The font strings `title`, `count`, `prefix`, `line2L`, `line2R`, `line3L`, `line3R`, and `sub`.
-- `bar` (OVERLAY texture, 2 px, along the foot). It is hidden unless `cfg.timerBar`.
-- Scripts are set once: `OnEnter`, `OnLeave` and `OnMouseUp` call `NS.Toasts:_RowEnter/Leave/Up(self, button)`.
+`Toasts:Enable()` builds each feed once (later Enables reuse the instance; `Clear()` made it reusable):
 
-Rows come from `NS.Pool.NewKeyed()` per feed (`core/PoolSetup.lua:24`; Pool minor 2, `AcquireKeyed(pool,
-e.key, factory)`). The factory is `ToastRow.Build(container)`. A merge keeps its frame, because the key is the
-same. Release is per row through a small free list kept on the feed (Pool has no single-key release, so
-`ToastFeed` keeps `feed.free` and `feed.byKey` itself and uses Pool only for `ReleaseAllKeyed` on Clear and on
-stand-down).
+```lua
+feeds[fid] = NS.NewFeed({
+  name    = "LootHistoryToastFeed_" .. fid,
+  content = function(spec, p, key) return TC.Content(fid, spec, p, key) end,   -- inside the toastPaint bracket
+  merge   = M.Merge,
+  layout  = function() return M.LayoutFor(fid) end,
+  motion  = function() return M.MotionFor(fid) end,
+  style   = function() return M.StyleFor(fid) end,
+  onClick = function(p, button, key) Toasts:_Click(fid, p, button, key) end,
+  onMoved = function(x, y) Toasts:_Moved(fid, x, y) end,
+  strings = { HANDLE = L[C.TOAST_FEED_LABEL[fid]], HANDLE_TIP = L["Drag to move this feed. Lock it again on the Toasts page."] },
+  debug   = function(tag, fmt, ...) NS.Debug(tag, fmt, ...) end,
+})
+```
 
-`ToastRow.Paint(row, e, cfg, lines)` runs inside a Shape-A bracket `toastPaint`.
+- The closures are made once per feed at its first Enable, not per gain.
+- Nothing is built until the first `Push`, `Preview` or `SetLocked(false)` (Feed doc *The constructor*), so a
+  disabled feed costs one table.
+- The container's strata is the Feed's `STRATA` (`"HIGH"`, frame-layering-§1 T5), its levels and its rows' bands
+  are the Feed's (Feed doc *Frame layering*). The addon calls no `SetFrameStrata`/`SetFrameLevel` on a toast frame;
+  `grep -rn 'SetFrameStrata("' modules` still finds nothing.
+- A skin switch needs no host wiring: the Feed subscribes `OnLooksChanged` on the owner's facade and runs
+  `RepaintAll` itself.
+- `onEnter`/`onLeave` are not passed (item tooltips on hover are out of scope, 1.2).
 
-- **Background.** When `cfg.bgColorFromSkin`: `NS.Skin.Shell(row, { noTopBar = true, noBands = true })` (the
-  skin's panel look, repainted on a skin switch through the Skin record). Otherwise by `cfg.bgType`:
-  - `none`: no fill.
-  - `solid`: `WHITE8X8` tinted `cfg.bgColor`.
-  - `gradient`: `bg:SetGradient("HORIZONTAL", c1, c2)`, using `cfg.bgColor` and `cfg.bgColor2`.
-  - `texture`: `LSM:Fetch("background", cfg.bgTexture)` tinted `cfg.bgColor`.
-  - When the companion is off, the frame's Shell record is replaced with `{ keepEdge = true, noTopBar = true,
-    noBands = true }`, so a skin repaint leaves the host fill alone (Skin doc §135).
-- **Border.** `style, show, size = NS.Skin.BarBorder(cfg.borderStyle, true, cfg.borderSize,
-  cfg.borderStyleFromSkin)`. Colour precedence (skinning-§6, "class and meaning colours come first"):
-  `cfg.borderByQuality` and `e.quality` → the quality colour; then `cfg.useClassColorBorder` → the player's class
-  colour (`Compat.ClassColor`); then `cfg.borderColorFromSkin` → `S.Token("bar.border")`; else `cfg.borderColor`.
-  While `pulse > 0` the border alpha follows 7.6. While a highlight is set, `glow` shows in
-  `S.Token("glow.color") or S.Token("sem.gold")`.
-- **Fonts.** Every string goes through `NS.Skin.HudFont(fs, { face = S.Resolve("hud.font", cfg.font,
-  cfg.fontFromSkin), size = S.HudFontSize(isTitle and cfg.fontSize or cfg.fontSize2), flags =
-  S.FontFlags(cfg.fontFlags), shadow = cfg.fontShadow, shadowFromSkin = cfg.fontShadowFromSkin })`. Text colour:
-  meaning colours first (quality, `sem.good`/`sem.bad`/`sem.warn`, coin colours), then the kind colours, then
-  `cfg.useClassColorFont` → class, then `cfg.fontColorFromSkin` → `S.HudTextColor()`, else `cfg.fontColor`.
-  Secondary lines use `S.HudLabelColor()` where they carry no meaning colour.
-- **Icon.** ITEM: `Compat.ItemIcon(itemID)` (`C_Item.GetItemIconByID`; added to `core/CompatGain.lua` as a WRAPPED member, the
-  nineteenth), else the `?` icon. CURRENCY: `Compat.CurrencyIcon`. GOLD: the coin icon `NS.Icon("coins")` if
-  declared, else the client's `Interface\\Icons\\INV_Misc_Coin_01`, which is game art and needs no skin row.
-  REPUTATION, XP and SKILL use fixed game-art icons from a constant `C.TOAST_KIND_ICON`. The icon border takes the
-  quality colour (meaning) where there is one, else the row's border colour.
-- **Counts icons.** `NS.IconMarkup(C.TIP_ICONS[container], nil, iconPx)`, the M1 markup helper
-  (`core/MediaSetup.lua:127`).
-- **Layout.** `ToastRow.Layout(row, cfg, lines)` places the icon by `iconSide` and the text block by `align`,
-  using `cfg.iconSize`, `cfg.padding` and the row height from 7.5, and answers `h`.
-- **The settle re-read.** At `paintedAt + C.TOAST_COUNT_SETTLE`, the ticker repaints only the `counts`/`cap` line
-  once (client-quirks-§3, state lags its own event).
-
-A skin switch is handled by `NS.Skin.OnLooksChanged(function() NS.Toasts:Repaint() end)` at file load
-(`modules/Timeline.lua:610` precedent). It repaints every live row.
-
-### 8.3 The receiver and the queue
+### 8.3 The receiver
 
 `Toasts:OnGain(g)` is the GAIN handler on its private target `__gain`. For each feed `f` in `C.TOAST_FEEDS` with
-`M.Accepts(cfg[f], g)`, in this order:
+`M.Accepts(cfg[f], g)`, in order:
 
-- `M.Absorb` → stop.
-- `M.Merge` → repaint that row, re-layout, start the ticker, stop.
-- Otherwise build a new entry. If the feed is in a pin freeze, or it is combat and `not cfg.showInCombat`, it goes
-  on `feed.waiting`: merged there too, capped at `C.TOAST_HOLD_MAX`, oldest dropped. Otherwise it is presented.
+1. `M.Absorb(feeds[f], g)` → next feed.
+2. `p = M.NewPayload(g)`; `res = feeds[f]:Push(M.Key(g), p)`.
+3. `res == "new"` and `p.highlight` and `cfg.hl[p.highlight .. "Sound"] ~= ""` and the feed's last sound was more
+   than `C.TOAST_SOUND_GAP` ago → `Compat.PlayMediaSound(key)` (the Feed doc: "The host plays its own sound on
+   `"new"`").
+4. `res == false` → `M.FreePayload(p)`.
 
-`present(feed, e)`:
-
-1. If `#feed.live >= cfg.shown`, the last live entry becomes `phase = "drop"` (T5).
-2. Insert at index 1, acquire a row, paint it (this is where the lazy GatherAll and GetItemExtras reads happen),
-   set `t = 0`, lay out, start the ticker.
-3. Play the highlight sound when one applies: `cfg.hl[kind].sound ~= ""`, and the last sound for this feed was more
-   than `C.TOAST_SOUND_GAP` ago → `Compat.PlayMediaSound(key)`.
-
-`feed.waiting` drains in arrival order when the freeze ends (OnLeave of the last hovered row) and at
-`PLAYER_REGEN_ENABLED`.
+Everything else (the merge, the queue while frozen or held, the drain of the newest `shown` in arrival order, the
+drop of the oldest past `shown`) is `Push`'s contract.
 
 ### 8.4 Kind colours (owner tokens)
 
@@ -772,76 +799,58 @@ spelling at M3.5.
 | `toast.skill` | `#7aa7ff` as `{0.478, 0.655, 1, 1}` | skill name |
 
 Each feed's `colors.xp`, `colors.rep` and `colors.skill` rows (section 9) carry `<key>FromSkin` companions, true by
-default, that read these tokens. The literal defaults sit in `core/SkinSetup.lua` as the owner's token defaults.
-That is the named skinning-§1 home for an owner colour, so it needs no allow row. The swatch defaults in
-`defaults/Profile.lua` get `Kit.skinValues.rows` entries (cause `TOAST-STYLE`, why: "a player's override swatch,
-drawn only while its FromSkin companion is off").
+default, that read these tokens; `ToastContent` resolves them into the spec's `titleColor` (the Feed takes the
+spec's colour first, meaning first). The literal defaults sit in `core/SkinSetup.lua` as the owner's token
+defaults, the named skinning-§1 home for an owner colour. The swatch defaults in `defaults/Profile.lua` get
+`Kit.skinValues.rows` entries (cause `TOAST-STYLE`, why: "a player's override swatch, drawn only while its FromSkin
+companion is off"), and so do the Feed style swatches the profile stores (`bgColor`, `bgColor2`, `borderColor`,
+`fontColor`).
 
-### 8.5 Ticker (T3)
+### 8.5 Clicks and combat
 
-`feed.ticker` is the container's `OnUpdate`. It is set when a row enters, merges, drops, pulses or moves, and
-cleared when nothing is moving, nothing is pulsing or highlighted, no countdown is running, and nothing is waiting
-on a settle re-read. A feed with only sticky rows (test mode) and no highlight clears it too. Each frame, for each
-live entry:
-
-1. `M.Advance` → `row:SetAlpha(alpha)`. Re-anchor only when `dx`/`dy` changed (the enter slide).
-2. The countdown bar width, when `cfg.timerBar`.
-3. Smooth reposition when `cfg.smooth`: `e.y` moves toward `e.targetY` over `C.TOAST_SLIDE_TIME`, and the row is
-   re-anchored only while it moves. When `cfg.smooth` is off, `e.y = e.targetY` at once.
-4. `done` → release the row, free the entry, re-layout.
-
-`paused` is `feed.frozen` (a pin freeze) or `e.hovered and not cfg.pin`. Combat does not pause.
-
-### 8.6 Clicks, hover, combat
-
-- **`OnEnter`.** `e.hovered = true`; when `cfg.pin`, `feed.frozen = true`. **`OnLeave`:** clears them, and when no
-  row in the feed is hovered, unfreezes and drains `waiting`.
-- **`OnMouseUp(button)`.** While the feed is unlocked, the left button is ignored (it drags). Otherwise:
-  - right → `phase = "drop"` (dismiss);
-  - left with a modifier down (`Compat.ModifierDown("shift")` or `"ctrl"`, M1) → `Compat.ModifiedLinkClick(e.link
-    or (e.kind == "CURRENCY" and Compat.CurrencyLink(e.id)))`. Shift links the item in chat and ctrl opens the
-    dressing room (the client's own handling, both clients);
-  - plain left → `NS.Browser:ShowGain(e)` (T12).
-- **Combat.** The rows `"Toasts"`: `PLAYER_REGEN_DISABLED` → for each feed with `cfg.clickThrough`,
-  `row:EnableMouse(false)` on every live row and on every row acquired until regen. `PLAYER_REGEN_ENABLED` → the
-  mouse back on, drain `waiting`. Toast frames are not protected, so these calls are legal in combat
-  (events-frames-taint-§2). They are registered while any feed is enabled (`Toasts:SyncRows()`).
-- **`B:ShowGain(e)`** (`modules/BrowserViews.lua`). It returns when `e.kind == "XP" or e.kind == "SKILL"`.
+- **`Toasts:_Click(fid, p, button, key)`** (the Feed's `onClick`; the Feed has already handled a right-click
+  dismiss, `motion.rightDismiss = true`, and swallowed the left button while unlocked):
+  - left with a modifier down (`Compat.ModifierDown("shift")` or `"ctrl"`, M1) → `Compat.ModifiedLinkClick(p.link
+    or (p.kind == "CURRENCY" and Compat.CurrencyLink(p.id)))`. Shift links in chat, ctrl opens the dressing room;
+  - plain left → `NS.Browser:ShowGain(p)` (T12);
+  - any other button → nothing.
+- **Combat rows** `"Toasts"` (registered while any feed is enabled, `Toasts:SyncRows()`):
+  - `PLAYER_REGEN_DISABLED` → for each built feed: `SetLocked(true)` (the Feed refuses a new unlock in combat by
+    itself; the host owns the re-lock, Feed doc *Input*), and `NS.State.toastUnlocked[fid] = nil`; when
+    `cfg.clickThrough`, `SetClickThrough(true)`; when `not cfg.showInCombat`, `Hold()`.
+  - `PLAYER_REGEN_ENABLED` → `SetClickThrough(false)` and `Release()` on each.
+- **`B:ShowGain(p)`** (`modules/BrowserViews.lua`). It returns when `p.kind == "XP" or p.kind == "SKILL"`.
   Otherwise it runs `self:Show()`, `self:SelectTab("History")`, and if `B:ActiveTab() == "History"`,
-  `self:SetSearchText(e.kind == "GOLD" and "Gold" or e.name)`. Show already refuses while stood down or hidden by
+  `self:SetSearchText(p.kind == "GOLD" and "Gold" or p.name)`. Show already refuses while stood down or hidden by
   the visibility setting (`modules/Browser.lua:837-861`).
 
-### 8.7 Unlock and drag
+### 8.6 Unlock and drag
 
-- Unlock is session state, `NS.State.toastUnlocked[fid]`, never stored (it is like the History window's lock, not a
-  setting). It is toggled by the General tab's *Unlock* act.
-- When unlocked: the container gets `SetMovable(true)`, a drag handle from `NS.MakeDragHandle(container, { label =
-  C.TOAST_FEED_LABEL[fid] .. (testOrSim and " " .. tag or ""), ... })` docked on its top edge (frame-layering-§2
-  chrome), and, when the feed is empty, the sticky sample set (preview-mode, *SHOULD trigger the preview while
-  unlocked*).
-- The handle's drag runs `container:StartMoving()` and `StopMovingOrSizing()`. Then `x, y =
-  M.NudgeFromRect(cfg.slot, container:GetLeft(), ...)` is written through `NS.Schema:SetMany({ {P.."x", x},
-  {P.."y", y} })`, and the container is re-anchored from the slot (7.5).
-- When the handle's label carries the TEST or SIM tag, the feed's strip is hidden (preview-mode v2.114.0 allows
-  this).
-- Re-locking hides the handle and clears the unlocked preview. Combat start re-locks every feed and refuses unlock
-  while in combat (the drag would move a frame mid-pull; this follows the History window's lock behaviour).
-- A degraded install (no `DragHandle`) has no drag. The nudge rows still move the feed.
+- Unlock is session state, `NS.State.toastUnlocked[fid]`, never stored. The General tab's *Unlock* act calls
+  `Toasts:SetUnlocked(fid, on)`: `locked = feeds[fid]:SetLocked(not on)`, and `toastUnlocked[fid] = not locked`. A
+  refused unlock (combat, or no Widgets) answers locked; the act prints `L["The feed cannot be unlocked now."]`.
+- While unlocked and empty (`Stats().live == 0`), `Preview(ToastSample.ForFeed(fid))` shows the sticky sample set
+  (preview-mode, *SHOULD trigger the preview while unlocked*); re-locking calls `ClearPreview()`.
+- The Feed docks the `DragHandle` with `d.strings.HANDLE` on the stack's far edge, turns the drag stop into the
+  clamped nudge for the current slot and re-anchors. `Toasts:_Moved(fid, x, y)` writes it through
+  `NS.Schema:SetMany({ { P.."x", x }, { P.."y", y } })`; the resulting `SETTINGS_CHANGED` runs `Refresh()`, which
+  re-reads the same values.
+- A degraded install (no Widgets, or no Feed) has no drag. The nudge rows still move the feed.
 
-### 8.8 Test mode, the Test act, the sim marker
+### 8.7 Test mode, the Test act, the sim marker
 
-- **Test mode** (`state.testMode`, the Master controls checkbox). `BrowserTable:SetTestMode(on)` calls
-  `NS.Toasts:SetTestMode(on)`. On: each enabled feed shows `ToastSample.ForFeed(fid)`, one sample per enabled kind,
-  sticky (they never advance past hold), painted through the normal `present`/`Paint` path (preview-mode,
-  same-render-path SHOULD). The amber strip comes from `NS.MakeTestStrip(container, NS.L["Test mode"], "test",
-  "hud")` (`core/WidgetsSetup.lua:325`), on the top edge. Off, or combat start (the existing end of test mode), the
-  samples clear. Live gains still toast during test mode, above the samples.
-- **The Test act** (per feed, on the General tab). It runs `ToastSample.ForFeed(fid)` once through the normal
-  lifecycle (not sticky), as a one-shot preview, and it works while the feed is disabled so the player can see a
-  look before enabling it. It is refused in combat.
-- **Sim.** While `NS.Sim:IsActive()`, every feed with live rows carries `NS.MakeTestStrip(container, NS.L["Sim
-  mode"], "sim", "hud")` (the cyan strip). Simulated gains arrive through GAIN like real ones (section 11), so the
-  toasts are the real render path. `NS.Sim:AddListener` (`modules/SimPanel.lua` precedent) shows and hides the strip.
+- **Test mode** (`state.testMode`). `BrowserTable:SetTestMode(on)` calls `NS.Toasts:SetTestMode(on)`. On: each
+  enabled feed runs `Preview(ToastSample.ForFeed(fid))` (one sample per enabled kind, sticky, the same present and
+  paint path, preview-mode's same-render-path rule) and `SetStrip("test", NS.L["Test mode"])`. Off, or combat start
+  (the existing end of test mode): `ClearPreview()` and `SetStrip(nil)`. Live gains still push during test mode;
+  preview rows take no merge and no `Get`.
+- **The Test act** (per feed, General tab). It pushes each `ToastSample.ForFeed(fid)` payload with a nil key
+  (`Push(nil, p)`, never merging, the normal lifecycle, not sticky), as a one-shot preview, and it works while the
+  feed is disabled. It is refused in combat by the host.
+- **Sim.** While `NS.Sim:IsActive()`, every enabled feed carries `SetStrip("sim", NS.L["Sim mode"])`; the sim strip
+  wins over the test strip while both apply (one strip per feed). `NS.Sim:AddListener` (`modules/SimPanel.lua`
+  precedent) sets and clears it. Simulated gains arrive through GAIN like real ones (section 12), so the toasts are
+  the real render path.
 - Samples never go through GAIN, so M4's farm tally never counts them.
 
 ---
@@ -875,8 +884,8 @@ This is how D23 is honoured with no deviation.
   `afterSubgroup` hook, the same inverted-set picker as `settings.excludedSources`
   (`settings/Panel.lua:~600`). It falls under the existing `options-ui-§1` register row
   (`docs/ARCHITECTURE.md:682`), whose text gains "and each toast feed's Hide sources".
-- **Defaults** (the page button) restores every Toasts row of all three feeds plus the two page-wide rows. Tooltip:
-  "Restore every setting of all three toast feeds, and the Blizzard-duplicate options, to their defaults. Other
+- **Defaults** (the page button) restores every Toasts row of all three feeds plus the page-wide row. Tooltip:
+  "Restore every setting of all three toast feeds, and the Blizzard alert option, to their defaults. Other
   pages are not changed. Key bindings are not changed." General's global reset still resets them as part of the
   profile.
 - The page is registered from `P:Register` between General and Profiles: `O.RegisterOptionsPage("Toasts",
@@ -893,19 +902,19 @@ local function feed(over)
     price = "both", ilvl = true, counts = true, source = true, minQuality = 0, hideSources = {},
     hl = { mount = true, mountSound = "", legendary = true, legendarySound = "",
            upgrade = true, upgradeSound = "", appearance = true, appearanceSound = "" },
-    bgColorFromSkin = true, useClassColorBg = false, bgType = "solid",
+    bgColorFromSkin = true, bgType = "solid",
     bgColor = { r = 0.07, g = 0.08, b = 0.1, a = 0.92 }, bgColor2 = { r = 0.12, g = 0.13, b = 0.16, a = 0.92 },
     bgTexture = "Solid",
     borderStyle = "None", borderSize = 1, borderColor = { r = 0.23, g = 0.24, b = 0.28, a = 1 },
     useClassColorBorder = false, borderStyleFromSkin = true, borderColorFromSkin = true, borderByQuality = false,
     font = "", fontSize = 13, fontSize2 = 11, fontColor = { r = 0.9, g = 0.89, b = 0.84, a = 1 },
-    useClassColorFont = false, fontFlags = "@skin", fontShadow = { r = 0, g = 0, b = 0, a = 1 },
+    useClassColorFont = false, fontFlags = "@skin", fontShadow = true,
     fontFromSkin = true, fontColorFromSkin = true, fontShadowFromSkin = true,
     width = 320, rowHeight = 48, iconSize = 36, padding = 6, gap = 5,
     colors = { xp = { r = 0.898, g = 0.549, b = 1, a = 1 }, xpFromSkin = true,
                rep = { r = 0.31, g = 0.55, b = 1, a = 1 }, repFromSkin = true,
                skill = { r = 0.478, g = 0.655, b = 1, a = 1 }, skillFromSkin = true },
-    enter = "slideRight", enterTime = 0.3, hold = 5, fade = 1, pulse = true, timerBar = false, smooth = true,
+    enter = "right", enterTime = 0.3, hold = 5, fade = 1, pulse = true, timerBar = false, smooth = true,
     shown = 5, merge = 3, showInCombat = true, clickThrough = false, pin = true,
   }
   for k, v in pairs(over) do f[k] = v end
@@ -913,7 +922,7 @@ local function feed(over)
 end
 -- in settings:
 toasts = {
-  hideAlerts = false, hideChat = false,
+  hideAlerts = false,
   feeds = {
     main     = feed{ enabled = true, slot = "BOTTOMRIGHT", x = -220, y = 180, grow = "up" },
     progress = feed{ slot = "TOP", x = 0, y = -160, grow = "down",
@@ -947,7 +956,7 @@ are sentence case (options-ui-§21).
 | `enabled` | bool | Enable this feed | "Show this feed. Off, it draws nothing, and gains it would show are not watched for it." |
 | subgroup **Placement** | | | |
 | `slot` | string / Dropdown `C.TOAST_SLOT_LABEL` in `C.TOAST_SLOTS` order, solo | Screen slot | "One of nine places on screen; the nudge moves it from there. Picking a slot sets its growth direction and clears the nudge." `onChange` also `SetMany` `grow = C.TOAST_SLOT_GROW[v]`, `x = 0`, `y = 0` |
-| `x` / `y` | number, slider ±2000 step 1 | Nudge X / Nudge Y | "Pixels from the slot. Dragging the unlocked feed writes this." |
+| `x` / `y` | number, slider ±`C.TOAST_NUDGE_MAX` (600) step 1 | Nudge X / Nudge Y | "Pixels from the slot. Dragging the unlocked feed writes this." |
 | `grow` | string / Dropdown `C.TOAST_GROW_OPTIONS` | Grow | "Which way older toasts move as new ones arrive. The newest is always nearest the slot." |
 | `align` | string / Dropdown `C.TOAST_SIDE_OPTIONS` | Text alignment | "Left is the default. Right flips each line." |
 | `iconSide` | string / Dropdown `C.TOAST_SIDE_OPTIONS` | Icon side | "Left is the default." |
@@ -971,8 +980,8 @@ are sentence case (options-ui-§21).
 
 **Group `Style`**
 
-- subgroup **Background**: `O.ColorPair{ prefix = P, key = "bgColor", companionKey = "useClassColorBg", label =
-  "Background color", page = "Toasts", group = "Style", subgroup = "Background", defaults = <feed's>, extra = {
+- subgroup **Background**: `O.ColorPair{ prefix = P, key = "bgColor", omit = { useClassColorBg = true }` (the Feed
+  has no class fill, section 15.2)`, label = "Background color", page = "Toasts", group = "Style", subgroup = "Background", defaults = <feed's>, extra = {
   bgType (string Dropdown none/solid/gradient/texture, label "Type", disabledIf bgColorFromSkin), bgColor2 (color,
   "Gradient end color", shownWhen bgType == "gradient"), bgTexture (string `dialogControl =
   "Ka0sMedia_Background"`, values `O.LSMValues("background")`, "Texture", shownWhen bgType == "texture") } }`.
@@ -996,23 +1005,22 @@ smoothly when they move").
 **Group `Behavior`**: `shown` (1-10, "Shown at once"), `merge` (0-10 step 0.5, "Merge repeats within", "0
 turns merging off."), `showInCombat` (bool, "Show in combat", "Off: gains in combat wait and show when it ends."),
 `clickThrough` (bool, "Click-through in combat"), `pin` (bool, "Pin a row while hovered", "The whole feed holds
-still while the pointer is over it."). Then the subgroup **Hide Blizzard duplicates (all feeds)**, with the two
-page-wide rows (no `feed` stamp, drawn under every feed's Behavior tab):
+still while the pointer is over it."). Then the subgroup **Hide Blizzard alerts (all feeds)**, with the one
+page-wide row (no `feed` stamp, drawn under every feed's Behavior tab):
 
 | Path | Label | Tooltip |
 |---|---|---|
 | `settings.toasts.hideAlerts` | Loot and money alert toasts | "Hide the game's own loot and money pop-ups. Turned off, or with the addon disabled, they come back." |
-| `settings.toasts.hideChat` | Chat lines for loot, currency, money, XP, reputation and skill | "Hide your own lines of these kinds in chat, for each kind a feed shows. Loot History still records them: it reads the event, not the chat frame." |
 
-`NS.SchemaToasts.Rows()` answers `feedRows("main")`, `feedRows("progress")`, `feedRows("extra")` and the two
-page-wide rows, all in one array, and Schema.lua appends it. `NS.SchemaForPage`-style filtering is done in
+`NS.SchemaToasts.Rows()` answers `feedRows("main")`, `feedRows("progress")`, `feedRows("extra")` and the
+page-wide row, all in one array, and Schema.lua appends it. `NS.SchemaForPage`-style filtering is done in
 `PanelToasts` (rows of `page == "Toasts"` with `row.feed == nil or row.feed == selected`). The slash CLI reaches
 every row as an ordinary path, for example `/lh set settings.toasts.feeds.progress.enabled true`.
 
 ### 9.4 Counts
 
-Each feed emits about 74 rows (General 7, Content 21, Style 34, Motion 7, Behavior 5), so 222 across the three plus
-2 page-wide rows. `tests/test_panel_toasts.lua` pins the per-feed set by equality, not by a typed count: every feed
+Each feed emits about 73 rows (General 7, Content 21, Style 33, Motion 7, Behavior 5), so 219 across the three plus
+1 page-wide row. `tests/test_panel_toasts.lua` pins the per-feed set by equality, not by a typed count: every feed
 emits the same leaves in the same order. The Retail and Forever counts differ by the two appearance rows per feed.
 `tests/test_schema.lua`'s General `PARTITION` and row total do not change.
 
@@ -1030,67 +1038,57 @@ emits the same leaves in the same order. The Retail and Forever counts differ by
   while everything else is still up. `method("Progress", "Disable")` goes after M2's Appearance step.
   `method("Toasts", "Disable")` and `method("GainFeed", "Disable")` go after `method("Rollup", "Disable")`. The
   `UnregisterAllEvents` comment adds "Progress's five and Toasts' two".
-- `Toasts:Enable()`: the `__gain` target (GAIN), the `__ev` target (SETTINGS_CHANGED: `toasts`, `profile`,
-  `enabled`), `RefreshConfig`, `SyncRows`.
-- `Toasts:Disable()`: unregister both targets and the rows; for each feed clear the ticker
-  (`SetScript("OnUpdate", nil)`), `ReleaseAllKeyed` the rows, free the entries, hide the container, the handle and
-  the strip; clear `NS.State.toastUnlocked`.
-- `ToastBlizz:Enable()` runs `Apply()`. `ToastBlizz:Disable()` restores the alert events and removes every chat
-  filter.
+- `Toasts:Enable()`: builds the three feed instances once through `NS.NewFeed` (8.2), the `__gain` target (GAIN),
+  the `__ev` target (SETTINGS_CHANGED: `toasts`, `profile`, `enabled` → `RefreshConfig`, then each feed's
+  `Refresh()`), `SyncRows`.
+- `Toasts:Disable()`: unregister both targets and the rows; `Clear()` on each feed (every row released and hidden,
+  the waiting list emptied, the clock disarmed, hover and freeze cleared, the strip and the handle hidden, locked
+  again; Feed doc); wipe `NS.State.toastUnlocked`.
+- `ToastBlizz:Enable()` runs `Apply()`. `ToastBlizz:Disable()` restores the alert events.
 
 Disabled-state matrix (`docs/disabled-state.md`): with the addon disabled, no observer row is registered, no feed
-frame is shown, no OnUpdate runs, the Blizzard alerts and chat lines are the client's own, and the Toasts page
-renders under the library's disabled notice (`opts.disabledFor`, as General's tabs do).
+row is shown, every feed's `Stats().awake` is false (no OnUpdate runs), the Blizzard alerts are the client's own,
+and the Toasts page renders under the library's disabled notice (`opts.disabledFor`, as General's tabs do).
 
-### 10.2 Blizzard duplicates (`modules/ToastBlizz.lua`)
+### 10.2 Blizzard alerts (`modules/ToastBlizz.lua`)
+
+Chat-line hiding is out of scope (D25): no message filter, no global-string override, no `C.BLIZZ_CHAT_EVENTS`,
+no `hideChat` row.
 
 - `Apply()` is idempotent, called from `Enable`, from `GainFeed:Recompute` and on the reason `toasts`.
-  - `wantAlerts = settings.toasts.hideAlerts and GainFeed.on`. It is on → `Compat.SuppressAlertEvents(
-    C.BLIZZ_ALERT_EVENTS, self._suppressed)` when not yet suppressed; off → `Compat.RestoreAlertEvents(
-    self._suppressed)`.
-  - The chat filters: for each event of `C.BLIZZ_CHAT_EVENTS` in array order (§5's deterministic order), the
-    filter is added when `hideChat` and `GainFeed.toastWants[kindOf(event)]`, else removed. `_filters[event]`
-    tracks it, so add and remove are never doubled.
+  `wantAlerts = settings.toasts.hideAlerts and GainFeed.on`. On → `Compat.SuppressAlertEvents(C.BLIZZ_ALERT_EVENTS,
+  self._suppressed)` when not yet suppressed; off → `Compat.RestoreAlertEvents(self._suppressed)`.
 - `C.BLIZZ_ALERT_EVENTS = { "SHOW_LOOT_TOAST", "SHOW_LOOT_TOAST_UPGRADE", "SHOW_LOOT_TOAST_LEGENDARY_LOOTED" }`.
   Each name is verified at M3.6 (3.3), and one that AlertFrame does not register is skipped by the member.
-- `C.BLIZZ_CHAT_EVENTS = { { "CHAT_MSG_LOOT", "ITEM", "loot" }, { "CHAT_MSG_CURRENCY", "CURRENCY", "currency" },
-  { "CHAT_MSG_MONEY", "GOLD", "money" }, { "CHAT_MSG_COMBAT_XP_GAIN", "XP" }, { "CHAT_MSG_COMBAT_FACTION_CHANGE",
-  "REPUTATION" }, { "CHAT_MSG_SKILL", "SKILL" } }`.
-- **The filter**, one file-local function per parse kind: `function(_, _, msg) if NS.Compat.IsSecret(msg) then
-  return false end return NS.Util.ParseSelfLoot(msg) ~= nil end`. It does the same with `ParseSelfCurrency` and
-  `ParseSelfMoney`. It never hides a roll-won line or another player's line. XP, faction and skill lines are always
-  the player's own, so their filter returns true for a non-secret message. A filter returns only `true` or `false`.
-  It never edits the message (events-frames-taint-§5: never replace AddMessage).
-- **Restore.** Stand-down, the setting off, or the kind leaving every feed removes the filter.
-  `RemoveMessageGroup` is never used, so nothing is written to the player's saved chat setup, and an uninstall
-  leaves chat whole.
 - **Taint.** No Blizzard function is replaced and no Blizzard table is written. `AlertFrame:UnregisterEvent`/
-  `RegisterEvent` are frame method calls, which store no addon value on the frame. Section 15, X2, covers §5's
-  SHOULD.
+  `RegisterEvent` are frame method calls, which store no addon value on the frame.
 
 ### 10.3 Perf (performance-§2, §3)
 
 | Bucket | Bracketed | Notes |
 |---|---|---|
-| `gainSend` | `GainFeed:Send` | the bus fan-out, the receivers included |
-| `toastPaint` | `ToastRow.Paint` | the lazy GatherAll/GetItemExtras sit inside |
+| `gainSend` | `GainFeed:Send` | the bus fan-out, the receivers (and so every `Push`) included |
+| `toastPaint` | the `content` closure around `ToastContent.Content` | the lazy GatherAll/GetItemExtras sit inside; the Feed calls it on present, merge, repaint and settle, never per frame |
 | `xpEvent` | `Progress:OnXP` | |
 | `skillScan` | Progress's `scan` | |
 
-- The feed's OnUpdate is not bracketed per frame. Its cost is bounded (≤ 10 rows of arithmetic and SetAlpha) and
-  it is absent when idle. `tests/test_toast_feed.lua` pins that `OnUpdate` is nil on an idle feed.
+- The Feed's clock is not bracketed by the host. Its cost is the library's (an unparented frame, armed only while a
+  row needs a tick, Feed doc *Motion*). `tests/test_toast_feed.lua` pins `Stats().awake == false` on an idle feed
+  and after `Clear()`.
 - `tests/perf.lua` gains a scenario: 200 loot lines into one feed with merge on. The budget matches `lootLine`'s
   (the existing table in `docs/performance.md`).
-- `docs/combat-path-sweep.md` gains rows: the GAIN tap (one field test while off), `OnGain` (filter + merge, no
-  allocation on a merge, one pooled entry on a new toast), the paint (lazy prices), the ticker.
+- `docs/combat-path-sweep.md` gains rows: the GAIN tap (one field test while off), `OnGain` (filter, then `Push`:
+  no allocation on a merge, one payload table on a new toast), the content call (lazy prices), and a pointer to the
+  Feed's clock.
 
 ### 10.4 Taint and secrets
 
-- No secure frames and no protected calls. `EnableMouse` and `Show` on toast frames are legal in combat.
+- No secure frames and no protected calls. Everything the Feed calls on its frames is legal in combat (Feed doc
+  *Input*); `SetLocked(false)` is refused in combat by the library.
 - `HandleModifiedItemClick` and `DressUpItemLink` run from a click script, which is the normal insecure path.
 - Secrets: the chat guards (T11), `Compat.PlayerXP` (Forever's secret `UnitStat` family, `docs/forever-quirks.md:
-  100-112`), and every C read in 3.1. A secret is never a table key. Entry keys are built from numeric ids that
-  were already checked.
+  100-112`), and every C read in 3.1. A secret is never a table key. Feed keys are built from numeric ids that were
+  already checked, and the Feed never reads into a payload.
 
 ---
 
@@ -1104,7 +1102,6 @@ renders under the library's disabled notice (`opts.disabledFor`, as General's ta
 | Upgrade armour gate | `C.CLASS_ARMOR[classFile]` | the equipped piece's subclass |
 | XP | `UnitXP`/`UnitXPMax`/`UnitLevel`, max level `GetMaxPlayerLevel` | the same (present, kit lists); secrets guarded |
 | Alert suppression | AlertFrame events (verified M3.6) | presence-gated; FOREVER-T1 probes it |
-| Chat filters | `ChatFrameUtil.AddMessageEventFilter` or the global | the same resolution; FOREVER-T2 |
 | Currency cap | `maxQuantity` / `useTotalEarnedForMaxQty` | the same fields where present; nil → no ratio |
 
 `docs/ARCHITECTURE.md`'s per-client table (`:62`) gains these rows. `tests/test_client_shape.lua` checks that the
@@ -1137,8 +1134,8 @@ appearance rows are absent on Forever.
   when the session ends.
 - **Probe** (`modules/Probe.lua:50-56` `P.EVENTS`): append `PLAYER_XP_UPDATE`, `PLAYER_LEVEL_UP`,
   `SKILL_LINES_CHANGED` and `CHAT_MSG_SKILL`. Add a probe line for `AlertFrame` presence and which
-  `C.BLIZZ_ALERT_EVENTS` it registers, the chat-filter API name, `GetProfessionInfo`'s returns for each profession
-  (Retail), and `ListSkillLines` (Forever). `docs/forever-probes.md` lists FOREVER-T1 (alerts), T2 (chat filter),
+  `C.BLIZZ_ALERT_EVENTS` it registers, `GetProfessionInfo`'s returns for each profession
+  (Retail), and `ListSkillLines` (Forever). `docs/forever-probes.md` lists FOREVER-T1 (alerts),
   T3 (skill lines vs `C.PROFESSION_SKILL_LINES`) and T4 (XP reads plain in combat).
 
 ---
@@ -1157,31 +1154,37 @@ Characterization first. Every behaviour change gets a red case before its commit
 
 ### 13.2 New suites
 
+Host tests drive **live** Feed instances from the vendored major (the headless loader loads `LibKa0s.xml`). A case
+that steps the clock reaches the internal seam only after checking it exists (`if feed.__Step then
+feed:__Step(dt) end`, Feed doc *Instance members*); the Feed's own behaviour (phases, geometry, merge mechanics,
+pin) is the library's suite's, so host cases assert only what the host decides and what it passes in.
+
 | Suite | Cases |
 |---|---|
 | `test_gain_feed.lua` | GAIN sent only by GainFeed (a source scan: no other `SendMessage(NS.MSG.GAIN` in `modules/`); the scratch is the same table on every send, every field reset; `wants` from feed enabled × kinds, appearance gated by feature; `on` false → observers send nothing; a recorded chat gain posts no feed claim; a gated chat gain posts one when the ledger is on, none when off; a diff gain consumed by the feed claim sends nothing, a remainder sends `qty = rest`; HoldClaims across a 10 s combat deferral prevents a double toast; diff exclusions (holder ≠ me, HOLDER_MOVE reasons, UNTRACKED/forceReason, drift, silent, `dlt < 0`); `recorded` matches `RowAllowed`; `sim` flag; Disable clears everything; Recompute calls SyncCapture on the three observers and ToastBlizz:Apply |
 | `test_progress.lua` | `XPDelta` table (same level, one level up, two levels up reads short, level down, unseeded, zero); capped/max level → no send; secret read keeps the baseline and reseeds on regen; source QUEST (with detail) / KILL in combat / OTHER; skill first scan seeds only; Retail rise sends old/new/max; Forever dedupe of the pair, allowlist drops weapon skills, in-combat scan deferred to regen; rows registered only while wanted, per owner; Disable unregisters and resets |
-| `test_toast_model.lua` | `Accepts` matrix (kinds, minQuality items only, hideSources, losses refused except REPUTATION); keys per kind; merge inside and outside the window, merge 0 off, sums qty and value, restarts at `t = enter`, sets pulse, moves to index 1, stays put under freeze; appearance absorption both orders; cap colours at 69/70/89/90%; price lines for all five modes with and without AH, a recorded gain reuses `record.auctionPrice` (GatherAll not called); `Upgrade` matrix (armour type Retail/Forever, weapon subclass, two-slot lower, empty slot nil, Poor/Common rules, equal ilvl nil); `SlotOffset` for all nine slots; `NudgeFromRect` round-trips `SlotOffset` for all nine; `Layout` grow up/down offsets with mixed heights; `Advance` phase boundaries, pause, drop fade, pulse under pause; the entry pool reuses tables |
-| `test_toast_feed.lua` | container strata reads `C.LAYERS.STRATA.ALERT`; no SetFrameLevel call; new gain → one row, newest at index 1; a full feed drops the oldest; merge keeps the frame (same row object); right-click dismiss; shift/ctrl → `Compat.ModifiedLinkClick` called with the link; currency shift uses `CurrencyLink`; plain click → `B:ShowGain` (spy), not for XP/SKILL; left-click ignored while unlocked; pin freeze queues new gains and drains on leave; showInCombat off holds and drains at regen, capped at HOLD_MAX; clickThrough → EnableMouse(false) in combat on live and newly acquired rows, true after; OnUpdate nil on an idle feed and set while moving; test mode shows samples sticky with the amber strip and clears on off and on combat start; the Test act runs once and works on a disabled feed, refused in combat; the sim strip shows during a session; the unlocked empty feed shows samples and the handle; drag writes x/y via SetMany; Disable clears tickers, rows and handles; skin OnLooksChanged repaints live rows; a highlight sound plays once per SOUND_GAP |
-| `test_toast_blizz.lua` | suppress records only the registered events, restore re-registers exactly those in order; filters added in `C.BLIZZ_CHAT_EVENTS` order and removed; a loot filter hides a self line and passes another player's line and a roll-won line; a secret message passes; a kind no feed shows is not filtered (T8); setting off → removed; addon stand-down → restored and removed; no filter API → nothing raises |
-| `test_panel_toasts.lua` | banner lists three feeds, Add feed enables the next and selects it, prints when none left; the strip is General, Content, Style, Motion, Behavior; picking a feed keeps the tab; each tab draws only the selected feed's rows plus the two page-wide rows under Behavior; every feed emits the same leaves in the same order; every emitted path has a default in `defaults/Profile.lua` equal to the row's; every `FromSkin` companion defaults true; Reset style to skin sets exactly the companions; Reset feed resets only that feed; slot onChange sets grow and clears x/y; appearance rows absent on Forever; Defaults tooltip text |
+| `test_toast_model.lua` | `Accepts` matrix (kinds, minQuality items only, hideSources, losses refused except REPUTATION); keys per kind; `NewPayload` copies every needed field and never aliases the GAIN scratch, reuses a spare; `Merge` sums qty and value, refreshes the moving fields, keeps SKILL `old`, frees `new` and answers `old`; `Absorb` both orders through `Get`/`Repaint`/`Dismiss` on a live feed; `LayoutFor`/`MotionFor`/`StyleFor` map every leaf (grow case, `fade` → `fadeTime`, `merge` → `mergeWindow`, `rightDismiss` true, `settle`, `borderByQuality` → `borderTint`, the class toggles, `fontSizeFromSkin` false) and answer the same table each call; `C.TOAST_SLOTS`, `C.TOAST_NUDGE_MAX`, `C.TOAST_SHOWN_MAX` equal `NS.FeedLib.SLOTS`, `NUDGE_MAX`, `SHOWN_MAX` |
+| `test_toast_content.lua` | the spec per kind (icon, tint, badge, title and colours, count with nil `countColor`, prefix, the three lines, sub, highlight); cap colours at 69/70/89/90%; price lines for all five modes with and without AH, a recorded gain reuses `record.auctionPrice` (GatherAll not called), a repaint does not gather again; `Upgrade` matrix (armour type Retail/Forever, weapon subclass, two-slot lower, empty slot nil, Poor/Common rules, equal ilvl nil); the highlight order; kind colours from the owner token while FromSkin, the swatch otherwise; a raising read answers no line, never raises |
+| `test_toast_feed.lua` | three feeds built through `NS.NewFeed` with `owner = "LootHistory"`'s folder name and the descriptor fields of 8.2; a gain routes to each accepting feed only (`Visible()`); `"new"` plays the highlight sound once per SOUND_GAP, `"merged"` plays none; a `false` push frees the payload; `_Click`: shift/ctrl → `Compat.ModifiedLinkClick` with the link, currency shift uses `CurrencyLink`, plain left → `B:ShowGain` (spy), not for XP/SKILL; combat rows: regen-disabled locks every feed, sets click-through and `Hold()` per setting (`Stats().clickThrough`, `held`), regen-enabled releases; `SetUnlocked` refused in combat answers locked; unlocked empty feed previews samples, re-lock clears them; `_Moved` writes x/y via SetMany; test mode previews and sets the test strip, off and combat start clear; the Test act pushes once (non-sticky) and works on a disabled feed, refused in combat; the sim strip wins while a session runs; `SETTINGS_CHANGED` runs `Refresh()` on each feed (a getter call count); Disable `Clear()`s every feed (`Stats()` all zero, `awake` false); with `NS.NewFeed` answering `NS.FeedStub` (Feed absent) every path runs and nothing raises |
+| `test_toast_blizz.lua` | suppress records only the registered events, restore re-registers exactly those in order; setting off → restored; `GainFeed.on` false → restored; addon stand-down → restored; no AlertFrame → nothing raises |
+| `test_panel_toasts.lua` | banner lists three feeds, Add feed enables the next and selects it, prints when none left; the strip is General, Content, Style, Motion, Behavior; picking a feed keeps the tab; each tab draws only the selected feed's rows plus the page-wide row under Behavior; every feed emits the same leaves in the same order; every emitted path has a default in `defaults/Profile.lua` equal to the row's; every `FromSkin` companion defaults true; Reset style to skin sets exactly the companions; Reset feed resets only that feed; slot onChange sets grow and clears x/y; the nudge sliders span `±C.TOAST_NUDGE_MAX`; the enter dropdown values are the Feed's vocabulary; appearance rows absent on Forever; Defaults tooltip text |
 
 ### 13.3 Existing suites touched
 
-- `test_constants.lua`: pin `GAIN`'s wire string by driving `GainFeed:Send`. The `C.LAYERS` keys.
+- `test_libka0s.lua` (M3.3): *"the ten adopted majors all resolved, and the seams are wired to them"*, with
+  `LibKa0s-Feed-1.0` and the `NS.NewFeed`/`NS.FeedStub` asserts; `core/FeedSetup.lua` in the silent-flag paths.
+- `test_surface_parity.lua` (M3.3): the Feed instance parity pair (8.1).
+- `test_constants.lua`: pin `GAIN`'s wire string by driving `GainFeed:Send`.
 - `test_sim_seam.lua` / `test_compat_routing.lua`: section 3.2.
 - `test_dispatch.lua`: the SNAPSHOT/order gains the Progress and Toasts rows.
-- `test_disabled.lua`: stand-down → no Progress/Toasts rows, feeds hidden, Blizzard restored, `GainFeed.on`
-  false; stand-up → back.
+- `test_disabled.lua`: stand-down → no Progress/Toasts rows, every feed `Stats()` empty and asleep, Blizzard alerts
+  restored, `GainFeed.on` false; stand-up → back.
 - `test_perf.lua`: the four buckets; the `_lootLine` zero-overhead baseline with the feed off is unchanged.
 - `test_reputation.lua` / `test_appearance.lua` (M2): the SyncCapture matrix (switch × feed); the feed sees a rep
   loss with the ledger off and a muted source; appearance OUT never sends.
 - `test_sim.lua`: D.XP/D.Skill, INTERFERENCE, Prepare/stop reseed.
-- `test_surface_parity.lua`: `NS.MakeDragHandle`'s degraded nil path; the facade members used (`Shell`, `BarBorder`,
-  `HudFont`, `HudFontSize`, `FontFlags`, `HudTextColor`, `HudLabelColor`, `Token`, `Resolve`, `OnLooksChanged`) are
-  already in the stub (`core/SkinSetup.lua:605-617`).
-- `test_skin_values.lua` (kit): the `TOAST-STYLE` allow rows. `test_skin_switch.lua` (kit): declare the toast row
-  surface (a painted row under the probe skin must change bg, border, text and glow).
+- `test_skin_values.lua` (kit): the `TOAST-STYLE` allow rows. The rows are library-drawn, so no host
+  `test_skin_switch` surface is declared for them; the skin switch is the Feed's (`OnLooksChanged` → `RepaintAll`).
 - `test_schema.lua`: `COUNT_CLAIMS` for the doc row counts.
 - `test_client_shape.lua`: as section 11.
 - `test_browser*.lua`: `B:ShowGain` sets the search and the tab, and refuses while stood down.
@@ -1190,74 +1193,64 @@ Characterization first. Every behaviour change gets a red case before its commit
 
 ## 14. Doc updates
 
-- `docs/ARCHITECTURE.md`: the module map (GainFeed, Progress, Toast*, CompatGain); the per-client table (11); the
-  message bus table row for GAIN; the event subscriptions (Progress, Toasts rows); Frame layering (a pointer line,
-  ALERT); Taint notes (3.3 citations, 10.2); Documented deviations (X1, X2, when ratified); Known limitations (15.2);
-  the Documentation map entries for any new page.
+- `docs/ARCHITECTURE.md`: the module map (FeedSetup, GainFeed, Progress, ToastModel, ToastContent, ToastFeed,
+  ToastSample, ToastBlizz, CompatGain); the per-client table (11); the message bus table row for GAIN; the event
+  subscriptions (Progress, Toasts rows); Frame layering (a pointer line: the toast containers are LibKa0s-Feed-1.0's,
+  `STRATA` HIGH, library-owned); Taint notes (3.3 citations, 10.2); Known limitations (15.3); the Documentation map
+  entries for any new page. No Documented-deviations row (D24, D25 need none).
+- `docs/module-map.md`: `core/FeedSetup.lua` beside the other seams, and the LibKa0s paragraph's count of wired
+  majors (`Feed` joins the wired list; it leaves the "ship in the payload but are not wired" list's neighbours
+  alone) and the payload's major total, both re-counted against `libs/LibKa0s/LibKa0s.xml` at M3.3.
 - `docs/message-bus.md`: the table, the payload section, the private-target list (`GainFeed.__ev`,
   `Toasts.__gain`, `Toasts.__ev`), "observers call GainFeed" next to the Filters precedent (`:79-81`).
-- `docs/module-map.md`, `docs/data-flow.md` (the tap points of section 5, the feed claims, the T10 reorder),
-  `docs/schema.md` (the Toasts rows, how they are built per feed, the `feed` stamp), `docs/settings-panel.md` (the
-  Toasts page, banner, tabs, acts), `docs/disabled-state.md` (10.1), `docs/performance.md` and
+- `docs/data-flow.md` (the tap points of section 5, the feed claims, the T10 reorder), `docs/schema.md` (the Toasts
+  rows, how they are built per feed, the `feed` stamp, the leaf → Feed key map of 7.1), `docs/settings-panel.md`
+  (the Toasts page, banner, tabs, acts), `docs/disabled-state.md` (10.1), `docs/performance.md` and
   `docs/combat-path-sweep.md` (10.3), `docs/midnight-quirks.md:5` (LH now guards secret chat payloads; it still
-  holds no secret), `docs/forever-probes.md` (12), `docs/debug.md` (the Gain and Toast tags), `docs/browser.md`
+  holds no secret), `docs/forever-probes.md` (12), `docs/debug.md` (the `Gain` and `Feed` tags), `docs/browser.md`
   (ShowGain), `docs/smoke-tests.md` (TOAST-1..n: each kind on each client, slots and nudge, drag, merge/pulse, pin,
-  combat hold and click-through, clicks, every style override and Reset to skin under three skins, hide Blizzard on
-  and off and on disable, test mode, sim strip, Forever skill-ups and alert probe), `docs/test-cases.md` (regen),
-  `README.md` (features, the tests badge count).
+  combat hold and click-through, clicks, every style override and Reset to skin under three skins, hide alerts on
+  and off and on disable, test mode, sim strip, the degraded install with the Feed files removed, Forever skill-ups
+  and alert probe), `docs/test-cases.md` (regen), `README.md` (features, the tests badge count).
 
 ---
 
-## 15. Deviations to flag (the owner decides)
+## 15. Deviations
 
-### 15.1 Needs a ruling
+### 15.1 Rulings (closed)
 
-**X1. `library-stack-§7` / `anti-patterns #47`: the feed is not hosted on `LibKa0s-Toast-1.0`.** #47 forbids
-hand-rolling what a LibKa0s module provides (`standards/anti-patterns.md:53`; `standards/library-stack.md:339`),
-and Toast is "the alert-toast shell" (`library-stack.md:99`). T2 lists the six approved behaviours Toast v4 cannot
-meet: newest at the anchor, fade-out, pin in place, an exact countdown, merge without re-entering, smooth
-reposition. Three of them are impossible without a library change, which D1 rules out. Three ways forward:
-
-1. **Accepted deviation (the architect's recommendation).** Add a register row: `| library-stack-§7 (anti-patterns
-   #47) | The loot toast feeds (#38) are this addon's own frames (modules/ToastFeed.lua, ToastRow.lua) built on
-   LibKa0s Skin, Options composers, Pool, Media and Widgets, not LibKa0s-Toast-1.0 | Toast v4 shows the oldest at
-   the anchor, hides on expiry with no fade or hook, re-anchors hovered toasts, keeps its countdown private and has
-   no in-place update; the owner-approved feed (mockups v4) needs all six (spec M3 §1.1 T2) | <date> | Toast gains
-   newest-at-anchor, fade-out, an in-place update and a time-left read, or a second Ka0s addon needs a merging loot
-   feed (then promote the feed engine, library-stack-§7 bars). |`
-2. **A change to the standard.** A ruling that a merging, animated feed of rows is a different shape from a
-   one-payload alert shell, so #47 does not reach it. That is an upstream change to `library-stack.md`'s Toast row.
-3. **A Toast minor 5** (fade-out, an expire hook, a time-left read). This contradicts D1, and newest-at-head and pin
-   risk promotion bar 2. Not recommended for this run.
-
-M3.1 and M3.2 can proceed. **M3.3 waits for this ruling.** M3.2 records the decision as the register row (or the
-upstream link) in its commit.
-
-**X2. `events-frames-taint-§5`: chat hiding uses a message event filter, not a GLOBALSTRING override.** §5 says to
-prefer overriding the `_G` strings. Here that would break capture, because `core/Util.lua:223-228` compiles the
-loot patterns from those globals and `modules/SimDrivers.lua:14-16` formats lines from them. The filter keeps §5's
-MUSTs: it never replaces AddMessage, it registers in a fixed order, it passes secret messages through, it hides only
-the player's own lines, and it is removed on disable. Ruling needed: a register row (`| events-frames-taint-§5 |
-Hide chat duplicates (#38) via ChatFrame message event filters | the GLOBALSTRING override would change the strings
-the loot parser and the simulator compile from | <date> | the parser stops reading the globals |`), or an upstream
-note that §5's SHOULD yields where the addon parses those strings.
+- **X1 → D24.** The feed host is `LibKa0s-Feed-1.0`, promoted by the owner's ruling (Feed doc *Why this exists: the
+  promotion record*). Conformant under library-stack-§7; no register row. anti-pattern #47 is honoured by consuming
+  every Feed behaviour rather than rebuilding it, and by `NS.FeedStub` for the degraded install.
+- **X2 → D25.** Chat-line hiding is dropped, so events-frames-taint-§5 is not reached and no row is owed.
 
 ### 15.2 Recorded so a reviewer does not re-raise them (no ruling needed)
 
 - **options-ui-§13/§14 and the mockup's feed tabs.** The mockup's top strip becomes the banner picker (9.1). That
   is conformance, which is what D23's "No deviation" means.
-- **options-ui-§14, page-wide rows under one tab.** The two *Hide Blizzard duplicates (all feeds)* rows are drawn on
-  every feed's Behavior tab, under a heading that says "all feeds". They are not acts on the selected instance and
-  do not govern every tab, so the band rule does not take them. The mockup puts them there (`mockups.html:438`).
-- **N3, the glow (T6).** It is the host's edge pulse in the skin's `glow.color`. It does not adopt
-  `LibKa0s-Glow-1.0`, which needs `LibCustomGlow-1.0` vendored. Adopting it later is a library plus vendor
-  decision, and once adopted, this edge pulse is removed (library-stack-§7, a parallel copy is #47).
+- **options-ui-§14, a page-wide row under one tab.** The *Hide Blizzard alerts (all feeds)* row is drawn on every
+  feed's Behavior tab, under a heading that says "all feeds" (`mockups.html:438`).
+- **The glow (T6).** It is the Feed's ADD-blend edge in the skin's glow colour, not `LibKa0s-Glow-1.0` (which
+  needs `LibCustomGlow-1.0`); the Feed doc's *Style over the skin* records the same choice.
 - **skinning-§9 typed defaults.** The swatch defaults carry `TOAST-STYLE` allow rows. The kind colours are owner
   tokens.
-- **The M2 amendment (5.4).** Registration becomes "record switch **or** feed wants". That is a design change to
-  M2's §5, not a standards deviation, and #85 still holds.
-- **T10's attribution reorder** is a behaviour change, pinned by characterization tests.
-- **events-frames-taint-§9.** The Blizzard symbols are verified at M3.6 (3.3) and gated by presence until then.
+- **The M2 amendment (5.4)** and **T10's attribution reorder**: design changes pinned by tests, not deviations.
+- **events-frames-taint-§9.** The Blizzard alert symbols are verified at M3.6 (3.3) and gated by presence until then.
+- **Alignment choices made at M3.2** (each the smallest choice inside the standard and the Feed contract):
+  - Slot inset 20 px and nudge clamp ±600 are the Feed's (`SLOT_INSET`, `NUDGE_MAX`); the old 40 px and ±2000 are
+    gone, and the nudge sliders span ±600. Main's default nudge (-220, +180) is inside it.
+  - Pulse time 0.6 s, slide 0.15 s, drop fade 0.2 s and the waiting cap 10 are the Feed's defaults; the old
+    `C.TOAST_PULSE_TIME`, `C.TOAST_SLIDE_TIME`, `C.TOAST_DROP_FADE` and `C.TOAST_HOLD_MAX` (20) are not defined.
+    The drain shows only the newest `shown` anyway.
+  - `enter` is stored in the Feed's vocabulary (`"right"`, not `"slideRight"`), so the getter maps nothing.
+  - `fontShadow` is a bool (the Feed's key and FontGroup's toggle), not a colour.
+  - The background ColorPair omits its class-colour companion (`useClassColorBg`): the Feed's style has no class
+    fill, and a companion no reader resolves is a dead control (Options doc).
+  - `fontSizeFromSkin = false` is passed, so the stored sizes draw (font size stays a stored value).
+  - The handle label carries no TEST/SIM tag; the Feed stacks the strip beyond the handle instead.
+  - An appearance absorbed into its item repaints without a pulse (`Repaint` has none).
+  - A new toast's payload is collected, not pooled: Feed-1.0 has no close callback (LIBKA0S, a capability gap
+    the Feed doc lists under *What is not here*; re-check when a close-reason callback ships).
 
 ### 15.3 Known limitations (to record in ARCHITECTURE)
 
@@ -1268,7 +1261,7 @@ note that §5's SHOULD yields where the addon parses those strings.
 - A History click searches by name. The History view's other filters (character, date, direction, the default
   minimum-quality floor) can still hide the row.
 - Retail skill-ups on an expansion child line depend on what `GetProfessionInfo` reports (smoke probe).
-- With the addon disabled, nothing reaches the feeds.
+- With the addon disabled, nothing reaches the feeds. Without the Feed major, no toast draws (the stub).
 
 ---
 
@@ -1279,16 +1272,15 @@ repaired after each commit (plan `## Gate`).
 
 | Task | Contents |
 |---|---|
-| **M3.1** Gain feed | (a) Characterization tests (13.1). (b) `core/CompatGain.lua` (3.1), its TOC line, SimSeam classes, routing BANNED. (c) `C.GainKind`, `MSG.GAIN`, the `C.TOAST_*` constants used by GainFeed, `C.PROFESSION_SKILL_LINES`. (d) `modules/GainFeed.lua` with feed claims and Recompute. (e) The Collector taps, the secret guards, the T10 reorder (the flipped characterization cases). (f) The Reconciler `writeNet` tap, `RowAllowed`, HoldClaims. (g) M2's Reputation/Appearance taps and SyncCapture. (h) `modules/Progress.lua` (XP, skills), its rows, TOC, lifecycle steps, perf buckets `gainSend`/`xpEvent`/`skillScan`. (i) The sim providers, seeds, drivers, scenario steps, INTERFERENCE, Prepare/stop, probe events. (j) `settings.toasts` defaults (needed for `wants`). Tests: `test_gain_feed`, `test_progress`, `test_constants`, `test_dispatch`, `test_sim`, `test_reputation`, `test_appearance`. If this commit grows too large, split it into M3.1a (a-g, j) and M3.1b (h, i) |
-| **M3.2** Host decision | Record X1's ruling. When it is option 1, add the register row in `docs/ARCHITECTURE.md` and cite this spec's T2. A short `docs/` note keeps the spike findings (the Toast v4 limits with `Toast.lua` line anchors). No code. If the owner picks option 2 or 3, stop and re-plan M3.3-M3.5 against the ruling |
-| **M3.3** Feed engine | `modules/ToastModel.lua` (7.1-7.3, 7.5, 7.6), `modules/ToastFeed.lua` (8.1, 8.3, 8.5-8.7 without style), a minimal `ToastRow` (icon, title, count; the skin Shell), `C.LAYERS.ALERT` plus the header comment, `NS.MakeDragHandle`, `B:ShowGain`, lifecycle steps, the TOC lines. Tests: `test_toast_model` (keys, merge, geometry, phases), `test_toast_feed` (rows, clicks, pin, combat, unlock, Disable), `test_disabled`, `test_browser*` |
-| **M3.4** Row content | 7.4 in full: counts icons, cap colouring, price modes with lazy GatherAll, ilvl badge, upgrade rule, the highlights and sounds, per-kind lines (rep, XP, skill, appearance, money), absorb, the settle re-read, the `toastPaint` bucket. Tests: `test_toast_model` (content), `test_toast_feed` (sound gap, absorb) |
-| **M3.5** Style + motion | 8.2's style application (background, border precedence, fonts, kind colours via owner tokens), the skin repaint, enter fade and slide, hold/fade, pulse, the timer bar, smooth reposition, the glow. The `TOAST-STYLE` skin_values rows and the skin_switch surface. Tests: `test_toast_feed` (style, motion), the kit skin suites |
-| **M3.6** Settings, test, Blizzard | `settings/SchemaToasts.lua`, `settings/PanelToasts.lua`, the Schema.lua append, `P._makeMultiCheck`, page registration, the acts (Test, Unlock, Reset feed, Reset style to skin, Add feed), test mode wiring through `BrowserTable:SetTestMode`, `ToastSample`, the sim strip, `modules/ToastBlizz.lua`, the 3.3 verification with citations in Taint notes, the X2 row if ruled. Tests: `test_panel_toasts`, `test_toast_blizz`, `test_schema`, `test_client_shape`, `test_perf` (scenario) |
+| **M3.1** Gain feed | (a) Characterization tests (13.1). (b) `core/CompatGain.lua` (3.1), its TOC line, SimSeam classes, routing BANNED. (c) `C.GainKind`, `MSG.GAIN`, the `C.TOAST_*` constants used by GainFeed, `C.PROFESSION_SKILL_LINES`. (d) `modules/GainFeed.lua` with feed claims and Recompute. (e) The Collector taps, the secret guards, the T10 reorder (the flipped characterization cases). (f) The Reconciler `writeNet` tap, `RowAllowed`, HoldClaims. (g) M2's Reputation/Appearance taps and SyncCapture. (h) `modules/Progress.lua` (XP, skills), its rows, TOC, lifecycle steps, perf buckets `gainSend`/`xpEvent`/`skillScan`. (i) The sim providers, seeds, drivers, scenario steps, INTERFERENCE, Prepare/stop, probe events. (j) `settings.toasts` defaults as 9.2 (needed for `wants`). Tests: `test_gain_feed`, `test_progress`, `test_constants`, `test_dispatch`, `test_sim`, `test_reputation`, `test_appearance`. If this commit grows too large, split it into M3.1a (a-g, j) and M3.1b (h, i) |
+| **M3.2** Host alignment | Done: the host is LibKa0s-Feed-1.0 (D24); this spec aligned to its API. No code |
+| **M3.3** Feed seam + wiring | `core/FeedSetup.lua` (8.1: `NS.FeedLib`, `NS.NewFeed`, `NS.FeedStub`) and its TOC line; `test_libka0s` "nine" → "ten adopted majors" with the Feed asserts and the silent-flag path; the `test_surface_parity` instance pair; `modules/ToastModel.lua` (7.1 `Config`, `LayoutFor`, `MotionFor` (and a pass-through `StyleFor` of the stored leaves), 7.2 `Accepts`, 7.3 `Key`, `NewPayload`/`FreePayload`, `Merge`); a minimal `modules/ToastContent.lua` (`icon`, `tint`, `title`, `count`); `modules/ToastFeed.lua` (8.2 the three `NS.NewFeed` descriptors, 8.3 `OnGain` → `Push`, 8.5 `onClick` → `_Click` and the combat rows → `SetLocked(true)`/`SetClickThrough`/`Hold`/`Release`, 8.6 `SetLocked`/`onMoved`/`Preview` while unlocked, `Refresh` on SETTINGS_CHANGED, `Clear` on Disable); `B:ShowGain`; the lifecycle steps; the frame-layering pointer comment; the TOC lines. Tests: `test_toast_model` (filters, keys, payload, merge reducer, getters, constants vs `NS.FeedLib`), `test_toast_feed` (routing, clicks, combat, unlock, refresh, Disable, the stub path), `test_disabled`, `test_browser*`, docs/test-cases regen |
+| **M3.4** Row content | `modules/ToastContent.lua` in full (7.4): the spec's `badge`, `prefix`, `lines[1..3]`, `sub`, `highlight`; counts icons, cap colouring, price modes with lazy GatherAll cached on the payload, the upgrade rule, the per-kind lines (rep, XP, skill, appearance, money); `M.Absorb` through `Get`/`Repaint`/`Dismiss`; the highlight sounds on `Push == "new"` with `C.TOAST_SOUND_GAP`; `motion.settle = C.TOAST_COUNT_SETTLE` for the counts re-read; the `toastPaint` bracket around the `content` closure. Tests: `test_toast_content`, `test_toast_model` (absorb), `test_toast_feed` (sound gap, settle passes through `MotionFor`) |
+| **M3.5** Style + motion mapping | `M.StyleFor` complete (7.1: the background, border, font and text-colour keys, `borderTint` ← `borderByQuality`, `borderClass`, `fontClass`, `fontSizeFromSkin = false`) and `M.MotionFor` complete (enter vocabulary, `fadeTime`, `mergeWindow`, `pulse`, `timerBar`, `smooth`, `pin`, `rightDismiss`); the kind-colour owner tokens in `core/SkinSetup.lua` (8.4) and their use in `ToastContent`; the `TOAST-STYLE` skin_values rows. Nothing is drawn by the host: style application, the skin repaint, enter/fade/slide, hold/fade, pulse, the timer bar, smooth reposition and the glow are the Feed's. Tests: `test_toast_model` (every style/motion key from a fixture, FromSkin on and off), `test_toast_content` (kind colours), the kit `test_skin_values` |
+| **M3.6** Settings, test, Blizzard | `settings/SchemaToasts.lua` (9.3, leaves per 9.2, names read off the composers' emitted rows and fed back into 7.1's map), `settings/PanelToasts.lua`, the Schema.lua append, `P._makeMultiCheck`, page registration, the acts (Test → `Push(nil, p)`, Unlock → `SetUnlocked`, Reset feed, Reset style to skin, Add feed), test mode through `BrowserTable:SetTestMode` → `Preview`/`SetStrip("test")`, `ToastSample`, the sim strip → `SetStrip("sim")`, `modules/ToastBlizz.lua` (alerts only, 10.2), the 3.3 verification with citations in Taint notes, the perf scenario. Tests: `test_panel_toasts`, `test_toast_blizz`, `test_toast_feed` (test mode, Test act, sim strip), `test_schema`, `test_client_shape`, `test_perf` (scenario) |
 | **M3.7** Docs + review + push | Section 14 in full, the smoke rows, the test-cases regen, the README. A review-pass workflow and its fixes. Push M3. Do not merge |
 
 ## 17. Open questions for the owner
 
-Only the two rulings above (X1 before M3.3, X2 before M3.6) block the build. Every other choice is ruled in 1.1 and
-can be reversed cheaply: T4 (pin freezes the feed), T5 (a full feed drops the oldest), T7 (no default sounds) and
-T8 (chat hiding follows the shown kinds) are each one condition or one default.
+None block the build. Every choice is ruled in 1.1 or recorded in 15.2 and can be reversed cheaply: T5 (a full feed
+drops the oldest) is the Feed's only overflow policy, and T7 (no default sounds) is one default.
