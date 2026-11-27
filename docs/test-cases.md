@@ -2301,7 +2301,7 @@ Total.
 - SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
 - SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
 
-### test_sim_session.lua (26)
+### test_sim_session.lua (29)
 
 - Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
 - Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
@@ -2329,6 +2329,9 @@ Total.
 - Sim: Forget this character refuses while a simulation runs
 - Sim: the History row's Delete refuses while a simulation runs
 - Sim: a retention change that would prune refuses and keeps the confirmed value
+- Sim: a real FACTION_STANDING_CHANGED stops it (world), then runs live
+- Sim: a real appearance change stops it on Retail, then lands in the saved history
+- Sim: the start seeds the baseline from the world; the stop reseeds it from the live walk
 
 ### test_sim_world.lua (11)
 
@@ -2344,7 +2347,7 @@ Total.
 - SimWorld: a start seeds the session world from the fixture and the session seed
 - SimWorld: the holdings tooltip's and API's live reads stay real while a session runs (#34)
 
-### test_sim_drivers.lua (7)
+### test_sim_drivers.lua (11)
 
 - SimDrivers: a loot driver produces a line ParseSelfLoot accepts
 - SimDrivers: the currency and money lines parse
@@ -2353,6 +2356,10 @@ Total.
 - SimDrivers: hook drivers reach the HOOK_ROWS fns through deliver
 - SimDrivers: LOOT_OPENED carries the provider GUID kind (Creature/GameObject/Item)
 - SimDrivers: with no session a driver changes nothing and fires nothing
+- SimDrivers: Reputation moves the world's standing first, then fires FACTION_STANDING_CHANGED
+- SimDrivers: a renown faction raises its level on overflow and keeps the remainder (Retail's world)
+- SimDrivers: Reputation after a turn-in writes one session-only QUEST row
+- SimDrivers: Appearance is Retail's; it flips the world's collected flag, then fires ADDED or REMOVED
 
 ### test_sim_e2e.lua (17)
 
@@ -2807,9 +2814,9 @@ Total.
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 9 |
 | test_sim_seam.lua | 11 |
-| test_sim_session.lua | 26 |
+| test_sim_session.lua | 29 |
 | test_sim_world.lua | 11 |
-| test_sim_drivers.lua | 7 |
+| test_sim_drivers.lua | 11 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
 | test_sim_panel.lua | 30 |
@@ -2830,4 +2837,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2387** |
+| **Total** | **2394** |

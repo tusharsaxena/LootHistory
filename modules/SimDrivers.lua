@@ -271,6 +271,27 @@ function D.TradeAccept(target)
   return fire("TRADE_ACCEPT_UPDATE", 1, 1)
 end
 
+--- A faction's standing moves by `delta` (rep-appearance spec §3.8): the world first (a base
+--- faction's rank and label follow the bands, a renown level rises on overflow), then
+--- FACTION_STANDING_CHANGED(factionID, standing). A faction the world lacks fires nothing.
+function D.Reputation(factionID, delta)
+  local w = world()
+  local f = w and World.AddReputation(w, factionID, delta)
+  if not f then return 0 end
+  return fire("FACTION_STANDING_CHANGED", factionID, f.standing)
+end
+
+--- An appearance source is collected, or removed (a refund) with `removed`: the world's collected
+--- flag first, then TRANSMOG_COLLECTION_SOURCE_ADDED or _REMOVED(sourceID). Only where appearances
+--- are a feature (C.FEATURE.appearances, clients-§4): WoW Forever has no such driver.
+if NS.Constants.FEATURE.appearances then
+  function D.Appearance(sourceID, removed)
+    local w = world()
+    if not (w and World.SetAppearance(w, sourceID, not removed)) then return 0 end
+    return fire(removed and "TRANSMOG_COLLECTION_SOURCE_REMOVED" or "TRANSMOG_COLLECTION_SOURCE_ADDED", sourceID)
+  end
+end
+
 -- What the client fires once an interaction frame is up: the inbox and the owned list arrive.
 local FOLLOW_SHOW = { MailInfo = { "MAIL_INBOX_UPDATE" }, Auctioneer = { "OWNED_AUCTIONS_UPDATED" } }
 

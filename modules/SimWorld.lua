@@ -19,6 +19,10 @@ local _, NS = ...
 --   instance           { party, keystone, zone, subzone, mapID }
 --   combat, targeting  booleans     trade { target }, quest { id }, transfer { currencyID,
 --                                   quantity, toKey }, each nil when absent
+--   factions[id]       { name, repType, rank, standing, threshold, accountWide, label }, walked in
+--                      factionOrder (rep-appearance spec §3.8)
+--   appearances[src]   { item, visualID, collected } (Retail: C.FEATURE.appearances), the item a
+--                      fixture key
 --
 -- It is SEEDED, never mirrored: World.New reads no real bag, so a run is deterministic for its
 -- seed and never shows the player's own items inside a simulated history. The items and currencies
@@ -86,16 +90,26 @@ World.ITEMS = ITEM_SETS[CLIENT]
 --- are Honor Points and Merchant's Favor (the owner's own, both per character until a probe shows
 --- either is account-wide), its situation Stormwind City (uiMapID 1453, as the client reported it),
 --- and its epic is a belt, worn at the waist (slot 6).
+--- The factions (rep-appearance spec §3.8): { id, name, repType, rank, standing, threshold,
+--- accountWide }. Retail's are Stormwind and Booty Bay (base standings, absolute) and the Council of
+--- Dornogal (renown: the level's earned reputation and its threshold, warband-wide); WoW Forever
+--- answers base standings only, so its world holds the first two. The appearances are Retail's: two
+--- sources of one visual on the fixture's own items, neither collected, so the first one collected is
+--- a new look and the second is not. Fixtures like the items, not tools/seeds data.
 local FIXTURES = {
   retail = {
     equipped = { [13] = "trinket" },
     currencies = { { 3444, 100, 400, false }, { 3316, 500, 1500, true } },
     instance = { zone = "Silvermoon City", subzone = "The Bazaar", mapID = 2393 },
+    factions = { { 72, "Stormwind", "base", 5, 3000 }, { 21, "Booty Bay", "base", 4, 1500 },
+                 { 2590, "Council of Dornogal", "renown", 10, 500, 2500, true } },
+    appearances = { { 900001, "trinket", 800001 }, { 900002, "cache", 800001 } },
   },
   forever = {
     equipped = { [6] = "trinket" },
     currencies = { { 1792, 50, 400, false }, { 3402, 20, 200, false } },
     instance = { zone = "Stormwind City", subzone = "Trade District", mapID = 1453 },
+    factions = { { 72, "Stormwind", "base", 5, 3000 }, { 21, "Booty Bay", "base", 4, 1500 } },
   },
 }
 World.FIXTURE = {
@@ -265,6 +279,67 @@ function World.AddCurrency(w, id, delta)
   return World.SetCurrency(w, id, math.max(0, (c and c.quantity or 0) + delta), c and c.accountWide)
 end
 
+-- ── reputation and appearances (rep-appearance spec §3.8) ────────────────────────────────────
+
+-- The base reaction bands on the absolute standing scale, lowest first: { floor, rank, label }. A
+-- small static table: the world's own labels, as its item names are its own.
+local REP_BASE_BANDS = {
+  { -42000, 1, "Hated" }, { -6000, 2, "Hostile" }, { -3000, 3, "Unfriendly" }, { 0, 4, "Neutral" },
+  { 3000, 5, "Friendly" }, { 9000, 6, "Honored" }, { 21000, 7, "Revered" }, { 42000, 8, "Exalted" },
+}
+World.REP_BASE_BANDS = REP_BASE_BANDS
+
+local function baseBand(standing)
+  local rank, label = 1, REP_BASE_BANDS[1][3]
+  for _, b in ipairs(REP_BASE_BANDS) do
+    if standing >= b[1] then rank, label = b[2], b[3] end
+  end
+  return rank, label
+end
+
+local function labelOf(f)
+  if f.repType == "renown" then return ("Renown %d"):format(f.rank) end
+  local _, label = baseBand(f.standing)
+  return label
+end
+
+--- Add a faction to the world, at the end of the walk order.
+function World.AddFaction(w, id, name, repType, rank, standing, threshold, accountWide)
+  local f = { name = name, repType = repType, rank = rank, standing = standing, threshold = threshold,
+    accountWide = accountWide == true or nil }
+  if repType ~= "renown" then f.rank = baseBand(standing) end
+  f.label = labelOf(f)
+  if not w.factions[id] then w.factionOrder[#w.factionOrder + 1] = id end
+  w.factions[id] = f
+  return f
+end
+
+--- Move a faction's standing by `delta`. A base or friendship faction is absolute: its rank and label
+--- follow the bands. A renown faction raises its level on overflow and keeps the remainder (renown
+--- never falls). Answers the faction, or nil when the world has none of that id.
+function World.AddReputation(w, id, delta)
+  local f = w.factions[id]
+  if not f then return nil end
+  f.standing = f.standing + delta
+  if f.repType == "renown" then
+    f.standing = math.max(0, f.standing)
+    while f.threshold and f.threshold > 0 and f.standing >= f.threshold do
+      f.standing, f.rank = f.standing - f.threshold, f.rank + 1
+    end
+  else
+    f.rank = baseBand(f.standing)
+  end
+  f.label = labelOf(f)
+  return f
+end
+
+--- Mark an appearance source collected (or not). Answers the source, or nil when the world has none.
+function World.SetAppearance(w, sourceID, collected)
+  local a = w.appearances[sourceID]
+  if a then a.collected = collected == true end
+  return a
+end
+
 function World.OpenLoot(w, guid, n) w.loot = { guid = guid, n = n or 1 } end
 function World.CloseLoot(w) w.loot = nil end
 function World.SetCombat(w, on) w.combat = on == true end
@@ -368,6 +443,7 @@ local function emptyWorld(fixture, seed)
   return {
     seed = seed, items = fixture.items, bags = {}, bank = {}, tabs = {}, sizes = {}, equipped = {},
     money = 0, warbandMoney = 0, currencies = {}, inbox = {}, owned = {},
+    factions = {}, factionOrder = {}, appearances = {},
     instance = { party = false, zone = inst.zone or "", subzone = inst.subzone or "", mapID = inst.mapID },
     combat = false, targeting = false,
   }
@@ -386,6 +462,16 @@ local function stock(w, rng, where, list)
   for _, row in ipairs(list or {}) do World.AddItem(w, where, row[1], rng(row[2], row[3] or row[2])) end
 end
 
+-- The factions, and where appearances are a feature (C.FEATURE.appearances) the appearance sources,
+-- from the fixture or else the default one. Neither draws from the seed.
+local function seedProgress(w, fixture)
+  for _, f in ipairs(fixture.factions or World.FIXTURE.factions or {}) do World.AddFaction(w, unpack(f)) end
+  if not NS.Constants.FEATURE.appearances then return end
+  for _, a in ipairs(fixture.appearances or World.FIXTURE.appearances or {}) do
+    w.appearances[a[1]] = { item = a[2], visualID = a[3], collected = false }
+  end
+end
+
 --- A fresh world for `fixture` (default World.FIXTURE) and `seed`: the same pair always builds the
 --- same world. Reads nothing from the client but the item specs' own data.
 function World.New(fixture, seed)
@@ -401,6 +487,7 @@ function World.New(fixture, seed)
     w.equipped[slot] = { itemID = spec.id, link = World.Link(spec) }
   end
   for _, c in ipairs(fixture.currencies or {}) do World.SetCurrency(w, c[1], rng(c[2], c[3] or c[2]), c[4]) end
+  seedProgress(w, fixture)
   return w
 end
 
@@ -478,6 +565,40 @@ local function slotHasLoot(w, bag, slot)
   return (b and b[slot] and b[slot].hasLoot) == true
 end
 
+-- Compat.FactionSnapshot's values for a world faction, or nothing.
+local function factionSnapshot(w, id)
+  local f = w.factions[id]
+  if not f then return nil end
+  return f.name, f.repType, f.rank, f.standing, f.threshold, f.paragon, f.accountWide, f.label
+end
+
+-- Compat.ListFactions' rows, in the world's walk order. The GUARDED fallback is never reached.
+local function listFactions(w)
+  local out = {}
+  for _, id in ipairs(w.factionOrder) do
+    local f = w.factions[id]
+    out[#out + 1] = { id = id, name = f.name, repType = f.repType, rank = f.rank, standing = f.standing,
+      threshold = f.threshold, paragon = f.paragon, accountWide = f.accountWide, label = f.label }
+  end
+  return out
+end
+
+-- Compat.AppearanceSource's values for a world source: its fixture item, its link and its visual.
+local function appearanceSource(w, sourceID)
+  local a = w.appearances[sourceID]
+  local spec = a and World.Spec(w, a.item)
+  if not spec then return nil end
+  return spec.id, World.Link(spec), spec.name, spec.quality, a.visualID, nil
+end
+
+-- Compat.IsNewLook: true when no other world source of the visual is collected.
+local function isNewLook(w, visualID, sourceID)
+  for id, a in pairs(w.appearances) do
+    if id ~= sourceID and a.visualID == visualID and a.collected then return false end
+  end
+  return true
+end
+
 -- Each fn(world, ...) answers what the client would; the order is req §2.2's.
 local PROVIDERS = {
   { "GetContainerNumSlots", function(w, bagID) return w.sizes[bagID] or 0 end },
@@ -510,7 +631,15 @@ local PROVIDERS = {
   -- The guard's first-visit tab count: unknown in the world, so a simulated first visit is never
   -- held by the real account's purchased tabs.
   { "NumPurchasedBankTabs", function() return nil end },
+  -- Reputation (both clients) and appearances (Retail only, C.FEATURE.appearances), rep-appearance
+  -- spec §3.8: the world's factions and sources, never the player's.
+  { "FactionSnapshot", factionSnapshot },
+  { "ListFactions", listFactions },
 }
+if NS.Constants.FEATURE.appearances then
+  PROVIDERS[#PROVIDERS + 1] = { "AppearanceSource", appearanceSource }
+  PROVIDERS[#PROVIDERS + 1] = { "IsNewLook", isNewLook }
+end
 
 --- The provided keys, in registration order.
 World.PROVIDED = {}

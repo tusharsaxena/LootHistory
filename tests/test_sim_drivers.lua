@@ -289,3 +289,68 @@ test("SimDrivers: with no session a driver changes nothing and fires nothing", f
   assertEqual(D.LootOpened("Creature", 1, 1), 0)
   assertEqual(Host.world, nil)
 end)
+
+-- ── reputation and appearances (rep-appearance spec §3.8) ────────────────────────────────────
+
+test("SimDrivers: Reputation moves the world's standing first, then fires FACTION_STANDING_CHANGED", function()
+  withSession(function(record)
+    local w = Host.world
+    assertEqual(D.Reputation(72, 250) > 0, true, "the reputation owner heard it")
+    local ev = first(record, "FACTION_STANDING_CHANGED")
+    assertTrue(ev ~= nil, "FACTION_STANDING_CHANGED fired")
+    assertEqual(ev.args[1], 72); assertEqual(ev.args[2], 3250, "the payload carries the new standing")
+    assertEqual(w.factions[72].standing, 3250); assertEqual(w.factions[72].label, "Friendly")
+    D.Reputation(72, 6000)
+    assertEqual(w.factions[72].rank, 6, "a base faction's rank follows the bands")
+    assertEqual(w.factions[72].label, "Honored")
+    D.Reputation(21, -1600)
+    assertEqual(w.factions[21].rank, 3, "a loss below 0 is Unfriendly"); assertEqual(w.factions[21].standing, -100)
+    local n = #record
+    assertEqual(D.Reputation(99999, 10), 0, "a faction the world lacks fires nothing")
+    assertEqual(#record, n)
+  end)
+end)
+
+test("SimDrivers: a renown faction raises its level on overflow and keeps the remainder (Retail's world)", function()
+  withSession(function()
+    local f = Host.world.factions[2590]
+    if T.forever then assertEqual(f, nil, "WoW Forever's world holds base factions only"); return end
+    assertEqual(f.rank, 10); assertEqual(f.standing, 500)
+    D.Reputation(2590, 2300)
+    assertEqual(f.rank, 11); assertEqual(f.standing, 300); assertEqual(f.label, "Renown 11")
+  end)
+end)
+
+test("SimDrivers: Reputation after a turn-in writes one session-only QUEST row", function()
+  local saved = #NS.db.global.history
+  withSession(function()
+    D.QuestTurnedIn(84000, 0, 0)
+    D.Reputation(72, 250)
+    local rows = NS.SimStores.history
+    local rep
+    for _, r in ipairs(rows) do if r.kind == "REPUTATION" then rep = r end end
+    assertTrue(rep ~= nil, "the session history holds the reputation row")
+    assertEqual(rep.source, "QUEST"); assertEqual(rep.quantity, 250); assertEqual(rep.factionID, 72)
+    assertEqual(rep.sourceDetail and rep.sourceDetail.questID, 84000)
+  end)
+  assertEqual(#NS.db.global.history, saved, "the saved history is untouched")
+end)
+
+test("SimDrivers: Appearance is Retail's; it flips the world's collected flag, then fires ADDED or REMOVED", function()
+  if not NS.Constants.FEATURE.appearances then
+    assertEqual(D.Appearance, nil, "no appearance driver where appearances are not a feature")
+    return
+  end
+  withSession(function(record)
+    local src = World.FIXTURE.appearances[1][1]
+    D.Appearance(src)
+    assertEqual(Host.world.appearances[src].collected, true)
+    assertEqual(first(record, "TRANSMOG_COLLECTION_SOURCE_ADDED").args[1], src)
+    D.Appearance(src, true)
+    assertEqual(Host.world.appearances[src].collected, false)
+    assertEqual(first(record, "TRANSMOG_COLLECTION_SOURCE_REMOVED").args[1], src)
+    local n = #record
+    assertEqual(D.Appearance(12345), 0, "a source the world lacks fires nothing")
+    assertEqual(#record, n)
+  end)
+end)

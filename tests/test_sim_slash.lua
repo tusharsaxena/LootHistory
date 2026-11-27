@@ -123,7 +123,8 @@ test("sim slash: start, step, run, pause, resume, status, restart and stop each 
     M.__resetPrinted()
     slash("sim status")
     assertPrinted("Simulation: loot, seed ")
-    assertPrinted("step 3 of 3, finished.")
+    -- The loot scenario's appearance step is Retail's (C.FEATURE.appearances).
+    assertPrinted(NS.Constants.FEATURE.appearances and "step 4 of 4, finished." or "step 3 of 3, finished.")
     slash("sim restart")
     assertTrue(Sim:IsActive(), "restart")
     assertEqual(Sim:Status().pos, 0)

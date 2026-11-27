@@ -143,6 +143,9 @@ function OPS.buy(index, key, qty, price) return D.Buy(index, key, qty, price) en
 function OPS.warbandGold(copper) return D.WarbandGold(copper) end
 function OPS.auctionBuy(key, qty, price) return D.AuctionBuy(key, qty, price) end
 function OPS.questReward(questID, choice, copper) return D.QuestReward(questID, choice, 1000, copper) end
+function OPS.reputation(factionID, delta) return D.Reputation(factionID, delta) end
+-- Retail only (C.FEATURE.appearances): the driver, and so the op, exist only there.
+if D.Appearance then function OPS.appearance(sourceID, removed) return D.Appearance(sourceID, removed) end end
 
 --- Use a bag item: `effect` as D.UseItem takes it (sell, consume).
 function OPS.use(key, effect)
@@ -252,6 +255,10 @@ end
 -- ── the scenarios (req-lh-sim §7) ────────────────────────────────────────────────────────────
 
 local CREST = World.FIXTURE.currencies[1][1]
+-- The faction the quest's reputation lands on (Stormwind, on both clients) and the trinket's
+-- appearance source (Retail's world only).
+local REP_FACTION = World.FIXTURE.factions[1][1]
+local LOOK_SOURCE = World.FIXTURE.appearances and World.FIXTURE.appearances[1][1]
 local B1, B2 = KEY.bosses[1], KEY.bosses[2]
 local NPC = World.KILL_NPC
 
@@ -275,9 +282,20 @@ STEPS.loot = {
     { L["hook:UseContainerItem on a lootable slot"], L["Two pushed CHAT_MSG_LOOT lines"] },
     { { "use", "cache" }, { "loot", "herb", 2, { form = "pushed" } }, { "loot", "dust", 1, { form = "pushed" } } }),
   step("quest", L["Quest: turn in"],
-    { L["hook:GetQuestReward, QUEST_TURNED_IN with money"], L["The reward's pushed CHAT_MSG_LOOT line"] },
-    { { "questReward", 84000, 2, 9000 }, { "loot", "trinket", 1, { form = "pushed" } } }),
+    { L["hook:GetQuestReward, QUEST_TURNED_IN with money"], L["The reward's pushed CHAT_MSG_LOOT line"],
+      L["FACTION_STANDING_CHANGED: the quest's reputation"] },
+    { { "questReward", 84000, 2, 9000 }, { "loot", "trinket", 1, { form = "pushed" } },
+      { "reputation", REP_FACTION, 250 } }),
 }
+-- The appearance step only where appearances are a feature (C.FEATURE.appearances, clients-§4): the
+-- trinket's look joins the collection while a corpse's loot window is open, so the source read
+-- (Attribution:Peek, never spent) answers KILL from the window, and it is a new look (rep-appearance
+-- spec §3.8). The window carries no loot line of its own: the step writes the appearance row alone.
+if OPS.appearance then
+  STEPS.loot[#STEPS.loot + 1] = step("appearance", L["Appearance: collect %s"]:format(World.ITEMS.trinket.name),
+    { L["LOOT_OPENED (Creature GUID)"], L["TRANSMOG_COLLECTION_SOURCE_ADDED while the window is open"] },
+    { { "lootOpened", "Creature", NPC.id, 1 }, { "appearance", LOOK_SOURCE }, { "lootClosed" } })
+end
 
 STEPS.key = {
   step("zone", L["Enter: %s"]:format(KEY.zone), { L["ZONE_CHANGED_NEW_AREA into a party instance"] },

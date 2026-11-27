@@ -26,7 +26,13 @@ local REQ_KEYS = {
   "ContainerItemHasLoot", "IsSpellTargeting", "CurrentQuestID", "GetActiveKeystoneLevel", "InPartyInstance",
   "InCombatLockdown", "TradeTargetKey", "LatestCurrencyTransfer", "NumLootItems", "LootSourceGUID", "Zone",
   "PlayerMapID", "CanViewCharacterBank", "NumPurchasedBankTabs",
+  -- The reputation reads (rep-appearance spec §3.8), and Retail's appearance reads after them.
+  "FactionSnapshot", "ListFactions",
 }
+if NS.Constants.FEATURE.appearances then
+  REQ_KEYS[#REQ_KEYS + 1] = "AppearanceSource"
+  REQ_KEYS[#REQ_KEYS + 1] = "IsNewLook"
+end
 
 -- A stable text for any value, tables walked with sorted keys.
 local function ser(v)
@@ -191,7 +197,7 @@ end)
 local ARGS = {
   GetContainerNumSlots = { 0 }, GetContainerSlot = { 0, 1 }, GetInventoryItem = { 13 },
   GetMailHeader = { 1 }, ItemLocationID = { { bagID = 0, slotIndex = 1 } }, ContainerItemHasLoot = { 0, 1 },
-  LootSourceGUID = { 1 },
+  LootSourceGUID = { 1 }, FactionSnapshot = { 72 }, AppearanceSource = { 900001 }, IsNewLook = { 800001, 900001 },
 }
 
 local function shapeWorld(w)
@@ -210,6 +216,10 @@ local function shapeWorld(w)
   w.transfer = { currencyID = 3008, quantity = 1, toKey = ALT }
   w.loot = { guid = "Creature-0-3767-2552-11111-1234-0000ABCDEF", n = 2 }
   w.canViewBank = false                                   -- the live mock answers true
+  w.factions, w.factionOrder = {}, {}
+  World.AddFaction(w, 72, "Stormwind", "base", 5, 3500)
+  w.appearances = { [900001] = { item = "trinket", visualID = 800001, collected = true },
+                    [900002] = { item = "cache", visualID = 800001, collected = true } }
 end
 
 local WORLD_ANSWERS = {
@@ -230,6 +240,11 @@ local WORLD_ANSWERS = {
   NumLootItems = "{1=2,n=1}", LootSourceGUID = '{1="Creature-0-3767-2552-11111-1234-0000ABCDEF",n=1}',
   Zone = '{1="Z",2="S",n=2}', PlayerMapID = "{1=77,n=1}", CanViewCharacterBank = "{1=false,n=1}",
   NumPurchasedBankTabs = "{n=1}",
+  FactionSnapshot = '{1="Stormwind",2="base",3=5,4=3500,8="Friendly",n=8}',
+  ListFactions = '{1={1={id=72,label="Friendly",name="Stormwind",rank=5,repType="base",standing=3500}},n=1}',
+  AppearanceSource = '{1=' .. World.ITEMS.trinket.id .. ',2="' .. World.Link(World.ITEMS.trinket) .. '",3="'
+    .. World.ITEMS.trinket.name .. '",4=4,5=800001,n=6}',
+  IsNewLook = "{1=false,n=1}",
 }
 
 local function answers()
@@ -254,7 +269,10 @@ test("SimWorld: every provider answers from the world while active and live when
     end
     local live = NS.SimSeam:Live(answers)
     for _, key in ipairs(REQ_KEYS) do
-      if key ~= "ListCurrencies" then assertEqual(live[key], idle[key], key .. " answers live inside Live") end
+      -- The two GUARDED walks answer the world even inside Live: they never touch the client's headers.
+      if key ~= "ListCurrencies" and key ~= "ListFactions" then
+        assertEqual(live[key], idle[key], key .. " answers live inside Live")
+      end
     end
   end)
   local after = answers()

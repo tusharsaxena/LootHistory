@@ -32,6 +32,7 @@ local EXPECT = {
     "IN ITEM:237359 x3 KILL @me",
     "IN ITEM:273796 x1 QUEST @me",
     "IN ITEM:4865 x1 KILL @me",
+    "IN REPUTATION x250 QUEST @me",
     "OUT ITEM:279287 x1 OTHER @me",
   },
   key = {
@@ -108,6 +109,7 @@ local EXPECT_NO_LEDGER = {
     "IN ITEM:236761 x2 CONTAINER @me",
     "IN ITEM:237359 x3 KILL @me",
     "IN ITEM:273796 x1 QUEST @me",
+    "IN REPUTATION x250 QUEST @me",
   },
   key = {
     "IN CURRENCY:3444 x15 MPLUS @me",
@@ -118,6 +120,11 @@ local EXPECT_NO_LEDGER = {
     "IN ITEM:273796 x1 KILL @me",
   },
 }
+-- The loot scenario's appearance step is Retail's (C.FEATURE.appearances): one IN row, sorted first.
+if NS.Constants.FEATURE.appearances then
+  table.insert(EXPECT.loot, 1, "IN APPEARANCE x1 KILL @me")
+  table.insert(EXPECT_NO_LEDGER.loot, 1, "IN APPEARANCE x1 KILL @me")
+end
 
 -- The pins above name Retail's fixture ids; every scenario plays the same steps on both clients, so
 -- on WoW Forever each id reads as that client's item or currency of the same fixture key (LH-05,
@@ -228,6 +235,15 @@ local CHECKS = {
       assertEqual(r.sourceDetail and r.sourceDetail.npcID, World.KILL_NPC.id, "loot: " .. line .. " carries the npcID")
     end
     assertEqual(find(rows, "IN ITEM:273796 x1 QUEST @me").sourceDetail.questID, 84000, "loot: the quest id")
+    -- The quest's reputation: Stormwind, QUEST from the turn-in's stamp, CERTAIN, with its quest id.
+    local rep = find(rows, "IN REPUTATION x250 QUEST @me")
+    assertEqual(rep.factionID, 72); assertEqual(rep.confidence, "CERTAIN")
+    assertEqual(rep.sourceDetail and rep.sourceDetail.questID, 84000, "loot: the reputation's quest id")
+    if NS.Constants.FEATURE.appearances then
+      local look = find(rows, "IN APPEARANCE x1 KILL @me")
+      assertEqual(look.itemID, World.ITEMS.trinket.id); assertEqual(look.newLook, true, "loot: the first source is a new look")
+      assertEqual(look.confidence, "INFERRED")
+    end
   end,
   key = function(rows)
     for _, line in ipairs({ "IN ITEM:273796 x1 KILL @me", "IN ITEM:237359 x2 KILL @me" }) do

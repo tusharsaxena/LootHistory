@@ -13,10 +13,12 @@
 -- slots with nothing changed (about 547 per slot, the snapshot the diff reads), behind the debounce
 -- and never in combat, so its ceiling is that work plus 5%. Raise one only by re-measuring and saying
 -- why beside it; a rise is the finding.
+-- repUnchanged (scenario 6, rep-appearance spec §3.4) is the fourth zero: a reputation event that
+-- changes nothing allocates nothing.
 local BYTE_CEILING = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBagUpdate = 0,
-                       reconcileCleanBags = 124000 }
+                       reconcileCleanBags = 124000, repUnchanged = 0 }
 local SCANS_PER_ITER = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBagUpdate = 0,
-                         reconcileCleanBags = 1 }
+                         reconcileCleanBags = 1, repUnchanged = 0 }
 -- RECORDED, NOT GATED (spec docs/superpowers/specs/2026-11-27-34-tooltip-holdings-design.md, 9.2):
 -- the holdings tally over a 200-holder store, cold (a cache miss per call) and warm, and the
 -- tooltip block's replay path. They carry no ceiling; the headless suite pins the replay's zero
@@ -151,6 +153,19 @@ measure("tooltipBlockReplay", 1000, function()
   for i = 1, #cleared do cleared[i](tip) end
   NS.HoldingsTip.OnTooltip(tip, tipData, 1)
 end)
+
+-- Scenario 6 — an unchanged FACTION_STANDING_CHANGED (rep-appearance spec §3.4): a snapshot is
+-- values, the delta is pure and the faction's baseline entry already exists, so the capture
+-- allocates nothing. The client double answers one cached table (the real client builds a fresh
+-- one), so the bytes counted are the capture's own Lua. The first call is the faction's seed.
+local FACTION = { factionID = 72, name = "Stormwind", reaction = 5, currentStanding = 3000 }
+local savedRep = mocks.C_Reputation
+mocks.C_Reputation = { GetFactionDataByID = function() return FACTION end }
+NS.Reputation:ResetState()
+NS.Reputation:OnStandingChanged(nil, 72)
+measure("repUnchanged", 2000, function() NS.Reputation:OnStandingChanged(nil, 72) end)
+mocks.C_Reputation = savedRep
+NS.Reputation:ResetState()
 
 local function gate(r)
   local ceiling, want = BYTE_CEILING[r.name], SCANS_PER_ITER[r.name]

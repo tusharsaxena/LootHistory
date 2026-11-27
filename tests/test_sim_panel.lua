@@ -106,6 +106,13 @@ test("sim panel: anchorTo is the History window while it is shown, else nil (the
   end)
 end)
 
+-- The loot scenario's Retail-only appearance step (rep-appearance spec §3.8, C.FEATURE.appearances):
+-- one more row in the panel and one more step in the count there.
+local LOOKS = NS.Constants.FEATURE.appearances
+local LOOK_LABEL = LOOKS and ("Appearance: collect " .. Host.World.ITEMS.trinket.name .. "|") or ""
+local LOOK_STATE = LOOKS and "locked," or ""
+local LOOT_STEPS = LOOKS and 4 or 3
+
 -- ── rows ─────────────────────────────────────────────────────────────────────────────────────
 
 test("sim panel: idle, the rows preview the picked scenario's steps with their commands and tips", function()
@@ -116,8 +123,8 @@ test("sim panel: idle, the rows preview the picked scenario's steps with their c
     local r = Sim:PanelRows()
     -- The kill is the client's own creature (LH-05: Retail's Rookery Bat, WoW Forever's Defias Thug).
     assertEqual(labels(r), "Start: Open world: kill, lockbox, quest|Kill: " .. Host.World.KILL_NPC.name .. "|"
-      .. "Lockbox: open " .. Host.World.ITEMS.cache.name .. "|Quest: turn in|Stop simulation")
-    assertEqual(states(r), "ready,locked,locked,locked,locked")
+      .. "Lockbox: open " .. Host.World.ITEMS.cache.name .. "|Quest: turn in|" .. LOOK_LABEL .. "Stop simulation")
+    assertEqual(states(r), "ready,locked,locked,locked," .. LOOK_STATE .. "locked")
     assertEqual(r[1].command, "/lh sim start loot")
     assertEqual(r[2].command, "/lh sim step")
     assertEqual(r[#r].command, "/lh sim stop")
@@ -132,11 +139,11 @@ end)
 test("sim panel: the rows track the timeline, and a run step's tip names the rows it recorded", function()
   clean(function()
     start("loot")
-    assertEqual(states(Sim:PanelRows()), "done,ready,locked,locked,cancel")
+    assertEqual(states(Sim:PanelRows()), "done,ready,locked,locked," .. LOOK_STATE .. "cancel")
     assertTrue(Sim:Step() ~= nil, "the first step plays")
     assertTrue(until_(H.settled), "the ledger settles")
     local r = Sim:PanelRows()
-    assertEqual(states(r), "done,done,ready,locked,cancel")
+    assertEqual(states(r), "done,done,ready,locked," .. LOOK_STATE .. "cancel")
     local tip = tipText(r[2].tip)
     assertTrue(tip:find("Recorded: 4 rows", 1, true) ~= nil, "the kill recorded four rows: " .. tip)
     assertTrue(tip:find("x3 (Kill)", 1, true) ~= nil, "a recorded row names its quantity and source: " .. tip)
@@ -345,9 +352,10 @@ test("sim marker: while a session runs the window wears the sim strip and the fo
       assertEqual(paneTop(pane), base[name] - stripH, name .. " pane moves down by the strip's BodyOffset")
     end
     rawset(f.simStrip, "GetHeight", nil)
-    assertEqual(B._footer:GetText():match("^Simulating: loot \194\183 step 0/3"), "Simulating: loot \194\183 step 0/3")
+    local of = "/" .. LOOT_STEPS
+    assertEqual(B._footer:GetText():match("^Simulating: loot \194\183 step 0" .. of), "Simulating: loot \194\183 step 0" .. of)
     Sim:Step()
-    assertTrue(B._footer:GetText():find("step 1/3", 1, true) ~= nil, "a step repaints the footer: "
+    assertTrue(B._footer:GetText():find("step 1" .. of, 1, true) ~= nil, "a step repaints the footer: "
       .. B._footer:GetText())
   end)
 end)

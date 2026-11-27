@@ -30,7 +30,8 @@ local _, NS = ...
 -- whose one hook point is NS.RealEventFilter. The start sets it to Host.OnRealEvent, the stop puts
 -- nil back. A real event that is not the simulator's own delivery is either:
 --   INTERFERENCE  a self loot, currency or money line, a loot window, an encounter or key start, a
---                 quest turn-in, a trade, a sent mail, an interaction frame, or any real hook call:
+--                 quest turn-in, a trade, a sent mail, an interaction frame, a reputation change, an
+--                 appearance collected or removed, or any real hook call:
 --                 the session stops with reason `world`, and the event then runs live into the
 --                 saved stores, so no real loot is lost;
 --   SETUP         ADDON_LOADED (the guild bank frame's hook install): delivered live, no stop;
@@ -163,6 +164,8 @@ end
 local INTERFERENCE = {
   LOOT_OPENED = true, LOOT_CLOSED = true, ENCOUNTER_START = true, CHALLENGE_MODE_START = true, QUEST_TURNED_IN = true,
   TRADE_ACCEPT_UPDATE = true, MAIL_SEND_SUCCESS = true, PLAYER_INTERACTION_MANAGER_FRAME_SHOW = true,
+  -- Always the player's own, and outside the stop's drift pass (rep-appearance spec §3.8).
+  FACTION_STANDING_CHANGED = true, TRANSMOG_COLLECTION_SOURCE_ADDED = true, TRANSMOG_COLLECTION_SOURCE_REMOVED = true,
 }
 
 -- A chat line interferes only when it is the player's own: another player's line is absorbed.
@@ -268,6 +271,11 @@ function Host.Prepare(_, def, opts, ready)
   Host.alt = seedAlt()
   NS.Reconciler:ResetState()
   NS.Attribution:ResetContexts()
+  -- The reputation baseline, its coalescing map and the appearance duplicate maps are capture state
+  -- (H4): cleared, then the baseline seeded at once from the world's factions (GUARDED ListFactions).
+  NS.Reputation:ResetState()
+  NS.Appearance:ResetState()
+  NS.Reputation:Seed(true)
   NS.RealEventFilter = Host.OnRealEvent
   registerWatch()
   -- The session holdings are empty, so this first pass is a silent genesis: no rows.
@@ -413,6 +421,9 @@ local STOP_STEPS = {
     if NS.RealEventFilter == Host.OnRealEvent then NS.RealEventFilter = nil end
     unregisterWatch()
   end,
+  -- The simulated standings never reach the real baseline: cleared, then reseeded from the live walk
+  -- (the seam is off by now; in combat the seed re-arms itself).
+  function() NS.Reputation:ResetState(); NS.Appearance:ResetState(); NS.Reputation:Seed() end,
   -- What really changed while the session ran becomes UNTRACKED drift. Not on a stand-down: the
   -- Reconciler's own stand-up rescan covers that.
   function(_, reason)
