@@ -777,7 +777,7 @@ test("v1.114.0: the vendored minors and the kit revision match the release", fun
     return lib.MODULES
   end
   assertTrue(modules("LibKa0s-ForeverDB-1.0").ForeverDB >= 1) -- 4 since v1.118.0, pinned there
-  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 12)
+  assertTrue(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics >= 12) -- 13 since v1.119.0, pinned there
   assertTrue(T.KIT_VERSION >= 62) -- 65 since v1.118.0, pinned there
 end)
 
@@ -792,5 +792,23 @@ test("v1.118.0: the vendored minors and the kit revision match the release", fun
   end
   assertEqual(modules("LibKa0s-ForeverDB-1.0").ForeverDB, 4)
   assertEqual(modules("LibKa0s-Media-1.0").Media, 14)
+  assertEqual(T.KIT_VERSION, 65)
+end)
+
+test("v1.119.0 (unreleased): the vendored minors and the kit revision match the branch", function()
+  -- The re-vendor for #38 (plan M3.0): the new major LibKa0s-Feed-1.0 (Feed 1 with FeedModel 1,
+  -- FeedRow 1 and FeedInput 1), the gain-feed host behind the loot toasts, and DebugLogDiagnostics 13
+  -- (the report's Feed line). Kit revision unchanged at 65.
+  local function modules(major)
+    local lib = T.mocks.LibStub(major, true)
+    assertTrue(lib ~= nil and type(lib.MODULES) == "table", major .. " missing: re-vendor v1.119.0")
+    return lib.MODULES
+  end
+  local feed = modules("LibKa0s-Feed-1.0")
+  assertEqual(feed.Feed, 1)
+  assertEqual(feed.FeedModel, 1)
+  assertEqual(feed.FeedRow, 1)
+  assertEqual(feed.FeedInput, 1)
+  assertEqual(modules("LibKa0s-DebugLog-1.0").DebugLogDiagnostics, 13)
   assertEqual(T.KIT_VERSION, 65)
 end)

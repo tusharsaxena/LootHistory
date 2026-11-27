@@ -51,6 +51,12 @@ local LIB_FILES = {
   -- New in v1.79.0 (unreleased): LibKa0s-Toast-1.0, the toast notifier. This addon raises no toast
   -- and wires nothing from it; the client loads every file of the XML, so the suite must too.
   "libs/LibKa0s/Toast.lua",
+  -- New in v1.119.0 (unreleased, branch feat/2026-11-27-feed): LibKa0s-Feed-1.0 (Feed, FeedModel,
+  -- FeedRow, FeedInput), in XML order: the gain-feed host behind #38's loot toasts.
+  "libs/LibKa0s/Feed.lua",
+  "libs/LibKa0s/FeedModel.lua",
+  "libs/LibKa0s/FeedRow.lua",
+  "libs/LibKa0s/FeedInput.lua",
   -- New in v1.96.0 and v1.99.0: LibKa0s-Callout-1.0 (Callout, CalloutSettings) and
   -- LibKa0s-WaypointArrow-1.0 (WaypointArrow, WaypointArrowSettings), in XML order. Nothing here
   -- wires either; the client loads them, so the suite must too.

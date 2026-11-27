@@ -2078,7 +2078,7 @@ Total.
 - v1.69.0: the line chart is vendored and attached to the Widgets major
 - v1.70.0: the autocomplete is vendored; the line chart takes pxPerPoint
 
-### test_libka0s_releases.lua (28)
+### test_libka0s_releases.lua (29)
 
 - v1.71.0: the vendored minors and the kit revision match the release
 - v1.75.0: the vendored minors and the kit revision match the release
@@ -2108,6 +2108,7 @@ Total.
 - v1.113.0: the vendored minors and the kit revision match the release
 - v1.114.0: the vendored minors and the kit revision match the release
 - v1.118.0: the vendored minors and the kit revision match the release
+- v1.119.0 (unreleased): the vendored minors and the kit revision match the branch
 
 ### test_surface_parity.lua (21)
 
@@ -2807,7 +2808,7 @@ Total.
 | test_profiles.lua | 31 |
 | test_harness.lua | 11 |
 | test_libka0s.lua | 30 |
-| test_libka0s_releases.lua | 28 |
+| test_libka0s_releases.lua | 29 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 26 |
 | test_holdings_api.lua | 26 |
@@ -2840,4 +2841,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2397** |
+| **Total** | **2398** |

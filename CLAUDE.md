@@ -57,7 +57,7 @@ cases, [docs/validate-seeds.md](docs/validate-seeds.md)'s `## Gate`; `python3 -m
 
 ## Vendored LibKa0s
 
-Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.118.0 (MIT).
+Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.119.0 (unreleased, branch feat/2026-11-27-feed) (MIT).
 LibKa0s icons: ban, chat, chevron-down, chevron-right, chevron-up, circle-check, clear, close, confirm, copy, eye, graph, info, lock, move, reset, segment, settings, sort-down, sort-up, spreadsheet, unlock, volume-high, gi:bank, gi:chest-armor, gi:envelope, gi:gavel, gi:knapsack, gi:locked-chest.
 
 That is the Ka0s-owned shared library behind the chat printer, the debug console, the

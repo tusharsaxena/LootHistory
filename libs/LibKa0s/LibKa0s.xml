@@ -13,6 +13,10 @@
 	<Script file="ForeverDB.lua"/>
 	<Script file="Glow.lua"/>
 	<Script file="Toast.lua"/>
+	<Script file="Feed.lua"/>
+	<Script file="FeedModel.lua"/>
+	<Script file="FeedRow.lua"/>
+	<Script file="FeedInput.lua"/>
 	<Script file="Callout.lua"/>
 	<Script file="CalloutRoute.lua"/>
 	<Script file="CalloutSound.lua"/>

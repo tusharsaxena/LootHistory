@@ -47,7 +47,9 @@
 local lib = LibStub and LibStub("LibKa0s-DebugLog-1.0", true)
 if not lib then return end
 
-local DIAG_MINOR = 12
+local DIAG_MINOR = 13
+-- Minor 13 (LootHistory#38, task S1 of the Feed build): the identity header names
+-- LibKa0s-Feed-1.0 among the running majors, directly after Toast. No member change.
 -- Minor 12 (LibKa0s#105, SF-LK-01 of Ka0sAddonsCommonTasks docs/2026-11-25-SEEDS_AND_FOREVERDB): the
 -- identity header names LibKa0s-ForeverDB-1.0 among the running majors, and prints one ForeverDB
 -- line (present, loaded, its version, and its build and hash when loaded) through that major's
@@ -87,10 +89,10 @@ local FLOOR    = 3     -- the smallest cap that still fits the begin marker, tru
 -- libraries it holds (its IterateLibraries is not on every copy), so the names are written down.
 -- A major missing from this client is skipped, not reported as an error. The list is in
 -- tests/majors.lua order, and tests/test_debuglog_diagnostics.lua fails naming the file when a major
--- that file ships is missing here. Minor 12 adds ForeverDB (v1.114.0); minor 11 added Tooltip (v1.105.0); minor 10 added WaypointArrow (v1.99.0); minor 9 adds Callout (v1.96.0); minor 8 added Role (v1.95.0); minor 7 added IconBrowser (v1.86.0),
+-- that file ships is missing here. Minor 13 adds Feed (v1.119.0); minor 12 added ForeverDB (v1.114.0); minor 11 added Tooltip (v1.105.0); minor 10 added WaypointArrow (v1.99.0); minor 9 adds Callout (v1.96.0); minor 8 added Role (v1.95.0); minor 7 added IconBrowser (v1.86.0),
 -- minor 6 Charts (v1.84.0), minor 5 Toast (v1.79.0), minor 4 Skin, minor 3 Glow and Sim.
 local MAJORS = {
-  "Core", "Tooltip", "Env", "Compat", "Role", "Lifecycle", "Bus", "Schema", "Pool", "Item", "ForeverDB", "Glow", "Toast", "Callout",
+  "Core", "Tooltip", "Env", "Compat", "Role", "Lifecycle", "Bus", "Schema", "Pool", "Item", "ForeverDB", "Glow", "Toast", "Feed", "Callout",
   "WaypointArrow",
   "Charts", "Media", "Skin", "Widgets", "DebugLog", "Slash", "Launcher", "Options", "IconBrowser", "Perf", "Sim",
 }
