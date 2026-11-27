@@ -8,7 +8,7 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (44)
+### test_constants.lua (46)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
@@ -54,6 +54,8 @@ Total.
 - Constants: existing sources keep their order positions (append-only)
 - Constants: no ledger reason is offered as a capture mute
 - Constants: direction glyphs and labels
+- Constants: TOOLTIP_MODIFIER_OPTIONS is the ordered value/text array
+- Constants: TIP_ICONS names one Game-icons mark per container
 
 ### test_mediasetup.lua (11)
 
@@ -1467,6 +1469,36 @@ Total.
 - HoldingsTab group: an unsupported mode reads as None and leaves History's group alone
 - HoldingsTab group: the Group dropdown is live on Holdings, offers only its modes, and keeps History's pick
 
+### test_holdings_tip.lua (27)
+
+- HoldingsTip: an item block is a spacer, the header, the holders and the Total, in order
+- HoldingsTip: a character's name is in its class color, else gtip.body
+- HoldingsTip: the account holder reads in C.ACCOUNT's word and sem.warbandAlt
+- HoldingsTip: a currency block has plain counts and no icons
+- HoldingsTip: one holder draws no Total by default, a Total with Show the Total only with 2 off
+- HoldingsTip: two holders draw a Total
+- HoldingsTip: a stored container three days old draws its muted mark and the age
+- HoldingsTip: containers off draws one count per holder
+- HoldingsTip: warband off drops the account line, and an account-wide currency draws no block
+- HoldingsTip: two characters with one short name show their full keys
+- HoldingsTip: Track holdings and losses off draws nothing, and on again draws (D3)
+- HoldingsTip: Show holdings off draws nothing
+- HoldingsTip: a stood-down addon draws nothing, and stood up again it draws
+- HoldingsTip: Only while holding Shift draws only with Shift down
+- HoldingsTip: each row's onChange sends SETTINGS_CHANGED tooltip, and the cache refreshes
+- HoldingsTip: a repost adds no second block; a refresh draws exactly one; after hide it draws
+- HoldingsTip: a forbidden, a comparison, a secret-id or an id-less tooltip writes nothing
+- HoldingsTip: a re-entrant post call writes nothing, and an error inside releases busy
+- HoldingsTip: the block never owns placement (no SetOwner, no PlaceTooltip)
+- HoldingsTip: an unchanged refresh replays the lines: no tally compose, no icon markup
+- HoldingsTip: a skin switch reaches the block's colors on the next refresh
+- HoldingsTip: ORDER draws the warband bank's tabs only where it is a feature
+- HoldingsTip: WoW Forever never builds the locked-chest mark and says Account
+- HoldingsTip: the Include row names the client's account holder
+- HoldingsTip: Enable installs one Item and one Currency post call, once
+- HoldingsTip: with no Currency data type, items still draw
+- HoldingsTip: its bus target is registered while up and gone after Disable
+
 ### test_timeline.lua (35)
 
 - Timeline model: NextDay and DayStart walk local calendar days
@@ -2560,7 +2592,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 44 |
+| test_constants.lua | 46 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2608,6 +2640,7 @@ Total.
 | test_analytics.lua | 52 |
 | test_analytics_layout.lua | 12 |
 | test_holdingstab.lua | 34 |
+| test_holdings_tip.lua | 27 |
 | test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
@@ -2663,4 +2696,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2240** |
+| **Total** | **2269** |

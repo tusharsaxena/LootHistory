@@ -396,6 +396,11 @@ settings.scale | number | 1 | 0.5 | 2 | 0.05
 settings.showTransfers | bool | true | nil | nil | nil
 settings.sim.stepDelay | number | 1 | 0.5 | 10 | 0.5
 settings.timelineMaxLines | number | 8 | 2 | 16 | 1
+settings.tooltip.containers | bool | true | nil | nil | nil
+settings.tooltip.enabled | bool | true | nil | nil | nil
+settings.tooltip.modifier | string | "none" | nil | nil | nil
+settings.tooltip.totalMin2 | bool | true | nil | nil | nil
+settings.tooltip.warband | bool | true | nil | nil | nil
 settings.trackLedger | bool | true | nil | nil | nil
 settings.visibility | string | "always" | nil | nil | nil
 settings.windowScale | number | 1 | 0.6 | 1.6 | 0.05
@@ -446,7 +451,9 @@ test("Schema: Interface and History read as item 020 laid them out", function()
     if r.group == "Interface" then order[#order + 1] = r.path end
   end
   assertEqual(table.concat(order, " "), "settings.windowScale settings.rowHeight "
-    .. "settings.timelineMaxLines settings.showTransfers settings.sim.stepDelay",
+    .. "settings.timelineMaxLines settings.showTransfers settings.sim.stepDelay "
+    .. "settings.tooltip.enabled settings.tooltip.containers settings.tooltip.warband "
+    .. "settings.tooltip.totalMin2 settings.tooltip.modifier",
     "Show transfers by default follows Timeline lines on Interface")
   for _, path in ipairs({ "settings.windowScale", "settings.rowHeight", "settings.timelineMaxLines",
                           "settings.showTransfers" }) do

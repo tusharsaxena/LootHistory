@@ -42,7 +42,10 @@ local _, NS = ...
 -- gates its own body instead, through one of two funnels. The three merchant/mail hooks and the two
 -- in core/Compat.lua land in NS.Attribution:Stamp; the ledger's loss-side hooks (repair, buy, delete,
 -- mail, auction, craft, guild bank) land in NS.Attribution:StampOut or one of the On* bodies beside
--- it in modules/AttributionOut.lua, each of which checks the latch first.
+-- it in modules/AttributionOut.lua, each of which checks the latch first. The third funnel is the
+-- holdings tooltip's (#34): TooltipDataProcessor's post calls and the tooltips' OnHide /
+-- OnTooltipCleared HookScripts have no removal either, so they land in NS.HoldingsTip.OnTooltip,
+-- whose first rung is NS.IsStoodDown(); the HookScript bodies only clear a weak mark.
 
 local Lifecycle = LibStub and LibStub("LibKa0s-Lifecycle-1.0", true)
 
@@ -179,7 +182,7 @@ local STAND_DOWN_STEPS = {
   method("Collector", "Disable"), method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"), method("Rollup", "Disable"),
-  method("HoldingsTally", "Disable"),
+  method("HoldingsTally", "Disable"), method("HoldingsTip", "Disable"),
   method("Attribution", "DisableOut"),
   call("DropLedgerResetOffer"),
   -- The first-run skin picker is a frame this addon shows; it goes down unmarked, so it comes back
@@ -200,7 +203,7 @@ local STAND_UP_STEPS = {
   method("Attribution", "Enable"), method("Attribution", "EnableOut"),
   method("Collector", "Enable"), method("Reconciler", "Enable"), method("Rollup", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
-  method("Timeline", "Enable"), method("HoldingsTally", "Enable"),
+  method("Timeline", "Enable"), method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
   standUpLogStep,
 }
 

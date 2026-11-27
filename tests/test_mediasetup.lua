@@ -53,6 +53,10 @@ local DRAWN = {
   -- owed by the library's own marks at v1.85.0 (docs/releasing.md, Step 8): the scroll step buttons'
   -- chevron-up, and the skin's move, reset and volume-high beside skinned controls
   "chevron-up", "move", "reset", "volume-high",
+  -- the holdings tooltip's container marks (#34, D4; modules/HoldingsTip.lua), Game-icons named as
+  -- data in core/Constants.lua's C.TIP_ICONS and swept below. `gi:locked-chest` is the warband
+  -- bank's, drawn on Retail only; the declaration is per repo, not per client.
+  "gi:bank", "gi:chest-armor", "gi:envelope", "gi:gavel", "gi:knapsack", "gi:locked-chest",
 }
 
 -- ---------------------------------------------------------------------------
@@ -140,7 +144,9 @@ test("MediaSetup: the icon declaration is exactly the drawn set, and each has it
   assertEqual(table.concat(undrawn, ", "), "", "declared but not drawn")
   local missing = {}
   for _, name in ipairs(decl.names) do
-    local fh = io.open("libs/LibKa0s/media/icons/" .. name .. ".tga", "rb")
+    -- A set's prefix is its folder (the kit's vendor_sync: `gi:<n>` is game-icons/<n>.tga).
+    local file = name:gsub("^gi:", "game-icons/"):gsub("^ph:", "phosphor/")
+    local fh = io.open("libs/LibKa0s/media/icons/" .. file .. ".tga", "rb")
     if fh then fh:close() else missing[#missing + 1] = name end
   end
   assertEqual(table.concat(missing, ", "), "")
@@ -157,6 +163,8 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
                           -- The Holdings tab's row actions name their marks as data, like the
                           -- History row menu does.
                           "modules/HoldingsTab.lua",
+                          -- The holdings tooltip builds its marks from C.TIP_ICONS (core/Constants.lua).
+                          "modules/HoldingsTip.lua",
                           "core/Constants.lua", "core/CoreSetup.lua", "core/DebugLogSetup.lua",
                           -- The dropdown chevron, the multi-select tick and the reorder handle are
                           -- all resolved in this one file. It was missing from the list, so the
@@ -175,6 +183,10 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
       if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end
     end
     for name in src:gmatch('icon = "([a-z%-]+)"') do
+      if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end
+    end
+    -- A Game-icons name anywhere as a string (C.TIP_ICONS holds the tooltip's as data).
+    for name in src:gmatch('"(gi:[a-z%-]+)"') do
       if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end
     end
   end

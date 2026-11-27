@@ -168,6 +168,10 @@ modules\HoldingsTab.lua
 # CONVENTIONAL: the holdings tally (#34). Reads NS.Holdings, NS.Compat and NS.Constants at call
 # time only; kept beside the Holdings tab because both read the same store.
 modules\HoldingsTally.lua
+# LOAD-BEARING POSITION: binds NS.HoldingsTally and NS.Perf as file-scope upvalues at load (the
+# tooltip post call's hot path, events-frames-taint-§7 / performance-§2); modules\HoldingsTally.lua
+# and core\PerfSetup.lua must be above.
+modules\HoldingsTip.lua
 modules\TimelineModel.lua
 # LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.

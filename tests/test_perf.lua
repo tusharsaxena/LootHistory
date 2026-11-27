@@ -9,6 +9,23 @@ local NS = T.NS
 local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 local m = T.mocks
 local LINK = "|cffa335ee|Hitem:211296::::::::80:::::|h[Vial of Fun]|h|r"
+local TDP = dofile("tests/mock_tooltip_data.lua")
+
+--- One item post call through the tooltip data double (tests/mock_tooltip_data.lua): the holdings
+--- tooltip's hooks are installed on it for the call, then the double comes off again.
+local function tooltipPost()
+  local HT = NS.HoldingsTip
+  local h = TDP.install(m)
+  local savedItem, savedCur = HT._hookedItem, HT._hookedCurrency
+  HT._hookedItem, HT._hookedCurrency = nil, nil
+  local ok, err = pcall(function()
+    HT:InstallHooks()
+    h.show(h.tooltip("GameTooltip"), "Item", { id = 211296 })
+  end)
+  HT._hookedItem, HT._hookedCurrency = savedItem, savedCur
+  h.uninstall()
+  if not ok then error(err, 0) end
+end
 
 --- Wrap NS.Perf.Note with a per-key call counter. Returns the counts and the restore.
 local function spyNotes()
@@ -33,6 +50,7 @@ local function exercise()
     NS.Collector:OnChatMsgMoney(nil, "You loot 5 Copper")
     NS.Attribution:OnSpellSucceeded(nil, "player", nil, 13262)
     R:OnEvent("BAG_UPDATE", 0)
+    tooltipPost()
   end)
   NS.db.global.history = savedH
   R.claims, R.recent, R.dirty = savedClaims, savedRecent, savedDirty
@@ -40,7 +58,7 @@ local function exercise()
 end
 
 test("perf: the buckets are declared in report order", function()
-  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent")
+  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock")
 end)
 
 test("perf: every declared bucket is reached by a real bracket", function()

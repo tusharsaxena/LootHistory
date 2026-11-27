@@ -8,12 +8,12 @@ local addonName, NS = ...
 --
 -- TOC POSITION, LOAD-BEARING: directly after core/LifecycleSetup.lua. `lib:New` reads NS.Lifecycle
 -- at load (Perf minor 12 requires the latch and raises without it), and every module that takes
--- `local Perf = NS.Perf` as a load-time upvalue (Collector, Attribution, Reconciler) loads below.
+-- `local Perf = NS.Perf` as a load-time upvalue (Collector, Attribution, Reconciler, HoldingsTip) loads below.
 -- The log/print/showLog sinks are closures resolved at call time, so DebugLogSetup below is fine.
 --
 -- WHY THIS ADDON NOW HAS ONE. It held the performance-§12 no-combat-path exemption until the
 -- timeline ledger (spec §13 F2): holdings diffing put real work behind BAG_UPDATE, money and
--- currency events, which is exactly the exemption's re-check trigger. The buckets are the five
+-- currency events, which is exactly the exemption's re-check trigger. The buckets are the six
 -- handlers that run in combat; the reconcile itself never does (Reconciler:Flush defers to
 -- PLAYER_REGEN_ENABLED) and is measured offline by tests/perf.lua instead.
 --
@@ -66,5 +66,6 @@ NS.Perf = lib:New({
     { key = "moneyLine" },      -- Collector:OnChatMsgMoney
     { key = "spellCast" },      -- Attribution:OnSpellSucceeded (every player cast)
     { key = "ledgerEvent" },    -- Reconciler:OnEvent (BAG_UPDATE storms, money, currency: dirty bits)
+    { key = "tooltipBlock" },   -- HoldingsTip.OnTooltip (every item/currency tooltip build, ~5/s while hovered, in combat too)
   },
 })

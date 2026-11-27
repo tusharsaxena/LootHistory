@@ -21,6 +21,7 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 -- dispatches to the LIVE registration set and nothing else, which is what the client does.
 
 local ENABLED = "settings.enabled"
+local TDP = dofile("tests/mock_tooltip_data.lua")
 
 --- Write the switch through the addon's SINGLE WRITE SEAM, never by calling a teardown function.
 --- §7 step 2 asks for exactly this: the test has to exercise the route the checkbox and the verb
@@ -139,7 +140,8 @@ local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
                             NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
-                            NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev }) do
+                            NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
+                            NS.HoldingsTip.__ev }) do
     if target then t[target] = true end
   end
   return t
@@ -422,6 +424,13 @@ test("slash-commands-§7 step 6: firing every event it used to watch writes noth
     -- form — the player's evidence that the addon is off is the absence of exactly that line.
     -- red under: any registration left in place by NS.StandDown; every one of them makes `M.__fire`
     -- reach a handler again, and the three surveys below stop being empty.
+    -- The holdings tooltip's post calls cannot be removed (the third one-way funnel): its hooks are
+    -- installed on the tooltip data double while the addon is up, and an item post call fired once
+    -- it is down must write no line of its own.
+    local tdp = TDP.install(M)
+    local HT = NS.HoldingsTip
+    local savedHooks = { HT._hookedItem, HT._hookedCurrency }
+    HT._hookedItem, HT._hookedCurrency = nil, nil
     bringUp()
     local R_on = M.__registrations()
     setEnabled(false)
@@ -446,6 +455,14 @@ test("slash-commands-§7 step 6: firing every event it used to watch writes noth
     for _, f in ipairs(M.__shownFrames()) do
       assertTrue(shownBefore[f], "a game event shed a frame onto the screen while disabled")
     end
+    local tip = tdp.tooltip("GameTooltip")
+    NS.db.global.holdings[T.nameKey("Zed")] = { items = { [990101] = { bags = 3 } }, scanned = {}, meta = {} }
+    tdp.show(tip, "Item", { id = 990101 })
+    local lines = #tip.__lines
+    NS.db.global.holdings[T.nameKey("Zed")] = nil
+    HT._hookedItem, HT._hookedCurrency = savedHooks[1], savedHooks[2]
+    tdp.uninstall()
+    assertEqual(lines, 1, "a post call drew the holdings block on a stood-down addon")
     setEnabled(true)
   end)
 
@@ -824,7 +841,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "HoldingsTally", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "HoldingsTally", "HoldingsTip", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -852,7 +869,8 @@ end
 local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
-  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally" }) do
+  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
+                        "HoldingsTip" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
@@ -881,7 +899,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
-      "HoldingsTally:Disable",
+      "HoldingsTally:Disable", "HoldingsTip:Disable",
       "Attribution:DisableOut",
       "DropLedgerResetOffer",
       "CancelDeferrals",
@@ -899,7 +917,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
       "Collector:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
-      "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable",
+      "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "Debug:State:stand-up: capture registered",
       "DebugAtEnable:State",
     }, "\n"))

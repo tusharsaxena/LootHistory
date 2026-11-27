@@ -663,7 +663,9 @@ local PARTITION = {
   ["General"] = {
     { "Master controls", 9 }, { "Capture", 7 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
-    { "Interface", 5 }, { "History", 2 },
+    -- The holdings tooltip's five rows (#34) are Interface's third subsection, "Holdings in
+    -- tooltips" (the owner's ruling, 2026-11-27: no ninth tab, options-ui-§13).
+    { "Interface", 10 }, { "History", 2 },
     -- The skin's two rows (skinning-§3), the Scope's two exceptions (LibKa0s-Skin-1.0 minor 5), the
     -- font and texture overrides (minor 6) and the first-run picker's memory, after History in the
     -- strip's order; the library's Skin tab draws six of them and nothing draws the seventh, so all
@@ -819,6 +821,8 @@ local NUMBER_WORD = {
   ["twenty-one"] = 21, ["twenty-two"] = 22, ["twenty-three"] = 23, ["twenty-four"] = 24,
   ["twenty-five"] = 25, ["twenty-six"] = 26, ["twenty-seven"] = 27, ["twenty-eight"] = 28,
   ["twenty-nine"] = 29, thirty = 30, ["thirty-one"] = 31, ["thirty-two"] = 32, ["thirty-three"] = 33,
+  ["thirty-four"] = 34, ["thirty-five"] = 35, ["thirty-six"] = 36, ["thirty-seven"] = 37,
+  ["thirty-eight"] = 38, ["thirty-nine"] = 39, forty = 40,
 }
 
 local COUNT_CLAIMS = {

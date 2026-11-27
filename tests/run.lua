@@ -89,7 +89,7 @@ local SUITES = {
   -- After test_launcher, beside the rest of the launcher's surface; it builds no window.
   "test_keybinding",
   "test_slash", "test_slash_verbs", "test_slash_degraded", "test_resetprompt",
-  "test_schema", "test_schema_seam", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
+  "test_schema", "test_schema_seam", "test_schema_stub", "test_analytics", "test_analytics_layout", "test_holdingstab", "test_holdings_tip", "test_timeline", "test_timelinetab", "test_autocomplete", "test_testdata", "test_views", "test_panel", "test_panel_filters", "test_panel_auction",
   -- The General page's Keybindings tab (options-ui-§20). After the panel suites, which build the page.
   "test_panel_keybinds",
   -- The skin seam (core/SkinSetup.lua, skinning-§3): the owner, the appearance rows, the Appearance

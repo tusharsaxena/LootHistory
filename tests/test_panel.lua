@@ -366,7 +366,9 @@ local SUBGROUPS = {
   -- simulator feedback, 2026-10-23). It carried `Window` / `Minimap` until the minimap row moved to
   -- Master controls with the launcher adoption, and drew none while every row was about the window.
   -- The window subsection names its window (item 020, LOO-L03).
-  ["Interface"]       = { "History window", "Simulator" },
+  -- The holdings tooltip's rows (#34) are a third subject, under their own heading rather than a
+  -- ninth tab (the owner's ruling, 2026-11-27; options-ui-§13).
+  ["Interface"]       = { "History window", "Simulator", "Holdings in tooltips" },
   ["History"]         = {},
   -- The library's Skin tab (key "Appearance"; skinning-§3): its five subjects, the source, the
   -- skins (headed "Look" since PK-02, so no heading repeats the tab's "Skin", options-ui-§7), the
@@ -384,7 +386,7 @@ test("Panel: a tabbed page draws no SECTION heading, but a mixed tab draws its S
     -- suppressed — but `subgroup` is deliberately NOT suppressed, because a tab that mixes control
     -- types or subjects has no tab left to name each kind with. THREE tabs draw subsections (item
     -- 020): Capture (Loot / Ledger), AH price (an unheaded lead toggle above the Price sources
-    -- reorder table) and Interface (History window / Simulator). SUBGROUPS above is the full list.
+    -- reorder table) and Interface (History window / Simulator / Holdings in tooltips). SUBGROUPS above is the full list.
     -- red under: passing `noHeadings` for subgroups too, or dropping any `subgroup` field — either
     -- shortens a list here — and equally under adding one to a tab that is a single subject.
     local ctx = NS.Panel.general

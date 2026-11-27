@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-2240%2F2240_passing-green)
+![Tests](https://img.shields.io/badge/Tests-2269%2F2269_passing-green)
 
 Supports Retail and WoW Forever. Loot History is a passive loot tracker for World of Warcraft. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more.
 
@@ -153,3 +153,7 @@ The addon's own icons come from [Open Iconic](https://github.com/iconic/open-ico
 Bound lock, the History window's lock and unlock marks, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
 info and drag-handle marks, the window close buttons and settings gears, the skin picker's eye and gear, the debug console's copy and clear
 buttons, and the small marks LibKa0s draws beside skinned controls. Only the icons the addon draws are shipped, with their license text beside them.
+
+Container icons in the tooltip come from [game-icons.net](https://game-icons.net)
+(CC BY 3.0) by their authors listed in `libs/LibKa0s/media/icons/game-icons/AUTHORS.txt`, changed
+from the original: rasterized and recolored white.

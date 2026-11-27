@@ -286,6 +286,12 @@ stamp(MASTER_ROWS, {
 S.MASTER_GROUP     = O.MASTER_GROUP or "Master controls"
 S.MasterAfterGroup = MASTER_AFTER_GROUP
 
+-- The five holdings-tooltip rows' shared onChange: one reason, `tooltip`, re-read by
+-- modules/HoldingsTip.lua's hot-path cache.
+local function tooltipChanged()
+  if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "tooltip") end
+end
+
 local ROWS = {
   -- ── General ▸ Capture ──
   -- What gets recorded. The addon-wide master switch over all of it is NOT here any more: it is
@@ -468,6 +474,42 @@ local ROWS = {
     page = "General", group = "Interface", subgroup = "Simulator", label = "Simulation step delay (seconds)",
     tooltip = "Paces /lh sim: how many seconds the simulator waits between steps as it plays. "
       .. "A change takes effect from the next step." },
+
+  -- The holdings block in item and currency tooltips (#34, modules/HoldingsTip.lua). A third subject
+  -- on Interface, under its own subsection heading (options-ui-§7), rather than a ninth General tab:
+  -- the owner's ruling of 2026-11-27 keeps the strip at options-ui-§13's eight. Declared in pairing
+  -- order; the modifier dropdown sits alone on its line. Every row tells HoldingsTip to re-read its
+  -- hot-path cache through the one new reason, `tooltip`.
+  { path = "settings.tooltip.enabled", default = PD.settings.tooltip.enabled, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "Holdings in tooltips",
+    label = "Show holdings in item and currency tooltips",
+    tooltip = "List who on your account holds the item or currency under the mouse, and how many. "
+      .. "Needs Track holdings and losses.",
+    onChange = tooltipChanged },
+  { path = "settings.tooltip.containers", default = PD.settings.tooltip.containers, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "Holdings in tooltips",
+    label = "Show where each holder keeps it",
+    tooltip = "Split each holder's count into bags, equipped, bank, mail and auction house"
+      .. (C.FEATURE.warbandBank and ", and the warband bank" or "")
+      .. ", each shown as an icon and a count. Needs Track holdings and losses.",
+    onChange = tooltipChanged },
+  { path = "settings.tooltip.warband", default = PD.settings.tooltip.warband, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "Holdings in tooltips",
+    label = "Include the " .. C.ACCOUNT.holder,
+    tooltip = "Add a line for what your " .. C.ACCOUNT.holder:lower() .. " holds"
+      .. (C.FEATURE.warbandBank and ": the warband bank and account-wide currencies" or ": account-wide currencies")
+      .. ". Needs Track holdings and losses.",
+    onChange = tooltipChanged },
+  { path = "settings.tooltip.totalMin2", default = PD.settings.tooltip.totalMin2, type = "bool", widget = "CheckBox",
+    page = "General", group = "Interface", subgroup = "Holdings in tooltips",
+    label = "Show the Total only with 2 or more holders",
+    tooltip = "Off: a Total line closes every block, even with one holder. Needs Track holdings and losses.",
+    onChange = tooltipChanged },
+  { path = "settings.tooltip.modifier", default = PD.settings.tooltip.modifier, type = "string", widget = "Dropdown",
+    values = C.TOOLTIP_MODIFIER_OPTIONS, solo = true,
+    page = "General", group = "Interface", subgroup = "Holdings in tooltips", label = "Only while holding",
+    tooltip = "Show the block only while this key is held. None: always. Needs Track holdings and losses.",
+    onChange = tooltipChanged },
 
   -- ── General ▸ History ──
   -- What is kept and how to get rid of it. Late on the strip because it is the one a player sets

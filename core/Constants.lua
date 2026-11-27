@@ -12,7 +12,9 @@ local C = NS.Constants
 -- `warbandBank` is the warband bank's tabs and gold: the Reconciler's `tabs` and `warbandMoney`
 -- parts and their two events (modules/Reconciler.lua), the tab ids (C.WARBAND_TAB_IDS below), the
 -- char <-> warband pairing and its two reasons (C.SOURCE_CLIENTS below), the Holdings tab's Warband
--- split (modules/HoldingsTab.lua) and the simulator's warband steps (modules/SimScenario.lua). The
+-- split (modules/HoldingsTab.lua), the holdings tooltip's warband-bank mark, live count and wording
+-- (modules/HoldingsTip.lua, modules/HoldingsTally.lua, core/Compat.lua LiveItemCounts,
+-- settings/Schema.lua) and the simulator's warband steps (modules/SimScenario.lua). The
 -- account holder itself (`§warband`) serves both clients: WoW Forever has account-wide currencies,
 -- and the holder reads "Account" there (C.ACCOUNT below).
 C.FEATURE_CLIENTS = {
@@ -199,6 +201,28 @@ C.WARBAND_HOLDER = "§warband"
 -- items and currencies together, both maps are wiped before the next insert, so a long AH browse
 -- keeps memory bounded.
 C.TIP_CACHE_MAX = 128
+
+-- The holdings tooltip's container marks (#34, D4: containers are icons and a count, never words).
+-- Game-icons (CC BY 3.0) from the LibKa0s catalog, each declared on CLAUDE.md's `LibKa0s icons:` line
+-- and vendored under libs/LibKa0s/media/icons/game-icons/. `tabs` is drawn only where
+-- C.FEATURE.warbandBank (modules/HoldingsTip.lua ORDER). White art, tinted from gtip tokens at draw.
+C.TIP_ICONS = {
+  [C.Container.BAGS] = "gi:knapsack", [C.Container.EQUIPPED] = "gi:chest-armor",
+  [C.Container.BANK] = "gi:bank", [C.Container.MAIL] = "gi:envelope",
+  [C.Container.AUCTIONS] = "gi:gavel", [C.Container.TABS] = "gi:locked-chest",
+}
+-- Drawn when the catalog answers nil (library-stack-§8); present on both clients.
+C.TIP_ICON_FALLBACK = "Interface\\Icons\\INV_Misc_QuestionMark"
+C.TIP_ICON_SIZE = 12
+
+-- settings.tooltip.modifier: the key the block waits for ("none" = always). The ordered-array shape
+-- the dropdown rows read (`text`, not `label`).
+C.TOOLTIP_MODIFIER_OPTIONS = {
+  { value = "none",  text = "None" },
+  { value = "shift", text = "Shift" },
+  { value = "ctrl",  text = "Ctrl" },
+  { value = "alt",   text = "Alt" },
+}
 
 -- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. The colors
 -- are the skin's sem.good / sem.bad / sem.neutral (LH-04, modules/LedgerFormat.lua), whose Ka0s

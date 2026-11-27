@@ -72,7 +72,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M0.3 | Push M0 | todo | |
 | M1.1 | Compat: item and currency tooltip post-call hooks, tooltip id readers, live count reads (Retail + Forever) | done | `M1.1: Add Compat tooltip post calls, id readers, painters and live reads` |
 | M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | done | `M1.2: Add the holdings tally over the saved store with a live overlay` |
-| M1.3 | Tooltip block: icons + counts, staleness age, Total rule, settings rows (Tooltip tab), modifier mode, disabled-state, tests | todo | |
+| M1.3 | Tooltip block: icons + counts, staleness age, Total rule, settings rows (Interface tab subgroup "Holdings in tooltips", owner ruling), modifier mode, disabled-state, tests | done | `M1.3: Add the holdings tooltip block, its settings and container icons` |
 | M1.4 | Public API v1 + CallbackHandler + tests + ARCHITECTURE contract | todo | |
 | M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | todo | |
 | M1.6 | Review pass (workflow) + fixes; push M1 | todo | |

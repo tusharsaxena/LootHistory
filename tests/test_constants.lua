@@ -485,3 +485,24 @@ test("Constants: direction glyphs and labels", function()
   end
   assertEqual(C.GOLD_TYPE, "Gold")
 end)
+
+-- The holdings tooltip (#34): the modifier dropdown's ordered-array shape, and the six container
+-- marks, one per C.Container value, each a Game-icons name (D4).
+test("Constants: TOOLTIP_MODIFIER_OPTIONS is the ordered value/text array", function()
+  local got = {}
+  for i, o in ipairs(C.TOOLTIP_MODIFIER_OPTIONS) do
+    assertEqual(o.label, nil, "entry " .. i .. " uses `text`, not `label`")
+    got[i] = o.value .. "=" .. o.text
+  end
+  assertEqual(table.concat(got, ","), "none=None,shift=Shift,ctrl=Ctrl,alt=Alt")
+end)
+
+test("Constants: TIP_ICONS names one Game-icons mark per container", function()
+  assertEqual(count(C.TIP_ICONS), count(C.Container))
+  for _, c in pairs(C.Container) do assertTrue(C.TIP_ICONS[c] ~= nil, c .. " has no mark") end
+  assertEqual(C.TIP_ICONS.bags, "gi:knapsack"); assertEqual(C.TIP_ICONS.equipped, "gi:chest-armor")
+  assertEqual(C.TIP_ICONS.bank, "gi:bank"); assertEqual(C.TIP_ICONS.mail, "gi:envelope")
+  assertEqual(C.TIP_ICONS.auctions, "gi:gavel"); assertEqual(C.TIP_ICONS.tabs, "gi:locked-chest")
+  assertEqual(C.TIP_ICON_SIZE, 12)
+  assertTrue(C.TIP_ICON_FALLBACK:lower():find("^interface\\icons\\") ~= nil, "a Blizzard icon fallback")
+end)
