@@ -2066,6 +2066,32 @@ Total.
 - lifecycle: CancelDeferral cancels one handle and leaves the login deferrals running
 - lifecycle: loginSettled flips at the 20 s deferral
 
+### test_holdings_api.lua (23)
+
+- HoldingsAPI: the file publishes _G.LootHistory holding exactly API, its NS.API, holding exactly v1
+- HoldingsAPI: v1 holds exactly the eleven functions, and Version() is 1
+- HoldingsAPI: Holders lists the characters ascending and the warband last
+- HoldingsAPI: HolderInfo for a character, the warband, an unknown holder and a bad argument
+- HoldingsAPI: HolderInfo marks the logged-in character current
+- HoldingsAPI: ItemCount splits per holder and container, nonzero only; bad and unheld ids
+- HoldingsAPI: ItemCount for the logged-in character equals the tally's live overlay
+- HoldingsAPI: CurrencyCount per holder; bad and unheld ids
+- HoldingsAPI: Money is live for me and the warband where answered, stored otherwise; nil sums all
+- HoldingsAPI: Holdings is the stored snapshot, without escrow or bankSlots
+- HoldingsAPI: Scanned copies e.scanned; nil for unknown
+- HoldingsAPI: no answer is or holds a store table, and writing into one changes nothing
+- HoldingsAPI: trackLedger off answers empty; on again, the answers come back
+- HoldingsAPI: settings.enabled false answers empty, and the global survives
+- HoldingsAPI: a perf capture's hold answers empty
+- HoldingsAPI: degraded arm -- without CallbackHandler both registrations answer false
+- HoldingsAPI: live arm -- a registration hears ('HoldingsChanged', holder) on ForgetHolder
+- HoldingsAPI: live arm -- a Reconciler flush relays each changed holder
+- HoldingsAPI: live arm -- nothing is relayed during an active simulation
+- HoldingsAPI: live arm -- nil on a trackLedger flip, and once each on Disable and Enable
+- HoldingsAPI: live arm -- nothing after UnregisterCallback; a method name is called on its owner
+- HoldingsAPI: live arm -- the relay never sends on the bus
+- HoldingsAPI: the private target is registered while up and owns its two messages
+
 ### test_perf.lua (7)
 
 - perf: the buckets are declared in report order
@@ -2667,6 +2693,7 @@ Total.
 | test_libka0s_releases.lua | 28 |
 | test_surface_parity.lua | 21 |
 | test_disabled.lua | 25 |
+| test_holdings_api.lua | 23 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 17 |
@@ -2696,4 +2723,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2269** |
+| **Total** | **2292** |

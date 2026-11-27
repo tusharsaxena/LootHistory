@@ -148,6 +148,10 @@ local SUITES = {
   -- only suite that brings the WHOLE addon up through addon:OnEnable, and step 8 drives the LDB
   -- object test_launcher leaves registered.
   "test_disabled",
+  -- The public API, v1 (#34, modules/HoldingsAPI.lua). After test_disabled, which brings the whole
+  -- addon up: availability reads the latch and the relay is a live bus receiver. Its live arm loads
+  -- the real CallbackHandler onto the mock's LibStub and leaves it there; nothing else resolves it.
+  "test_holdings_api",
   -- The LibKa0s-Perf wiring (core/PerfSetup.lua). After test_disabled, which leaves the whole addon
   -- brought up: its suspend case asserts on the live registration set.
   "test_perf",

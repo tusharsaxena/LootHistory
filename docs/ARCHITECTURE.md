@@ -229,6 +229,104 @@ The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHist
 
 ---
 
+## Public API (v1)
+
+Other addons read the holdings tally through one global, published by `modules/HoldingsAPI.lua` at
+file load with `rawset` (public-api, #34). `_G.LootHistory` is `{ API = NS.API }` and nothing else
+(architecture-§1). Reach it like this:
+
+```lua
+local api = LootHistory and LootHistory.API and LootHistory.API.v1
+```
+
+**Versioning.** `v1` is semver-stable. A field may be added to an answer. A field is never removed,
+renamed or retyped, and a function never changes its arguments. A breaking change ships as `v2`
+beside `v1`, and `v1` keeps answering. `api.Version()` answers `1` (`C.API_VERSION`) always, even while
+the API is unavailable.
+
+### Functions
+
+Every function is dot-called (`api.ItemCount(id)`, not `api:ItemCount(id)`).
+
+| Signature | Returns |
+|---|---|
+| `api.Version()` | `1`, always. |
+| `api.IsAvailable()` | `true` while the addon is up, enabled and recording the ledger (see *Availability*). |
+| `api.Holders()` | A new array of holder keys: characters ascending, then `"§warband"` last when present. `{}` while unavailable. |
+| `api.HolderInfo(holder)` | `{ name, realm, class, isWarband, isCurrent, lastSeen, partial }`. `name` and `realm` split at the first `-` on Retail. On WoW Forever `name` is the whole key and `realm` is nil. For `"§warband"`, `name` is the account's word (`"Warband"`, Forever `"Account"`), `realm` is nil and `isWarband` is true. `class` is the class file (it can be nil). `lastSeen` is a timestamp. `partial` is true until the holder's bank (the warband's tabs) is first read. nil for an unknown holder, a non-string, or while unavailable. |
+| `api.ItemCount(itemID)` | `total, perHolder`, where `perHolder = { [holder] = { [container] = n } }`. Only nonzero containers and holders appear. The container keys are `bags`, `equipped`, `bank`, `mail`, `auctions` and `tabs`. Every holder is included, the warband too. `itemID` is the base item id: every variant of it counts. `nil, {}` while unavailable or for a non-number. `0, {}` for an id nobody holds. |
+| `api.CurrencyCount(currencyID)` | `total, { [holder] = n }`. The same rules. |
+| `api.Money(holder)` | Copper for `holder`. With `holder` nil, the sum over every holder, the logged-in character included. nil for an unknown holder or while unavailable. |
+| `api.Holdings(holder)` | A deep copy of the stored entry: `{ items = { [itemID] = { [container] = n } }, currency = { [id] = n }, money = copper, links = { [itemID] = link }, scanned = { [container] = ts }, meta = { genesis, partial, completeAt, lastSeen, classFile } }`. Stored values only, with no live overlay: a snapshot of the ledger. Internal fields (escrow, bank slot sizes) are left out. nil for an unknown holder or while unavailable. |
+| `api.Scanned(holder)` | A copy of the holder's scan times, `{ bags = ts, bank = ts, …, money = ts, currency = ts }`, or nil. |
+| `api.RegisterCallback(owner, "HoldingsChanged", fn)` | CallbackHandler semantics: `fn` is a function, or a method name on `owner`. A function is called as `fn(event, holder)`, a method as `owner[fn](owner, event, holder)`. |
+| `api.UnregisterCallback(owner, "HoldingsChanged")` | CallbackHandler semantics. |
+
+CallbackHandler ships vendored with this addon. On an install without it, `RegisterCallback` and
+`UnregisterCallback` are still functions. They do nothing and return false, so `v1` has the same
+eleven names either way.
+
+### Copies only
+
+Every table an answer returns is freshly built. None is, or holds, a table of
+`db.global.holdings`, the tally's cache or its scratch rows. A consumer may keep, sort or write
+into an answer, and the next call is unaffected. A consumer must not expect an answer to update
+in place: query again after `HoldingsChanged`.
+
+### Live versus stored
+
+The API reads the saved ledger only. Test mode's sample and a `/lh sim` session's store never reach
+it. On top of the ledger, the logged-in character's counts are read live:
+
+- **Items.** The logged-in character's `bags`, and its `bank`, come from the client's item counts.
+  On Retail the warband's `tabs` do too. Everyone else's containers, and the logged-in character's
+  `equipped`, `mail` and `auctions`, are stored.
+- **The zero-suspect fallback.** Away from a banker, a live bank or tabs count of 0 over a stored
+  count above 0 answers the stored count, because the client has not loaded that bank this session.
+  At a banker the live count is authoritative.
+- **Currencies.** The logged-in character's quantity is live. An account-wide currency's is live on
+  `"§warband"`. Other holders are stored.
+- **Money.** The logged-in character's purse is live. The warband's deposit is live where the client
+  answers, otherwise stored. Other holders are stored.
+- `api.Holdings(holder)` is the exception: it is stored values only.
+
+### Availability
+
+`api.IsAvailable()` is false, and every other answer is the empty one listed above, while:
+
+- the addon is disabled (`/lh disable`, or the Master controls checkbox);
+- a perf capture holds the addon down;
+- **Track holdings and losses** (`settings.trackLedger`) is off.
+
+`trackLedger` is a **per-profile** setting while the ledger is account-wide, so the answer follows the
+logged-in character's profile. `_G.LootHistory` itself stays while the addon is down. Only its answers
+go empty.
+
+### `HoldingsChanged`
+
+The payload is `(event, holder)`, with `event = "HoldingsChanged"`.
+
+- After a ledger flush, it fires once per holder whose holdings changed. That covers "Forget this
+  character" too.
+- With `holder = nil`, it means everything may have changed. It fires when availability flips (a
+  `trackLedger` change or a profile switch), when the addon stands down and when it stands up again.
+  Re-query on it.
+- It never fires during `/lh sim`. A simulation's flushes concern its own session store, which the
+  API never reads.
+- The logged-in character's own bag moves fire after the ledger's debounced flush, never mid-combat.
+  The live counts above are current on every call anyway.
+- The relay re-fires the addon's own `HOLDINGS_CHANGED` message through its own CallbackHandler
+  registry. It sends nothing on the addon's message bus.
+
+### Holder keys and client notes
+
+- Characters are `"Name-Realm"` on Retail and `"First Surname"` on WoW Forever. The account holder
+  is `"§warband"` on both. The `§` marks a system key.
+- WoW Forever has no warband bank: no `tabs` container appears there, the warband holder holds only
+  account-wide currencies, and `HolderInfo` names it `"Account"`.
+
+---
+
 ## The disabled state
 
 **Disabled means the addon is not running** (`slash-commands-§7`). `core/LifecycleSetup.lua` is the

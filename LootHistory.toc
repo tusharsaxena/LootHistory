@@ -172,6 +172,10 @@ modules\HoldingsTally.lua
 # tooltip post call's hot path, events-frames-taint-§7 / performance-§2); modules\HoldingsTally.lua
 # and core\PerfSetup.lua must be above.
 modules\HoldingsTip.lua
+# LOAD-BEARING POSITION: binds NS.HoldingsTally at load, and publishes _G.LootHistory (public-api) at
+# file load so an addon reading it at its own PLAYER_LOGIN finds it. modules\HoldingsTally.lua must
+# be above.
+modules\HoldingsAPI.lua
 modules\TimelineModel.lua
 # LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.

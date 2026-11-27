@@ -182,7 +182,7 @@ local STAND_DOWN_STEPS = {
   method("Collector", "Disable"), method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"), method("Rollup", "Disable"),
-  method("HoldingsTally", "Disable"), method("HoldingsTip", "Disable"),
+  method("HoldingsTally", "Disable"), method("HoldingsTip", "Disable"), method("HoldingsAPI", "Disable"),
   method("Attribution", "DisableOut"),
   call("DropLedgerResetOffer"),
   -- The first-run skin picker is a frame this addon shows; it goes down unmarked, so it comes back
@@ -204,6 +204,7 @@ local STAND_UP_STEPS = {
   method("Collector", "Enable"), method("Reconciler", "Enable"), method("Rollup", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
   method("Timeline", "Enable"), method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
+  method("HoldingsAPI", "Enable"),
   standUpLogStep,
 }
 

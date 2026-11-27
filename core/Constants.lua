@@ -202,6 +202,10 @@ C.WARBAND_HOLDER = "§warband"
 -- keeps memory bounded.
 C.TIP_CACHE_MAX = 128
 
+-- The public API's version (#34, modules/HoldingsAPI.lua; public-api): `LootHistory.API.v1.Version()`
+-- answers it, always. Semver-stable; a break ships as `v2` beside `v1`.
+C.API_VERSION = 1
+
 -- The holdings tooltip's container marks (#34, D4: containers are icons and a count, never words).
 -- Game-icons (CC BY 3.0) from the LibKa0s catalog, each declared on CLAUDE.md's `LibKa0s icons:` line
 -- and vendored under libs/LibKa0s/media/icons/game-icons/. `tabs` is drawn only where
