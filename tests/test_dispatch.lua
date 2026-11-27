@@ -1,6 +1,7 @@
 local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
 local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.assertTrue, T.assertFalse
+local PM = dofile("tests/mock_progress.lua")
 
 -- core/Dispatch.lua (LootHistory#37, Ka0sAddonsCommonTasks req-lh-sim.md §3.2-3.3): ONE capture event table and ONE
 -- read-side hook table. Every capture registration the four capture modules make comes out of
@@ -308,17 +309,34 @@ test("Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED a
     for _, k in ipairs(liveCapture()) do if k == "bus:FACTION_STANDING_CHANGED" then return true end end
     return false
   end
+  local Rep = NS.Reputation
+  local h = PM.install(M)
   local ok, err = pcall(function()
     assertTrue(live(), "precondition: the row is live while the addon is up")
+    h.faction(72, { name = "Stormwind", reaction = 5, standing = 3000 })
+    h.list = { { id = 72, depth = 0 } }
+    assertTrue(Rep:Seed(true), "precondition: the baseline is seeded")
     NS.Schema:Set("settings.recordReputation", false)
     assertFalse(live(), "the switch off takes the registration down")
     assertEqual((registeredBy("Reputation")), 0)
-    assertTrue(NS.Reputation._settings ~= nil, "the settings listener stays, so the switch can come back")
+    assertTrue(Rep._settings ~= nil, "the settings listener stays, so the switch can come back")
+    -- red under: DisableCapture without its ResetState (a stale baseline the switch's return diffs
+    -- against), or EnableCapture without its seed (every first change after it unseeded).
+    assertEqual(Rep:Baseline(72), nil, "the switch off drops the baseline")
+    assertEqual(Rep._seedTimer, nil, "and any pending seed")
+    h.factions[72].standing = 3500
     NS.Schema:Set("settings.recordReputation", true)
     assertTrue(live(), "the switch on registers it again")
     assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+    assertTrue(Rep._seedTimer ~= nil, "the switch on arms the seed again")
+    local seed = M.__timers[#M.__timers]
+    assertEqual(seed.delay, 2, "two seconds out")
+    seed.fn()
+    assertEqual(Rep:Baseline(72) and Rep:Baseline(72).standing, 3500, "the seed refilled the baseline from now")
   end)
   NS.Schema:Set("settings.recordReputation", true)
+  Rep:ResetState()
+  h.uninstall()
   if not ok then error(err, 0) end
 end)
 
@@ -339,8 +357,12 @@ test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on 
     assertEqual(NS.Appearance._settings, nil, "nor stands up a settings listener for a feature it lacks")
     return
   end
+  local savedH = NS.db.global.history
   local ok, err = pcall(function()
+    NS.db.global.history = {}
     assertEqual(live(), 2, "precondition: both rows are live while the addon is up")
+    NS.Appearance:OnSourceAdded(nil, 424243)
+    assertEqual(#NS.db.global.history, 1, "precondition: the source wrote its row")
     NS.Schema:Set("settings.recordAppearances", false)
     assertEqual(live(), 0, "the switch off takes both registrations down")
     assertEqual((registeredBy("Appearance")), 0)
@@ -348,7 +370,13 @@ test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on 
     NS.Schema:Set("settings.recordAppearances", true)
     assertEqual(live(), 2, "the switch on registers them again")
     assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+    -- red under: DisableCapture without its ResetState, which keeps the duplicate maps across the
+    -- switch, so the same source inside 5 s is dropped as a duplicate.
+    NS.Appearance:OnSourceAdded(nil, 424243)
+    assertEqual(#NS.db.global.history, 2, "after the switch cycled, the same source is a new row")
   end)
+  NS.db.global.history = savedH
+  NS.Appearance:ResetState()
   NS.Schema:Set("settings.recordAppearances", true)
   if not ok then error(err, 0) end
 end)

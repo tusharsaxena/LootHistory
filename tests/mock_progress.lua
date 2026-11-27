@@ -22,6 +22,9 @@
 --     header hides every following entry deeper than it, as the client does. GetNumFactions and
 --     GetFactionDataByIndex walk what is visible; ExpandFactionHeader / CollapseFactionHeader flip the
 --     visible entry at that index and log "expand:<id>@<index>" / "collapse:<id>@<index>" in h.calls.
+--     An entry with `legacy = true` is left out of the list while `h.legacyShown` is false (Retail's
+--     "Show Legacy Reputations" filter); AreLegacyReputationsShown answers the flag and
+--     SetLegacyReputationsShown sets it and logs "legacy:<true|false>" in h.calls.
 --   * A source is { itemID, name, quality, visualID, link, collected }. GetSourceInfo answers
 --     { sourceID, itemID, name, quality, visualID, isCollected }; GetAppearanceSourceInfo answers a
 --     table with .itemLink, or with h.positional the older positional shape (the link sixth);
@@ -34,11 +37,12 @@ local PM = {}
 
 local NAMES = { "C_Reputation", "C_MajorFactions", "C_GossipInfo", "C_TransmogCollection" }
 
-local function visibleOf(list)
+local function visibleOf(list, legacyShown)
   local out, hideDepth = {}, nil
   for _, e in ipairs(list) do
     local depth = e.depth or 0
-    local hidden = hideDepth ~= nil and depth > hideDepth   -- under a collapsed header
+    local hidden = (hideDepth ~= nil and depth > hideDepth)   -- under a collapsed header
+      or (e.legacy == true and legacyShown == false)          -- filtered out as a legacy reputation
     if not hidden then
       hideDepth = nil
       out[#out + 1] = e
@@ -65,20 +69,25 @@ local function reputation(h)
   function R.IsFactionParagonForCurrentPlayer(id) local f = h.factions[id]; return f ~= nil and f.paragon ~= nil end
   function R.GetFactionParagonInfo(id) local f = h.factions[id]; return f and f.paragon, 10000 end
   function R.IsAccountWideReputation(id) local f = h.factions[id]; return f ~= nil and f.accountWide == true end
-  function R.GetNumFactions() return #visibleOf(h.list) end
+  function R.GetNumFactions() return #visibleOf(h.list, h.legacyShown) end
   function R.GetFactionDataByIndex(i)
-    local e = visibleOf(h.list)[i]
+    local e = visibleOf(h.list, h.legacyShown)[i]
     if not e then return nil end
     local f = h.factions[e.id] or {}
     return { factionID = e.id, name = f.name, isHeader = e.header == true, isCollapsed = e.collapsed == true,
              isHeaderWithRep = e.withRep == true }
   end
+  function R.AreLegacyReputationsShown() return h.legacyShown ~= false end
+  function R.SetLegacyReputationsShown(on)
+    h.legacyShown = on == true
+    h.calls[#h.calls + 1] = "legacy:" .. tostring(on == true)
+  end
   function R.ExpandFactionHeader(i)
-    local e = visibleOf(h.list)[i]
+    local e = visibleOf(h.list, h.legacyShown)[i]
     if e and e.header then e.collapsed = false; h.calls[#h.calls + 1] = "expand:" .. e.id .. "@" .. i end
   end
   function R.CollapseFactionHeader(i)
-    local e = visibleOf(h.list)[i]
+    local e = visibleOf(h.list, h.legacyShown)[i]
     if e and e.header then e.collapsed = true; h.calls[#h.calls + 1] = "collapse:" .. e.id .. "@" .. i end
   end
   return R
@@ -144,7 +153,7 @@ end
 function PM.install(M)
   local saved = {}
   for _, name in ipairs(NAMES) do saved[name] = { v = rawget(M, name) } end
-  local h = { factions = {}, list = {}, sources = {}, calls = {}, positional = false }
+  local h = { factions = {}, list = {}, sources = {}, calls = {}, positional = false, legacyShown = true }
   function h.faction(id, f) h.factions[id] = f; return f end
   function h.source(id, s) h.sources[id] = s; return s end
   h.R, h.MF, h.G, h.TC = reputation(h), majorFactions(h), gossip(h, saved.C_GossipInfo.v), transmog(h)

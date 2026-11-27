@@ -366,6 +366,13 @@ is keyed by a numeric `factionID`, which is checked for secret first. A secret i
   (`modules/Sim.lua:391-410`):
   `function() NS.Reputation:ResetState(); NS.Appearance:ResetState(); NS.Reputation:Seed() end`.
   The live walk then reseeds, and the simulated standings never reach the real baseline.
+  **Amended in the M2.5 review:** the stop must not re-walk. A real `FACTION_STANDING_CHANGED` is
+  INTERFERENCE: it stops the session synchronously and then runs live, and by then the client holds
+  the new standing, so a reseed at the stop absorbed it (`unchanged`), and a stop in combat left the
+  baseline empty (`unseeded`). `Host.Prepare` therefore calls `NS.Reputation:SuspendBaseline()` (the
+  real baseline set aside whole) in place of `ResetState`, and the stop step is
+  `NS.Reputation:RestoreBaseline(); NS.Appearance:ResetState()`. Every real rep change interferes,
+  so the restored baseline is exact.
 
 ---
 

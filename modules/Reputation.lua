@@ -26,7 +26,10 @@ local trackLedger, excludedSources = true, {}
 -- The capture state (H4: cleared by ResetState, never unregistered by it). `baseline[factionID]` is
 -- { repType, rank, standing, threshold, paragon }, made once per faction and updated in place;
 -- `last[factionID]` is { record, index, ts, dir, source }, the row a coalescing change grows.
+-- `saved` is the real baseline set aside while a simulation runs (SuspendBaseline / RestoreBaseline);
+-- `baseline` is reassigned then, so every reader below reads the upvalue at call time.
 local baseline, last = {}, {}
+local saved
 
 local function clear(t) for k in pairs(t) do t[k] = nil end end
 
@@ -113,16 +116,17 @@ local function coalesce(factionID, dir, source, qty, now, label, rank, standing)
   return true
 end
 
--- f: name, repType, rank, standing, threshold, paragon, accountWide, label (Compat.FactionSnapshot).
-local function buildRecord(factionID, f, dir, qty, now, source, detail, confidence)
+-- The values are Compat.FactionSnapshot's, passed as arguments so the row is the only table built.
+local function buildRecord(factionID, name, repType, rank, standing, wide, label, dir, qty, now, source, detail,
+                           confidence)
   local me = NS.Util.PlayerKey()
   local zone, subzone = NS.Zone()
   return {
     ts = now, char = me, classFile = NS.Compat.PlayerClassFile(),
     holder = me, dir = dir, kind = C.Kind.REPUTATION,   -- holder is the earning character (A1)
-    factionID = factionID, itemName = f.name, itemType = C.REPUTATION_TYPE, itemSubType = f.label,
-    quantity = qty, repType = f.repType, rank = f.rank, standing = f.standing,
-    accountWide = f.accountWide == true or nil,
+    factionID = factionID, itemName = name, itemType = C.REPUTATION_TYPE, itemSubType = label,
+    quantity = qty, repType = repType, rank = rank, standing = standing,
+    accountWide = wide == true or nil,
     source = source, sourceDetail = detail, confidence = confidence,
     zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
   }
@@ -137,9 +141,8 @@ local function writeChange(factionID, d, name, repType, rank, standing, accountW
   if excludedSources[source] then return traceDrop(factionID, "source") end
   local qty, now = math.abs(d), time()
   if coalesce(factionID, dir, source, qty, now, label, rank, standing) then return end
-  local f = { name = name, repType = repType, rank = rank, standing = standing, accountWide = accountWide,
-              label = label }
-  local record = buildRecord(factionID, f, dir, qty, now, source, detail, confidence)
+  local record = buildRecord(factionID, name, repType, rank, standing, accountWide, label, dir, qty, now, source,
+    detail, confidence)
   local index = NS.Database:Add(record)
   local l = last[factionID]
   if not l then l = {}; last[factionID] = l end
@@ -180,6 +183,15 @@ end)
 
 -- ── Seeding ──────────────────────────────────────────────────────────────────────────────────
 
+-- The seed two seconds out (canceled by NS.CancelDeferrals on a stand-down), replacing any pending one.
+local function armSeed(self)
+  NS.CancelDeferral(self._seedTimer)
+  self._seedTimer = NS.After(2, function()
+    self._seedTimer = nil
+    self:Seed()
+  end)
+end
+
 --- Fill the baseline from a full faction walk. Out of combat only, unless `immediate`: the walk opens
 --- and shuts the player's Reputation headers, which is UI state, so a seed due in combat re-arms
 --- itself after C.REP_SEED_RETRY. `immediate` (the simulator's Prepare) also skips the deferral and
@@ -201,13 +213,42 @@ function Rep:Seed(immediate)
   return true
 end
 
---- Every piece of capture state, cleared without unregistering: the baseline, the coalescing map and
---- the pending seed. DisableCapture runs it on the way down; the simulator at start and stop.
+--- Every piece of capture state, cleared without unregistering: the baseline (and one set aside by
+--- SuspendBaseline), the coalescing map and the pending seed. DisableCapture runs it on the way down.
 function Rep:ResetState()
   NS.CancelDeferral(self._seedTimer)
-  self._seedTimer = nil
+  self._seedTimer, self._seedWasPending = nil, nil
+  saved = nil
   clear(baseline)
   clear(last)
+end
+
+--- The simulator's start: the real baseline is set aside whole and a fresh one takes its place (the
+--- caller seeds it from the world), the coalescing map is cleared and a pending seed is canceled and
+--- remembered. A real FACTION_STANDING_CHANGED always stops a session, so nothing real lands meanwhile.
+function Rep:SuspendBaseline()
+  if saved == nil then
+    saved = baseline
+    self._seedWasPending = self._seedTimer ~= nil
+  end
+  NS.CancelDeferral(self._seedTimer)
+  self._seedTimer = nil
+  baseline = {}
+  clear(last)
+end
+
+--- The simulator's stop: the real baseline set aside at the start comes back as it was, so the real
+--- change that stopped the session diffs against it and is written, and no faction walk runs (none at
+--- a stand-down, and no baseline left empty by a stop in combat). With nothing set aside (the switch
+--- was cycled mid-session) or a seed that was pending at the start, the seed is armed again.
+function Rep:RestoreBaseline()
+  local reseed = saved == nil or self._seedWasPending
+  if saved ~= nil then baseline, saved = saved, nil else clear(baseline) end
+  self._seedWasPending = nil
+  clear(last)
+  NS.CancelDeferral(self._seedTimer)
+  self._seedTimer = nil
+  if reseed and self._enabled then armSeed(self) end
 end
 
 --- The baseline entry for `factionID` (tests and the simulator's stop check), or nil.
@@ -241,11 +282,7 @@ function Rep:EnableCapture()
   if self._enabled or not NS.addon then return end
   NS.RegisterRows("Reputation", NS.addon, "bus")
   self._enabled = true
-  NS.CancelDeferral(self._seedTimer)
-  self._seedTimer = NS.After(2, function()
-    self._seedTimer = nil
-    self:Seed()
-  end)
+  armSeed(self)
 end
 
 --- Capture off (the switch unticked) while the module keeps listening for it coming back.

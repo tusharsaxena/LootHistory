@@ -55,16 +55,17 @@ local function duplicate(sourceID, dir)
   return false
 end
 
--- a: itemID, itemLink, name, quality, visualID, itemSubType (Compat.AppearanceSource).
-local function buildRecord(sourceID, a, dir, source, detail, newLook)
+-- The values are Compat.AppearanceSource's, passed as arguments so the row is the only table built.
+local function buildRecord(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source, detail,
+                           newLook)
   local me = NS.Util.PlayerKey()
   local zone, subzone = NS.Zone()
   return {
     ts = time(), char = me, classFile = NS.Compat.PlayerClassFile(),
     holder = me, dir = dir, kind = C.Kind.APPEARANCE,
-    sourceID = sourceID, appearanceID = a.visualID, itemID = a.itemID, itemLink = a.itemLink,
-    itemName = a.name or ("Appearance " .. sourceID), quality = a.quality,
-    itemType = C.APPEARANCE_TYPE, itemSubType = a.itemSubType, quantity = 1, newLook = newLook,
+    sourceID = sourceID, appearanceID = visualID, itemID = itemID, itemLink = itemLink,
+    itemName = name or ("Appearance " .. sourceID), quality = quality,
+    itemType = C.APPEARANCE_TYPE, itemSubType = itemSubType, quantity = 1, newLook = newLook,
     -- The tie between a stamp and a collected look is circumstantial: never more than INFERRED.
     source = source, sourceDetail = detail, confidence = C.Confidence.INFERRED,
     zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
@@ -83,9 +84,8 @@ local function appearanceEvent(_, sourceID, dir)
   local source, detail = NS.Attribution:Peek()
   if excludedSources[source] then return traceDrop(sourceID, "source") end
   local newLook = dir == C.Dir.IN and visualID ~= nil and NS.Compat.IsNewLook(visualID, sourceID) or nil
-  local a = { itemID = itemID, itemLink = itemLink, name = name, quality = quality, visualID = visualID,
-              itemSubType = itemSubType }
-  local record = buildRecord(sourceID, a, dir, source, detail, newLook)
+  local record = buildRecord(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source, detail,
+    newLook)
   NS.Database:Add(record)
   if NS.State.debug and NS.Debug then
     NS.Debug("Appearance", "%s %s src=%s new=%s", dir == C.Dir.IN and "+" or "-", record.itemName, source,

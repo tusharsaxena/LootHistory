@@ -169,7 +169,7 @@ Each owner has its own capture switch (`settings.recordReputation`, `settings.re
 
 **The reputation delta.** `Compat.FactionSnapshot(id)` answers values, never a table: name, `repType` (`renown` / `guild` / `friendship` / `base`, by API presence, so WoW Forever answers `base`), rank, an **absolute** standing, the renown threshold, the cumulative paragon value, the warband flag and the standing label. The pure `Reputation.Delta` turns a baseline entry and the new snapshot into one scalar. For base, guild and friendship factions it is the standing difference, so a loss across a rank boundary is a plain negative. For renown it is the difference inside a level, or the remainder of the old level plus each crossed level's old threshold plus the new standing on a level-up. The paragon growth is added on top. Answers that mean "reseed, write nothing" are `unseeded`, `type-change`, `paragon-reset` and `renown-drop`, and `0` is `unchanged`. The baseline entry is overwritten every time, so the unchanged and reseed paths allocate nothing (`tests/perf.lua`'s `repUnchanged` pins it at zero).
 
-**The seed.** The baseline lives **in memory only**. `EnableCapture` arms a seed two seconds out (`NS.After`, dropped by `NS.CancelDeferrals`), and `Reputation:Seed` fills it from `Compat.ListFactions()`, a full walk that expands collapsed Reputation-panel headers and collapses them again in reverse, the way `Compat.ListCurrencies` does. That walk is UI state, so a seed due in combat re-arms itself after `C.REP_SEED_RETRY` (5 s). A faction first seen at an event is seed-only. A login or `/reload` therefore reseeds and writes no rows.
+**The seed.** The baseline lives **in memory only**. `EnableCapture` arms a seed two seconds out (`NS.After`, dropped by `NS.CancelDeferrals`), and `Reputation:Seed` fills it from `Compat.ListFactions()`, a full walk that expands collapsed Reputation-panel headers and collapses them again in reverse, the way `Compat.ListCurrencies` does, and on Retail shows hidden legacy reputations for the walk and hides them again, so a legacy faction is seeded too. That walk is UI state, so a seed due in combat re-arms itself after `C.REP_SEED_RETRY` (5 s). A faction first seen at an event is seed-only. A login or `/reload` therefore reseeds and writes no rows.
 
 **The rules past the delta.** A loss (`dir = OUT`) needs `settings.trackLedger`. With the ledger off only gains are written, and a loss logs `reason=ledger-off`. A change that continues the faction's last row (same direction and source, inside `C.REP_COALESCE` = 60 s, and `Database:HistoryRow(index)` still that record) grows the row through `Database:Amend` and updates its standing label, rank and standing, so an AoE pull is one row, not one per kill. Anything else is a new row through `Database:Add`.
 
@@ -375,10 +375,13 @@ The stand-down stops a simulation first (`standDown`), and a profile switch, cop
 by handle, resets the Reconciler and the attribution contexts (a simulated stamp or claim must never
 attribute the next real loot), puts `nil` back into `NS.SimStores` so every accessor answers the
 saved store again, drops the real-event filter and the world watch, and announces the swap to the
-window and the bus. It also clears the reputation baseline and coalescing map and the appearance
-duplicate maps, then reseeds the baseline from the live faction walk, so a simulated standing never
-reaches the real baseline (the start cleared the same state and seeded from the world's factions,
-`Reputation:Seed(true)`). Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
+window and the bus. It also puts back the real reputation baseline the start set aside (`Reputation:RestoreBaseline`,
+with the coalescing map cleared) and clears the appearance duplicate maps, so a simulated standing
+never reaches the real baseline (the start set the baseline aside with `Reputation:SuspendBaseline`
+and seeded a fresh one from the world's factions, `Reputation:Seed(true)`). No faction walk runs at
+the stop: a real `FACTION_STANDING_CHANGED` that stopped the session runs live after it and diffs
+against the pre-session standing, so its row is written, and a stop in combat never leaves the
+baseline empty. Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
 second out: whatever really changed in the bags, purse or currencies while the simulation absorbed
 those events is written as [`UNTRACKED`](#login-and-resume-untracked) drift, the same answer the
 addon gives after a disable and enable. A stand-down needs no scan of its own, because the

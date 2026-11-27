@@ -270,6 +270,27 @@ test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event a
     setEnabled(true)
   end)
 
+test("slash-commands-§7: the stand-down drops the reputation baseline and its pending seed", function()
+  -- red under: Reputation:DisableCapture without its ResetState, which leaves a stale baseline (and a
+  -- seed still armed) for the stand-up to diff against.
+  local PM = dofile("tests/mock_progress.lua")
+  local h = PM.install(M)
+  local ok, err = pcall(function()
+    bringUp()
+    h.faction(72, { name = "Stormwind", reaction = 5, standing = 3000 })
+    h.list = { { id = 72, depth = 0 } }
+    assertTrue(NS.Reputation:Seed(true))
+    assertTrue(NS.Reputation:Baseline(72) ~= nil, "precondition: the baseline holds the faction")
+    setEnabled(false)
+    assertEqual(NS.Reputation:Baseline(72), nil, "the stand-down cleared the baseline")
+    assertEqual(NS.Reputation._seedTimer, nil, "and left no seed armed")
+  end)
+  setEnabled(true)
+  NS.Reputation:ResetState()
+  h.uninstall()
+  if not ok then error(err, 0) end
+end)
+
 --- A stable text form of a table, keys sorted, for "is this store byte-for-byte what it was".
 local function dump(v)
   if type(v) ~= "table" then return tostring(v) end

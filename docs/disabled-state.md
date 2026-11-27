@@ -133,8 +133,10 @@ and stop while the addon stays up:
   `Attribution:DisableOut` both call it.
 - **`Reputation:ResetState()`** clears the reputation baseline and the coalescing map and cancels
   the pending seed; **`Appearance:ResetState()`** clears the duplicate maps. Each owner's
-  `DisableCapture` calls its own. The simulator's start clears both and seeds the baseline from the
-  world (`Reputation:Seed(true)`); its stop clears both and reseeds from the live faction walk.
+  `DisableCapture` calls its own. The simulator's start sets the real baseline aside
+  (`Reputation:SuspendBaseline`), clears the duplicate maps and seeds a fresh baseline from the world
+  (`Reputation:Seed(true)`); its stop puts the real baseline back (`Reputation:RestoreBaseline`, no
+  faction walk) and clears the duplicate maps again.
 - **`NS.CancelDeferral(h)`** cancels and forgets one `NS.After` handle and leaves every other armed,
   so canceling the Reconciler's two fuses never takes the login deferrals down.
   `NS.CancelDeferrals()` still drops them all on a stand-down.

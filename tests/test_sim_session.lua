@@ -494,12 +494,59 @@ end)
 local PM = dofile("tests/mock_progress.lua")
 local Rep = NS.Reputation
 
-test("Sim: a real FACTION_STANDING_CHANGED stops it (world), then runs live", function()
-  local before = #NS.db.global.history
-  stopsOn("a real reputation change",
-    "Simulation stopped: something real happened (a loot, a trade, a mail or a window), and it is recorded as usual.",
-    function() M.__fire("FACTION_STANDING_CHANGED", 72, 3000) end)
-  assertEqual(#NS.db.global.history, before, "the live run read no faction (the mock has none) and wrote nothing")
+-- Run `fn(h)` with the double planted, Stormwind (72) at a real standing of 100 behind a collapsed
+-- header and the real baseline seeded from it; the saved history, the baseline and the combat flag
+-- are put back.
+local function withRealFaction(fn)
+  local h = PM.install(M)
+  local history = NS.db.global.history
+  local before, savedCombat = #history, M.__inCombat
+  local ok, err = pcall(function()
+    h.faction(72, { name = "Stormwind", reaction = 5, standing = 100 })
+    h.list = { { id = 1, header = true, collapsed = true, depth = 0 }, { id = 72, depth = 1 } }
+    Rep:ResetState()
+    assertTrue(Rep:Seed(true), "the real baseline was seeded")
+    assertEqual(Rep:Baseline(72).standing, 100)
+    h.calls = {}
+    fn(h, before)
+  end)
+  while #NS.db.global.history > before do table.remove(NS.db.global.history) end
+  M.__inCombat = savedCombat
+  Rep:ResetState()
+  h.uninstall()
+  if not ok then error(err, 0) end
+end
+
+test("Sim: a real FACTION_STANDING_CHANGED stops it (world), then lands in the saved history", function()
+  -- red under: a stop that reseeds from the live walk, which reads the post-change standing into the
+  -- baseline, so the change that stopped the session diffs to 0 and is dropped as unchanged.
+  withRealFaction(function(h, before)
+    stopsOn("a real reputation change",
+      "Simulation stopped: something real happened (a loot, a trade, a mail or a window), and it is recorded as usual.",
+      function()
+        h.factions[72].standing = 150
+        M.__fire("FACTION_STANDING_CHANGED", 72, 50)
+      end)
+    local history = NS.db.global.history
+    assertEqual(#history, before + 1, "the real change was recorded live, into the saved history")
+    assertEqual(history[#history].kind, "REPUTATION")
+    assertEqual(history[#history].quantity, 50, "the delta is from the pre-session standing")
+    assertEqual(#h.calls, 0, "the stop walked no faction list")
+  end)
+end)
+
+test("Sim: a stop in combat keeps the real baseline (no deferred, empty reseed)", function()
+  withRealFaction(function(h)
+    withScenario(function()
+      assertTrue(start())
+      M.__inCombat = true
+      M.__fire("PLAYER_REGEN_DISABLED")
+      assertFalse(Sim:IsActive(), "combat stops the session")
+      assertEqual(Rep:Baseline(72) and Rep:Baseline(72).standing, 100, "the pre-session baseline is back")
+      assertEqual(Rep._seedTimer, nil, "and no seed is deferred over an empty baseline")
+      assertEqual(#h.calls, 0, "the stop walked no faction list")
+    end)
+  end)
 end)
 
 test("Sim: a real appearance change stops it on Retail, then lands in the saved history", function()
@@ -516,21 +563,17 @@ test("Sim: a real appearance change stops it on Retail, then lands in the saved 
   assertEqual(after, before + 1, "the real appearance was recorded live, into the saved history")
 end)
 
-test("Sim: the start seeds the baseline from the world; the stop reseeds it from the live walk", function()
-  local h = PM.install(M)
-  local history = NS.db.global.history
-  local before = #history
-  local ok, err = pcall(function()
-    h.faction(72, { name = "Stormwind", reaction = 5, standing = 100 })
-    h.list = { { id = 72, depth = 0 } }
+test("Sim: the start seeds the baseline from the world; the stop restores the real one", function()
+  withRealFaction(function(h, before)
     withScenario(function()
       assertTrue(start())
       assertEqual(Rep:Baseline(72).standing, 3000, "the session baseline is the world's")
       Host.Drivers.Reputation(72, 250)
       assertEqual(Rep:Baseline(72).standing, 3250, "a simulated change moves the session baseline")
       Sim:Stop("stop")
-      assertEqual(Rep:Baseline(72).standing, 100, "after the stop the baseline is the live walk's")
+      assertEqual(Rep:Baseline(72).standing, 100, "after the stop the baseline is the pre-session one")
       assertEqual(Rep:Baseline(2590), nil, "no simulated faction survives the stop")
+      assertEqual(#h.calls, 0, "the stop walked no faction list")
     end)
     h.factions[72].standing = 150
     Rep:OnStandingChanged(nil, 72)
@@ -538,8 +581,4 @@ test("Sim: the start seeds the baseline from the world; the stop reseeds it from
     local r = NS.db.global.history[#NS.db.global.history]
     assertEqual(r.kind, "REPUTATION"); assertEqual(r.quantity, 50, "the delta is from live, not the simulated standing")
   end)
-  while #NS.db.global.history > before do table.remove(NS.db.global.history) end
-  Rep:ResetState()
-  h.uninstall()
-  if not ok then error(err, 0) end
 end)

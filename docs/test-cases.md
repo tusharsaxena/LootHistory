@@ -304,7 +304,7 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
-- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, straight above the Sim seam
+- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, straight above the Sim seam
 
 ### test_compat_client.lua (10)
 
@@ -344,7 +344,7 @@ Total.
 - Compat tooltip: ModifierDown reads each key, false for anything else
 - Compat tooltip: ClassColor answers RAID_CLASS_COLORS' components, nil otherwise
 
-### test_compat_progress.lua (12)
+### test_compat_progress.lua (13)
 
 - Compat progress: FactionSnapshot reads a base faction's absolute standing and its label
 - Compat progress: FactionSnapshot genders the label through GetText where the client has it
@@ -355,6 +355,7 @@ Total.
 - Compat progress: FactionSnapshot answers all nil for an unknown, secret or unreadable faction
 - Compat progress: ListFactions expands collapsed headers and collapses them again, last first
 - Compat progress: ListFactions answers {} without the list API and never expands without ExpandFactionHeader
+- Compat progress: ListFactions shows hidden legacy reputations for the walk and hides them again
 - Compat progress: AppearanceSource reads the source's item, link, name, quality, visual and subtype
 - Compat progress: AppearanceSource guards a secret name or link
 - Compat progress: IsNewLook is true only when no other source of the visual is collected
@@ -2132,10 +2133,11 @@ Total.
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
 
-### test_disabled.lua (25)
+### test_disabled.lua (26)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
+- slash-commands-§7: the stand-down drops the reputation baseline and its pending seed
 - slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
@@ -2301,7 +2303,7 @@ Total.
 - SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
 - SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
 
-### test_sim_session.lua (29)
+### test_sim_session.lua (30)
 
 - Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
 - Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
@@ -2329,9 +2331,10 @@ Total.
 - Sim: Forget this character refuses while a simulation runs
 - Sim: the History row's Delete refuses while a simulation runs
 - Sim: a retention change that would prune refuses and keeps the confirmed value
-- Sim: a real FACTION_STANDING_CHANGED stops it (world), then runs live
+- Sim: a real FACTION_STANDING_CHANGED stops it (world), then lands in the saved history
+- Sim: a stop in combat keeps the real baseline (no deferred, empty reseed)
 - Sim: a real appearance change stops it on Retail, then lands in the saved history
-- Sim: the start seeds the baseline from the world; the stop reseeds it from the live walk
+- Sim: the start seeds the baseline from the world; the stop restores the real one
 
 ### test_sim_world.lua (11)
 
@@ -2741,7 +2744,7 @@ Total.
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 10 |
 | test_compat_tooltip.lua | 22 |
-| test_compat_progress.lua | 12 |
+| test_compat_progress.lua | 13 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 13 |
@@ -2806,7 +2809,7 @@ Total.
 | test_libka0s.lua | 30 |
 | test_libka0s_releases.lua | 28 |
 | test_surface_parity.lua | 21 |
-| test_disabled.lua | 25 |
+| test_disabled.lua | 26 |
 | test_holdings_api.lua | 26 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
@@ -2814,7 +2817,7 @@ Total.
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 9 |
 | test_sim_seam.lua | 11 |
-| test_sim_session.lua | 29 |
+| test_sim_session.lua | 30 |
 | test_sim_world.lua | 11 |
 | test_sim_drivers.lua | 11 |
 | test_sim_e2e.lua | 17 |
@@ -2837,4 +2840,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2394** |
+| **Total** | **2397** |

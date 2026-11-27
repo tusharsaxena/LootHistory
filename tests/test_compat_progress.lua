@@ -1,4 +1,4 @@
--- tests/test_compat_progress.lua — core/Compat.lua's reputation and appearance reads
+-- tests/test_compat_progress.lua — core/CompatProgress.lua's reputation and appearance reads
 -- (rep/appearance spec §3.2): FactionSnapshot, ListFactions, AppearanceSource and IsNewLook, on
 -- tests/mock_progress.lua's double, installed per case and uninstalled after it. A secret is the
 -- kit's secret double (T.secret), with issecretvalue planted on the mock for the case.
@@ -162,6 +162,31 @@ function()
     assertEqual(#h.calls, 0)
     h.R.GetNumFactions = nil
     assertEqual(#C().ListFactions(), 0, "no list API, empty list")
+  end)
+end)
+
+test("Compat progress: ListFactions shows hidden legacy reputations for the walk and hides them again",
+function()
+  -- red under: a walk that reads the list as filtered, which leaves every legacy faction unseeded
+  -- (its first change each session dropped), or one that leaves the player's filter flipped.
+  withDouble(function(h)
+    h.faction(72, { name = "Stormwind", reaction = 5, standing = 3000 })
+    h.faction(21, { name = "Booty Bay", reaction = 4, standing = 1500 })
+    h.list = { { id = 1, header = true, collapsed = true, depth = 0, legacy = true }, { id = 21, depth = 1, legacy = true },
+               { id = 2, header = true, depth = 0 }, { id = 72, depth = 1 } }
+    h.legacyShown = false
+    local ids = {}
+    for _, r in ipairs(C().ListFactions()) do ids[#ids + 1] = r.id end
+    assertEqual(table.concat(ids, ","), "21,72", "the legacy faction is walked")
+    assertEqual(table.concat(h.calls, " "), "legacy:true expand:1@1 collapse:1@1 legacy:false",
+      "shown first, hidden again after the headers are shut")
+    assertFalse(h.legacyShown, "the player's filter is as it was")
+    h.calls = {}
+    h.legacyShown = true
+    C().ListFactions()
+    assertEqual(table.concat(h.calls, " "), "expand:1@1 collapse:1@1", "a shown filter is left alone")
+    h.R.SetLegacyReputationsShown, h.legacyShown, h.calls = nil, false, {}
+    assertEqual(#C().ListFactions(), 1, "without the setter the filtered list is walked as it is")
   end)
 end)
 

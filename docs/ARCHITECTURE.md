@@ -344,7 +344,7 @@ source (`B:VisibilityAllows`). A hook that cannot be undone gates its own body i
 settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
 is the conformance suite. The working-state wipes are callable apart from the stand-down, for the
 simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`,
-`Reputation:ResetState()`, `Appearance:ResetState()` and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
+`Reputation:ResetState()` (with `SuspendBaseline` / `RestoreBaseline`, which set the real baseline aside at the start and put it back at the stop), `Appearance:ResetState()` and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
 The 20-second login deferral sets `NS.State.loginSettled`. The full account is in
 [disabled-state.md](disabled-state.md).
 
@@ -850,9 +850,13 @@ The `layout-§1` census: one row per authored, tracked `.lua` file over 1500 lin
 terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the cap. Gated by the
 kit's `tests/_kit/test_layout_cap.lua`.
 
-Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1494 lines,
-then `tests/test_browser.lua` at 1348, `settings/Schema.lua` at 1337, `core/Database.lua` at 1336
-and `tests/test_database.lua` at 1252 (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-27).
+Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1499 lines,
+then `core/Database.lua` at 1395, `settings/Schema.lua` at 1361, `tests/test_browser.lua` at 1348
+and `tests/test_database.lua` at 1284; `core/Compat.lua` is 1106 after the peel below (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-28).
+`tests/test_browsertable.lua` sits one line under the cap, so its next case needs a peel first (the
+M2 reputation and appearance read-side cases into a suite of their own is the seam).
+On 2026-11-28 (M2.5) `core/Compat.lua` (1318 lines, past its 1200 re-check again) shed the reputation
+and appearance reads verbatim to `core/CompatProgress.lua`, leaving 1106.
 On 2026-11-27 (#34, M1.6) `core/Compat.lua` (1326 lines, past its 1200 re-check) shed the holdings
 tooltip's reads verbatim to `core/CompatTooltip.lua` (277 lines), leaving 1105.
 On 2026-11-27 the v1.118.0 re-vendor took `tests/test_libka0s.lua` to 1510 lines, and its per-tag release-pin

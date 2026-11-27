@@ -272,8 +272,9 @@ function Host.Prepare(_, def, opts, ready)
   NS.Reconciler:ResetState()
   NS.Attribution:ResetContexts()
   -- The reputation baseline, its coalescing map and the appearance duplicate maps are capture state
-  -- (H4): cleared, then the baseline seeded at once from the world's factions (GUARDED ListFactions).
-  NS.Reputation:ResetState()
+  -- (H4). The real baseline is set aside whole (the stop puts it back), then a fresh one is seeded at
+  -- once from the world's factions (GUARDED ListFactions).
+  NS.Reputation:SuspendBaseline()
   NS.Appearance:ResetState()
   NS.Reputation:Seed(true)
   NS.RealEventFilter = Host.OnRealEvent
@@ -421,9 +422,10 @@ local STOP_STEPS = {
     if NS.RealEventFilter == Host.OnRealEvent then NS.RealEventFilter = nil end
     unregisterWatch()
   end,
-  -- The simulated standings never reach the real baseline: cleared, then reseeded from the live walk
-  -- (the seam is off by now; in combat the seed re-arms itself).
-  function() NS.Reputation:ResetState(); NS.Appearance:ResetState(); NS.Reputation:Seed() end,
+  -- The simulated standings never reach the real baseline: the one set aside at the start comes back,
+  -- with no faction walk. A real FACTION_STANDING_CHANGED that stopped the session runs live after this
+  -- step and diffs against the pre-session standing, so its row is written.
+  function() NS.Reputation:RestoreBaseline(); NS.Appearance:ResetState() end,
   -- What really changed while the session ran becomes UNTRACKED drift. Not on a stand-down: the
   -- Reconciler's own stand-up rescan covers that.
   function(_, reason)
