@@ -354,3 +354,65 @@ test("SimDrivers: Appearance is Retail's; it flips the world's collected flag, t
     assertEqual(#record, n)
   end)
 end)
+
+-- ── the gain feed's progress (#38, toast spec §12) ───────────────────────────────────────────
+
+test("SimDrivers: XP adds to the world's experience, rolls a level over with PLAYER_LEVEL_UP, then PLAYER_XP_UPDATE", function()
+  withSession(function(record)
+    local xp = Host.world.xp
+    xp.cur, xp.max, xp.level = 1000, 2000, 30
+    D.XP(500)
+    assertEqual(xp.cur, 1500); assertEqual(xp.level, 30)
+    local ev = first(record, "PLAYER_XP_UPDATE")
+    assertTrue(ev ~= nil and ev.args[1] == "player", "PLAYER_XP_UPDATE(\"player\") fired")
+    assertEqual(first(record, "PLAYER_LEVEL_UP"), nil, "no level crossed yet")
+    D.XP(700)
+    assertEqual(xp.level, 31); assertEqual(xp.cur, 200); assertEqual(xp.max, 2200, "the next level needs a tenth more")
+    local up = first(record, "PLAYER_LEVEL_UP")
+    assertTrue(up ~= nil and up.args[1] == 31, "PLAYER_LEVEL_UP(level)")
+    local cur, max, level = NS.Compat.PlayerXP()
+    assertEqual(table.concat({ cur, max, level }, ","), "200,2200,31", "the seam answers the world's experience")
+  end)
+end)
+
+test("SimDrivers: Skill raises the world's rank to its cap, then fires SKILL_LINES_CHANGED; no chat line", function()
+  withSession(function(record)
+    local s = Host.world.skills[186]
+    assertTrue(s ~= nil, "the world has Mining")
+    s.rank, s.max = 149, 150
+    D.Skill(186, 5)
+    assertEqual(s.rank, 150, "capped at its max")
+    assertTrue(first(record, "SKILL_LINES_CHANGED") ~= nil)
+    assertEqual(first(record, "CHAT_MSG_SKILL"), nil, "never chat text")
+    local n = #record
+    assertEqual(D.Skill(99999, 1), 0, "a line the world lacks fires nothing")
+    assertEqual(#record, n)
+  end)
+end)
+
+test("SimDrivers: a session's XP and skill rise reach the gain feed with the sim flag; the baselines come from the world", function()
+  local g = NS.GainFeed
+  local savedWants, savedOn = {}, g.on
+  for k, v in pairs(g.wants) do savedWants[k] = v end
+  local sent, savedSend = {}, NS.bus.SendMessage
+  local ok, err = pcall(withSession, function()
+    g.wants.XP, g.wants.SKILL, g.on = true, true, true
+    NS.bus.SendMessage = function(self, msg, a, ...)
+      if msg == NS.MSG.GAIN then sent[#sent + 1] = { kind = a.kind, qty = a.qty, sim = a.sim }; return end
+      return savedSend(self, msg, a, ...)
+    end
+    NS.Progress:ResetState(); NS.Progress:Seed(true)
+    D.XP(1500)
+    NS.Progress._scan()                          -- the coalesced scan, run now
+    Host.world.skills[186].rank = Host.world.skills[186].rank + 1
+    NS.Progress._scan()
+  end)
+  NS.bus.SendMessage = savedSend
+  for k, v in pairs(savedWants) do g.wants[k] = v end
+  g.on = savedOn
+  NS.Progress:ResetState()
+  if not ok then error(err, 0) end
+  local got = {}
+  for _, s in ipairs(sent) do got[#got + 1] = s.kind .. "=" .. tostring(s.qty) .. ":" .. tostring(s.sim) end
+  assertEqual(table.concat(got, ","), "XP=1500:true,SKILL=1:true")
+end)

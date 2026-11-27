@@ -427,3 +427,74 @@ test("Reputation rows: the row menu offers no Blacklist item and no Show in Time
     quantity = 1 })) do by[it.label] = it.enabled end
   assertFalse(by["Blacklist item"]); assertFalse(by["Show in Timeline"])
 end)
+
+-- ── the gain feed's tap (#38, toast spec §5.4) ───────────────────────────────────────────────
+
+--- Run `fn(sent)` with the gain feed wanting reputation and every GAIN copied into `sent`.
+local function withGains(fn)
+  local g, savedSend = NS.GainFeed, NS.bus.SendMessage
+  local savedWant, savedOn = g.wants.REPUTATION, g.on
+  local sent = {}
+  g.wants.REPUTATION, g.on = true, true
+  NS.bus.SendMessage = function(self, msg, a, ...)
+    if msg == NS.MSG.GAIN then
+      local c = {}
+      for k, v in pairs(a) do c[k] = v end
+      sent[#sent + 1] = c
+      return
+    end
+    return savedSend(self, msg, a, ...)
+  end
+  local ok, err = pcall(fn, sent)
+  NS.bus.SendMessage = savedSend
+  g.wants.REPUTATION, g.on = savedWant, savedOn
+  if not ok then error(err, 0) end
+end
+
+test("Reputation gain feed: a gain sends REPUTATION with its row; a loss with the ledger off or a muted source still sends, gated", function()
+  withCapture(function(h, rows)
+    withGains(function(sent)
+      gain(h, 72, 250)
+      assertEqual(#sent, 1)
+      local g = sent[1]
+      assertEqual(g.kind, "REPUTATION"); assertEqual(g.dir, "IN"); assertEqual(g.id, 72); assertEqual(g.qty, 250)
+      assertEqual(g.name, "Stormwind"); assertEqual(g.repType, "base"); assertEqual(g.origin, "event")
+      assertTrue(g.recorded); assertTrue(g.record == rows[1])
+      NS.db.profile.settings.trackLedger = false; Rep():RefreshUpvalues()
+      gain(h, 72, -40)
+      assertEqual(sent[2].dir, "OUT"); assertEqual(sent[2].qty, 40); assertEqual(sent[2].gated, "ledger-off")
+      assertFalse(sent[2].recorded)
+      NS.db.profile.settings.trackLedger = true
+      NS.db.profile.settings.excludedSources = { OTHER = true }; Rep():RefreshUpvalues()
+      gain(h, 72, 10)
+      assertEqual(sent[3].gated, "source")
+      NS.db.profile.settings.excludedSources = {}
+      NS.db.profile.settings.recordReputation = false; Rep():RefreshUpvalues()
+      gain(h, 72, 10)
+      assertEqual(sent[4].gated, "record-off", "the switch gates only the row")
+      assertEqual(#rows, 1, "no row past the first")
+    end)
+  end)
+end)
+
+test("Reputation SyncCapture: the row follows Record reputation OR the gain feed", function()
+  local r, g = Rep(), NS.GainFeed
+  local s = NS.db.profile.settings
+  local saved = { r._settings, r._enabled, r.EnableCapture, r.DisableCapture, g.wants.REPUTATION, s.recordReputation }
+  local log = {}
+  r._settings = {}
+  r.EnableCapture = function(self) log[#log + 1] = "on"; self._enabled = true end
+  r.DisableCapture = function(self) log[#log + 1] = "off"; self._enabled = nil end
+  local ok, err = pcall(function()
+    r._enabled = nil
+    for _, case in ipairs({ { true, false }, { false, true }, { false, false }, { true, true } }) do
+      s.recordReputation, g.wants.REPUTATION = case[1], case[2]
+      r:SyncCapture()
+      log[#log + 1] = tostring(r._enabled == true)
+    end
+  end)
+  r._settings, r._enabled, r.EnableCapture, r.DisableCapture, g.wants.REPUTATION, s.recordReputation =
+    saved[1], saved[2], saved[3], saved[4], saved[5], saved[6]
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(log, ","), "on,true,true,off,false,on,true")
+end)

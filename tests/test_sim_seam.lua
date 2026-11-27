@@ -41,6 +41,13 @@ local CLASSIFIED = {
   ListCurrencies = "guarded", ListFactions = "guarded",
   -- the reputation and appearance reads (rep/appearance spec §3.2): answered live until a provider is set
   FactionSnapshot = "wrapped", AppearanceSource = "wrapped", IsNewLook = "wrapped",
+  -- the gain feed's reads (#38, toast spec §3.2): the UI actions are pure, the Forever skill walk is
+  -- guarded (it expands and collapses skill headers), every other read is wrapped
+  ModifiedLinkClick = "pure", PlayMediaSound = "pure", SuppressAlertEvents = "pure", RestoreAlertEvents = "pure",
+  ListSkillLines = "guarded",
+  PlayerXP = "wrapped", ProfessionSkills = "wrapped", CurrencyCap = "wrapped", ItemEquipInfo = "wrapped",
+  ItemLevelOf = "wrapped", EquippedLink = "wrapped", IsMountItem = "wrapped", IsUncollectedLook = "wrapped",
+  CurrencyLink = "wrapped", CurrencyIcon = "wrapped", ItemIcon = "wrapped",
   -- wrapped: answered live until a provider is set
   GetActiveKeystoneLevel = "wrapped", InPartyInstance = "wrapped", NumLootItems = "wrapped", IsFishingLoot = "wrapped", IsAmmo = "wrapped",
   LootSourceGUID = "wrapped", Zone = "wrapped", PlayerMapID = "wrapped", InInstance = "wrapped",
@@ -110,8 +117,8 @@ test("SimSeam: a member snapshot: a new Compat member must be classified", funct
   table.sort(missing); table.sort(stale)
   assertEqual(table.concat(missing, ", "), "", "NS.Compat members nobody classified (pure, guarded or wrapped)")
   assertEqual(table.concat(stale, ", "), "", "classified names NS.Compat no longer has")
-  assertEqual(table.concat(sortedKeys(CLASSIFIED, "guarded"), ","), "ListCurrencies,ListFactions",
-    "ListCurrencies and ListFactions are the only members that change client state")
+  assertEqual(table.concat(sortedKeys(CLASSIFIED, "guarded"), ","), "ListCurrencies,ListFactions,ListSkillLines",
+    "ListCurrencies, ListFactions and ListSkillLines are the only members that change client state")
 end)
 
 test("SimSeam: the seam is idle with no session: every wrapped member answers live", function()

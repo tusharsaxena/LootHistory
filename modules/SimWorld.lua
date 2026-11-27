@@ -96,10 +96,16 @@ World.ITEMS = ITEM_SETS[CLIENT]
 --- answers base standings only, so its world holds the first two. The appearances are Retail's: two
 --- sources of one visual on the fixture's own items, neither collected, so the first one collected is
 --- a new look and the second is not. Fixtures like the items, not tools/seeds data.
+--- The gain feed's progress (#38, toast spec §12): `xp` the player's experience (level 70 on Retail,
+--- 40 on WoW Forever, far from the cap) and `skills` two professions by their vanilla skill line
+--- (Mining 186 and Cooking 185, each halfway to its cap). A currency row's fifth field is its cap, so the
+--- toast's cap colors have a reading.
 local FIXTURES = {
   retail = {
     equipped = { [13] = "trinket" },
-    currencies = { { 3444, 100, 400, false }, { 3316, 500, 1500, true } },
+    currencies = { { 3444, 100, 400, false, 2000 }, { 3316, 500, 1500, true } },
+    xp = { cur = 1000, max = 50000, level = 70 },
+    skills = { [186] = { name = "Mining", rank = 150, max = 300 }, [185] = { name = "Cooking", rank = 150, max = 300 } },
     instance = { zone = "Silvermoon City", subzone = "The Bazaar", mapID = 2393 },
     factions = { { 72, "Stormwind", "base", 5, 3000 }, { 21, "Booty Bay", "base", 4, 1500 },
                  { 2590, "Council of Dornogal", "renown", 10, 500, 2500, true } },
@@ -107,7 +113,9 @@ local FIXTURES = {
   },
   forever = {
     equipped = { [6] = "trinket" },
-    currencies = { { 1792, 50, 400, false }, { 3402, 20, 200, false } },
+    currencies = { { 1792, 50, 400, false, 2000 }, { 3402, 20, 200, false } },
+    xp = { cur = 1000, max = 50000, level = 40 },
+    skills = { [186] = { name = "Mining", rank = 150, max = 300 }, [185] = { name = "Cooking", rank = 150, max = 300 } },
     instance = { zone = "Stormwind City", subzone = "Trade District", mapID = 1453 },
     factions = { { 72, "Stormwind", "base", 5, 3000 }, { 21, "Booty Bay", "base", 4, 1500 } },
   },
@@ -446,7 +454,18 @@ local function emptyWorld(fixture, seed)
     factions = {}, factionOrder = {}, appearances = {},
     instance = { party = false, zone = inst.zone or "", subzone = inst.subzone or "", mapID = inst.mapID },
     combat = false, targeting = false,
+    xp = { cur = 0, max = 1, level = 1, capped = false }, skills = {},
   }
+end
+
+-- The world's experience and professions (toast spec §12), copied from the fixture so a driver's
+-- change never reaches the fixture itself.
+local function seedGains(w, fixture)
+  local xp = fixture.xp or World.FIXTURE.xp
+  if xp then w.xp.cur, w.xp.max, w.xp.level, w.xp.capped = xp.cur, xp.max, xp.level, xp.capped == true end
+  for line, s in pairs(fixture.skills or World.FIXTURE.skills or {}) do
+    w.skills[line] = { name = s.name, rank = s.rank, max = s.max }
+  end
 end
 
 local function sizeContainers(w, slots)
@@ -486,8 +505,12 @@ function World.New(fixture, seed)
     local spec = World.Spec(w, key)
     w.equipped[slot] = { itemID = spec.id, link = World.Link(spec) }
   end
-  for _, c in ipairs(fixture.currencies or {}) do World.SetCurrency(w, c[1], rng(c[2], c[3] or c[2]), c[4]) end
+  for _, c in ipairs(fixture.currencies or {}) do
+    World.SetCurrency(w, c[1], rng(c[2], c[3] or c[2]), c[4])
+    if c[5] then currencyRow(w, c[1]).max = c[5] end
+  end
   seedProgress(w, fixture)
+  seedGains(w, fixture)
   return w
 end
 
@@ -599,6 +622,25 @@ local function isNewLook(w, visualID, sourceID)
   return true
 end
 
+-- Compat.ProfessionSkills / ListSkillLines: the world's professions, into the caller's table.
+local function fillSkills(w, out)
+  if not out then return nil end
+  for line, s in pairs(w.skills) do
+    local e = out[line]
+    if not e then e = {}; out[line] = e end
+    e.name, e.rank, e.max = s.name, s.rank, s.max
+  end
+  return out
+end
+
+-- Compat.CurrencyCap's values for a world currency: its quantity and cap (earned totals are not
+-- simulated).
+local function currencyCap(w, id)
+  local c = currencyRow(w, id)
+  if not c then return nil end
+  return c.quantity, c.max, nil, false
+end
+
 -- Each fn(world, ...) answers what the client would; the order is req §2.2's.
 local PROVIDERS = {
   { "GetContainerNumSlots", function(w, bagID) return w.sizes[bagID] or 0 end },
@@ -635,6 +677,12 @@ local PROVIDERS = {
   -- spec §3.8: the world's factions and sources, never the player's.
   { "FactionSnapshot", factionSnapshot },
   { "ListFactions", listFactions },
+  -- The gain feed's progress reads (#38, toast spec §12): the world's experience and professions,
+  -- and its currency caps.
+  { "PlayerXP", function(w) return w.xp.cur, w.xp.max, w.xp.level, w.xp.capped end },
+  { "ProfessionSkills", fillSkills },
+  { "ListSkillLines", fillSkills },
+  { "CurrencyCap", currencyCap },
 }
 if NS.Constants.FEATURE.appearances then
   PROVIDERS[#PROVIDERS + 1] = { "AppearanceSource", appearanceSource }

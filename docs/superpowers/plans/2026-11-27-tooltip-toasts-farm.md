@@ -86,7 +86,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M2.4 | History / filters / Insights / Export / test data / sim for the new kinds; capture switches | done | `M2.4a: Add the reputation and appearance read side`; `M2.4b: Add the reputation and appearance simulator world, drivers and steps` |
 | M2.5 | Docs + review pass + fixes; push M2 | done | `M2.5: Review fixes`; pushed to origin |
 | M3.0 | LibKa0s-Feed-1.0 upstream (`../LibKa0s` branch `feat/2026-11-27-feed`, pushed) and its re-vendor here as `v1.119.0 (unreleased, branch feat/2026-11-27-feed)`; the revendor bundle is written with the tagged re-vendor (M5.1) | done | `M3.0: Re-vendor LibKa0s v1.119.0 (unreleased, branch feat/2026-11-27-feed)` |
-| M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | todo | |
+| M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | done | `M3.1: Add the pre-gate gain feed, its taps and the progress observer` |
 | M3.2 | Feed host alignment: host is LibKa0s-Feed-1.0 (D24); spec aligned | done | `M3.2: Align the toast spec to LibKa0s-Feed-1.0` |
 | M3.3 | Feed seam + wiring: `core/FeedSetup.lua` (ten adopted majors), 3 Feed instances, slots + nudge, grow, alignment + icon side, merge, stack, pin on hover, clicks, combat, unlock (all through LibKa0s-Feed-1.0) | todo | |
 | M3.4 | Row content: counts icons, price mode, ilvl badge, upgrade line, highlights + sounds, cap coloring, per-kind rows | todo | |

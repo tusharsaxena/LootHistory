@@ -69,5 +69,8 @@ NS.Perf = lib:New({
     { key = "tooltipBlock" },   -- HoldingsTip.OnTooltip (every item/currency tooltip build, ~5/s while hovered, in combat too)
     { key = "repEvent" },       -- Reputation:OnStandingChanged (every kill that moves a standing, in combat)
     { key = "appearanceEvent" }, -- Appearance:OnSourceAdded / OnSourceRemoved (Retail; bursts on an ensemble)
+    { key = "gainSend" },       -- GainFeed:Send (#38): the GAIN fan-out, every receiver inside it
+    { key = "xpEvent" },        -- Progress:OnXP (every kill and quest that grants experience)
+    { key = "skillScan" },      -- Progress's coalesced profession scan
   },
 })

@@ -17,11 +17,15 @@ local PM = dofile("tests/mock_progress.lua")
 -- Rows added since, by hand and with their own case: the bank's two re-read cues,
 -- ledger:BAG_CONTAINER_UPDATE and ledger:BANK_TABS_CHANGED (the WoW Forever port, ruling R8); the
 -- Reputation owner's bus:FACTION_STANDING_CHANGED (rep/appearance spec §3.1, M2.2); the Appearance
--- owner's bus:TRANSMOG_COLLECTION_SOURCE_ADDED and _REMOVED (§3.1, M2.3; Retail only).
+-- owner's bus:TRANSMOG_COLLECTION_SOURCE_ADDED and _REMOVED (§3.1, M2.3; Retail only); the
+-- Progress owners' five (toast spec §5.5, #38 M3.1), live while the default Main feed wants
+-- experience and skill-ups.
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
-  "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:ENCOUNTER_END",
-  "bus:ENCOUNTER_START", "bus:FACTION_STANDING_CHANGED", "bus:LOOT_CLOSED", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
+  "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:CHAT_MSG_SKILL", "bus:ENCOUNTER_END",
+  "bus:ENCOUNTER_START", "bus:FACTION_STANDING_CHANGED", "bus:LOOT_CLOSED", "bus:LOOT_OPENED",
+  "bus:PLAYER_LEVEL_UP", "bus:PLAYER_REGEN_ENABLED", "bus:PLAYER_XP_UPDATE",
+  "bus:QUEST_TURNED_IN", "bus:SKILL_LINES_CHANGED", "bus:TRADE_ACCEPT_UPDATE",
   "bus:TRANSMOG_COLLECTION_SOURCE_ADDED", "bus:TRANSMOG_COLLECTION_SOURCE_REMOVED",
   "bus:ZONE_CHANGED_NEW_AREA",
   "ledger:ACCOUNT_MONEY", "ledger:BAG_CONTAINER_UPDATE", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
@@ -95,6 +99,28 @@ end
 
 -- Run `body`, then put the addon back up whatever happened: the suites after this one read a
 -- brought-up addon.
+-- The Progress owners' rows, live only while a toast feed wants experience or skill-ups.
+local PROGRESS_ROWS = { ["bus:CHAT_MSG_SKILL"] = true, ["bus:PLAYER_LEVEL_UP"] = true,
+  ["bus:PLAYER_REGEN_ENABLED"] = true, ["bus:PLAYER_XP_UPDATE"] = true, ["bus:SKILL_LINES_CHANGED"] = true }
+
+--- SNAPSHOT with no toast feed enabled: the Progress rows are down.
+local function feedOffSnapshot()
+  local out = {}
+  for _, k in ipairs(SNAPSHOT) do if not PROGRESS_ROWS[k] then out[#out + 1] = k end end
+  return table.concat(out, ",")
+end
+
+--- Run `body` with every toast feed disabled (the gain feed then wants nothing), and put the feeds back.
+local function withFeedsOff(body)
+  local feeds, saved = NS.db.profile.settings.toasts.feeds, {}
+  for fid, f in pairs(feeds) do saved[fid] = f.enabled; f.enabled = false end
+  NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "toasts")
+  local ok, err = pcall(body)
+  for fid, v in pairs(saved) do feeds[fid].enabled = v end
+  NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "toasts")
+  if not ok then error(err, 0) end
+end
+
 local function restoring(body)
   local ok, err = pcall(body)
   NS.Schema:Set("settings.trackLedger", true)
@@ -113,11 +139,13 @@ test("Dispatch: every capture registration comes from NS.EVENT_ROWS and the (tar
   assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT, "one row per (target, event) registration")
 end)
 
-test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Reconciler", function()
+test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler", function()
   -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS). WoW Forever
-  -- declares no Appearance rows (C.FEATURE.appearances), so the owner is not in its list.
-  assertEqual(ownersInOrder(), T.forever and "Attribution,AttributionOut,Collector,Reputation,Reconciler"
-    or "Attribution,AttributionOut,Collector,Reputation,Appearance,Reconciler")
+  -- declares no Appearance rows (C.FEATURE.appearances), so the owner is not in its list. Progress
+  -- (#38) owns three row owners, one per thing the gain feed can want.
+  local progress = "ProgressXP,ProgressSkill,ProgressRegen,"
+  assertEqual(ownersInOrder(), T.forever and ("Attribution,AttributionOut,Collector,Reputation," .. progress .. "Reconciler")
+    or ("Attribution,AttributionOut,Collector,Reputation,Appearance," .. progress .. "Reconciler"))
   local hooks, seen = {}, {}
   for _, row in ipairs(NS.HOOK_ROWS or {}) do
     if not seen[row.owner] then seen[row.owner] = true; hooks[#hooks + 1] = row.owner end
@@ -138,7 +166,8 @@ end
 
 test("Dispatch: registered follows Enable/Disable, including trackLedger off", function()
   restoring(function()
-    local owners = { "Attribution", "AttributionOut", "Collector", "Reputation", "Reconciler" }
+    local owners = { "Attribution", "AttributionOut", "Collector", "Reputation", "ProgressXP", "ProgressSkill",
+      "ProgressRegen", "Reconciler" }
     if not T.forever then table.insert(owners, 5, "Appearance") end
     for _, owner in ipairs(owners) do
       local n, total = registeredBy(owner)
@@ -311,7 +340,7 @@ test("Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED a
   end
   local Rep = NS.Reputation
   local h = PM.install(M)
-  local ok, err = pcall(function()
+  local ok, err = pcall(withFeedsOff, function()
     assertTrue(live(), "precondition: the row is live while the addon is up")
     h.faction(72, { name = "Stormwind", reaction = 5, standing = 3000 })
     h.list = { { id = 72, depth = 0 } }
@@ -327,7 +356,7 @@ test("Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED a
     h.factions[72].standing = 3500
     NS.Schema:Set("settings.recordReputation", true)
     assertTrue(live(), "the switch on registers it again")
-    assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+    assertEqual(table.concat(fromRows(), ","), feedOffSnapshot())
     assertTrue(Rep._seedTimer ~= nil, "the switch on arms the seed again")
     local seed = M.__timers[#M.__timers]
     assertEqual(seed.delay, 2, "two seconds out")
@@ -358,7 +387,7 @@ test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on 
     return
   end
   local savedH = NS.db.global.history
-  local ok, err = pcall(function()
+  local ok, err = pcall(withFeedsOff, function()
     NS.db.global.history = {}
     assertEqual(live(), 2, "precondition: both rows are live while the addon is up")
     NS.Appearance:OnSourceAdded(nil, 424243)
@@ -369,7 +398,7 @@ test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on 
     assertTrue(NS.Appearance._settings ~= nil, "the settings listener stays, so the switch can come back")
     NS.Schema:Set("settings.recordAppearances", true)
     assertEqual(live(), 2, "the switch on registers them again")
-    assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+    assertEqual(table.concat(fromRows(), ","), feedOffSnapshot())
     -- red under: DisableCapture without its ResetState, which keeps the duplicate maps across the
     -- switch, so the same source inside 5 s is dropped as a duplicate.
     NS.Appearance:OnSourceAdded(nil, 424243)
@@ -378,5 +407,31 @@ test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on 
   NS.db.global.history = savedH
   NS.Appearance:ResetState()
   NS.Schema:Set("settings.recordAppearances", true)
+  if not ok then error(err, 0) end
+end)
+
+-- The amendment to M2 §5 (toast spec §5.4, #38 M3.1): a capture row is live while its record switch
+-- is on OR the gain feed wants the kind; with both off it is a real unregister.
+test("Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed", function()
+  local function live(event)
+    for _, k in ipairs(liveCapture()) do if k == "bus:" .. event then return true end end
+    return false
+  end
+  local ok, err = pcall(function()
+    NS.Schema:Set("settings.recordReputation", false)
+    assertTrue(live("FACTION_STANDING_CHANGED"), "switch off, the default Main feed wants reputation: live")
+    assertTrue(NS.GainFeed.wants.REPUTATION and NS.GainFeed.on, "the feed wants it")
+    withFeedsOff(function()
+      assertFalse(live("FACTION_STANDING_CHANGED"), "switch off and no feed: unregistered")
+      for k in pairs(PROGRESS_ROWS) do assertFalse(live(k:sub(5)), k .. " is down with no feed") end
+      assertFalse(NS.GainFeed.on, "nothing wanted")
+      NS.Schema:Set("settings.recordReputation", true)
+      assertTrue(live("FACTION_STANDING_CHANGED"), "switch on, no feed: live")
+      NS.Schema:Set("settings.recordReputation", false)
+    end)
+    assertTrue(live("FACTION_STANDING_CHANGED"), "the feed back on registers it again")
+    for k in pairs(PROGRESS_ROWS) do assertTrue(live(k:sub(5)), k .. " is back with the feed") end
+  end)
+  NS.Schema:Set("settings.recordReputation", true)
   if not ok then error(err, 0) end
 end)

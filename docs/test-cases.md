@@ -8,7 +8,7 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (46)
+### test_constants.lua (47)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
@@ -46,7 +46,8 @@ Total.
 - bus: Database:FireHistoryChanged sends HistoryChanged with no payload
 - bus: a settings write sends SettingsChanged with its reason
 - bus: Reconciler:Flush sends HoldingsChanged once per holder that moved
-- bus: NS.MSG declares exactly the four wire names
+- bus: NS.MSG declares exactly the five wire names
+- bus: GainFeed:Send fires Ka0s_LootHistory_Gain with the scratch payload
 - bus: NS.MSG is the library's strict catalog, so a mistyped key raises
 - bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal
 - bus: the degraded build declares the same names, without the library
@@ -304,7 +305,7 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
-- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, straight above the Sim seam
+- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, straight above the Sim seam
 
 ### test_compat_client.lua (10)
 
@@ -585,7 +586,7 @@ Total.
 - AuctionPrice: GetPriority creates the array on first use
 - AuctionPrice: MovePriorityWithin refuses a subset naming a tag the cascade does not carry
 
-### test_collector.lua (50)
+### test_collector.lua (53)
 
 - Collector: BuildRecord populates every field
 - Collector: ShouldRecord passes at/above threshold
@@ -637,8 +638,11 @@ Total.
 - Collector: with trackLedger off an unlisted, unheld currency with no twin records one chat row
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
+- Collector: a currency line dropped by recordCurrency off spends its loot-window line
+- Collector: a money line dropped by recordGold off spends its loot-window line
+- Collector: a secret chat payload is dropped with [Drop] reason=secret on each line, never raised
 
-### test_reputation.lua (27)
+### test_reputation.lua (29)
 
 - Reputation Delta: a base gain and a base loss are the absolute difference
 - Reputation Delta: a loss across a rank boundary is negative and the right size
@@ -667,8 +671,10 @@ Total.
 - Reputation rows: the History hover names the faction over its standing
 - Reputation rows: the Item cell is painted sem.info (A9); other rows keep their quality color
 - Reputation rows: the row menu offers no Blacklist item and no Show in Timeline
+- Reputation gain feed: a gain sends REPUTATION with its row; a loss with the ledger off or a muted source still sends, gated
+- Reputation SyncCapture: the row follows Record reputation OR the gain feed
 
-### test_appearance.lua (16)
+### test_appearance.lua (17)
 
 - Appearance capture: a collected source writes one APPEARANCE row with every field
 - Appearance capture: newLook is set only for the first collected source of its visual
@@ -686,8 +692,41 @@ Total.
 - Appearance: the feature is Retail's, declared, and absent on WoW Forever
 - Appearance rows: a link-less row hovers its source's item by id; a link still wins
 - Appearance rows: Blacklist item is an item row's only, and Show in Timeline is off
+- Appearance gain feed: a collected source sends APPEARANCE (new look, gated by the switch); a removal never sends
 
-### test_reconciler.lua (19)
+### test_gain_feed.lua (14)
+
+- GainFeed: no shipped file but modules/GainFeed.lua sends NS.MSG.GAIN
+- GainFeed: Begin answers the one scratch table with every field cleared, kind and dir set
+- GainFeed: the sim flag says whether a simulation is running
+- GainFeed: Recompute takes wants from each enabled feed's kinds, appearances by feature
+- GainFeed: Recompute runs SyncCapture on the three observers and ToastBlizz:Apply
+- GainFeed: with `on` false no chat line sends a gain
+- GainFeed: a recorded loot line sends ITEM with its row and posts no feed claim
+- GainFeed: a quality-gated loot line still sends, gated, and posts a feed claim only with the ledger on
+- GainFeed: currency and money lines send whatever their switches decide
+- GainFeed: a kind not wanted sends nothing on its line
+- GainFeed: FromDiff sends the unclaimed rest with the diff's reason, recorded by RowAllowed
+- GainFeed: the row writer's tap skips other holders, moves, forced passes and losses
+- GainFeed: HoldClaims carries a feed claim through a combat deferral
+- GainFeed: Disable drops wants, the farm set, the claims and the listener; ResetState the claims
+
+### test_progress.lua (12)
+
+- Progress XPDelta: same level, one level up, two levels (short), level down, unseeded, zero
+- Progress XP: the first read seeds; a gain sends XP with qty, level and the read
+- Progress XP: at the cap nothing is sent
+- Progress XP: a secret read keeps the baseline and the regen edge reseeds it
+- Progress XP: the source is the quest's with its detail, a kill's in combat, else OTHER
+- Progress skills: the first scan only seeds; a rise sends SKILL with old, new and max
+- Progress skills: on WoW Forever the walk waits out combat and runs on the regen edge
+- CompatGain PlayerXP: plain reads, a secret answers nil, capped by IsXPUserDisabled or the max level
+- CompatGain ListSkillLines: keeps profession lines, dedupes a pair on the parent, restores headers
+- CompatGain ProfessionSkills: each profession by its skill line, nil without the API
+- CompatGain: alert suppression records and restores exactly the registered events, in order
+- Progress: each owner's rows are registered only while the gain feed wants its kind
+
+### test_reconciler.lua (20)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
 - Reconciler: bag flush never touches bank column
@@ -708,6 +747,7 @@ Total.
 - Reconciler: BankState answers the same outcome for each bank shape (R8, K101-LH-02)
 - Reconciler: each interaction type arms what it arms, per client (R1, R8, K101-LH-02)
 - Reconciler: a claim waits out combat, so one loot is one row
+- Reconciler: WriteRows asks ReasonFor exactly once per net key
 
 ### test_reconciler_rows.lua (44)
 
@@ -2249,7 +2289,7 @@ Total.
 - probe: the mail hook records the recipient as typed and as the addon keys it (P7)
 - probe: a handler that raises is recorded as an error entry, never thrown
 - probe: a reputation or appearance event is kept with its arguments (P13)
-- probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event
+- probe: P.EVENTS ends with the five P13 events and the gain feed's four, and docs/forever-probes.md names every probe event
 
 ### test_debug_coverage.lua (24)
 
@@ -2278,10 +2318,10 @@ Total.
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 - coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
 
-### test_dispatch.lua (9)
+### test_dispatch.lua (10)
 
 - Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
-- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Reconciler
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler
 - Dispatch: registered follows Enable/Disable, including trackLedger off
 - Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
 - Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
@@ -2289,6 +2329,7 @@ Total.
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
 - Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
+- Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
 ### test_sim_seam.lua (11)
 
@@ -2304,7 +2345,7 @@ Total.
 - SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
 - SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
 
-### test_sim_session.lua (30)
+### test_sim_session.lua (31)
 
 - Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
 - Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
@@ -2336,6 +2377,7 @@ Total.
 - Sim: a stop in combat keeps the real baseline (no deferred, empty reseed)
 - Sim: a real appearance change stops it on Retail, then lands in the saved history
 - Sim: the start seeds the baseline from the world; the stop restores the real one
+- Sim: a real PLAYER_XP_UPDATE, PLAYER_LEVEL_UP or SKILL_LINES_CHANGED stops it (world); CHAT_MSG_SKILL too
 
 ### test_sim_world.lua (11)
 
@@ -2351,7 +2393,7 @@ Total.
 - SimWorld: a start seeds the session world from the fixture and the session seed
 - SimWorld: the holdings tooltip's and API's live reads stay real while a session runs (#34)
 
-### test_sim_drivers.lua (11)
+### test_sim_drivers.lua (14)
 
 - SimDrivers: a loot driver produces a line ParseSelfLoot accepts
 - SimDrivers: the currency and money lines parse
@@ -2364,6 +2406,9 @@ Total.
 - SimDrivers: a renown faction raises its level on overflow and keeps the remainder (Retail's world)
 - SimDrivers: Reputation after a turn-in writes one session-only QUEST row
 - SimDrivers: Appearance is Retail's; it flips the world's collected flag, then fires ADDED or REMOVED
+- SimDrivers: XP adds to the world's experience, rolls a level over with PLAYER_LEVEL_UP, then PLAYER_XP_UPDATE
+- SimDrivers: Skill raises the world's rank to its cap, then fires SKILL_LINES_CHANGED; no chat line
+- SimDrivers: a session's XP and skill rise reach the gain feed with the sim flag; the baselines come from the world
 
 ### test_sim_e2e.lua (17)
 
@@ -2733,7 +2778,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 46 |
+| test_constants.lua | 47 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2755,10 +2800,12 @@ Total.
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
-| test_collector.lua | 50 |
-| test_reputation.lua | 27 |
-| test_appearance.lua | 16 |
-| test_reconciler.lua | 19 |
+| test_collector.lua | 53 |
+| test_reputation.lua | 29 |
+| test_appearance.lua | 17 |
+| test_gain_feed.lua | 14 |
+| test_progress.lua | 12 |
+| test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
 | test_database.lua | 91 |
@@ -2816,11 +2863,11 @@ Total.
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
-| test_dispatch.lua | 9 |
+| test_dispatch.lua | 10 |
 | test_sim_seam.lua | 11 |
-| test_sim_session.lua | 30 |
+| test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
-| test_sim_drivers.lua | 11 |
+| test_sim_drivers.lua | 14 |
 | test_sim_e2e.lua | 17 |
 | test_sim_store.lua | 6 |
 | test_sim_panel.lua | 30 |
@@ -2841,4 +2888,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2398** |
+| **Total** | **2437** |

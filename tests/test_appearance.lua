@@ -300,3 +300,39 @@ test("Appearance rows: Blacklist item is an item row's only, and Show in Timelin
   assertEqual(menu({ itemID = 7 })["Blacklist item"], true, "a legacy row with no kind is an item")
   assertEqual(menu({ kind = "ITEM", itemID = 7 })["Blacklist item"], true)
 end)
+
+-- ── the gain feed's tap (#38, toast spec §5.4) ───────────────────────────────────────────────
+
+test("Appearance gain feed: a collected source sends APPEARANCE (new look, gated by the switch); a removal never sends", function()
+  withCapture(function(_, rows)
+    local g, savedSend = NS.GainFeed, NS.bus.SendMessage
+    local savedWant, savedOn = g.wants.APPEARANCE, g.on
+    local sent = {}
+    g.wants.APPEARANCE, g.on = true, true
+    NS.bus.SendMessage = function(self, msg, a, ...)
+      if msg == NS.MSG.GAIN then
+        local c = {}
+        for k, v in pairs(a) do c[k] = v end
+        sent[#sent + 1] = c
+        return
+      end
+      return savedSend(self, msg, a, ...)
+    end
+    local ok, err = pcall(function()
+      added(78)
+      assertEqual(#sent, 1)
+      local s = sent[1]
+      assertEqual(s.kind, "APPEARANCE"); assertEqual(s.id, 78); assertEqual(s.itemID, 2590); assertEqual(s.qty, 1)
+      assertEqual(s.newLook, false, "visual 9 already has a collected source"); assertTrue(s.recorded)
+      removed(80)
+      assertEqual(#sent, 1, "a removal is never a gain")
+      NS.db.profile.settings.recordAppearances = false; App():RefreshUpvalues()
+      added(80)
+      assertEqual(#sent, 2); assertEqual(sent[2].gated, "record-off"); assertEqual(sent[2].recorded, false)
+      assertEqual(#rows, 2, "the switch gates only the row")
+    end)
+    NS.bus.SendMessage = savedSend
+    g.wants.APPEARANCE, g.on = savedWant, savedOn
+    if not ok then error(err, 0) end
+  end)
+end)

@@ -2,6 +2,9 @@ local _, NS = ...
 NS.Collector = NS.Collector or {}
 local Collector = NS.Collector
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
+-- The gain feed (#38): the taps test `GainFeed.on` and one `wants` field (events-frames-taint-§7);
+-- modules/GainFeed.lua loads above.
+local GainFeed = NS.GainFeed
 
 -- Owns the acquisition path: CHAT_MSG_LOOT self-filter, quality gate, record build + write, the
 -- CHAT_MSG_CURRENCY and CHAT_MSG_MONEY lines, and the claim each written row posts to the
@@ -158,7 +161,25 @@ local function claim(kind, id, qty, record)
   end
 end
 
+-- The [Drop] line for a chat line whose payload is a secret (T11, client-quirks-§2): nothing of it
+-- is read. `line` is a constant, so the call builds nothing while logging is off.
+local function traceSecretLine(line)
+  if NS.State.debug and NS.Debug then NS.Debug("Drop", "%s line reason=secret", line) end
+end
+
+-- The loot line's gain (toast spec §5.1): every self-loot line, recorded or gated (`gated` the drop
+-- reason). GetItemExtras and GatherAll are not read here: the toast resolves them lazily.
+local function feedItem(link, qty, itemID, itemName, quality, classID, source, sourceDetail, confidence, record,
+                        gated)
+  local g = GainFeed:Begin("ITEM")
+  g.id, g.link, g.qty, g.name, g.quality, g.classID = itemID, link, qty, itemName, quality, classID
+  g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
+  g.record, g.gated = record, gated
+  GainFeed:SendChat(g)
+end
+
 local function lootLine(self, msg)
+  if NS.Compat.IsSecret(msg) then return traceSecretLine("loot") end
   -- A roll-won line ("You won: <item>") is not a receipt — the item arrives a moment later on its own
   -- "You receive loot:" line. Stamp ROLL context so that imminent line attributes to the roll rather
   -- than inheriting a stale kill/container stamp, then wait for it (no record is written here).
@@ -178,6 +199,9 @@ local function lootLine(self, msg)
   local ok, reason = self:ShouldRecord(quality, source, classID, gateCfg)
   if not ok then
     traceLootDrop(itemName, quality, classID, source, reason)
+    if GainFeed.on and GainFeed.wants.ITEM then
+      feedItem(link, qty, itemID, itemName, quality, classID, source, sourceDetail, confidence, nil, reason)
+    end
     return
   end
 
@@ -197,6 +221,9 @@ local function lootLine(self, msg)
   claim("ITEM", itemID, qty, record)
 
   traceLootRecorded(itemName, quality, itemLevel, source, confidence, auctionPrice)
+  if GainFeed.on and GainFeed.wants.ITEM then
+    feedItem(link, qty, itemID, itemName, quality, classID, source, sourceDetail, confidence, record, nil)
+  end
 end
 
 -- Shape A brackets (performance-§2): one exit, so the dormant cost is one upvalue read, one field
@@ -227,14 +254,30 @@ local function listedCurrency(currencyID, name)
     traceCurrencyLineDrop("unlisted")
     return nil
   end
-  currencyID = listedID or currencyID
+  return listedID or currencyID
+end
+
+-- Why a resolved, attributed currency line is not recorded, or nil when it is: the record switch,
+-- the currency blacklist, then the source mute, each with its [Drop] line (toast spec §5.2: these
+-- run AFTER the attribution consume, so a dropped line still spends its loot-window line, T10).
+local function currencyGate(currencyID, name, source)
+  if not recordCurrency then
+    traceCurrencyLineDrop("recordCurrency-off")
+    return "recordCurrency-off"
+  end
   if currencyBlacklist[currencyID] then
     if NS.State.debug and NS.Debug then
       NS.Debug("Drop", "currency %s id=%s reason=blacklist", tostring(name), tostring(currencyID))
     end
-    return nil
+    return "blacklist"
   end
-  return currencyID
+  if excludedSources[source] then
+    if NS.State.debug and NS.Debug then
+      NS.Debug("Drop", "currency %s src=%s reason=source", tostring(name), tostring(source))
+    end
+    return "source"
+  end
+  return nil
 end
 
 -- source, sourceDetail, confidence for a currency line: a self-identifying line (a refund) names its
@@ -260,22 +303,31 @@ local function currencyRecord(currencyID, name, qty, source, sourceDetail, confi
   }
 end
 
+-- The currency line's gain (toast spec §5.2), sent once the decision is made.
+local function feedCurrency(currencyID, name, qty, source, sourceDetail, confidence, record, gated)
+  local g = GainFeed:Begin("CURRENCY")
+  g.id, g.name, g.qty, g.quality = currencyID, name, qty, NS.Compat.CurrencyQuality(currencyID)
+  g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
+  g.record, g.gated = record, gated
+  GainFeed:SendChat(g)
+end
+
 -- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
--- the same loot window), but takes a slimmer gate — the recordCurrency master toggle, the per-source
--- mute list, and the currency-specific blacklist; the quality threshold, quest filter, and itemID
+-- the same loot window), but takes a slimmer gate — the recordCurrency master toggle, the currency
+-- blacklist and the per-source mute list; the quality threshold, quest filter, and itemID
 -- blacklist don't apply to currency. A currency-vendor refund arrives here (not on CHAT_MSG_LOOT) as
 -- a self-identifying "You are refunded" line — attributed to REFUND directly, bypassing the context
 -- (which by then holds the stale VENDOR stamp from the purchase). The helpers above are file-local
 -- functions, so the hot path builds no closure per line.
+--
+-- The attribution consume runs BEFORE the record gates (T10): the source of a line must not depend on
+-- the record switches, and a line the switches drop is still one of the loot window's lines.
 local function currencyLine(self, msg)
+  if NS.Compat.IsSecret(msg) then return traceSecretLine("currency") end
   -- A line the self-parse rejects (another player's, or not a currency gain) returns silently: no
   -- decision of ours. Past it, each guard names itself in a [Drop] line (debug-logging-§8).
   local link, qty, directSource = NS.Util.ParseSelfCurrency(msg)
   if not link then return end
-  if not recordCurrency then
-    traceCurrencyLineDrop("recordCurrency-off")
-    return
-  end
 
   local linkID, name = NS.Compat.GetCurrencyInfoFromLink(link)
   if not linkID then
@@ -286,20 +338,18 @@ local function currencyLine(self, msg)
   if not currencyID then return end
 
   local source, sourceDetail, confidence = currencySource(directSource)
-  if excludedSources[source] then
+  local gated, record = currencyGate(currencyID, name, source), nil
+  if not gated then
+    record = currencyRecord(currencyID, name, qty, source, sourceDetail, confidence)
+    NS.Database:Add(record)
+    claim("CURRENCY", currencyID, qty, record)
     if NS.State.debug and NS.Debug then
-      NS.Debug("Drop", "currency %s src=%s reason=source", tostring(name), tostring(source))
+      NS.Debug("Currency", "%s x%s id=%s src=%s conf=%s",
+        tostring(name), tostring(qty), tostring(currencyID), source, confidence)
     end
-    return
   end
-
-  local record = currencyRecord(currencyID, name, qty, source, sourceDetail, confidence)
-  NS.Database:Add(record)
-  claim("CURRENCY", currencyID, qty, record)
-
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Currency", "%s x%s id=%s src=%s conf=%s",
-      tostring(name), tostring(qty), tostring(currencyID), source, confidence)
+  if GainFeed.on and GainFeed.wants.CURRENCY then
+    feedCurrency(currencyID, name, qty, source, sourceDetail, confidence, record, gated)
   end
 end
 
@@ -313,26 +363,44 @@ end
 -- the rich gold row -- the loot context still says which kill or chest it came from -- and claims it,
 -- exactly as a loot line does for an item. Gold rows are a ledger feature: nothing is written while
 -- `trackLedger` (legacy gains-only) or `recordGold` is off.
-local function moneyLine(self, msg)
-  local copper = NS.Util.ParseSelfMoney(msg)
-  if not copper then return end
-  if not (trackLedger and recordGold) then
-    if NS.State.debug and NS.Debug then NS.Debug("Drop", "money %s reason=gold-off", tostring(copper)) end
-    return
-  end
-  local source, sourceDetail, confidence = NS.Attribution:Consume()
+-- The money line's gain (toast spec §5.2).
+local function feedMoney(copper, source, sourceDetail, confidence, record, gated)
+  local g = GainFeed:Begin("GOLD")
+  g.qty, g.name = copper, "Gold"
+  g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
+  g.record, g.gated = record, gated
+  GainFeed:SendChat(g)
+end
+
+local function goldRecord(copper, source, sourceDetail, confidence)
   local zone, subzone = NS.Zone()
   local me = NS.Util.PlayerKey()
-  local record = {
+  return {
     ts = time(), char = me, classFile = NS.Compat.PlayerClassFile(),
     holder = me, dir = "IN", kind = "GOLD",
     itemName = "Gold", itemType = NS.Constants.GOLD_TYPE, quantity = copper,
     source = source, sourceDetail = sourceDetail, confidence = confidence,
     zone = zone, mapID = NS.PlayerMapID(), subzone = subzone,
   }
-  NS.Database:Add(record)
-  claim("GOLD", nil, copper, record)
-  if NS.State.debug and NS.Debug then NS.Debug("Money", "%sc src=%s", tostring(copper), tostring(source)) end
+end
+
+-- The attribution consume runs BEFORE the gold-off gate (T10), as on the currency line.
+local function moneyLine(self, msg)
+  if NS.Compat.IsSecret(msg) then return traceSecretLine("money") end
+  local copper = NS.Util.ParseSelfMoney(msg)
+  if not copper then return end
+  local source, sourceDetail, confidence = NS.Attribution:Consume()
+  local record, gated = nil, nil
+  if trackLedger and recordGold then
+    record = goldRecord(copper, source, sourceDetail, confidence)
+    NS.Database:Add(record)
+    claim("GOLD", nil, copper, record)
+    if NS.State.debug and NS.Debug then NS.Debug("Money", "%sc src=%s", tostring(copper), tostring(source)) end
+  else
+    gated = "gold-off"
+    if NS.State.debug and NS.Debug then NS.Debug("Drop", "money %s reason=gold-off", tostring(copper)) end
+  end
+  if GainFeed.on and GainFeed.wants.GOLD then feedMoney(copper, source, sourceDetail, confidence, record, gated) end
 end
 
 function Collector:OnChatMsgMoney(_, msg)

@@ -2,6 +2,8 @@ local _, NS = ...
 NS.Appearance = NS.Appearance or {}
 local App = NS.Appearance
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
+-- The gain feed (#38): the tap tests `GainFeed.on` (events-frames-taint-§7); modules/GainFeed.lua loads above.
+local GainFeed = NS.GainFeed
 local C = NS.Constants
 
 -- Owns the appearance capture (rep/appearance spec docs/superpowers/specs/
@@ -17,7 +19,9 @@ local C = NS.Constants
 -- the item row from the same loot already carries the value.
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
-local trackLedger, excludedSources = true, {}
+-- `recordLooks` is the record switch: since the gain feed (#38, toast spec §5.4) the rows are
+-- registered while the switch is on OR the feed wants appearances, and the switch gates only the row.
+local trackLedger, excludedSources, recordLooks = true, {}, true
 
 -- The capture state (H4: cleared by ResetState, never unregistered by it). `seen[sourceID]` is the
 -- last direction seen for that source and `seenAt[sourceID]` its GetTime(): the client can repeat
@@ -32,6 +36,7 @@ function App.RefreshUpvalues()
   if not s then return end
   trackLedger = s.trackLedger ~= false
   excludedSources = s.excludedSources or {}
+  recordLooks = s.recordAppearances ~= false
 end
 
 local function recordOn()
@@ -72,6 +77,33 @@ local function buildRecord(sourceID, itemID, itemLink, name, quality, visualID, 
   }
 end
 
+-- The appearance gain (toast spec §5.4): every collected source (IN only), whatever the record path
+-- decided (`record` the row written, `gated` the drop reason).
+local function feedAppearance(sourceID, itemID, itemLink, name, quality, newLook, source, detail, record, gated)
+  local g = GainFeed:Begin("APPEARANCE")
+  g.id, g.itemID, g.link, g.name, g.quality, g.qty = sourceID, itemID, itemLink, name, quality, 1
+  g.newLook = newLook == true
+  g.source, g.sourceDetail, g.confidence = source, detail, C.Confidence.INFERRED
+  g.record, g.gated = record, gated
+  GainFeed:SendEvent(g)
+end
+
+-- The record half: the source mute (A8) and the record switch, then the row. Answers the row, else
+-- nil and the drop reason.
+local function writeChange(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source, detail,
+                           newLook)
+  if excludedSources[source] then traceDrop(sourceID, "source"); return nil, "source" end
+  if not recordLooks then traceDrop(sourceID, "record-off"); return nil, "record-off" end
+  local record = buildRecord(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source, detail,
+    newLook)
+  NS.Database:Add(record)
+  if NS.State.debug and NS.Debug then
+    NS.Debug("Appearance", "%s %s src=%s new=%s", dir == C.Dir.IN and "+" or "-", record.itemName, source,
+      tostring(newLook == true))
+  end
+  return record
+end
+
 -- One TRANSMOG_COLLECTION_SOURCE_ADDED / _REMOVED (spec §3.5 gate order). Minimum quality is not a
 -- gate here (ruling A7): an appearance row is not an item loot record.
 local function appearanceEvent(_, sourceID, dir)
@@ -82,14 +114,11 @@ local function appearanceEvent(_, sourceID, dir)
   local itemID, itemLink, name, quality, visualID, itemSubType = NS.Compat.AppearanceSource(sourceID)
   -- Peek, never Consume: Consume would spend the loot window's lines and answer FISHING in a cast.
   local source, detail = NS.Attribution:Peek()
-  if excludedSources[source] then return traceDrop(sourceID, "source") end
   local newLook = dir == C.Dir.IN and visualID ~= nil and NS.Compat.IsNewLook(visualID, sourceID) or nil
-  local record = buildRecord(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source, detail,
-    newLook)
-  NS.Database:Add(record)
-  if NS.State.debug and NS.Debug then
-    NS.Debug("Appearance", "%s %s src=%s new=%s", dir == C.Dir.IN and "+" or "-", record.itemName, source,
-      tostring(newLook == true))
+  local record, gated = writeChange(sourceID, itemID, itemLink, name, quality, visualID, itemSubType, dir, source,
+    detail, newLook)
+  if dir == C.Dir.IN and GainFeed.on and GainFeed.wants.APPEARANCE then
+    feedAppearance(sourceID, itemID, itemLink, name, quality, newLook, source, detail, record, gated)
   end
 end
 
@@ -131,8 +160,9 @@ end
 
 --- `_settings` hears SettingsChanged for as long as the addon is up: every reason re-reads the
 --- upvalues (excludedSources, trackLedger), and the switch's own reason or a profile event registers
---- or unregisters the rows to match settings.recordAppearances. The rows are live only while the
---- switch is on, so turning it off is a real unregister, never a draw gate (slash-commands-§7).
+--- or unregisters the rows through SyncCapture. The rows are live only while the switch is on or the
+--- gain feed wants appearances, so with both off it is a real unregister, never a draw gate
+--- (slash-commands-§7).
 --- Where the feature is not declared (WoW Forever) there is nothing to stand up.
 function App:Enable()
   if not (NS.addon and C.FEATURE.appearances) then return end
@@ -141,11 +171,21 @@ function App:Enable()
     self._settings:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, reason)
       self:RefreshUpvalues()
       if reason ~= "appearance" and reason ~= "profile" then return end
-      if recordOn() then self:EnableCapture() else self:DisableCapture() end
+      self:SyncCapture()
     end)
   end
   self:RefreshUpvalues()
-  if recordOn() then self:EnableCapture() end
+  self:SyncCapture()
+end
+
+--- Register or unregister the rows to match `recordAppearances or GainFeed.wants.APPEARANCE` (toast
+--- spec §5.4, the amendment to M2 §5). A no-op until Enable has stood the module up, and where the
+--- feature is not declared.
+function App:SyncCapture()
+  if not (self._settings and C.FEATURE.appearances) then return end
+  local want = recordOn() or GainFeed.wants.APPEARANCE == true
+  if want and not self._enabled then self:EnableCapture()
+  elseif not want and self._enabled then self:DisableCapture() end
 end
 
 --- Register the two rows.

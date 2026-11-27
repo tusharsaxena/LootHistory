@@ -14,6 +14,9 @@ local R = NS.Reconciler
 local C = NS.Constants
 local Compat = NS.Compat
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
+-- The gain feed (#38): the diff's tap tests `GainFeed.on` (events-frames-taint-§7); modules/GainFeed.lua
+-- loads above.
+local GainFeed = NS.GainFeed
 local CT = C.Container
 local WARBAND = C.WARBAND_HOLDER
 -- The warband bank is Retail-only (C.FEATURE.warbandBank, clients-§4; the WoW Forever port's ruling
@@ -553,6 +556,12 @@ local function rowAllowed(kind, id)
   return s.recordGold ~= false
 end
 
+--- Whether a diff row of `kind`/`id` would be written (the row writer's own gate). The gain feed's
+--- diff tap asks it for its `recorded` flag (toast spec §5.3). Reads no Reconciler state.
+function R.RowAllowed(_, kind, id)
+  return rowAllowed(kind, id)
+end
+
 local function linkFor(holder, id)
   for _, h in ipairs({ holder, NS.Util.PlayerKey(), WARBAND }) do
     local e = NS.Holdings:Get(h)
@@ -658,11 +667,24 @@ local function writePairs(self, plan, now)
   end
 end
 
+-- The gain feed's tap on a net delta (toast spec §5.3): only the player's own positive change,
+-- never a forced (UNTRACKED login, drift) pass, never a move between the account's holders. The item
+-- link is looked up only for an item key.
+local function feedDiff(holder, me, key, dlt, reason, clock, force)
+  if dlt <= 0 or holder ~= me or force or L.HOLDER_MOVE_REASON[reason] then return end
+  local kind, id = L.ParseThingKey(key)
+  GainFeed:FromDiff(key, dlt, reason, clock, kind == "ITEM" and linkFor(holder, id) or nil)
+end
+
 local function writeNet(self, plan, now, clock)
+  local me = NS.Util.PlayerKey()
+  local force = (self.forceReason or self.drift) and true or false
   for holder, net in pairs(plan.net) do
     for key, dlt in pairs(net) do
       local dir = dlt > 0 and "IN" or "OUT"
-      self:Write(holder, key, dir, self:ReasonFor(holder, key, dir, clock), math.abs(dlt), now)
+      local reason = self:ReasonFor(holder, key, dir, clock)
+      if GainFeed.on then feedDiff(holder, me, key, dlt, reason, clock, force) end
+      self:Write(holder, key, dir, reason, math.abs(dlt), now)
     end
   end
 end
@@ -720,6 +742,7 @@ end
 local function flushBody(self)
   local me, now, clock = NS.Util.PlayerKey(), time(), GetTime()
   L.PruneClaims(self.claims, clock)
+  if GainFeed.on then GainFeed:PruneClaims(clock) end
   local snap = self:Scan(me)
   local plan = self:Plan(snap, me, clock)
   if self:DecideHold(plan, clock) then
@@ -803,7 +826,7 @@ function R:Flush()
     return
   end
   if self._deferredAt then
-    L.HoldClaims(self.claims, self._deferredAt, GetTime())
+    L.HoldClaims(self.claims, self._deferredAt, GetTime()); GainFeed:HoldClaims(self._deferredAt, GetTime())
     self._deferredAt = nil
   end
   self._flushing = true

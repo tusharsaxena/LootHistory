@@ -892,3 +892,65 @@ test("Collector: each currency-line guard logs its own [Drop] reason, a recorded
   NS.Collector:RefreshUpvalues()
   if not ok then error(err, 0) end
 end)
+
+-- ── Characterization (#38 M3.1, toast spec §13.1): the attribution consume and the secret guard ──
+-- A loot window's count goes down once per line the window serves. Before M3.1 a line its record
+-- switch dropped left the count where it was (characterized at 0); T10 moves the consume above the
+-- switches, so the dropped line now spends its slot like any other line of the window.
+local CURRENT_CONSUME = 1
+
+local function withWindow(fn)
+  local st, mocks = NS.State, T.mocks
+  local savedCtx, savedWin, savedNow = st.lootContext, st.lootWindow, mocks.__now
+  mocks.__now = 50
+  st.lootContext = nil
+  st.lootWindow = { source = "KILL", confidence = "CERTAIN", left = 3, expires = 1000 }
+  local ok, err = pcall(fn, st.lootWindow)
+  st.lootContext, st.lootWindow, mocks.__now = savedCtx, savedWin, savedNow
+  if not ok then error(err, 0) end
+end
+
+test("Collector: a currency line dropped by recordCurrency off spends its loot-window line", function()
+  local s = NS.db.profile.settings
+  withWindow(function(w)
+    s.recordCurrency = false; NS.Collector:RefreshUpvalues()
+    local ok, err = pcall(NS.Collector.OnChatMsgCurrency, NS.Collector, nil,
+      string.format(T.mocks.CURRENCY_GAINED_MULTIPLE, CURRENCY_LINK, 4))
+    s.recordCurrency = true; NS.Collector:RefreshUpvalues()
+    if not ok then error(err, 0) end
+    assertEqual(w.left, 3 - CURRENT_CONSUME)
+  end)
+end)
+
+test("Collector: a money line dropped by recordGold off spends its loot-window line", function()
+  local s = NS.db.profile.settings
+  withWindow(function(w)
+    s.recordGold = false; NS.Collector:RefreshUpvalues()
+    local ok, err = pcall(NS.Collector.OnChatMsgMoney, NS.Collector, nil, "You loot 5 Copper")
+    s.recordGold = true; NS.Collector:RefreshUpvalues()
+    if not ok then error(err, 0) end
+    assertEqual(w.left, 3 - CURRENT_CONSUME)
+  end)
+end)
+
+-- Before M3.1 each handler raised on a secret payload ("secret value: indexing on a secret value" in
+-- core/Util.lua's parse, characterized); T11 guards each line first.
+test("Collector: a secret chat payload is dropped with [Drop] reason=secret on each line, never raised", function()
+  local M, outcomes, lines = T.mocks, {}, {}
+  local saved, savedDebug, savedFlag = rawget(M, "issecretvalue"), NS.Debug, NS.State.debug
+  rawset(M, "issecretvalue", function(v) return T.isSecret(v) end)
+  NS.Debug = function(tag, fmt, ...) lines[#lines + 1] = "[" .. tag .. "] " .. fmt:format(...) end
+  NS.State.debug = true
+  local before = NS.Database:Count()
+  for _, h in ipairs({ "OnChatMsgLoot", "OnChatMsgCurrency", "OnChatMsgMoney" }) do
+    local ok, err = pcall(NS.Collector[h], NS.Collector, nil, T.secret("You receive loot: [Thing]."))
+    outcomes[#outcomes + 1] = h .. "=" .. tostring(ok) .. (ok and "" or (":" .. tostring(err):sub(1, 60)))
+  end
+  rawset(M, "issecretvalue", saved)
+  NS.Debug, NS.State.debug = savedDebug, savedFlag
+  assertEqual(table.concat(outcomes, ","), "OnChatMsgLoot=true,OnChatMsgCurrency=true,OnChatMsgMoney=true")
+  assertEqual(table.concat(lines, "\n"), table.concat({
+    "[Drop] loot line reason=secret", "[Drop] currency line reason=secret", "[Drop] money line reason=secret",
+  }, "\n"))
+  assertEqual(NS.Database:Count(), before)
+end)

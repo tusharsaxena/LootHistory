@@ -130,7 +130,8 @@ test("sim panel: idle, the rows preview the picked scenario's steps with their c
     assertEqual(r[#r].command, "/lh sim stop")
     assertEqual(tipText(r[2].tip), "Injects: LOOT_OPENED (Creature GUID) | "
       .. " : Two CHAT_MSG_LOOT lines, one before its bag burst and one after | "
-      .. " : A poor item under the threshold, then CHAT_MSG_MONEY")
+      .. " : A poor item under the threshold, then CHAT_MSG_MONEY | "
+      .. " : SKILL_LINES_CHANGED: Mining rises a rank")
     assertTrue(tipText(r[1].tip):find("nothing is saved", 1, true) ~= nil, "Start says nothing is saved")
     assertTrue(tipText(r[#r].tip):find("Ends: the simulation", 1, true) ~= nil, "Stop says what it ends")
   end)

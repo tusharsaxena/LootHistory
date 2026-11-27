@@ -7,6 +7,35 @@ local _, NS = ...
 -- or resetting a profile never touches the loot history or what the next prune deletes
 -- (docs/profiles.md).
 NS.defaults = NS.defaults or {}
+
+-- One loot toast feed's defaults (#38, toast spec §9.2), with `over` laid on top. Each call builds
+-- fresh tables, so no two feeds (and no profile) share a nested table.
+local function feed(over)
+  local f = {
+    enabled = false, slot = "BOTTOMRIGHT", x = 0, y = 0, grow = "up", align = "left", iconSide = "left",
+    kinds = { item = true, money = true, currency = true, reputation = true, appearance = true, xp = true, skill = true },
+    price = "both", ilvl = true, counts = true, source = true, minQuality = 0, hideSources = {},
+    hl = { mount = true, mountSound = "", legendary = true, legendarySound = "",
+           upgrade = true, upgradeSound = "", appearance = true, appearanceSound = "" },
+    bgColorFromSkin = true, bgType = "solid",
+    bgColor = { r = 0.07, g = 0.08, b = 0.1, a = 0.92 }, bgColor2 = { r = 0.12, g = 0.13, b = 0.16, a = 0.92 },
+    bgTexture = "Solid",
+    borderStyle = "None", borderSize = 1, borderColor = { r = 0.23, g = 0.24, b = 0.28, a = 1 },
+    useClassColorBorder = false, borderStyleFromSkin = true, borderColorFromSkin = true, borderByQuality = false,
+    font = "", fontSize = 13, fontSize2 = 11, fontColor = { r = 0.9, g = 0.89, b = 0.84, a = 1 },
+    useClassColorFont = false, fontFlags = "@skin", fontShadow = true,
+    fontFromSkin = true, fontColorFromSkin = true, fontShadowFromSkin = true,
+    width = 320, rowHeight = 48, iconSize = 36, padding = 6, gap = 5,
+    colors = { xp = { r = 0.898, g = 0.549, b = 1, a = 1 }, xpFromSkin = true,
+               rep = { r = 0.31, g = 0.55, b = 1, a = 1 }, repFromSkin = true,
+               skill = { r = 0.478, g = 0.655, b = 1, a = 1 }, skillFromSkin = true },
+    enter = "right", enterTime = 0.3, hold = 5, fade = 1, pulse = true, timerBar = false, smooth = true,
+    shown = 5, merge = 3, showInCombat = true, clickThrough = false, pin = true,
+  }
+  for k, v in pairs(over) do f[k] = v end
+  return f
+end
+
 NS.defaults.profile = {
   -- Item-id filter lists (issue #14). Blacklisted ids are never recorded; rows already stored stay
   -- visible (point-in-time: a list change never hides or reveals history). Whitelisted ids are
@@ -62,6 +91,19 @@ NS.defaults.profile = {
     -- The holdings block in item and currency tooltips (#34). New keys with defaults: AceDB merges
     -- them into every existing profile, so no migration is owed.
     tooltip          = { enabled = true, containers = true, warband = true, totalMin2 = true, modifier = "none" },
+    -- The loot toast feeds (#38, toast spec §9.2): Main on, Progress and Third off (T15). New keys
+    -- with defaults: AceDB merges them into every existing profile, so no migration is owed. The
+    -- gain feed reads `enabled` and `kinds` from M3.1 on; the rows that write them are M3.6's.
+    toasts = {
+      hideAlerts = false,
+      feeds = {
+        main     = feed{ enabled = true, slot = "BOTTOMRIGHT", x = -220, y = 180, grow = "up" },
+        progress = feed{ slot = "TOP", x = 0, y = -160, grow = "down",
+                         kinds = { item = false, money = false, currency = false, reputation = true,
+                                   appearance = false, xp = true, skill = true } },
+        extra    = feed{ slot = "TOPLEFT", x = 0, y = -120, grow = "down" },
+      },
+    },
     -- The skin this addon wears (skinning-§3; owner ruling R1, per addon): where it comes from
     -- ("ka0s", the Ka0s skins, or "eui", EllesmereUI's) and which Ka0s skin. "ka0s"/"ka0s" is Ka0s
     -- Default, today's look. The skin's default is the client's, NS.DEFAULT_SKIN (core/SkinSetup.lua,

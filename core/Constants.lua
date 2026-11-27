@@ -213,6 +213,23 @@ C.Container = {
 -- "Account" (C.ACCOUNT.holder).
 C.WARBAND_HOLDER = "§warband"
 
+-- ── The gain feed (#38, toast spec §4) ───────────────────────────────────────────────────────
+-- What a GAIN payload's `kind` says. The first five equal the C.Kind strings; XP and SKILL are never
+-- record kinds (D8), so they are not in C.Kind.
+C.GainKind = { ITEM = "ITEM", GOLD = "GOLD", CURRENCY = "CURRENCY", REPUTATION = "REPUTATION",
+               APPEARANCE = "APPEARANCE", XP = "XP", SKILL = "SKILL" }
+-- The three fixed toast feeds (T15), in settings order, and the settings leaf of each kind toggle
+-- (settings.toasts.feeds[fid].kinds[leaf]) mapped to its GainKind.
+C.TOAST_FEEDS = { "main", "progress", "extra" }
+C.TOAST_KIND_KEYS = { item = "ITEM", money = "GOLD", currency = "CURRENCY", reputation = "REPUTATION",
+                      appearance = "APPEARANCE", xp = "XP", skill = "SKILL" }
+-- The vanilla profession skill lines (WoW Forever's skill-up allowlist, T14): First Aid 129,
+-- Blacksmithing 164, Leatherworking 165, Alchemy 171, Herbalism 182, Cooking 185, Mining 186,
+-- Tailoring 197, Engineering 202, Enchanting 333, Fishing 356, Skinning 393. A small static fixture,
+-- not tools/seeds data; /lh debug probe lists the client's skill lines against it (FOREVER-T3).
+C.PROFESSION_SKILL_LINES = { [129] = 1, [164] = 1, [165] = 1, [171] = 1, [182] = 1, [185] = 1, [186] = 1,
+                             [197] = 1, [202] = 1, [333] = 1, [356] = 1, [393] = 1 }
+
 -- The holdings tally's cache bound (#34, modules/HoldingsTally.lua): past this many cached things,
 -- items and currencies together, both maps are wiped before the next insert, so a long AH browse
 -- keeps memory bounded.
@@ -436,6 +453,10 @@ local MSG = {
   SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
   -- Sender: modules/Reconciler.lua `Flush`. Payload: (holder) — once per holder whose holdings moved.
   HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
+  -- Sender: modules/GainFeed.lua `GainFeed:Send`, ONLY. Payload: (gain) -- a reused scratch table, valid
+  -- only during the synchronous send; a receiver copies what it keeps. Fired for every gain the addon
+  -- observes, BEFORE the capture filters (#38 D6). Receivers: NS.Toasts (#38), NS.Farm (#39).
+  GAIN             = "Ka0s_LootHistory_Gain",
 }
 
 -- ── Container id groups (LibKa0s-Compat-1.0 minor 6, LibKa0s#101; K101-LH-02) ──────────────────

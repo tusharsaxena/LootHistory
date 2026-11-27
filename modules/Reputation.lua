@@ -2,6 +2,8 @@ local _, NS = ...
 NS.Reputation = NS.Reputation or {}
 local Rep = NS.Reputation
 local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua loads above
+-- The gain feed (#38): the tap tests `GainFeed.on` (events-frames-taint-§7); modules/GainFeed.lua loads above.
+local GainFeed = NS.GainFeed
 local C = NS.Constants
 
 -- Owns the reputation capture (rep/appearance spec docs/superpowers/specs/
@@ -21,7 +23,9 @@ local C = NS.Constants
 -- negative difference, never "the progress inside the new rank".
 
 -- Hot-path upvalues, refreshed on Ka0s_LootHistory_SettingsChanged (events-frames-taint-§7).
-local trackLedger, excludedSources = true, {}
+-- `recordRep` is the record switch: since the gain feed (#38, toast spec §5.4) the row is registered
+-- while the switch is on OR the feed wants reputation, and the switch then gates only the History row.
+local trackLedger, excludedSources, recordRep = true, {}, true
 
 -- The capture state (H4: cleared by ResetState, never unregistered by it). `baseline[factionID]` is
 -- { repType, rank, standing, threshold, paragon }, made once per faction and updated in place;
@@ -68,6 +72,7 @@ function Rep.RefreshUpvalues()
   if not s then return end
   trackLedger = s.trackLedger ~= false
   excludedSources = s.excludedSources or {}
+  recordRep = s.recordReputation ~= false
 end
 
 local function recordOn()
@@ -132,15 +137,16 @@ local function buildRecord(factionID, name, repType, rank, standing, wide, label
   }
 end
 
--- The write half, past the delta: the ledger rule (A2), the source mute (A8), coalescing (A3),
--- then one new row. Runs only for a real change, so its one allocation is the row itself.
-local function writeChange(factionID, d, name, repType, rank, standing, accountWide, label)
-  local dir = d > 0 and C.Dir.IN or C.Dir.OUT
-  if dir == C.Dir.OUT and not trackLedger then return traceDrop(factionID, "ledger-off") end
-  local source, detail, confidence = repSource()
-  if excludedSources[source] then return traceDrop(factionID, "source") end
+-- The write half, past the delta: the ledger rule (A2), the source mute (A8), the record switch,
+-- coalescing (A3), then one new row. Runs only for a real change, so its one allocation is the row
+-- itself. Answers the row written or grown, else nil and the drop reason (the gain feed's `gated`).
+local function writeChange(factionID, d, dir, name, repType, rank, standing, accountWide, label, source, detail,
+                           confidence)
+  if dir == C.Dir.OUT and not trackLedger then traceDrop(factionID, "ledger-off"); return nil, "ledger-off" end
+  if excludedSources[source] then traceDrop(factionID, "source"); return nil, "source" end
+  if not recordRep then traceDrop(factionID, "record-off"); return nil, "record-off" end
   local qty, now = math.abs(d), time()
-  if coalesce(factionID, dir, source, qty, now, label, rank, standing) then return end
+  if coalesce(factionID, dir, source, qty, now, label, rank, standing) then return last[factionID].record end
   local record = buildRecord(factionID, name, repType, rank, standing, accountWide, label, dir, qty, now, source,
     detail, confidence)
   local index = NS.Database:Add(record)
@@ -150,6 +156,19 @@ local function writeChange(factionID, d, name, repType, rank, standing, accountW
   if NS.State.debug and NS.Debug then
     NS.Debug("Rep", "%s %s%d (%s) src=%s", name, dir == C.Dir.IN and "+" or "-", qty, tostring(label), source)
   end
+  return record
+end
+
+-- The reputation gain (toast spec §5.4): every real change, a gain or a loss, whatever the record
+-- path decided (`record` the row written, `gated` the drop reason). The rep source rule is the row's.
+local function feedRep(factionID, d, dir, name, repType, rank, standing, threshold, accountWide, label, source,
+                       detail, confidence, record, gated)
+  local g = GainFeed:Begin("REPUTATION")
+  g.dir, g.id, g.qty, g.name = dir, factionID, math.abs(d), name
+  g.label, g.rank, g.standing, g.threshold, g.repType, g.accountWide = label, rank, standing, threshold, repType,
+    accountWide == true
+  g.source, g.sourceDetail, g.confidence, g.record, g.gated = source, detail, confidence, record, gated
+  GainFeed:SendEvent(g)
 end
 
 -- One FACTION_STANDING_CHANGED (spec §3.4 gate order). The unchanged and reseed paths allocate
@@ -163,7 +182,14 @@ local function repEvent(_, factionID)
   remember(factionID, repType, rank, standing, threshold, paragon)
   if d == nil then return traceDrop(factionID, why) end
   if d == 0 then return traceDrop(factionID, "unchanged") end
-  writeChange(factionID, d, name, repType, rank, standing, accountWide, label)
+  local dir = d > 0 and C.Dir.IN or C.Dir.OUT
+  local source, detail, confidence = repSource()
+  local record, gated = writeChange(factionID, d, dir, name, repType, rank, standing, accountWide, label, source,
+    detail, confidence)
+  if GainFeed.on and GainFeed.wants.REPUTATION then
+    feedRep(factionID, d, dir, name, repType, rank, standing, threshold, accountWide, label, source, detail,
+      confidence, record, gated)
+  end
 end
 
 -- Shape A bracket (performance-§2): one exit, so the dormant cost is one upvalue read, one field read
@@ -259,9 +285,9 @@ end
 -- ── Lifecycle (the Reconciler's two-target shape) ────────────────────────────────────────────
 
 --- `_settings` hears SettingsChanged for as long as the addon is up: every reason re-reads the
---- upvalues (excludedSources, trackLedger), and the switch's own reason or a profile event registers
---- or unregisters the row to match settings.recordReputation. The row is live only while the switch
---- is on, so turning it off is a real unregister, never a draw gate (slash-commands-§7).
+--- upvalues (excludedSources, trackLedger, the switch), and the switch's own reason or a profile
+--- event re-runs SyncCapture. The row is live only while the switch is on or the gain feed wants
+--- reputation, so with both off it is a real unregister, never a draw gate (slash-commands-§7).
 function Rep:Enable()
   if not NS.addon then return end
   if not self._settings then
@@ -269,11 +295,21 @@ function Rep:Enable()
     self._settings:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, reason)
       self:RefreshUpvalues()
       if reason ~= "reputation" and reason ~= "profile" then return end
-      if recordOn() then self:EnableCapture() else self:DisableCapture() end
+      self:SyncCapture()
     end)
   end
   self:RefreshUpvalues()
-  if recordOn() then self:EnableCapture() end
+  self:SyncCapture()
+end
+
+--- Register or unregister the row to match `recordReputation or GainFeed.wants.REPUTATION` (toast
+--- spec §5.4, the amendment to M2 §5). A no-op until Enable has stood the module up; GainFeed's
+--- Recompute calls it whenever what the feed wants changes.
+function Rep:SyncCapture()
+  if not self._settings then return end
+  local want = recordOn() or GainFeed.wants.REPUTATION == true
+  if want and not self._enabled then self:EnableCapture()
+  elseif not want and self._enabled then self:DisableCapture() end
 end
 
 --- Register the row and arm the first seed (two seconds on, so the login data is ready; canceled by

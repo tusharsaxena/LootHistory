@@ -28,6 +28,8 @@ local REQ_KEYS = {
   "PlayerMapID", "CanViewCharacterBank", "NumPurchasedBankTabs",
   -- The reputation reads (rep-appearance spec §3.8), and Retail's appearance reads after them.
   "FactionSnapshot", "ListFactions",
+  -- The gain feed's progress reads (#38, toast spec §12).
+  "PlayerXP", "ProfessionSkills", "ListSkillLines", "CurrencyCap",
 }
 if NS.Constants.FEATURE.appearances then
   REQ_KEYS[#REQ_KEYS + 1] = "AppearanceSource"
@@ -198,6 +200,7 @@ local ARGS = {
   GetContainerNumSlots = { 0 }, GetContainerSlot = { 0, 1 }, GetInventoryItem = { 13 },
   GetMailHeader = { 1 }, ItemLocationID = { { bagID = 0, slotIndex = 1 } }, ContainerItemHasLoot = { 0, 1 },
   LootSourceGUID = { 1 }, FactionSnapshot = { 72 }, AppearanceSource = { 900001 }, IsNewLook = { 800001, 900001 },
+  ProfessionSkills = { {} }, ListSkillLines = { {} }, CurrencyCap = { 3008 },
 }
 
 local function shapeWorld(w)
@@ -205,7 +208,9 @@ local function shapeWorld(w)
   w.bags[0] = { [1] = { itemID = 210796, link = "L1", count = 7, hasLoot = true } }
   w.equipped[13] = { itemID = 219915, link = "L2" }
   w.money, w.warbandMoney = 12345, 67890
-  w.currencies = { { id = 3008, quantity = 5, accountWide = false } }
+  w.currencies = { { id = 3008, quantity = 5, accountWide = false, max = 100 } }
+  w.xp = { cur = 10, max = 100, level = 5, capped = false }
+  w.skills = { [186] = { name = "Mining", rank = 7, max = 75 } }
   w.inbox = { { sender = ALT, subject = "Hi", money = 0, items = { { itemID = 210930, link = "L3", count = 2 } } } }
   w.sendMail = { items = { [210796] = 4 }, money = 99 }
   w.owned = { { itemID = 210930, link = "L3", quantity = 3, status = "active" },
@@ -245,6 +250,10 @@ local WORLD_ANSWERS = {
   AppearanceSource = '{1=' .. World.ITEMS.trinket.id .. ',2="' .. World.Link(World.ITEMS.trinket) .. '",3="'
     .. World.ITEMS.trinket.name .. '",4=4,5=800001,n=6}',
   IsNewLook = "{1=false,n=1}",
+  PlayerXP = "{1=10,2=100,3=5,4=false,n=4}",
+  ProfessionSkills = '{1={186={max=75,name="Mining",rank=7}},n=1}',
+  ListSkillLines = '{1={186={max=75,name="Mining",rank=7}},n=1}',
+  CurrencyCap = "{1=5,2=100,4=false,n=4}",
 }
 
 local function answers()
@@ -269,8 +278,8 @@ test("SimWorld: every provider answers from the world while active and live when
     end
     local live = NS.SimSeam:Live(answers)
     for _, key in ipairs(REQ_KEYS) do
-      -- The two GUARDED walks answer the world even inside Live: they never touch the client's headers.
-      if key ~= "ListCurrencies" and key ~= "ListFactions" then
+      -- The three GUARDED walks answer the world even inside Live: they never touch the client's headers.
+      if key ~= "ListCurrencies" and key ~= "ListFactions" and key ~= "ListSkillLines" then
         assertEqual(live[key], idle[key], key .. " answers live inside Live")
       end
     end

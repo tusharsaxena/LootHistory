@@ -63,6 +63,9 @@ read_globals = {
   "CURRENCY_GAINED", "CURRENCY_GAINED_MULTIPLE",
   "CURRENCY_GAINED_MULTIPLE_BONUS", "CURRENCY_GAINED_MULTIPLE_OVERFLOW",
   "Settings", "CreateColor", "tinsert", "tremove", "wipe", "select",
+  -- core/CompatGain.lua's gain-feed reads only (#38, toast spec §3; tests/test_compat_routing.lua)
+  "UnitXP", "UnitXPMax", "UnitLevel", "IsXPUserDisabled", "GetMaxPlayerLevel", "GetProfessions", "GetProfessionInfo",
+  "C_SkillInfo", "C_MountJournal", "HandleModifiedItemClick", "AlertFrame", "PlaySoundFile",
 }
 globals = {
   "LootHistoryDB",     -- the SavedVariables write target

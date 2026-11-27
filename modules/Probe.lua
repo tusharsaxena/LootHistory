@@ -58,6 +58,9 @@ P.EVENTS = {
   -- row registers, and whether either client bursts the appearance events at login or reload.
   "FACTION_STANDING_CHANGED", "UPDATE_FACTION", "CHAT_MSG_COMBAT_FACTION_CHANGE",
   "TRANSMOG_COLLECTION_SOURCE_ADDED", "TRANSMOG_COLLECTION_SOURCE_REMOVED",
+  -- The gain feed's progress events (#38, toast spec §12): when each fires on each client, and
+  -- whether CHAT_MSG_SKILL arrives beside SKILL_LINES_CHANGED.
+  "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "SKILL_LINES_CHANGED", "CHAT_MSG_SKILL",
 }
 
 local Compat = NS.Compat
@@ -374,6 +377,8 @@ local HANDLERS = {
   FACTION_STANDING_CHANGED = progressEvent, UPDATE_FACTION = progressEvent,
   CHAT_MSG_COMBAT_FACTION_CHANGE = progressEvent,
   TRANSMOG_COLLECTION_SOURCE_ADDED = progressEvent, TRANSMOG_COLLECTION_SOURCE_REMOVED = progressEvent,
+  PLAYER_XP_UPDATE = progressEvent, PLAYER_LEVEL_UP = progressEvent, SKILL_LINES_CHANGED = progressEvent,
+  CHAT_MSG_SKILL = progressEvent,
 }
 P._handlers = HANDLERS
 

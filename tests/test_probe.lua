@@ -369,11 +369,12 @@ test("probe: a reputation or appearance event is kept with its arguments (P13)",
   end)
 end)
 
-test("probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event", function()
+test("probe: P.EVENTS ends with the five P13 events and the gain feed's four, and docs/forever-probes.md names every probe event", function()
   local tail = {}
-  for i = #P.EVENTS - 4, #P.EVENTS do tail[#tail + 1] = P.EVENTS[i] end
+  for i = #P.EVENTS - 8, #P.EVENTS do tail[#tail + 1] = P.EVENTS[i] end
   assertEqual(table.concat(tail, ","), "FACTION_STANDING_CHANGED,UPDATE_FACTION,CHAT_MSG_COMBAT_FACTION_CHANGE," ..
-    "TRANSMOG_COLLECTION_SOURCE_ADDED,TRANSMOG_COLLECTION_SOURCE_REMOVED")
+    "TRANSMOG_COLLECTION_SOURCE_ADDED,TRANSMOG_COLLECTION_SOURCE_REMOVED," ..
+    "PLAYER_XP_UPDATE,PLAYER_LEVEL_UP,SKILL_LINES_CHANGED,CHAT_MSG_SKILL")
   local doc = T.Loader.readFile("docs/forever-probes.md")
   for _, event in ipairs(P.EVENTS) do
     assertTrue(doc:find("`" .. event .. "`", 1, true) ~= nil, "docs/forever-probes.md names " .. event)
@@ -381,11 +382,11 @@ test("probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md 
   local row = doc:match("\n| `progress` |([^\n]*)")
   assertTrue(row ~= nil, "the kinds table has its `progress` row")
   local at, order = 0, {}
-  for i = #P.EVENTS - 4, #P.EVENTS do
+  for i = #P.EVENTS - 8, #P.EVENTS do
     local here = row:find("`" .. P.EVENTS[i] .. "`", 1, true)
     assertTrue(here ~= nil and here > at, P.EVENTS[i] .. " in P.EVENTS order in the progress row")
     at = here or at
     order[#order + 1] = P.EVENTS[i]
   end
-  assertEqual(#order, 5)
+  assertEqual(#order, 9)
 end)

@@ -36,6 +36,16 @@ local BANNED = {
   { pat = "%f[%w_]C_Reputation%.",                use = "Compat.FactionSnapshot / ListFactions" },
   { pat = "%f[%w_]C_MajorFactions%.",             use = "Compat.FactionSnapshot" },
   { pat = "%f[%w_]C_TransmogCollection%.",        use = "Compat.AppearanceSource / IsNewLook" },
+  -- The gain feed's reads (#38, toast spec §3.2): experience, skills, equipment, clicks, sounds, alerts.
+  { pat = "%f[%w_]UnitXP%f[^%w_]",                use = "Compat.PlayerXP()" },
+  { pat = "%f[%w_]UnitXPMax%f[^%w_]",             use = "Compat.PlayerXP()" },
+  { pat = "%f[%w_]GetProfessions%f[^%w_]",        use = "Compat.ProfessionSkills(out)" },
+  { pat = "%f[%w_]GetProfessionInfo%f[^%w_]",     use = "Compat.ProfessionSkills(out)" },
+  { pat = "%f[%w_]C_SkillInfo%.",                 use = "Compat.ListSkillLines(out)" },
+  { pat = "%f[%w_]GetInventoryItemLink%f[^%w_]",  use = "Compat.EquippedLink(slot)" },
+  { pat = "%f[%w_]HandleModifiedItemClick%f[^%w_]", use = "Compat.ModifiedLinkClick(link)" },
+  { pat = "%f[%w_]PlaySoundFile%f[^%w_]",         use = "Compat.PlayMediaSound(key)" },
+  { pat = "%f[%w_]AlertFrame%f[^%w_]",            use = "Compat.SuppressAlertEvents / RestoreAlertEvents" },
 }
 
 local function shippedFiles(prefix)
@@ -124,7 +134,7 @@ test("Compat routing: only core/CompatClient.lua reads the client's project cons
   assertEqual(#hits, 0, "client reads outside the compat family:\n  " .. table.concat(hits, "\n  "))
 end)
 
-test("Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, straight above the Sim seam", function()
+test("Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, straight above the Sim seam", function()
   -- red under: CompatClient below core/SimSeam.lua, where its members escape the wrap; or above
   -- core/Compat.lua, which publishes the NS.Compat it adds to.
   local order = {}
@@ -135,5 +145,7 @@ test("Compat routing: the compat family loads Compat, CompatClient, CompatToolti
   assertEqual(order["core/CompatTooltip.lua"], order["core/CompatClient.lua"] + 1, "the family stays contiguous")
   assertTrue(order["core/CompatProgress.lua"] ~= nil, "the TOC lists core/CompatProgress.lua")
   assertEqual(order["core/CompatProgress.lua"], order["core/CompatTooltip.lua"] + 1, "the family stays contiguous")
-  assertEqual(order["core/SimSeam.lua"], order["core/CompatProgress.lua"] + 1, "straight before core/SimSeam.lua")
+  assertTrue(order["core/CompatGain.lua"] ~= nil, "the TOC lists core/CompatGain.lua")
+  assertEqual(order["core/CompatGain.lua"], order["core/CompatProgress.lua"] + 1, "the family stays contiguous")
+  assertEqual(order["core/SimSeam.lua"], order["core/CompatGain.lua"] + 1, "straight before core/SimSeam.lua")
 end)

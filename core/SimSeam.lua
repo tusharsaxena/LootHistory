@@ -6,7 +6,8 @@ local _, NS = ...
 -- ── THE SEAM ─────────────────────────────────────────────────────────────────────────────────
 --
 -- At file load, straight after the compat family (core/Compat.lua, core/CompatClient.lua,
--- core/CompatTooltip.lua) and before any other file can read a member,
+-- core/CompatTooltip.lua, core/CompatProgress.lua, core/CompatGain.lua) and before any other file
+-- can read a member,
 -- Sim:NewSeam wraps every NS.Compat function but the PURE ones in place, once. While a simulation
 -- runs (modules/Sim.lua's NS.Sim) a wrapped member answers through its provider (registered by the
 -- simulator's world module with NS.SimSeam:SetProvider); with no provider, or with no simulation
@@ -23,13 +24,15 @@ local _, NS = ...
 --
 --   PURE      never wrapped. The text and parse helpers answer for nobody; the tooltip family only
 --             draws; the hook installers run once at stand-up, never during a simulation.
---   GUARDED   the two members that change client state. ListCurrencies expands and collapses the
+--   GUARDED   the three members that change client state. ListCurrencies expands and collapses the
 --             player's Currency-tab headers to walk the list, so while a session is active it
 --             answers the simulated world's list (NS.SimHost.world.currencies, modules/SimWorld.lua)
 --             or nothing, and never reaches C_CurrencyInfo.ExpandCurrencyList, inside Live included.
 --             ListFactions does the same with the Reputation panel's headers, so while a session is
 --             active it answers NS.SimHost.world.factionList or nothing, and never reaches
---             C_Reputation.ExpandFactionHeader (rep/appearance spec §3.2).
+--             C_Reputation.ExpandFactionHeader (rep/appearance spec §3.2). ListSkillLines (WoW
+--             Forever's skill walk, core/CompatGain.lua) beside ListCurrencies: it answers
+--             NS.SimHost.world.skills or nothing and never reaches C_SkillInfo.ExpandSkillHeader.
 --   WRAPPED   everything else: the item, spell and currency reads (the simulated player is the real
 --             player, so live is right for them), the world reads the simulator provides, and the
 --             three world rules (InInstance, InGroup, PlayerInCombat) its refusal and its automatic
@@ -70,6 +73,9 @@ local PURE = {
   HookTooltipType = true, TooltipItemID = true, TooltipCurrencyID = true, TooltipWritable = true,
   IsComparisonTooltip = true, AppendTooltipRows = true, TooltipTint = true, FormatCount = true,
   IsSecret = true,
+  -- The gain feed's UI actions (#38, toast spec §3.2): a click, a sound and the alert suppression
+  -- answer for nobody, and a simulation must never replay them.
+  ModifiedLinkClick = true, PlayMediaSound = true, SuppressAlertEvents = true, RestoreAlertEvents = true,
 }
 
 -- The safe answers while a session is active (req-lh-sim §2.4). A provider, when one is set, gets
@@ -82,6 +88,18 @@ end
 GUARDED.ListFactions = function()
   local world = Host.world
   return (world and world.factionList) or {}
+end
+-- Forever's skill walk expands and collapses the Skills panel's headers (toast spec §3.2), so while a
+-- session is active it answers the world's `skills`, copied into the caller's table, or nothing.
+GUARDED.ListSkillLines = function(out)
+  local skills = Host.world and Host.world.skills
+  if not (out and skills) then return out end
+  for line, s in pairs(skills) do
+    local e = out[line]
+    if not e then e = {}; out[line] = e end
+    e.name, e.rank, e.max = s.name, s.rank, s.max
+  end
+  return out
 end
 
 --- The guarded keys, sorted: the diagnostics report's `sim` section names them

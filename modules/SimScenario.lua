@@ -144,6 +144,9 @@ function OPS.warbandGold(copper) return D.WarbandGold(copper) end
 function OPS.auctionBuy(key, qty, price) return D.AuctionBuy(key, qty, price) end
 function OPS.questReward(questID, choice, copper) return D.QuestReward(questID, choice, 1000, copper) end
 function OPS.reputation(factionID, delta) return D.Reputation(factionID, delta) end
+-- The gain feed's progress (#38, toast spec §12): experience, and a profession's rank.
+function OPS.xp(delta) return D.XP(delta) end
+function OPS.skill(line, rise) return D.Skill(line, rise) end
 -- Retail only (C.FEATURE.appearances): the driver, and so the op, exist only there.
 if D.Appearance then function OPS.appearance(sourceID, removed) return D.Appearance(sourceID, removed) end end
 
@@ -275,17 +278,18 @@ local STRANGER = (NS.SampleCharacters()[3] or {}).fullName
 STEPS.loot = {
   step("kill", L["Kill: %s"]:format(NPC.name),
     { L["LOOT_OPENED (Creature GUID)"], L["Two CHAT_MSG_LOOT lines, one before its bag burst and one after"],
-      L["A poor item under the threshold, then CHAT_MSG_MONEY"] },
+      L["A poor item under the threshold, then CHAT_MSG_MONEY"],
+      L["SKILL_LINES_CHANGED: Mining rises a rank"] },
     { { "lootOpened", "Creature", NPC.id, 4 }, { "loot", "herb", 1 }, { "loot", "ore", 3, { bagsFirst = true } },
-      { "loot", "junk", 1 }, { "money", 12345 }, { "lootClosed" } }),
+      { "loot", "junk", 1 }, { "money", 12345 }, { "lootClosed" }, { "skill", 186, 1 } }),
   step("container", L["Lockbox: open %s"]:format(World.ITEMS.cache.name),
     { L["hook:UseContainerItem on a lootable slot"], L["Two pushed CHAT_MSG_LOOT lines"] },
     { { "use", "cache" }, { "loot", "herb", 2, { form = "pushed" } }, { "loot", "dust", 1, { form = "pushed" } } }),
   step("quest", L["Quest: turn in"],
     { L["hook:GetQuestReward, QUEST_TURNED_IN with money"], L["The reward's pushed CHAT_MSG_LOOT line"],
-      L["FACTION_STANDING_CHANGED: the quest's reputation"] },
+      L["FACTION_STANDING_CHANGED: the quest's reputation"], L["PLAYER_XP_UPDATE: the quest's experience"] },
     { { "questReward", 84000, 2, 9000 }, { "loot", "trinket", 1, { form = "pushed" } },
-      { "reputation", REP_FACTION, 250 } }),
+      { "reputation", REP_FACTION, 250 }, { "xp", 1500 } }),
 }
 -- The appearance step only where appearances are a feature (C.FEATURE.appearances, clients-§4): the
 -- trinket's look joins the collection while a corpse's loot window is open, so the source read

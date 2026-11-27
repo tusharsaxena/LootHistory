@@ -505,3 +505,22 @@ test("Reconciler: a claim waits out combat, so one loot is one row", function()
   assertEqual(after, before, "a second row for the same loot")
   assertTrue(row.claimed == true, "the chat row took the delta")
 end)
+
+-- Characterization (#38 M3.1, toast spec §13.1): the row writer asks ReasonFor once per net key, so
+-- the gain feed's tap, which reuses that answer, adds no second call.
+test("Reconciler: WriteRows asks ReasonFor exactly once per net key", function()
+  local r = R()
+  local savedReason, savedWrite, savedSilent, savedMemo = r.ReasonFor, r.Write, r.silent, r.reasonMemo
+  local asked, wrote = {}, {}
+  r.ReasonFor = function(_, holder, key, dir) asked[#asked + 1] = holder .. "|" .. key .. "|" .. dir; return "OTHER" end
+  r.Write = function(_, _holder, key, dir, reason, qty) wrote[#wrote + 1] = key .. dir .. reason .. qty end
+  r.silent = nil
+  local ok, err = pcall(function()
+    r:WriteRows({ moves = {}, pairs = {}, net = { [ME()] = { ["i:17058"] = 2, g = -40 } } }, 1000, 100)
+  end)
+  r.ReasonFor, r.Write, r.silent, r.reasonMemo = savedReason, savedWrite, savedSilent, savedMemo
+  if not ok then error(err, 0) end
+  table.sort(asked); table.sort(wrote)
+  assertEqual(table.concat(asked, ","), ME() .. "|g|OUT," .. ME() .. "|i:17058|IN")
+  assertEqual(table.concat(wrote, ","), "gOUTOTHER40,i:17058INOTHER2")
+end)

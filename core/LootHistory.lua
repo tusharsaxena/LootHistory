@@ -151,6 +151,9 @@ end
 -- repair rides the same deferral and then runs again a little later: it needs the item cache, which
 -- is cold at login, and the first pass is what warms it (see Database:RepairBoundStates).
 function addon:OnEnterWorld()
+  -- The experience and skill baselines (#38, modules/Progress.lua) on every world entry, so a zone
+  -- change or a login never reads as a gain. A no-op while no feed wants either.
+  if NS.Progress and NS.Progress.Seed then NS.Progress:Seed() end
   if NS.State.cleanupDone then return end
   NS.State.cleanupDone = true
   -- THROUGH NS.After, NOT C_Timer.After, and that is not a refactor for tidiness. Both of these

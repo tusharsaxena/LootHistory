@@ -53,6 +53,10 @@ local function exercise()
     tooltipPost()
     NS.Reputation:OnStandingChanged(nil, 72)
     NS.Appearance:OnSourceAdded(nil, nil)
+    -- The gain feed (#38): one send, an experience event and a skill scan.
+    NS.GainFeed:Send(NS.GainFeed:Begin("GOLD"))
+    NS.Progress:OnXP("player")
+    NS.Progress._scan()
   end)
   NS.db.global.history = savedH
   R.claims, R.recent, R.dirty = savedClaims, savedRecent, savedDirty
@@ -60,7 +64,8 @@ local function exercise()
 end
 
 test("perf: the buckets are declared in report order", function()
-  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent,appearanceEvent")
+  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent,appearanceEvent,"
+    .. "gainSend,xpEvent,skillScan")
 end)
 
 test("perf: every declared bucket is reached by a real bracket", function()

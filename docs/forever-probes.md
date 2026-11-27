@@ -51,7 +51,7 @@ parts again on Retail.
 | `trade` | Every `TRADE_SHOW` | `UnitName("NPC")`'s two answers, `GetUnitName("NPC", true)`, the key the addon builds | P7 |
 | `mail` | Every sent mail | The recipient as typed, and as `Util.QualifyName` keys it | P7 |
 | `instance` | Every `PLAYER_ENTERING_WORLD` | `GetInstanceInfo()`'s answers | P11 |
-| `progress` | Every `FACTION_STANDING_CHANGED`, `UPDATE_FACTION`, `CHAT_MSG_COMBAT_FACTION_CHANGE`, `TRANSMOG_COLLECTION_SOURCE_ADDED`, `TRANSMOG_COLLECTION_SOURCE_REMOVED` | The event and its arguments (`args`, with `n` the count); a login or reload burst is a run of these straight after an `instance` entry | P13 |
+| `progress` | Every `FACTION_STANDING_CHANGED`, `UPDATE_FACTION`, `CHAT_MSG_COMBAT_FACTION_CHANGE`, `TRANSMOG_COLLECTION_SOURCE_ADDED`, `TRANSMOG_COLLECTION_SOURCE_REMOVED`, and the gain feed's (#38) `PLAYER_XP_UPDATE`, `PLAYER_LEVEL_UP`, `SKILL_LINES_CHANGED`, `CHAT_MSG_SKILL` | The event and its arguments (`args`, with `n` the count); a login or reload burst is a run of these straight after an `instance` entry | P13 |
 | `error` | A probe handler that raised | The event and the message (the raise never leaves the probe) | n/a |
 | `stop` | At stop | Nothing; it marks the end of a session | n/a |
 

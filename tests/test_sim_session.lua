@@ -582,3 +582,15 @@ test("Sim: the start seeds the baseline from the world; the stop restores the re
     assertEqual(r.kind, "REPUTATION"); assertEqual(r.quantity, 50, "the delta is from live, not the simulated standing")
   end)
 end)
+
+-- The gain feed's progress events (#38, toast spec §12) are always the player's own: a real one
+-- stops the session, as a real reputation change does.
+test("Sim: a real PLAYER_XP_UPDATE, PLAYER_LEVEL_UP or SKILL_LINES_CHANGED stops it (world); CHAT_MSG_SKILL too", function()
+  local line = "Simulation stopped: something real happened (a loot, a trade, a mail or a window), and it is recorded as usual."
+  for _, ev in ipairs({ { "PLAYER_XP_UPDATE", "player" }, { "PLAYER_LEVEL_UP", 31 }, { "SKILL_LINES_CHANGED" },
+                        { "CHAT_MSG_SKILL", "Your skill in Mining has increased to 151." } }) do
+    stopsOn("a real " .. ev[1], line, function()
+      assertTrue(Host.OnRealEvent(nil, ev[1], ev[2]) == false, ev[1] .. " runs live after the stop")
+    end)
+  end
+end)

@@ -281,6 +281,31 @@ function D.Reputation(factionID, delta)
   return fire("FACTION_STANDING_CHANGED", factionID, f.standing)
 end
 
+--- The player gains `delta` experience (toast spec §12): the world first (each full level rolls
+--- over, the next level needs a tenth more, and PLAYER_LEVEL_UP(level) fires for it), then
+--- PLAYER_XP_UPDATE("player").
+function D.XP(delta)
+  local w = world()
+  if not w then return 0 end
+  local xp, n = w.xp, 0
+  xp.cur = xp.cur + (delta or 0)
+  while xp.cur >= xp.max do
+    xp.cur, xp.level, xp.max = xp.cur - xp.max, xp.level + 1, math.floor(xp.max * 1.1)
+    n = n + fire("PLAYER_LEVEL_UP", xp.level)
+  end
+  return n + fire("PLAYER_XP_UPDATE", "player")
+end
+
+--- A profession's rank rises by `rise` (capped at its max) in the world, then SKILL_LINES_CHANGED.
+--- No chat text is sent: CHAT_MSG_SKILL is only ever a trigger. A line the world lacks fires nothing.
+function D.Skill(line, rise)
+  local w = world()
+  local s = w and w.skills[line]
+  if not s then return 0 end
+  s.rank = math.min(s.max or s.rank + (rise or 1), s.rank + (rise or 1))
+  return fire("SKILL_LINES_CHANGED")
+end
+
 --- An appearance source is collected, or removed (a refund) with `removed`: the world's collected
 --- flag first, then TRANSMOG_COLLECTION_SOURCE_ADDED or _REMOVED(sourceID). Only where appearances
 --- are a feature (C.FEATURE.appearances, clients-§4): WoW Forever has no such driver.

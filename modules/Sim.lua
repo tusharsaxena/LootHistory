@@ -166,6 +166,8 @@ local INTERFERENCE = {
   TRADE_ACCEPT_UPDATE = true, MAIL_SEND_SUCCESS = true, PLAYER_INTERACTION_MANAGER_FRAME_SHOW = true,
   -- Always the player's own, and outside the stop's drift pass (rep-appearance spec §3.8).
   FACTION_STANDING_CHANGED = true, TRANSMOG_COLLECTION_SOURCE_ADDED = true, TRANSMOG_COLLECTION_SOURCE_REMOVED = true,
+  -- The gain feed's progress events (#38, toast spec §12): always the player's own.
+  PLAYER_XP_UPDATE = true, PLAYER_LEVEL_UP = true, SKILL_LINES_CHANGED = true,
 }
 
 -- A chat line interferes only when it is the player's own: another player's line is absorbed.
@@ -173,6 +175,8 @@ local SELF_LINE = {
   CHAT_MSG_LOOT = function(msg) return NS.Util.ParseSelfLoot(msg) or NS.Util.ParseRollWon(msg) end,
   CHAT_MSG_CURRENCY = function(msg) return NS.Util.ParseSelfCurrency(msg) end,
   CHAT_MSG_MONEY = function(msg) return NS.Util.ParseSelfMoney(msg) end,
+  -- A skill line is the player's own rank moving; its payload is never read.
+  CHAT_MSG_SKILL = function() return true end,
 }
 
 local SETUP = { ADDON_LOADED = true }
@@ -277,6 +281,11 @@ function Host.Prepare(_, def, opts, ready)
   NS.Reputation:SuspendBaseline()
   NS.Appearance:ResetState()
   NS.Reputation:Seed(true)
+  -- The gain feed's claims and the experience and skill baselines are capture state too (#38, toast
+  -- spec §12): cleared, then seeded at once from the world (the seam answers PlayerXP and the skills).
+  NS.GainFeed:ResetState()
+  NS.Progress:ResetState()
+  NS.Progress:Seed(true)
   NS.RealEventFilter = Host.OnRealEvent
   registerWatch()
   -- The session holdings are empty, so this first pass is a silent genesis: no rows.
@@ -426,6 +435,9 @@ local STOP_STEPS = {
   -- with no faction walk. A real FACTION_STANDING_CHANGED that stopped the session runs live after this
   -- step and diffs against the pre-session standing, so its row is written.
   function() NS.Reputation:RestoreBaseline(); NS.Appearance:ResetState() end,
+  -- The gain feed's session state goes, and the experience and skill baselines reseed live (the seam
+  -- is off), so the world's numbers never diff against the real ones. The toasts are not cleared.
+  function() NS.GainFeed:ResetState(); NS.Progress:ResetState(); NS.Progress:Seed() end,
   -- What really changed while the session ran becomes UNTRACKED drift. Not on a stand-down: the
   -- Reconciler's own stand-up rescan covers that.
   function(_, reason)
