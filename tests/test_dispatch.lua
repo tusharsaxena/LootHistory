@@ -15,11 +15,13 @@ local test, assertEqual, assertTrue, assertFalse = T.test, T.assertEqual, T.asse
 -- here as data. A list derived from NS.EVENT_ROWS would agree with the rows however wrong they got.
 -- Rows added since, by hand and with their own case: the bank's two re-read cues,
 -- ledger:BAG_CONTAINER_UPDATE and ledger:BANK_TABS_CHANGED (the WoW Forever port, ruling R8); the
--- Reputation owner's bus:FACTION_STANDING_CHANGED (rep/appearance spec §3.1, M2.2).
+-- Reputation owner's bus:FACTION_STANDING_CHANGED (rep/appearance spec §3.1, M2.2); the Appearance
+-- owner's bus:TRANSMOG_COLLECTION_SOURCE_ADDED and _REMOVED (§3.1, M2.3; Retail only).
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
   "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:ENCOUNTER_END",
   "bus:ENCOUNTER_START", "bus:FACTION_STANDING_CHANGED", "bus:LOOT_CLOSED", "bus:LOOT_OPENED", "bus:QUEST_TURNED_IN", "bus:TRADE_ACCEPT_UPDATE",
+  "bus:TRANSMOG_COLLECTION_SOURCE_ADDED", "bus:TRANSMOG_COLLECTION_SOURCE_REMOVED",
   "bus:ZONE_CHANGED_NEW_AREA",
   "ledger:ACCOUNT_MONEY", "ledger:BAG_CONTAINER_UPDATE", "ledger:BAG_UPDATE", "ledger:BAG_UPDATE_DELAYED",
   "ledger:BANK_TABS_CHANGED",
@@ -34,11 +36,12 @@ local SNAPSHOT = {
   "spell:UNIT_SPELLCAST_SUCCEEDED:player",
 }
 -- The warband bank's two rows are Retail-only (R1, clients-§4), and so are the keystone's four (R2):
--- WoW Forever registers none of them.
+-- WoW Forever registers none of them, nor the appearances' two (rep/appearance spec, D7).
 if T.forever then
   local retailOnly = { ["ledger:ACCOUNT_MONEY"] = true, ["ledger:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED"] = true,
     ["bus:CHALLENGE_MODE_COMPLETED"] = true, ["bus:CHALLENGE_MODE_RESET"] = true,
-    ["bus:CHALLENGE_MODE_START"] = true, ["bus:ZONE_CHANGED_NEW_AREA"] = true }
+    ["bus:CHALLENGE_MODE_START"] = true, ["bus:ZONE_CHANGED_NEW_AREA"] = true,
+    ["bus:TRANSMOG_COLLECTION_SOURCE_ADDED"] = true, ["bus:TRANSMOG_COLLECTION_SOURCE_REMOVED"] = true }
   for i = #SNAPSHOT, 1, -1 do if retailOnly[SNAPSHOT[i]] then table.remove(SNAPSHOT, i) end end
 end
 
@@ -109,9 +112,11 @@ test("Dispatch: every capture registration comes from NS.EVENT_ROWS and the (tar
   assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT, "one row per (target, event) registration")
 end)
 
-test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Reconciler", function()
-  -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS).
-  assertEqual(ownersInOrder(), "Attribution,AttributionOut,Collector,Reputation,Reconciler")
+test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Reconciler", function()
+  -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS). WoW Forever
+  -- declares no Appearance rows (C.FEATURE.appearances), so the owner is not in its list.
+  assertEqual(ownersInOrder(), T.forever and "Attribution,AttributionOut,Collector,Reputation,Reconciler"
+    or "Attribution,AttributionOut,Collector,Reputation,Appearance,Reconciler")
   local hooks, seen = {}, {}
   for _, row in ipairs(NS.HOOK_ROWS or {}) do
     if not seen[row.owner] then seen[row.owner] = true; hooks[#hooks + 1] = row.owner end
@@ -132,7 +137,9 @@ end
 
 test("Dispatch: registered follows Enable/Disable, including trackLedger off", function()
   restoring(function()
-    for _, owner in ipairs({ "Attribution", "AttributionOut", "Collector", "Reputation", "Reconciler" }) do
+    local owners = { "Attribution", "AttributionOut", "Collector", "Reputation", "Reconciler" }
+    if not T.forever then table.insert(owners, 5, "Appearance") end
+    for _, owner in ipairs(owners) do
       local n, total = registeredBy(owner)
       assertTrue(total > 0, owner .. " owns no rows")
       assertEqual(n, total, owner .. ": every row is registered while the addon is up")
@@ -312,5 +319,36 @@ test("Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED a
     assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
   end)
   NS.Schema:Set("settings.recordReputation", true)
+  if not ok then error(err, 0) end
+end)
+
+test("Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them", function()
+  -- red under: a draw gate (the rows left registered and the handler returning early), or a listener
+  -- that hears only another module's reason (slash-commands-§7, anti-pattern #85). On WoW Forever
+  -- the rows are never declared (clients-§4), so the switch has nothing to take down.
+  local function live()
+    local n = 0
+    for _, k in ipairs(liveCapture()) do
+      if k == "bus:TRANSMOG_COLLECTION_SOURCE_ADDED" or k == "bus:TRANSMOG_COLLECTION_SOURCE_REMOVED" then n = n + 1 end
+    end
+    return n
+  end
+  if T.forever then
+    assertEqual(live(), 0, "WoW Forever registers no appearance row")
+    assertEqual(select(2, registeredBy("Appearance")), 0, "and declares none")
+    assertEqual(NS.Appearance._settings, nil, "nor stands up a settings listener for a feature it lacks")
+    return
+  end
+  local ok, err = pcall(function()
+    assertEqual(live(), 2, "precondition: both rows are live while the addon is up")
+    NS.Schema:Set("settings.recordAppearances", false)
+    assertEqual(live(), 0, "the switch off takes both registrations down")
+    assertEqual((registeredBy("Appearance")), 0)
+    assertTrue(NS.Appearance._settings ~= nil, "the settings listener stays, so the switch can come back")
+    NS.Schema:Set("settings.recordAppearances", true)
+    assertEqual(live(), 2, "the switch on registers them again")
+    assertEqual(table.concat(fromRows(), ","), table.concat(SNAPSHOT, ","))
+  end)
+  NS.Schema:Set("settings.recordAppearances", true)
   if not ok then error(err, 0) end
 end)

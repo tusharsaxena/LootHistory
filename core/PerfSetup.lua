@@ -68,5 +68,6 @@ NS.Perf = lib:New({
     { key = "ledgerEvent" },    -- Reconciler:OnEvent (BAG_UPDATE storms, money, currency: dirty bits)
     { key = "tooltipBlock" },   -- HoldingsTip.OnTooltip (every item/currency tooltip build, ~5/s while hovered, in combat too)
     { key = "repEvent" },       -- Reputation:OnStandingChanged (every kill that moves a standing, in combat)
+    { key = "appearanceEvent" }, -- Appearance:OnSourceAdded / OnSourceRemoved (Retail; bursts on an ensemble)
   },
 })

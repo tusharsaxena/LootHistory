@@ -43,6 +43,7 @@ NS.defaults.profile = {
     excludeAmmo      = NS.Compat.ClientKey() == "forever",
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     recordReputation = true,   -- reputation gains and losses as Type=Reputation rows
+    recordAppearances = true,  -- (Retail) collected/removed appearances as Type=Appearance rows
     trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
     recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)
     showTransfers    = true,   -- History's Direction filter includes transfers by default

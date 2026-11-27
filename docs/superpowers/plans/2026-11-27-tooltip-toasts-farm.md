@@ -82,7 +82,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M1.6 | Review pass (workflow) + fixes; push M1 | done | `M1.6: Review fixes`; pushed to origin |
 | M2.1 | Kinds `REPUTATION` / `APPEARANCE`, feature gate (appearance Retail-only), Compat reads | done | `M2.1: Add the reputation and appearance kinds, feature gate and Compat reads` |
 | M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | done | `M2.2: Add the reputation capture with its switch, seed and coalescing` |
-| M2.3 | Appearance capture (collected IN, removed OUT; Retail) + tests | todo | |
+| M2.3 | Appearance capture (collected IN, removed OUT; Retail) + tests | done | `M2.3: Add the Retail appearance capture with its switch and duplicate guard` |
 | M2.4 | History / filters / Insights / Export / test data / sim for the new kinds; capture switches | todo | |
 | M2.5 | Docs + review pass + fixes; push M2 | todo | |
 | M3.0 | LibKa0s-Feed-1.0 upstream (`../LibKa0s` branch `feat/2026-11-27-feed`, L-steps + review fixes, pushed); re-vendor here as `v1.119.0 (unreleased, branch feat/2026-11-27-feed)` | upstream done; re-vendor todo | LibKa0s `749ae79d` |

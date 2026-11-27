@@ -150,6 +150,7 @@ local FEATURE_EVENTS = {
   mythicPlus = { owner = "Attribution", "CHALLENGE_MODE_START", "CHALLENGE_MODE_COMPLETED",
                  "CHALLENGE_MODE_RESET", "ZONE_CHANGED_NEW_AREA" },
   warbandBank = { owner = "Reconciler", "ACCOUNT_MONEY", "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED" },
+  appearances = { owner = "Appearance", "TRANSMOG_COLLECTION_SOURCE_ADDED", "TRANSMOG_COLLECTION_SOURCE_REMOVED" },
 }
 
 test("Client shape: a Retail-only feature's event rows exist on Retail and are absent on WoW Forever", function()

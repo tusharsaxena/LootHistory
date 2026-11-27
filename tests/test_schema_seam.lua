@@ -387,6 +387,7 @@ settings.excludeQuestItems | bool | true | nil | nil | nil
 settings.excludedSources | table | {} | nil | nil | nil
 settings.locked | bool | false | nil | nil | nil
 settings.qualityThreshold | number | 1 | nil | nil | nil
+settings.recordAppearances | bool | true | nil | nil | nil
 settings.recordCurrency | bool | true | nil | nil | nil
 settings.recordGold | bool | true | nil | nil | nil
 settings.recordReputation | bool | true | nil | nil | nil

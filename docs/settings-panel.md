@@ -45,11 +45,12 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 * **Reset position** — put the History window back in the middle of the screen. Nothing else changes.
 * **Reset all settings** — puts this profile back the way it shipped: every setting, the filter lists, the AH price order, the saved view and the window position. Asks first. Your loot history and your other profiles are not touched (Purge history… on the History tab clears the history). The `/lh resetall` command and the page's **Defaults** button are the same act.
 
-**Capture** — what gets recorded, under two headings: **Loot** (Minimum quality | Exclude quest items, Ignore ammunition and thrown weapons | Record currency, then Record reputation, then the Record data from picker) and **Ledger** (Track holdings and losses | Record gold)
+**Capture** — what gets recorded, under two headings: **Loot** (Minimum quality | Exclude quest items, Ignore ammunition and thrown weapons | Record currency, Record reputation | Record appearances (Retail only), then the Record data from picker) and **Ledger** (Track holdings and losses | Record gold)
 
 * **Minimum quality** — items at or above this quality get a detailed loot record (source, zone, encounter, price); default **Common**. Every item is still tracked in the ledger, and History hides items below this quality until you pick qualities in its Quality filter (whitelisted items are exempt). Raising it never removes anything already recorded.
 * **Record currency** — record looted currency (Valorstones, crests, and the like) as Currency rows. Obeys **Record data from**; ignores **Minimum quality**.
 * **Record reputation** — record every reputation gain and loss as a Reputation row, with the faction and its standing. **On by default.** Obeys **Record data from**; a loss needs **Track holdings and losses**. Unticking it stops the addon listening for standing changes at all.
+* **Record appearances** (Retail only) — record each appearance you collect as an Appearance row, and its removal (a refund) as a loss. **On by default.** A row whose look is new to your collection is marked as a new look. Obeys **Record data from**; a removal needs **Track holdings and losses**. Unticking it stops the addon listening for collection changes at all. WoW Forever has no such box.
 * **Exclude quest items** — skip the temporary items you pick up during quests. **On by default**; uncheck it to record them too.
 * **Record data from** — turn individual sources on or off. Unchecking a source stops it being recorded. Only the sources the addon can actually detect appear here. It sits under Record currency, which obeys it, and above the Ledger heading.
 * **Track holdings and losses** — keep the ledger: what every character and your warband holds, plus every gain, loss and transfer. Off records loot gains only.
@@ -117,12 +118,12 @@ The **row vocabulary is LibKa0s's** (`O.RenderField` in `libs/LibKa0s/OptionsWid
 
 The same row drives four surfaces — panel widget, `/lh get`, `/lh set`, and `/lh list|reset` (see [slash-dispatch.md](slash-dispatch.md)). **Adding an option = one schema row.** UI widget, slash CLI, and reset wire themselves.
 
-**Thirty-nine rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
+**Forty rows ship today**, on one schema-backed page across six schema tabs (the other two, Filters and Keybindings, hold no rows at all). The order below is declaration order, which is the strip's order for the schema tabs (Filters sits between Capture and AH price on the strip):
 
 | Page | Tab | Rows | Paths, in declaration order |
 |---|---|---|---|
 | General | **Master controls** | 9 | `settings.enabled`, `settings.visibility`, `settings.scale`, `settings.alpha`, `settings.locked`, `state.debugConsole`, `minimap.shown`, `state.testMode`, `state.sim` |
-| General | **Capture** | 8 | *Loot:* `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.excludeAmmo` (on by default on WoW Forever), `settings.recordCurrency`, `settings.recordReputation`, `settings.excludedSources`; *Ledger:* `settings.trackLedger`, `settings.recordGold` |
+| General | **Capture** | 9 | *Loot:* `settings.qualityThreshold`, `settings.excludeQuestItems`, `settings.excludeAmmo` (on by default on WoW Forever), `settings.recordCurrency`, `settings.recordReputation`, `settings.recordAppearances` (Retail only), `settings.excludedSources`; *Ledger:* `settings.trackLedger`, `settings.recordGold` |
 | General | **AH price** | 2 | `settings.auction.enabled`, `settings.auction.capture` |
 | General | **Interface** | 10 | *History window:* `settings.windowScale`, `settings.rowHeight`, `settings.timelineMaxLines`, `settings.showTransfers`; *Simulator:* `settings.sim.stepDelay`; *Holdings in tooltips:* `settings.tooltip.enabled`, `settings.tooltip.containers`, `settings.tooltip.warband`, `settings.tooltip.totalMin2`, `settings.tooltip.modifier` |
 | General | **History** | 2 | `settings.retentionDays`, `settings.rollupRetentionDays` |
@@ -164,7 +165,7 @@ The General page is **eight tabs**, and it is the whole panel: every page in thi
 | Tab | Body | Rows |
 |---|---|---|
 | **Master controls** | schema rows + the composer's closing button pair | 9 |
-| **Capture** | schema rows, the host-drawn inverted source picker closing Loot through the `afterSubgroup` seam | 8 |
+| **Capture** | schema rows, the host-drawn inverted source picker closing Loot through the `afterSubgroup` seam | 9 |
 | **Filters** | bespoke: a **secondary strip** over three id-lists | 0 |
 | **AH price** | schema toggle + the pooled price-source reorder table | 2 |
 | **Interface** | schema rows, under three subsection headings | 10 |

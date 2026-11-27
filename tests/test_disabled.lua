@@ -83,6 +83,9 @@ local OWNED = {
   "event:CHALLENGE_MODE_RESET:nil",
   -- modules/Reputation.lua (Record reputation defaults on); its SettingsChanged is named below.
   "event:FACTION_STANDING_CHANGED:nil",
+  -- modules/Appearance.lua (Record appearances defaults on; Retail only, removed below).
+  "event:TRANSMOG_COLLECTION_SOURCE_ADDED:nil",
+  "event:TRANSMOG_COLLECTION_SOURCE_REMOVED:nil",
   "event:PLAYER_REGEN_DISABLED:nil",
   "event:PLAYER_REGEN_ENABLED:nil",
   "unit:UNIT_SPELLCAST_SUCCEEDED:player",
@@ -112,10 +115,11 @@ local OWNED = {
   "message:Ka0s_LootHistory_HoldingsChanged:nil",
 }
 -- The warband bank's two events are Retail-only (R1, clients-§4), and so are the keystone's four
--- (R2): WoW Forever registers none of them.
+-- (R2), and so are the appearances' two (rep/appearance spec, D7): WoW Forever registers none of them.
 local RETAIL_ONLY_EVENTS = { ["event:ACCOUNT_MONEY:nil"] = true, ["event:PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED:nil"] = true,
   ["event:CHALLENGE_MODE_START:nil"] = true, ["event:CHALLENGE_MODE_COMPLETED:nil"] = true,
-  ["event:ZONE_CHANGED_NEW_AREA:nil"] = true, ["event:CHALLENGE_MODE_RESET:nil"] = true }
+  ["event:ZONE_CHANGED_NEW_AREA:nil"] = true, ["event:CHALLENGE_MODE_RESET:nil"] = true,
+  ["event:TRANSMOG_COLLECTION_SOURCE_ADDED:nil"] = true, ["event:TRANSMOG_COLLECTION_SOURCE_REMOVED:nil"] = true }
 if T.forever then
   for i = #OWNED, 1, -1 do if RETAIL_ONLY_EVENTS[OWNED[i]] then table.remove(OWNED, i) end end
 end
@@ -140,12 +144,15 @@ end
 --- table even after the module forgets it.
 local function featureTargets()
   local t = {}
-  for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
-                            NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
-                            NS.Reputation._settings,
-                            NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
-                            NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev }) do
-    if target then t[target] = true end
+  -- Walked by count, not ipairs: a target that is nil (NS.Appearance._settings on WoW Forever, which
+  -- lacks the feature) must not end the walk early.
+  local list = { NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
+                 NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
+                 NS.Reputation._settings, NS.Appearance._settings,
+                 NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
+                 NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev }
+  for i = 1, table.maxn(list) do
+    if list[i] then t[list[i]] = true end
   end
   return t
 end
@@ -257,6 +264,9 @@ test("slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event a
       "these registrations survived the disabled state")
     assertEqual(table.concat(liveGameEvents(), ", "), "",
       "a GAME EVENT is still registered: the setup exemption reaches messages, never these")
+    -- The two capture owners' private settings listeners go with the stand-down (spec §8).
+    assertEqual(NS.Reputation._settings, nil, "the Reputation owner's settings target survived")
+    assertEqual(NS.Appearance._settings, nil, "the Appearance owner's settings target survived")
     setEnabled(true)
   end)
 
@@ -843,7 +853,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- surface is reached exactly once, and that every step keeps its own nil-guard (an addon with none
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
-local SURFACES = { "addon", "Collector", "Reputation", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
+local SURFACES = { "addon", "Collector", "Reputation", "Appearance", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
   "Timeline", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
@@ -872,7 +882,7 @@ end
 local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
-  for _, k in ipairs({ "Collector", "Reputation", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
+  for _, k in ipairs({ "Collector", "Reputation", "Appearance", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
                         "HoldingsTip", "HoldingsAPI" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
@@ -900,8 +910,8 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       -- H6: the simulation stops FIRST, while every module still holds its state.
       "SimStop",
       "addon:UnregisterAllEvents",
-      "Collector:Disable", "Reputation:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable",
-      "Analytics:Disable",
+      "Collector:Disable", "Reputation:Disable", "Appearance:Disable", "Reconciler:Disable",
+      "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
       "HoldingsTally:Disable", "HoldingsTip:Disable", "HoldingsAPI:Disable",
       "Attribution:DisableOut",
@@ -920,7 +930,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
     assertEqual(table.concat(log, "\n"), table.concat({
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
-      "Collector:Enable", "Reputation:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
+      "Collector:Enable", "Reputation:Enable", "Appearance:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
       "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "HoldingsAPI:Enable",
       "Debug:State:stand-up: capture registered",

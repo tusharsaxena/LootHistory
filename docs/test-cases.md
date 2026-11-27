@@ -664,6 +664,22 @@ Total.
 - Reputation capture: Database:HistoryRow answers the store's row
 - Reputation capture: each drop reason writes its [Drop] line, only while logging
 
+### test_appearance.lua (13)
+
+- Appearance capture: a collected source writes one APPEARANCE row with every field
+- Appearance capture: newLook is set only for the first collected source of its visual
+- Appearance capture: a removed source writes OUT without newLook, and with trackLedger off it is dropped
+- Appearance capture: the same change inside 5 s is a duplicate; later, or the other way, it is not
+- Appearance capture: an unreadable source still records under its id
+- Appearance capture: a loot window gives KILL through Peek, INFERRED, and is never spent
+- Appearance capture: a fresh vendor stamp gives VENDOR
+- Appearance capture: a muted source drops the change
+- Appearance capture: Minimum quality is not a gate (A7)
+- Appearance capture: no claim is posted and the write raises nothing
+- Appearance capture: a secret or missing source id drops
+- Appearance capture: each drop reason writes its [Drop] line, only while logging
+- Appearance: the feature is Retail's, declared, and absent on WoW Forever
+
 ### test_reconciler.lua (19)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
@@ -1325,7 +1341,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (49)
+### test_schema.lua (50)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1342,6 +1358,7 @@ Total.
 - Schema: auction capture is a MultiCheck row; Rev-1 provider/priority rows are gone
 - Schema: recordCurrency row exists, defaults true, settable
 - Schema: recordReputation row exists, defaults true, sits in Loot and fires its reason
+- Schema: recordAppearances row is Retail's, defaults true, sits in Loot and fires its reason
 - Constants: CURRENCY_TYPE is "Currency"
 - Schema: every row is uniquely pathed and fully described
 - Schema: every row's default matches its declared type
@@ -2212,7 +2229,7 @@ Total.
 - probe: a reputation or appearance event is kept with its arguments (P13)
 - probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event
 
-### test_debug_coverage.lua (23)
+### test_debug_coverage.lua (24)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
 - coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
@@ -2226,6 +2243,7 @@ Total.
 - coverage: a refused schema write is one [Set] line with the seam's reason
 - coverage: a currency line refused before it names a currency says why
 - coverage: a reputation change not written says why, only while logging
+- coverage: an appearance change not written says why, only while logging
 - coverage: a container use logs only the spell-targeting refusal, never a non-loot item
 - coverage: a price provider that raises is one [AHPrice] line per distinct error
 - coverage: the deferred bound repair's end names done or gave up, with the real attempt
@@ -2238,16 +2256,17 @@ Total.
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 - coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
 
-### test_dispatch.lua (8)
+### test_dispatch.lua (9)
 
 - Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
-- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Reconciler
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Reconciler
 - Dispatch: registered follows Enable/Disable, including trackLedger off
 - Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
 - Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
 - Dispatch: hook rows install once across Disable/Enable and both BuyMerchantItem rows run, in order
 - Dispatch: hook:<name> through DeliverAll reaches the HOOK_ROWS fns
 - Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it
+- Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 
 ### test_sim_seam.lua (11)
 
@@ -2708,6 +2727,7 @@ Total.
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
 | test_reputation.lua | 24 |
+| test_appearance.lua | 13 |
 | test_reconciler.lua | 19 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -2728,7 +2748,7 @@ Total.
 | test_slash_verbs.lua | 16 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 8 |
-| test_schema.lua | 49 |
+| test_schema.lua | 50 |
 | test_schema_seam.lua | 26 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 52 |
@@ -2765,8 +2785,8 @@ Total.
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 19 |
-| test_debug_coverage.lua | 23 |
-| test_dispatch.lua | 8 |
+| test_debug_coverage.lua | 24 |
+| test_dispatch.lua | 9 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 26 |
 | test_sim_world.lua | 11 |
@@ -2791,4 +2811,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2352** |
+| **Total** | **2368** |

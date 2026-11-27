@@ -287,6 +287,30 @@ test("Schema: recordReputation row exists, defaults true, sits in Loot and fires
   t:UnregisterAllMessages()
 end)
 
+test("Schema: recordAppearances row is Retail's, defaults true, sits in Loot and fires its reason", function()
+  -- red under: the row without `clients` (WoW Forever would draw a switch for a feature it lacks),
+  -- declared ahead of Record reputation (the pairing), or a reason the Appearance owner does not hear.
+  local row = NS.Schema:FindRow("settings.recordAppearances")
+  assertTrue(row ~= nil, "the row is declared on every client; the registry drops it where it is not served")
+  assertTrue(row.clients == NS.Constants.FEATURE_CLIENTS.appearances, "gated by the feature's declaration")
+  assertEqual(row.label, "Record appearances"); assertEqual(row.subgroup, "Loot")
+  assertEqual(NS.defaults.profile.settings.recordAppearances, true)
+  assertTrue(row.tooltip:find("Obeys Record data from; removals need Track holdings and losses.", 1, true) ~= nil)
+  local at = {}
+  for i, r in ipairs(NS.Schema.Schema) do at[r.path] = i end
+  assertEqual(at["settings.recordAppearances"], at["settings.recordReputation"] + 1, "it pairs with Record reputation")
+  assertTrue(at["settings.recordAppearances"] < at["settings.excludedSources"], "the picker stays the last Loot row")
+  if T.forever then return end
+  local seen
+  local t = NS.NewBusTarget()
+  t:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, reason) seen = reason end)
+  assertTrue(NS.Schema:Set("settings.recordAppearances", false))
+  assertEqual(NS.Schema:Get("settings.recordAppearances"), false)
+  assertEqual(seen, "appearance")
+  NS.Schema:Set("settings.recordAppearances", true)   -- restore default
+  t:UnregisterAllMessages()
+end)
+
 test("Constants: CURRENCY_TYPE is \"Currency\"", function()
   assertEqual(NS.Constants.CURRENCY_TYPE, "Currency")
 end)
@@ -678,7 +702,7 @@ end)
 -- tests/test_panel.lua's business.
 local PARTITION = {
   ["General"] = {
-    { "Master controls", 9 }, { "Capture", 8 }, { "AH price", 2 },
+    { "Master controls", 9 }, { "Capture", 9 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
     -- The holdings tooltip's five rows (#34) are Interface's third subsection, "Holdings in
     -- tooltips" (the owner's ruling, 2026-11-27: no ninth tab, options-ui-§13).

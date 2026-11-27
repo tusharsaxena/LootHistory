@@ -307,8 +307,10 @@ local ROWS = {
   -- loot record keeps, `Ledger` is the holdings ledger. Row order drives the two-column pairing, so
   -- declaration order IS the layout: under Loot, Minimum quality pairs with Exclude quest items (the
   -- two item-level gates) on the first line, Ignore ammunition pairs with Record currency on the
-  -- second, Record reputation opens the third, and the wide source picker lands under them --
-  -- both record rows obey that picker, so they sit together. Under Ledger, Track holdings and
+  -- second, Record reputation pairs with Record appearances on the third (Retail; on WoW Forever
+  -- the appearances row is dropped by the registry, its `clients`, and Record reputation stands
+  -- alone), and the wide source picker lands under them -- every record row obeys that picker, so
+  -- they sit together. Under Ledger, Track holdings and
   -- losses pairs with Record gold, the parent left of its dependant. The picker is host-drawn, so
   -- settings/Panel.lua renders this tab in one O.RenderRows call, with Loot's afterSubgroup hook
   -- drawing the picker (RENDER_OPTS there).
@@ -351,6 +353,18 @@ local ROWS = {
       "Obeys Record data from; losses need Track holdings and losses.",
     onChange = function()
       if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "reputation") end
+    end },
+
+  -- Retail only (C.FEATURE_CLIENTS.appearances, clients-§4): the registry drops the row on WoW
+  -- Forever, which is not the same as hiding it. Unticking it UNREGISTERS the Appearance owner's two
+  -- rows (modules/Appearance.lua), never a draw gate.
+  { path = "settings.recordAppearances", default = PD.settings.recordAppearances, type = "bool", widget = "CheckBox",
+    clients = C.FEATURE_CLIENTS.appearances,
+    page = "General", group = "Capture", subgroup = "Loot", label = "Record appearances",
+    tooltip = "Record each appearance you collect as a Type=Appearance row, and its removal (a refund) as a loss. " ..
+      "Obeys Record data from; removals need Track holdings and losses.",
+    onChange = function()
+      if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "appearance") end
     end },
 
   -- Stored as a set of MUTED sources (excludedSources); the panel renders it inverted

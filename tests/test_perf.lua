@@ -52,6 +52,7 @@ local function exercise()
     R:OnEvent("BAG_UPDATE", 0)
     tooltipPost()
     NS.Reputation:OnStandingChanged(nil, 72)
+    NS.Appearance:OnSourceAdded(nil, nil)
   end)
   NS.db.global.history = savedH
   R.claims, R.recent, R.dirty = savedClaims, savedRecent, savedDirty
@@ -59,7 +60,7 @@ local function exercise()
 end
 
 test("perf: the buckets are declared in report order", function()
-  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent")
+  assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent,appearanceEvent")
 end)
 
 test("perf: every declared bucket is reached by a real bracket", function()

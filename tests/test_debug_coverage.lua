@@ -321,6 +321,26 @@ test("coverage: a reputation change not written says why, only while logging", f
   assertEqual(table.concat(lines, "\n"), "[Drop] rep reason=no-id\n[Drop] rep 987654 reason=unreadable")
 end)
 
+test("coverage: an appearance change not written says why, only while logging", function()
+  -- red under: a bare return for a guard in modules/Appearance.lua's appearanceEvent, or a [Drop]
+  -- line written with logging off. tests/test_appearance.lua walks every reason; this pins the gate.
+  local A = NS.Appearance
+  local savedFlag = NS.State.debug
+  NS.State.debug = false
+  local quiet = {}
+  local saved = NS.Debug
+  NS.Debug = function(tag) quiet[#quiet + 1] = tag end
+  A:OnSourceAdded(nil, nil)
+  A:OnSourceRemoved(nil, "77")
+  NS.Debug, NS.State.debug = saved, savedFlag
+  assertEqual(#quiet, 0, "a [Drop] line was built with logging off")
+  local lines = capture(function()
+    A:OnSourceAdded(nil, nil)
+    A:OnSourceRemoved(nil, "77")
+  end)
+  assertEqual(table.concat(lines, "\n"), "[Drop] appearance reason=no-id\n[Drop] appearance reason=no-id")
+end)
+
 test("coverage: a container use logs only the spell-targeting refusal, never a non-loot item", function()
   -- red under: restoring the per-use [Open] line (a merchant sale or a bag addon's bulk action is
   -- one UseContainerItem per item, debug-logging-§9), or dropping the targeting refusal.

@@ -148,6 +148,10 @@ test("Panel: the Capture tab holds the capture rules and nothing else", function
   for _, label in ipairs({ "Minimum quality", "Record currency", "Record reputation", "Exclude quest items" }) do
     assertTrue(findByLabel(created, label) ~= nil, label .. " was not drawn")
   end
+  -- Record appearances is Retail's (C.FEATURE_CLIENTS.appearances): dropped by the registry on WoW
+  -- Forever, never built and hidden (clients-§4).
+  assertEqual(findByLabel(created, "Record appearances") ~= nil, not T.forever,
+    "Record appearances is drawn on Retail and absent on WoW Forever")
   local quality = findByLabel(created, "Minimum quality")
   assertEqual(quality.relativeWidth, 0.5, "schema widgets take the honest half")
 
@@ -188,6 +192,7 @@ test("Panel: Capture draws Loot, then the source picker, then Ledger", function(
     at(function(w) return w.type == "InlineGroup" end, "the Record data from picker"),
     heading("Ledger"), label("Track holdings and losses"), label("Record gold"),
   }
+  if not T.forever then table.insert(order, 6, label("Record appearances")) end
   for i = 2, #order do
     assertTrue(order[i] > order[i - 1], "Capture element " .. i .. " is out of order")
   end
@@ -581,11 +586,13 @@ test("Panel: the General Defaults click restores every schema default", function
   NS.Schema:Set("settings.qualityThreshold", 4)
   NS.Schema:Set("settings.recordCurrency", false)
   NS.Schema:Set("settings.recordReputation", false)
+  if not T.forever then NS.Schema:Set("settings.recordAppearances", false) end
   show(mocks.__subcategories["General"])
   mocks.__subcategories["General"].defaultsOnClick()
   assertEqual(NS.Schema:Get("settings.qualityThreshold"), 1)
   assertEqual(NS.Schema:Get("settings.recordCurrency"), true)
   assertEqual(NS.Schema:Get("settings.recordReputation"), true)
+  if not T.forever then assertEqual(NS.Schema:Get("settings.recordAppearances"), true) end
 end)
 
 test("Panel: the General Defaults click is PAGE-wide — it reaches the id-lists and the cascade",
