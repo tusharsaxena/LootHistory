@@ -80,7 +80,8 @@ test("Export: CSV header order — ts,date,time first; computed + per-key auctio
     "auc_auctionator_minbuyout,auc_tsm_dbmarket,auc_tsm_dbminbuyout,auc_tsm_dbregionmarketavg," ..
     "auc_tsm_dbregionminbuyoutavg,auc_tsm_dbhistorical,auc_tsm_dbrecent,auc_tsm_dbregionhistorical," ..
     "auc_tsm_dbregionsaleavg,auc_oribos_market,auc_oribos_region," ..
-    "wowheadLink,dir,kind,holder,from,to")
+    "wowheadLink,dir,kind,holder,from,to," ..
+    "factionID,repType,rank,standing,sourceID,appearanceID,newLook")
 end)
 
 test("Export: CSV auction/value columns — auction present and vendor fallback", function()
@@ -348,8 +349,9 @@ test("Export: CSV ledger columns follow wowheadLink and default for legacy rows"
   })
   local lines = {}
   for line in csv:gmatch("(.-)\r\n") do lines[#lines + 1] = line end
-  assertTrue(lines[2]:find(",IN,ITEM,A%-Realm,,$") ~= nil, lines[2])
-  assertTrue(lines[3]:find(",OUT,GOLD,A%-Realm,,$") ~= nil, lines[3])
+  -- The seven progress columns follow `to`, blank on an item or gold row.
+  assertTrue(lines[2]:find(",IN,ITEM,A%-Realm,,,,,,,,,$") ~= nil, lines[2])
+  assertTrue(lines[3]:find(",OUT,GOLD,A%-Realm,,,,,,,,,$") ~= nil, lines[3])
 end)
 
 test("Export: InsightsCSV appends Ledger sections only when the range has losses", function()
@@ -407,4 +409,53 @@ test("Export: the modal's close hides it (FB-LH-01)", function()
   end)
   win:Hide()
   if not ok then error(err, 0) end
+end)
+
+-- ── Reputation and appearance rows (rep-appearance spec §6.1) ─────────────────────────────────
+
+-- The data line's cells by header name.
+local function cellsByHeader(csv)
+  local header, data = csv:match("^(.-)\r\n(.-)\r\n")
+  local h, d, by = {}, {}, {}
+  for cell in (header .. ","):gmatch("(.-),") do h[#h + 1] = cell end
+  for cell in (data .. ","):gmatch("(.-),") do d[#d + 1] = cell end
+  for i, name in ipairs(h) do by[name] = d[i] end
+  return by
+end
+
+test("Export: a reputation row's CSV cells", function()
+  local c = cellsByHeader(NS.Export:CSV({ { ts = 1000, char = "A-R", holder = "A-R", kind = "REPUTATION", dir = "OUT",
+    factionID = 21, itemName = "Booty Bay", itemType = "Reputation", itemSubType = "Neutral", quantity = 25,
+    repType = "base", rank = 4, standing = 1475, accountWide = true, source = "KILL" } }))
+  assertEqual(c.kind, "REPUTATION"); assertEqual(c.dir, "OUT"); assertEqual(c.factionID, "21")
+  assertEqual(c.repType, "base"); assertEqual(c.rank, "4"); assertEqual(c.standing, "1475")
+  assertEqual(c.sourceID, ""); assertEqual(c.newLook, ""); assertEqual(c.itemID, "")
+  assertEqual(c.quality, ""); assertEqual(c.valueRaw, ""); assertEqual(c.wowheadLink, "")
+  assertEqual(c.accountWide, nil, "accountWide is not a CSV column")
+end)
+
+test("Export: an appearance row's CSV cells", function()
+  local c = cellsByHeader(NS.Export:CSV({ { ts = 1000, char = "A-R", holder = "A-R", kind = "APPEARANCE", dir = "IN",
+    sourceID = 77, appearanceID = 9, itemID = 2589, itemName = "Linen Robe", quality = 2, itemType = "Appearance",
+    itemSubType = "Cloth", quantity = 1, newLook = true, source = "KILL" } }))
+  assertEqual(c.kind, "APPEARANCE"); assertEqual(c.sourceID, "77"); assertEqual(c.appearanceID, "9")
+  assertEqual(c.newLook, "true"); assertEqual(c.factionID, ""); assertEqual(c.itemID, "2589")
+  assertEqual(c.wowheadLink, WH .. "2589")
+end)
+
+test("Export: InsightsCSV appends the progress rows last, only when the range holds them", function()
+  local plain = NS.Export:InsightsCSV(insightsStats())
+  assertTrue(plain:find("Reputation", 1, true) == nil and plain:find("Appearances", 1, true) == nil,
+    "an item-only range exports as before")
+  local stats = insightsStats()
+  stats.reputation = { rows = 3, gained = 300, lost = 25,
+    byFaction = { Stormwind = { i = 300, o = 0 }, ["Booty Bay"] = { i = 0, o = 25 } } }
+  stats.appearances = { collected = 2, removed = 1, newLooks = 1, byChar = {} }
+  local csv = NS.Export:InsightsCSV(stats)
+  local tail = table.concat({
+    "Reputation Gained,Booty Bay,0,", "Reputation Gained,Stormwind,300,",
+    "Reputation Lost,Booty Bay,25,", "Reputation Lost,Stormwind,0,",
+    "Appearances,Collected,2,", "Appearances,Removed,1,", "Appearances,New looks,1,",
+  }, "\r\n") .. "\r\n"
+  assertEqual(csv:sub(-#tail), tail)
 end)

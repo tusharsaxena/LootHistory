@@ -760,12 +760,18 @@ end
 
 -- The ledger clauses (timeline-ledger spec §7): direction (a legacy row has no `dir` and is a gain)
 -- and the default view's min-quality floor, which applies to ITEM rows only — currency never had
--- the quality gate and gold has no quality — and never to a whitelisted id.
+-- the quality gate, gold has no quality, and an APPEARANCE row (which carries its source's itemID)
+-- is not item loot (rep-appearance spec A7) — and never to a whitelisted id. A row with no `kind`
+-- is a legacy item row.
+local function underFloor(r, minQ, exempt)
+  local kind = r.kind
+  if kind ~= nil and kind ~= "ITEM" then return false end
+  return (r.quality or 0) < minQ and not (exempt and exempt[r.itemID])
+end
+
 local function matchLedger(r, dirSet, minQ, exempt)
   if dirSet and not dirSet[r.dir or "IN"] then return false end
-  if minQ and r.itemID ~= nil and (r.quality or 0) < minQ and not (exempt and exempt[r.itemID]) then
-    return false
-  end
+  if minQ and r.itemID ~= nil and underFloor(r, minQ, exempt) then return false end
   return true
 end
 
@@ -863,6 +869,10 @@ function Database:Export(filter)
       zone = r.zone, mapID = r.mapID, subzone = r.subzone, confidence = r.confidence,
       dir = NS.Util.RowDir(r), kind = NS.Util.RowKind(r), holder = NS.Util.RowHolder(r),
       from = r.from, to = r.to, claimed = r.claimed,
+      -- Reputation and appearance fields (rep-appearance spec §2), nil on every other kind.
+      factionID = r.factionID, repType = r.repType, rank = r.rank, standing = r.standing,
+      accountWide = r.accountWide, sourceID = r.sourceID, appearanceID = r.appearanceID,
+      newLook = r.newLook,
     }
   end
   return out
@@ -913,6 +923,45 @@ local function newLedger()
     charIn = {}, charOut = {}, kindIn = {}, kindOut = {}, goldIn = 0, goldOut = 0,
     preLedgerRows = 0,
   }
+end
+
+-- The progress half of a Stats pass (rep-appearance spec §6.1): reputation sums its quantity per
+-- direction, overall and per faction name; appearances count collected (IN) and removed (OUT)
+-- sources, the IN rows that were a new look, and the IN rows per character. Neither kind feeds the
+-- legacy breakdowns, and both still reach the ledger's kindIn / kindOut through accumulateLedger.
+local function newProgress()
+  return {
+    reputation = { rows = 0, gained = 0, lost = 0, byFaction = {} },
+    appearances = { collected = 0, removed = 0, newLooks = 0, byChar = {} },
+  }
+end
+
+local function accumulateReputation(R, r, dir, qty)
+  R.rows = R.rows + 1
+  local name = r.itemName or ("faction " .. tostring(r.factionID))
+  local f = R.byFaction[name]
+  if not f then f = { i = 0, o = 0 }; R.byFaction[name] = f end
+  if dir == "OUT" then
+    R.lost, f.o = R.lost + qty, f.o + qty
+  else
+    R.gained, f.i = R.gained + qty, f.i + qty
+  end
+end
+
+local function accumulateAppearance(Ap, r, dir)
+  if dir == "OUT" then Ap.removed = Ap.removed + 1; return end
+  Ap.collected = Ap.collected + 1
+  if r.newLook then Ap.newLooks = Ap.newLooks + 1 end
+  local ch = r.char
+  if ch then Ap.byChar[ch] = (Ap.byChar[ch] or 0) + 1 end
+end
+
+local function accumulateProgress(P, r, kind, dir, qty)
+  if kind == "REPUTATION" then
+    accumulateReputation(P.reputation, r, dir, qty)
+  elseif kind == "APPEARANCE" then
+    accumulateAppearance(P.appearances, r, dir)
+  end
 end
 
 -- One side's breakdowns (the In or the Out maps) for a single gain or loss: count and value by
@@ -1161,6 +1210,7 @@ function Database:Stats(filter)
   local records = self:Query(filter or {})
   local A = newAccumulator()
   local L = newLedger()
+  local P = newProgress()
   local since = NS.db and NS.db.global and NS.db.global.ledgerSince
   local loot = 0
   local HOLDER_MOVE_REASON = NS.Ledger.HOLDER_MOVE_REASON
@@ -1172,11 +1222,13 @@ function Database:Stats(filter)
     -- Character column does, so each half of a holder move lands on its own holder.
     accumulateLedger(L, dir, kind, qty, value, src, r.holder or ch)
     if since and r.ts and r.ts < since then L.preLedgerRows = L.preLedgerRows + 1 end
+    accumulateProgress(P, r, kind, dir, qty)
 
     -- Only gains of items and currency feed the legacy breakdowns, so a pre-ledger history
     -- produces the numbers it always did. The IN half of a holder move is not loot: it is written
     -- by the sender (char = the depositor), and these gains-only charts have no OUT to offset it.
-    if dir == "IN" and kind ~= "GOLD" and not HOLDER_MOVE_REASON[src] then
+    -- Reputation and appearance rows are progress, not loot: they feed only P and the ledger.
+    if dir == "IN" and (kind == "ITEM" or kind == "CURRENCY") and not HOLDER_MOVE_REASON[src] then
       loot = loot + 1
       accumulateLoot(A, r, ch, src, qty, value, kind == "CURRENCY")
     end
@@ -1204,6 +1256,7 @@ function Database:Stats(filter)
     currencyTotals = { distinct = A.currencyDistinct, events = A.currencyEvents,
                        biggestHaul = A.biggestHaul },
     ledger = L,
+    reputation = P.reputation, appearances = P.appearances,
     totals = {
       records = loot, distinctItems = A.distinctItems, distinctChars = A.distinctChars,
       firstTs = A.firstTs, lastTs = A.lastTs,

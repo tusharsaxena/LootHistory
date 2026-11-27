@@ -381,3 +381,49 @@ test("Reputation capture: each drop reason writes its [Drop] line, only while lo
     assertEqual(table.concat(lines, "\n"), table.concat(want, "\n"))
   end)
 end)
+
+-- ── Read side (rep-appearance spec §6.1) ─────────────────────────────────────────────────────
+
+local TT_METHODS = { "SetOwner", "SetHyperlink", "SetItemByID", "AddLine", "AddDoubleLine", "Show", "Hide" }
+local function recordTooltip(fn)
+  local tt, calls, saved = M.GameTooltip, {}, {}
+  for _, m in ipairs(TT_METHODS) do
+    saved[m] = rawget(tt, m)
+    tt[m] = function(_, a, b)
+      calls[#calls + 1] = m .. "(" .. tostring(a) .. (m == "AddDoubleLine" and ("," .. tostring(b)) or "") .. ")"
+      return tt
+    end
+  end
+  local ok, err = pcall(fn)
+  for _, m in ipairs(TT_METHODS) do tt[m] = saved[m] end
+  if not ok then error(err, 0) end
+  return table.concat(calls, " ")
+end
+
+test("Reputation rows: the History hover names the faction over its standing", function()
+  local BT = NS.BrowserTable
+  local row = BT:BuildRow()
+  local rep = { kind = "REPUTATION", itemName = "Stormwind", itemSubType = "Honored", quantity = 250, dir = "IN" }
+  BT:BindRow(row, { kind = "row", record = rep }, 1)
+  local got = recordTooltip(function() row:GetScript("OnEnter")(row) end)
+  assertTrue(got:find("AddLine(Stormwind)", 1, true) ~= nil, got)
+  assertTrue(got:find("AddDoubleLine(Honored," .. NS.LedgerFormat.QtyText(rep) .. ")", 1, true) ~= nil, got)
+  assertTrue(got:find("SetHyperlink", 1, true) == nil and got:find("SetItemByID", 1, true) == nil, got)
+end)
+
+test("Reputation rows: the Item cell is painted sem.info (A9); other rows keep their quality color", function()
+  local fs = { SetText = function() end, SetTextColor = function(self, r, g, b) self.c = { r, g, b } end }
+  NS.BrowserTable:PaintCell(fs, "item", { kind = "REPUTATION", itemName = "Stormwind", quantity = 1 })
+  local ir, ig, ib = NS.SkinColor("sem.info")
+  assertEqual(fs.c[1], ir); assertEqual(fs.c[2], ig); assertEqual(fs.c[3], ib)
+  NS.BrowserTable:PaintCell(fs, "item", { kind = "APPEARANCE", itemName = "Hood", quality = 4, quantity = 1 })
+  local qr, qg, qb = NS.QualityColor(4)
+  assertEqual(fs.c[1], qr); assertEqual(fs.c[2], qg); assertEqual(fs.c[3], qb)
+end)
+
+test("Reputation rows: the row menu offers no Blacklist item and no Show in Timeline", function()
+  local by = {}
+  for _, it in ipairs(NS.BrowserTable:RowMenuItems({ kind = "REPUTATION", factionID = 72, itemName = "Stormwind",
+    quantity = 1 })) do by[it.label] = it.enabled end
+  assertFalse(by["Blacklist item"]); assertFalse(by["Show in Timeline"])
+end)

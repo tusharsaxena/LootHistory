@@ -560,21 +560,7 @@ function BrowserTable:BuildRow()
     local e = self2.entry
     if not (e and e.kind == "row") then return end
     local r = e.record
-    local shown = false
-    if NS.Util.RowKind(r) == C.Kind.GOLD then
-      NS.Compat.ShowAmountTooltip(self2, C.GOLD_TYPE, NS.SkinRGB("sem.gold"), "Amount",
-        NS.LedgerFormat.QtyText(r), "Right-click for options")
-    elseif r.itemLink then
-      NS.Compat.OwnTooltip(self2)
-      GameTooltip:SetHyperlink(r.itemLink)
-      shown = true
-    elseif r.currencyID and GameTooltip.SetCurrencyByID then
-      NS.Compat.OwnTooltip(self2)
-      GameTooltip:SetCurrencyByID(r.currencyID)
-      shown = true
-    elseif BrowserTable.testMode then
-      BrowserTable.ShowSampleTooltip(self2, r)
-    end
+    local shown = BrowserTable.ShowRowTooltip(self2, r)
     if shown then
       local mr, mg, mb = NS.SkinColor("gtip.muted")
       if r.confidence == "INFERRED" then
@@ -923,6 +909,36 @@ local function paintDirectionCell(fs, r, glyphFS)
   end
 end
 
+-- The row hover's body, by kind; answers true when it opened the client's item or currency tooltip
+-- (the caller then adds the hint lines). A reputation row, like a gold row, has no link: it gets the
+-- hand-built amount tooltip, its faction name in sem.info over the standing after the change. An
+-- appearance row with no link shows its source's item by id (rep-appearance spec §6.1).
+function BrowserTable.ShowRowTooltip(owner, r)
+  local kind = NS.Util.RowKind(r)
+  if kind == C.Kind.GOLD then
+    NS.Compat.ShowAmountTooltip(owner, C.GOLD_TYPE, NS.SkinRGB("sem.gold"), "Amount",
+      NS.LedgerFormat.QtyText(r), "Right-click for options")
+  elseif kind == C.Kind.REPUTATION then
+    NS.Compat.ShowAmountTooltip(owner, r.itemName, NS.SkinRGB("sem.info"), r.itemSubType or "Amount",
+      NS.LedgerFormat.QtyText(r), "Right-click for options")
+  elseif r.itemLink then
+    NS.Compat.OwnTooltip(owner)
+    GameTooltip:SetHyperlink(r.itemLink)
+    return true
+  elseif r.itemID and kind == C.Kind.APPEARANCE and GameTooltip.SetItemByID then
+    NS.Compat.OwnTooltip(owner)
+    GameTooltip:SetItemByID(r.itemID)
+    return true
+  elseif r.currencyID and GameTooltip.SetCurrencyByID then
+    NS.Compat.OwnTooltip(owner)
+    GameTooltip:SetCurrencyByID(r.currencyID)
+    return true
+  elseif BrowserTable.testMode then
+    BrowserTable.ShowSampleTooltip(owner, r)
+  end
+  return false
+end
+
 -- Paint ONE data cell: its text from the column's valueFn, its color from the column's rule.
 -- `glyphFS` is the row's direction glyph; the Direction column shows it, and any other column that
 -- is handed it hides it, so no column but Direction can ever leave a glyph on screen.
@@ -935,7 +951,9 @@ function BrowserTable:PaintCell(fs, colKey, r, glyphFS)
     return
   end
   if glyphFS then glyphFS:Hide() end
-  if colKey == "item" or colKey == "quality" then
+  if colKey == "item" and NS.Util.RowKind(r) == C.Kind.REPUTATION then
+    fs:SetTextColor(NS.SkinColor("sem.info"))   -- rep-appearance spec A9
+  elseif colKey == "item" or colKey == "quality" then
     fs:SetTextColor(qualityColor(r.quality))
   elseif colKey == "char" then
     local cf = holderClassFile(r)
@@ -1055,7 +1073,9 @@ function BrowserTable:RowMenuItems(record)
     -- Blacklist this item: stop recording future loots of this id. Point-in-time — the row you
     -- clicked (and other existing rows of the same id) stay in the history; use Delete to remove
     -- them. Manage the list in Settings ▸ General ▸ Filters ▸ Blacklist.
-    { label = "Blacklist item", icon = "ban", enabled = record.itemID ~= nil, fn = function()
+    -- An item row only: an appearance row's itemID is its source's, not loot (rep-appearance §6.1).
+    { label = "Blacklist item", icon = "ban",
+      enabled = record.itemID ~= nil and NS.Util.RowKind(record) == C.Kind.ITEM, fn = function()
         if NS.Filters and NS.Filters:AddBlacklist(record.itemID) and NS.Print then
           NS.Print(("blacklisted %s. Manage in Settings > General > Filters > Blacklist."):format(
             record.itemName or ("item " .. tostring(record.itemID))))

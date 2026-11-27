@@ -637,7 +637,7 @@ Total.
 - Collector+Reconciler: a new currency not yet listed at chat time gets one diff row after the rescan
 - Collector: each currency-line guard logs its own [Drop] reason, a recorded line logs [Currency]
 
-### test_reputation.lua (24)
+### test_reputation.lua (27)
 
 - Reputation Delta: a base gain and a base loss are the absolute difference
 - Reputation Delta: a loss across a rank boundary is negative and the right size
@@ -663,8 +663,11 @@ Total.
 - Reputation capture: the unchanged path allocates nothing beyond the client's own reads
 - Reputation capture: Database:HistoryRow answers the store's row
 - Reputation capture: each drop reason writes its [Drop] line, only while logging
+- Reputation rows: the History hover names the faction over its standing
+- Reputation rows: the Item cell is painted sem.info (A9); other rows keep their quality color
+- Reputation rows: the row menu offers no Blacklist item and no Show in Timeline
 
-### test_appearance.lua (13)
+### test_appearance.lua (16)
 
 - Appearance capture: a collected source writes one APPEARANCE row with every field
 - Appearance capture: newLook is set only for the first collected source of its visual
@@ -675,10 +678,13 @@ Total.
 - Appearance capture: a fresh vendor stamp gives VENDOR
 - Appearance capture: a muted source drops the change
 - Appearance capture: Minimum quality is not a gate (A7)
+- Appearance rows: the default view's Minimum quality floor does not hide them (A7)
 - Appearance capture: no claim is posted and the write raises nothing
 - Appearance capture: a secret or missing source id drops
 - Appearance capture: each drop reason writes its [Drop] line, only while logging
 - Appearance: the feature is Retail's, declared, and absent on WoW Forever
+- Appearance rows: a link-less row hovers its source's item by id; a link still wins
+- Appearance rows: Blacklist item is an item row's only, and Show in Timeline is off
 
 ### test_reconciler.lua (19)
 
@@ -773,7 +779,7 @@ Total.
 - Escrow: a genesis pass resolves no exit, even with a sale mail live (LH-11)
 - Escrow: a sale mail for another item leaves the exit pending (LH-11)
 
-### test_database.lua (89)
+### test_database.lua (91)
 
 - Database: Add appends, increments Count, returns index
 - Database: Add fires RecordAdded with record + index
@@ -850,6 +856,8 @@ Total.
 - Database: Amend re-sends RecordAdded with the same record and index
 - Database: QueryList dir clause treats legacy rows as gains
 - Database: minQuality floors items only, whitelist exempt
+- Database: minQuality skips reputation and appearance rows (rep-appearance A7)
+- Database: Export copies the reputation and appearance fields
 - Database: Export carries the ledger fields with legacy defaults
 - Migrate v12->v13: a warband deposit pair becomes OUT + IN WARBAND_DEPOSIT with one pairId
 - Migrate v12->v13: a warband withdraw of gold becomes OUT on the Warband, IN on the character
@@ -865,7 +873,7 @@ Total.
 - Database: ActiveHistory is test records, then the session store, then live
 - Database: Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates still read the live store
 
-### test_stats.lua (27)
+### test_stats.lua (32)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -894,6 +902,11 @@ Total.
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
 - Stats (characterization): stamped ITEM and CURRENCY gains fill the legacy breakdowns
+- Stats: reputation and appearance rows stay out of the legacy loot breakdowns
+- Stats: stats.reputation sums quantity per direction, overall and per faction
+- Stats: stats.appearances counts collected, removed, new looks and collected per character
+- Stats: an item-only history answers empty progress aggregates
+- Stats: the ledger's kindIn and kindOut count reputation and appearance rows
 
 ### test_browser.lua (87)
 
@@ -1122,7 +1135,7 @@ Total.
 - Test mode: SetTestMode to the mode it is in answers true and does nothing
 - Test mode: SetTestMode traces each act and falls back to a table Refresh
 
-### test_export.lua (38)
+### test_export.lua (41)
 
 - Export: WowheadLink builds on the running client's Wowhead base (R7)
 - Export: BoundLabel maps tokens and nil
@@ -1162,6 +1175,9 @@ Total.
 - Export: InsightsCSV writes a negative copper value with a leading minus
 - Export: the modal is a companion, its title bar reads the close alone (FB-LH-01)
 - Export: the modal's close hides it (FB-LH-01)
+- Export: a reputation row's CSV cells
+- Export: an appearance row's CSV cells
+- Export: InsightsCSV appends the progress rows last, only when the range holds them
 
 ### test_debuglog.lua (21)
 
@@ -1490,7 +1506,7 @@ Total.
 - Insights: a two-word character key stays whole in every by-character label
 - Insights: a long two-word name is cut on its bar and named whole by the bar's hover
 
-### test_analytics_layout.lua (12)
+### test_analytics_layout.lua (14)
 
 - Insights layout: the fixtures exercise the branches they are meant to
 - Insights layout: a full pass over items and currency matches the golden snapshot
@@ -1500,6 +1516,8 @@ Total.
 - Insights layout: a nil stats table takes the empty branch too
 - Insights layout: a range with losses draws the gains-vs-losses section first
 - Insights layout: losses only — no empty text, no LOOT divider
+- Insights layout: a reputation-only range draws the PROGRESS block alone, not the empty text
+- Insights layout: PROGRESS is laid out after LOOT, and is hidden for an item-only range
 - Insights layout: nothing it draws stays visible once its pane is hidden (LED-9)
 - Insights layout: each widget's hover goes through Compat in its own token
 - Insights layout: a chart mark and a gains-vs-losses bar open their tooltips beside the window
@@ -1668,7 +1686,7 @@ Total.
 - Autocomplete: the Timeline's own picker list is gone
 - Autocomplete: a tab with no suggest, or with Search grayed, offers nothing
 
-### test_testdata.lua (23)
+### test_testdata.lua (24)
 
 - TestData: the sample holdings and daily stores build deterministically
 - TestData: a day's close is its flows applied to the day before
@@ -1693,6 +1711,7 @@ Total.
 - Test mode: the History sample's items are the client's own names and item levels
 - Test mode: the sample currencies are the client's own
 - Sim: the stranger the social scenario trades with is a shared sample character
+- Test mode: the History sample ends with its fixed progress rows, Retail's renown and appearances gated
 
 ### test_views.lua (18)
 
@@ -2726,19 +2745,19 @@ Total.
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 50 |
-| test_reputation.lua | 24 |
-| test_appearance.lua | 13 |
+| test_reputation.lua | 27 |
+| test_appearance.lua | 16 |
 | test_reconciler.lua | 19 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
-| test_database.lua | 89 |
-| test_stats.lua | 27 |
+| test_database.lua | 91 |
+| test_stats.lua | 32 |
 | test_browser.lua | 87 |
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
 | test_browsertable.lua | 89 |
-| test_export.lua | 38 |
+| test_export.lua | 41 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 8 |
 | test_launcher.lua | 22 |
@@ -2752,13 +2771,13 @@ Total.
 | test_schema_seam.lua | 26 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 52 |
-| test_analytics_layout.lua | 12 |
+| test_analytics_layout.lua | 14 |
 | test_holdingstab.lua | 34 |
 | test_holdings_tip.lua | 29 |
 | test_timeline.lua | 35 |
 | test_timelinetab.lua | 36 |
 | test_autocomplete.lua | 14 |
-| test_testdata.lua | 23 |
+| test_testdata.lua | 24 |
 | test_views.lua | 18 |
 | test_panel.lua | 48 |
 | test_panel_filters.lua | 22 |
@@ -2811,4 +2830,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2368** |
+| **Total** | **2387** |

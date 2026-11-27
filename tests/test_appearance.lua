@@ -7,7 +7,7 @@
 
 local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
-local test, assertEqual = T.test, T.assertEqual
+local test, assertEqual, assertTrue = T.test, T.assertEqual, T.assertTrue
 
 local PM = dofile("tests/mock_progress.lua")
 local App = function() return NS.Appearance end
@@ -171,6 +171,18 @@ test("Appearance capture: Minimum quality is not a gate (A7)", function()
   end)
 end)
 
+test("Appearance rows: the default view's Minimum quality floor does not hide them (A7)", function()
+  -- Read-side half of A7, on both clients (QueryList is pure): an appearance row carries its source's
+  -- itemID and quality, and the floor that hides a quality-1 item must leave it in view.
+  local rows = {
+    { kind = "APPEARANCE", dir = "IN", itemID = 2589, quality = 1, sourceID = 77, itemName = "Linen Robe" },
+    { kind = "ITEM", dir = "IN", itemID = 2589, quality = 1, itemName = "Linen Robe" },
+  }
+  local out = NS.Database:QueryList(rows, { minQuality = 4 })
+  assertEqual(#out, 1)
+  assertEqual(out[1].kind, "APPEARANCE")
+end)
+
 test("Appearance capture: no claim is posted and the write raises nothing", function()
   -- An itemID claim would cancel the real item's holdings diff row (spec §6.3). RowThingKey answers
   -- nil for the kind (M2.1), so Database:Add's write hook passes it by.
@@ -250,4 +262,41 @@ test("Appearance: the feature is Retail's, declared, and absent on WoW Forever",
     NS.Appearance:Enable()
     assertEqual(NS.Appearance._settings, nil, "Enable stands nothing up on WoW Forever")
   end
+end)
+
+-- ── Read side (rep-appearance spec §6.1) ─────────────────────────────────────────────────────
+
+test("Appearance rows: a link-less row hovers its source's item by id; a link still wins", function()
+  local BT, tt, calls = NS.BrowserTable, M.GameTooltip, {}
+  local row = BT:BuildRow()
+  local fields = {}
+  for _, m in ipairs({ "SetOwner", "SetHyperlink", "SetItemByID", "AddLine", "Show" }) do
+    fields[m] = function(_, a) calls[#calls + 1] = m .. "(" .. tostring(a) .. ")"; return tt end
+  end
+  with(tt, fields, function()
+    BT:BindRow(row, { kind = "row", record = { kind = "APPEARANCE", itemID = 2589, itemName = "Linen Robe",
+      quantity = 1, dir = "IN" } }, 1)
+    row:GetScript("OnEnter")(row)
+    local got = table.concat(calls, " ")
+    assertTrue(got:find("SetItemByID(2589)", 1, true) ~= nil, got)
+    calls = {}
+    BT:BindRow(row, { kind = "row", record = { kind = "APPEARANCE", itemID = 2589, itemLink = LINK,
+      itemName = "Linen Robe", quantity = 1, dir = "IN" } }, 2)
+    row:GetScript("OnEnter")(row)
+    got = table.concat(calls, " ")
+    assertTrue(got:find("SetHyperlink(" .. LINK .. ")", 1, true) ~= nil and got:find("SetItemByID", 1, true) == nil, got)
+  end)
+end)
+
+test("Appearance rows: Blacklist item is an item row's only, and Show in Timeline is off", function()
+  local function menu(rec)
+    local by = {}
+    for _, it in ipairs(NS.BrowserTable:RowMenuItems(rec)) do by[it.label] = it.enabled end
+    return by
+  end
+  local look = menu({ kind = "APPEARANCE", itemID = 2589, itemName = "Linen Robe", quantity = 1 })
+  assertEqual(look["Blacklist item"], false, "an appearance's itemID is not loot")
+  assertEqual(look["Show in Timeline"], false)
+  assertEqual(menu({ itemID = 7 })["Blacklist item"], true, "a legacy row with no kind is an item")
+  assertEqual(menu({ kind = "ITEM", itemID = 7 })["Blacklist item"], true)
 end)

@@ -61,7 +61,10 @@ end
 -- RAW `auc_<provider>_<key>` column is appended per NS.Constants.AUCTION_KEYS entry (deterministic,
 -- capture-config order) exposing every price the addon actually captured, independent of which one
 -- Pick chose. `wowheadLink` follows the auction columns; the five ledger columns (`dir, kind,
--- holder, from, to`) are appended after it.
+-- holder, from, to`) are appended after it, and the seven progress columns (`factionID, repType,
+-- rank, standing, sourceID, appearanceID, newLook`; rep-appearance spec §6.1) after those. They are
+-- blank on every item, currency and gold row; `newLook` is "true" or blank, and `accountWide` stays
+-- in Database:Export only.
 -- itemLink / sourceDetail / mapID / subzone / confidence are intentionally not exported.
 local COLUMNS = {
   { "ts",           function(r) return r.ts end },
@@ -104,6 +107,15 @@ COLUMNS[#COLUMNS + 1] = { "kind",   function(r) return NS.Util.RowKind(r) end }
 COLUMNS[#COLUMNS + 1] = { "holder", function(r) return NS.Util.RowHolder(r) end }
 COLUMNS[#COLUMNS + 1] = { "from",   function(r) return r.from end }
 COLUMNS[#COLUMNS + 1] = { "to",     function(r) return r.to end }
+-- Progress columns (reputation and appearance rows), APPENDED after the ledger block for the same
+-- reason.
+COLUMNS[#COLUMNS + 1] = { "factionID",    function(r) return r.factionID end }
+COLUMNS[#COLUMNS + 1] = { "repType",      function(r) return r.repType end }
+COLUMNS[#COLUMNS + 1] = { "rank",         function(r) return r.rank end }
+COLUMNS[#COLUMNS + 1] = { "standing",     function(r) return r.standing end }
+COLUMNS[#COLUMNS + 1] = { "sourceID",     function(r) return r.sourceID end }
+COLUMNS[#COLUMNS + 1] = { "appearanceID", function(r) return r.appearanceID end }
+COLUMNS[#COLUMNS + 1] = { "newLook",      function(r) return r.newLook and "true" or "" end }
 local HEADER = {}
 for i, c in ipairs(COLUMNS) do HEADER[i] = c[1] end
 
@@ -308,6 +320,26 @@ local function emitLedger(row, stats)
   emitSection(row, "Losses by Reason", rankedRows(L.reasonOut, insightsSourceLabel, L.valueReasonOut))
 end
 
+-- Reputation and appearances (rep-appearance spec §6.1), appended after the ledger block for the
+-- same reason, and only when the range holds such a row: every earlier export is unchanged.
+local function emitProgress(row, stats)
+  local R, Ap = stats.reputation, stats.appearances
+  local hasRep = R and (R.rows or 0) > 0
+  local hasLooks = Ap and ((Ap.collected or 0) + (Ap.removed or 0)) > 0
+  if hasRep then
+    local names = {}
+    for name in pairs(R.byFaction or {}) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do row("Reputation Gained", name, R.byFaction[name].i) end
+    for _, name in ipairs(names) do row("Reputation Lost", name, R.byFaction[name].o) end
+  end
+  if hasLooks then
+    row("Appearances", "Collected", Ap.collected or 0)
+    row("Appearances", "Removed", Ap.removed or 0)
+    row("Appearances", "New looks", Ap.newLooks or 0)
+  end
+end
+
 function E:InsightsCSV(stats)
   stats = stats or {}
   local lines = { "Section,Label,Count,Value" }
@@ -318,6 +350,7 @@ function E:InsightsCSV(stats)
   emitListsAndDays(row, stats)
   emitCurrency(row, stats)
   emitLedger(row, stats)
+  emitProgress(row, stats)
   return table.concat(lines, "\r\n") .. "\r\n"
 end
 

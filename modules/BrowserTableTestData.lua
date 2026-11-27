@@ -282,6 +282,51 @@ local function holderMoves(out)
   end
 end
 
+-- The progress sample (rep-appearance spec §6.1): fixed literal rows appended after the walk, so they
+-- draw nothing from the PRNG and every earlier row is byte-identical. Three reputation rows (a quest
+-- gain, a kill loss, and on Retail a renown gain) and, where appearances are a feature
+-- (C.FEATURE.appearances), two appearance rows (a new look, and a removal). Each `age` is seconds
+-- before the walk's own base time; `who` picks the sample roster's first or second character. An
+-- appearance names one of the sample's own items and carries no itemID: a sample item is not a real
+-- one, so its hover is the sample tooltip.
+local PROGRESS_ROWS = {
+  { age = 3600, who = 1, kind = "REPUTATION", dir = "IN", factionID = 72, itemName = "Stormwind",
+    itemSubType = "Honored", quantity = 668, repType = "base", rank = 6, standing = 9668,
+    source = "QUEST", confidence = "CERTAIN" },
+  { age = 7200, who = 2, kind = "REPUTATION", dir = "OUT", factionID = 21, itemName = "Booty Bay",
+    itemSubType = "Neutral", quantity = 25, repType = "base", rank = 4, standing = 1475,
+    source = "KILL", confidence = "INFERRED" },
+  { age = 10800, who = 1, kind = "REPUTATION", dir = "IN", factionID = 2590, itemName = "Council of Dornogal",
+    itemSubType = "Renown 11", quantity = 1250, repType = "renown", rank = 11, standing = 1250,
+    accountWide = true, source = "KILL", confidence = "INFERRED", retailOnly = true },
+  { age = 5400, who = 1, kind = "APPEARANCE", dir = "IN", sourceID = 41001, appearanceID = 31001,
+    itemName = TEST_ITEM_NAMES[3], quality = 4, itemSubType = "Cloth", quantity = 1, newLook = true,
+    source = "KILL", confidence = "INFERRED", looks = true },
+  { age = 9000, who = 2, kind = "APPEARANCE", dir = "OUT", sourceID = 41002, appearanceID = 31002,
+    itemName = TEST_ITEM_NAMES[6], quality = 3, itemSubType = "Cloth", quantity = 1,
+    source = "VENDOR", confidence = "INFERRED", looks = true },
+}
+local PROGRESS_TYPE = { REPUTATION = C.REPUTATION_TYPE, APPEARANCE = C.APPEARANCE_TYPE }
+
+local function progressRows(out, now)
+  local roster = NS.SampleCharacters()
+  local zone = TEST_ZONES[1]
+  for _, p in ipairs(PROGRESS_ROWS) do
+    local keep = (not p.retailOnly or CLIENT == "retail") and (not p.looks or C.FEATURE.appearances)
+    if keep then
+      local who = roster[p.who]
+      local r = NS.Util.DeepCopy(p)
+      r.age, r.who, r.retailOnly, r.looks = nil, nil, nil, nil
+      r.ts = now - p.age
+      r.char = who and who.fullName or NS.Util.PlayerKey()
+      r.classFile = who and who.classFile or nil
+      r.holder, r.itemType = r.char, PROGRESS_TYPE[p.kind]
+      r.zone, r.mapID = zone.name, zone.mapID
+      out[#out + 1] = r
+    end
+  end
+end
+
 function BrowserTable:BuildTestData()
   local now = time()
   local rng = testRng(0x10A75AFE)   -- fixed seed → identical dataset every run
@@ -353,5 +398,6 @@ function BrowserTable:BuildTestData()
   end
 
   holderMoves(out)
+  progressRows(out, now)
   return out
 end

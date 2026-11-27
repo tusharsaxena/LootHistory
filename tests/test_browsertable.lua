@@ -76,7 +76,7 @@ test("BrowserTable: test data covers every bound state, source, quality, class",
   for _, r in ipairs(data) do
     bound[r.bound or "UNBOUND"] = true
     source[r.source] = true
-    quality[r.quality] = true
+    if r.quality then quality[r.quality] = true end   -- a reputation row has no quality
     class[r.classFile] = true
     if not minTs or r.ts < minTs then minTs = r.ts end
     if not maxTs or r.ts > maxTs then maxTs = r.ts end
@@ -258,11 +258,13 @@ test("BrowserTable: test mode filters the synthetic dataset", function()
   -- Insights reads the same override: Stats aggregates the test dataset, not the live history.
   -- totals.records counts gains of items and currency only (timeline-ledger spec §6), and the
   -- preview seeds one loss/transfer per ledger reason, so it is the dataset less those rows. The IN
-  -- half of a holder move is a move, not loot, so it stays out of that count too.
+  -- half of a holder move is a move, not loot, so it stays out of that count too, and so do the
+  -- sample's reputation and appearance rows (progress, not loot).
   local stats = NS.Database:Stats({})
   local gains = 0
   for _, r in ipairs(NS.State.testRecords) do
-    if NS.Util.RowDir(r) == "IN" and NS.Util.RowKind(r) ~= "GOLD"
+    local kind = NS.Util.RowKind(r)
+    if NS.Util.RowDir(r) == "IN" and (kind == "ITEM" or kind == "CURRENCY")
         and not NS.Ledger.HOLDER_MOVE_REASON[r.source] then
       gains = gains + 1
     end
@@ -651,9 +653,12 @@ test("BrowserTable: every synthetic record carries the fields the table and char
     local shape = T.forever and "^%u%l+ %u%l+$" or "^%u%l+%-%u%l+$"
     assertTrue(type(r.char) == "string" and r.char:find(shape) ~= nil, "char is the client's holder key")
     assertTrue(type(r.itemName) == "string" and r.itemName ~= "")
-    assertTrue(type(r.itemID) == "number")
+    -- Reputation and appearance rows are progress, not item loot: no item or price (their own shape
+    -- is asserted by the progress-sample case below).
+    local progress = r.kind == "REPUTATION" or r.kind == "APPEARANCE"
+    assertTrue(progress or type(r.itemID) == "number")
     assertTrue(type(r.quantity) == "number" and r.quantity >= 1)
-    assertTrue(type(r.vendorPrice) == "number" and r.vendorPrice > 0)
+    assertTrue(progress or (type(r.vendorPrice) == "number" and r.vendorPrice > 0))
     assertTrue(type(r.mapID) == "number")
     assertTrue(type(r.zone) == "string" and r.zone ~= "")
   end
@@ -1487,7 +1492,7 @@ test("Test mode: SetTestMode traces each act and falls back to a table Refresh",
       -- WoW Forever's sample lacks the two warband reasons' seed rows and their receiving halves (R1).
       -- WoW Forever's coverage seed walks its 34 sources (R1, R2; DECONSTRUCT kept, F1), Retail's 40
       -- (FISHING joined both, 2026-11-27).
-      "test mode on: " .. (T.forever and 297 or 305) .. " sample rows",
+      "test mode on: " .. (T.forever and 299 or 310) .. " sample rows",
       "test mode off (combat started)",
     }, "\n"))
   end)

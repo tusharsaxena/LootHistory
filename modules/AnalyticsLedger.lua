@@ -10,6 +10,12 @@ local Analytics = NS.Analytics
 --
 -- Its chrome lives in inst.ledgerUI, NOT in inst.headers / inst.pool: the golden snapshot in
 -- tests/test_analytics_layout.lua walks those two tables, and this section is pinned by its own cases.
+--
+-- The PROGRESS block (rep-appearance spec §6.1) is drawn here too, LAST, after the CURRENCY block:
+-- "Reputation By Faction" (the same back-to-back bars, faction names in sem.info, the History
+-- table's reputation color) and "Appearances Collected By Character" (a library bar section). It is
+-- hidden unless the range holds a reputation or appearance row, and its chrome lives in
+-- inst.progressUI for the same golden-snapshot reason.
 
 local AL = {}
 Analytics._ledger = AL
@@ -22,6 +28,14 @@ local BAR_H, BAR_GAP, LABEL_W, VALUE_W, SECTION_GAP = 16, 4, 130, 110, 14
 function AL.HasLedger(stats)
   local L = stats and stats.ledger
   return L ~= nil and ((L.lostCount or 0) > 0 or (L.movedCount or 0) > 0)
+end
+
+-- True when the range holds a reputation row or an appearance row (either direction).
+function AL.HasProgress(stats)
+  local R = stats and stats.reputation
+  local Ap = stats and stats.appearances
+  if R and (R.rows or 0) > 0 then return true end
+  return Ap ~= nil and ((Ap.collected or 0) + (Ap.removed or 0)) > 0
 end
 
 function AL.Caveat(resetPrompt, ledgerSince, preLedgerRows)
@@ -162,6 +176,16 @@ function AL.Build(inst, content)
   inst.ledgerUI.caveat:SetJustifyH("LEFT")
   inst.ledgerUI.caveat:SetTextColor(NS.SkinColor("text.accent"))
   AL.Hide(inst)
+  inst.progressUI = {
+    divider = Analytics._chartDivider(ctx, content, "PROGRESS"),
+    headers = {
+      faction = ctx:sectionHeader(content, "Reputation By Faction"),
+      looks   = ctx:sectionHeader(content, "Appearances Collected By Character"),
+    },
+    pools = { faction = NS.Pool.New() },
+    looksPool = ctx:Pool("progresslooks"),
+  }
+  AL.HideProgress(inst)
 end
 
 -- A skin switch (Analytics:Reskin): the caveat and every pooled bar's track and axis, active and
@@ -170,7 +194,9 @@ function AL.Reskin(inst)
   local ui = inst.ledgerUI
   if not ui then return end
   ui.caveat:SetTextColor(NS.SkinColor("text.accent"))
-  for _, p in pairs(ui.pools) do
+  local pools = { ui.pools.reason, ui.pools.char, ui.pools.kind,
+                  inst.progressUI and inst.progressUI.pools.faction }
+  for _, p in pairs(pools) do
     for _, w in ipairs(p.active) do paintBar(w) end
     for _, w in ipairs(p.free) do paintBar(w) end
   end
@@ -184,8 +210,15 @@ function AL.Hide(inst)
   for _, p in pairs(ui.pools) do NS.Pool.ReleaseAll(p) end
 end
 
-local function section(inst, key, rows, y, w, pad)
-  local ui = inst.ledgerUI
+function AL.HideProgress(inst)
+  local ui = inst.progressUI
+  if not ui then return end
+  ui.divider:Hide()
+  for _, h in pairs(ui.headers) do h:Hide() end
+  NS.Pool.ReleaseAll(ui.pools.faction)
+end
+
+local function section(inst, ui, key, rows, y, w, pad)
   local header = ui.headers[key]
   if #rows == 0 then header:Hide(); return y end
   header:ClearAllPoints(); header:SetPoint("TOPLEFT", inst.content, "TOPLEFT", pad, y); header:Show()
@@ -205,7 +238,8 @@ local function section(inst, key, rows, y, w, pad)
   return y - SECTION_GAP
 end
 
-local KIND_LABEL = { ITEM = "Items", CURRENCY = "Currency", GOLD = "Gold" }
+local KIND_LABEL = { ITEM = "Items", CURRENCY = "Currency", GOLD = "Gold",
+                     REPUTATION = "Reputation", APPEARANCE = "Appearances" }
 
 -- Draw the caveat (when due) and, for a range with a loss or transfer, the three back-to-back
 -- charts, top-down from y; returns the new y. Called first by Analytics:LayoutCharts.
@@ -234,11 +268,58 @@ function AL.Layout(inst, stats, y, w, pad)
     local cr, cg, cb = NS.Compat.ClassColor(classOf(ch))
     return cr and { cr, cg, cb } or nil
   end
-  y = section(inst, "reason", AL.BackToBackRows(L.reasonIn, L.reasonOut, srcLabel, nil, LF.SignedCount, tostring),
+  y = section(inst, ui, "reason", AL.BackToBackRows(L.reasonIn, L.reasonOut, srcLabel, nil, LF.SignedCount, tostring),
     y, w, pad)
-  y = section(inst, "char", AL.BackToBackRows(L.charIn, L.charOut, AL.HolderShort,
+  y = section(inst, ui, "char", AL.BackToBackRows(L.charIn, L.charOut, AL.HolderShort,
     charColor, LF.SignedMoney, function(v) return NS.Util.FormatMoney(v) end), y, w, pad)
-  y = section(inst, "kind", AL.BackToBackRows(L.kindIn, L.kindOut, function(k) return KIND_LABEL[k] or k end,
+  y = section(inst, ui, "kind", AL.BackToBackRows(L.kindIn, L.kindOut, function(k) return KIND_LABEL[k] or k end,
     nil, LF.SignedCount, tostring), y, w, pad)
   return y
+end
+
+-- The rows of "Appearances Collected By Character": one bar per character, most first, class-colored
+-- where the range knows the character's class, else the library's bar color.
+local function looksRows(stats)
+  local byChar = stats.appearances and stats.appearances.byChar or {}
+  local list, peak = {}, 1
+  for ch, n in pairs(byChar) do
+    list[#list + 1] = { char = ch, n = n }
+    if n > peak then peak = n end
+  end
+  table.sort(list, function(a, b)
+    if a.n ~= b.n then return a.n > b.n end
+    return a.char < b.char
+  end)
+  local rows = {}
+  for _, e in ipairs(list) do
+    local ce = stats.byChar and stats.byChar[e.char]
+    local cr, cg, cb = NS.Compat.ClassColor(ce and ce.classFile)
+    rows[#rows + 1] = { label = AL.HolderShort(e.char), color = cr and { cr, cg, cb, 1 } or nil,
+      frac = e.n / peak, value = tostring(e.n) }
+  end
+  return rows
+end
+
+-- Draw the PROGRESS block top-down from y, or hide it when the range holds no reputation or
+-- appearance row; returns the new y. Called last by Analytics:LayoutCharts.
+function AL.LayoutProgress(inst, stats, y, w, pad)
+  local ui = inst.progressUI
+  if not ui then return y end
+  NS.Pool.ReleaseAll(ui.pools.faction)
+  if not AL.HasProgress(stats) then AL.HideProgress(inst); return y end
+  ui.divider:ClearAllPoints()
+  ui.divider:SetPoint("TOPLEFT", inst.content, "TOPLEFT", pad, y)
+  ui.divider:SetPoint("TOPRIGHT", inst.content, "TOPRIGHT", -pad, y)
+  ui.divider:Show()
+  y = y - 30
+  local inMap, outMap = {}, {}
+  for name, f in pairs(stats.reputation and stats.reputation.byFaction or {}) do
+    inMap[name], outMap[name] = f.i, f.o
+  end
+  local ir, ig, ib = NS.SkinColor("sem.info")
+  local info = { ir, ig, ib }
+  local LF = NS.LedgerFormat
+  y = section(inst, ui, "faction", AL.BackToBackRows(inMap, outMap, tostring, function() return info end,
+    LF.SignedCount, tostring), y, w, pad)
+  return inst.charts:renderBarSection(ui.looksPool, ui.headers.looks, looksRows(stats), y, w, pad)
 end

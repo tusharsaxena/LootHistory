@@ -633,11 +633,12 @@ function Analytics:LayoutCharts(y, w, pad)
   local stats = self.stats
   self.charts:ReleaseAll()
 
-  -- Empty only when the range holds neither a gain nor a loss/transfer: a losses-only range still
-  -- draws the GAINS & LOSSES section, with no LOOT sections under it.
+  -- Empty only when the range holds neither a gain nor a loss/transfer nor a reputation or
+  -- appearance row: a losses-only range still draws the GAINS & LOSSES section, with no LOOT
+  -- sections under it, and a reputation-only range draws the PROGRESS block alone.
   local AL = Analytics._ledger
   local hasLoot = stats and stats.totals.records > 0
-  if not stats or (not hasLoot and not AL.HasLedger(stats)) then
+  if not stats or (not hasLoot and not AL.HasLedger(stats) and not AL.HasProgress(stats)) then
     self:HideAllCharts()
     self.emptyText:ClearAllPoints()
     self.emptyText:SetPoint("TOP", self.content, "TOP", 0, y - 10)
@@ -663,5 +664,6 @@ function Analytics:LayoutCharts(y, w, pad)
     hideCurrency(self)
   end
 
-  return y
+  -- PROGRESS (reputation and appearances) is laid out last, after every earlier block.
+  return AL.LayoutProgress(self, stats, y, w, pad)
 end

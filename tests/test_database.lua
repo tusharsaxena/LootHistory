@@ -966,6 +966,38 @@ test("Database: minQuality floors items only, whitelist exempt", function()
   assertEqual(table.concat(ids, ","), "2,3,3008,GOLD")
 end)
 
+test("Database: minQuality skips reputation and appearance rows (rep-appearance A7)", function()
+  local rows = {
+    { itemID = 1, quality = 0 }, { kind = "ITEM", itemID = 2, quality = 0 },
+    { kind = "APPEARANCE", itemID = 3, quality = 0, sourceID = 9 },
+    { kind = "REPUTATION", factionID = 72 },
+  }
+  local out = NS.Database:QueryList(rows, { minQuality = 2 })
+  local got = {}
+  for _, r in ipairs(out) do got[#got + 1] = r.kind end
+  assertEqual(table.concat(got, ","), "APPEARANCE,REPUTATION", "the floor drops only item rows")
+end)
+
+test("Database: Export copies the reputation and appearance fields", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {
+    { ts = 1, char = "A-Realm", holder = "A-Realm", kind = "REPUTATION", dir = "IN", factionID = 2590,
+      itemName = "Council of Dornogal", repType = "renown", rank = 11, standing = 1250, accountWide = true,
+      quantity = 1250 },
+    { ts = 2, char = "A-Realm", holder = "A-Realm", kind = "APPEARANCE", dir = "IN", sourceID = 77,
+      appearanceID = 9, itemID = 2589, itemName = "Linen Robe", newLook = true, quantity = 1 },
+  }
+  local out = NS.Database:Export({})
+  g.history = saved
+  local rep, look = out[1], out[2]
+  assertEqual(rep.kind, "REPUTATION"); assertEqual(rep.factionID, 2590); assertEqual(rep.repType, "renown")
+  assertEqual(rep.rank, 11); assertEqual(rep.standing, 1250); assertEqual(rep.accountWide, true)
+  assertEqual(look.kind, "APPEARANCE"); assertEqual(look.sourceID, 77); assertEqual(look.appearanceID, 9)
+  assertEqual(look.newLook, true); assertEqual(look.itemID, 2589)
+  assertEqual(rep.sourceID, nil); assertEqual(look.factionID, nil)
+end)
+
 test("Database: Export carries the ledger fields with legacy defaults", function()
   local g = NS.db.global
   local saved = g.history

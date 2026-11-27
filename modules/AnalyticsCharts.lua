@@ -77,7 +77,7 @@ function Analytics:HideAllCharts()
   self.zonePanel:Hide(); self.itemPanel:Hide(); self.itemValuePanel:Hide()
   self.currencyStrip:Hide()
   self.lootDivider:Hide(); self.currencyDivider:Hide()
-  if Analytics._ledger then Analytics._ledger.Hide(self) end
+  if Analytics._ledger then Analytics._ledger.Hide(self); Analytics._ledger.HideProgress(self) end
 end
 
 -- ── the skin (LH-04) ──────────────────────────────────────────────────────────────────────────

@@ -576,7 +576,8 @@ test("Test mode: the History sample's items are the client's own names and item 
   for _, n in ipairs(NS.BrowserTable.TestSample.itemNames) do names[n] = true end
   assertEqual(#NS.BrowserTable.TestSample.itemNames, 30, "thirty items on each client")
   for _, r in ipairs(NS.BrowserTable:BuildTestData()) do
-    assertTrue(names[r.itemName], "a row names an item off the sample: " .. tostring(r.itemName))
+    -- A reputation row names its faction, not an item (rep-appearance spec §6.1).
+    assertTrue(r.kind == "REPUTATION" or names[r.itemName], "a row names an item off the sample: " .. tostring(r.itemName))
     if r.itemLevel then lo, hi = math.min(lo, r.itemLevel), math.max(hi, r.itemLevel) end
   end
   -- red under: one Retail list and Midnight's item levels (560 and up) on WoW Forever.
@@ -612,4 +613,31 @@ test("Sim: the stranger the social scenario trades with is a shared sample chara
   end
   -- red under: "Stranger-Realm"; on WoW Forever, Retail's "Mockflame-Mockrealm".
   assertEqual(target, ({ retail = "Mockflame-Mockrealm", forever = "Mockflame Samplewick" })[CLIENT])
+end)
+
+-- ── the progress sample (rep-appearance spec §6.1) ─────────────────────────────────────────────
+
+test("Test mode: the History sample ends with its fixed progress rows, Retail's renown and appearances gated", function()
+  local data = NS.BrowserTable:BuildTestData()
+  local reps, looks, renown = {}, {}, false
+  for _, r in ipairs(data) do
+    if r.kind == "REPUTATION" then
+      reps[#reps + 1] = r
+      assertEqual(r.itemType, NS.Constants.REPUTATION_TYPE)
+      assertTrue(type(r.factionID) == "number" and r.holder == r.char and r.itemID == nil and r.vendorPrice == nil)
+      if r.repType == "renown" then renown = true end
+    elseif r.kind == "APPEARANCE" then
+      looks[#looks + 1] = r
+      assertEqual(r.itemType, NS.Constants.APPEARANCE_TYPE)
+      assertTrue(type(r.sourceID) == "number" and r.quantity == 1 and r.vendorPrice == nil)
+    end
+  end
+  assertEqual(#reps, CLIENT == "forever" and 2 or 3)
+  assertEqual(renown, CLIENT == "retail", "the renown row is Retail's")
+  assertEqual(#looks, CLIENT == "forever" and 0 or 2, "appearances only where the feature is")
+  assertEqual(data[#data].kind, CLIENT == "forever" and "REPUTATION" or "APPEARANCE", "the progress rows come last")
+  local roster = NS.SampleCharacters()
+  if roster[2] then
+    assertEqual(reps[1].char, roster[1].fullName); assertEqual(reps[2].char, roster[2].fullName)
+  end
 end)

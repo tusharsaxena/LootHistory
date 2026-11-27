@@ -217,7 +217,7 @@ return function(NS, mocks)
 
   local A_KEYS = { "pane", "scroll", "content", "cards", "headers", "lootDivider", "currencyDivider",
                    "dayStrip", "valueStrip", "hourStrip", "zonePanel", "itemPanel", "itemValuePanel",
-                   "currencyStrip", "emptyText", "pool", "ledgerUI", "stats", "charts" }
+                   "currencyStrip", "emptyText", "pool", "ledgerUI", "progressUI", "stats", "charts" }
 
   local function build_insights()
     local A = NS.Analytics

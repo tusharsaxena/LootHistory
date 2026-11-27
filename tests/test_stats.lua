@@ -511,3 +511,77 @@ test("Stats (characterization): stamped ITEM and CURRENCY gains fill the legacy 
   assertEqual(s.ledger.kindIn.ITEM, 1); assertEqual(s.ledger.kindIn.CURRENCY, 1)
   assertEqual(s.ledger.kindOut.ITEM, 1)
 end)
+
+-- ── Reputation and appearance rows (rep-appearance spec §6.1) ─────────────────────────────────
+
+local function progressHistory()
+  return {
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "ITEM", dir = "IN", itemID = 10, itemName = "Sword",
+      quality = 4, itemType = "Weapon", quantity = 1, vendorPrice = 5, source = "KILL", zone = "Valley" },
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "REPUTATION", dir = "IN", factionID = 72,
+      itemName = "Stormwind", itemType = "Reputation", itemSubType = "Honored", quantity = 250,
+      source = "QUEST", zone = "Valley" },
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "REPUTATION", dir = "IN", factionID = 72,
+      itemName = "Stormwind", itemType = "Reputation", itemSubType = "Honored", quantity = 50,
+      source = "KILL", zone = "Valley" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "REPUTATION", dir = "OUT", factionID = 21,
+      itemName = "Booty Bay", itemType = "Reputation", itemSubType = "Neutral", quantity = 25,
+      source = "KILL", zone = "Cavern" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "APPEARANCE", dir = "IN", sourceID = 5, itemID = 30,
+      itemName = "Hood", quality = 1, itemType = "Appearance", itemSubType = "Cloth", quantity = 1,
+      newLook = true, source = "KILL", zone = "Cavern" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "APPEARANCE", dir = "IN", sourceID = 6, itemID = 31,
+      itemName = "Boots", quality = 3, itemType = "Appearance", itemSubType = "Cloth", quantity = 1,
+      source = "VENDOR", zone = "Cavern" },
+    { ts = T2, char = "A-Realm", holder = "A-Realm", kind = "APPEARANCE", dir = "OUT", sourceID = 7, itemID = 32,
+      itemName = "Gloves", quality = 3, itemType = "Appearance", quantity = 1, source = "OTHER", zone = "Cavern" },
+  }
+end
+
+local function statsOf(history)
+  local g = NS.db.global
+  local saved = g.history
+  g.history = history
+  local s = NS.Database:Stats({})
+  g.history = saved
+  return s
+end
+
+test("Stats: reputation and appearance rows stay out of the legacy loot breakdowns", function()
+  local s = statsOf(progressHistory())
+  assertEqual(s.totals.records, 1, "only the item gain is loot")
+  assertEqual(s.totals.totalQuantity, 1)
+  assertEqual(s.byType.Reputation, nil); assertEqual(s.byType.Appearance, nil)
+  assertEqual(s.byType.Weapon, 1)
+  assertEqual(s.byQuality[1], nil, "the quality-1 appearance is not counted")
+  assertEqual(s.byItem[30], nil, "an appearance's itemID is not a byItem entry")
+  assertEqual(s.bySource.QUEST, nil); assertEqual(s.bySource.KILL, 1)
+  assertEqual(s.byZone.Cavern, nil)
+end)
+
+test("Stats: stats.reputation sums quantity per direction, overall and per faction", function()
+  local R = statsOf(progressHistory()).reputation
+  assertEqual(R.rows, 3); assertEqual(R.gained, 300); assertEqual(R.lost, 25)
+  assertEqual(R.byFaction.Stormwind.i, 300); assertEqual(R.byFaction.Stormwind.o, 0)
+  assertEqual(R.byFaction["Booty Bay"].i, 0); assertEqual(R.byFaction["Booty Bay"].o, 25)
+end)
+
+test("Stats: stats.appearances counts collected, removed, new looks and collected per character", function()
+  local Ap = statsOf(progressHistory()).appearances
+  assertEqual(Ap.collected, 2); assertEqual(Ap.removed, 1); assertEqual(Ap.newLooks, 1)
+  assertEqual(Ap.byChar["B-Realm"], 2); assertEqual(Ap.byChar["A-Realm"], nil, "a removal is not counted")
+end)
+
+test("Stats: an item-only history answers empty progress aggregates", function()
+  seedStats()
+  local s = NS.Database:Stats({})
+  assertEqual(s.reputation.rows, 0); assertEqual(s.reputation.gained, 0)
+  assertEqual(s.appearances.collected, 0); assertEqual(s.appearances.removed, 0)
+end)
+
+test("Stats: the ledger's kindIn and kindOut count reputation and appearance rows", function()
+  local L = statsOf(progressHistory()).ledger
+  assertEqual(L.kindIn.REPUTATION, 2); assertEqual(L.kindOut.REPUTATION, 1)
+  assertEqual(L.kindIn.APPEARANCE, 2); assertEqual(L.kindOut.APPEARANCE, 1)
+  assertEqual(L.lostCount, 2, "a reputation loss and an appearance removal are losses")
+end)

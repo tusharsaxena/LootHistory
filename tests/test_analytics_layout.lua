@@ -278,6 +278,50 @@ test("Insights layout: losses only — no empty text, no LOOT divider", function
   assertTrue(inst.ledgerUI.divider.__shown)
 end)
 
+-- The PROGRESS block (rep-appearance spec §6.1): drawn last, only when the range holds a reputation
+-- or appearance row; its chrome is inst.progressUI, so the golden snapshot above does not move.
+local function progressRows()
+  local T1 = 1600000000
+  return {
+    { ts = T1, char = "A-Realm", classFile = "MAGE", holder = "A-Realm", kind = "REPUTATION", dir = "IN",
+      factionID = 72, itemName = "Stormwind", itemType = "Reputation", quantity = 250, source = "QUEST" },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", holder = "A-Realm", kind = "REPUTATION", dir = "IN",
+      factionID = 21, itemName = "Booty Bay", itemType = "Reputation", quantity = 40, source = "KILL" },
+    { ts = T1, char = "A-Realm", classFile = "MAGE", holder = "A-Realm", kind = "APPEARANCE", dir = "IN",
+      sourceID = 77, itemID = 2589, itemName = "Linen Robe", itemType = "Appearance", quantity = 1, newLook = true,
+      source = "KILL" },
+  }
+end
+
+test("Insights layout: a reputation-only range draws the PROGRESS block alone, not the empty text", function()
+  local inst = newInstance()
+  layout(inst, statsFor(progressRows()))
+  local ui = inst.progressUI
+  assertTrue(not inst.emptyText.__shown, "a progress range is not empty")
+  assertTrue(not inst.lootDivider.__shown, "no loot in the range")
+  assertTrue(ui.divider.__shown and ui.headers.faction.__shown and ui.headers.looks.__shown)
+  assertEqual(#ui.pools.faction.active, 2, "one back-to-back bar per faction")
+  local ir, ig, ib = NS.SkinColor("sem.info")
+  local bar = ui.pools.faction.active[1]
+  assertEqual(bar._fullLabel, "Stormwind", "the bigger total first")
+  local lr, lg, lb = bar.label:GetTextColor()
+  assertEqual(lr, ir); assertEqual(lg, ig); assertEqual(lb, ib)
+  assertEqual(#ui.looksPool.active, 1, "one appearances bar for the one character")
+end)
+
+test("Insights layout: PROGRESS is laid out after LOOT, and is hidden for an item-only range", function()
+  local inst = newInstance()
+  local h = richHistory()
+  for _, r in ipairs(progressRows()) do h[#h + 1] = r end
+  layout(inst, statsFor(h))
+  assertTrue(inst.progressUI.divider.__shown)
+  assertTrue(inst.progressUI.divider:__lastPoint().y < inst.lootDivider:__lastPoint().y, "drawn below LOOT")
+  layout(inst, rich)
+  assertTrue(not inst.progressUI.divider.__shown, "no progress rows, no PROGRESS block")
+  assertTrue(not inst.progressUI.headers.faction.__shown and not inst.progressUI.headers.looks.__shown)
+  assertEqual(#inst.progressUI.pools.faction.active, 0)
+end)
+
 -- Smoke LED-9, the Insights half: the same class of leak the Timeline case looks for. Every region
 -- the chart chrome and a full layout make (cards' strips, legends, panels, the gains-vs-losses
 -- section) is traced to its owner, and with the instance's root hidden none may still read visible.

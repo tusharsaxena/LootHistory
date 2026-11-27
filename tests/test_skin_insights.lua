@@ -150,7 +150,7 @@ local function today(name) return rgba(TODAY[name]) end
 local A = NS.Analytics
 local A_KEYS = { "pane", "scroll", "content", "cards", "headers", "lootDivider", "currencyDivider",
                  "dayStrip", "valueStrip", "hourStrip", "zonePanel", "itemPanel", "itemValuePanel",
-                 "currencyStrip", "emptyText", "pool", "ledgerUI", "stats", "charts" }
+                 "currencyStrip", "emptyText", "pool", "ledgerUI", "progressUI", "stats", "charts" }
 
 -- A small history with items, a loss (the GAINS & LOSSES half) and two days, laid out at 780 wide.
 local FX = dofile("tests/fixture_insights.lua")
