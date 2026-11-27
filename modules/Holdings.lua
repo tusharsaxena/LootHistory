@@ -8,6 +8,8 @@ local Holdings = NS.Holdings
 -- alt's transfer or escrow); every reader goes through this API. Every one of those writes reports
 -- each total it changed to the daily rollup (NS.Rollup:NoteClose, timeline-ledger P3), so the
 -- rollup's closes are exactly this store.
+-- The holdings tooltip and the public API (#34) read SavedStore only, so test mode's sample and the
+-- simulator's session table never reach a tooltip or another addon.
 
 local C = NS.Constants
 local WARBAND = C.WARBAND_HOLDER
@@ -45,6 +47,16 @@ end
 function Holdings:Store()
   local sim = NS.SimStores and NS.SimStores.holdings
   if sim then return sim end
+  local g = NS.db and NS.db.global
+  if not g then return {} end
+  g.holdings = g.holdings or {}
+  return g.holdings
+end
+
+-- The SAVED store, whatever else is running (#34, spec section 5.1): db.global.holdings, created the
+-- way Store() creates it, or {} before InitDB. Never the simulator's session table, never test
+-- mode's sample: the holdings tally (modules/HoldingsTally.lua) and the public API read through it.
+function Holdings:SavedStore()
   local g = NS.db and NS.db.global
   if not g then return {} end
   g.holdings = g.holdings or {}

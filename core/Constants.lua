@@ -195,6 +195,11 @@ C.Container = {
 -- "Account" (C.ACCOUNT.holder).
 C.WARBAND_HOLDER = "§warband"
 
+-- The holdings tally's cache bound (#34, modules/HoldingsTally.lua): past this many cached things,
+-- items and currencies together, both maps are wiped before the next insert, so a long AH browse
+-- keeps memory bounded.
+C.TIP_CACHE_MAX = 128
+
 -- Direction display (History column, Insights, Timeline). Cosmetic only — never stored. The colors
 -- are the skin's sem.good / sem.bad / sem.neutral (LH-04, modules/LedgerFormat.lua), whose Ka0s
 -- Default values are BankLedger's (core/Constants.lua DirectionRGB: .35,.80,.45 / 1,.33,.33 /

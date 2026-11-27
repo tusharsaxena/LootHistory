@@ -71,7 +71,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M0.2 | Re-vendor LibKa0s v1.114.0 → v1.118.0 (both payloads, provenance line, icon prune, gate) | done | `M0.2` commit (bundle `docs/revendor/2026-11-27-v1.118.0/`) |
 | M0.3 | Push M0 | todo | |
 | M1.1 | Compat: item and currency tooltip post-call hooks, tooltip id readers, live count reads (Retail + Forever) | done | `M1.1: Add Compat tooltip post calls, id readers, painters and live reads` |
-| M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | todo | |
+| M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | done | `M1.2: Add the holdings tally over the saved store with a live overlay` |
 | M1.3 | Tooltip block: icons + counts, staleness age, Total rule, settings rows (Tooltip tab), modifier mode, disabled-state, tests | todo | |
 | M1.4 | Public API v1 + CallbackHandler + tests + ARCHITECTURE contract | todo | |
 | M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | todo | |

@@ -139,7 +139,7 @@ local function featureTargets()
   local t = {}
   for _, target in ipairs({ NS.addon, NS.Collector.__ev, NS.Browser.__ev, NS.Analytics.__ev,
                             NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
-                            NS.HoldingsTab.__ev, NS.Timeline.__ev }) do
+                            NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev }) do
     if target then t[target] = true end
   end
   return t
@@ -824,7 +824,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "Collector", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "HoldingsTally", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -852,7 +852,7 @@ end
 local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
-  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup" }) do
+  for _, k in ipairs({ "Collector", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
@@ -881,6 +881,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reconciler:Disable", "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
       "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable",
+      "HoldingsTally:Disable",
       "Attribution:DisableOut",
       "DropLedgerResetOffer",
       "CancelDeferrals",
@@ -898,7 +899,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
       "Collector:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
-      "HoldingsTab:Enable", "Timeline:Enable",
+      "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable",
       "Debug:State:stand-up: capture registered",
       "DebugAtEnable:State",
     }, "\n"))

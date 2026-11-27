@@ -357,7 +357,7 @@ Total.
 - Scanner: currencies split account-wide to warband
 - Scanner: money reads
 
-### test_holdings.lua (10)
+### test_holdings.lua (13)
 
 - Holdings: ApplyContainer replaces one column and keeps others
 - Holdings: unchanged container reports no change
@@ -369,6 +369,42 @@ Total.
 - Holdings: ForgetHolder drops the entry
 - Holdings: Search filters by text, quality, type and subtype, drops zero totals, sorts by name
 - Holdings: with NS.SimStores.holdings set, Store and every write act on the session table
+- Holdings: ActiveStore answers NS.State.testHoldings while test mode is on
+- Holdings: SavedStore answers db.global.holdings under test mode and under a sim store
+- Holdings: SavedStore answers an empty table before InitDB
+
+### test_holdings_tally.lua (30)
+
+- HoldingsTally: three characters and the warband, per holder, per container, warband last
+- HoldingsTally: equal counts sort by holder; a zero holder is dropped, me included
+- HoldingsTally: a base itemID in the store matches the tooltip's id
+- HoldingsTally: a non-number id answers nothing
+- HoldingsTally: my bags come from LiveItemCounts, even with nothing stored
+- HoldingsTally: my bank reads live at the banker
+- HoldingsTally: zero-suspect -- live 0 with stored 5 away from the bank reads 5
+- HoldingsTally: live 7 with stored 5 away from the bank reads 7
+- HoldingsTally: a nil live part falls back to the store
+- HoldingsTally: equipped, mail and auctions always come from the store
+- HoldingsTally: another holder's counts are never overlaid
+- HoldingsTally: the warband tabs are overlaid live on Retail
+- HoldingsTally: on WoW Forever the warband is never overlaid and never lifted (skipped: WoW Forever-only case (clients-§6): Retail runs the warband overlay case)
+- HoldingsTally: _resolve is the zero-suspect rule
+- HoldingsTally: a character currency goes live on me
+- HoldingsTally: an account-wide currency goes live on the warband
+- HoldingsTally: a currency with no live answer keeps the stored count
+- HoldingsTally: a stored container three days old is stale, and reads 3 d
+- HoldingsTally: a live-overlaid container is never stale
+- HoldingsTally: a never-scanned container is not reported
+- HoldingsTally: with two stale containers the oldest wins
+- HoldingsTally: just under a day is not stale
+- HoldingsTally: a stored currency a day old is stale; the live holder never is
+- HoldingsTally: a second call reuses the same entry; output rows are pooled
+- HoldingsTally: the entry copies the store's counts, never aliasing them
+- HoldingsTally: HOLDINGS_CHANGED wipes the cache
+- HoldingsTally: SETTINGS_CHANGED wipes the cache for ledger and profile only
+- HoldingsTally: the cap of C.TIP_CACHE_MAX wipes both maps before the next insert
+- HoldingsTally: Disable wipes the cache and drops the target; Enable brings it back
+- HoldingsTally: test mode and a sim store never reach the tally
 
 ### test_rollup.lua (25)
 
@@ -2538,7 +2574,8 @@ Total.
 | test_compat_tooltip.lua | 20 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
-| test_holdings.lua | 10 |
+| test_holdings.lua | 13 |
+| test_holdings_tally.lua | 29 |
 | test_rollup.lua | 25 |
 | test_attribution.lua | 50 |
 | test_attribution_out.lua | 14 |
@@ -2625,5 +2662,5 @@ Total.
 | test_diagnostics_contract.lua | 8 |
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
-| Skipped | 1 |
-| **Total** | **2208** |
+| Skipped | 2 |
+| **Total** | **2240** |

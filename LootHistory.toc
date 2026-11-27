@@ -165,6 +165,9 @@ modules\AnalyticsCharts.lua
 modules\AnalyticsLedger.lua
 # LOAD-BEARING POSITION: calls NS.Browser:RegisterTab at file load; modules\Browser.lua must be above.
 modules\HoldingsTab.lua
+# CONVENTIONAL: the holdings tally (#34). Reads NS.Holdings, NS.Compat and NS.Constants at call
+# time only; kept beside the Holdings tab because both read the same store.
+modules\HoldingsTally.lua
 modules\TimelineModel.lua
 # LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.

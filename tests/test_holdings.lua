@@ -164,3 +164,44 @@ test("Holdings: with NS.SimStores.holdings set, Store and every write act on the
   assertTrue(H():Store() == live, "with the session cleared Store answers live again")
   assertEqual(dump(NS.db.global.holdings), before, "the saved holdings are byte-identical")
 end)
+
+-- Characterization (#34, spec section 11): ActiveStore answers test mode's sample while it is on.
+test("Holdings: ActiveStore answers NS.State.testHoldings while test mode is on", function()
+  fresh()
+  local sample = {}
+  local prev = NS.State.testHoldings
+  NS.State.testHoldings = sample
+  local ok, err = pcall(function()
+    assertTrue(H():ActiveStore() == sample, "ActiveStore answers the test-mode sample")
+  end)
+  NS.State.testHoldings = prev
+  if not ok then error(err, 0) end
+end)
+
+-- The tooltip and the public API read SavedStore (#34, spec section 5.1): db.global.holdings in
+-- every state, never test mode's sample and never the simulator's session table.
+test("Holdings: SavedStore answers db.global.holdings under test mode and under a sim store", function()
+  fresh()
+  local saved = NS.db.global.holdings
+  assertTrue(H():SavedStore() == saved, "SavedStore answers the saved store")
+  local prev = NS.State.testHoldings
+  NS.State.testHoldings, NS.SimStores.holdings = {}, {}
+  local ok, err = pcall(function()
+    assertTrue(H():SavedStore() == saved, "SavedStore ignores test mode and the sim store")
+  end)
+  NS.State.testHoldings, NS.SimStores.holdings = prev, nil
+  if not ok then error(err, 0) end
+  NS.db.global.holdings = nil
+  local made = H():SavedStore()
+  assertTrue(made == NS.db.global.holdings and type(made) == "table", "SavedStore creates the store")
+end)
+
+test("Holdings: SavedStore answers an empty table before InitDB", function()
+  local db = NS.db
+  NS.db = nil
+  local ok, got = pcall(function() return H():SavedStore() end)
+  NS.db = db
+  assertTrue(ok, tostring(got))
+  assertEqual(type(got), "table")
+  assertEqual(next(got), nil)
+end)
