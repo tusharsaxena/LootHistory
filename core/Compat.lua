@@ -598,6 +598,15 @@ end
 -- Item level of a piece of gear (a weapon or armor with an equip slot) for an item id or link; nil
 -- for anything else, as GetItemExtras answers, but without its tooltip scan for bind state. The
 -- holdings tab's iLvl column reads it once per held item per refresh.
+--- Whether an item id or link is ammunition (the Projectile class: arrows and bullets) or a thrown
+--- weapon (the Weapon class's Thrown subclass), read from GetItemInfoInstant (Enum.ItemClass
+--- Projectile 6; Weapon 2, Thrown 16). False when the client cannot say.
+function Compat.IsAmmo(idOrLink)
+  if not (idOrLink and C_Item and C_Item.GetItemInfoInstant) then return false end
+  local _, _, _, _, _, classID, subclassID = C_Item.GetItemInfoInstant(idOrLink)
+  return classID == 6 or (classID == ITEMCLASS_WEAPON and subclassID == 16)
+end
+
 function Compat.GearItemLevel(idOrLink)
   if not (idOrLink and C_Item and C_Item.GetItemInfoInstant) then return nil end
   local _, _, _, equipLoc, _, classID = C_Item.GetItemInfoInstant(idOrLink)

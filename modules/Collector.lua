@@ -17,6 +17,7 @@ local Perf = NS.Perf -- load-time upvalue (performance-§2); core/PerfSetup.lua 
 -- registrations out (Collector:Disable, below), so there is nothing left to gate -- and a flag kept
 -- beside a real unregister is a second answer to "is this addon running" that can disagree with it.
 local qualityThreshold, excludedSources, excludeQuestItems = 1, {}, false
+local excludeAmmo = false
 local recordCurrency = true
 local recordGold, trackLedger = true, true
 local currencyBlacklist = {}
@@ -29,6 +30,7 @@ local blacklist, whitelist = {}, {}
 local gateCfg = {
   qualityThreshold = qualityThreshold, excludedSources = excludedSources,
   excludeQuestItems = excludeQuestItems, blacklist = blacklist, whitelist = whitelist,
+  excludeAmmo = excludeAmmo,
 }
 
 -- ── Pure seams (unit-tested) ──────────────────────────────────────────────────
@@ -39,6 +41,8 @@ local function gateReason(quality, source, classID, cfg)
   if (quality or 0) < cfg.qualityThreshold then return "quality" end
   if cfg.excludedSources and cfg.excludedSources[source] then return "source" end
   if cfg.excludeQuestItems and classID == NS.Constants.ITEMCLASS_QUEST then return "quest" end
+  -- `ammo` is set per line beside itemID (Compat.IsAmmo): arrows, bullets, thrown weapons
+  if cfg.excludeAmmo and cfg.ammo then return "ammo" end
   return nil
 end
 
@@ -94,6 +98,7 @@ function Collector:RefreshUpvalues()
   qualityThreshold = s.qualityThreshold
   excludedSources = s.excludedSources or {}
   excludeQuestItems = s.excludeQuestItems
+  excludeAmmo = s.excludeAmmo == true
   recordCurrency = s.recordCurrency
   recordGold = s.recordGold ~= false
   trackLedger = s.trackLedger ~= false
@@ -101,7 +106,7 @@ function Collector:RefreshUpvalues()
   blacklist = p.blacklist or {}
   whitelist = p.whitelist or {}
   gateCfg.qualityThreshold, gateCfg.excludedSources = qualityThreshold, excludedSources
-  gateCfg.excludeQuestItems = excludeQuestItems
+  gateCfg.excludeQuestItems, gateCfg.excludeAmmo = excludeQuestItems, excludeAmmo
   gateCfg.blacklist, gateCfg.whitelist = blacklist, whitelist
 end
 
@@ -169,6 +174,7 @@ local function lootLine(self, msg)
   local source, sourceDetail, confidence = resolveLootSource(directSource)
 
   gateCfg.itemID = itemID
+  gateCfg.ammo = excludeAmmo and NS.Compat.IsAmmo(link) or nil
   local ok, reason = self:ShouldRecord(quality, source, classID, gateCfg)
   if not ok then
     traceLootDrop(itemName, quality, classID, source, reason)

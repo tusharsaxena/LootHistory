@@ -382,6 +382,7 @@ settings.appearance.texture | string | "" | nil | nil | nil
 settings.auction.capture | table | {auctionator:minbuyout=true,oribos:market=true,oribos:region=true,tsm:dbmarket=true,tsm:dbminbuyout=true,tsm:dbregionmarketavg=true,tsm:dbregionminbuyoutavg=true} | nil | nil | nil
 settings.auction.enabled | bool | true | nil | nil | nil
 settings.enabled | bool | true | nil | nil | nil
+settings.excludeAmmo | bool | <AMMO> | nil | nil | nil
 settings.excludeQuestItems | bool | true | nil | nil | nil
 settings.excludedSources | table | {} | nil | nil | nil
 settings.locked | bool | false | nil | nil | nil
@@ -413,6 +414,8 @@ test("Schema: the stored settings (path, type, default, range) are the pinned se
   local got = table.concat(lines, "\n") .. "\n"
   -- The skin's default is the client's (skinning-§2): Ka0s Default on Retail, WoW Forever on Forever.
   local want = STORED_SETTINGS:gsub("<DEFAULT_SKIN>", T.forever and "forever" or "ka0s")
+  -- Ignore ammunition and thrown weapons: on by default on WoW Forever alone (2026-11-27)
+  want = want:gsub("<AMMO>", T.forever and "true" or "false")
   assertEqual(got, want, "a stored setting's path, type, default or range moved")
 end)
 

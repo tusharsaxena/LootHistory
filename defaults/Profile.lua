@@ -37,6 +37,10 @@ NS.defaults.profile = {
     locked           = false,  -- stop the History window and the export modal being dragged
     qualityThreshold = 1,      -- Common (white) and above
     excludeQuestItems = true,  -- on by default (opt-out): drop Quest-class items at capture
+    -- Ammunition and thrown weapons (arrows, bullets, throwing knives): not recorded, captured or in
+    -- the ledger. On by default on WoW Forever, where every shot spends one and the rows flood the
+    -- history (the owner, 2026-11-27: "too spammy otherwise"); Retail has neither.
+    excludeAmmo      = NS.Compat.ClientKey() == "forever",
     recordCurrency   = true,   -- record looted currency (Type=Currency rows); source-muted like items
     trackLedger      = true,   -- holdings + (Phase 2) gains/losses/transfers/gold; off = legacy gains-only
     recordGold       = true,   -- gold gains/losses as ledger rows (holdings track gold regardless)

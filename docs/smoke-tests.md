@@ -3080,9 +3080,11 @@ On 2026-11-25 the owner reported that SEEDS-LH-4 passed; its `Result:` line reco
 `PASS (owner, 2026-11-25)`.
 
 Added on 2026-11-27 (owner feedback), awaiting the owner, each new and on both clients: CAP-39 and
-LEDGER-SWAP-1.
+LEDGER-SWAP-1. On 2026-11-27 the owner reported LEDGER-SWAP-1 passed and CAP-39 failed on WoW Forever
+(catches still read Other after a reload: the catch's loot window has no source and IsFishingLoot does
+not answer there); CAP-39 is amended for the Fishing-cast fix and awaits the owner again, with CAP-40 new.
 
-**CAP-39. A fishing catch reads Fishing.** Client: both. Fish anywhere (Dustwallow Marsh's Oily
+**CAP-39. A fishing catch reads Fishing (amended 2026-11-27: Fishing is now known from your cast).** Client: both. Fish anywhere (Dustwallow Marsh's Oily
 Blackmouth will do), with auto loot on and then off. Open the Browser → each catch's Source reads
 **Fishing**, marked Certain, never Other or Container. Loot a creature next: it still reads Kill. The
 Source filter and the capture mute list offer Fishing. Result:
@@ -3090,4 +3092,10 @@ Source filter and the capture mute list offer Fishing. Result:
 **LEDGER-SWAP-1. Equipping is not a transfer.** Client: both. Swap a weapon for a fishing pole, then
 back, and put a bag into a bag slot and take it out. Browser → Timeline/ledger view with Transfers
 shown: no Transfer rows for any of it, and no Loss or Gain either; the weapon and the pole are still
-counted as yours. Move an item bags → bank: that still writes its Transfer row. Result:
+counted as yours. Move an item bags → bank: that still writes its Transfer row. Result: PASS (owner, 2026-11-27)
+
+**CAP-40. Ammunition and thrown weapons are ignored on WoW Forever.** Client: WoW Forever. Settings ›
+General › Capture › Loot shows **Ignore ammunition and thrown weapons**, ticked. Shoot a target dummy
+for a while, buy a stack of arrows or bullets from a vendor, and loot ammo if you find any → History
+gets no row for any of it (no Loss as shots are spent, no Gain or Buy). Untick it and fire again → the
+Loss rows come back. On Retail the box is there, unticked. Result:

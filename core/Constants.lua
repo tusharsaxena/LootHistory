@@ -231,6 +231,9 @@ C.CONTEXT_TTL = 1.5
 -- of 2026-11-23 read two). It covers one line per slot while it is open, for LOOT_LINE_GRACE seconds
 -- after it closes (autoloot closes first), and never longer than LOOT_WINDOW_MAX.
 C.LOOT_LINE_GRACE = 5
+-- Seconds a Fishing cast keeps the next loot window a catch (modules/Attribution.lua's noteFishing): the
+-- channel's 21 s and the click on the bobber, with room.
+C.FISHING_TTL = 30
 C.LOOT_WINDOW_MAX = 120
 -- A container opened from the bags delivers in waves with no window (a clam's meat after its pearl).
 C.CONTAINER_TTL = 4

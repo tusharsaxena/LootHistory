@@ -105,6 +105,38 @@ case("Reconciler: equipping and unequipping writes no row, and no gain or loss (
   assertEqual(NS.Holdings:Get(ME).items[7].bags, 1)
 end)
 
+case("Reconciler: ammunition writes no row while Ignore ammunition is on (2026-11-27)", function()
+  reset()
+  local CI = m.C_Item
+  local saved = CI.GetItemInfoInstant
+  CI.GetItemInfoInstant = function(id)
+    if id == 3033 then return 3033, "Projectile", "Bullet", "INVTYPE_AMMO", nil, 6, 3 end
+    return saved(id)
+  end
+  setBag(0, { [1] = { itemID = 3033, link = "L3033", count = 200 } })
+  genesis()
+  NS.db.profile.settings.excludeAmmo = true
+  setBag(0, { [1] = { itemID = 3033, link = "L3033", count = 198 } })
+  R():MarkDirty("bags"); R():Flush()
+  -- red under (the owner: "add bullets, arrows and thrown to blacklist by default - too spammy")
+  assertEqual(#H(), 0, "two bullets fired: no Loss row")
+  NS.db.profile.settings.excludeAmmo = false
+  setBag(0, { [1] = { itemID = 3033, link = "L3033", count = 190 } })
+  R():MarkDirty("bags"); R():Flush()
+  assertEqual(#H(), 1, "off: the row is written")
+  CI.GetItemInfoInstant = saved
+end)
+
+case("Collector: the capture gate drops ammunition while Ignore ammunition is on (2026-11-27)", function()
+  local C = NS.Collector
+  local cfg = { qualityThreshold = 0, excludedSources = {}, excludeAmmo = true, ammo = true }
+  local ok, reason = C:ShouldRecord(1, "KILL", 6, cfg)
+  assertEqual(ok, false); assertEqual(reason, "ammo")
+  cfg.excludeAmmo = false
+  assertEqual((C:ShouldRecord(1, "KILL", 6, cfg)), true, "off: recorded")
+  assertEqual(NS.defaults.profile.settings.excludeAmmo, T.forever == true, "on by default on WoW Forever alone")
+end)
+
 case("Reconciler: a one-sided change at an open bank is held, then paired", function()
   reset()
   setBag(0, { [1] = { itemID = 7, link = "L7", count = 2 } })

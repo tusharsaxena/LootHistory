@@ -27,7 +27,7 @@ Each item is filed under one of these sources:
 | Craft | Items you created by crafting |
 | Refund | Items returned to you by a refund |
 | Disenchant / Milling / Prospecting | Items produced by those actions (Milling and Prospecting on Retail only) |
-| Fishing | What you catch fishing (the game marks the catch as fishing loot) |
+| Fishing | What you catch fishing: the loot window right after you cast Fishing |
 | Other | Anything that arrived with no clear source |
 
 Most items are filed straight from what the game reported, and those are marked **Certain**. Sometimes nothing says where an item came from. The addon still records it, under **Other** and marked **Inferred**, rather than dropping it on the floor. Every row shows which of the two it is, so you always know what you're reading.
@@ -61,7 +61,7 @@ Reading back your loot happens in the History window, in this order:
 
 Want to see how a session would record without playing one? `/lh sim start loot` opens the window and runs a simulation: an invented world (a kill, a lockbox, a quest; or `key`, `vendor`, `ah`, `bank`, `social`) drives the real recording, step by step, from a small panel beside the window, and the window says SIM while it runs. Once started it plays on its own, a second between steps; Pause holds it, and clicking a row plays it by hand. **Interface > Simulation step delay (seconds)** in the settings changes the pace. Nothing it records is saved, and `/lh sim stop` ends it. The **Sim mode** box on Master controls and **Sim mode** in the minimap button's menu do the same as typing the command. It stays ticked while the panel is open or a simulation runs: ticking it opens the panel, where you pick what to simulate, and unticking it ends the run and closes the panel. A simulation only starts when you're solo, out of combat and outside any instance, and anything real that happens (a loot, a trade, a window) stops it and is recorded as usual.
 
-What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, and whether quest items and currency are kept. `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
+What gets recorded is up to you. The Capture tab sets a **Minimum quality**, which sources count under **Record data from**, whether quest items and currency are kept, and whether arrows, bullets and thrown weapons are ignored (**Ignore ammunition and thrown weapons**, on by default on WoW Forever, where every shot spends one). `/lh disable` stops the addon watching for loot and closes the window, and `/lh enable` switches it back on.
 
 How it looks is up to you too. The addon's windows wear a skin, and the **Skin** tab in the settings has nine to pick from. The Font and Texture dropdowns there draw each choice in its own face or bar so you can see it before you take it, and **Font outline** sets whether all text gets an outline, only the HUD text, or none. `/lh skin` brings back the **Choose a skin** window with those same options. Hover or select a skin there to preview it on the addon's windows, and press **Apply** to keep it. Opened while the History window is closed, it turns test mode on so you see your pick on sample rows there; its eye button turns test mode off and on, and closing it puts things back as they were.
 
