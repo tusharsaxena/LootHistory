@@ -485,3 +485,29 @@ test("Stats (characterization): ledger and legacy totals over every per-row bran
   assertEqual(s.totals.totalValue, 10); assertEqual(s.totals.totalQuantity, 9)
   assertEqual(s.bySource.KILL, 1); assertEqual(s.bySource.WARBAND_DEPOSIT, nil)
 end)
+
+test("Stats (characterization): stamped ITEM and CURRENCY gains fill the legacy breakdowns", function()
+  -- Pinned before M2's kinds land (rep/appearance spec §8): the legacy gate that will keep
+  -- reputation and appearance rows out must leave stamped item and currency gains exactly here.
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "ITEM", dir = "IN", itemID = 10, itemName = "Sword",
+      quality = 4, itemType = "Weapon", quantity = 2, vendorPrice = 5, source = "KILL", zone = "Valley" },
+    { ts = T1, char = "A-Realm", holder = "A-Realm", kind = "CURRENCY", dir = "IN", currencyID = 3008,
+      itemName = "Valorstones", itemType = "Currency", quality = 4, quantity = 7, source = "QUEST", zone = "Valley" },
+    { ts = T2, char = "B-Realm", holder = "B-Realm", kind = "ITEM", dir = "OUT", itemID = 20, itemName = "Cloak",
+      quality = 2, itemType = "Armor", quantity = 1, source = "SELL", zone = "Cavern" },
+  }
+  local s = NS.Database:Stats({})
+  g.history = saved
+  assertEqual(s.totals.records, 2, "the two gains are loot; the OUT is not")
+  assertEqual(s.totals.totalQuantity, 9)
+  assertEqual(s.totals.totalValue, 10)
+  assertEqual(s.bySource.KILL, 1); assertEqual(s.bySource.SELL, nil)
+  assertEqual(s.bySource.QUEST, nil, "a currency gain keeps to its own section, not the loot sources")
+  assertEqual(s.byType.Weapon, 1); assertEqual(s.byType.Armor, nil)
+  assertEqual(s.byZone.Valley, 2); assertEqual(s.byZone.Cavern, nil)
+  assertEqual(s.ledger.kindIn.ITEM, 1); assertEqual(s.ledger.kindIn.CURRENCY, 1)
+  assertEqual(s.ledger.kindOut.ITEM, 1)
+end)

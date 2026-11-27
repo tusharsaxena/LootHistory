@@ -171,7 +171,7 @@ end)
 
 -- The word each Retail-only feature's absence check must name in the WoW Forever theme. A feature
 -- declared in core/Constants.lua with no word here fails the case below until its smoke check exists.
-local FEATURE_WORD = { warbandBank = "Warband", mythicPlus = "keystone" }
+local FEATURE_WORD = { warbandBank = "Warband", mythicPlus = "keystone", appearances = "appearance" }
 
 test("Client shape: docs/smoke-tests.md names each check's client and carries the WoW Forever theme", function()
   -- clients-§6: every check names the client it runs on; a feature absent on a client gets a check

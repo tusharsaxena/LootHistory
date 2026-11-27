@@ -285,6 +285,47 @@ test("Ledger: RowThingKey covers items, currencies, gold and legacy rows", funct
   assertEqual(LG.RowThingKey({ kind = "ITEM" }), nil)                       -- no id, no thing
 end)
 
+test("Ledger (characterization): RowThingKey answers today's stamped kinds unchanged", function()
+  -- Pinned before M2's kinds land (rep/appearance spec §8): the fix that gives a non-ledger kind no
+  -- thing key must leave the three ledger kinds exactly as they were.
+  local LG = NS.Ledger
+  assertEqual(LG.RowThingKey({ kind = "ITEM", dir = "IN", itemID = 123 }), "i:123")
+  assertEqual(LG.RowThingKey({ kind = "CURRENCY", dir = "OUT", currencyID = 5 }), "c:5")
+  assertEqual(LG.RowThingKey({ kind = "CURRENCY", currencyID = 5, itemID = 9 }), "c:5", "currency reads its currencyID")
+  assertEqual(LG.RowThingKey({ kind = "GOLD", dir = "IN", quantity = 1 }), "g")
+end)
+
+test("Ledger: RowThingKey is nil for a kind the ledger does not tally (reputation, appearance)", function()
+  -- red before the fix: ThingKey concatenated a nil prefix for an APPEARANCE row with an itemID
+  local LG, K = NS.Ledger, NS.Constants.Kind
+  assertEqual(LG.RowThingKey({ kind = K.REPUTATION, factionID = 72, quantity = 250 }), nil)
+  assertEqual(LG.RowThingKey({ kind = K.APPEARANCE, itemID = 2589, sourceID = 1 }), nil)
+  assertEqual(LG.RowThingKey({ kind = "SOMETHING_NEW", itemID = 7 }), nil, "an unknown kind is no thing")
+  assertEqual(NS.Util.RowKind({ kind = K.APPEARANCE, itemID = 2589 }), K.APPEARANCE, "RowKind answers the stamp")
+  assertEqual(NS.Util.RowKind({ kind = K.REPUTATION }), K.REPUTATION)
+end)
+
+test("Ledger: Database:Add of an APPEARANCE row with an itemID does not raise and announces it", function()
+  local g = NS.db.global
+  local saved = g.history
+  g.history = {}
+  local seen, orig = 0, NS.bus.SendMessage
+  NS.bus.SendMessage = function(_, msg, r)
+    if msg == NS.MSG.RECORD_ADDED and r.kind == "APPEARANCE" then seen = seen + 1 end
+  end
+  local ok, err = pcall(function()
+    NS.Database:Add({ ts = 1000, char = "Mock-Realm", holder = "Mock-Realm", dir = "IN",
+      kind = NS.Constants.Kind.APPEARANCE, sourceID = 77, itemID = 2589, itemName = "Linen Cloth",
+      itemType = NS.Constants.APPEARANCE_TYPE, quantity = 1, source = "OTHER", confidence = "INFERRED" })
+  end)
+  NS.bus.SendMessage = orig
+  local n = #g.history
+  g.history = saved
+  assertTrue(ok, tostring(err))
+  assertEqual(n, 1, "the row is written")
+  assertEqual(seen, 1, "RECORD_ADDED fires for it")
+end)
+
 test("Ledger: RollupClose overwrites the day's close; RollupFlow accumulates by direction", function()
   local d, LG = {}, NS.Ledger
   LG.RollupClose(d, "2026-10-06", "A-R", "g", 100)

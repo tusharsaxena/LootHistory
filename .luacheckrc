@@ -35,6 +35,8 @@ read_globals = {
   "GetZoneText", "GetSubZoneText", "GetMinimapZoneText",
   "C_Map", "C_Item", "C_Timer", "C_ChallengeMode", "C_AuctionHouse", "C_TooltipInfo", "C_Texture",
   "C_CurrencyInfo",
+  -- core/Compat.lua's reputation and appearance reads only (rep/appearance spec §3.2; tests/test_compat_routing.lua)
+  "C_Reputation", "C_MajorFactions", "C_GossipInfo", "C_TransmogCollection", "GetText", "UnitSex", "RENOWN_LEVEL_LABEL", "PARAGON",
   "GetMoney", "GetCursorMoney", "GetPlayerTradeMoney", "C_Bank", "Enum", "GetInventoryItemID", "GetInventoryItemLink",
   "INVSLOT_FIRST_EQUIPPED", "INVSLOT_LAST_EQUIPPED",
   "C_Container", "UseContainerItem", "C_Spell", "GetSpellInfo",

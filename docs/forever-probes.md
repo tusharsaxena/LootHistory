@@ -35,7 +35,8 @@ answers) and find `["probe"]` under `["global"]`. Each entry has a `kind` and a 
 **A session that answers the sheet.** On WoW Forever: `/lh debug probe start`; visit a banker
 twice and close the bank between visits; loot a mob solo and in a dungeon; win a group roll; open
 a trade with another player; send a mail to an alt; transfer a currency to an alt if any is
-transferable; zone into a dungeon; `/lh debug probe stop`; log out. Then do the P1, P2 and P9
+transferable; zone into a dungeon; gain some reputation (a quest turn-in, a few kills); `/reload`
+and start the probe again at once (P13); `/lh debug probe stop`; log out. Then do the P1, P2, P9 and P13
 parts again on Retail.
 
 | `kind` | When | What it holds | Probes |
@@ -43,13 +44,14 @@ parts again on Retail.
 | `start` | At start | `money` (which money-text functions exist and what each answers for 123456 copper, plus the addon's own text), `strings` (`LOOT_ROLL_YOU_WON`, `LOOT_ITEM_BONUS_ROLL_SELF`, the name of spell 13262), `identity` (`UnitName("player")`'s two answers, regional names, the character key, realm key and holder key), `instance`, `keyring`, `currencies` (the visible list rows with their account flags), `transfer` (the newest currency transfer) | P3, P5, P8, P9, P11 |
 | `interaction` | Every `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` | The interaction type, and the banker name when it is `Banker`, `CharacterBanker` or `AccountBanker` | P1 |
 | `bank` | At a banker's open, then +1 s and +3 s | `phase`, `via` (what opened the visit), `slots` (every container id -3..30 that answers a slot count, and every bank id even at 0), `model` (`CanViewBank(0)` and `(2)`, `FetchNumPurchasedBankTabs(0)` and `(2)`, `FetchMaxNumBankTabs(0)`, `ShouldUsePlayerBagsInBank()`, `FetchDepositedMoney(2)`, the addon's `CanViewCharacterBank`); at open also `sockets` (the -2 reads through an `ItemLocation` and through `GetContainerItemInfo`, slots 1..9) | P1, P2, P10 |
-| `cue` | A bank event within 10 s of the open: `BANKFRAME_OPENED`, `BANKFRAME_CLOSED`, `BAG_CONTAINER_UPDATE`, `BANK_TABS_CHANGED`, `PLAYERBANKSLOTS_CHANGED`, `BAG_UPDATE_DELAYED`, the interaction hide | The event, its arguments and `dt`, the seconds after the open | P1 |
+| `cue` | A bank event within 10 s of the open: `BANKFRAME_OPENED`, `BANKFRAME_CLOSED`, `BAG_CONTAINER_UPDATE`, `BANK_TABS_CHANGED`, `PLAYERBANKSLOTS_CHANGED`, `BAG_UPDATE_DELAYED`, the interaction hide (`PLAYER_INTERACTION_MANAGER_FRAME_HIDE`) | The event, its arguments and `dt`, the seconds after the open | P1 |
 | `chat` | Every `CHAT_MSG_LOOT`, `CHAT_MSG_MONEY`, `CHAT_MSG_CURRENCY` | The raw `text`, `sender` (arg 2), `sender2` (arg 5), `guid` (arg 12) | P4, P8 |
 | `loot` | Every `LOOT_OPENED` | Each slot's link and first source GUID (what the addon reads) | P4 |
 | `transfer` | Every `CURRENCY_TRANSFER_LOG_UPDATE` | The newest transfer, field by field as the client names it | P5 |
 | `trade` | Every `TRADE_SHOW` | `UnitName("NPC")`'s two answers, `GetUnitName("NPC", true)`, the key the addon builds | P7 |
 | `mail` | Every sent mail | The recipient as typed, and as `Util.QualifyName` keys it | P7 |
 | `instance` | Every `PLAYER_ENTERING_WORLD` | `GetInstanceInfo()`'s answers | P11 |
+| `progress` | Every `FACTION_STANDING_CHANGED`, `UPDATE_FACTION`, `CHAT_MSG_COMBAT_FACTION_CHANGE`, `TRANSMOG_COLLECTION_SOURCE_ADDED`, `TRANSMOG_COLLECTION_SOURCE_REMOVED` | The event and its arguments (`args`, with `n` the count); a login or reload burst is a run of these straight after an `instance` entry | P13 |
 | `error` | A probe handler that raised | The event and the message (the raise never leaves the probe) | n/a |
 | `stop` | At stop | Nothing; it marks the end of a session | n/a |
 
@@ -148,6 +150,20 @@ as today, with no label change. Result:
 
 **P12. The addon loads clean.** After the branch is on the Forever install: `/lh diagnostics`,
 and `/lh debug events` reads `none`. Owner smoke; nothing to record. Result:
+
+**P13. The reputation and appearance events (rep/appearance spec §3.6).** Both clients. Recorded:
+`progress`, and `rejected` for an event the client refused. On WoW Forever, gain reputation (a quest
+turn-in, a few kills) and read whether `FACTION_STANDING_CHANGED` arrives with the faction id as its
+first argument, beside `UPDATE_FACTION` and the `CHAT_MSG_COMBAT_FACTION_CHANGE` line. On Retail,
+collect an appearance and refund one, then `/reload` with the probe started again straight away, and
+read whether `TRANSMOG_COLLECTION_SOURCE_ADDED` bursts at login or reload. Fallback:
+`/run local f=CreateFrame("Frame") f:RegisterEvent("FACTION_STANDING_CHANGED") f:SetScript("OnEvent",function(_,e,a,b) print(e,a,b) end)`.
+Safe default: the REPUTATION row registers `FACTION_STANDING_CHANGED` on both clients, and the
+APPEARANCE rows `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` on Retail alone (`C.FEATURE.appearances`),
+with no login gating. A Forever `rejected` naming `FACTION_STANDING_CHANGED`, or a login burst of
+appearance events, is a finding: the follow-ups are designed in the spec (a Forever-only
+`UPDATE_FACTION` row through the same delta; gating the appearance rows on `NS.State.loginSettled`).
+Result:
 
 ## The smaller questions the port left open
 

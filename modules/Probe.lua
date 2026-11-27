@@ -9,7 +9,7 @@ local P = NS.Probe
 -- file records the client facts the port's safe defaults rest on into ONE capped table under
 -- `db.global.probe` (never a new SavedVariables global), stamped with the client key and build. The
 -- owner plays, logs out, and the lead reads `WTF/Account/<acct>/SavedVariables/LootHistory.lua`.
--- docs/forever-probes.md maps each recorded kind to the probe it answers (P1-P11) and keeps the
+-- docs/forever-probes.md maps each recorded kind to the probe it answers (P1-P13) and keeps the
 -- `/run` lines as the fallback sheet.
 --
 -- WHAT IT RECORDS. A `start` entry: the money-text globals and what each answers for 123456 copper
@@ -20,8 +20,8 @@ local P = NS.Probe
 -- and every container's slot count at open, +1 s and +3 s (P1), the -2 socket reads (P10) and each
 -- bank cue event with its delay after the open; each raw loot, money and currency chat line with its
 -- sender fields (P4, P8); each loot window's slot links and first source GUID (P4); each currency
--- transfer (P5); the trade partner's and the mail recipient's name forms (P7); and the instance on
--- every zone-in (P11).
+-- transfer (P5); the trade partner's and the mail recipient's name forms (P7); the instance on
+-- every zone-in (P11); and each reputation and appearance event with its arguments (P13).
 --
 -- WHAT IT IS NOT. Session-only: a reload or relog stops it (the record stays; start it again), like
 -- the debug flag. It is not a capture path: it registers on a private frame, never through
@@ -54,6 +54,10 @@ P.EVENTS = {
   "BAG_CONTAINER_UPDATE", "BANK_TABS_CHANGED", "PLAYERBANKSLOTS_CHANGED", "BAG_UPDATE_DELAYED",
   "CHAT_MSG_LOOT", "CHAT_MSG_MONEY", "CHAT_MSG_CURRENCY",
   "LOOT_OPENED", "CURRENCY_TRANSFER_LOG_UPDATE", "TRADE_SHOW", "PLAYER_ENTERING_WORLD",
+  -- P13 (rep/appearance spec §3.6): whether WoW Forever sends the reputation event the REPUTATION
+  -- row registers, and whether either client bursts the appearance events at login or reload.
+  "FACTION_STANDING_CHANGED", "UPDATE_FACTION", "CHAT_MSG_COMBAT_FACTION_CHANGE",
+  "TRANSMOG_COLLECTION_SOURCE_ADDED", "TRANSMOG_COLLECTION_SOURCE_REMOVED",
 }
 
 local Compat = NS.Compat
@@ -343,6 +347,12 @@ local function tradeShown()
   })
 end
 
+-- A reputation or appearance event (P13): the event and its arguments. A login or reload burst
+-- shows as a run of these straight after the `instance` entry, with the same `t`.
+local function progressEvent(event, ...)
+  P.Record("progress", { event = event, args = plainAll(...) })
+end
+
 local HANDLERS = {
   PLAYER_INTERACTION_MANAGER_FRAME_SHOW = function(event, kind)
     local banker = isBanker(kind)
@@ -361,6 +371,9 @@ local HANDLERS = {
   CURRENCY_TRANSFER_LOG_UPDATE = function() P.Record("transfer", { transfer = transferFacts() }) end,
   TRADE_SHOW = tradeShown,
   PLAYER_ENTERING_WORLD = function() P.Record("instance", { instance = instanceFacts() }) end,
+  FACTION_STANDING_CHANGED = progressEvent, UPDATE_FACTION = progressEvent,
+  CHAT_MSG_COMBAT_FACTION_CHANGE = progressEvent,
+  TRANSMOG_COLLECTION_SOURCE_ADDED = progressEvent, TRANSMOG_COLLECTION_SOURCE_REMOVED = progressEvent,
 }
 P._handlers = HANDLERS
 

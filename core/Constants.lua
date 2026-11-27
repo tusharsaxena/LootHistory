@@ -17,9 +17,16 @@ local C = NS.Constants
 -- settings/Schema.lua) and the simulator's warband steps (modules/SimScenario.lua). The
 -- account holder itself (`§warband`) serves both clients: WoW Forever has account-wide currencies,
 -- and the holder reads "Account" there (C.ACCOUNT below).
+-- `appearances` is transmog collection as History rows (rep/appearance spec, D7): the two
+-- TRANSMOG_COLLECTION_SOURCE_ADDED / _REMOVED event rows (modules/Appearance.lua), the Record
+-- appearances switch row (settings/Schema.lua), test mode's appearance rows
+-- (modules/BrowserTableTestData.lua) and the simulator's appearance step (modules/SimDrivers.lua,
+-- modules/SimScenario.lua). WoW Forever exposes C_TransmogCollection, so the API's presence is not
+-- the gate: the declaration is.
 C.FEATURE_CLIENTS = {
   warbandBank = { "retail" },
   mythicPlus = { "retail" },
+  appearances = { "retail" },
 }
 C.FEATURE = {}
 for name, clients in pairs(C.FEATURE_CLIENTS) do C.FEATURE[name] = NS.Compat.ForClient(clients) end
@@ -181,11 +188,20 @@ C.ITEMCLASS_QUEST = 12
 -- The itemType string used for currency records (they reuse the item Type/SubType columns). Real
 -- items never carry this GetItemInfo type, so it doubles as a display label and a Type-filter value.
 C.CURRENCY_TYPE = "Currency"
+-- The same for reputation and appearance rows (rep/appearance spec §2.3): their Type column and
+-- Type-filter value. No GetItemInfo type is spelled either way.
+C.REPUTATION_TYPE = "Reputation"
+C.APPEARANCE_TYPE = "Appearance"
+-- Reputation capture's timings, in seconds: consecutive same-direction changes of one faction from
+-- one source inside REP_COALESCE grow the last row (the Reconciler's coalescing span), and a
+-- baseline seed put off by combat retries after REP_SEED_RETRY.
+C.REP_COALESCE = 60
+C.REP_SEED_RETRY = 5
 
 -- ── Ledger enums (timeline-ledger spec §3/§4.1) ──────────────────────────────────────────────
 -- Stored strings, part of the export contract: never rename a member, only append.
 C.Dir  = { IN = "IN", OUT = "OUT", MOVE = "MOVE" }
-C.Kind = { ITEM = "ITEM", CURRENCY = "CURRENCY", GOLD = "GOLD" }
+C.Kind = { ITEM = "ITEM", CURRENCY = "CURRENCY", GOLD = "GOLD", REPUTATION = "REPUTATION", APPEARANCE = "APPEARANCE" }
 -- Where a holder keeps a thing. Values are the column keys inside db.global.holdings[h].items[id].
 C.Container = {
   BAGS = "bags", EQUIPPED = "equipped", BANK = "bank",

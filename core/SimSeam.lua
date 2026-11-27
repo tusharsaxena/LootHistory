@@ -23,10 +23,13 @@ local _, NS = ...
 --
 --   PURE      never wrapped. The text and parse helpers answer for nobody; the tooltip family only
 --             draws; the hook installers run once at stand-up, never during a simulation.
---   GUARDED   the one member that changes client state. ListCurrencies expands and collapses the
+--   GUARDED   the two members that change client state. ListCurrencies expands and collapses the
 --             player's Currency-tab headers to walk the list, so while a session is active it
 --             answers the simulated world's list (NS.SimHost.world.currencies, modules/SimWorld.lua)
 --             or nothing, and never reaches C_CurrencyInfo.ExpandCurrencyList, inside Live included.
+--             ListFactions does the same with the Reputation panel's headers, so while a session is
+--             active it answers NS.SimHost.world.factionList or nothing, and never reaches
+--             C_Reputation.ExpandFactionHeader (rep/appearance spec §3.2).
 --   WRAPPED   everything else: the item, spell and currency reads (the simulated player is the real
 --             player, so live is right for them), the world reads the simulator provides, and the
 --             three world rules (InInstance, InGroup, PlayerInCombat) its refusal and its automatic
@@ -75,6 +78,10 @@ local GUARDED = {}
 GUARDED.ListCurrencies = function()
   local world = Host.world
   return (world and world.currencies) or {}
+end
+GUARDED.ListFactions = function()
+  local world = Host.world
+  return (world and world.factionList) or {}
 end
 
 --- The guarded keys, sorted: the diagnostics report's `sim` section names them

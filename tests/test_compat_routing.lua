@@ -32,6 +32,10 @@ local BANNED = {
   { pat = "%f[%w_]TooltipDataProcessor%f[^%w_]",  use = "Compat.HookTooltipType(typeName, fn)" },
   { pat = "%f[%w_]C_Item%.GetItemCount%f[^%w_]",  use = "Compat.LiveItemCounts(itemID)" },
   { pat = "%f[%w_]RAID_CLASS_COLORS%f[^%w_]",     use = "Compat.ClassColor(classFile)" },
+  -- The reputation and appearance rows (rep/appearance spec §3.2): the faction and transmog reads.
+  { pat = "%f[%w_]C_Reputation%.",                use = "Compat.FactionSnapshot / ListFactions" },
+  { pat = "%f[%w_]C_MajorFactions%.",             use = "Compat.FactionSnapshot" },
+  { pat = "%f[%w_]C_TransmogCollection%.",        use = "Compat.AppearanceSource / IsNewLook" },
 }
 
 local function shippedFiles(prefix)

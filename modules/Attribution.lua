@@ -211,6 +211,18 @@ function Attribution:Consume()
   return Constants.SourceType.OTHER, nil, Constants.Confidence.INFERRED
 end
 
+-- Read the current context WITHOUT spending it (rep/appearance spec §4): the fresh stamp, else an
+-- open loot window with lines left, else OTHER / nil / INFERRED. Unlike Consume it never counts the
+-- loot window down, never touches State.fishingUntil and never clears anything, so a reputation or
+-- appearance row read beside a loot window does not starve the window's own loot lines, and it
+-- never answers FISHING for a cast. The REPUTATION and APPEARANCE rows read their source here.
+function Attribution:Peek()
+  local now, c, w = GetTime(), State.lootContext, State.lootWindow
+  if c and c.expires >= now then return c.source, c.detail, c.confidence end
+  if w and w.left > 0 and w.expires >= now then return w.source, w.detail, w.confidence end
+  return Constants.SourceType.OTHER, nil, Constants.Confidence.INFERRED
+end
+
 -- ── Pure source resolver ──────────────────────────────────────────────────────
 -- Map a loot-slot GUID + current instance state to a source + source-specific detail.
 -- Testable without events; the LOOT_OPENED handler feeds it live GUIDs. The unit-kind set lives

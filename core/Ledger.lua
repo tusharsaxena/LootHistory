@@ -315,9 +315,13 @@ local DAY_FMT = "%Y-%m-%d"
 -- days chronologically -- PruneDaily and the Timeline's day walk both rely on that.
 function Ledger.DayKey(ts) return date(DAY_FMT, ts) end
 
+-- A row's thing key, or nil when it names no thing the ledger tallies: a row with no id, or a kind
+-- with no key prefix (REPUTATION, APPEARANCE: nothing is held, so the rollup, the Timeline and the
+-- row menu's Show in Timeline all skip it; rep/appearance spec §6.1).
 function Ledger.RowThingKey(r)
   local kind = NS.Util.RowKind(r)
   if kind == "GOLD" then return "g" end
+  if not KIND_PREFIX[kind] then return nil end
   local id = (kind == "CURRENCY") and r.currencyID or r.itemID
   if id == nil then return nil end
   return Ledger.ThingKey(kind, id)

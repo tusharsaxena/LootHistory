@@ -55,7 +55,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | SEEDS-LH-1 to 4 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | Removed on 2026-11-25 (IS-LH-01): SEEDS-LH-1 to 3 are superseded by ITEM-SEARCH; SEEDS-LH-4 checks the History item tooltip is back to what it was before Item sources, with no setting row and nothing loading ForeverDB |
-| FOREVER-1 to 18 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18) |
+| FOREVER-1 to 19 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18); then reputation and appearances on Forever: no appearance capture, reputation still recorded (FOREVER-19) |
 
 ## Before you start
 
@@ -116,7 +116,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
   LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
 - Client routing or a per-client table (`core/CompatClient.lua`, `C.FEATURE`, `C.SOURCE_CLIENTS`,
   `NS.Compat.ContainerGroups()`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
-  pick): FOREVER-1 to FOREVER-13 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
+  pick): FOREVER-1 to FOREVER-13 and FOREVER-19 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
 - Release or `## Interface:` bump: every theme on each client its Index row names, then the
   headless gate green under both kit profiles (`lua tests/run.lua` and
   `KA0S_KIT_CLIENT=forever lua tests/run.lua`).
@@ -3037,6 +3037,18 @@ line. If no block draws on any currency while items still draw (FOREVER-17), rec
 post call is absent on this client: that is the documented absence, not a failure. Fail: a Lua error,
 or no block on items either. Result:
 
+### Reputation and appearances on WoW Forever (M2)
+
+Reputation rows serve both clients; appearance rows are Retail-only by declaration
+(`C.FEATURE.appearances`), though WoW Forever exposes `C_TransmogCollection` (rep/appearance spec §3.6).
+
+**FOREVER-19. No appearance capture; reputation still recorded (D7; probe P13).** Client: WoW Forever.
+Settings › General › Capture has no **Record appearances** box, and History's **Type** filter never
+offers **Appearance**, after collecting an appearance-bearing item. Gain reputation (a quest turn-in,
+or a kill that gives some) → a **Reputation** row with the faction's name and its standing in SubType.
+Fail: the box or the Type value present, a Lua error, or no Reputation row when the reputation bar
+moved (then read P13's `rejected`). Result:
+
 ## Pending sign-off
 
 Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
@@ -3186,6 +3198,10 @@ Added on 2026-11-27 (owner feedback), awaiting the owner, each new and on both c
 LEDGER-SWAP-1. On 2026-11-27 the owner reported LEDGER-SWAP-1 passed and CAP-39 failed on WoW Forever
 (catches still read Other after a reload: the catch's loot window has no source and IsFishingLoot does
 not answer there); CAP-39 is amended for the Fishing-cast fix and awaits the owner again, with CAP-40 new.
+
+Added by M2.1 of the reputation and appearance capture (2026-11-27; spec
+`docs/superpowers/specs/2026-11-27-rep-appearance-capture-design.md`), awaiting the owner: FOREVER-19,
+new, on WoW Forever, with probe P13 ([forever-probes.md](forever-probes.md)).
 
 **CAP-39. A fishing catch reads Fishing (amended twice on 2026-11-27: Fishing is known from your cast, and a catch with no loot window counts).** Client: both. Fish anywhere (Dustwallow Marsh's Oily
 Blackmouth will do), with auto loot on and then off. Open the Browser → each catch's Source reads

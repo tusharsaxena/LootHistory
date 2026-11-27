@@ -164,7 +164,7 @@ Total.
 - Util.RangeFrom: 90d and 1y are rolling windows
 - Util.IsCutOff: the client's IsTruncated first, else the unbounded width past the string's (F2)
 
-### test_ledger.lua (38)
+### test_ledger.lua (41)
 
 - Ledger: ThingKey round-trips for every kind
 - Ledger: Diff reports signed deltas, sorted, zeros omitted
@@ -198,6 +198,9 @@ Total.
 - Ledger: CurrencyReason maps known enum member names, nil otherwise
 - Ledger: DayKey is the local calendar day and sorts chronologically
 - Ledger: RowThingKey covers items, currencies, gold and legacy rows
+- Ledger (characterization): RowThingKey answers today's stamped kinds unchanged
+- Ledger: RowThingKey is nil for a kind the ledger does not tally (reputation, appearance)
+- Ledger: Database:Add of an APPEARANCE row with an itemID does not raise and announces it
 - Ledger: RollupClose overwrites the day's close; RollupFlow accumulates by direction
 - Ledger: a MOVE or a zero flow creates no cell (the rollup stays sparse)
 - Ledger: PruneDaily drops old days and folds each thing's last close onto the cutoff day
@@ -341,6 +344,21 @@ Total.
 - Compat tooltip: ModifierDown reads each key, false for anything else
 - Compat tooltip: ClassColor answers RAID_CLASS_COLORS' components, nil otherwise
 
+### test_compat_progress.lua (12)
+
+- Compat progress: FactionSnapshot reads a base faction's absolute standing and its label
+- Compat progress: FactionSnapshot genders the label through GetText where the client has it
+- Compat progress: FactionSnapshot reads renown as level, earned and threshold
+- Compat progress: FactionSnapshot reads friendship and guild standings
+- Compat progress: FactionSnapshot answers paragon's cumulative value and labels it Paragon
+- Compat progress: FactionSnapshot answers base where the renown and friendship reads are absent
+- Compat progress: FactionSnapshot answers all nil for an unknown, secret or unreadable faction
+- Compat progress: ListFactions expands collapsed headers and collapses them again, last first
+- Compat progress: ListFactions answers {} without the list API and never expands without ExpandFactionHeader
+- Compat progress: AppearanceSource reads the source's item, link, name, quality, visual and subtype
+- Compat progress: AppearanceSource guards a secret name or link
+- Compat progress: IsNewLook is true only when no other source of the visual is collected
+
 ### test_tooltip_place.lua (9)
 
 - tooltip placement: LibKa0s-Tooltip-1.0 is loaded for core/Compat.lua to place through
@@ -441,7 +459,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (50)
+### test_attribution.lua (53)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -493,6 +511,9 @@ Total.
 - Attribution: a fresh stamp outranks an open loot window
 - Attribution: a loot window that never closes stops covering
 - Attribution: a container opened from the bags covers contents that land in two waves
+- Attribution: Peek answers a fresh stamp without spending it
+- Attribution: Peek reads an open loot window and never counts it down
+- Attribution: Peek never answers FISHING for a cast and leaves fishingUntil alone
 
 ### test_attribution_out.lua (14)
 
@@ -801,7 +822,7 @@ Total.
 - Database: ActiveHistory is test records, then the session store, then live
 - Database: Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates still read the live store
 
-### test_stats.lua (26)
+### test_stats.lua (27)
 
 - Stats: bySource / byQuality counts
 - Stats: byDay buckets via date()
@@ -829,6 +850,7 @@ Total.
 - Stats: a holder move is a loss and a gain under its own reason, per holder
 - Stats: holder-move pairs stay out of the legacy loot breakdowns
 - Stats (characterization): ledger and legacy totals over every per-row branch
+- Stats (characterization): stamped ITEM and CURRENCY gains fill the legacy breakdowns
 
 ### test_browser.lua (87)
 
@@ -2140,7 +2162,7 @@ Total.
 - diagnostics: the sim section while a session runs, with its stores and the last stop
 - diagnostics: the live sim section names the real seam's wrapped count and guarded keys
 
-### test_probe.lua (17)
+### test_probe.lua (19)
 
 - probe: bare and status print the status line; an unknown word prints the usage
 - probe: /lh debug probe start records under db.global.probe, stamped with the client
@@ -2159,6 +2181,8 @@ Total.
 - probe: the newest currency transfer is recorded field by field (P5)
 - probe: the mail hook records the recipient as typed and as the addon keys it (P7)
 - probe: a handler that raises is recorded as an error entry, never thrown
+- probe: a reputation or appearance event is kept with its arguments (P13)
+- probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event
 
 ### test_debug_coverage.lua (22)
 
@@ -2636,18 +2660,19 @@ Total.
 | test_poolsetup.lua | 3 |
 | test_itemsetup.lua | 8 |
 | test_util.lua | 59 |
-| test_ledger.lua | 38 |
+| test_ledger.lua | 41 |
 | test_ledgerformat.lua | 5 |
 | test_compat.lua | 80 |
 | test_compat_routing.lua | 4 |
 | test_compat_client.lua | 10 |
 | test_compat_tooltip.lua | 22 |
+| test_compat_progress.lua | 12 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 13 |
 | test_holdings_tally.lua | 32 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 50 |
+| test_attribution.lua | 53 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
@@ -2656,7 +2681,7 @@ Total.
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
 | test_database.lua | 89 |
-| test_stats.lua | 26 |
+| test_stats.lua | 27 |
 | test_browser.lua | 87 |
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
@@ -2708,7 +2733,7 @@ Total.
 | test_holdings_api.lua | 26 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
-| test_probe.lua | 17 |
+| test_probe.lua | 19 |
 | test_debug_coverage.lua | 22 |
 | test_dispatch.lua | 7 |
 | test_sim_seam.lua | 11 |
@@ -2735,4 +2760,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2304** |
+| **Total** | **2325** |

@@ -353,3 +353,39 @@ test("probe: a handler that raises is recorded as an error entry, never thrown",
     assertEqual(ofKind("error")[1].err, "boom")
   end)
 end)
+
+test("probe: a reputation or appearance event is kept with its arguments (P13)", function()
+  fresh(function()
+    assertTrue(P.Start())
+    P.OnEvent("FACTION_STANDING_CHANGED", 72, 3250)
+    P.OnEvent("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Stormwind increased by 250.")
+    P.OnEvent("TRANSMOG_COLLECTION_SOURCE_ADDED", 77)
+    local got = ofKind("progress")
+    assertEqual(#got, 3)
+    assertEqual(got[1].event, "FACTION_STANDING_CHANGED")
+    assertEqual(got[1].args[1], 72); assertEqual(got[1].args[2], 3250); assertEqual(got[1].args.n, 2)
+    assertEqual(got[2].args[1], "Reputation with Stormwind increased by 250.")
+    assertEqual(got[3].event, "TRANSMOG_COLLECTION_SOURCE_ADDED"); assertEqual(got[3].args[1], 77)
+  end)
+end)
+
+test("probe: P.EVENTS ends with the five P13 events, and docs/forever-probes.md names every probe event", function()
+  local tail = {}
+  for i = #P.EVENTS - 4, #P.EVENTS do tail[#tail + 1] = P.EVENTS[i] end
+  assertEqual(table.concat(tail, ","), "FACTION_STANDING_CHANGED,UPDATE_FACTION,CHAT_MSG_COMBAT_FACTION_CHANGE," ..
+    "TRANSMOG_COLLECTION_SOURCE_ADDED,TRANSMOG_COLLECTION_SOURCE_REMOVED")
+  local doc = T.Loader.readFile("docs/forever-probes.md")
+  for _, event in ipairs(P.EVENTS) do
+    assertTrue(doc:find("`" .. event .. "`", 1, true) ~= nil, "docs/forever-probes.md names " .. event)
+  end
+  local row = doc:match("\n| `progress` |([^\n]*)")
+  assertTrue(row ~= nil, "the kinds table has its `progress` row")
+  local at, order = 0, {}
+  for i = #P.EVENTS - 4, #P.EVENTS do
+    local here = row:find("`" .. P.EVENTS[i] .. "`", 1, true)
+    assertTrue(here ~= nil and here > at, P.EVENTS[i] .. " in P.EVENTS order in the progress row")
+    at = here or at
+    order[#order + 1] = P.EVENTS[i]
+  end
+  assertEqual(#order, 5)
+end)

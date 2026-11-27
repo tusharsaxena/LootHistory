@@ -899,3 +899,40 @@ test("Attribution: a container opened from the bags covers contents that land in
   assertEqual((NS.Attribution:Consume()), "CONTAINER")
   NS.Attribution:ResetContexts()
 end)
+
+-- ── Peek: the non-spending read (rep/appearance spec §4) ─────────────────────────────────────
+
+test("Attribution: Peek answers a fresh stamp without spending it", function()
+  resetContext()
+  NS.Attribution:Stamp("QUEST", { questID = 123 }, "CERTAIN")
+  local s, d, c = NS.Attribution:Peek()
+  assertEqual(s, "QUEST"); assertEqual(d.questID, 123); assertEqual(c, "CERTAIN")
+  mocks.__now = NS.Constants.CONTEXT_TTL + 1
+  s, d, c = NS.Attribution:Peek()
+  assertEqual(s, "OTHER"); assertEqual(d, nil); assertEqual(c, "INFERRED")
+end)
+
+test("Attribution: Peek reads an open loot window and never counts it down", function()
+  lootWindow(2)
+  mocks.__now = 105
+  NS.State.lootContext = nil                       -- only the window is left to read
+  local left = NS.State.lootWindow.left
+  for _ = 1, 5 do
+    local s, d = NS.Attribution:Peek()
+    assertEqual(s, "KILL"); assertEqual(d.npcID, 2371)
+  end
+  assertEqual(NS.State.lootWindow.left, left, "red under Consume: the window spent by a peek")
+  assertEqual((NS.Attribution:Consume()), "KILL"); assertEqual((NS.Attribution:Consume()), "KILL")
+  assertEqual((NS.Attribution:Peek()), "OTHER", "a spent window is not read")
+  NS.Attribution:ResetContexts()
+end)
+
+test("Attribution: Peek never answers FISHING for a cast and leaves fishingUntil alone", function()
+  resetContext()
+  NS.State.fishingUntil = 50
+  mocks.__now = 10
+  local s, _, c = NS.Attribution:Peek()
+  assertEqual(s, "OTHER"); assertEqual(c, "INFERRED")
+  assertEqual(NS.State.fishingUntil, 50, "the cast's window is untouched")
+  NS.State.fishingUntil = nil
+end)
