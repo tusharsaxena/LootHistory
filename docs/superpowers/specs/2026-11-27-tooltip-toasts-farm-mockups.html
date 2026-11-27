@@ -1,0 +1,691 @@
+<title>Loot History Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a reading column of three feature sections; each holds in-game frames drawn in the Ka0s Default look (always dark, as in the client) with plain notes beside them. */
+:root{
+  --bg:#f3f2ef; --fg:#1d1d22; --muted:#5d5d66; --line:#d9d6cf; --accent:#8a6a12; --chip:#e8e4da;
+  /* in-game tokens: fixed, the client is dark under every theme */
+  --g-bg:#121317; --g-panel:#1b1d23; --g-row:#23262e; --g-line:#3a3d47; --g-text:#e7e3d6; --g-dim:#9a978d;
+  --g-gold:#f2c94c; --g-on:#5fd068; --g-off:#e0645c; --g-cyan:#4fc3e0;
+  --q0:#9d9d9d; --q1:#ffffff; --q2:#1eff00; --q3:#0070dd; --q4:#a335ee; --q5:#ff8000; --q7:#00ccff;
+  --c-mage:#3fc7eb; --c-hunter:#aad372; --c-paladin:#f48cba; --c-rogue:#fff468;
+  --f-display:"Oxanium","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16161a;--fg:#ecebe6;--muted:#a3a29b;--line:#2f2f36;--accent:#e6bd4a;--chip:#26262d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#16161a;--fg:#ecebe6;--muted:#a3a29b;--line:#2f2f36;--accent:#e6bd4a;--chip:#26262d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);line-height:1.55}
+.wrap{max-width:1120px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+h1{font-size:2rem;letter-spacing:.01em}
+h2{font-size:1.45rem;margin-bottom:4px}
+h3{font-size:1rem;margin:0 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.lede{color:var(--muted);max-width:70ch;margin:8px 0 0}
+section{border-top:1px solid var(--line);margin-top:44px;padding-top:28px}
+.issue{font-family:var(--f-mono);font-size:.8rem;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:28px;margin-top:20px;align-items:start}
+.cell{min-width:0}
+.note{font-size:.9rem;color:var(--muted);margin:10px 0 0}
+.note b{color:var(--fg);font-weight:600}
+ul.notes{font-size:.9rem;color:var(--muted);padding-left:18px;margin:10px 0 0}
+ul.notes li{margin:3px 0}
+ul.notes b{color:var(--fg);font-weight:600}
+.decided{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.decided span{background:var(--chip);border-radius:999px;padding:3px 10px;font-size:.8rem}
+
+/* ── in-game primitives ── */
+.scene{background:radial-gradient(ellipse at 30% 20%,#2a3440 0,#151920 60%,#0e1014 100%);border-radius:6px;padding:22px;overflow-x:auto}
+.g{font-family:var(--f-display);font-weight:600;color:var(--g-text);font-size:13px;line-height:1.35;font-variant-numeric:tabular-nums}
+.tip{background:rgba(8,10,16,.94);border:1px solid #5b6070;border-radius:4px;padding:9px 11px;width:300px;box-shadow:0 4px 18px rgba(0,0,0,.6)}
+.tip .nm{font-size:15px}
+.tip .ln{color:var(--g-text)}
+.tip .y{color:#ffd100}
+.tip .gr{color:var(--g-dim)}
+.tip .sep{height:8px}
+.tip .hd{color:var(--g-gold);font-size:12px;letter-spacing:.03em;border-top:1px solid #2e323c;padding-top:6px;margin-top:2px}
+.hr{display:flex;justify-content:space-between;gap:10px}
+.hr .r{color:var(--g-text);text-align:right;white-space:nowrap}
+.hr .age{color:var(--g-dim);font-size:11px}
+.tot{border-top:1px solid #2e323c;margin-top:3px;padding-top:3px}
+.panel{background:var(--g-panel);border:1px solid var(--g-line);border-radius:3px;box-shadow:0 6px 24px rgba(0,0,0,.55)}
+.tbar{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 6px 10px;background:#15171c;border-bottom:1px solid var(--g-line)}
+.tbar .t{color:var(--g-gold);font-weight:700;font-size:13px}
+.marks{display:flex;gap:7px;color:var(--g-dim);font-size:12px}
+.marks i{font-style:normal;width:16px;height:16px;display:grid;place-items:center;border:1px solid #3a3d47;border-radius:2px}
+.pbody{padding:10px}
+.btn{display:inline-block;background:#2b2f38;border:1px solid #4a4f5c;border-radius:2px;padding:4px 12px;color:var(--g-text);font-size:12px}
+.btn.pri{border-color:#8a7330;color:var(--g-gold)}
+.chipg{display:inline-block;font-size:11px;padding:1px 7px;border-radius:2px;border:1px solid}
+.run{color:var(--g-on);border-color:#2f6b37}
+.pause{color:var(--g-gold);border-color:#7a6424}
+.src{color:var(--g-cyan);border-color:#245c6a;font-size:10.5px;padding:0 5px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 14px}
+.kv .k{color:var(--g-dim)}
+.kv .v{text-align:right}
+.big{font-size:22px;font-weight:700;color:var(--g-gold)}
+.money{color:var(--g-text)}
+.gc{color:#e8c25a}.sc{color:#c7c7cf}.cc{color:#d08a4a}
+.neg{color:var(--g-off)}
+table.gt{border-collapse:collapse;width:100%;font-size:12px}
+table.gt th{color:var(--g-dim);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--g-line);white-space:nowrap}
+table.gt td{padding:3px 6px;border-bottom:1px solid #262931;white-space:nowrap}
+table.gt td.n,table.gt th.n{text-align:right}
+table.gt tr.sel td{background:#2a2f3a}
+.sort{color:var(--g-gold)}
+.ic{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin-right:5px;border:1px solid #555;border-radius:2px}
+
+/* toasts */
+.feed{display:flex;flex-direction:column;gap:5px;width:300px}
+.toast{display:grid;grid-template-columns:36px 1fr;gap:9px;align-items:center;background:rgba(18,20,25,.92);border:1px solid var(--g-line);border-radius:3px;padding:6px 8px}
+.toast .icon{width:36px;height:36px;border-radius:3px;border:2px solid}
+.toast .l1{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.toast .l2{display:flex;justify-content:space-between;gap:6px;color:var(--g-dim);font-size:11.5px}
+.toast.fade{opacity:.45}
+.anchor{border:1px dashed var(--g-gold);color:var(--g-gold);font-size:11px;text-align:center;padding:4px;margin-top:6px;width:300px;box-sizing:border-box}
+.arrow{color:var(--g-dim);font-size:11px;text-align:center;width:300px}
+
+/* settings */
+.set{width:100%;max-width:470px}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--g-line);padding:0 8px;background:#15171c}
+.tabs span{padding:5px 9px;font-size:11.5px;color:var(--g-dim)}
+.tabs span.on{color:var(--g-gold);border-bottom:2px solid var(--g-gold)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0}
+.cb{display:inline-flex;align-items:center;gap:7px}
+.cb::before{content:"";width:12px;height:12px;border:1px solid #5a5f6c;background:#101216;border-radius:2px}
+.cb.on::before{background:var(--g-gold);box-shadow:inset 0 0 0 2px #101216}
+.dd{border:1px solid #4a4f5c;background:#101216;padding:2px 8px;font-size:12px;min-width:110px;display:inline-flex;justify-content:space-between;gap:8px}
+.dd::after{content:"▾";color:var(--g-dim)}
+.sl{display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.sl .bar{width:110px;height:4px;background:#333743;position:relative;border-radius:2px}
+.sl .bar b{position:absolute;left:0;top:0;bottom:0;background:var(--g-gold);border-radius:2px}
+.hdg{color:var(--g-gold);font-size:12px;margin:10px 0 2px;border-bottom:1px solid #2e323c;padding-bottom:3px}
+.srcgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 10px;font-size:12px}
+.mini{font-size:11px;color:var(--g-dim)}
+.flexrow{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.win{min-width:0}
+@media (max-width:480px){.tip,.feed,.anchor,.arrow{width:260px}}
+/* v2 additions */
+.ico{width:13px;height:13px;display:inline-block;vertical-align:-2px;fill:var(--g-dim);margin:0 2px 0 7px}
+.ico:first-child{margin-left:0}
+.ico.gold{fill:var(--g-gold)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;margin-top:10px;color:var(--muted)}
+.legend .ico{fill:currentColor;margin-left:0}
+.l3{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--g-dim)}
+.toast.wide{grid-template-columns:38px 1fr}
+.code{background:var(--chip);border-radius:6px;padding:14px 16px;font-family:var(--f-mono);font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre;color:var(--fg)}
+.code .c{color:var(--muted)}
+.code .k{color:var(--accent)}
+.newtag{display:inline-block;font-family:var(--f-mono);font-size:.7rem;background:var(--accent);color:var(--bg);border-radius:3px;padding:0 6px;margin-left:6px;vertical-align:2px}
+.hdbtn{border-color:var(--g-gold)!important;color:var(--g-gold)}
+.callout{position:relative}
+.callout .pin{position:absolute;font-family:var(--f-body);font-size:10.5px;background:var(--g-gold);color:#111;border-radius:999px;padding:1px 7px;white-space:nowrap}
+.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 14px}
+.statgrid .s{display:flex;justify-content:space-between;gap:8px}
+.statgrid .s span:first-child{color:var(--g-dim)}
+.log td:first-child{color:var(--g-dim)}
+.headline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:6px 0 2px}
+.headline .tv{font-size:22px;font-weight:700;color:var(--g-gold)}
+.headline .ph{font-size:15px;color:var(--g-text)}
+.headline .ph b{color:var(--g-gold)}
+/* v3 additions */
+.toast.flip{grid-template-columns:1fr 38px}
+.toast.flip>.icon{order:2}
+.toast.flip .l1>span:last-child,.toast.flip .l2>span:last-child,.toast.flip .l3>span:last-child{text-align:right}
+.toast{position:relative}
+.glow{text-shadow:0 0 6px rgba(200,120,255,.9)}
+.icon.ilvl{position:relative}
+.icon.ilvl::after{content:attr(data-ilvl);position:absolute;left:2px;top:0;font-size:10px;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000}
+.up{color:var(--g-on);font-size:11.5px}
+.dim{color:var(--g-dim)}
+.pulse{border-color:var(--g-gold);box-shadow:0 0 0 1px rgba(242,201,76,.5),0 0 10px rgba(242,201,76,.35)}
+.timer{position:absolute;left:0;bottom:0;height:2px;width:var(--w);background:var(--g-gold);opacity:.8}
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.slots span{border:1px solid #4a4f5c;background:#101216;text-align:center;padding:7px 2px;font-size:11px;color:var(--g-dim);border-radius:2px}
+.slots span.on{border-color:var(--g-gold);color:var(--g-gold);background:#2a2412}
+.seg{display:inline-flex;border:1px solid #4a4f5c;border-radius:2px;overflow:hidden}
+.seg span{padding:2px 9px;font-size:11.5px;color:var(--g-dim);border-left:1px solid #4a4f5c}
+.seg span:first-child{border-left:0}
+.seg span.on{background:#2a2412;color:var(--g-gold)}
+.sw{display:inline-block;width:16px;height:12px;border:1px solid #5a5f6c;vertical-align:-1px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bag" viewBox="0 0 16 16"><path d="M5 5V4a3 3 0 0 1 6 0v1h2.2l.8 10H2L2.8 5zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 16 16"><path d="M8 1l7 3.5V6H1V4.5zM2 7h2v5H2zm5 0h2v5H7zm5 0h2v5h-2zM1 13h14v2H1z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 16 16"><path d="M1 3h14v10H1zm1.6 1.5L8 8.6l5.4-4.1z"/></symbol>
+  <symbol id="i-equip" viewBox="0 0 16 16"><path d="M5 1h6l3 3-2 2v9H4V6L2 4z"/></symbol>
+  <symbol id="i-ah" viewBox="0 0 16 16"><path d="M9.5 1.5l5 5-2 2-1.2-1.2-3.8 3.8 1.2 1.2-1.4 1.4-4.9-4.9 1.4-1.4 1.2 1.2 3.8-3.8-1.2-1.2zM1 14h7v1.5H1z"/></symbol>
+  <symbol id="i-tabs" viewBox="0 0 16 16"><path d="M1 6h14v8H1zm0-1l2-3h10l2 3zm6 3v3h2V8z"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/></symbol>
+  <symbol id="i-farm" viewBox="0 0 16 16"><path d="M8 1a5 5 0 0 1 5 5c0 3-5 9-5 9S3 9 3 6a5 5 0 0 1 5-5zm0 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header>
+    <h1>Ka0s Loot History: three new features</h1>
+    <p class="lede">Version 4 of the mockups, with your feedback folded in. Items marked <span class="newtag">new</span> changed since version 1. Frames are drawn in Ka0s Default and follow the chosen skin in game. Names and numbers are examples.</p>
+    <div class="legend" aria-label="Container icons">
+      <span><svg class="ico"><use href="#i-bag"/></svg>Bags</span>
+      <span><svg class="ico"><use href="#i-bank"/></svg>Bank</span>
+      <span><svg class="ico"><use href="#i-tabs"/></svg>Warband bank</span>
+      <span><svg class="ico"><use href="#i-mail"/></svg>Mail</span>
+      <span><svg class="ico"><use href="#i-ah"/></svg>Auction house</span>
+      <span><svg class="ico"><use href="#i-equip"/></svg>Equipped</span>
+    </div>
+    <p class="note">The icons here are stand-ins. In game they're LibKa0s catalog marks (for example <b>knapsack</b>, <b>bank</b>, <b>locked-chest</b>, <b>envelope</b>, <b>gavel</b>, <b>chest-armor</b>), declared on the CLAUDE.md icon line so the prune keeps them.</p>
+  </header>
+
+  <!-- ═════════ #34 ═════════ -->
+  <section>
+    <span class="issue">#34</span>
+    <h2>Holdings in the tooltip</h2>
+    <p class="lede">Every item and currency tooltip lists who on the account holds it and where. The logged-in character reads live from the client. Everyone else, and the Warband, reads from the holdings ledger.</p>
+
+    <div class="grid">
+      <div class="cell">
+        <h3>Item tooltip <span class="newtag">new</span></h3>
+        <div class="scene"><div class="tip g">
+          <div class="nm" style="color:var(--q1)">Bismuth</div>
+          <div class="y">Crafting Reagent</div>
+          <div class="ln">Mining</div>
+          <div class="gr">Max Stack: 1000</div>
+          <div class="ln">Sell Price: <span class="gc">0g</span> <span class="sc">1s</span> <span class="cc">20c</span></div>
+          <div class="sep"></div>
+          <div class="hd">Ka0s Loot History</div>
+          <div class="hr"><span style="color:var(--c-mage)">Charone</span><span class="r"><svg class="ico"><use href="#i-bag"/></svg>12<svg class="ico"><use href="#i-bank"/></svg>40</span></div>
+          <div class="hr"><span style="color:var(--c-hunter)">Chartwo</span><span class="r"><svg class="ico"><use href="#i-mail"/></svg>5<svg class="ico"><use href="#i-ah"/></svg>3 <span class="age">bank 3 d</span></span></div>
+          <div class="hr"><span style="color:var(--c-rogue)">Charfour</span><span class="r"><svg class="ico"><use href="#i-equip"/></svg>1</span></div>
+          <div class="hr"><span style="color:var(--g-cyan)">Warband</span><span class="r"><svg class="ico"><use href="#i-tabs"/></svg>100</span></div>
+          <div class="hr tot"><span>Total</span><span class="r">161</span></div>
+        </div></div>
+        <ul class="notes">
+          <li>Each container is an <b>icon and a count</b> now, not a word.</li>
+          <li>Holders with nothing are left out. A stale container gets a dim age, like <b>bank 3 d</b>.</li>
+          <li>It shows on bags, bank, AH, chat links, the loot window and other addons' tooltips.</li>
+        </ul>
+      </div>
+
+      <div class="cell">
+        <h3>Currency tooltip</h3>
+        <div class="scene"><div class="tip g">
+          <div class="nm" style="color:var(--q4)">Valorstones</div>
+          <div class="ln">Used to upgrade gear.</div>
+          <div class="gr">Total: 1,205 / 2,000</div>
+          <div class="sep"></div>
+          <div class="hd">Ka0s Loot History</div>
+          <div class="hr"><span style="color:var(--c-mage)">Charone</span><span class="r">1,205</span></div>
+          <div class="hr"><span style="color:var(--c-rogue)">Charfour</span><span class="r">640</span></div>
+          <div class="hr tot"><span>Total</span><span class="r">1,845</span></div>
+        </div></div>
+        <p class="note">Currencies have no containers, so each holder gets one plain number.</p>
+
+        <h3 style="margin-top:22px">Settings, new Tooltip tab</h3>
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span>Capture</span><span>Interface</span><span class="on">Tooltip</span><span>Toasts</span><span>Farm</span><span>…</span></div>
+          <div class="pbody">
+            <div class="row"><span class="cb on">Show holdings in item and currency tooltips</span></div>
+            <div class="row"><span class="cb on">Show where each holder keeps it</span></div>
+            <div class="row"><span class="cb on">Include the Warband</span></div>
+            <div class="row"><span class="cb on">Show the Total only with 2 or more holders</span></div>
+            <div class="row"><span>Only while holding</span><span class="dd">None</span></div>
+          </div>
+        </div></div>
+        <p class="note">The block is hidden while <b>Track holdings and losses</b> is off.</p>
+      </div>
+
+      <div class="cell">
+        <h3>Public API for other addons <span class="newtag">new</span></h3>
+<div class="code"><span class="c">-- published as _G.LootHistory = { API = NS.API }</span>
+<span class="c">-- (the standard's public-api rule; v1 is semver-stable)</span>
+<span class="k">local</span> api = LootHistory <span class="k">and</span> LootHistory.API.v1
+
+api.Version()            <span class="c">--&gt; 1</span>
+api.Holders()            <span class="c">--&gt; { "Charone-Realm", …, "§warband" }</span>
+api.HolderInfo(holder)   <span class="c">--&gt; { name, realm, class,</span>
+                         <span class="c">--    isWarband, lastSeen, partial }</span>
+api.ItemCount(itemID)    <span class="c">--&gt; total, { [holder] =</span>
+                         <span class="c">--    { bags=12, bank=40, … } }</span>
+api.CurrencyCount(id)    <span class="c">--&gt; total, { [holder] = n }</span>
+api.Money(holder?)       <span class="c">--&gt; copper (nil = all)</span>
+api.Holdings(holder)     <span class="c">--&gt; read-only copy of one holder</span>
+api.Scanned(holder)      <span class="c">--&gt; { bags=ts, bank=ts, … }</span>
+
+<span class="c">-- change notifications</span>
+api.RegisterCallback(owner, "HoldingsChanged", fn)
+api.UnregisterCallback(owner, "HoldingsChanged")
+<span class="c">-- fn(event, holder)</span></div>
+        <ul class="notes">
+          <li>Every answer is a <b>copy</b>, so another addon can't write into the saved data.</li>
+          <li>The logged-in character's counts are the same live ones the tooltip uses.</li>
+          <li>It answers nil or empty while holdings tracking is off, and while the addon is disabled.</li>
+          <li>The contract is documented in ARCHITECTURE.md. A breaking change later would ship as <b>v2</b> alongside v1.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decided"><span>Icons per container</span><span>Public API v1</span><span>Live API for you, store for the rest</span><span>Hidden with ledger off</span><span>Retail + Forever</span></div>
+  </section>
+
+  <!-- ═════════ #38 ═════════ -->
+  <section>
+    <span class="issue">#38</span>
+    <h2>Loot toasts</h2>
+    <p class="lede">Feeds of every gain the addon sees: items, money, currencies, reputation, appearances, experience and profession skill-ups. They read gains before the capture filters and the minimum quality. One feed is on by default, and you can add up to three. Each feed has its own slot on screen, its own kinds and filters, and its own look. The look follows the skin unless you override it.</p>
+
+    <div class="grid">
+      <div class="cell">
+        <h3>Every kind, with the right-aligned option <span class="newtag">new</span></h3>
+        <div class="scene" style="display:flex;justify-content:center"><div class="g">
+          <div class="feed" style="width:330px">
+            <div class="toast wide flip"><div class="icon" style="border-color:var(--q4);background:#3c2253"></div><div>
+              <div class="l1"><span class="chipg src">Kill</span><span><span class="glow" style="color:var(--q4)">Sample Transmog</span></span></div>
+              <div class="l3"><span></span><span>Appearance collected ★</span></div></div></div>
+            <div class="toast wide flip"><div class="icon ilvl" data-ilvl="639" style="border-color:var(--q3);background:#122a48"></div><div>
+              <div class="l1"><span class="chipg src">Kill</span><span>x1 <span style="color:var(--q3)">Gale-Torn Cuffs</span></span></div>
+              <div class="l2"><span></span><span><span class="up">▲ +13 over equipped</span></span></div>
+              <div class="l3"><span>Vendor 9g</span><span>AH 210g</span></div></div></div>
+            <div class="toast wide flip"><div class="icon" style="border-color:#7aa7ff;background:#1d2c48"></div><div>
+              <div class="l1"><span></span><span><span style="color:#7aa7ff">Cooking</span> 300 <span style="color:var(--g-on)">+5</span></span></div></div></div>
+            <div class="toast wide flip"><div class="icon" style="border-color:#c47cff;background:#3a1f52"></div><div>
+              <div class="l1"><span class="dim">‹80›</span><span style="color:#e58cff">+1,500 XP</span></div>
+              <div class="l2"><span></span><span>46.8% of level</span></div></div></div>
+            <div class="toast wide flip"><div class="icon" style="border-color:var(--q4);background:#3c2253"></div><div>
+              <div class="l1"><span class="chipg src">Quest</span><span>x50 <span style="color:var(--q4)">Valorstones</span></span></div>
+              <div class="l2"><span></span><span style="color:#ff9d3b">1,500 / 2,000</span></div></div></div>
+            <div class="toast wide flip"><div class="icon" style="border-color:var(--g-gold);background:#5b4a17"></div><div>
+              <div class="l1"><span class="chipg src">Kill</span><span><span class="gc">1g</span> <span class="sc">23s</span> <span class="cc">45c</span></span></div>
+              <div class="l2"><span></span><span><svg class="ico"><use href="#i-bag"/></svg>123g<svg class="ico"><use href="#i-tabs"/></svg>15,200g</span></div></div></div>
+            <div class="toast wide flip"><div class="icon" style="border-color:#4f8cff;background:#18294a"></div><div>
+              <div class="l1"><span class="dim">‹Honored›</span><span><span style="color:var(--g-on)">+668</span> Stormwind</span></div>
+              <div class="l2"><span></span><span>21,000 / 42,000</span></div></div></div>
+          </div>
+          <div class="arrow" style="width:330px">▲ newest at the bottom · Bottom Right slot · Text alignment: Right, Icon side: Right</div>
+        </div></div>
+        <ul class="notes">
+          <li><b>Reputation</b> shows gains and losses, standing and progress. It covers renown, friendships, paragon and warband factions on Retail, and plain standings on WoW Forever.</li>
+          <li><b>Appearances</b> (Retail only) toast when a new look is collected.</li>
+          <li><b>Experience</b> shows the gain, the percent through the level and the level.</li>
+          <li><b>Skill-ups</b> show the new skill and how much it rose.</li>
+          <li><b>Item level</b> sits in the icon corner. An upgrade over equipped gear gets a ▲ line, a glow and an optional sound.</li>
+          <li><b>Currency</b> progress turns orange at 70% of the cap and red at 90%.</li>
+        </ul>
+      </div>
+
+      <div class="cell">
+        <h3>The default: left-aligned, icon left</h3>
+        <div class="scene"><div class="g">
+          <div class="feed">
+            <div class="toast"><div class="icon ilvl" data-ilvl="626" style="border-color:var(--q2);background:#1c3a17"></div><div>
+              <div class="l1"><span style="color:var(--q2)">Stormcharged Bracers</span><span>x1</span></div>
+              <div class="l2"><span><svg class="ico"><use href="#i-bag"/></svg>1</span><span class="chipg src">Kill</span></div>
+              <div class="l3"><span>Vendor 14g</span><span>AH 480g</span></div></div></div>
+            <div class="toast pulse"><div class="icon" style="border-color:var(--q1);background:#3a3a3a"></div><div>
+              <div class="l1"><span style="color:var(--q1)">Bismuth</span><span style="color:var(--g-gold)">x9</span></div>
+              <div class="l2"><span><svg class="ico"><use href="#i-bag"/></svg>21<svg class="ico"><use href="#i-bank"/></svg>40</span><span class="chipg src">Gathering</span></div>
+              <div class="l3"><span>Vendor 11s</span><span>AH 18g 90s</span></div></div>
+              <div class="timer" style="--w:62%"></div></div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li>The second toast has just merged a repeat gain: its border <b>pulses</b> and its count rises.</li>
+          <li>The optional <b>timer bar</b> along its foot drains toward the fade.</li>
+          <li>Hovering pauses the fade and pins the row in place. <b>Shift-click</b> links the item in chat, <b>Ctrl-click</b> opens the dressing room, <b>right-click</b> dismisses and a plain click opens History.</li>
+        </ul>
+
+        <h3 style="margin-top:22px">Placement: the 3×3 slot picker <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g set">
+          <div class="pbody">
+            <div class="hdg" style="margin-top:0">Feed position</div>
+            <div class="slots">
+              <span>Top Left</span><span>Top Center</span><span>Top Right</span>
+              <span>Mid Left</span><span>Mid Center</span><span>Mid Right</span>
+              <span>Bottom Left</span><span>Bottom Center</span><span class="on">Bottom Right</span>
+            </div>
+            <div class="row" style="margin-top:8px"><span>Nudge X / Y</span><span><span class="dd" style="min-width:60px">−220</span> <span class="dd" style="min-width:60px">+180</span></span></div>
+            <div class="row"><span>Grow</span><span class="dd">Up</span></div>
+            <div class="row"><span>Text alignment</span><span class="seg"><span class="on">Left</span><span>Right</span></span></div>
+            <div class="row"><span>Icon side</span><span class="seg"><span class="on">Left</span><span>Right</span></span></div>
+            <div class="mini">Left is the default for both. Right flips the row, as in the example above.</div>
+            <div class="row"><span></span><span class="btn">Unlock to drag</span></div>
+          </div>
+        </div></div>
+        <p class="note">Each feed starts at one of nine screen slots and can be nudged from there. Dragging while unlocked writes the nudge. Picking a slot sets a sensible default growth direction, which you can change.</p>
+      </div>
+
+      <div class="cell">
+        <h3>Settings: Toasts page, per feed <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span class="on">Main feed</span><span>Progress</span><span>+ Add feed</span></div>
+          <div class="pbody">
+            <div class="row"><span class="cb on">Enabled</span><span><span class="btn">Test</span> <span class="btn">Unlock</span></span></div>
+            <div class="hdg">Kinds on this feed</div>
+            <div class="srcgrid">
+              <span class="cb on">Items</span><span class="cb on">Money</span><span class="cb on">Currencies</span>
+              <span class="cb on">Reputation</span><span class="cb on">Appearances</span><span class="cb on">Experience</span>
+              <span class="cb on">Skill-ups</span>
+            </div>
+            <div class="hdg">Content</div>
+            <div class="row"><span>Prices</span><span class="dd">Vendor + AH</span></div>
+            <div class="mini">None · Vendor · AH · Vendor + AH · Highest</div>
+            <div class="row"><span class="cb on">Item level badge</span><span class="cb on">Counts</span><span class="cb on">Source tag</span></div>
+            <div class="row"><span>Minimum quality</span><span class="dd">Poor (everything)</span></div>
+            <div class="row"><span>Hide sources</span><span class="dd">None</span></div>
+            <div class="hdg">Highlights &amp; sounds</div>
+            <div class="row"><span class="cb on">Mounts</span><span class="dd">Sound: Ka0s Chime</span></div>
+            <div class="row"><span class="cb on">Legendaries</span><span class="dd">Sound: None</span></div>
+            <div class="row"><span class="cb on">Upgrades</span><span class="dd">Sound: None</span></div>
+            <div class="row"><span class="cb on">New appearances</span><span class="dd">Sound: Blizzard</span></div>
+          </div>
+        </div></div>
+        <p class="note">The <b>Main feed</b> is the one that ships. The <b>Progress</b> tab shows a second feed you might add, for example reputation, experience and skill-ups at Top Center.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <h3>Style overrides <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span>Content</span><span class="on">Style</span><span>Motion</span><span>Behavior</span></div>
+          <div class="pbody">
+            <div class="hdg" style="margin-top:0">Background</div>
+            <div class="row"><span>Type</span><span class="dd">Use skin</span></div>
+            <div class="mini">Use skin · None · Solid · Gradient · Texture</div>
+            <div class="row"><span>Color</span><span><span class="sw" style="background:#14161b"></span> <span class="mini">skin</span></span></div>
+            <div class="hdg">Border</div>
+            <div class="row"><span>Texture</span><span class="dd">Use skin</span></div>
+            <div class="row"><span>Size</span><span class="sl"><span class="bar"><b style="width:10%"></b></span>1 px</span></div>
+            <div class="row"><span>Color</span><span class="seg"><span class="on">Skin</span><span>Quality</span><span>Class</span><span>Custom</span></span></div>
+            <div class="hdg">Text</div>
+            <div class="row"><span>Font</span><span class="dd">Use skin</span></div>
+            <div class="row"><span>Size / secondary size</span><span><span class="dd" style="min-width:50px">13</span> <span class="dd" style="min-width:50px">11</span></span></div>
+            <div class="row"><span>Outline</span><span class="dd">Use skin</span></div>
+            <div class="row"><span>Shadow</span><span><span class="sw" style="background:#000"></span> 1, −1</span></div>
+            <div class="hdg">Size</div>
+            <div class="row"><span>Width</span><span class="sl"><span class="bar"><b style="width:33%"></b></span>320</span></div>
+            <div class="row"><span>Row height</span><span class="sl"><span class="bar"><b style="width:40%"></b></span>48</span></div>
+            <div class="row"><span>Icon size</span><span class="sl"><span class="bar"><b style="width:36%"></b></span>36</span></div>
+            <div class="row"><span>Padding / gap</span><span><span class="dd" style="min-width:50px">6</span> <span class="dd" style="min-width:50px">5</span></span></div>
+            <div class="hdg">Kind colors</div>
+            <div class="row"><span>Experience</span><span class="sw" style="background:#e58cff"></span><span>Reputation</span><span class="sw" style="background:#4f8cff"></span><span>Skill</span><span class="sw" style="background:#7aa7ff"></span></div>
+            <div class="row"><span></span><span class="btn">Reset style to skin</span></div>
+          </div>
+        </div></div>
+        <p class="note">Every style setting reads <b>Use skin</b> until you change it. Set a color or texture and that part stops following the skin. <b>Reset style to skin</b> puts it all back.</p>
+      </div>
+
+      <div class="cell">
+        <h3>Motion and behavior <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span>Content</span><span>Style</span><span class="on">Motion</span><span>Behavior</span></div>
+          <div class="pbody">
+            <div class="row"><span>Enter</span><span class="dd">Slide from right</span></div>
+            <div class="mini">None · Fade · Slide from left / right / up / down</div>
+            <div class="row"><span>Enter time</span><span class="sl"><span class="bar"><b style="width:30%"></b></span>0.3 s</span></div>
+            <div class="row"><span>Hold, then fade over</span><span><span class="dd" style="min-width:50px">5 s</span> <span class="dd" style="min-width:50px">1 s</span></span></div>
+            <div class="row"><span class="cb on">Pulse when a count rises</span></div>
+            <div class="row"><span class="cb">Countdown timer bar</span></div>
+            <div class="row"><span class="cb on">Slide rows smoothly when they move</span></div>
+          </div>
+        </div></div>
+        <div class="scene" style="margin-top:12px"><div class="panel g set">
+          <div class="tabs"><span>Content</span><span>Style</span><span>Motion</span><span class="on">Behavior</span></div>
+          <div class="pbody">
+            <div class="row"><span>Shown at once</span><span class="sl"><span class="bar"><b style="width:40%"></b></span>5</span></div>
+            <div class="row"><span>Merge repeats within</span><span class="sl"><span class="bar"><b style="width:30%"></b></span>3 s</span></div>
+            <div class="row"><span class="cb on">Show in combat</span><span class="cb">Click-through in combat</span></div>
+            <div class="row"><span class="cb on">Pin a row while hovered</span></div>
+            <div class="hdg">Hide Blizzard duplicates (all feeds)</div>
+            <div class="row"><span class="cb">Loot and money alert toasts</span></div>
+            <div class="row"><span class="cb">Chat lines for</span><span class="mini">loot · currency · money · XP · reputation · skill</span></div>
+          </div>
+        </div></div>
+        <p class="note">Hiding Blizzard's duplicates is off by default and fully reversible. Loot History still records from those chat lines, because it reads the event itself, not the chat frame.</p>
+      </div>
+
+      <div class="cell">
+        <h3>Rep and appearances in History <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g">
+          <div class="tbar"><span class="t">Ka0s Loot History</span><span class="marks"><i class="hdbtn"><svg class="ico gold" style="margin:0"><use href="#i-farm"/></svg></i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="tabs"><span class="on">History</span><span>Insights</span><span>Holdings</span><span>Timeline</span><span>Farm</span></div>
+          <div class="pbody">
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap"><span class="dd">Type: All</span><span class="dd">Direction: All</span></div>
+            <table class="gt">
+              <tr><th></th><th>Name</th><th>Type</th><th class="n">Qty</th><th>Source</th></tr>
+              <tr><td style="color:var(--g-on)">▲</td><td><span style="color:var(--q4)">Sample Transmog</span></td><td>Appearance</td><td class="n">1</td><td>Kill</td></tr>
+              <tr><td style="color:var(--g-on)">▲</td><td style="color:#4f8cff">Stormwind</td><td>Reputation</td><td class="n">668</td><td>Quest</td></tr>
+              <tr><td style="color:var(--g-off)">▼</td><td style="color:#4f8cff">Booty Bay</td><td>Reputation</td><td class="n">25</td><td>Kill</td></tr>
+              <tr><td style="color:var(--g-on)">▲</td><td><span style="color:var(--q1)">Bismuth</span></td><td>Tradeskill</td><td class="n">5</td><td>Gathering</td></tr>
+            </table>
+            <div class="mini" style="margin-top:6px">Type filter gains Reputation and Appearance. Insights and the CSV export count them.</div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li>Reputation is recorded as its own rows: a gain is ▲ IN, a loss ▼ OUT, with the faction and standing.</li>
+          <li>Appearances are recorded on Retail as gains when collected, and as losses when Blizzard removes them (a refund, for example).</li>
+          <li>Each has a capture switch on the Capture tab. Both are on by default.</li>
+          <li>Experience and skill-ups only toast and feed farm mode's tally. They aren't History rows.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decided"><span>3×3 slots + nudge</span><span>Text and icon side configurable</span><span>Up to 3 feeds</span><span>Rep, appearance, XP, skill-ups</span><span>Skin by default, override anything</span><span>Animations + pulse + timer</span><span>Hide Blizzard duplicates</span></div>
+  </section>
+
+  <!-- ═════════ #39 ═════════ -->
+  <section>
+    <span class="issue">#39</span>
+    <h2>Farm mode</h2>
+    <p class="lede">You start a session, farm, then finish it and get a summary with gold per hour and an activity tally. It counts gains from the same feed as the toasts. Costs come from the loss rows History records. A /reload or a disconnect keeps the session going. Logging out finishes it, and every finished session is saved in full.</p>
+
+    <h3 style="margin-top:20px">Ways in <span class="newtag">new</span></h3>
+    <div class="flexrow">
+      <div class="win" style="flex:2 1 460px">
+        <div class="scene"><div class="panel g callout">
+          <div class="tbar"><span class="t">Ka0s Loot History</span><span class="marks"><i class="hdbtn"><svg class="ico gold" style="margin:0"><use href="#i-farm"/></svg></i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="tabs"><span class="on">History</span><span>Insights</span><span>Holdings</span><span>Timeline</span><span>Farm</span></div>
+          <div class="pbody mini">… the History table …</div>
+          <span class="pin" style="right:70px;top:-12px">Farm session button</span>
+        </div></div>
+      </div>
+      <div class="win" style="flex:1 1 300px">
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span class="on">Keybindings</span></div>
+          <div class="pbody">
+            <div class="row"><span>Toggle history browser</span><span class="dd">Not bound</span></div>
+            <div class="row"><span>Toggle farm session</span><span class="dd">Not bound</span></div>
+            <div class="row"><span>Start / finish farm session</span><span class="dd">Not bound</span></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>A new <b>farm session</b> mark in the History window's title bar opens the companion panel.</li>
+      <li>There are two new key bindings: <b>Toggle farm session</b> shows or hides the panel, and <b>Start / finish</b> starts a session or finishes the running one.</li>
+      <li>You can also use <b>/lh farm</b> (with <b>start | pause | resume | finish</b>) and the launcher menu.</li>
+    </ul>
+
+    <div class="grid">
+      <div class="cell">
+        <h3>Companion panel, running <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g" style="width:300px">
+          <div class="tbar"><span class="t">Farm session</span><span class="marks"><i title="Minimize">–</i><i>≡</i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="pbody">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span>Isle of Dorn</span><span class="chipg run">● Running</span></div>
+            <div class="headline"><span class="tv">763g 45s</span><span class="ph"><b>1,083g</b>/h</span></div>
+            <div class="mini">Gross, AH value · net 749g 25s · 1,063g/h</div>
+            <div class="kv" style="margin-top:10px">
+              <span class="k">Elapsed</span><span class="v">00:42:17</span>
+              <span class="k">Money looted</span><span class="v"><span class="gc">152g</span> <span class="sc">40s</span></span>
+              <span class="k">Items, vendor value</span><span class="v"><span class="gc">38g</span> <span class="sc">12s</span></span>
+              <span class="k">Items, AH value</span><span class="v"><span class="gc">611g</span> <span class="sc">05s</span></span>
+              <span class="k">Costs</span><span class="v neg">−14g 20s</span>
+            </div>
+            <div class="hdg">Activity</div>
+            <div class="statgrid">
+              <div class="s"><span>Mobs looted</span><span>58</span></div>
+              <div class="s"><span>Items looted</span><span>214</span></div>
+              <div class="s"><span>Nodes gathered</span><span>41</span></div>
+              <div class="s"><span>Fish caught</span><span>0</span></div>
+              <div class="s"><span>Quests turned in</span><span>3</span></div>
+              <div class="s"><span>Quest rewards</span><span>4</span></div>
+              <div class="s"><span>Containers opened</span><span>6</span></div>
+              <div class="s"><span>Epic+ drops</span><span>1</span></div>
+              <div class="s"><span>Reputation</span><span>+1,240</span></div>
+              <div class="s"><span>Experience</span><span>+18,400</span></div>
+            </div>
+            <div class="hdg">Gold per hour</div>
+            <table class="gt"><tr><th></th><th class="n">Money</th><th class="n">Vendor</th><th class="n">AH</th></tr>
+              <tr><td>Gross</td><td class="n">216g</td><td class="n">270g</td><td class="n">1,083g</td></tr>
+              <tr><td>Net</td><td class="n">196g</td><td class="n">250g</td><td class="n">1,063g</td></tr></table>
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><span class="btn">Pause</span><span class="btn pri">Finish</span><span class="btn">Details</span><span class="btn">Sessions</span></div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li>The headline shows the <b>total value and the per-hour rate</b> together. Gross or net, and money, vendor or AH, are settings.</li>
+          <li>The <b>Activity</b> block's lines are configurable (see settings). Lines that read 0 can be hidden.</li>
+          <li>A new <b>Details</b> button opens the breakdown window. The <b>–</b> mark in the header minimizes the panel.</li>
+        </ul>
+      </div>
+
+      <div class="cell">
+        <h3>Minimized <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g" style="width:300px">
+          <div class="tbar"><span class="t">Farm session</span><span class="marks"><i title="Expand">+</i><i>≡</i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="pbody">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span>Isle of Dorn</span><span class="chipg run">● Running</span></div>
+            <div class="headline"><span class="tv">763g 45s</span><span class="ph"><b>1,083g</b>/h</span></div>
+            <div class="mini">00:42:17 elapsed</div>
+            <div style="display:flex;gap:6px;margin-top:10px"><span class="btn">Pause</span><span class="btn pri">Finish</span></div>
+          </div>
+        </div></div>
+        <p class="note">Minimized shows only the headline and the action buttons, the same shape as the paused view. The <b>+</b> mark expands it again, and the panel remembers which way you left it.</p>
+
+        <h3 style="margin-top:22px">Paused</h3>
+        <div class="scene"><div class="panel g" style="width:300px">
+          <div class="tbar"><span class="t">Farm session</span><span class="marks"><i>–</i><i>≡</i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="pbody">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span>Isle of Dorn</span><span class="chipg pause">❚❚ Paused: idle 5 min</span></div>
+            <div class="headline" style="opacity:.6"><span class="tv">763g 45s</span><span class="ph"><b>1,083g</b>/h</span></div>
+            <div class="mini">The clock is stopped. Your next gain or Resume starts it again.</div>
+            <div style="display:flex;gap:6px;margin-top:10px"><span class="btn pri">Resume</span><span class="btn">Finish</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="cell">
+        <h3>Details window <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g" style="min-width:430px">
+          <div class="tbar"><span class="t">Farm session: details</span><span class="marks"><i>✕</i></span></div>
+          <div class="tabs"><span class="on">Items</span><span>Money</span><span>Currencies</span><span>Costs</span><span>Activity</span><span>Log</span></div>
+          <div class="pbody">
+            <table class="gt">
+              <tr><th>Item</th><th class="n">Qty</th><th class="n">Vendor/u</th><th class="n">Vendor</th><th class="n">AH/u</th><th class="n sort">AH ▼</th><th>Source</th></tr>
+              <tr><td><span class="ic" style="background:#1c3a17;border-color:var(--q2)"></span><span style="color:var(--q2)">Stormcharged Bracers</span></td><td class="n">1</td><td class="n">14g</td><td class="n">14g</td><td class="n">480g</td><td class="n">480g</td><td>Kill</td></tr>
+              <tr><td><span class="ic" style="background:#3a3a3a;border-color:var(--q1)"></span><span style="color:var(--q1)">Bismuth</span></td><td class="n">63</td><td class="n">1s</td><td class="n">76s</td><td class="n">2g 10s</td><td class="n">132g</td><td>Gathering</td></tr>
+              <tr><td><span class="ic" style="background:#3b3b3b;border-color:var(--q0)"></span><span style="color:var(--q0)">Broken Fang</span></td><td class="n">31</td><td class="n">55s</td><td class="n">17g</td><td class="n">n/a</td><td class="n">17g</td><td>Kill</td></tr>
+            </table>
+            <div class="hdg">Log tab</div>
+            <table class="gt log">
+              <tr><th>Time</th><th>What</th><th class="n">Value</th><th>Source</th></tr>
+              <tr><td>00:41:52</td><td><span style="color:var(--q1)">Bismuth</span> x5</td><td class="n">10g 50s</td><td>Gathering</td></tr>
+              <tr><td>00:41:10</td><td><span class="gc">3g</span> <span class="sc">12s</span> looted</td><td class="n">3g 12s</td><td>Kill</td></tr>
+              <tr><td>00:40:31</td><td>Repair</td><td class="n neg">−9g</td><td>Cost</td></tr>
+              <tr><td>00:39:58</td><td>Quest turned in: <i>A Glint of Ore</i></td><td class="n"></td><td>Quest</td></tr>
+            </table>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li>Each panel value broken down line by line: every item, every money pickup, every currency, every cost and every activity count.</li>
+          <li>The <b>Log</b> tab is the session's own timeline, newest first.</li>
+          <li>It updates live while the session runs. The same window opens a saved session.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <h3>Summary at Finish</h3>
+        <div class="scene"><div class="panel g" style="min-width:400px">
+          <div class="tbar"><span class="t">Session summary: Isle of Dorn</span><span class="marks"><i>✕</i></span></div>
+          <div class="pbody">
+            <div class="mini">27 Nov 2026 · 19:02 to 20:31 · 1 h 12 m active (17 m paused) · Charone · Isle of Dorn, Ringing Deeps</div>
+            <div class="headline"><span class="tv">1,466g</span><span class="ph"><b>1,221g</b>/h</span></div>
+            <div class="mini">Gross, AH value · net 1,446g · 1,205g/h</div>
+            <div class="kv" style="margin-top:8px">
+              <span class="k">Money looted</span><span class="v">261g 10s</span>
+              <span class="k">Items, vendor / AH</span><span class="v">66g 40s / 1,204g 90s</span>
+              <span class="k">Costs (repairs 9g, buys 11g)</span><span class="v neg">−20g</span>
+            </div>
+            <div class="hdg">Activity</div>
+            <div class="statgrid">
+              <div class="s"><span>Mobs looted</span><span>97</span></div>
+              <div class="s"><span>Items looted</span><span>402</span></div>
+              <div class="s"><span>Nodes gathered</span><span>88</span></div>
+              <div class="s"><span>Quests turned in</span><span>5</span></div>
+            </div>
+            <div class="hdg">Top earners</div>
+            <div class="kv"><span class="k" style="color:var(--q2)">Stormcharged Bracers</span><span class="v">480g</span><span class="k">Bismuth x212</span><span class="v">445g</span><span class="k">Ironclaw Ore x96</span><span class="v">278g</span></div>
+            <div class="hdg">By source</div>
+            <div class="kv"><span class="k">Gathering</span><span class="v">723g · 49%</span><span class="k">Kill</span><span class="v">678g · 46%</span><span class="k">Container</span><span class="v">65g · 5%</span></div>
+            <div style="display:flex;gap:6px;margin-top:10px"><span class="btn pri">Details</span><span class="btn">Close</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="cell">
+        <h3>Settings, new Farm tab <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g set">
+          <div class="tabs"><span>Toasts</span><span class="on">Farm</span><span>…</span></div>
+          <div class="pbody">
+            <div class="row"><span>Headline</span><span class="dd">Gross</span></div>
+            <div class="row"><span>Headline value</span><span class="dd">AH value</span></div>
+            <div class="row"><span class="cb on">Pause when AFK</span></div>
+            <div class="row"><span>Pause after idle (min, 0 = off)</span><span class="sl"><span class="bar"><b style="width:17%"></b></span>5</span></div>
+            <div class="row"><span>Sessions kept per character (0 = all)</span><span class="sl"><span class="bar"><b style="width:40%"></b></span>100</span></div>
+            <div class="row"><span class="cb on">Show the panel when a session starts</span></div>
+            <div class="hdg">Activity lines</div>
+            <div class="srcgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+              <span class="cb on">Mobs looted</span><span class="cb on">Items looted</span>
+              <span class="cb on">Nodes gathered</span><span class="cb on">Fish caught</span>
+              <span class="cb on">Quests turned in</span><span class="cb on">Quest rewards</span>
+              <span class="cb on">Containers opened</span><span class="cb on">Drops by quality</span>
+              <span class="cb on">Reputation gained</span><span class="cb on">Experience gained</span>
+              <span class="cb on">Skill-ups</span><span class="cb on">New appearances</span>
+              <span class="cb">Currencies gained</span><span class="cb">Deaths</span>
+            </div>
+            <div class="row"><span class="cb on">Hide lines that read 0</span></div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li><b>Mobs looted</b> counts the distinct corpses you looted, taken from the loot window's source. Retail 12.x doesn't give addons a reliable kill count, so a true "mobs killed" isn't on offer.</li>
+          <li><b>Fish caught</b>, <b>Nodes gathered</b> and <b>Containers opened</b> reuse the sources Attribution already assigns.</li>
+          <li><b>Deaths</b> comes from the player's own death event, and is off by default.</li>
+        </ul>
+      </div>
+
+      <div class="cell">
+        <h3>Saved sessions <span class="newtag">new</span></h3>
+        <div class="scene"><div class="panel g">
+          <div class="tbar"><span class="t">Ka0s Loot History</span><span class="marks"><i class="hdbtn"><svg class="ico gold" style="margin:0"><use href="#i-farm"/></svg></i><i>🔓︎</i><i>✕</i></span></div>
+          <div class="tabs"><span>History</span><span>Insights</span><span>Holdings</span><span>Timeline</span><span class="on">Farm</span></div>
+          <div class="pbody">
+            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap"><span class="dd">All characters</span><span class="dd">All zones</span><span class="dd">Measure: AH</span></div>
+            <table class="gt">
+              <tr><th>Date</th><th>Character</th><th>Zone</th><th class="n">Active</th><th class="n">Total</th><th class="n sort">Gross/h ▼</th><th></th></tr>
+              <tr class="sel"><td>27 Nov</td><td style="color:var(--c-mage)">Charone</td><td>Isle of Dorn</td><td class="n">1:12</td><td class="n">1,466g</td><td class="n">1,221g</td><td style="color:var(--g-gold)">★</td></tr>
+              <tr><td>25 Nov</td><td style="color:var(--c-hunter)">Chartwo</td><td>Ringing Deeps</td><td class="n">0:48</td><td class="n">792g</td><td class="n">990g</td><td style="color:var(--g-gold)">★</td></tr>
+              <tr><td>24 Nov</td><td style="color:var(--c-mage)">Charone</td><td>Isle of Dorn</td><td class="n">2:05</td><td class="n">1,750g</td><td class="n">840g</td><td></td></tr>
+            </table>
+            <div class="mini" style="margin-top:6px">Click a row for its summary. Double-click or <b>Details</b> opens its full record. Right-click to Rename or Delete.</div>
+          </div>
+        </div></div>
+        <ul class="notes">
+          <li>Every finished session saves a <b>full record</b>: the totals, every item, money, currency and cost line, the activity counts and the log. The Details window shows any past session exactly as it looked live.</li>
+          <li>The record is the session's own copy. It doesn't depend on History rows, so retention and purge don't touch it. The per-character cap trims the oldest sessions.</li>
+          <li>The log keeps the most recent 2,000 lines per session, to keep SavedVariables in check. The totals always cover the whole session.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="decided"><span>Title-bar button + 2 key bindings</span><span>Total + per-hour headline</span><span>Configurable activity tally</span><span>Details window</span><span>Minimize</span><span>Full saved record</span></div>
+  </section>
+</div>
