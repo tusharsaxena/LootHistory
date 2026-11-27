@@ -8,8 +8,8 @@ All inter-module communication uses `AceEvent`-style messages with a fixed name 
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` **and** `Database:Amend` ([`core/Database.lua`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (coalesced repaint; never counted: the rollup's tallies come from the `Database:OnWrite` hook, because this message is re-sent on every amend) — Browser, Analytics and Timeline repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons) |
-| `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, `Reconciler:ForgetHolder`, once for a forgotten character, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops (`modules/Sim.lua`) | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons), HoldingsTally (wipes its cache on `"ledger"` and `"profile"`), HoldingsTip (re-reads its hot-path settings cache on `"tooltip"`, `"ledger"` and `"profile"`), HoldingsAPI (fires `HoldingsChanged` with a nil holder when `"ledger"` or `"profile"` flips its availability) |
+| `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, `Reconciler:ForgetHolder`, once for a forgotten character, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops (`modules/Sim.lua`) | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible), HoldingsTally (wipes its per-thing cache), HoldingsAPI (relays it to other addons as `HoldingsChanged`, except during a simulation) |
 
 Exactly one sender is allowed per message — the table is sender-authoritative. `HoldingsChanged` keeps its one sender, the Reconciler, even for "Forget this character": `Holdings:ForgetHolder` and `Rollup:ForgetHolder` do the dropping, and `Reconciler:ForgetHolder` announces it.
 
@@ -43,13 +43,34 @@ Because deletion and retention rebuild-and-swap (no holes; see [schema.md](schem
 
 Fired by `Reconciler:Flush` after a scan changed a holder's stored holdings: one send **per changed holder**, never one per scanned part, so a vendor sale that touches bags, gold and a currency in the same debounce window announces its holder once. The payload is the `holder` key — the character's `NS.Util.PlayerKey()`, or the literal `"§warband"` for the virtual Warband holder. A flush that changed nothing sends nothing, and a flush that cannot run (in combat, or a bank part with no banker open) defers rather than sending.
 
-The one receiver is `HoldingsTab`, on its own private target (`HT.__ev`), which repaints only while its pane is shown and otherwise lets the next tab selection refresh it. The payload is a hint, not a patch: a receiver re-reads `NS.Holdings`. Phase 2 will add its own receivers under the same one-sender rule.
+Four receivers, each on its own private target:
+
+- **HoldingsTab** (`HT.__ev`, `modules/HoldingsTab.lua`) repaints only while its pane is shown and otherwise lets the next tab selection refresh it.
+- **Timeline** (`TL.__ev`, `modules/Timeline.lua`) runs the same coalesced repaint as for `RecordAdded`, only while its pane is visible.
+- **HoldingsTally** (`T.__ev`, `modules/HoldingsTally.lua`, #34) wipes its per-thing cache, whatever the holder, so the next tooltip or API read rebuilds from the store.
+- **HoldingsAPI** (`A.__ev`, `modules/HoldingsAPI.lua`, #34) re-fires the holder as `HoldingsChanged` through its own CallbackHandler registry, for other addons (`LootHistory.API.v1`, [ARCHITECTURE.md](ARCHITECTURE.md#public-api-v1)). That registry is not the bus, so the API is one more receiver and never a second sender. It relays nothing while a simulation is active, because a simulation's flushes concern its session store, which the API never reads.
+
+The payload is a hint, not a patch: a receiver re-reads `NS.Holdings`.
+
 ## `Ka0s_LootHistory_SettingsChanged` payload
 
-Sent from eight schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying six distinct `reason` strings between them: `"enabled"`, `"quality"`, `"currency"` (the `recordCurrency` toggle), `"questfilter"`, `"excludes"`, and `"chrome"` — the last one new with the Master controls tab, sent by `settings.scale` / `settings.alpha` / `settings.locked` so the Browser re-applies the addon-wide chrome to both of its frames. A seventh, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The first five are exactly the settings that feed the Collector's hot-path upvalues — the reason lets a subscriber log/branch, but current consumers re-read all of them:
+Sent from seventeen schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua), carrying ten distinct `reason` strings between them:
+
+- `"enabled"` (`settings.enabled`, through `S.OnEnabledWritten`);
+- `"quality"` (`settings.qualityThreshold`), `"questfilter"` (`settings.excludeQuestItems`), `"ammofilter"` (`settings.excludeAmmo`), `"currency"` (`settings.recordCurrency`) and `"excludes"` (`settings.excludedSources`);
+- `"ledger"` (`settings.trackLedger` and `settings.recordGold`);
+- `"view"` (`settings.showTransfers`);
+- `"chrome"` (`settings.scale`, `settings.alpha` and `settings.locked`, so the Browser re-applies the addon-wide chrome to both of its frames);
+- `"tooltip"` (the five `settings.tooltip.*` rows, #34).
+
+An eleventh, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The reason lets a subscriber branch; the Collector and the Browser re-read everything on any reason, and the other four consumers act only on theirs:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
 - **Browser** (`modules/Browser.lua`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
+- **Reconciler** (`modules/Reconciler.lua`, its `_settings` target) re-registers or drops its capture events on `"ledger"` and `"profile"`.
+- **HoldingsTally** (`modules/HoldingsTally.lua`) wipes its cache on `"ledger"` and `"profile"`.
+- **HoldingsTip** (`modules/HoldingsTip.lua`) re-reads the five tooltip rows and `trackLedger` into its hot-path cache on `"tooltip"`, `"ledger"` and `"profile"`, which also invalidates every replay memo.
+- **HoldingsAPI** (`modules/HoldingsAPI.lua`) re-checks its availability on `"ledger"` and `"profile"` and, when it flipped, fires `HoldingsChanged` with a nil holder.
 
 ### What does NOT broadcast
 
@@ -79,6 +100,8 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 
 The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
 - HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
+- Timeline — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` and `RecordAdded` (`modules/Timeline.lua`).
+- HoldingsTally, HoldingsTip and HoldingsAPI — one `self.__ev = NS.NewBusTarget()` each, in their `Enable` (`modules/HoldingsTally.lua`, `modules/HoldingsTip.lua`, `modules/HoldingsAPI.lua`, #34).
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua`, `renderHistory`) and the Filters tab's id-lists (`settings/Panel.lua`, `buildFiltersTab`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.

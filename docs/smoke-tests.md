@@ -43,17 +43,19 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | FILT-1 to 25 | [Filter lists](#filter-lists) | both | Blacklist, whitelist and currency lists: gate, add box, suggestions, grid, refresh |
 | LAUNCH-1 to 17 | [Launcher](#launcher) | both | Minimap button and broker row: art, tooltip, clicks, menu, visibility; the Show window key binding, its own Keybindings section and the General page's Keybindings tab |
 | DIAG-1 to 33 | [Debug console and diagnostics](#debug-console-and-diagnostics) | both | Console window and logging, resizing, tag coverage, the diagnostics report and the logging it turns on, the console's Diagnostics link, the library's own `[Cmd]` and `[Lifecycle]` lines, state lines held for `debug on` |
-| ICON-1 to 6 | [Vendored icons](#vendored-icons) | both | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration) |
+| ICON-1 to 8 | [Vendored icons](#vendored-icons) | both | Every mark the pruned LibKa0s icon folder must still draw (the `LibKa0s icons:` declaration), the History window's lock marks (ICON-7) and the holdings tooltip's container marks (ICON-8) |
 | DEGRADED-1 to 15 | [Degraded install](#degraded-install) | both | LibKa0s missing from the install; the title badge as the only mode marker |
 | LED-1 to 14 | [Ledger and holdings](#ledger-and-holdings) | both | The Holdings tab, bank and warband reads, the upgrade reset popup, combat deferral, `/lh holdings`, the `trackLedger` switch, the P4 columns/banding/tooltips/header row, bank drift from outside the addon, the Direction column, gold amounts, Holdings on the skin, where Holdings' tooltips open |
 | LED-P2-01 to 24 | [Ledger capture (timeline ledger Phase 2)](#ledger-capture-timeline-ledger-phase-2) | both | Bank, warband, vendor, loot, combat, mail, auction house, guild bank, crafting, currency, login and resume drift, History and Insights display, exports, perf run, trainer, taxi, trade, destroy |
 | TR-1 to 3 | [Holder moves (timeline ledger Phase 7)](#holder-moves-timeline-ledger-phase-7) | both | Holder moves are a loss and a gain: warband withdraw, own bank deposit, alt mail |
+| TIP-1 to 9 | [Holdings tooltip](#holdings-tooltip) | both | The holdings block on item and currency tooltips: holders, class colors, container marks and counts, the Total rule, currencies, live counts at a banker, the stale age, the five settings rows, off with the ledger or the addon, every tooltip once and never on a comparison tooltip, the bank count after a reload (TIP-9, Retail) |
+| API-1 to 3 | [Holdings tooltip](#holdings-tooltip) | both | `LootHistory.API.v1`: counts that match the tooltip, the `HoldingsChanged` callback, the empty answers while disabled |
 | TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | SEEDS-LH-1 to 4 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | Removed on 2026-11-25 (IS-LH-01): SEEDS-LH-1 to 3 are superseded by ITEM-SEARCH; SEEDS-LH-4 checks the History item tooltip is back to what it was before Item sources, with no setting row and nothing loading ForeverDB |
-| FOREVER-1 to 16 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16) |
+| FOREVER-1 to 18 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18) |
 
 ## Before you start
 
@@ -2023,6 +2025,77 @@ exactly one `⇄ Transfer` row (Bags to Bank) on the character, and no gain or l
 **Alt Mail**. Log the alt in and take the mail → a `▲ Gain` on the alt, reason **Alt Mail**; no `⇄`
 row and no `UNTRACKED` row. Result: pass (owner-marked 2026-10-10)
 
+## Holdings tooltip
+
+The holdings block on item and currency tooltips and the public API (#34, spec
+`docs/superpowers/specs/2026-11-27-34-tooltip-holdings-design.md`). Run on the live account with
+**Track holdings and losses** ticked and two or more characters whose holdings the ledger has read
+(log each in once, and open each one's bank once). The five rows are on Settings › General ›
+Interface under **Holdings in tooltips**. A check fails on any Lua error.
+
+**TIP-1. An item two characters hold.** Client: both. Hover a bag item that this character and an
+alt both hold → under the client's own lines, a spacer, the **Ka0s Loot History** header, one line per
+holder in its class color, each with a container mark and a count per place it is kept, and a
+**Total** line with the sum. The holder with the most is first. Fail: a blank square where a mark
+should be, a holder in the wrong color, or a Total that does not add up. Result:
+
+**TIP-2. An item only this character holds.** Client: both. Hover an item no alt holds → one holder
+line and no Total line (the default **Show the Total only with 2 or more holders**). Fail: a Total
+line. Result:
+
+**TIP-3. Currencies.** Client: both. Hover a character currency in the Currency tab → one line per
+character that holds it, with plain numbers and no marks. On Retail, hover an account-wide (warband)
+currency → one **Warband** line in the Warband color; on WoW Forever, an account-wide currency reads
+**Account**. Fail: a container mark on a currency line, or a per-character line for an account-wide
+currency. Result:
+
+**TIP-4. Live counts at a banker.** Client: both. At a banker, move a stack from your bags to the
+bank, then hover it → this character's bag and bank counts change at once, before any `/reload`;
+move it back → they change back. On Retail, repeat with the warband bank → the Warband line's
+warband-bank count follows. Fail: a count that only updates after a reload. Result:
+
+**TIP-5. A stale bank.** Client: both. On an alt whose bank was last read more than a day ago, hover
+an item that bank holds → beside that holder's counts a dim bank mark and the age, `N d`. On a holder
+read today → no age. Fail: an age on a holder read today, or none on the old bank. Result:
+
+**TIP-6. The five settings rows.** Client: both. Untick **Show holdings in item and currency
+tooltips** → no block anywhere; tick it. Untick **Show where each holder keeps it** → one count per
+holder, no marks. Untick **Include the Warband** (WoW Forever: **Include the Account**) → no account
+line, and an account-wide currency shows no block. Untick **Show the Total only with 2 or more
+holders** → a Total line under a one-holder block too. Set **Only while holding** to **Shift** → no
+block until Shift is held, and it appears while held. Put each back. Fail: a row that changes nothing
+until a reload. Result:
+
+**TIP-7. Off means off.** Client: both. Untick **Track holdings and losses** → no block on any
+tooltip; tick it → the block is back. `/lh disable` → no block; `/lh enable` → back. Fail: a block
+while either is off. Result:
+
+**TIP-8. Every tooltip, once.** Client: both. The block appears on an item in the auction house, a
+chat link, the loot window, a quest reward and another addon's item tooltip. Hold Shift over an
+equippable item → the comparison tooltips beside it carry no block. Hover one item for 10 seconds →
+the block stays one block, never doubled. Fail: a second block, a block on a comparison tooltip, or
+a tooltip that moves or flickers when the block is added. Result:
+
+**TIP-9. The bank after a reload, away from the bank.** Client: Retail. Away from any banker,
+`/reload`, then hover an item this character keeps in its bank → its bank count equals the Holdings
+tab's for that item, never 0. Fail: a bank count of 0, or none. Result:
+
+**API-1. The API answers what the tooltip shows.** Client: both. Hover an item this character holds
+and note its total, then `/dump LootHistory.API.v1.ItemCount(<itemID>)` → the same total, and a
+per-holder table that matches the tooltip's lines. `/dump LootHistory.API.v1.Version()` → `1`. Fail: a
+different total, or a Lua error. Result:
+
+**API-2. The callback.** Client: both. From a test addon (or `/run` with a table of your own), call
+`LootHistory.API.v1.RegisterCallback(t, "HoldingsChanged", function(e, holder) print(e, holder) end)`,
+then move a stack between two bags → after the ledger's short delay one `HoldingsChanged` line naming
+this character. `UnregisterCallback(t, "HoldingsChanged")`, move it back → nothing prints. Fail: no
+line, a line per bag event, or a line after unregistering. Result:
+
+**API-3. The API while disabled.** Client: both. `/lh disable`, then `/dump
+LootHistory.API.v1.IsAvailable()` → `false`, and `/dump LootHistory.API.v1.Holders()` → an empty
+table; `Version()` still answers `1`. `/lh enable` → `IsAvailable()` is `true` again. Fail: holders
+listed while disabled, or `LootHistory` missing. Result:
+
 ## Timeline
 
 The timeline ledger's Phase 3 (spec `docs/superpowers/specs/2026-10-06-timeline-ledger-design.md`): the
@@ -2738,6 +2811,12 @@ list shows its info help mark. Result: pass (owner-marked 2026-10-23)
 of the gear draws open (the catalog's `unlock`); `/lh lock` → it draws closed (`lock`). Fail: an empty
 square in either state. Result:
 
+**ICON-8. The holdings tooltip's container marks (#34).** Client: both. With **Show where each holder
+keeps it** ticked, hover items you hold in each place → the bags (knapsack), equipped (chest armor),
+bank (bank), mail (envelope) and auction house (gavel) marks draw beside their counts, and on Retail
+the warband bank's (locked chest) too: six on Retail, five on WoW Forever. A stale bank's mark draws
+dim (TIP-5). Fail: an empty square in place of any of them. Result:
+
 **SKIN-47. The sort arrow's own color (SF-FIX, not run).** Under a skin whose sort arrow differs from its header text (Obsidian), the History and Holdings sort arrows wear that arrow color; the group chevron keeps the header text color. Result: Passed (owner, 2026-11-02)
 
 **SKIN-48. A stored pick of the deleted Friz lands on Ka0s Ubuntu (R3-FRIZ, schema v15).** Before updating, set the Skin tab's **Font** to *Ka0s Friz Quadrata TT* in two profiles and log out. Update and fully restart the client (a new font file) → the window draws in Ubuntu and the Font row reads *Ka0s Ubuntu*; switch to the other profile → the same. Fail: the window on the game's default face, or the row still naming Ka0s Friz Quadrata TT. Result: not run
@@ -2892,6 +2971,7 @@ Superseded on 2026-11-25 by ITEM-SEARCH (IS-LH-01): Item sources is removed; SEE
 **SEEDS-LH-4. Item sources is gone.** Client: both. With Drop Watcher disabled (its Item Search adds a block to every item tooltip) and, on WoW Forever, ForeverDB enabled, log in and run `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` → `false`. Open History and hover item rows → each tooltip is the item's own with the click hint, as before Item sources: no Drops from and no Sold by. `/dump C_AddOns.IsAddOnLoaded("ForeverDB")` still answers `false` (nothing in Loot History loads it). Settings › General › Interface › History window → there is no **Item sources (ForeverDB)** row, and `/lh set settings.itemSources false` is refused with `Setting not found`. A profile that saved the setting before this change (`/dump LootHistoryDB.profiles` after `/reload` on such a profile) no longer carries `itemSources`. Fail: any Drops from or Sold by line, ForeverDB loaded by Loot History, the row present, or an error.
 Result: PASS (owner, 2026-11-25)
 
+
 ## WoW Forever
 
 The WoW Forever port (LH-01 to LH-14, Ka0sAddonsCommonTasks
@@ -2938,6 +3018,24 @@ R8 changed three things on both clients, each in its own commit: the bank part a
 **FOREVER-15. Money text and the roll-won line (R8, LH-11; probes P8 and P9).** Client: Retail. History's money values, Holdings' gold, the Timeline's gold tooltips and Insights' money show coin glyphs exactly as before the port (`C_CurrencyInfo.GetCoinTextureString`); the CSV exports still write `Ng Ns Nc`. In a group, win a Need or Greed roll → the item reads **Roll**, as CAP-9 says. Fail: plain text money in a window, glyphs of a different size than before, or a won roll recorded under another source. Result: PASS (owner, 2026-11-24)
 
 **FOREVER-16. Everything Forever lacks is still on Retail (clients-§6).** Client: Retail. The presence side of FOREVER-2 to FOREVER-5 and FOREVER-9 to FOREVER-11: the settings tooltips speak of the warband; Holdings has its Warband column and split, and its Warband holder reads **Warband**; the Source filter and **Record data from** offer Mythic+, Bonus Roll, Milling and Prospecting (CAP-24's list), and the Source filter also Warband Deposit and Warband Withdraw; bound items read **Warbound**; `/lh diagnostics` carries the `attribution: keystone` line; `/lh sim start key` runs; the History CSV's `wowheadLink` reads `https://www.wowhead.com/item=<id>`; keys and the Character column read `Name-Realm`, and the Character tooltip speaks of the "full Name-Realm"; a new profile wears **Ka0s Default**; `/lh test` shows TM-3's sample and opens the Timeline on Everlight Crystal; `/lh sim start loot` kills a Rookery Bat. Fail: any of these missing or changed on Retail. Result: PASS (owner, 2026-11-24)
+
+### The holdings tooltip on WoW Forever (#34)
+
+The two Forever facts the holdings tooltip assumes from the interface files
+([forever-quirks.md](forever-quirks.md), the two #34 rows).
+
+**FOREVER-17. The item tooltip block on WoW Forever.** Client: WoW Forever. Hover an item in your
+bags that you also wear one of, and one in your bank → the **Ka0s Loot History** block draws, with no
+warband-bank mark; the bags count equals what the bags hold (worn copies and bags in bag slots not
+counted), and at a banker the bank count equals the bank's. Fail: no block, a count that includes what
+you wear, or a bank count of 0 at a banker. Probes `C_Item.GetItemCount`'s arity and its worn and
+bag-slot counting. Result:
+
+**FOREVER-18. The currency tooltip block on WoW Forever.** Client: WoW Forever. Hover a currency in
+the Currency tab → the block draws with plain numbers, an account-wide currency on an **Account**
+line. If no block draws on any currency while items still draw (FOREVER-17), record that the Currency
+post call is absent on this client: that is the documented absence, not a failure. Fail: a Lua error,
+or no block on items either. Result:
 
 ## Pending sign-off
 
@@ -3078,6 +3176,11 @@ awaiting the owner: SEEDS-LH-4, new, on both clients. The run removed Item sourc
 SEEDS-LH-3 are superseded by ITEM-SEARCH after they passed.
 On 2026-11-25 the owner reported that SEEDS-LH-4 passed; its `Result:` line records it as
 `PASS (owner, 2026-11-25)`.
+
+Added by the holdings tooltip and public API (#34, 2026-11-27; spec
+`docs/superpowers/specs/2026-11-27-34-tooltip-holdings-design.md`), awaiting the owner, each new:
+TIP-1 to TIP-9 (TIP-9 on Retail, the rest on both clients), API-1 to API-3 and ICON-8 on both
+clients, and FOREVER-17 and FOREVER-18 on WoW Forever.
 
 Added on 2026-11-27 (owner feedback), awaiting the owner, each new and on both clients: CAP-39 and
 LEDGER-SWAP-1. On 2026-11-27 the owner reported LEDGER-SWAP-1 passed and CAP-39 failed on WoW Forever

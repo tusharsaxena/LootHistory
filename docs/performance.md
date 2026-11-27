@@ -11,7 +11,7 @@ combat. That was the exemption's re-check trigger, and the row is retired (see
 
 ## The buckets
 
-Five, in report order. Each is a handler that runs **in combat**:
+Six, in report order. Each is a handler that runs **in combat**:
 
 | Bucket | Handler | What it covers |
 |---|---|---|
@@ -20,6 +20,7 @@ Five, in report order. Each is a handler that runs **in combat**:
 | `moneyLine` | `Collector:OnChatMsgMoney` | Looted money and party share: one gold row and its claim |
 | `spellCast` | `Attribution:OnSpellSucceeded` | Every player cast: one memoized deconstruct lookup |
 | `ledgerEvent` | `Reconciler:OnEvent` | Every capture event (`BAG_UPDATE` storms, money, currency, equipment): a dirty bit and a debounce, nothing else |
+| `tooltipBlock` | `HoldingsTip.OnTooltip` | Every item and currency tooltip build (#34), about five a second while one is hovered, in combat too: the guard ladder, then either a replay of the memoized lines (no tally compose, no icon markup) or a rebuild from the tally, and the append. The bracket closes on every call, including one the ladder refuses |
 
 None declares `within`: none runs inside another.
 

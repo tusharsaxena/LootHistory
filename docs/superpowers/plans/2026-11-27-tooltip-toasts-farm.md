@@ -74,7 +74,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M1.2 | Holdings tally (per thing, per holder, per container; live current character; cache invalidated on `HOLDINGS_CHANGED`) + tests | done | `M1.2: Add the holdings tally over the saved store with a live overlay` |
 | M1.3 | Tooltip block: icons + counts, staleness age, Total rule, settings rows (Interface tab subgroup "Holdings in tooltips", owner ruling), modifier mode, disabled-state, tests | done | `M1.3: Add the holdings tooltip block, its settings and container icons` |
 | M1.4 | Public API v1 + CallbackHandler + tests + ARCHITECTURE contract | done | `M1.4: Add the public holdings API v1 with a CallbackHandler relay` |
-| M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | todo | |
+| M1.5 | Docs (module map, schema rows, settings panel, smoke rows, per-client table, test-cases regen) | done | `M1.5: Document the holdings tooltip, its API and their smoke checks` |
 | M1.6 | Review pass (workflow) + fixes; push M1 | todo | |
 | M2.1 | Kinds `REPUTATION` / `APPEARANCE`, feature gate (appearance Retail-only), Compat reads | todo | |
 | M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | todo | |

@@ -141,6 +141,17 @@ shared bus or a private bus target, and all go down with the latch.
 | `ADDON_LOADED` | `modules/AttributionOut.lua` (row) | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
 | `PLAYER_REGEN_ENABLED` | `settings/Slash.lua` (`NS.OfferLedgerReset`) | Only when the reset offer comes due in combat: a one-shot on a private target that drops itself and re-offers once out of combat. |
 
+## Hooks and post calls
+
+No `RegisterEvent` grep finds these, because they are not events. Each runs on a client action, and
+the ones that can run in combat are bracketed.
+
+| Hook | Installed at | Work done per fire |
+|---|---|---|
+| `TooltipDataProcessor.AddTooltipPostCall` for the Item and Currency data types | `modules/HoldingsTip.lua`, `HT:InstallHooks` (from `HT:Enable`, once per session per type, through `Compat.HookTooltipType`) | **Runs in combat**, on every item or currency tooltip build: about five a second while one is hovered. Bucket `tooltipBlock`. The guard ladder returns at its first failing rung (stood down, settings off, not writable, a comparison tooltip, no id, already drawn on this show, modifier not held). Past it, every call reads the live counts the memo is keyed on: for an item `Compat.LiveItemCounts` (two `C_Item.GetItemCount` calls, three on Retail, plus one inventory read per equipment slot and bag slot) and the Reconciler's two readable flags, for a currency one `Compat.CurrencyQuantity`. An unchanged refresh then replays the memoized lines: no tally compose, no icon markup, no string building. A rebuild reads the tally's cached entry and builds the lines once. |
+| `GameTooltip:HookScript("OnHide")` and `HookScript("OnTooltipCleared")`, per tooltip | `modules/HoldingsTip.lua`, `watch`, the first time the block draws on that tooltip | One weak-table write that clears the never-twice mark. No gate, because it draws and writes nothing. |
+| `hooksecurefunc` capture and loss-side hooks | `core/Dispatch.lua`'s `NS.HOOK_ROWS`, `modules/AttributionOut.lua` | Out of combat by construction (vendor, mail, auction house, crafting, the guild bank): one stamp each. |
+
 The reconcile itself (`Reconciler:Flush`: scan, plan, hold or commit) never runs in combat, so it is
 not a perf bucket. `tests/perf.lua` scenario 3 bounds it at one container scan per dirty group.
 
