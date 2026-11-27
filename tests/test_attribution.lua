@@ -418,6 +418,18 @@ test("Attribution: a Fishing cast makes the next sourceless loot window a catch;
   mocks.GetLootSourceInfo = function() return nil end
   A:OnLootOpened()
   assertEqual(A:Consume(), "OTHER", "no cast: a sourceless window stays Other")
+  -- WoW Forever (the owner's /lh debug): the catch lands with NO loot window at all
+  resetContext()
+  A:OnSpellSucceeded(nil, "player", "c", 7732)
+  -- red under: "consume -> OTHER (INFERRED) — no fresh context" (no LOOT_OPENED to stamp it)
+  assertEqual(A:Consume(), "FISHING", "the catch's loot line, no window")
+  assertEqual(A:Consume(), "FISHING", "the same catch's next line, within the grace")
+  NS.State.fishingUntil = nil
+  resetContext()
+  A:OnSpellSucceeded(nil, "player", "c", 7732)
+  A:Stamp("KILL", nil, "CERTAIN", "test")
+  assertEqual(A:Consume(), "KILL", "a fresher stamp outranks the cast")
+  NS.State.fishingUntil = nil
   mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot = oNum, oSrc, oFish
 end)
 

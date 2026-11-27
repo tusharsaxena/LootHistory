@@ -195,6 +195,16 @@ function Attribution:Consume()
     end
     return c.source, c.detail, c.confidence
   end
+  -- A catch with no loot window (WoW Forever, the owner's /lh debug of 2026-11-27: the Fishing cast
+  -- logged, then the catch's loot line ~20 s later with no LOOT_OPENED between): a line with no fresh
+  -- context inside a Fishing cast's FISHING_TTL is the catch. Any fresher stamp (a kill's window, a
+  -- vendor, mail) outranks it above. The catch's own further lines share it for LOOT_LINE_GRACE.
+  local fishing = State.fishingUntil
+  if fishing and fishing >= now then
+    State.fishingUntil = math.min(fishing, now + Constants.LOOT_LINE_GRACE)
+    if NS.State.debug and NS.Debug then NS.Debug("Attr", "consume -> FISHING (a Fishing cast, no loot window)") end
+    return Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN
+  end
   if NS.State.debug and NS.Debug then
     NS.Debug("Attr", "consume -> OTHER (INFERRED) — no fresh context")
   end

@@ -3084,7 +3084,7 @@ LEDGER-SWAP-1. On 2026-11-27 the owner reported LEDGER-SWAP-1 passed and CAP-39 
 (catches still read Other after a reload: the catch's loot window has no source and IsFishingLoot does
 not answer there); CAP-39 is amended for the Fishing-cast fix and awaits the owner again, with CAP-40 new.
 
-**CAP-39. A fishing catch reads Fishing (amended 2026-11-27: Fishing is now known from your cast).** Client: both. Fish anywhere (Dustwallow Marsh's Oily
+**CAP-39. A fishing catch reads Fishing (amended twice on 2026-11-27: Fishing is known from your cast, and a catch with no loot window counts).** Client: both. Fish anywhere (Dustwallow Marsh's Oily
 Blackmouth will do), with auto loot on and then off. Open the Browser → each catch's Source reads
 **Fishing**, marked Certain, never Other or Container. Loot a creature next: it still reads Kill. The
 Source filter and the capture mute list offer Fishing. Result:
