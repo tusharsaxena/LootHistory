@@ -11,7 +11,7 @@ combat. That was the exemption's re-check trigger, and the row is retired (see
 
 ## The buckets
 
-Six, in report order. Each is a handler that runs **in combat**:
+Eight, in report order. Each is a handler that runs **in combat**:
 
 | Bucket | Handler | What it covers |
 |---|---|---|
@@ -21,6 +21,8 @@ Six, in report order. Each is a handler that runs **in combat**:
 | `spellCast` | `Attribution:OnSpellSucceeded` | Every player cast: one memoized deconstruct lookup |
 | `ledgerEvent` | `Reconciler:OnEvent` | Every capture event (`BAG_UPDATE` storms, money, currency, equipment): a dirty bit and a debounce, nothing else |
 | `tooltipBlock` | `HoldingsTip.OnTooltip` | Every item and currency tooltip build (#34), about five a second while one is hovered, in combat too: the guard ladder, then either a replay of the memoized lines (no tally compose, no icon markup) or a rebuild from the tally, and the append. The bracket closes on every call, including one the ladder refuses |
+| `repEvent` | `Reputation:OnStandingChanged` | Every `FACTION_STANDING_CHANGED`, which fires on kills in combat: one `Compat.FactionSnapshot` (four to six C API reads, answered as values), the pure delta and at most one `Database:Add` or `Amend`. Nothing is allocated when the standing did not move (`repUnchanged` below) |
+| `appearanceEvent` | `Appearance:OnSourceAdded` / `OnSourceRemoved` | Retail only. Every appearance source collected or removed, which bursts on an ensemble: the duplicate guard, three or four client reads behind `Compat.AppearanceSource` and, on a gain, `Compat.IsNewLook`, the context `Peek` and one `Database:Add` |
 
 None declares `within`: none runs inside another.
 
@@ -56,7 +58,8 @@ path being measured.
 `tests/perf.lua` scenario 1 sends a **dropped** loot line (below the quality gate, the common case
 in a raid) through the bracketed `OnChatMsgLoot` with capture off, and through the unbracketed body
 (`NS.Collector._lootLine`). It checks that the bracketed path allocates no more bytes per call
-than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero bytes and zero scans.
+than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero bytes and zero scans. Scenario 6 sends a `FACTION_STANDING_CHANGED` whose standing did not move through the bracketed
+`Reputation:OnStandingChanged`, which must allocate nothing either.
 
 | Scenario | Bytes/iter ceiling | Scans/iter | Measured 2026-10-31 |
 |---|---|---|---|
@@ -64,6 +67,7 @@ than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero byte
 | `lootDroppedBare` (1) | 0 | 0 | 0.0 |
 | `combatBagUpdate` (2) | 0 | 0 | 0.0 |
 | `reconcileCleanBags` (3) | 124000 | 1 | 118120.0 |
+| `repUnchanged` (6) | 0 | 0 | 0.0 (2026-11-28) |
 
 The ceilings are pinned numbers in `tests/perf.lua`, with the reason beside them. Scenario 3 is the
 one that does real work: an unchanged pass over 216 occupied slots, behind the debounce and never

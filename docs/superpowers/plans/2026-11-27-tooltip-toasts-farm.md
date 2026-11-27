@@ -84,7 +84,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M2.2 | Reputation capture (gain + loss, faction, standing; Retail renown/friendship/paragon/warband; Forever standings) + tests | done | `M2.2: Add the reputation capture with its switch, seed and coalescing` |
 | M2.3 | Appearance capture (collected IN, removed OUT; Retail) + tests | done | `M2.3: Add the Retail appearance capture with its switch and duplicate guard` |
 | M2.4 | History / filters / Insights / Export / test data / sim for the new kinds; capture switches | done | `M2.4a: Add the reputation and appearance read side`; `M2.4b: Add the reputation and appearance simulator world, drivers and steps` |
-| M2.5 | Docs + review pass + fixes; push M2 | todo | |
+| M2.5 | Docs + review pass + fixes; push M2 | docs done; review + push by lead | `M2.5: Document the reputation and appearance capture` |
 | M3.0 | LibKa0s-Feed-1.0 upstream (`../LibKa0s` branch `feat/2026-11-27-feed`, L-steps + review fixes, pushed); re-vendor here as `v1.119.0 (unreleased, branch feat/2026-11-27-feed)` | upstream done; re-vendor todo | LibKa0s `749ae79d` |
 | M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | todo | |
 | M3.2 | Feed host spike: LibKa0s Toast v4 vs own frames for slots / styling / motion; decide, record | todo | |

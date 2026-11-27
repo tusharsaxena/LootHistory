@@ -204,6 +204,15 @@ Every categorical bar chart (single-bar and companion) draws a **color-swatch le
 
 > `currencyBySource` (source → total qty across all currencies) is still computed and feeds the **Export** "Currency by Source" section, but no longer has an in-dashboard chart.
 
+**PROGRESS** — laid out last, after every other block, and only when the range holds a reputation or appearance row (`AnalyticsLedger.HasProgress`), introduced by its own **PROGRESS** divider. Drawn by `modules/AnalyticsLedger.lua` (`LayoutProgress`), its chrome in `inst.progressUI`, outside the pools the layout golden walks. A range holding only reputation rows draws this block alone, not the empty state:
+
+| Section | Source field | Renderer |
+|---|---|---|
+| Reputation By Faction | `reputation.byFaction` (amount gained `i` and lost `o` per faction name) | back-to-back bars, gains right and losses left of the axis (`sem.good` / `sem.bad`), faction labels in `sem.info` (the History table's reputation color) |
+| Appearances Collected By Character | `appearances.byChar` (IN rows per character; Retail rows only) | one bar per character, most first, class-colored where the range knows the class |
+
+In History, a reputation row's Name cell is painted `sem.info` and its hover is the faction over its standing and amount; an appearance row hovers its source's item (`SetItemByID` when it has no link). Their row menu disables **Blacklist item** (an item row's only) and **Show in Timeline** (neither kind is a ledger thing). The Type filter offers **Reputation** and **Appearance** once such rows exist.
+
 These pooled renderers back the sections. All but one are `LibKa0s-Charts-1.0`'s (LibKa0s#66), reached through `self.charts`, the context `Analytics._newCharts` builds in `modules/AnalyticsCharts.lua`:
 
 - **`renderBarSection`** — a header + one horizontal bar per row (fixed label + track/fill + value). The largest bar fills the track and the rest scale relative to it.

@@ -69,7 +69,7 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 
 | Goes down | Where |
 |---|---|
-| The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's two chat events, Attribution's nine | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
+| The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's three chat events, the Reputation owner's one (`FACTION_STANDING_CHANGED`), the Appearance owner's two (`TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED`, Retail only) and Attribution's ten (six on WoW Forever) | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
 | The Reconciler's two private bus targets (the `SettingsChanged` listener and the sixteen capture events, fourteen on WoW Forever) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
@@ -80,13 +80,20 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 | The public API's private bus target (`HOLDINGS_CHANGED` and `SETTINGS_CHANGED` for `ledger` / `profile`); it fires `HoldingsChanged` with a nil holder once before it goes, so a consumer re-queries and finds the empty answers. `_G.LootHistory` stays (setup) | `HoldingsAPI:Disable`, from `NS.StandDown`; `NS.StandUp` runs the three `Enable`s after `Timeline:Enable`, and the API fires nil again |
 | A running simulation (`/lh sim`: its session stores, its real-event split, its world-watch target and its timers) | `NS.SimStop`, the **first** `NS.StandDown` step, `call("SimStop")` at the head of `STAND_DOWN_STEPS` (`core/LifecycleSetup.lua`; LibKa0s-Sim-1.0's H6, pinned by `tests/test_disabled.lua`): `NS.Sim:Stop("standDown")` runs while every module still holds its state, resets the Reconciler and the attribution contexts and releases the session stores, and schedules no drift scan |
 | A held reset-recommendation popup (the `PLAYER_REGEN_ENABLED` one-shot, and the "Export first" re-ask the export window's `OnHide` would fire as `NS.StandDown` hides it) | `NS.DropLedgerResetOffer`, from `NS.StandDown` |
+| The Reputation and Appearance owners: their private `_settings` targets, their capture rows and their in-memory baselines, coalesce and duplicate maps, plus the pending seed deferral | `Reputation:Disable` / `Appearance:Disable`, from `NS.StandDown`; `NS.CancelDeferrals` drops the seed |
 | `CHAT_MSG_MONEY`, the Collector's third chat event | `Collector:Disable` (it unregisters `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` and `CHAT_MSG_MONEY`) |
 | The loss side of attribution: the `__outEv` target (interaction, mail, trade and `ADDON_LOADED` events) and all outbound state (`outContext`, `scopes`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`, `craftUntil`, `pendingPost`) | `Attribution:DisableOut`, from `NS.StandDown` (after the module loop); the clearing itself is `Attribution:ResetContexts` |
 | The Reconciler's ledger state: dirty bits, readable containers, claims, recent-row coalescing map, memoized reasons, settle hold, the flush and recheck fuses, currency accumulators (`pendingCur`, `curGain`, `curLoss`), `pendingTransfer`, `loginPending` | `Reconciler:Disable` / `DisableCapture`, both through `Reconciler:ResetState` |
 | The `perf` hold: LibKa0s-Perf's Suspend takes the latch, and everything above goes down with it; Resume stands it back up and the Reconciler schedules a resume scan, so changes made while held land as `UNTRACKED` | `NS.StandDown` / `NS.StandUp` |
 | Attribution's per-unit spell frame (`UNIT_SPELLCAST_SUCCEEDED`, `player`) | `Attribution:Disable` |
-| Every deferral the addon armed — the retention prune, the rollup seed and prune, the bound-state repair, the coalesced repaints (Browser, Insights, Timeline), the Reconciler's flush fuse and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
+| Every deferral the addon armed — the retention prune, the rollup seed and prune, the bound-state repair, the coalesced repaints (Browser, Insights, Timeline), the Reconciler's flush fuse, the reputation seed and its combat retry, and the five-second reset offer | `NS.CancelDeferrals`, over the handles `NS.After` tracks |
 | The History window, the export modal and the debug console | `NS.StandDown`, and kept down by the first rung of `B:VisibilityAllows` |
+
+**A capture switch turned off unregisters, the same as `trackLedger`.** Unticking **Record
+reputation** or **Record appearances** calls that owner's `DisableCapture`: its rows are unregistered
+through `NS.UnregisterRows` and its capture state is cleared, while its `_settings` listener stays up
+to hear the switch come back. It is not a draw gate: the handler is never reached while the switch is
+off. `tests/test_dispatch.lua` pins the reputation row leaving and returning with the switch.
 
 **Hidden AT THE SOURCE, not imperatively.** The first rung of `B:VisibilityAllows` answers `false`
 while the latch is down, so every route into the window — the verb, the minimap click, the tab
@@ -112,7 +119,7 @@ inside those five seconds got the write anyway, from a game event, while it was 
 
 ## The reset steps, apart from the stand-down
 
-Three of the stand-down's steps are also callable on their own, without unregistering anything,
+Five of the stand-down's steps are also callable on their own, without unregistering anything,
 because the in-game simulator (`/lh sim`, LootHistory#37) has to wipe working state at its start
 and stop while the addon stays up:
 
@@ -124,6 +131,10 @@ and stop while the addon stays up:
   `encounter`, `keystone`, `outContext`, `pendingMail`, `soldMail`, `mailTaken`, `tradeTarget`,
   `craftUntil`, and empties `scopes` and `pendingPost` in place. `Attribution:Disable` and
   `Attribution:DisableOut` both call it.
+- **`Reputation:ResetState()`** clears the reputation baseline and the coalescing map and cancels
+  the pending seed; **`Appearance:ResetState()`** clears the duplicate maps. Each owner's
+  `DisableCapture` calls its own. The simulator's start clears both and seeds the baseline from the
+  world (`Reputation:Seed(true)`); its stop clears both and reseeds from the live faction walk.
 - **`NS.CancelDeferral(h)`** cancels and forgets one `NS.After` handle and leaves every other armed,
   so canceling the Reconciler's two fuses never takes the login deferrals down.
   `NS.CancelDeferrals()` still drops them all on a stand-down.

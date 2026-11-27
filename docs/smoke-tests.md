@@ -34,6 +34,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | STATE-1 to 18 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Enable/disable, General visibility, Lock frame, test mode, the test-mode strip and no title badge beside it |
 | TM-1 to 4 | [Enabled state, lock and test mode](#enabled-state-lock-and-test-mode) | both | Test mode's Holdings and Timeline sample, its History row tooltips, its sample characters, every one of them the library's |
 | CUR-1 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | A hidden tracking currency never writes its own row |
+| REP-1 to 9 | [Reputation and appearances](#reputation-and-appearances) | both | Reputation rows from a quest and from kills (one coalesced row), a loss, no rows after `/reload`, the Record reputation switch, appearance rows and `newLook` (Retail), no appearance burst at login, the Record appearances switch (Retail), Insights' PROGRESS block and the CSV columns |
 | COMBAT-1 to 8 | [Combat](#combat) | both | The window in combat, the settings combat lock, combat-driven refusals |
 | CAP-1 to 38 | [Capture, attribution and retention](#capture-attribution-and-retention) | both | The source matrix, context lifetimes, currency, the gates, zone stamps, retention prune, the Compat-routed capture reads, the 2026-11-25 deconstruct seed changes (Retail) |
 | HIST-1 to 53 | [History window](#history-window) | both | Window, table, dropdowns, saved views, character scope, row actions, marks, export, the one-line filter bar, per-tab views, frame layering (row menu, window and modal stacking), the window chrome and the table on the skin, the mode strip under the title bar, the library footer, the title-bar marks and where the window's tooltips open, the lock on four surfaces, the full-name hover on cut-off character names, the export modal as a companion (the close alone), the Character menu's selected rows gold in every skin |
@@ -842,6 +843,65 @@ tracks under a hidden id (the 2026-10-06 report: **Nebulous Voidcore**, hidden 3
 two a second apart with one SubType blank. With `/lh debug on` a line naming no listed currency logs
 `[Drop] currency line reason=unlisted` and writes nothing. Rows recorded under the hidden id before
 this fix stay: delete them from the row menu. Result: pass (owner-marked 2026-10-10)
+
+## Reputation and appearances
+
+Reputation rows (`Type = Reputation`) are written on both clients, appearance rows
+(`Type = Appearance`) on Retail only (FOREVER-19 checks their absence on WoW Forever). With
+`/lh debug on` the console's `[Rep]`, `[Appearance]` and `[Drop]` lines say what was written or why
+not ([debug.md](debug.md)). The design is `docs/superpowers/specs/2026-11-27-rep-appearance-capture-design.md`.
+
+**REP-1. A quest turn-in gives a Quest reputation row.** Client: both. Turn in a quest that rewards
+reputation → History shows a **Gain** row, Type **Reputation**, the faction's name in the Name column
+(in the skin's info blue), its new standing in SubType (for example **Honored** or **Renown 12**),
+the amount gained, and Source **Quest**, CERTAIN. Hovering the row shows the faction and the amount.
+Fail: no row, a row per reward line, Source Other, or the whole standing as the amount. Result:
+
+**REP-2. Three kills give one coalesced Kill row.** Client: both. Kill three mobs that give
+reputation within a minute → **one** Reputation row for that faction, Source **Kill**, whose amount
+grows with each kill. Wait over a minute and kill one more → a second row. Fail: one row per kill
+inside the minute, or Source Other in combat. Result:
+
+**REP-3. A loss.** Client: both. Where one can be had (Booty Bay: kill a Bloodsail pirate, which
+costs Booty Bay standing), lose reputation with Track holdings and losses on → a **Loss** row for the
+faction, and Insights' **Reputation By Faction** shows a Lost bar for it. With Track holdings and
+losses off, the same loss writes no row (`[Drop] rep <id> reason=ledger-off`), and the gains still
+record. Fail: a loss recorded as a gain, or a loss row with the ledger off. Result:
+
+**REP-4. `/reload` and login write no reputation rows.** Client: both. Note the History row count,
+then `/reload`, and log out and back in → no new Reputation row appears, and the next real gain is
+one row of the right size (the baseline was reseeded, not read as a gain from zero). Fail: a row per
+faction at load, or a gain the size of the whole standing. Result:
+
+**REP-5. Record reputation off stops new rows.** Client: both. Settings › General › Capture › Loot:
+untick **Record reputation** → a quest turn-in or a kill that gives reputation writes no row, and with
+`/lh debug on` no `[Rep]` or `[Drop] rep` line appears (the event is unregistered, not ignored). Tick it again → the
+next gain is a row (no burst of old changes). Fail: rows still written while off. Result:
+
+**REP-6. Collecting an appearance gives an Appearance row.** Client: Retail. Loot or buy an item
+whose look you have not collected and learn it → an **Appearance** Gain row named for the item, in
+its quality color, Type **Appearance**, SubType the item's own subtype, marked as a new look
+(the History CSV's `newLook` column reads `true`). Hovering it shows the item's tooltip. Learn a
+second source of a look you already own → a row with `newLook` blank. Fail: no row, a value on the
+row, or every row marked new. Result:
+
+**REP-7. No appearance burst at login or reload.** Client: Retail. `/reload`, then log out and back
+in → no Appearance rows appear. Fail: a row per collected source after the load (then record it here:
+the follow-up is to ignore the event until the login has settled, the design spec's §3.5). Result:
+
+**REP-8. Record appearances off stops new rows (Retail).** Client: Retail. Untick **Record
+appearances** (beside Record reputation) → collecting a look writes no row. Tick it again → the next
+one does. Refund a purchased item whose look was collected, with Track holdings and losses on → an
+Appearance **Loss** row. Fail: rows while off, or no removal row. Result:
+
+**REP-9. Insights and the CSV.** Client: both. With reputation rows (and on Retail appearance rows)
+in range, Insights ends with a **PROGRESS** divider holding **Reputation By Faction** (gain and loss
+bars per faction) and, on Retail, **Appearances Collected By Character**. A range with none of them
+shows no PROGRESS block. The History CSV carries `factionID, repType, rank, standing, sourceID,
+appearanceID, newLook` after `to`, filled on these rows and blank on item rows; the Insights CSV
+carries `Reputation Gained`, `Reputation Lost` and `Appearances` rows. The Type filter offers
+**Reputation** (and on Retail **Appearance**) once such rows exist. Fail: the block shown with no
+data, or an item row's progress columns filled. Result:
 
 ## History window
 
@@ -3201,7 +3261,9 @@ not answer there); CAP-39 is amended for the Fishing-cast fix and awaits the own
 
 Added by M2.1 of the reputation and appearance capture (2026-11-27; spec
 `docs/superpowers/specs/2026-11-27-rep-appearance-capture-design.md`), awaiting the owner: FOREVER-19,
-new, on WoW Forever, with probe P13 ([forever-probes.md](forever-probes.md)).
+new, on WoW Forever, with probe P13 ([forever-probes.md](forever-probes.md)). Added by M2.5
+(2026-11-28), awaiting the owner, each new: REP-1 to REP-5 and REP-9 on both clients, REP-6 to REP-8
+on Retail.
 
 **CAP-39. A fishing catch reads Fishing (amended twice on 2026-11-27: Fishing is known from your cast, and a catch with no loot window counts).** Client: both. Fish anywhere (Dustwallow Marsh's Oily
 Blackmouth will do), with auto loot on and then off. Open the Browser → each catch's Source reads

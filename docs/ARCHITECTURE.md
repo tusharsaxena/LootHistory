@@ -10,8 +10,9 @@ For scope see [`scope.md`](scope.md); the full doc index is the last section of 
 
 **Ka0s Loot History** passively records every item the player loots above a configurable
 quality threshold, attributes each drop to a **source** (kill / container / M+ / bonus roll /
-roll / quest / trade / mail / AH / vendor / deconstruct / craft / refund / other), stores it
-account-wide, and presents it in a standalone browser window with a filter/sort/group table plus
+roll / quest / trade / mail / AH / vendor / deconstruct / craft / refund / other), records
+reputation gains and losses and, on Retail, transmog appearances collected and removed as rows of
+their own kind, stores it all account-wide, and presents it in a standalone browser window with a filter/sort/group table plus
 an Insights analytics view.
 
 It ships on Retail and WoW Forever from one codebase; what one client lacks (the warband bank,
@@ -44,7 +45,7 @@ registering and a per-file copy is how cross-major skew gets manufactured.
 The authored files load in the fixed order `LootHistory.toc` sets: vendored `libs/` →
 `locales/` → `core/` (Compat first) → `defaults/` → `modules/` → `settings/` (last). The
 `core/*Setup.lua` files and three in `settings/` (`OptionsSetup.lua`, `Schema.lua`, `Slash.lua`) are
-the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, every
+the LibKa0s seams. Capture lives in `modules/Collector.lua` and `modules/Attribution.lua`, the reputation and appearance capture in `modules/Reputation.lua` and `modules/Appearance.lua` (Retail rows only), every
 capture registration and read-side hook in `core/Dispatch.lua`'s two row tables, the holdings ledger in `modules/Reconciler.lua` and its steps, who holds a thing and where in `modules/HoldingsTally.lua` (read by the item and currency tooltip block, `modules/HoldingsTip.lua`, and by the public API, `modules/HoldingsAPI.lua`, [§ Public API (v1)](#public-api-v1)), the window in `modules/Browser.lua` and
 its tabs, and every setting in one `settings/Schema.lua` row. The in-game simulator is
 `core/SimSeam.lua` (the answer seam, straight after Compat), `modules/SimWorld.lua`, `SimDrivers.lua`,
@@ -91,7 +92,7 @@ flag is ruled as data (`tools/seeds/<flavor>_rulings.json`), and each run is a f
 |---|---|---|
 | The warband bank (`warbandBank`, R1): the Reconciler's `tabs` and `warbandMoney` parts and their two event rows (`ACCOUNT_MONEY`, `PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED`), the `AccountBanker` arming in `R.BANKER_ARMS`, the tab ids (`C.WARBAND_TAB_IDS`), the char <-> warband pairing and its two sources `WARBAND_DEPOSIT` / `WARBAND_WITHDRAW`, the Holdings tab's Warband split, the holdings tooltip's warband-bank icon, live count and wording (#34: the `tabs` container, the `account` part of `Compat.LiveItemCounts` and the tally's `tabs` overlay, the warband bank named in two of its settings' tooltips), the words "warband moves" in Track transfers' tooltip, test mode's tabs and warband gold, and the simulator's warband tabs, gold and bank steps | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`, `C.WARBAND_TAB_IDS`), `modules/Reconciler.lua` (the parts, the event rows' `clients`, `R.READABLE_ON`), `modules/Holdings.lua` (`gateOf`), `modules/HoldingsTab.lua` (`ORDER`), `modules/HoldingsTip.lua` (`ORDER`), `modules/HoldingsTally.lua` (the live overlay), `core/CompatTooltip.lua` (`LiveItemCounts`), `settings/Schema.lua`, `modules/TestData.lua`, `modules/SimWorld.lua`, `modules/SimScenario.lua` |
 | Mythic+ (`mythicPlus`, R2): the `MPLUS` source, the keystone context and its four event rows (`CHALLENGE_MODE_START`, `CHALLENGE_MODE_COMPLETED`, `CHALLENGE_MODE_RESET` and `ZONE_CHANGED_NEW_AREA`, which serves only the keystone), the Insights keystone breakdown (`Database:Stats`' `byKeystone`), the diagnostics `attribution: keystone` line and the simulator's `key` scenario | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`, `C.SOURCE_CLIENTS`), `modules/Attribution.lua` (the rows, `ResolveLootSource`), `core/Database.lua`, `modules/Diagnostics.lua`, `modules/SimScenario.lua` |
-| Appearances (`appearances`): the two `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` event rows (owner Appearance), the Record appearances switch row, test mode's appearance sample rows, the simulator's appearance driver, world seeds and loot-scenario step, and the Insights "Appearances Collected By Character" section's data (rep/appearance spec, D7; declared in M2.1, its rows land with M2.3 and M2.4) | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`), `modules/Appearance.lua` (the rows), `settings/Schema.lua` (row `clients`), `modules/BrowserTableTestData.lua`, `modules/SimWorld.lua`, `modules/SimDrivers.lua`, `modules/SimScenario.lua` |
+| Appearances (`appearances`): the two `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` event rows (owner Appearance), the Record appearances switch row, test mode's appearance sample rows, the simulator's appearance driver, world seeds and loot-scenario step, and the Insights "Appearances Collected By Character" section's data (rep/appearance spec, D7) | `retail` | `core/Constants.lua` (`C.FEATURE_CLIENTS`), `modules/Appearance.lua` (the rows), `settings/Schema.lua` (row `clients`), `modules/BrowserTableTestData.lua`, `modules/SimWorld.lua`, `modules/SimDrivers.lua`, `modules/SimScenario.lua` |
 | Reputation's faction kinds: renown, friendship, guild and paragon progress read where the client answers them; WoW Forever answers base standings only (API-gap detection inside one feature, clients-§3) | `both` | `core/Compat.lua` (`FactionSnapshot`), `modules/SimWorld.lua` (per-client faction seeds) |
 | The sources WoW Forever has no content for (R2): `BONUS_ROLL`, `MILLING` and `PROSPECTING`, absent from `C.SourceOrder`, `C.SOURCE_IMPLEMENTED` and `C.SOURCE_OPTIONS` (so from the Source filter, the capture mute list and test mode's sample); on WoW Forever the bonus-roll line carries no source tag, and Milling and Prospecting stamp no `DECONSTRUCT` loss. `C.SourceType` and `C.SourceLabel` stay whole on both, because they are the export contract (a label may be worded per client, `C.SOURCE_LABEL_WORDS`, never to another key's label) | `retail` | `core/Constants.lua` (`C.SOURCE_CLIENTS`, `C.SOURCE_ABSENT`), `core/Util.lua` (the bonus-roll line), `core/Ledger.lua` (the `DECONSTRUCT` rule's stampers), `modules/BrowserTableTestData.lua` (the source weights) |
 | The `DECONSTRUCT` reason (a deconstructed item's loss) reads "Deconstructed", stamped by Disenchant, Milling and Prospecting | `retail` | `core/Constants.lua` (`C.SourceLabel`), `core/Ledger.lua` (`DECONSTRUCT_SOURCE`) |
@@ -181,7 +182,7 @@ CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing 
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` (`RECORD_ADDED`) | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (never counted: the rollup tallies from `Database:OnWrite`). Browser, Analytics and Timeline run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
 | `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — seventeen `onChange` handlers, ten reasons (`enabled`, `quality`, `questfilter`, `ammofilter`, `currency`, `excludes`, `ledger` from Track holdings and losses and Record gold, `view` from Show transfers by default, `chrome` from the Master controls tab's `scale` / `alpha` / `locked`, and `tooltip` from the five Holdings in tooltips rows), and `S:AdoptProfile` with the eleventh, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (`ledger` / `profile`: re-registers or drops its capture events), HoldingsTally (`ledger` / `profile`: wipes its cache), HoldingsTip (`tooltip` / `ledger` / `profile`: re-reads its hot-path settings cache), HoldingsAPI (`ledger` / `profile`: fires `HoldingsChanged` with a nil holder when availability flips) |
+| `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — nineteen `onChange` handlers (eighteen on WoW Forever), twelve reasons (`enabled`, `quality`, `questfilter`, `ammofilter`, `currency`, `reputation`, `appearance` (Retail only), `excludes`, `ledger` from Track holdings and losses and Record gold, `view` from Show transfers by default, `chrome` from the Master controls tab's `scale` / `alpha` / `locked`, and `tooltip` from the five Holdings in tooltips rows), and `S:AdoptProfile` with the thirteenth, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (`ledger` / `profile`: re-registers or drops its capture events), HoldingsTally (`ledger` / `profile`: wipes its cache), HoldingsTip (`tooltip` / `ledger` / `profile`: re-reads its hot-path settings cache), HoldingsAPI (`ledger` / `profile`: fires `HoldingsChanged` with a nil holder when availability flips), Reputation and Appearance (any reason re-reads their upvalues; `reputation` / `appearance` / `profile` registers or drops their rows) |
 | `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, `Reconciler:ForgetHolder`, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown), HoldingsTally (wipes its cache), HoldingsAPI (relays it as `HoldingsChanged` through its own CallbackHandler registry, silent during a simulation; it never sends on the bus) |
 
 A blacklist/whitelist edit re-caches the Collector by a direct call and broadcasts through
@@ -219,7 +220,7 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 | `holdings <query>` | Write the ten largest account-wide holdings whose name contains the query (gold as money, others as counts), from `db.global.holdings`, to the debug console as a **report** (`debug-logging-§15`, LibKa0s#79): through `NS.DebugLog:Report`, whatever the logging flag reads, revealing a hidden console, with one chat pointer line. No match answers `no holdings match '<query>'.` in chat and writes nothing. A feature verb: refused with the one disabled line while the addon is off. Reads only; never scans |
 | `debug` / `debug on` / `debug off` / `debug diagnostics` / `debug events` / `debug probe start\|stop\|status\|clear` | Bare: toggle the debug console window. `on` / `off`: set the session-only logging flag (`NS.State.debug`, never persisted), independent of the window. `diagnostics` is tested first and runs the same report as the `diagnostics` verb. `events`: print the event names this client refused at registration (`NS.RejectedEvents`, `events-frames-taint-§1`), or `none`; it needs no console. `probe`: the WoW Forever port's probe verbs (ruling R4, `modules/Probe.lua`), recording client facts into the capped `db.global.probe` until stopped, its lines in chat and nothing in the console; a bare `probe` is `status`. See [forever-probes.md](forever-probes.md) |
 | `diagnostics` | Append the diagnostics report to the debug console (`debug-logging-§14`), after whatever trace it already holds, with logging on or off and while the addon is disabled. The run turns session logging on first when it is off (standard v2.71.0), and the console's **Diagnostics** link runs the same call. No other name (`diag`, `dump`) runs it. See [debug.md](debug.md) |
-| `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the six in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
+| `perf` | The `LibKa0s-Perf-1.0` A/B capture: bare opens the step panel, `perf finish` prints the report (bucketed costs of the eight in-combat handlers) and the JSON dump. A diagnostic, so it answers while the addon is disabled; a capture takes the `perf` hold on the latch. See [performance.md](performance.md). |
 | `test` | Toggle a synthetic preview dataset for the table, Insights, Holdings and the Timeline (session-only; the same switch as the Master controls **Test mode** checkbox, and combat ends it). Its people are sample characters: the collection's five (`NS.SampleCharacters`, LibKa0s-Sim-1.0's `Sample`) and a pool of the same convention for the other classes ([browser.md](browser.md#test-mode-lh-test--synthetic-preview)) |
 | `sim` | The in-game simulator, `LibKa0s-Sim-1.0`'s verb grammar (`NS.Sim:RunVerb`): bare prints status and usage and opens the panel; `start <scenario>` (every successful start shows the panel too, Sim 5, LibKa0s v1.113.0; FB2-LH-01), `run` / `step` / `pause` / `resume` / `restart`, `stop`, `status`, `panel`, and the host verb `loot [n]`. A feature verb: refused while the addon is disabled. No key binding; the launcher menu's **Sim mode** entry and the Master controls **Sim mode** checkbox run the same verb through `NS.ToggleSim` (R6-SIM), which reads Sim mode as the sim window shown or a sim running (R7-SIM): from off it is the bare verb, from on a stop while a sim runs, then the window closed. See [§ The simulator](#the-simulator) |
 | `purge` | Delete ALL loot history (confirm dialog). Refused while a simulation runs |
@@ -342,8 +343,8 @@ subscription and unit frame, cancels every deferral `NS.After` armed and hides t
 source (`B:VisibilityAllows`). A hook that cannot be undone gates its own body instead, through one of three funnels: the `hooksecurefunc` capture hooks into `Attribution:Stamp`, the ledger's loss-side hooks into `AttributionOut`, and the holdings tooltip's post calls (`TooltipDataProcessor.AddTooltipPostCall` and the tooltips' `OnHide` / `OnTooltipCleared` `HookScript`s, #34) into `NS.HoldingsTip.OnTooltip`, whose first rung is `NS.IsStoodDown()`. `HoldingsTally`, `HoldingsTip` and `HoldingsAPI` each stand down directly after `Rollup:Disable` and up after `Timeline:Enable`, each dropping its own bus target; `_G.LootHistory` survives as setup and its answers go empty. The slash surface, the
 settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
 is the conformance suite. The working-state wipes are callable apart from the stand-down, for the
-simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`
-and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
+simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`,
+`Reputation:ResetState()`, `Appearance:ResetState()` and `NS.CancelDeferral(h)`, which cancels one `NS.After` handle and leaves the login deferrals armed.
 The 20-second login deferral sets `NS.State.loginSettled`. The full account is in
 [disabled-state.md](disabled-state.md).
 
@@ -354,10 +355,11 @@ The 20-second login deferral sets `NS.State.loginSettled`. The full account is i
 **One event table and one hook table** (`core/Dispatch.lua`, LootHistory#37). Every capture event
 below that is not the lifecycle's own `PLAYER_ENTERING_WORLD` or the window's `PLAYER_REGEN_*` pair
 is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `hooksecurefunc`
-row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The four capture modules append
-their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (nine
-`bus` rows, five on WoW Forever, which has no keystone, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
-hooks), Collector (three `bus` rows), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever). Each module's Enable and
+row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The six capture modules append
+their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (ten
+`bus` rows, six on WoW Forever, which has no keystone, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
+hooks), Collector (three `bus` rows), Reputation (one `bus` row), Appearance (two `bus` rows, Retail
+only: on WoW Forever it declares none), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever). Each module's Enable and
 Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
 hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
 per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
@@ -373,6 +375,8 @@ two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua`
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
+The Reputation and Appearance rows register only while their capture switch is on (`settings.recordReputation`, `settings.recordAppearances`): each module keeps a private `_settings` listener for as long as the addon is up and registers or unregisters its rows to match, the same two-target shape as the Reconciler's. Turning a switch off unregisters; it is not a draw gate.
+
 The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (sixteen names, fourteen on WoW Forever; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
 | Event / hook | Handler | Module |
@@ -380,6 +384,8 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `PLAYER_ENTERING_WORLD` | `OnEnterWorld` (once-per-session prune + the deferred bound-state repair, both deferred through `NS.After` so a stand-down can cancel them) | `core/LootHistory.lua` |
 | `CHAT_MSG_LOOT` | `OnChatMsgLoot` (authoritative capture) | `modules/Collector.lua` |
 | `CHAT_MSG_CURRENCY` | `OnChatMsgCurrency` (currency capture: `recordCurrency` → per-source mute → currency blacklist, writing a `Type=Currency` row) | `modules/Collector.lua` |
+| `FACTION_STANDING_CHANGED` | `OnStandingChanged` (reputation capture, both clients: `FactionSnapshot` → the pure delta against the in-memory baseline → ledger rule for a loss → `Peek` source → per-source mute → coalesce or one `Type=Reputation` row). Registered only while `settings.recordReputation` is on | `modules/Reputation.lua` |
+| `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` | `OnSourceAdded` / `OnSourceRemoved` (appearance capture: duplicate guard → ledger rule for a removal → `AppearanceSource` → `Peek` source → per-source mute → one `Type=Appearance` row, `newLook` from `IsNewLook`). Retail only (`C.FEATURE.appearances`), and only while `settings.recordAppearances` is on | `modules/Appearance.lua` |
 | `LOOT_OPENED` | `OnLootOpened` (GUID decode → KILL/CONTAINER/MPLUS) | `modules/Attribution.lua` |
 | `LOOT_CLOSED` | `OnLootClosed` (the window's lines get `LOOT_LINE_GRACE` more) | `modules/Attribution.lua` |
 | `ENCOUNTER_START` / `ENCOUNTER_END` | encounter context | `modules/Attribution.lua` |
@@ -474,7 +480,7 @@ The library's host contract, and where this addon meets each point:
 
 **While a simulation runs**, a real event that interferes (the player's own loot, currency or
 money line, a loot window, an encounter or key start, a quest turn-in, a trade, a sent mail, an
-interaction frame, any real hook call) stops it with reason `world` and is then recorded live into
+interaction frame, a reputation change, an appearance collected or removed, any real hook call) stops it with reason `world` and is then recorded live into
 the saved stores, so no real loot is lost; other real events are absorbed, and the stop's drift scan
 picks up what they changed. Joining a group, entering an instance or combat stops it too. The
 destructive surfaces (purge, the ledger reset, Forget this character, a row's Delete and a retention
@@ -875,6 +881,17 @@ and is 988 lines (`FU-LH-BROWSER`). On 2026-10-31 `modules/BrowserTable.lua` she
   were confirmed recording in-client (smoke CAP-4 to CAP-6, review F-001, passed). NB: the `ROLL` path assumes the client
   emits `LOOT_ROLL_YOU_WON` ("You won:") rather than the compact "no-spam" roll variant — verify
   in-game (smoke CAP-9, review F-009).
+- **Reputation and appearance attribution is circumstantial.** A reputation change reads `QUEST`
+  only from a fresh quest stamp, otherwise `KILL` in combat and `OTHER` out of it, so rep from a
+  vendor turn-in, a world quest's bonus objective or a kill credited after combat ends reads
+  `OTHER`. An appearance always reads `INFERRED`. Hidden factions are not recorded, and the
+  reputation baseline is in memory, so a change made while the addon was not running is never a
+  row. An ensemble or Trading Post set writes one row per source.
+- **WoW Forever's `FACTION_STANDING_CHANGED` is assumed** from other addons' Forever code until the
+  probe (P13, [forever-probes.md](forever-probes.md)) and smoke FOREVER-19 record it. If the client
+  refuses the event, the pre-designed follow-up is a Forever-only `UPDATE_FACTION` row (the design
+  spec's §3.6). Whether `TRANSMOG_COLLECTION_SOURCE_ADDED` bursts at login or reload is a Retail
+  smoke check (REP-7).
 - **No per-item source name.** The "From" column and its combat-log kill-name cache were removed:
   for the dominant real-world loot (containers, delves, pushed/quest items) no reliable name was
   resolvable, so the column was almost always blank. Records keep `source` and the machine-readable

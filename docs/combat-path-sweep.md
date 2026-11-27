@@ -141,6 +141,25 @@ shared bus or a private bus target, and all go down with the latch.
 | `ADDON_LOADED` | `modules/AttributionOut.lua` (row) | Hooks the guild bank frame once when `Blizzard_GuildBankUI` loads; otherwise one string compare. |
 | `PLAYER_REGEN_ENABLED` | `settings/Slash.lua` (`NS.OfferLedgerReset`) | Only when the reset offer comes due in combat: a one-shot on a private target that drops itself and re-offers once out of combat. |
 
+## Reputation and appearance registrations
+
+Added by the reputation and appearance capture (`docs/superpowers/specs/2026-11-27-rep-appearance-capture-design.md`),
+after the sweeps above. Each is an `NS.EVENT_ROWS` row on the shared bus, registered by
+`NS.RegisterRows` only while its capture switch is on, and each goes down with the latch.
+
+| Event | Registered at | Work done per fire |
+|---|---|---|
+| `FACTION_STANDING_CHANGED` | `modules/Reputation.lua` (row; both clients) | **Fires in combat**, on every kill that moves a standing. One `Compat.FactionSnapshot` (four to six C API reads, answered as values, never a table), the pure `Reputation.Delta` against the in-memory baseline entry (updated in place), and at most one `Database:Add` or `Amend`. Nothing is allocated when the standing did not move: `tests/perf.lua` scenario 6, `repUnchanged`, pins it at zero bytes. Bucket `repEvent`. |
+| `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` | `modules/Appearance.lua` (rows; Retail only, `C.FEATURE.appearances`) | Bursts on an ensemble or a Trading Post set, one fire per source. The duplicate guard (two table reads), three or four client reads behind `Compat.AppearanceSource` and, on a gain, `Compat.IsNewLook`, the context `Peek`, and one `Database:Add`. Bucket `appearanceEvent`. |
+
+Two one-shot timers come with the reputation seed, both through `NS.After`, so `NS.CancelDeferrals`
+drops them on a stand-down and `Reputation:ResetState` cancels them by handle:
+
+| Call | Where | What it is |
+|---|---|---|
+| `NS.After(2, …)` | `modules/Reputation.lua`, `Reputation:EnableCapture` | The first seed of the baseline (`Reputation:Seed`, one `Compat.ListFactions` walk), once each time the capture comes up. Cancelable. |
+| `NS.After(C.REP_SEED_RETRY, …)` | `modules/Reputation.lua`, `Reputation:Seed` | Only when a seed comes due in combat: the walk expands the Reputation panel's headers, which is UI state, so it re-arms once per 5 s until combat ends, one at a time (the earlier handle is canceled first). **Not a ticker.** Cancelable. |
+
 ## Hooks and post calls
 
 No `RegisterEvent` grep finds these, because they are not events. Each runs on a client action, and

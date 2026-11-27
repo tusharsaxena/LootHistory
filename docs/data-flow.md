@@ -154,6 +154,29 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 `Constants.SOURCE_IMPLEMENTED` (`core/Constants.lua`) is the gate: it lists sources with a live capture path, and drives `SOURCE_OPTIONS` so the settings panel's per-source **mute list** never shows a dead checkbox. With every source now wired, all appear in the mute list. The enum stays whole for the export seam. See [compat-layer.md](compat-layer.md) for the shims and [module-map.md](module-map.md) for where these modules sit.
 
+## Reputation and appearances
+
+Two more owners write History rows without a chat line: `modules/Reputation.lua` (`kind = REPUTATION`, both clients) and `modules/Appearance.lua` (`kind = APPEARANCE`, Retail only by declaration, `C.FEATURE.appearances`). Neither parses chat text, neither posts a Reconciler claim (nothing is held, and an itemID claim would cancel the real item's diff row), and neither stamps a price. The record shapes are in [schema.md](schema.md#reputation-records); the design is `docs/superpowers/specs/2026-11-27-rep-appearance-capture-design.md`.
+
+| Event (`bus` row) | Owner | Payload read | Bucket |
+|---|---|---|---|
+| `FACTION_STANDING_CHANGED` | `Reputation` | `factionID` (arg 1) only | `repEvent` |
+| `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` (Retail) | `Appearance` | `sourceID` (arg 1) | `appearanceEvent` |
+
+Each owner has its own capture switch (`settings.recordReputation`, `settings.recordAppearances`, both on by default). The module keeps a private `_settings` target while the addon is up, and its rows are registered only while the switch is on, so unticking one **unregisters** its rows, the same as `trackLedger` does for the Reconciler. It is not a draw gate ([disabled-state.md](disabled-state.md)).
+
+**Source: `Attribution:Peek`, never `Consume`.** `Consume` spends one of the loot window's lines and answers `FISHING` inside a cast, so these two owners read the context through `Peek`, which changes nothing. Reputation keeps a fresh `QUEST` stamp (the turn-in's quest id, `CERTAIN`). Otherwise it reads `KILL` / `INFERRED` while `Compat.PlayerInCombat()` holds, because no kill stamp exists before `LOOT_OPENED`, and `OTHER` / `INFERRED` out of combat. Any other fresh stamp, such as a purchase or a mail, is ignored for reputation. An appearance takes whatever `Peek` answers (a loot window gives `KILL` / `CONTAINER`, a purchase `VENDOR`, a quest reward `QUEST`, equip-time learning `OTHER`), always at `INFERRED`. Both obey **Record data from** (`excludedSources`, `[Drop] … reason=source`) and ignore **Minimum quality**, at capture and in the default view's floor.
+
+**The reputation delta.** `Compat.FactionSnapshot(id)` answers values, never a table: name, `repType` (`renown` / `guild` / `friendship` / `base`, by API presence, so WoW Forever answers `base`), rank, an **absolute** standing, the renown threshold, the cumulative paragon value, the warband flag and the standing label. The pure `Reputation.Delta` turns a baseline entry and the new snapshot into one scalar. For base, guild and friendship factions it is the standing difference, so a loss across a rank boundary is a plain negative. For renown it is the difference inside a level, or the remainder of the old level plus each crossed level's old threshold plus the new standing on a level-up. The paragon growth is added on top. Answers that mean "reseed, write nothing" are `unseeded`, `type-change`, `paragon-reset` and `renown-drop`, and `0` is `unchanged`. The baseline entry is overwritten every time, so the unchanged and reseed paths allocate nothing (`tests/perf.lua`'s `repUnchanged` pins it at zero).
+
+**The seed.** The baseline lives **in memory only**. `EnableCapture` arms a seed two seconds out (`NS.After`, dropped by `NS.CancelDeferrals`), and `Reputation:Seed` fills it from `Compat.ListFactions()`, a full walk that expands collapsed Reputation-panel headers and collapses them again in reverse, the way `Compat.ListCurrencies` does. That walk is UI state, so a seed due in combat re-arms itself after `C.REP_SEED_RETRY` (5 s). A faction first seen at an event is seed-only. A login or `/reload` therefore reseeds and writes no rows.
+
+**The rules past the delta.** A loss (`dir = OUT`) needs `settings.trackLedger`. With the ledger off only gains are written, and a loss logs `reason=ledger-off`. A change that continues the faction's last row (same direction and source, inside `C.REP_COALESCE` = 60 s, and `Database:HistoryRow(index)` still that record) grows the row through `Database:Amend` and updates its standing label, rank and standing, so an AoE pull is one row, not one per kill. Anything else is a new row through `Database:Add`.
+
+**Appearances.** One row per **source** added or removed, as the client reports it, so an ensemble writes one row per source. `newLook = true` marks an IN row whose visual has no other collected source (`Compat.IsNewLook`). The same source in the same direction again within 5 s is a duplicate (`reason=duplicate`). A removal (a refund) needs `trackLedger`. The row carries the source's item (`itemID`, its link when the client has one, quality and subtype from `Compat.AppearanceSource`), so the History tooltip and the Wowhead link work, and it writes no value. Its value is already on the item row from the same loot. The capture does not wait for login to settle. Real loot in the first seconds must not be lost, and a login burst is a smoke check ([smoke-tests.md](smoke-tests.md)).
+
+**Secrets.** A secret or non-numeric id is dropped first (`reason=secret` / `no-id`). The Compat reads return all nil on a secret answer, so a secret is never stored and never used as a table key. A faction with no readable name is dropped (`reason=unreadable`). An appearance whose source is unreadable is still written, named `Appearance <sourceID>`.
+
 ## Holdings scan
 
 A second, independent engine sits beside loot capture: the **Reconciler** (`modules/Reconciler.lua`) keeps `db.global.holdings` equal to what the account owns, using `NS.Scanner` for the reads and `NS.Holdings` for the writes (timeline-ledger spec §5.2). It never touches `CHAT_MSG_LOOT` or the attribution context; Phase 2 is where the two meet, as a diff of successive scans that the existing context then claims.
@@ -340,7 +363,7 @@ what the real client delivers:
 
 | Class | Events | What happens |
 |---|---|---|
-| Interference | The player's own `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` or `CHAT_MSG_MONEY` line (by the self parse; another player's line is absorbed), `LOOT_OPENED`, `ENCOUNTER_START`, `CHALLENGE_MODE_START`, `QUEST_TURNED_IN`, `TRADE_ACCEPT_UPDATE`, `MAIL_SEND_SUCCESS`, `PLAYER_INTERACTION_MANAGER_FRAME_SHOW`, any real hook call | The simulation stops with reason `world`, then the event runs live into the saved stores, so no real loot is lost |
+| Interference | The player's own `CHAT_MSG_LOOT`, `CHAT_MSG_CURRENCY` or `CHAT_MSG_MONEY` line (by the self parse; another player's line is absorbed), `LOOT_OPENED`, `LOOT_CLOSED`, `ENCOUNTER_START`, `FACTION_STANDING_CHANGED`, `TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED` (always the player's own, and outside the drift scan), `CHALLENGE_MODE_START`, `QUEST_TURNED_IN`, `TRADE_ACCEPT_UPDATE`, `MAIL_SEND_SUCCESS`, `PLAYER_INTERACTION_MANAGER_FRAME_SHOW`, any real hook call | The simulation stops with reason `world`, then the event runs live into the saved stores, so no real loot is lost |
 | Setup | `ADDON_LOADED` (the guild bank frame's hook install) | Delivered live; no stop |
 | Absorbed | Everything else: bags, money, currency, equipment, bank, auctions, spell casts | Dropped; the stop's drift scan sees what they changed |
 | World watch | `GROUP_ROSTER_UPDATE`, `PLAYER_ENTERING_WORLD`, `ZONE_CHANGED_NEW_AREA`, `PLAYER_REGEN_DISABLED`, on a private target registered only while a session runs | Stops with `group` in a real group, `instance` in a real instance, `combat` on combat (the reads go through `NS.SimSeam:Live`, so they answer the real client) |
@@ -352,7 +375,10 @@ The stand-down stops a simulation first (`standDown`), and a profile switch, cop
 by handle, resets the Reconciler and the attribution contexts (a simulated stamp or claim must never
 attribute the next real loot), puts `nil` back into `NS.SimStores` so every accessor answers the
 saved store again, drops the real-event filter and the world watch, and announces the swap to the
-window and the bus. Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
+window and the bus. It also clears the reputation baseline and coalescing map and the appearance
+duplicate maps, then reseeds the baseline from the live faction walk, so a simulated standing never
+reaches the real baseline (the start cleared the same state and seeded from the world's factions,
+`Reputation:Seed(true)`). Unless the stop is a stand-down, it then schedules a real `R:LoginScan()` one
 second out: whatever really changed in the bags, purse or currencies while the simulation absorbed
 those events is written as [`UNTRACKED`](#login-and-resume-untracked) drift, the same answer the
 addon gives after a disable and enable. A stand-down needs no scan of its own, because the

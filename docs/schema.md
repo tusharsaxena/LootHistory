@@ -54,6 +54,8 @@ db.profile = {
     qualityThreshold = 1,      -- record Common (white) and above
     excludeQuestItems = true,  -- drop Quest-class items at capture (opt-out)
     recordCurrency   = true,   -- record looted currency as Type=Currency rows (source-muted; ignores quality)
+    recordReputation = true,   -- reputation gains and losses as Type=Reputation rows (source-muted; ignores quality)
+    recordAppearances = true,  -- (Retail) collected/removed appearances as Type=Appearance rows
     excludedSources  = {},     -- set of MUTED SourceType keys
                                -- (no retentionDays: it is account-wide, db.global.retentionDays)
     windowScale      = 1.0,    -- the History window's OWN scale; multiplied by settings.scale
@@ -233,6 +235,67 @@ currency-only character is registered with `count = 0` and is skipped by "Loot b
 (`byKeystone`/`byConfidence` feed the Export only — their dashboard charts and per-character companions
 were removed.)
 
+### Reputation records
+
+A reputation change (both clients, `modules/Reputation.lua`, [data-flow.md](data-flow.md#reputation-and-appearances))
+is a history record with `kind = "REPUTATION"` and `dir`, `holder` and `kind` stamped explicitly,
+because `Util.RowKind` would infer `ITEM` for a row with an itemID and no kind. `holder = char`: the
+earning character, even for a warband faction, since nothing is held.
+
+| Field | Value |
+|---|---|
+| `ts`, `char`, `classFile`, `holder` | as on every row; `holder = char` |
+| `dir` | `IN` for a gain, `OUT` for a loss (a loss is written only while `settings.trackLedger` is on) |
+| `kind` | `REPUTATION` (`C.Kind.REPUTATION`) |
+| `factionID` | the event's faction id |
+| `itemName` | the faction name (the text search matches it) |
+| `itemType` | `C.REPUTATION_TYPE` = `"Reputation"` (the Type column and filter) |
+| `itemSubType` | the standing label **after** the change: `Honored`, `Renown 12`, the friendship rank text, or `Paragon` |
+| `quantity` | `abs(delta)`, an integer of at least 1; the sign is `dir`'s. A coalesced change (same faction, direction and source within `C.REP_COALESCE` = 60 s) grows it through `Database:Amend` |
+| `repType` | `"base"`, `"friendship"`, `"renown"` or `"guild"` (WoW Forever answers `"base"`) |
+| `rank` | optional: the reaction index (base, guild), the renown level, or the friendship rank level |
+| `standing` | optional: the bar value after the change (absolute for base, guild and friendship; `renownReputationEarned` for renown) |
+| `accountWide` | optional: `true` for a warband faction, else nil |
+| `source`, `sourceDetail`, `confidence` | `QUEST` with the quest id and `CERTAIN` after a turn-in; `KILL` / `INFERRED` in combat; otherwise `OTHER` / `INFERRED` |
+| `zone`, `mapID`, `subzone` | as on a currency row |
+
+Not set: `itemID`, `currencyID`, `itemLink`, `quality`, `bound`, `vendorPrice`, `auctionPrice`,
+`itemLevel`, so `Util.RecordValue` is nil and the row's value is 0.
+
+### Appearance records
+
+A transmog source collected or removed (Retail only, `C.FEATURE.appearances`, `modules/Appearance.lua`)
+is a history record with `kind = "APPEARANCE"`, one per source as the client reports it.
+
+| Field | Value |
+|---|---|
+| `ts`, `char`, `classFile`, `holder` | as on every row; `holder = char` |
+| `dir` | `IN` for `TRANSMOG_COLLECTION_SOURCE_ADDED`, `OUT` for `_REMOVED` (a refund; written only while `settings.trackLedger` is on) |
+| `kind` | `APPEARANCE` (`C.Kind.APPEARANCE`) |
+| `sourceID` | the event's source id (the itemModifiedAppearanceID) |
+| `appearanceID` | optional: the visual id |
+| `itemID`, `itemLink`, `quality`, `itemSubType` | optional: the source's item, its link when the client has one, its quality (colors the name) and its own subtype |
+| `itemName` | the item name, or `Appearance <sourceID>` when unreadable |
+| `itemType` | `C.APPEARANCE_TYPE` = `"Appearance"` |
+| `quantity` | `1` |
+| `newLook` | optional, IN rows only: `true` when no other source of the visual is collected |
+| `source`, `sourceDetail`, `confidence` | the fresh context's source and detail (`Attribution:Peek`), always `INFERRED` |
+| `zone`, `mapID`, `subzone` | as above |
+
+Not set: `currencyID`, `bound`, `vendorPrice`, `auctionPrice`, `itemLevel`. The item row from the same
+loot already carries the value, and a second price would count it twice.
+
+**What the two kinds reach.** Both skip the Minimum quality floor of the default view, the legacy
+item breakdowns (`byQuality`, `byType`, `byItem`, `totals.records`; the gate there counts only `ITEM`
+and `CURRENCY` gains) and the holdings ledger: `Ledger.RowThingKey` answers nil for them, so the daily
+rollup, the Timeline and "Show in Timeline" leave them out, and no claim is posted. They do count in
+`Stats().ledger`'s `kindIn` / `kindOut`, and a rep loss or a removal counts toward `lostCount`.
+`Database:Stats` fills two aggregates of its own in the same pass:
+`reputation = { rows, gained, lost, byFaction = { [name] = { i, o } } }` and
+`appearances = { collected, removed, newLooks, byChar = { [char] = n } }` (`byChar` counts IN rows).
+They feed the Insights **PROGRESS** block ("Reputation By Faction", "Appearances Collected By
+Character") and the Insights CSV's `Reputation Gained`, `Reputation Lost` and `Appearances` rows.
+
 ### Confidence
 
 `Constants.Confidence` (`core/Constants.lua`): `CERTAIN` \| `INFERRED`. Surfaces attribution uncertainty in the UI and lets the export flag inferred rows.
@@ -263,6 +326,8 @@ A row's `page` is the canvas subcategory it is edited on, its `group` is the tab
 | `state.testMode` | General > Master controls | CheckBox | `false` | **Session-only**: the History window's test mode, composed from `testModePath`, pairing beside **Minimap button**. `get` reads `BrowserTable.testMode`; `set` switches through `BrowserTable:SetTestMode` only when the value differs. Never persisted. The same switch as `/lh test`; combat, Reset all settings and `/lh resetall` end it. |
 | `settings.qualityThreshold` | General > Capture > *Loot* | Dropdown | `1` (Common+) | Minimum quality to record. Fires `SettingsChanged`. |
 | `settings.recordCurrency` | General > Capture > *Loot* | CheckBox | `true` | Record looted currency as `Type=Currency` rows; obeys **Record data from**, ignores **Minimum quality**. Fires `SettingsChanged` (`"currency"`). |
+| `settings.recordReputation` | General > Capture > *Loot* | CheckBox | `true` | Record reputation gains and losses as `Type=Reputation` rows ([Reputation records](#reputation-records)); obeys **Record data from**, ignores **Minimum quality**, and a loss needs `settings.trackLedger`. Fires `SettingsChanged` (`"reputation"`); off **unregisters** the Reputation owner's row. |
+| `settings.recordAppearances` | General > Capture > *Loot* | CheckBox | `true` | **Retail only** (`clients = C.FEATURE_CLIENTS.appearances`: the registry drops the row on WoW Forever). Record each appearance source collected as a `Type=Appearance` row and its removal as a loss ([Appearance records](#appearance-records)); obeys **Record data from**, ignores **Minimum quality**, and a removal needs `settings.trackLedger`. Fires `SettingsChanged` (`"appearance"`); off **unregisters** the Appearance owner's two rows. |
 | `settings.trackLedger` | General > Capture > *Ledger* | CheckBox | `true` | "Track holdings and losses": keeps `db.global.holdings` current (and, from Phase 2, writes gain/loss/transfer rows). Off = loot gains only, as before. Fires `SettingsChanged` (`"ledger"`), which the Reconciler hears to register or drop its capture events. |
 | `settings.excludeQuestItems` | General > Capture > *Loot* | CheckBox | `true` | Drop Quest-class items at capture (gates on `Constants.ITEMCLASS_QUEST`, locale-independent). Fires `SettingsChanged`. |
 | `settings.excludedSources` | General > Capture > *Loot* | MultiCheck | `{}` | Stored as *muted* sources; panel renders inverted ("Record data from"), host-drawn from Loot's `afterSubgroup`. Fires `SettingsChanged`. |
@@ -401,7 +466,7 @@ db.global.resetPromptPending = nil | true      -- armed by the v11 step when his
 
 - **Keys.** Container ids are derived from `Enum.BagIndex` member names, never hardcoded numbers. A thing key is `"i:<itemID>"`, `"c:<currencyID>"` or `"g"` (gold) (`Ledger.ThingKey` / `ParseThingKey`). `§` marks a system holder: code that means "characters" skips keys that start with it.
 - **`scanned` is the staleness clock.** A container never read has no timestamp, and the Holdings tab shows it as "never". `meta.partial` is true until the holder's bank (or, for the Warband, its tabs) has been read once, so a first-login character is not presented as owning an empty bank.
-- **Row fields written since Phase 2.** A ledger row carries `dir` (`IN` / `OUT` / `MOVE`), `kind` (`ITEM` / `CURRENCY` / `GOLD`), `holder` (whose holdings it belongs to: a `PlayerKey` or `"§warband"`), `from` / `to` (the two ends of a `MOVE`, each `holder/container`, for example `Samplehunter-Samplerealm/bags` to `Samplehunter-Samplerealm/bank`, or `Alt-Realm/mail`, `Alt-Realm/currency`, `Samplehunter-Samplerealm/auctions`), `claimed` (true when a chat line wrote the row and the diff then confirmed it) and `pairId` (since Phase 7: the `OUT` and `IN` of one move between two holders written in one pass share it, `"<ts>:<n>"`, or `"<ts>:m<n>"` on a pair the v13 step converted; an own-alt mail's halves are written in different passes, often different sessions, and carry none). `quantity` stays **unsigned**; the sign is `Ledger.DirSign[dir]` (`Ledger.Signed`), and a `MOVE` signs as zero. Every reader goes through `Util.RowDir` / `RowKind` / `RowHolder`, which default an unmarked row to a gain by `char`, so no pre-ledger row was rewritten.
+- **Row fields written since Phase 2.** A ledger row carries `dir` (`IN` / `OUT` / `MOVE`), `kind` (`ITEM` / `CURRENCY` / `GOLD`, and since the reputation and appearance capture `REPUTATION` / `APPEARANCE`, which are not ledger things: see [Reputation records](#reputation-records)), `holder` (whose holdings it belongs to: a `PlayerKey` or `"§warband"`), `from` / `to` (the two ends of a `MOVE`, each `holder/container`, for example `Samplehunter-Samplerealm/bags` to `Samplehunter-Samplerealm/bank`, or `Alt-Realm/mail`, `Alt-Realm/currency`, `Samplehunter-Samplerealm/auctions`), `claimed` (true when a chat line wrote the row and the diff then confirmed it) and `pairId` (since Phase 7: the `OUT` and `IN` of one move between two holders written in one pass share it, `"<ts>:<n>"`, or `"<ts>:m<n>"` on a pair the v13 step converted; an own-alt mail's halves are written in different passes, often different sessions, and carry none). `quantity` stays **unsigned**; the sign is `Ledger.DirSign[dir]` (`Ledger.Signed`), and a `MOVE` signs as zero. Every reader goes through `Util.RowDir` / `RowKind` / `RowHolder`, which default an unmarked row to a gain by `char`, so no pre-ledger row was rewritten.
 - **The GOLD row shape.** `kind = "GOLD"`, `itemName = "Gold"`, `itemType = Constants.GOLD_TYPE` (`"Gold"`), `quantity` in **copper**, no `itemID`, `itemLink`, `quality` or price fields. A looted-gold row also carries `source` / `sourceDetail` / `zone` from the loot context (and `claimed = true` once the diff confirms it); a diff-written one has `source` = the reason (`SELL`, `REPAIR`, `MAIL_SEND`, ...).
 - **A ledger row's `source` is its reason.** Item and currency diff rows reuse the `source` column for the reason (`SourceType`, appended 2026-10-06 with the 18 ledger members in `C.LEDGER_REASON`, and the 5 holder-move members `WARBAND_DEPOSIT`, `WARBAND_WITHDRAW`, `ALT_MAIL`, `ALT_TRADE` and `CURRENCY_TRANSFER` in Phase 7, 23 in all), with `confidence` `INFERRED` for `OTHER` / `UNTRACKED` and `CERTAIN` otherwise. A `MOVE` row stays inside one holder and its reason is `TRANSFER`. A move between two holders is an `OUT` on the sender and an `IN` on the receiver, both under the holder-move reason and, except for an own-alt mail, one `pairId`; `TRANSFER` also names the `OUT` for currency a transfer consumed beyond what arrived.
 - **Escrow.** `holdings[h].escrow` is created on first use by `Holdings:Escrow(h)`. `mailOwn[itemID]` counts how much of that holder's inbox it (or another own character) sent, so taking it is not an outside gain; `mailAlt[itemID]` (Phase 7, created on first use by `Holdings:MailAlt`) is the part of `mailOwn` an own alt sent, so taking it is an `IN ALT_MAIL` while the rest of `mailOwn` (an auction's return) is a `MOVE`; `mailMoney` is own-origin copper waiting in the inbox; `mailMoneyAlt` (Phase 7, absent until the first alt send credits it) is the part of `mailMoney` an own alt sent since Phase 7, so taking it is an `IN ALT_MAIL` while the rest (sent before, its pair converted by v13) is a `MOVE`; `exits[itemID] = { n, ts }` is what left the owned-auction list and has not yet resolved (returned by mail, sold, or aged out after 30 days). Written only by `modules/Escrow.lua`'s commit step; see [data-flow.md](data-flow.md#the-ledger-holdings-diff--claims).
@@ -529,14 +594,16 @@ strictly point-in-time: a blacklisted currency id is dropped at capture and neve
 ```
 ts · char · classFile · itemID · currencyID · itemLink · itemName · quality · itemLevel · bound ·
 vendorPrice · auctionPrice · itemType · itemSubType · quantity · source · sourceDetail ·
-zone · mapID · subzone · confidence · dir · kind · holder · from · to · claimed
+zone · mapID · subzone · confidence · dir · kind · holder · from · to · claimed ·
+factionID · repType · rank · standing · accountWide · sourceID · appearanceID · newLook
 ```
 
 `dir`, `kind` and `holder` are emitted through the `NS.Util.RowDir` / `RowKind` / `RowHolder`
 accessors, so a pre-ledger row exports `IN`, its derived kind and its `char`; `from`, `to` and
-`claimed` are copied as stored (nil on a legacy row).
+`claimed` are copied as stored (nil on a legacy row). The eight reputation and appearance fields are
+copied as stored and are nil on every other kind.
 
-**History CSV column list (F4, decided 2026-10-06).** `modules/Export.lua`'s `COLUMNS` order is: `ts, date, time, char, classFile, itemID, currencyID, itemName, quality, qualityRaw, itemLevel, bound, vendorPrice, vendorPriceRaw, auctionPrice, auctionPriceRaw, value, valueRaw, auctionSource, itemType, itemSubType, quantity, source, zone`, then one `auc_<provider>_<key>` per `AUCTION_KEYS` entry, then `wowheadLink`, then the **five appended ledger columns** `dir, kind, holder, from, to`. They are appended, never inserted, so every earlier column keeps its index in a user's spreadsheet, and a legacy row exports `IN`, its derived kind, its `char`, and empty `from` / `to`. The CSV does not carry `claimed`. The Insights CSV gains `Ledger` and `Losses by ...` sections when the range holds losses.
+**History CSV column list (F4, decided 2026-10-06).** `modules/Export.lua`'s `COLUMNS` order is: `ts, date, time, char, classFile, itemID, currencyID, itemName, quality, qualityRaw, itemLevel, bound, vendorPrice, vendorPriceRaw, auctionPrice, auctionPriceRaw, value, valueRaw, auctionSource, itemType, itemSubType, quantity, source, zone`, then one `auc_<provider>_<key>` per `AUCTION_KEYS` entry, then `wowheadLink`, then the **five appended ledger columns** `dir, kind, holder, from, to`, then the **seven progress columns** `factionID, repType, rank, standing, sourceID, appearanceID, newLook` (blank on every item, currency and gold row; `newLook` is `true` or blank; `accountWide` stays in `Database:Export` only). They are appended, never inserted, so every earlier column keeps its index in a user's spreadsheet, and a legacy row exports `IN`, its derived kind, its `char`, and empty `from` / `to`. The CSV does not carry `claimed`. The Insights CSV gains `Ledger` and `Losses by ...` sections when the range holds losses, and `Reputation Gained` / `Reputation Lost` (one row per faction, by name) and `Appearances` (`Collected`, `Removed`, `New looks`) rows after them when the range holds reputation or appearance rows.
 
 ### Database write seam and `Stats().ledger`
 

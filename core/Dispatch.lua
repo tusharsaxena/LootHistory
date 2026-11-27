@@ -9,7 +9,7 @@ local _, NS = ...
 -- every capture registration is a ROW here, appended by its module at file load (the
 -- R.SCAN_STEPS precedent, modules/Escrow.lua), so row order is TOC order, which is the stand-up
 -- order (core/LifecycleSetup.lua's STAND_UP_STEPS): Attribution, AttributionOut, Collector,
--- Reconciler.
+-- Reputation, Appearance (Retail only), Reconciler.
 --
 --   NS.EVENT_ROWS  ordered { event, owner, target, fn, unit? }. `target` is "bus" (NS.addon),
 --                  "out" (Attribution.__outEv), "ledger" (Reconciler.__ev) or "spell" (the

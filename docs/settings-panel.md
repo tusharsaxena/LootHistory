@@ -26,7 +26,7 @@ The page-granularity summary, moved here out of README.md when documentation-§1
 | Tab | Covers |
 |---|---|
 | **Master controls** | The addon as a whole: recording on/off, when the window may be on screen, master scale and alpha, frame lock, the debug console, the minimap button, test mode, reset position, reset all settings |
-| **Capture** | What gets recorded, in two subsections: *Loot* (minimum quality, quest items, currency, and the per-source on/off picker) and *Ledger* (holdings and gold) |
+| **Capture** | What gets recorded, in two subsections: *Loot* (minimum quality, quest items, ammunition, currency, reputation, appearances on Retail, and the per-source on/off picker) and *Ledger* (holdings and gold) |
 | **Filters** | Items and currencies you never, or always, want tracked: blacklist, whitelist, currency blacklist |
 | **AH price** | Where item values come from: the AH pricing master toggle and the ranked price-source table |
 | **Interface** | The History window, the simulator's pace and the holdings tooltip: window scale, row height, Timeline lines, transfers default, simulation step delay, and the five *Holdings in tooltips* rows |
