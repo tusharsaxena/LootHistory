@@ -11,8 +11,8 @@ local TC = NS.ToastContent
 -- which owns every frame, the motion and the look. This file is the host's half:
 --
 --   * the GAIN receiver (Toasts:OnGain): each feed whose filter accepts a gain gets its own payload
---     copy, pushed under the gain's merge key (the Feed does the merge, the queue and the drop). Not
---     yet subscribed: see Toasts:Enable;
+--     copy, pushed under the gain's merge key (the Feed does the merge, the queue and the drop),
+--     subscribed to NS.MSG.GAIN on its private target `__gain`;
 --   * the click actions behind the Feed's onClick (shift/ctrl link, plain click opens History);
 --   * the combat rows "Toasts" (registered while any feed is enabled): lock, click-through, hold;
 --   * unlock and drag (session state, NS.State.toastUnlocked), the drag's nudge written through
@@ -42,6 +42,8 @@ local function descriptor(fid)
     debug   = function(tag, fmt, ...) if NS.State.debug and NS.Debug then NS.Debug(tag, fmt, ...) end end,
   }
 end
+
+Toasts._descriptor = descriptor   -- tests only: a fresh instance on the host's own descriptor
 
 --- The Feed instance of `fid` (nil before the first Enable).
 function Toasts.Feed(_, fid) return feeds[fid] end
@@ -177,14 +179,8 @@ function Toasts:RefreshConfig()
 end
 
 --- Stand-up (core/LifecycleSetup.lua, after the Timeline): the three feeds built once (later Enables
---- reuse them; Clear() left them reusable), the settings listener, the combat rows.
----
---- NOT YET THE GAIN RECEIVER (blocked, M3.3). LibKa0s-Feed-1.0 v1.119.0-unreleased paints a new row's
---- text before its fonts: FeedRow.lua's Row.Paint calls SetText on FontStrings that Row.Build created
---- bare (CreateFontString with no template), and only then Row.Restyle sets their fonts. The client
---- raises "FontString:SetText(): Font not set" on that first SetText, so the first gain any feed
---- presents would raise inside the bus send. Toasts:OnGain is built and tested; subscribing it to
---- NS.MSG.GAIN waits for the library fix (plan ledger M3.3).
+--- reuse them; Clear() left them reusable), the GAIN receiver on `__gain` (§8.3), the settings
+--- listener, the combat rows.
 function Toasts:Enable()
   if not NS.addon or self._up then return end
   self._up = true
@@ -192,6 +188,10 @@ function Toasts:Enable()
     if not feeds[fid] then feeds[fid] = NS.NewFeed(descriptor(fid)) end
   end
   M.Rebuild()
+  self.__gain = self.__gain or NS.NewBusTarget()
+  if self.__gain then
+    self.__gain:RegisterMessage(NS.MSG.GAIN, function(_, g) Toasts:OnGain(g) end)
+  end
   self.__ev = self.__ev or NS.NewBusTarget()
   if self.__ev then
     self.__ev:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, reason)
@@ -201,11 +201,12 @@ function Toasts:Enable()
   self:SyncRows()
 end
 
---- Stand-down (slash-commands-§7): the listener and the combat rows gone, and every feed Clear()ed
+--- Stand-down (slash-commands-§7): the GAIN receiver, the listener and the combat rows gone, and every feed Clear()ed
 --- (rows released and hidden, the waiting list emptied, the clock disarmed, locked again). Clear
 --- keeps a combat Hold and click-through, so both are ended here too: a stand-down in combat must not
 --- come back up holding every gain (the emptied waiting list drains nothing).
 function Toasts:Disable()
+  if self.__gain then self.__gain:UnregisterAllMessages() end
   if self.__ev then self.__ev:UnregisterAllMessages() end
   NS.UnregisterRows("Toasts")
   self._rowsOn, self._up = nil, nil

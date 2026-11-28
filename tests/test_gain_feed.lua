@@ -65,7 +65,7 @@ test("GainFeed: no shipped file but modules/GainFeed.lua sends NS.MSG.GAIN", fun
       local n = 0
       for line in T.Loader.readFile(path):gmatch("[^\r\n]+") do
         n = n + 1
-        if not line:match("^%s*%-%-") and line:find("MSG.GAIN", 1, true) then offenders[#offenders + 1] = path .. ":" .. n end
+        if not line:match("^%s*%-%-") and line:find("SendMessage%s*%(%s*[%w_.]*MSG%.GAIN") then offenders[#offenders + 1] = path .. ":" .. n end
       end
     end
   end

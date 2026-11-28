@@ -1,6 +1,6 @@
 -- tests/test_toast_feed.lua — modules/ToastFeed.lua (toast spec
 -- docs/superpowers/specs/2026-11-27-38-loot-toasts-design.md §8, §13.2): the three feeds built through
--- the seam, the GAIN routing, the payload hand-back on a refused push, the click actions, the combat
+-- the seam, the GAIN subscription and routing, the payload hand-back on a refused push, the click actions, the combat
 -- rows, unlock and drag, the settings refresh, the stand-down and the library-absent stub path.
 --
 -- The feeds are LIVE LibKa0s-Feed-1.0 instances (the headless loader loads LibKa0s.xml). Their own
@@ -8,10 +8,12 @@
 -- assert only what the host decides and what it passes in. This slot runs after tests/test_dispatch.lua,
 -- with the whole addon brought up; every case clears what it showed and puts back what it touched.
 --
--- NO CASE PAINTS A ROW. The vendored Feed (v1.119.0, unreleased) sets a new row's text before its
--- fonts, which the client (and tests/wow_mock.lua) refuses with "Font not set", so every live feed
--- here is HELD: a push waits (merging there) and is read back through Get and Stats().waiting. The
--- unlock preview, which presents at once, is driven against a recording stand-in instead.
+-- The routing cases HOLD every live feed, so a push waits (merging there) and is read back through
+-- Get and Stats().waiting with no clock to step. The paint cases (below "the live paint") build a
+-- fresh instance on the host's own descriptor and watch the rows it builds: a real Push presents
+-- and paints a row, the unlock Preview paints its samples, and a Release drains held gains onto
+-- the screen. tests/wow_mock.lua refuses SetText on a FontString with no font ("Font not set", as
+-- the client does), so a first paint that set text before a font would raise there.
 
 local T = _G.LH_TEST
 local NS, M = T.NS, T.mocks
@@ -139,13 +141,18 @@ end)
 
 -- ── the receiver (§8.3) ──────────────────────────────────────────────────────────────────────
 
-test("Toasts: the receiver is not subscribed to GAIN yet (the Feed's first paint raises)", function()
-  -- Pins the held-back half of M3.3 (modules/ToastFeed.lua, Toasts:Enable): it flips when the library
-  -- sets a row's fonts before its text and the subscription lands.
+test("Toasts: a bus GAIN reaches the feeds through the receiver, and none after the stand-down", function()
   withFeeds(nil, function()
     NS.bus:SendMessage(NS.MSG.GAIN, gold(500))
-    assertEqual(feed("main"):Get("g"), nil, "a bus GAIN reached a feed")
-    assertEqual(feed("main"):Stats().waiting, 0)
+    assertTrue(feed("main"):Get("g") ~= nil, "the bus GAIN reached the Main feed")
+    assertEqual(feed("main"):Stats().waiting, 1)
+    Toasts:Disable()
+    NS.bus:SendMessage(NS.MSG.GAIN, item(7))
+    assertEqual(feed("main"):Get("i:7"), nil, "a stood-down receiver hears nothing")
+    Toasts:Enable()
+    holdAll()
+    NS.bus:SendMessage(NS.MSG.GAIN, item(7))
+    assertTrue(feed("main"):Get("i:7") ~= nil, "and the stand-up subscribes it again")
   end)
 end)
 
@@ -290,10 +297,11 @@ test("Toasts: combat locks every feed, and click-through and the hold follow eac
     assertFalse(e.clickThrough, "the third feed keeps its mouse"); assertFalse(e.held, "and shows in combat")
     Toasts:OnGain(gold(500))
     assertEqual(feed("main"):Stats().waiting, 1, "a held feed queues the gain")
-    feed("main"):Clear()   -- so the release below presents nothing (no row is painted here)
     Toasts:OnCombatEnd()
     s = feed("main"):Stats()
     assertFalse(s.clickThrough); assertFalse(s.held)
+    assertEqual(s.waiting, 0, "the regen edge drained the held gain")
+    assertEqual(s.live, 1, "onto the screen")
   end)
 end)
 
@@ -313,7 +321,8 @@ end)
 
 -- ── unlock and drag (§8.6) ───────────────────────────────────────────────────────────────────
 
--- A recording stand-in for the unlock cases: the live Preview presents at once, which paints.
+-- A recording stand-in for the unlock cases, which assert the host's calls and their order (the
+-- live Preview's paint is a case of its own, under "the live paint").
 local function lockFake(live, refuse)
   local f, log = {}, {}
   for k, v in pairs(NS.FeedStub) do f[k] = v end
@@ -450,6 +459,114 @@ test("Toasts: Disable clears every feed and ends its hold; Enable reuses the ins
   end)
 end)
 
+-- ── the live paint (§8.3, §8.6) ─────────────────────────────────────────────────────────────
+
+--- Run `fn(f, strings, errors)` with a fresh Feed instance on the host's descriptor for `fid` in the
+--- feed's place. `strings` collects every FontString a frame built during the case makes (the rows'),
+--- `errors` every raise the library handed to the error handler. Everything is put back after.
+local function withPaintedFeed(fid, fn)
+  local saved, savedCF, savedEH = Toasts._feeds[fid], M.CreateFrame, M.geterrorhandler
+  local strings, errors = {}, {}
+  M.CreateFrame = function(...)
+    local fr = savedCF(...)
+    local make = fr.CreateFontString
+    fr.CreateFontString = function(self, ...)
+      local fs = make(self, ...)
+      strings[#strings + 1] = fs
+      return fs
+    end
+    return fr
+  end
+  M.geterrorhandler = function() return function(err) errors[#errors + 1] = tostring(err) end end
+  local d = Toasts._descriptor(fid)
+  d.name = d.name .. "_Paint"
+  local f
+  local ok, err = pcall(function()
+    f = NS.NewFeed(d)
+    Toasts._feeds[fid] = f
+    fn(f, strings, errors)
+  end)
+  if f then f:ClearPreview(); f:Clear(); f:SetLocked(true) end
+  for k in pairs(NS.State.toastUnlocked) do NS.State.toastUnlocked[k] = nil end
+  Toasts._feeds[fid] = saved
+  M.CreateFrame, M.geterrorhandler = savedCF, savedEH
+  if not ok then error(err, 0) end
+end
+
+--- How many collected strings show `text` with a font set.
+local function painted(strings, text)
+  local n = 0
+  for _, fs in ipairs(strings) do
+    if fs:GetText() == text and fs:GetFont() ~= nil then n = n + 1 end
+  end
+  return n
+end
+
+test("Toasts: a bus GAIN presents a row on the live Feed and paints its title", function()
+  withFeeds(nil, function()
+    clearAll()
+    withPaintedFeed("main", function(f, strings, errors)
+      NS.bus:SendMessage(NS.MSG.GAIN, gold(500))
+      local s = f:Stats()
+      assertEqual(s.live, 1, "the push presented at once")
+      assertEqual(s.waiting, 0)
+      assertTrue(s.built, "the first push built the feed")
+      assertTrue(#strings > 0, "the row built its strings")
+      assertEqual(painted(strings, NS.Util.FormatMoney(500)), 1, "the row's title reads the money")
+      assertEqual(#errors, 0, table.concat(errors, "; "))
+      assertEqual(f:Push("i:7", NS.ToastModel.NewPayload(item(7, 2))), "new", "a direct Push presents too")
+      assertEqual(painted(strings, "Item 7"), 1, "and paints the item's name")
+      assertEqual(f:Stats().live, 2)
+    end)
+  end)
+end)
+
+test("Toasts: the unlock Preview paints a sample row per kind the feed shows, up to its cap", function()
+  withFeeds(nil, function()
+    clearAll()
+    withPaintedFeed("main", function(f, strings, errors)
+      assertTrue(Toasts:SetUnlocked("main", true), "the live Feed unlocks out of combat")
+      local s, n = f:Stats(), #NS.ToastSample.ForFeed("main")
+      assertTrue(s.shown > 0, "the built feed has a cap")
+      assertEqual(s.live, math.min(n, s.shown), "the samples present, the feed's cap of them")
+      local titled = 0
+      for _, pair in ipairs(NS.ToastSample.ForFeed("main")) do
+        local spec = { lines = { {}, {}, {} } }
+        NS.ToastContent.Content("main", spec, pair[2], pair[1])
+        if spec.title and spec.title ~= "" and painted(strings, spec.title) > 0 then titled = titled + 1 end
+      end
+      assertEqual(titled, n, "every sample went through the paint (the oldest past the cap then drop)")
+      assertEqual(#errors, 0, table.concat(errors, "; "))
+      assertFalse(Toasts:SetUnlocked("main", false))
+      assertEqual(f:Stats().live, 0, "the lock frees the preview rows")
+    end)
+  end)
+end)
+
+test("Toasts: a Release drains the held gains onto painted rows", function()
+  withFeeds(nil, function()
+    clearAll()
+    withPaintedFeed("main", function(f, strings, errors)
+      f:Hold()
+      NS.bus:SendMessage(NS.MSG.GAIN, gold(500))
+      NS.bus:SendMessage(NS.MSG.GAIN, item(7))
+      NS.bus:SendMessage(NS.MSG.GAIN, item(7, 2))
+      local s = f:Stats()
+      assertEqual(s.waiting, 2, "the repeat merged while waiting")
+      assertEqual(s.live, 0, "nothing shows while held")
+      assertEqual(painted(strings, NS.Util.FormatMoney(500)), 0)
+      Toasts:OnCombatEnd()
+      s = f:Stats()
+      assertEqual(s.waiting, 0); assertEqual(s.live, 2, "the regen edge drained both")
+      assertFalse(s.held)
+      assertEqual(painted(strings, NS.Util.FormatMoney(500)), 1)
+      assertEqual(painted(strings, "Item 7"), 1)
+      assertEqual(f:Get("i:7").qty, 3, "the drained row carries the merged count")
+      assertEqual(#errors, 0, table.concat(errors, "; "))
+    end)
+  end)
+end)
+
 -- ── the degraded install (§8.1) ──────────────────────────────────────────────────────────────
 
 test("Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises", function()
@@ -461,10 +578,15 @@ test("Toasts: with NS.NewFeed answering the stub, every path runs and nothing ra
     NS.NewFeed = function() return NS.FeedStub end
     Toasts:Enable()
     assertTrue(feed("main") == NS.FeedStub)
-    local spares = #NS.ToastModel._spares
+    -- The spare list emptied first: a payload taken off it and handed back would leave its count
+    -- unchanged (a merge earlier in this file leaves one there).
+    local list, kept = NS.ToastModel._spares, {}
+    while #list > 0 do kept[#kept + 1] = table.remove(list) end
     Toasts:OnGain(gold(500))
-    assertEqual(#NS.ToastModel._spares, spares + 1, "the stub's refusal hands the payload back")
+    local handedBack = #list
     NS.ToastModel.NewPayload(gold(1))
+    for _, p in ipairs(kept) do list[#list + 1] = p end
+    assertEqual(handedBack, 1, "the stub's refusal hands the payload back")
     assertFalse(Toasts:SetUnlocked("main", true), "the stub never unlocks")
     Toasts:OnCombatStart(); Toasts:OnCombatEnd()
     Toasts:RefreshConfig()

@@ -2360,11 +2360,11 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_toast_feed.lua (26)
+### test_toast_feed.lua (29)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
 - Toasts: an idle feed is asleep
-- Toasts: the receiver is not subscribed to GAIN yet (the Feed's first paint raises)
+- Toasts: a bus GAIN reaches the feeds through the receiver, and none after the stand-down
 - Toasts: a gain reaches only the feeds that accept it
 - Toasts: each feed keeps its own payload copy, and a repeat merges into it
 - Toasts: the minimum quality and hidden sources are the feed's own
@@ -2385,6 +2385,9 @@ Total.
 - Toasts: SETTINGS_CHANGED (toasts, profile, enabled) re-snapshots and refreshes every feed
 - Toasts: a settings write reaches the next gain without a reload
 - Toasts: Disable clears every feed and ends its hold; Enable reuses the instances
+- Toasts: a bus GAIN presents a row on the live Feed and paints its title
+- Toasts: the unlock Preview paints a sample row per kind the feed shows, up to its cap
+- Toasts: a Release drains the held gains onto painted rows
 - Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises
 - B:ShowGain opens History on the History tab with the gain's name in Search
 - B:ShowGain on the real window opens History and searches it
@@ -2923,7 +2926,7 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
-| test_toast_feed.lua | 26 |
+| test_toast_feed.lua | 29 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
@@ -2948,4 +2951,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2489** |
+| **Total** | **2492** |
