@@ -29,8 +29,28 @@ local PAGE = "Toasts"
 ST.PAGE = PAGE
 ST.TABS = { "General", "Content", "Style", "Motion", "Behavior" }
 
-local function changed()
+-- One SETTINGS_CHANGED "toasts" per act: a write inside a bulk bracket (Reset feed, the page
+-- Defaults, Reset style to skin, the slash resets) only marks it owed, and the outermost close sends
+-- it once (ST.FlushChanged, after the Options and Slash descriptors' bulkEnd and the page's own acts), so a sweep of the rows costs one re-snapshot of the gain
+-- feed and one Refresh() per feed rather than one per row.
+local owed = false
+
+local function send()
   if NS.bus then NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, "toasts") end
+end
+
+local function changed()
+  local R = NS.SchemaRuntime
+  if R and R.InBulk and R.InBulk() then owed = true; return end
+  send()
+end
+
+--- The owed SETTINGS_CHANGED "toasts", sent once; nothing when none is owed or a bracket is still open.
+function ST.FlushChanged()
+  local R = NS.SchemaRuntime
+  if not owed or (R and R.InBulk and R.InBulk()) then return end
+  owed = false
+  send()
 end
 
 local function prefix(fid) return "settings.toasts.feeds." .. fid .. "." end
@@ -99,8 +119,8 @@ local function generalRows(out, fid)
   r(nil, "enabled", { type = "bool", label = "Enable this feed",
     tooltip = "Show this feed. Off, it draws nothing, and gains it would show are not watched for it." })
   r("Placement", "slot", { type = "string", values = C.TOAST_SLOT_OPTIONS, solo = true, label = "Screen slot",
-    tooltip = "One of nine places on screen; the nudge moves it from there. Picking a slot sets its growth "
-      .. "direction and clears the nudge.",
+    tooltip = "One of nine places on screen; the X and Y offsets move it from there. Picking a slot sets its "
+      .. "growth direction and clears both offsets.",
     onChange = function(v)
       local grow = C.TOAST_SLOT_GROW[v]
       if grow and NS.Schema and NS.Schema.SetMany then
@@ -109,11 +129,11 @@ local function generalRows(out, fid)
       end
       changed()
     end })
-  local nudge = "Pixels from the slot. Dragging the unlocked feed writes this."
+  local nudge = "How far the feed sits from its slot. Dragging the unlocked feed writes this."
   r("Placement", "x", { type = "number", min = -C.TOAST_NUDGE_MAX, max = C.TOAST_NUDGE_MAX, step = 1,
-    label = "Nudge X", tooltip = nudge })
+    label = "X offset (px)", tooltip = nudge })
   r("Placement", "y", { type = "number", min = -C.TOAST_NUDGE_MAX, max = C.TOAST_NUDGE_MAX, step = 1,
-    label = "Nudge Y", tooltip = nudge })
+    label = "Y offset (px)", tooltip = nudge })
   r("Placement", "grow", { type = "string", values = C.TOAST_GROW_OPTIONS, label = "Grow",
     tooltip = "Which way older toasts move as new ones arrive. The newest is always nearest the slot." })
   r("Placement", "align", { type = "string", values = C.TOAST_SIDE_OPTIONS, label = "Text alignment",
@@ -137,6 +157,12 @@ local HIGHLIGHTS = {
   { "appearance", "New appearances", "Glow on an item whose appearance you do not have yet.", true },
 }
 
+-- A row that matters only while the boolean at `path` is on (options-ui-§22: disabledIf, never
+-- shownWhen, for a boolean parent).
+local function off(path)
+  return function() return not (NS.Schema and NS.Schema:Get(path) == true) end
+end
+
 local function contentRows(out, fid)
   local P = prefix(fid)
   local function r(sub, leaf, spec) out[#out + 1] = row(fid, "Content", sub, leaf, spec) end
@@ -145,13 +171,16 @@ local function contentRows(out, fid)
       tooltip = "Show " .. k[2]:lower() .. " on this feed.",
       clients = k[1] == "appearance" and APPEARANCE_CLIENTS or nil })
   end
+  -- Dependent on a boolean, so disabledIf, never shownWhen (options-ui-§22).
   r("Details", "price", { type = "string", values = C.TOAST_PRICE_OPTIONS, solo = true, label = "Prices",
-    tooltip = "The value line on item toasts. AH needs a pricing addon. Highest is the larger of the two.",
-    shownWhen = { path = P .. "kinds.item", equals = true } })
+    tooltip = "The value line on item toasts. AH needs a pricing addon. Highest is the larger of the two. "
+      .. "Needs Items.",
+    disabledIf = off(P .. "kinds.item") })
   r("Details", "ilvl", { type = "bool", label = "Item level badge",
     tooltip = "Draw the item level over the icon of gear." })
   r("Details", "counts", { type = "bool", label = "Counts",
-    tooltip = "How many you now hold in your bags, bank and warband bank." })
+    tooltip = "How many you now hold in your bags and bank"
+      .. (C.FEATURE.warbandBank and ", and the warband bank" or "") .. "." })
   r("Details", "source", { type = "bool", label = "Source tag",
     tooltip = "Where the gain came from: a kill, a quest, a vendor." })
   r("Details", "minQuality", { type = "number", values = C.QUALITY_OPTIONS, label = "Minimum quality",
@@ -170,8 +199,9 @@ local function contentRows(out, fid)
     r("Highlights and sounds", "hl." .. h[1], { type = "bool", label = h[2], tooltip = h[3], clients = clients })
     r("Highlights and sounds", "hl." .. h[1] .. "Sound", { type = "string", dialogControl = "Ka0sMedia_Sound",
       values = snd, label = "Sound", clients = clients,
-      tooltip = "Played when this highlight shows, at most once a second per feed. None plays nothing.",
-      shownWhen = { path = P .. "hl." .. h[1], equals = true } })
+      tooltip = "Played when this highlight shows, at most once a second per feed. None plays nothing. Needs "
+        .. h[2] .. ".",
+      disabledIf = off(P .. "hl." .. h[1]) })
   end
 end
 
@@ -224,16 +254,16 @@ local function styleRows(out, fid)
     extra = { { path = P .. "fontSize2", type = "number", min = 8, max = 24, step = 1, label = "Secondary size",
       default = default(fid, "fontSize2"), tooltip = "Height of every line under the title, in points." } } }, fid)
   local function r(sub, leaf, s) out[#out + 1] = row(fid, "Style", sub, leaf, s) end
-  r("Size", "width", { type = "number", min = 200, max = 600, step = 1, label = "Width",
-    tooltip = "How wide each toast is, in pixels." })
-  r("Size", "rowHeight", { type = "number", min = 24, max = 96, step = 1, label = "Row height",
+  r("Size", "width", { type = "number", min = 200, max = 600, step = 1, label = "Width (px)",
+    tooltip = "How wide each toast is." })
+  r("Size", "rowHeight", { type = "number", min = 24, max = 96, step = 1, label = "Row height (px)",
     tooltip = "The least height; a toast with more lines is taller." })
-  r("Size", "iconSize", { type = "number", min = 16, max = 64, step = 1, label = "Icon size",
-    tooltip = "The icon's edge, in pixels." })
-  r("Size", "padding", { type = "number", min = 0, max = 16, step = 1, label = "Padding",
-    tooltip = "Space inside each toast, in pixels." })
-  r("Size", "gap", { type = "number", min = 0, max = 20, step = 1, label = "Gap",
-    tooltip = "Space between toasts, in pixels." })
+  r("Size", "iconSize", { type = "number", min = 16, max = 64, step = 1, label = "Icon size (px)",
+    tooltip = "The icon's edge." })
+  r("Size", "padding", { type = "number", min = 0, max = 16, step = 1, label = "Padding (px)",
+    tooltip = "Space inside each toast." })
+  r("Size", "gap", { type = "number", min = 0, max = 20, step = 1, label = "Gap (px)",
+    tooltip = "Space between toasts." })
   for _, k in ipairs({ { "xp", "Experience" }, { "rep", "Reputation" }, { "skill", "Skill-ups" } }) do
     r("Kind colors", "colors." .. k[1], { type = "color", hasAlpha = true, startsLine = true, label = k[2],
       tooltip = "The color of " .. k[2]:lower() .. " toasts' title. Not read while Use the skin's color is on." })
@@ -248,12 +278,12 @@ local function motionRows(out, fid)
   local entering = { path = P .. "enter", equals = { "fade", "right", "left", "up", "down" } }
   r("enter", { type = "string", values = C.TOAST_ENTER_OPTIONS, label = "Enter",
     tooltip = "How a new toast arrives." })
-  r("enterTime", { type = "number", min = 0, max = 1, step = 0.05, label = "Enter time",
-    tooltip = "Seconds the arrival takes.", shownWhen = entering })
-  r("hold", { type = "number", min = 1, max = 30, step = 0.5, label = "Hold",
-    tooltip = "Seconds a toast stays before it fades. A repeat starts it again." })
-  r("fade", { type = "number", min = 0, max = 5, step = 0.1, label = "Then fade over",
-    tooltip = "Seconds the fade-out takes." })
+  r("enterTime", { type = "number", min = 0, max = 1, step = 0.05, label = "Enter time (seconds)",
+    tooltip = "How long the arrival takes.", shownWhen = entering })
+  r("hold", { type = "number", min = 1, max = 30, step = 0.5, label = "Hold (seconds)",
+    tooltip = "How long a toast stays before it fades. A repeat starts it again." })
+  r("fade", { type = "number", min = 0, max = 5, step = 0.1, label = "Fade time (seconds)",
+    tooltip = "How long the fade-out takes." })
   r("pulse", { type = "bool", label = "Pulse when a count rises",
     tooltip = "A toast that takes a repeat pulses once." })
   r("timerBar", { type = "bool", label = "Countdown timer bar",
@@ -266,8 +296,8 @@ local function behaviorRows(out, fid)
   local function r(leaf, s) out[#out + 1] = row(fid, "Behavior", nil, leaf, s) end
   r("shown", { type = "number", min = 1, max = C.TOAST_SHOWN_MAX, step = 1, label = "Shown at once",
     tooltip = "The most toasts on screen; a new one past it drops the oldest." })
-  r("merge", { type = "number", min = 0, max = 10, step = 0.5, label = "Merge repeats within",
-    tooltip = "Seconds a repeat of the same gain adds to its toast. 0 turns merging off." })
+  r("merge", { type = "number", min = 0, max = 10, step = 0.5, label = "Merge repeats within (seconds, 0 = off)",
+    tooltip = "How long after a gain a repeat of it adds to its toast instead of showing a new one." })
   r("showInCombat", { type = "bool", label = "Show in combat",
     tooltip = "Off: gains in combat wait and show when it ends." })
   r("clickThrough", { type = "bool", label = "Click-through in combat",
@@ -295,7 +325,8 @@ local function alertRow()
   return { path = "settings.toasts.hideAlerts", default = PD.settings.toasts.hideAlerts, type = "bool",
     widget = "CheckBox", page = PAGE, group = "Behavior", subgroup = ST.ALERTS_SUBGROUP,
     label = "Loot and money alert toasts",
-    tooltip = "Hide the game's own loot and money pop-ups. Turned off, or with the addon disabled, they come back.",
+    tooltip = "Hide the game's own loot and money pop-ups while a toast feed is enabled. Turned off, with "
+      .. "every feed off, or with the addon disabled, they come back.",
     onChange = changed }
 end
 

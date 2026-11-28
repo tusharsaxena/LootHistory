@@ -85,7 +85,7 @@ local function feedAppearance(sourceID, itemID, itemLink, name, quality, newLook
   g.newLook = newLook == true
   g.source, g.sourceDetail, g.confidence = source, detail, C.Confidence.INFERRED
   g.record, g.gated = record, gated
-  GainFeed:SendEvent(g)
+  GainFeed:SendEvent(g, "appearanceEvent")
 end
 
 -- The record half: the source mute (A8) and the record switch, then the row. Answers the row, else

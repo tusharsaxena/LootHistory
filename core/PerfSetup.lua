@@ -69,8 +69,13 @@ NS.Perf = lib:New({
     { key = "tooltipBlock" },   -- HoldingsTip.OnTooltip (every item/currency tooltip build, ~5/s while hovered, in combat too)
     { key = "repEvent" },       -- Reputation:OnStandingChanged (every kill that moves a standing, in combat)
     { key = "appearanceEvent" }, -- Appearance:OnSourceAdded / OnSourceRemoved (Retail; bursts on an ensemble)
-    { key = "gainSend" },       -- GainFeed:Send (#38): the GAIN fan-out, every receiver inside it
-    { key = "toastPaint" },     -- the toast feeds' content call (#38, modules/ToastFeed.lua): present, merge, repaint, settle
+    -- GainFeed:Send (#38): the GAIN fan-out, every receiver inside it. No one parent to declare: it
+    -- runs inside the seven capture buckets that send and at top level from the holdings diff, and
+    -- each call site passes the parent it ran in (docs/performance.md, Documented deviations).
+    { key = "gainSend" },
+    -- The toast feeds' content call (#38, modules/ToastFeed.lua): inside gainSend on a push, at top
+    -- level on a repaint, settle or refresh (the observed parent is passed).
+    { key = "toastPaint", within = "gainSend" },
     { key = "xpEvent" },        -- Progress:OnXP (every kill and quest that grants experience)
     { key = "skillScan" },      -- Progress's coalesced profession scan
   },

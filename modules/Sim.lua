@@ -189,9 +189,12 @@ end
 
 --- NS.RealEventFilter while a session runs: true consumes the real event (absorbed); false lets it
 --- run live, after stopping the session when it interferes.
-function Host.OnRealEvent(_, event, ...)
+function Host.OnRealEvent(row, event, ...)
   local sim = NS.Sim
   if not sim:IsActive() or sim:IsDelivering() or SETUP[event] then return false end
+  -- The toast feeds' combat rows only steer the feeds (lock, click-through, hold): never absorbed, so
+  -- a real pull locks and holds them whatever order the world watch's own combat stop runs in.
+  if row and row.target == "toasts" then return false end
   if interferes(event, ...) then
     debug("real %s: stopping, then recording it live", tostring(event))
     sim:Stop("world")
@@ -284,6 +287,7 @@ function Host.Prepare(_, def, opts, ready)
   -- The gain feed's claims and the experience and skill baselines are capture state too (#38, toast
   -- spec §12): cleared, then seeded at once from the world (the seam answers PlayerXP and the skills).
   NS.GainFeed:ResetState()
+  NS.Progress:SuspendBaseline()
   NS.Progress:ResetState()
   NS.Progress:Seed(true)
   NS.RealEventFilter = Host.OnRealEvent
@@ -435,9 +439,11 @@ local STOP_STEPS = {
   -- with no faction walk. A real FACTION_STANDING_CHANGED that stopped the session runs live after this
   -- step and diffs against the pre-session standing, so its row is written.
   function() NS.Reputation:RestoreBaseline(); NS.Appearance:ResetState() end,
-  -- The gain feed's session state goes, and the experience and skill baselines reseed live (the seam
-  -- is off), so the world's numbers never diff against the real ones. The toasts are not cleared.
-  function() NS.GainFeed:ResetState(); NS.Progress:ResetState(); NS.Progress:Seed() end,
+  -- The gain feed's session state goes, and the experience and skill baselines set aside at the start
+  -- come back (as the reputation one does), so the world's numbers never diff against the real ones
+  -- and a real XP or skill-up that stopped the session diffs against the pre-session values and is
+  -- sent. The toasts are not cleared.
+  function() NS.GainFeed:ResetState(); NS.Progress:RestoreBaseline() end,
   -- What really changed while the session ran becomes UNTRACKED drift. Not on a stand-down: the
   -- Reconciler's own stand-up rescan covers that.
   function(_, reason)

@@ -143,7 +143,7 @@ and stop while the addon stays up:
   (`Reputation:SuspendBaseline`), clears the duplicate maps and seeds a fresh baseline from the world
   (`Reputation:Seed(true)`); its stop puts the real baseline back (`Reputation:RestoreBaseline`, no
   faction walk) and clears the duplicate maps again.
-- **`GainFeed:ResetState()`** wipes the feed claims, and **`Progress:ResetState()`** wipes the experience and skill baselines and the owed scan (#38). The simulator's start reseeds Progress from the world (`Progress:Seed(true)`), and its stop from the live client (`Progress:Seed()`); the toast feeds are not cleared at the stop, so simulated toasts fade out on their own.
+- **`GainFeed:ResetState()`** wipes the feed claims, and **`Progress:ResetState()`** wipes the experience and skill baselines and the owed scan (#38). The simulator's start sets the real baselines aside (`Progress:SuspendBaseline`) and reseeds Progress from the world (`Progress:Seed(true)`), and its stop puts them back (`Progress:RestoreBaseline`; a live reseed when nothing was set aside); a stand-down drops anything set aside; the toast feeds are not cleared at the stop, so simulated toasts fade out on their own.
 - **`NS.CancelDeferral(h)`** cancels and forgets one `NS.After` handle and leaves every other armed,
   so canceling the Reconciler's two fuses never takes the login deferrals down.
   `NS.CancelDeferrals()` still drops them all on a stand-down.

@@ -291,7 +291,7 @@ test("Toasts: an appearance folds into its item's toast instead of a toast of it
     if not C.FEATURE.appearances then return end
     Toasts:OnGain(item(7, 1, 3))
     local p = feed("main"):Get("i:7")
-    Toasts:OnGain({ kind = "APPEARANCE", dir = "IN", id = 900, itemID = 7, qty = 1, name = "Look" })
+    Toasts:OnGain({ kind = "APPEARANCE", dir = "IN", id = 900, itemID = 7, qty = 1, name = "Look", newLook = true })
     assertEqual(feed("main"):Get("a"), nil, "no appearance toast")
     assertTrue(p.newLook, "the item's toast took the look")
     assertEqual(feed("main"):Stats().waiting, 1)
@@ -316,6 +316,25 @@ test("Toasts: the content closure is the toastPaint bracket around ToastContent"
   P.on, P.Note = savedOn, savedNote
   if not ok then error(err, 0) end
   assertEqual(table.concat(notes, ","), "toastPaint")
+end)
+
+test("Toasts: toastPaint names gainSend as its parent inside a send, top level outside (performance-§3)", function()
+  local P, notes = NS.Perf, {}
+  local savedOn, savedNote = P.on, P.Note
+  P.on = true
+  P.Note = function(key, _, parent) notes[#notes + 1] = key .. "<" .. tostring(parent) end
+  local ok, err = pcall(function()
+    Toasts._descriptor("main").content({ lines = { {}, {}, {} } }, gold(500), "g")
+    NS.GainFeed.sending = true
+    Toasts._descriptor("main").content({ lines = { {}, {}, {} } }, gold(500), "g")
+    NS.GainFeed.sending = nil
+  end)
+  NS.GainFeed.sending = nil
+  P.on, P.Note = savedOn, savedNote
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(notes, ","), "toastPaint<false,toastPaint<gainSend")
+  assertEqual(NS.Perf.BUCKET_WITHIN.toastPaint, "gainSend", "declared within gainSend")
+  assertEqual(NS.Perf.BUCKET_WITHIN.gainSend, nil, "gainSend has no one parent to declare")
 end)
 
 -- ── clicks (§8.5) ────────────────────────────────────────────────────────────────────────────
@@ -481,6 +500,52 @@ test("Toasts: combat re-locks an unlocked feed and clears its preview", function
   assertEqual(log[3], "SetLocked:true"); assertEqual(log[4], "ClearPreview")
 end)
 
+local ALL_OFF = { main = { enabled = false }, progress = { enabled = false }, extra = { enabled = false } }
+
+local function toastRow(event)
+  for _, row in ipairs(NS.EVENT_ROWS) do
+    if row.owner == "Toasts" and row.event == event then return row end
+  end
+end
+
+test("Toasts: with every feed off, an unlock puts the combat rows on and combat re-locks it", function()
+  -- red under: SyncRows wanting the rows only while a feed is enabled, so nothing hears the pull and
+  -- an unlocked disabled feed keeps its handle and samples through the fight.
+  local f = lockFake(0)
+  withFeeds(ALL_OFF, function()
+    assertEqual(Toasts._rowsOn, nil, "precondition: no feed on, no combat rows")
+    withFake(f, function()
+      assertTrue(Toasts:SetUnlocked("main", true))
+      assertTrue(Toasts._rowsOn, "the unlock registered the combat rows")
+      NS.Deliver(toastRow("PLAYER_REGEN_DISABLED"), "PLAYER_REGEN_DISABLED")
+      assertTrue(f.locked, "the pull locked it again")
+      assertEqual(NS.State.toastUnlocked.main, nil)
+      NS.Deliver(toastRow("PLAYER_REGEN_ENABLED"), "PLAYER_REGEN_ENABLED")
+    end)
+    Toasts:RefreshConfig()
+    assertEqual(Toasts._rowsOn, nil, "with nothing on or unlocked, the next sync takes them off")
+  end)
+end)
+
+test("Toasts: a real pull during a sim session still reaches the combat rows", function()
+  -- red under: the simulator's real-event split absorbing PLAYER_REGEN_DISABLED for the Toasts rows,
+  -- so whether the feeds lock and hold depends on the order AceEvent calls its targets in.
+  local Host = NS.SimHost
+  local savedFilter, savedActive = NS.RealEventFilter, NS.Sim.IsActive
+  NS.RealEventFilter = Host.OnRealEvent
+  NS.Sim.IsActive = function() return true end
+  local ok, err = pcall(withFeeds, { main = { showInCombat = false, clickThrough = true } }, function()
+    feed("main"):Release()
+    NS.Deliver(toastRow("PLAYER_REGEN_DISABLED"), "PLAYER_REGEN_DISABLED")
+    local s = feed("main"):Stats()
+    assertTrue(s.locked); assertTrue(s.held, "held for the fight"); assertTrue(s.clickThrough)
+    assertFalse(Host.OnRealEvent(toastRow("PLAYER_REGEN_DISABLED"), "PLAYER_REGEN_DISABLED"), "never absorbed")
+    assertTrue(Host.OnRealEvent({ target = "bus" }, "PLAYER_REGEN_DISABLED"), "another row's still is")
+  end)
+  NS.RealEventFilter, NS.Sim.IsActive = savedFilter, savedActive
+  if not ok then error(err, 0) end
+end)
+
 test("Toasts: a drag's nudge is written through the Schema seam as one batch", function()
   local saved, seen = NS.Schema.SetMany, nil
   NS.Schema.SetMany = function(_, entries) seen = entries; return true end
@@ -519,6 +584,29 @@ test("Toasts: SETTINGS_CHANGED (toasts, profile, enabled) re-snapshots and refre
       NS.bus:SendMessage(NS.MSG.SETTINGS_CHANGED, reason)
     end
     for _, fid in ipairs(C.TOAST_FEEDS) do assertEqual(counts[fid], 3, fid .. ": one Refresh per reason it hears") end
+  end)
+  for fid, fn in pairs(saved) do feed(fid).Refresh = fn end
+  if not ok then error(err, 0) end
+end)
+
+test("Toasts: Reset feed, Reset style to skin and the page Defaults each refresh every feed once", function()
+  -- red under: one SETTINGS_CHANGED per row inside the bulk bracket, a full Refresh() of all three
+  -- feeds (and a gain-feed re-snapshot) for each of the ~60 rows a reset walks.
+  local counts, saved = {}, {}
+  for _, fid in ipairs(C.TOAST_FEEDS) do
+    local f = feed(fid)
+    saved[fid] = f.Refresh
+    f.Refresh = function(self) counts[fid] = (counts[fid] or 0) + 1; return saved[fid](self) end
+  end
+  local ok, err = pcall(withFeeds, nil, function()
+    local function once(label, act)
+      for _, fid in ipairs(C.TOAST_FEEDS) do counts[fid] = 0 end
+      act()
+      for _, fid in ipairs(C.TOAST_FEEDS) do assertEqual(counts[fid], 1, label .. ": " .. fid) end
+    end
+    once("Reset feed", function() NS.ToastsPage.ResetFeed("progress") end)
+    once("Reset style to skin", function() NS.ToastsPage.ResetStyle("main") end)
+    once("one plain write", function() NS.Schema:Set("settings.toasts.feeds.main.hold", 7) end)
   end)
   for fid, fn in pairs(saved) do feed(fid).Refresh = fn end
   if not ok then error(err, 0) end

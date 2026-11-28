@@ -694,7 +694,7 @@ Total.
 - Appearance rows: Blacklist item is an item row's only, and Show in Timeline is off
 - Appearance gain feed: a collected source sends APPEARANCE (new look, gated by the switch); a removal never sends
 
-### test_gain_feed.lua (14)
+### test_gain_feed.lua (15)
 
 - GainFeed: no shipped file but modules/GainFeed.lua sends NS.MSG.GAIN
 - GainFeed: Begin answers the one scratch table with every field cleared, kind and dir set
@@ -708,14 +708,18 @@ Total.
 - GainFeed: a kind not wanted sends nothing on its line
 - GainFeed: FromDiff sends the unclaimed rest with the diff's reason, recorded by RowAllowed
 - GainFeed: the row writer's tap skips other holders, moves, forced passes and losses
+- GainFeed: gainSend notes the parent each sender ran inside (performance-§3)
 - GainFeed: HoldClaims carries a feed claim through a combat deferral
 - GainFeed: Disable drops wants, the farm set, the claims and the listener; ResetState the claims
 
-### test_progress.lua (12)
+### test_progress.lua (15)
 
 - Progress XPDelta: same level, one level up, two levels (short), level down, unseeded, zero
 - Progress XP: the first read seeds; a gain sends XP with qty, level and the read
 - Progress XP: at the cap nothing is sent
+- Progress XP: the ding that reaches the top level still sends; later reads at the top do not
+- Progress XP: a read around a ding with the old level keeps the baseline (no double count)
+- Progress XP: PLAYER_LEVEL_UP hands its level argument through
 - Progress XP: a secret read keeps the baseline and the regen edge reseeds it
 - Progress XP: the source is the quest's with its detail, a kill's in combat, else OTHER
 - Progress skills: the first scan only seeds; a rise sends SKILL with old, new and max
@@ -726,7 +730,7 @@ Total.
 - CompatGain: alert suppression records and restores exactly the registered events, in order
 - Progress: each owner's rows are registered only while the gain feed wants its kind
 
-### test_toast_model.lua (32)
+### test_toast_model.lua (34)
 
 - ToastModel: C.TOAST_SLOTS, TOAST_NUDGE_MAX and TOAST_SHOWN_MAX equal the Feed's own
 - ToastModel: Config flattens a feed's settings, kinds keyed by GainKind
@@ -741,6 +745,7 @@ Total.
 - ToastModel: Merge sums qty into old, frees new and answers old
 - ToastModel: Merge sums a cached price only when both sides carry one
 - ToastModel: Merge refreshes the moving fields and keeps a skill-up's first rank
+- ToastModel: Merge keeps a level-up gained inside the window (levelUp is ORed, level moves)
 - ToastModel: Merge shows an appearance burst's latest look and carries a highlight forward
 - ToastModel: Merge with a non-table side answers the newer payload untouched
 - ToastModel: LayoutFor maps the placement and size leaves, grow upper-cased
@@ -758,6 +763,7 @@ Total.
 - ToastContent: money, experience and reputation take the kind art and their own titles
 - ToastContent: a payload of no known kind is skipped
 - ToastModel: Absorb folds a new appearance into its item already on the feed
+- ToastModel: Absorb of a known visual's other source marks it collected, never new
 - ToastModel: Absorb lets an item take over a one-look appearance toast for it
 - ToastModel: Absorb ignores every other kind and a missing feed
 
@@ -2392,7 +2398,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_toast_feed.lua (42)
+### test_toast_feed.lua (46)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
 - Toasts: an idle feed is asleep
@@ -2407,6 +2413,7 @@ Total.
 - Toasts: an appearance folds into its item's toast instead of a toast of its own
 - Toasts: the descriptor's motion getter passes the counts settle through
 - Toasts: the content closure is the toastPaint bracket around ToastContent
+- Toasts: toastPaint names gainSend as its parent inside a send, top level outside (performance-§3)
 - Toasts: shift- and ctrl-click hand the link to the client; a currency builds its link
 - Toasts: a plain left click opens History on the gain; other buttons do nothing
 - Toasts: the combat rows are registered while any feed is enabled
@@ -2417,9 +2424,12 @@ Total.
 - Toasts: a refused unlock reads as locked and previews nothing
 - Toasts: the live Feed refuses an unlock in combat
 - Toasts: combat re-locks an unlocked feed and clears its preview
+- Toasts: with every feed off, an unlock puts the combat rows on and combat re-locks it
+- Toasts: a real pull during a sim session still reaches the combat rows
 - Toasts: a drag's nudge is written through the Schema seam as one batch
 - Toasts: NS.Schema:SetMany refuses a batch holding a path no row owns, and stores nothing
 - Toasts: SETTINGS_CHANGED (toasts, profile, enabled) re-snapshots and refreshes every feed
+- Toasts: Reset feed, Reset style to skin and the page Defaults each refresh every feed once
 - Toasts: a settings write reaches the next gain without a reload
 - Toasts: Disable clears every feed and ends its hold; Enable reuses the instances
 - Toasts: a bus GAIN presents a row on the live Feed and paints its title
@@ -2460,9 +2470,9 @@ Total.
 - Toasts rows: the appearance rows are Retail's
 - Toasts rows: a slot pick sets its growth and clears the nudge
 - Toasts rows: a drag's nudge now lands through the Schema seam
-- Toasts page: the General tab carries Test, Unlock and Reset feed; Style carries Reset style to skin
+- Toasts page: the General tab carries Test feed, Unlock and Reset feed; Style carries Reset style to skin
 - Toasts page: the Content tab draws Hide sources with the set picker
-- Toasts page: Add feed turns on the next feed that is off and picks it; none left says so
+- Toasts page: New feed turns on the next feed that is off and picks it; none left says so
 - Toasts page: Reset style to skin turns on exactly the feed's Style companions
 - Toasts page: Reset feed resets only that feed
 - Toasts page: the Defaults restore all three feeds and the alert row
@@ -2483,7 +2493,7 @@ Total.
 - SimSeam: static: no call to any HOOK_ROWS name or other hooked client function in modules/Sim*.lua
 - SimSeam: static: no Database:Add/Holdings:Apply/Attribution:Stamp/R:Write in modules/Sim*.lua
 
-### test_sim_session.lua (31)
+### test_sim_session.lua (32)
 
 - Sim: NS.Sim is the library's session bound to NS.SimSeam; host fields live on NS.SimHost
 - Sim: each refusal prints its one line, in order, and the start goes ahead once all are clear
@@ -2516,6 +2526,7 @@ Total.
 - Sim: a real appearance change stops it on Retail, then lands in the saved history
 - Sim: the start seeds the baseline from the world; the stop restores the real one
 - Sim: a real PLAYER_XP_UPDATE, PLAYER_LEVEL_UP or SKILL_LINES_CHANGED stops it (world); CHAT_MSG_SKILL too
+- Sim: the real XP that stops a session is still sent, against the pre-session baseline
 
 ### test_sim_world.lua (11)
 
@@ -2941,9 +2952,9 @@ Total.
 | test_collector.lua | 53 |
 | test_reputation.lua | 29 |
 | test_appearance.lua | 17 |
-| test_gain_feed.lua | 14 |
-| test_progress.lua | 12 |
-| test_toast_model.lua | 32 |
+| test_gain_feed.lua | 15 |
+| test_progress.lua | 15 |
+| test_toast_model.lua | 34 |
 | test_toast_content.lua | 21 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
@@ -3004,11 +3015,11 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
-| test_toast_feed.lua | 42 |
+| test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
 | test_sim_seam.lua | 11 |
-| test_sim_session.lua | 31 |
+| test_sim_session.lua | 32 |
 | test_sim_world.lua | 11 |
 | test_sim_drivers.lua | 14 |
 | test_sim_e2e.lua | 17 |
@@ -3031,4 +3042,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2560** |
+| **Total** | **2571** |

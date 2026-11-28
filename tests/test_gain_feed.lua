@@ -254,8 +254,35 @@ test("GainFeed: the row writer's tap skips other holders, moves, forced passes a
     reason = "OTHER"; rows({ [me] = { g = 10 } }, "UNTRACKED")
     rows({ [me] = { g = 10 } }, nil, true)
     assertEqual(#seen, 0, "a holder move, a forced login pass and a drift pass send nothing")
+    local WB = NS.Constants.WARBAND_HOLDER
+    rows({ [WB] = { ["c:3008"] = 4, g = 9, ["i:5"] = 2 } })
+    assertEqual(table.concat(seen, ","), "c:3008=4:OTHER", "an account-wide currency's gain is mine; the warband's gold and items are not")
+    seen = {}
+    reason = "CURRENCY_TRANSFER"; rows({ [WB] = { ["c:3008"] = 4 } })
+    assertEqual(#seen, 0, "a currency transfer is a holder move")
   end)
   R.Write, R.ReasonFor, G().FromDiff = savedWrite, savedReason, savedFrom
+end)
+
+test("GainFeed: gainSend notes the parent each sender ran inside (performance-§3)", function()
+  -- red under: a bracket that notes no parent, so gainSend's time reads as disjoint from the capture
+  -- buckets it runs inside.
+  local P, notes = NS.Perf, {}
+  local savedOn, savedNote = P.on, P.Note
+  local ok, err = pcall(withFeed, nil, function(sent)
+    P.on = true
+    P.Note = function(key, _, parent) if key == "gainSend" then notes[#notes + 1] = tostring(parent) end end
+    G():SendEvent(G():Begin("XP"), "xpEvent")
+    local gold = G():Begin("GOLD")
+    gold.qty = 5
+    G():SendChat(gold, "moneyLine")
+    G():FromDiff("g", 50, "OTHER", 100)
+    assertEqual(#sent, 3)
+    assertEqual(G().sending, nil, "the in-send mark is cleared after the bracket")
+  end)
+  P.on, P.Note = savedOn, savedNote
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(notes, ","), "xpEvent,moneyLine,false", "the observer's bucket; the diff's tap at top level")
 end)
 
 test("GainFeed: HoldClaims carries a feed claim through a combat deferral", function()

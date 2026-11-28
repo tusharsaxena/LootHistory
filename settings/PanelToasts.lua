@@ -13,7 +13,7 @@ local makeMultiCheck = NS.Panel._makeMultiCheck
 -- rows filter as the page ctx's `unit` (settings/OptionsSetup.lua rowsForPage), so every control on
 -- screen is bound to that feed's own path. Picking a feed keeps the tab.
 --
--- THE ACTS sit on the General tab (options-ui-§14's escape): Test, Unlock/Lock and Reset feed.
+-- THE ACTS sit on the General tab (options-ui-§14's escape): Test feed, Unlock/Lock and Reset feed.
 -- Reset style to skin closes the Style tab. The Hide sources picker is host-drawn under the Content
 -- tab's Details subsection, as General's Record data from is. The page Defaults resets all three feeds and the
 -- alert row; the addon's global reset resets them as part of the profile.
@@ -38,7 +38,7 @@ end
 
 local function prefix(fid) return "settings.toasts.feeds." .. fid .. "." end
 
---- The banner's *Add feed*: the first feed that is off is turned on and selected. With none left it
+--- The banner's *New feed*: the first feed that is off is turned on and selected. With none left it
 --- says so and changes nothing.
 function TP.AddFeed()
   for _, fid in ipairs(C.TOAST_FEEDS) do
@@ -61,19 +61,25 @@ function TP.ResetFeed(fid)
     end
   end)
   S.BulkEnd("reset", fid, not ok)
+  NS.SchemaToasts.FlushChanged()
   redraw()
   if not ok then error(err, 0) end
   return true
 end
 
---- Reset style to skin (D12): every Style `FromSkin` companion of feed `fid` on, in one batch. The
---- stored picks stay where they are.
+--- Reset style to skin (D12): every Style `FromSkin` companion of feed `fid` on, in one batch inside
+--- one bulk bracket, so the feeds hear one SETTINGS_CHANGED. The stored picks stay where they are.
 function TP.ResetStyle(fid)
   local entries = {}
   for _, path in ipairs(NS.SchemaToasts.StyleCompanions(fid)) do
     entries[#entries + 1] = { path = path, value = true }
   end
-  local ok = NS.Schema:SetMany(entries)
+  local S = NS.Schema
+  S.BulkBegin("reset", fid)
+  local done, ok = pcall(S.SetMany, S, entries)
+  S.BulkEnd("reset", fid, nil, not done or nil)
+  NS.SchemaToasts.FlushChanged()
+  if not done then error(ok, 0) end
   if TP.ctx and O.RefreshScalars then O.RefreshScalars() end
   return ok
 end
@@ -116,7 +122,7 @@ local function generalActs(ctx)
   local fid = selected
   local unlocked = NS.State.toastUnlocked[fid] and true or false
   O.InlineButtonPair(ctx,
-    { text = L["Test"], tooltip = L["Show one sample toast of each kind this feed shows, even while it is off."],
+    { text = L["Test feed"], tooltip = L["Show one sample toast of each kind this feed shows, even while it is off."],
       onClick = function() NS.Toasts:Test(fid) end },
     { text = unlocked and L["Lock"] or L["Unlock"],
       tooltip = unlocked and L["Stop moving this feed. Its place is saved as the nudge."]
@@ -149,7 +155,8 @@ end
 local TAB_OPTS = {
   afterSubgroup = { Details = drawHideSources },
   disabledFor = function() return NS.AddonIsOff and NS.AddonIsOff() end,
-  disabledNotice = "Loot History is disabled. Nothing here takes effect until Enable Loot History is ticked on the General page.",
+  disabledNotice = "Loot History is disabled. Nothing here takes effect until Enable Loot History is ticked "
+    .. "(the General page > Master controls).",
   rerender = function(ctx) O.RefreshPanel(ctx, true) end,
 }
 
@@ -160,7 +167,7 @@ local function render(ctx)
     label = L["Feed"], list = C.TOAST_FEED_LABEL, order = C.TOAST_FEEDS, value = selected,
     tooltip = L["The feed every tab below edits."],
     onSelect = function(fid) TP.Select(fid) end,
-    action = { text = L["Add feed"], tooltip = L["Turn on the next feed that is off, and edit it."],
+    action = { text = L["New feed"], tooltip = L["Turn on the next feed that is off, and edit it."],
                onClick = function() TP.AddFeed() end },
   })
   O.RenderTabbedSchema(ctx, NS.SchemaToasts.PAGE, TP.AFTER_GROUP, nil, TAB_OPTS)

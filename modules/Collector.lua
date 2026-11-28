@@ -175,7 +175,7 @@ local function feedItem(link, qty, itemID, itemName, quality, classID, source, s
   g.id, g.link, g.qty, g.name, g.quality, g.classID = itemID, link, qty, itemName, quality, classID
   g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
   g.record, g.gated = record, gated
-  GainFeed:SendChat(g)
+  GainFeed:SendChat(g, "lootLine")
 end
 
 local function lootLine(self, msg)
@@ -309,7 +309,7 @@ local function feedCurrency(currencyID, name, qty, source, sourceDetail, confide
   g.id, g.name, g.qty, g.quality = currencyID, name, qty, NS.Compat.CurrencyQuality(currencyID)
   g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
   g.record, g.gated = record, gated
-  GainFeed:SendChat(g)
+  GainFeed:SendChat(g, "currencyLine")
 end
 
 -- CHAT_MSG_CURRENCY: currency loot. Reuses the same attribution context as items (currency fires in
@@ -369,7 +369,7 @@ local function feedMoney(copper, source, sourceDetail, confidence, record, gated
   g.qty, g.name = copper, "Gold"
   g.source, g.sourceDetail, g.confidence = source, sourceDetail, confidence
   g.record, g.gated = record, gated
-  GainFeed:SendChat(g)
+  GainFeed:SendChat(g, "moneyLine")
 end
 
 local function goldRecord(copper, source, sourceDetail, confidence)

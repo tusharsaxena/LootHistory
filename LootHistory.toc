@@ -39,12 +39,13 @@ core\Compat.lua
 # core\Compat.lua and above core\SimSeam.lua, so the seam wraps its members too.
 core\CompatClient.lua
 # LOAD-BEARING POSITION: the holdings tooltip's client reads (#34), split out of core\Compat.lua.
-# Below core\CompatClient.lua (its IsSecret is read at call time) and straight before
-# core\SimSeam.lua, so the seam wraps its live reads too.
+# Below core\CompatClient.lua (its IsSecret is read at call time) and above core\SimSeam.lua
+# (core\CompatProgress.lua and core\CompatGain.lua between), so the seam wraps its live reads too.
 core\CompatTooltip.lua
 # LOAD-BEARING POSITION: the reputation and appearance reads (rep/appearance spec §3.2), split
 # out of core\Compat.lua. Below core\CompatClient.lua (its IsSecret is read at call time) and
-# straight before core\SimSeam.lua, so the seam wraps its reads and guards ListFactions.
+# above core\SimSeam.lua (core\CompatGain.lua between), so the seam wraps its reads and guards
+# ListFactions.
 core\CompatProgress.lua
 # LOAD-BEARING POSITION: adds members to NS.Compat at file load (the gain feed's client reads, #38).
 # Below core\CompatClient.lua, whose IsSecret it reads at call time; ABOVE core\SimSeam.lua, which wraps
@@ -53,7 +54,8 @@ core\CompatProgress.lua
 core\CompatGain.lua
 # LOAD-BEARING POSITION: LibKa0s-Sim-1.0's answer seam (H2). Sim:NewSeam wraps every NS.Compat
 # member in place at FILE LOAD, so it must load STRAIGHT after the compat family (core\Compat.lua,
-# core\CompatClient.lua, core\CompatTooltip.lua, core\CompatProgress.lua) and before any file
+# core\CompatClient.lua, core\CompatTooltip.lua, core\CompatProgress.lua, core\CompatGain.lua)
+# and before any file
 # that reads a Compat member; a member added below it escapes the wrap (NS.SimSeam:Unwrapped(),
 # asserted empty by tests/test_sim_seam.lua). Publishes NS.SimSeam (or the inert stub without the
 # library) and NS.SimHost; NS.State and NS.Debug are read at call time.

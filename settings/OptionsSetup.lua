@@ -250,7 +250,8 @@ NS.Options = lib:New({
   -- The bulk bracket (debug-logging-§10): the session rows the walk restores write through the seam
   -- muted, and a reset that reached the profile is logged ONCE, by the adopt path's [Set] line.
   bulkBegin = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
-  bulkEnd   = function(...) NS.Schema.BulkEnd(...) end,
+  -- The outermost close also sends the Toasts page's one owed SETTINGS_CHANGED (SchemaToasts).
+  bulkEnd   = function(...) NS.Schema.BulkEnd(...); NS.SchemaToasts.FlushChanged() end,
 
   -- `pageKey` matches the
   -- row's `page` — the canvas subcategory — and NOT its `group`, which is now the TAB within that

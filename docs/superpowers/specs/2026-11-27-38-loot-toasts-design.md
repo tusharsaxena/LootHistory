@@ -1277,6 +1277,27 @@ pin) is the library's suite's, so host cases assert only what the host decides a
   - The schema count claims and the per-tab breakdown gates count the General page; the Toasts rows
     (75 per feed, three feeds, plus `hideAlerts`) are pinned per feed by `tests/test_panel_toasts.lua`.
 
+- **Amended by the M3.7 review fixes (2026-11-28)**, each the smallest choice inside the standard; the
+  sections above keep their first wording, and where they differ these win:
+  - §5.5: the XP cap is judged on the old baseline, so the ding that reaches the top level sends; a read
+    with the experience fallen at an unchanged level, or one PLAYER_LEVEL_UP names a level above, keeps the
+    baseline (stale around a ding). The simulator's stop restores the set-aside XP and skill baselines
+    (`Progress:SuspendBaseline` / `RestoreBaseline`), as Reputation's, so the real event that stopped a
+    session is sent.
+  - §5.3: an account-wide currency's delta under the warband holder is the player's too (CURRENCY only).
+  - §7.3: an absorbed appearance marks the item `lookGot` (*Appearance collected*); `newLook` and the
+    appearance highlight only when that appearance's `newLook` is true (D9's "new appearance").
+  - §7 merge: `levelUp` is ORed, not a moving field.
+  - §8.4: `lh.toast.xp` follows `q.epic` and `lh.toast.skill` `q.rare` (skinning-§1: every owner token
+    carries a `follow`); Ka0s Default still answers the mockup's hues.
+  - §8.5: the combat rows are wanted while a feed is enabled **or unlocked**, and the simulator's
+    real-event split never absorbs the `toasts` target.
+  - §9.3: the units ride the labels and the offsets read *X offset (px)* / *Y offset (px)* (options-ui-§21);
+    Prices and the highlight Sound rows are `disabledIf` their boolean, never `shownWhen` (options-ui-§22);
+    *Test feed* and *New feed* (options-ui-§21); one SETTINGS_CHANGED per bulk act.
+  - §10.3: `toastPaint` declares `within = "gainSend"`; `gainSend` has no one parent and every call site
+    passes the one it ran in (performance-§3).
+
 ### 15.3 Known limitations (to record in ARCHITECTURE)
 
 - Gains that come only through the diff (mail, vendor, AH, quest rewards with no chat line, every non-loot gold)

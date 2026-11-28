@@ -444,7 +444,9 @@ local function upgradeAndHighlight(spec, p, cfg)
 end
 
 local function sub(spec, p)
-  if p.kind == K.APPEARANCE or (p.kind == K.ITEM and p.newLook) then spec.sub = L("Appearance collected") end
+  if p.kind == K.APPEARANCE or (p.kind == K.ITEM and (p.lookGot or p.newLook)) then
+    spec.sub = L("Appearance collected")
+  end
 end
 
 local PARTS_IN_ORDER = { line1, priceLine, badge, upgradeAndHighlight, sub }

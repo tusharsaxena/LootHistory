@@ -52,7 +52,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TIP-1 to 9 | [Holdings tooltip](#holdings-tooltip) | both | The holdings block on item and currency tooltips: holders, class colors, container marks and counts, the Total rule, currencies, live counts at a banker, the stale age, the five settings rows, off with the ledger or the addon, every tooltip once and never on a comparison tooltip, the bank count after a reload (TIP-9, Retail) |
 | API-1 to 3 | [Holdings tooltip](#holdings-tooltip) | both | `LootHistory.API.v1`: counts that match the tooltip, the `HoldingsChanged` callback, the empty answers while disabled |
 | TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
-| TOAST-1 to 21 | [Loot toasts](#loot-toasts) | both | The toast feeds (#38): a gain at its slot, every kind on each client, read before the capture filters, merge and pulse, the nine slots and the nudge, unlock and drag, pin on hover, combat hold, click-through and lock, the clicks, the detail lines, upgrades, highlights and sounds, every style override and Reset style to skin under three skins, motion, hiding Blizzard's alerts, test mode, the feed acts, the simulator's strip, disabled, no Feed major, Retail skill-ups on an expansion line |
+| TOAST-1 to 22 | [Loot toasts](#loot-toasts) | both | The toast feeds (#38): a gain at its slot, every kind on each client, read before the capture filters, merge and pulse, the nine slots and the nudge, unlock and drag, pin on hover, combat hold, click-through and lock, the clicks, the detail lines, upgrades, highlights and sounds, every style override and Reset style to skin under three skins, motion, hiding Blizzard's alerts, test mode, the feed acts, the simulator's strip, disabled, no Feed major, Retail skill-ups on an expansion line, the level-ups |
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
@@ -2336,12 +2336,12 @@ hiding the toast, or the feed's own floor not applied. Result:
 
 **TOAST-5. A repeat merges in place and pulses.** Client: both. Loot the same item twice within three
 seconds → one card whose count rises to `x2`, which pulses and does not slide in again. Loot it again
-after the card faded → a new card. Set **Merge repeats within** to 0 → each loot is its own card.
+after the card faded → a new card. Set **Merge repeats within (seconds, 0 = off)** to 0 → each loot is its own card.
 Fail: two cards inside the window, or the entry animation replayed on a merge. Result:
 
 **TOAST-6. The nine slots and the nudge.** Client: both. On General, step **Screen slot** through all
 nine → the feed moves to each, Grow follows (down at the top and middle, up at the bottom) and the
-nudge resets to 0. Move **Nudge X** and **Nudge Y** to each end (±600) → the feed moves that far and
+nudge resets to 0. Move **X offset (px)** and **Y offset (px)** to each end (±600) → the feed moves that far and
 stays on screen. Set **Text alignment** and **Icon side** to Right → each line and the icon flip.
 Fail: a slot that puts the feed off screen, or a nudge that does not move it. Result:
 
@@ -2359,7 +2359,9 @@ fading under the pointer with pin on. Result:
 fight two creatures and loot the first while the second is still on you → nothing shows until combat
 ends, then the card shows. Turn **Click-through in combat** on → in combat you can click
 through the feed onto the world; out of combat the cards take clicks again. Unlock a feed, then pull
-→ it locks again by itself. Fail: a card during combat with Show in combat off, or an unlocked feed
+→ it locks again by itself; do the same with every feed turned off (unlock one on General to place it)
+→ it still locks at the pull. During `/lh sim start loot`, pull a dummy → the session stops and the feeds
+lock and hold as without it. Fail: a card during combat with Show in combat off, or an unlocked feed
 in combat. Result:
 
 **TOAST-10. Clicks.** Client: both. Shift-click an item card → the link goes into the chat box;
@@ -2370,14 +2372,17 @@ skill-up card → nothing. Fail: any of these doing something else. Result:
 
 **TOAST-11. The detail lines.** Client: both. On an item card: the bag, bank and (Retail) warband
 bank marks with counts, the source tag on the right, the item level badge on gear, and the value line:
-step **Prices** through None, Vendor, AH, Vendor + AH and Highest (AH needs a pricing addon). Loot a
+step **Prices** through None, Vendor, AH, Vendor + AH and Highest (AH needs a pricing addon); turn
+**Items** off → **Prices** stays on the tab, grayed (its tooltip says *Needs Items.*). Loot a
 currency near its cap → its count reads `have / max` in the skin's warning color from 70% and its bad color from 90%. Turn
 **Counts**, **Source tag** and **Item level badge** off → each part goes. Fail: a price on None, or a
 part that stays after its switch goes off. Result:
 
 **TOAST-12. Upgrades, highlights and sounds.** Client: both. Loot a piece of your armor type above
 what you wear in its slot → a green arrow line `+N over equipped` and a glow. A mount, a legendary and
-(Retail) an uncollected look glow too. Pick a **Sound** for Upgrades → the next upgrade plays it once.
+(Retail) an uncollected look glow too. Pick a **Sound** for Upgrades → the next upgrade plays it once;
+turn **Upgrades** off → its **Sound** row stays, grayed. (Retail) Loot an item whose look you already
+own from another source → the card says *Appearance collected* but does not glow.
 Fail: an upgrade line for armor you cannot wear, a glow with the switch off, or a sound played twice for
 one card. Result:
 
@@ -2391,7 +2396,8 @@ repaint at once. Fail: an override not drawn, a skin switch not repainting, or R
 Result:
 
 **TOAST-14. Motion.** Client: both. Step **Enter** through None, Fade and the four slides, with
-**Enter time**, **Hold** and **Then fade over** changed → each card enters, holds and fades as set.
+**Enter time (seconds)**, **Hold (seconds)** and **Fade time (seconds)** changed → each card enters,
+holds and fades as set.
 Turn **Countdown timer bar** on → a bar runs down each card's hold. Turn **Slide rows smoothly when
 they move** off → cards jump to their new place. Fail: a setting with no effect. Result:
 
@@ -2409,7 +2415,7 @@ pull a dummy → the samples and the strip go. Fail: samples on a disabled feed,
 test mode ends. Result:
 
 **TOAST-17. The feed acts.** Client: both. Pick the Third feed in the Feed bar with it off and press
-**Test** → one sample card per kind shows, then fades. Press **Add feed** → the next feed that is off
+**Test feed** → one sample card per kind shows, then fades. Press **New feed** → the next feed that is off
 turns on and is picked; with all three on it prints *All three feeds are on.* Change a few of a feed's
 rows and press **Reset feed…**, then confirm → only that feed's rows are back to their defaults. Fail:
 Test refused on a disabled feed, or Reset feed touching another feed. Result:
@@ -2433,6 +2439,13 @@ Lua error or a recording change. Result:
 profession a rank → a skill-up card with the right rank. Run `/lh debug probe start` and read
 `start.skills.professions` for that profession's line. Fail: no card, or a rank that is not the
 profession's. Result:
+
+**TOAST-22. The level-ups.** Client: both. On a character a few hundred XP from a new level, turn in a
+quest that dings it, then kill a creature within three seconds → one XP card reading *Level N* with
+the summed XP, never a percent line, and never a second card worth most of a level. On a character one
+level from the top, ding the top level → its XP card shows. With a sim session running, gain real XP →
+the session stops and the XP card still shows. Fail: no card for the ding to the top, a merged card
+that lost *Level N*, or a gain counted twice. Result:
 
 ## Simulator
 
@@ -3261,8 +3274,8 @@ error. Fail: a Lua error, or a pop-up hidden after the box goes off. Result:
 
 ## Pending sign-off
 
-Added by the loot toasts (#38, M3, 2026-11-28), awaiting the owner: TOAST-1 to TOAST-21, FOREVER-20 and
-FOREVER-21, new.
+Added by the loot toasts (#38, M3, 2026-11-28), awaiting the owner: TOAST-1 to TOAST-22, FOREVER-20 and
+FOREVER-21, new (TOAST-9, TOAST-11, TOAST-12 and TOAST-22 amended or added by the M3.7 review fixes).
 
 Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
 HIST-46, new (AD-88-LH, the mode strip docked directly under the title bar; AD-89-LH, the History

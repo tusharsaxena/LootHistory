@@ -229,9 +229,10 @@ end)
 
 -- ── the acts (§9.1) ──────────────────────────────────────────────────────────────────────────
 
-test("Toasts page: the General tab carries Test, Unlock and Reset feed; Style carries Reset style to skin", function()
+test("Toasts page: the General tab carries Test feed, Unlock and Reset feed; Style carries Reset style to skin", function()
   onPage("main", "General", function(widgets)
-    assertTrue(findByLabel(widgets, "Test") ~= nil, "Test")
+    assertTrue(findByLabel(widgets, "Test feed") ~= nil, "Test feed (options-ui-§21: never a bare Test)")
+    assertTrue(findByLabel(widgets, "Test") == nil, "no bare Test")
     assertTrue(findByLabel(widgets, "Unlock") ~= nil, "Unlock (the feed is locked)")
     assertTrue(findByLabel(widgets, "Reset feed\226\128\166") ~= nil, "Reset feed...")
     assertTrue(findByLabel(widgets, "Reset style to skin") == nil, "not on General")
@@ -256,7 +257,7 @@ test("Toasts page: the Content tab draws Hide sources with the set picker", func
   end)
 end)
 
-test("Toasts page: Add feed turns on the next feed that is off and picks it; none left says so", function()
+test("Toasts page: New feed turns on the next feed that is off and picks it; none left says so", function()
   onPage("main", "General", function()
     assertTrue(TP.AddFeed())
     assertTrue(stored("progress").enabled, "Progress was the first off")
@@ -353,6 +354,8 @@ test("Toasts page: drawn under the disabled notice while the addon is off", func
     NS.AddonIsOff = savedOff
     assertTrue(off, "disabled: the page renders under the notice")
     assertTrue(type(seenOpts.disabledNotice) == "string" and seenOpts.disabledNotice ~= "")
+    assertTrue(seenOpts.disabledNotice:find("Enable Loot History is ticked (the General page > Master controls)", 1, true)
+      ~= nil, "the location string names the page and the tab (options-ui-§21)")
   end)
   O2.RenderTabbedSchema = saved
   if not ok then error(err, 0) end

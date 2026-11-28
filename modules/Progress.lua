@@ -77,10 +77,18 @@ local function sendXP(d)
   local g = GainFeed:Begin("XP")
   g.qty, g.level, g.levelUp, g.cur, g.max = d, xpNew.level, xpNew.level > xpOld.level, xpNew.cur, xpNew.max
   g.source, g.sourceDetail, g.confidence = progressSource()
-  GainFeed:SendEvent(g)
+  GainFeed:SendEvent(g, "xpEvent")
 end
 
-local function xpEvent(self, unit)
+-- A read taken around a ding before the client caught up: PLAYER_LEVEL_UP names a level above the
+-- one UnitLevel answers, or the experience fell at an unchanged level (it never falls otherwise).
+-- Such a read keeps the old baseline, so the next one diffs the whole gain once.
+local function staleRead(level, eventLevel, why)
+  if type(eventLevel) == "number" and not NS.Compat.IsSecret(eventLevel) and eventLevel > level then return true end
+  return why == "none" and xpOld.seeded and level == xpOld.level and xpNew.cur < xpOld.cur
+end
+
+local function xpEvent(self, unit, eventLevel)
   if unit ~= "player" then return end
   local xcur, xmax, level, capped = NS.Compat.PlayerXP()
   if not xcur then
@@ -89,17 +97,20 @@ local function xpEvent(self, unit)
   end
   xpNew.cur, xpNew.max, xpNew.level = xcur, xmax, level
   local d, why = Progress.XPDelta(xpOld.seeded and xpOld or nil, xpNew)
+  if staleRead(level, eventLevel, why) then return traceDrop("xp", "stale-level") end
+  -- The cap is judged on the old baseline: the ding that reaches the top level still sends.
+  capped = capped and not (d and level > xpOld.level)
   if d and not capped and GainFeed.on and GainFeed.wants.XP then sendXP(d) end
   remember(xcur, xmax, level)
   self._xpStale = nil
   if not d then traceDrop("xp", why) elseif capped then traceDrop("xp", "capped") end
 end
 
---- PLAYER_XP_UPDATE / PLAYER_LEVEL_UP. Shape-A bracket `xpEvent` (performance-§2): one exit, so the
---- dormant cost is one upvalue read, one field read and one test.
-function Progress:OnXP(unit)
+--- PLAYER_XP_UPDATE / PLAYER_LEVEL_UP (`eventLevel`, its new level). Shape-A bracket `xpEvent`
+--- (performance-§2): one exit, so the dormant cost is one upvalue read, one field read and one test.
+function Progress:OnXP(unit, eventLevel)
   local t0 = Perf.on and debugprofilestop()
-  xpEvent(self, unit)
+  xpEvent(self, unit, eventLevel)
   if t0 then Perf.Note("xpEvent", debugprofilestop() - t0) end
 end
 Progress._xpEvent = xpEvent   -- the unbracketed body
@@ -116,7 +127,7 @@ local function sendSkill(line, e, p)
   local g = GainFeed:Begin("SKILL")
   g.id, g.name, g.old, g.new, g.max, g.qty = line, e.name, p.rank, e.rank, e.max, e.rank - p.rank
   g.source, g.confidence = C.SourceType.OTHER, C.Confidence.INFERRED
-  GainFeed:SendEvent(g)
+  GainFeed:SendEvent(g, "skillScan")
 end
 
 -- Copy each read profession into `prev` (entries made once), sending each rise when seeded.
@@ -173,7 +184,7 @@ end
 -- The capture rows (core/Dispatch.lua), appended at FILE LOAD so their order is TOC order. The unit
 -- filter is read in the handler: a "bus" row registers on the AceAddon target, which takes no unit.
 NS.EventRow("ProgressXP", "bus", "PLAYER_XP_UPDATE", function(_, unit) Progress:OnXP(unit) end)
-NS.EventRow("ProgressXP", "bus", "PLAYER_LEVEL_UP", function() Progress:OnXP("player") end)
+NS.EventRow("ProgressXP", "bus", "PLAYER_LEVEL_UP", function(_, level) Progress:OnXP("player", level) end)
 NS.EventRow("ProgressSkill", "bus", "SKILL_LINES_CHANGED", function() Progress:RequestScan() end)
 -- A trigger only: the chat payload is never read.
 NS.EventRow("ProgressSkill", "bus", "CHAT_MSG_SKILL", function() Progress:RequestScan() end)
@@ -181,8 +192,8 @@ NS.EventRow("ProgressRegen", "bus", "PLAYER_REGEN_ENABLED", function() Progress:
 
 -- ── Seeding, reset, lifecycle ────────────────────────────────────────────────────────────────
 
---- Both baselines from the client now (PLAYER_ENTERING_WORLD, a stand-up, the simulator's Prepare
---- and stop, whose reads the seam answers from the world while a session runs). `immediate` seeds
+--- Both baselines from the client now (PLAYER_ENTERING_WORLD, a stand-up, the simulator's Prepare,
+--- whose reads the seam answers from the world, and a stop with no baseline set aside). `immediate` seeds
 --- with the capture off. The skill baseline is marked unseeded and read once, so the next rise
 --- diffs against it; a Forever read owed to combat seeds on the regen edge instead.
 function Progress:Seed(immediate)
@@ -199,6 +210,33 @@ function Progress:ResetState()
   clear(prev)
   clear(cur)
   self._skillSeeded, self._scanOwed, self._xpStale = nil, nil, nil
+end
+
+-- The real baselines set aside while a simulation runs (SuspendBaseline / RestoreBaseline), the
+-- way modules/Reputation.lua sets its own aside: nil while none is.
+local savedXP, savedSkills, savedSkillSeeded
+
+--- The simulator's start (before its ResetState and Seed(true)): copies of the real XP and skill
+--- baselines set aside, so the stop can put them back. A second call keeps the first copy.
+function Progress:SuspendBaseline()
+  if savedXP then return end
+  savedXP = { cur = xpOld.cur, max = xpOld.max, level = xpOld.level, seeded = xpOld.seeded }
+  savedSkills, savedSkillSeeded = {}, self._skillSeeded
+  for line, p in pairs(prev) do savedSkills[line] = { name = p.name, rank = p.rank, max = p.max } end
+end
+
+--- The simulator's stop: the baselines set aside at the start come back, so the real XP or skill-up
+--- that stopped the session (it runs live after this step) diffs against the pre-session values
+--- rather than against a reseed that already holds it. With nothing set aside, a live reseed.
+function Progress:RestoreBaseline()
+  local x, skills, seeded = savedXP, savedSkills, savedSkillSeeded
+  savedXP, savedSkills, savedSkillSeeded = nil, nil, nil
+  self:ResetState()
+  if not x then return self:Seed() end
+  xpOld.cur, xpOld.max, xpOld.level, xpOld.seeded = x.cur, x.max, x.level, x.seeded
+  for line, p in pairs(skills) do prev[line] = p end
+  self._skillSeeded = seeded
+  return true
 end
 
 -- One owner's rows on or off to match `want`; answers whether it went on just now.
@@ -237,5 +275,6 @@ function Progress:Disable()
   NS.UnregisterRows("ProgressSkill")
   NS.UnregisterRows("ProgressRegen")
   self._xpOn, self._skillOn, self._up = nil, nil, nil
+  savedXP, savedSkills, savedSkillSeeded = nil, nil, nil
   self:ResetState()
 end

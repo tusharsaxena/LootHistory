@@ -168,7 +168,7 @@ local function feedRep(factionID, d, dir, name, repType, rank, standing, thresho
   g.label, g.rank, g.standing, g.threshold, g.repType, g.accountWide = label, rank, standing, threshold, repType,
     accountWide == true
   g.source, g.sourceDetail, g.confidence, g.record, g.gated = source, detail, confidence, record, gated
-  GainFeed:SendEvent(g)
+  GainFeed:SendEvent(g, "repEvent")
 end
 
 -- One FACTION_STANDING_CHANGED (spec §3.4 gate order). The unchanged and reseed paths allocate

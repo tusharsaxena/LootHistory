@@ -475,7 +475,8 @@ local Dispatcher = lib:New({
   -- addon's `resetall` does not reach that walk any more (Sl:CliResetAll below), but the bracket is
   -- the same pair the Options descriptor takes, so a library walk that ever does run is one line.
   bulkBegin    = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
-  bulkEnd      = function(...) NS.Schema.BulkEnd(...) end,
+  -- The outermost close also sends the Toasts page's one owed SETTINGS_CHANGED (SchemaToasts).
+  bulkEnd      = function(...) NS.Schema.BulkEnd(...); NS.SchemaToasts.FlushChanged() end,
 
   -- `/lh list` groups by the panel section header. The library's default is `row.page`, which this
   -- addon has no concept of — it is a single-panel addon, so its schema `group` values ARE the

@@ -66,11 +66,18 @@ local function send(g)
 end
 
 --- Send `g` (the Begin payload) to every GAIN receiver. Shape-A bracket `gainSend` (performance-§2):
---- the receivers' work is inside it.
-function GainFeed.Send(_, g)
+--- the receivers' work is inside it. `parent` is the bucket the send ran inside, the observed
+--- containment (performance-§3): each observer passes its own bracket's key, the holdings diff's
+--- tap passes `false` (the flush is not a bucket). While bracketed, `GainFeed.sending` is set, so
+--- the toast feeds' `toastPaint` names `gainSend` as its parent on a push.
+function GainFeed.Send(_, g, parent)
   local t0 = Perf.on and debugprofilestop()
+  if t0 then GainFeed.sending = true end
   send(g)
-  if t0 then Perf.Note("gainSend", debugprofilestop() - t0) end
+  if t0 then
+    GainFeed.sending = nil
+    Perf.Note("gainSend", debugprofilestop() - t0, parent)
+  end
 end
 
 -- ── The feed claims (T9, toast spec §4.4) ────────────────────────────────────────────────────
@@ -83,21 +90,21 @@ end
 --- A chat gain's send. A gain that wrote no row posts a feed claim while the ledger is on, so the
 --- holdings diff's own sighting of it is not sent again. A recorded gain needs none: the
 --- Reconciler's claim takes its delta before the diff's tap (modules/Reconciler.lua, COMMIT_STEPS).
-function GainFeed:SendChat(g)
+function GainFeed:SendChat(g, parent)
   g.origin = "chat"
   g.recorded = g.record ~= nil
   if not g.recorded and trackLedger() and (g.id or g.kind == C.GainKind.GOLD) then
     L.PostClaim(self.claims, L.ThingKey(g.kind, g.id), g.qty, nil, GetTime())
   end
-  self:Send(g)
+  self:Send(g, parent)
 end
 
 --- An event observer's send (reputation, appearances, experience, skill-ups): nothing is held, so
---- nothing reaches the holdings diff and no claim is posted.
-function GainFeed:SendEvent(g)
+--- nothing reaches the holdings diff and no claim is posted. `parent` as for Send.
+function GainFeed:SendEvent(g, parent)
   g.origin = "event"
   g.recorded = g.record ~= nil
-  self:Send(g)
+  self:Send(g, parent)
 end
 
 --- Combat held the flush: the feed claims wait it out too (Ledger.HoldClaims). R:Flush calls this
@@ -136,7 +143,7 @@ function GainFeed:FromDiff(key, dlt, reason, clock, link)
   g.qty, g.source, g.origin = rest, reason, "diff"
   g.confidence = (reason == "OTHER" or reason == "UNTRACKED") and C.Confidence.INFERRED or C.Confidence.CERTAIN
   g.recorded = NS.Reconciler ~= nil and NS.Reconciler.RowAllowed ~= nil and NS.Reconciler:RowAllowed(kind, id) or false
-  self:Send(g)
+  self:Send(g, false)
 end
 
 -- ── wants, Recompute and the farm entry (toast spec §4.3) ────────────────────────────────────

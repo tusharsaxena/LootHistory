@@ -594,3 +594,34 @@ test("Sim: a real PLAYER_XP_UPDATE, PLAYER_LEVEL_UP or SKILL_LINES_CHANGED stops
     end)
   end
 end)
+
+test("Sim: the real XP that stops a session is still sent, against the pre-session baseline", function()
+  -- red under: a stop that reseeds Progress from the live read, which already holds the gain, so the
+  -- event that ended the session diffs to nothing.
+  local Cp, G, P = NS.Compat, NS.GainFeed, NS.Progress
+  local live = { cur = 100, max = 1000, level = 10 }
+  local savedXP, savedOn, savedWants, savedSend = Cp.PlayerXP, G.on, G.wants.XP, NS.bus.SendMessage
+  local sent = {}
+  Cp.PlayerXP = function() return live.cur, live.max, live.level, false end
+  G.on, G.wants.XP = true, true
+  NS.bus.SendMessage = function(self, msg, a, ...)
+    if msg == NS.MSG.GAIN then sent[#sent + 1] = { kind = a.kind, qty = a.qty }; return end
+    return savedSend(self, msg, a, ...)
+  end
+  local row
+  for _, r in ipairs(NS.EVENT_ROWS) do
+    if r.owner == "ProgressXP" and r.event == "PLAYER_XP_UPDATE" then row = r end
+  end
+  local ok, err = pcall(function()
+    P:ResetState(); P:Seed(true)
+    stopsOn("a real PLAYER_XP_UPDATE", "Simulation stopped", function()
+      live.cur = 400
+      NS.Deliver(row, "PLAYER_XP_UPDATE", "player")
+    end)
+  end)
+  Cp.PlayerXP, G.on, G.wants.XP, NS.bus.SendMessage = savedXP, savedOn, savedWants, savedSend
+  P:ResetState()
+  if not ok then error(err, 0) end
+  assertEqual(#sent, 1, "one XP gain sent live")
+  assertEqual(sent[1].kind, "XP"); assertEqual(sent[1].qty, 300, "400 - 100, the pre-session baseline")
+end)

@@ -118,6 +118,55 @@ test("Progress XP: at the cap nothing is sent", function()
   end)
 end)
 
+test("Progress XP: the ding that reaches the top level still sends; later reads at the top do not", function()
+  -- red under: a cap judged on the NEW read (Compat.PlayerXP's `capped` is the new level's), which
+  -- drops the final level-up.
+  withProgress(function(state, sent)
+    state.xp = { cur = 900, max = 1000, level = 79 }
+    P():OnXP("player")
+    state.xp = { cur = 0, max = 0, level = 80, capped = true }
+    P():OnXP("player")
+    assertEqual(#sent, 1, "the level-up to the cap is toasted")
+    assertEqual(sent[1].qty, 100); assertTrue(sent[1].levelUp); assertEqual(sent[1].level, 80)
+    state.xp.cur = 5
+    P():OnXP("player")
+    assertEqual(#sent, 1, "at the cap nothing more is sent")
+  end)
+end)
+
+test("Progress XP: a read around a ding with the old level keeps the baseline (no double count)", function()
+  -- red under: a same-level drop or a PLAYER_LEVEL_UP read ahead of UnitLevel taken as the new
+  -- baseline, so the next read at the new level adds most of a level twice.
+  withProgress(function(state, sent)
+    state.xp = { cur = 900, max = 1000, level = 10 }
+    P():OnXP("player")
+    state.xp = { cur = 40, max = 1000, level = 10 }   -- UnitXP reset, UnitLevel not yet
+    P():OnXP("player", 11)
+    state.xp = { cur = 40, max = 1000, level = 10 }
+    P():OnXP("player")
+    assertEqual(#sent, 0, "neither stale read sends")
+    state.xp = { cur = 60, max = 1100, level = 11 }
+    P():OnXP("player")
+    assertEqual(#sent, 1)
+    assertEqual(sent[1].qty, 160, "(1000 - 900) + 60, against the pre-ding baseline")
+    assertTrue(sent[1].levelUp)
+  end)
+end)
+
+test("Progress XP: PLAYER_LEVEL_UP hands its level argument through", function()
+  local row
+  for _, r in ipairs(NS.EVENT_ROWS) do
+    if r.owner == "ProgressXP" and r.event == "PLAYER_LEVEL_UP" then row = r end
+  end
+  assertTrue(row ~= nil, "the row is declared")
+  local saved, got = P().OnXP, {}
+  P().OnXP = function(_, unit, level) got[1], got[2] = unit, level end
+  local ok, err = pcall(row.fn, "PLAYER_LEVEL_UP", 31)
+  P().OnXP = saved
+  if not ok then error(err, 0) end
+  assertEqual(got[1], "player"); assertEqual(got[2], 31)
+end)
+
 test("Progress XP: a secret read keeps the baseline and the regen edge reseeds it", function()
   withProgress(function(state, sent)
     P():OnXP("player")

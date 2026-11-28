@@ -236,8 +236,9 @@ function M.FreePayload(p)
   spares[#spares + 1] = p
 end
 
--- The fields a later gain of the same key moves forward (the newest read wins).
-local MOVING = { "standing", "threshold", "rank", "label", "level", "levelUp", "cur", "max", "new" }
+-- The fields a later gain of the same key moves forward (the newest read wins). `levelUp` is not one:
+-- a level gained inside the merge window stays gained (it is ORed below, as newLook is).
+local MOVING = { "standing", "threshold", "rank", "label", "level", "cur", "max", "new" }
 -- An appearance burst shows the latest look.
 local LATEST_LOOK = { "id", "itemID", "link", "name", "quality", "icon" }
 
@@ -272,6 +273,8 @@ function M.Merge(old, new)
   copyFields(old, new, MOVING)
   if old.kind == C.GainKind.APPEARANCE then copyFields(old, new, LATEST_LOOK) end
   old.newLook = old.newLook or new.newLook
+  old.lookGot = old.lookGot or new.lookGot
+  old.levelUp = old.levelUp or new.levelUp
   old.highlight = old.highlight or new.highlight
   M.FreePayload(new)
   return old
@@ -281,12 +284,22 @@ end
 
 local function itemKey(id) return "i:" .. tostring(id) end
 
+--- Mark item payload `p` with an absorbed appearance: collected always, new (and the appearance
+--- highlight) only when `new`. A known visual's other source never lights the "New appearances" glow,
+--- as a standalone appearance toast of it would not.
+function M.MarkLook(p, new)
+  p.lookGot = true
+  if new then p.newLook, p.highlight = true, "appearance" end
+end
+
 --- Fold an appearance and the item that taught it into one toast on `feed`. An APPEARANCE gain whose
---- item is already on the feed marks that item's payload (a new look, the appearance highlight) and
---- repaints it: answers true, the gain is consumed. An ITEM gain arriving while the feed's appearance
---- toast names that item, one look only, dismisses the appearance toast: answers false, true (push
---- the item with the look marked). Anything else answers false. `Repaint` carries no pulse (Feed
---- doc), so an absorb shows as the glow and the extra line.
+--- item is already on the feed marks that item's payload (`lookGot`, the "Appearance collected"
+--- line; a NEW look also sets `newLook` and the appearance highlight, a known visual's other source
+--- does not) and repaints it: answers true, the gain is consumed. An ITEM gain arriving while the
+--- feed's appearance toast names that item, one look only, dismisses the appearance toast: answers
+--- false, true, and whether that look was new (push the item with the look marked). Anything else
+--- answers false. `Repaint` carries no pulse (Feed doc), so an absorb shows as the glow and the extra
+--- line.
 function M.Absorb(feed, g)
   if not (feed and type(g) == "table") then return false end
   if g.kind == C.GainKind.APPEARANCE then
@@ -294,15 +307,16 @@ function M.Absorb(feed, g)
     local key = itemKey(g.itemID)
     local p = feed:Get(key)
     if type(p) ~= "table" then return false end
-    p.newLook, p.highlight = true, "appearance"
+    M.MarkLook(p, g.newLook == true)
     feed:Repaint(key)
     return true
   end
   if g.kind == C.GainKind.ITEM and g.id ~= nil then
     local a = feed:Get("a")
     if type(a) == "table" and a.itemID == g.id and tonumber(a.qty) == 1 then
+      local new = a.newLook == true
       feed:Dismiss("a")
-      return false, true
+      return false, true, new
     end
   end
   return false

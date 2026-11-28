@@ -35,10 +35,12 @@ local function prefix(fid) return "settings.toasts.feeds." .. fid .. "." end
 
 -- The Feed's content call for feed `fid`, Shape-A bracketed `toastPaint`: the Feed calls it on present,
 -- merge, repaint and the settle re-read, never per frame; the lazy price and extras reads sit inside.
+-- A push runs inside `gainSend` (GainFeed.sending), a repaint, settle or refresh at top level: the
+-- observed parent is passed (performance-§3), so the record says which.
 local function paint(fid, spec, p, key)
   local t0 = Perf.on and debugprofilestop()
   local res = TC.Content(fid, spec, p, key)
-  if t0 then Perf.Note("toastPaint", debugprofilestop() - t0) end
+  if t0 then Perf.Note("toastPaint", debugprofilestop() - t0, NS.GainFeed.sending and "gainSend" or false) end
   return res
 end
 
@@ -85,12 +87,12 @@ end
 -- to the spare list, unless the merge reducer already did (a merged payload whose content skipped
 -- it): a freed payload is wiped, so it has no kind left.
 local function pushInto(fid, feed, cfg, g)
-  local absorbed, look = M.Absorb(feed, g)
+  local absorbed, look, new = M.Absorb(feed, g)
   if absorbed then return "absorbed" end
   local key = M.Key(g)
   if not key then return nil end
   local p = M.NewPayload(g)
-  if look then p.newLook, p.highlight = true, "appearance" end
+  if look then M.MarkLook(p, new) end
   local res = feed:Push(key, p)
   if res == "new" then
     playHighlight(fid, cfg, p)
@@ -129,12 +131,14 @@ end
 
 --- Unlock (`on`) or lock feed `fid`. Answers whether it is unlocked now: the Feed refuses an unlock in
 --- combat and without LibKa0s-Widgets-1.0. An unlocked, empty feed previews its samples; a lock
---- clears them.
+--- clears them. An unlock puts the combat rows on, even with every feed off, so combat locks it
+--- again; a lock leaves them for the next SyncRows (never unregistered from inside OnCombatStart).
 function Toasts:SetUnlocked(fid, on)
   local feed = feeds[fid]
   if not feed then return false end
   local unlocked = not feed:SetLocked(not on)
   NS.State.toastUnlocked[fid] = unlocked or nil
+  if unlocked then self:SyncRows() end
   if unlocked and feed:Stats().live ~= 0 then return unlocked end
   self:SyncPreview(fid)
   return unlocked
@@ -248,10 +252,11 @@ local function anyEnabled()
   return false
 end
 
---- The combat rows on while any feed is enabled, off otherwise. A no-op until Enable.
+--- The combat rows on while any feed is enabled or unlocked (an unlocked feed is re-locked in combat
+--- whether it is enabled or not), off otherwise. A no-op until Enable.
 function Toasts:SyncRows()
   if not self._up then return end
-  local want = anyEnabled()
+  local want = anyEnabled() or next(NS.State.toastUnlocked) ~= nil
   if want and not self._rowsOn then
     self.__rows = self.__rows or NS.NewBusTarget()
     if self.__rows then NS.RegisterRows("Toasts", self.__rows, "toasts") end

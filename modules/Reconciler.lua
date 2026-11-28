@@ -668,11 +668,14 @@ local function writePairs(self, plan, now)
 end
 
 -- The gain feed's tap on a net delta (toast spec §5.3): only the player's own positive change,
--- never a forced (UNTRACKED login, drift) pass, never a move between the account's holders. The item
--- link is looked up only for an item key.
+-- never a forced (UNTRACKED login, drift) pass, never a move between the account's holders. An
+-- account-wide currency's gain is filed under the warband holder (the currency SCAN_STEP), so a
+-- CURRENCY delta there is the player's too; the feed claims key on "c:<id>" with no holder, so a
+-- gain its chat line already sent still dedupes. The item link is looked up only for an item key.
 local function feedDiff(holder, me, key, dlt, reason, clock, force)
-  if dlt <= 0 or holder ~= me or force or L.HOLDER_MOVE_REASON[reason] then return end
+  if dlt <= 0 or force or L.HOLDER_MOVE_REASON[reason] then return end
   local kind, id = L.ParseThingKey(key)
+  if holder ~= me and not (holder == WARBAND and kind == "CURRENCY") then return end
   GainFeed:FromDiff(key, dlt, reason, clock, kind == "ITEM" and linkFor(holder, id) or nil)
 end
 
