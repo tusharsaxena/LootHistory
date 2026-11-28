@@ -40,11 +40,11 @@ core\Compat.lua
 core\CompatClient.lua
 # LOAD-BEARING POSITION: the holdings tooltip's client reads (#34), split out of core\Compat.lua.
 # Below core\CompatClient.lua (its IsSecret is read at call time) and above core\SimSeam.lua
-# (core\CompatProgress.lua and core\CompatGain.lua between), so the seam wraps its live reads too.
+# (core\CompatProgress.lua, core\CompatGain.lua and core\CompatFarm.lua between), so the seam wraps its live reads too.
 core\CompatTooltip.lua
 # LOAD-BEARING POSITION: the reputation and appearance reads (rep/appearance spec §3.2), split
 # out of core\Compat.lua. Below core\CompatClient.lua (its IsSecret is read at call time) and
-# above core\SimSeam.lua (core\CompatGain.lua between), so the seam wraps its reads and guards
+# above core\SimSeam.lua (core\CompatGain.lua and core\CompatFarm.lua between), so the seam wraps its reads and guards
 # ListFactions.
 core\CompatProgress.lua
 # LOAD-BEARING POSITION: adds members to NS.Compat at file load (the gain feed's client reads, #38).
@@ -52,10 +52,15 @@ core\CompatProgress.lua
 # every member in place at its own load, so a member defined below the seam escapes it (H2,
 # NS.SimSeam:Unwrapped()).
 core\CompatGain.lua
+# LOAD-BEARING POSITION: a compat family file (the farm session's reads, #39), listed contiguously
+# after core\CompatGain.lua and above core\SimSeam.lua, whose Sim:NewSeam wraps every NS.Compat
+# member at file load; a member added below the seam escapes the wrap (NS.SimSeam:Unwrapped(),
+# tests/test_sim_seam.lua). Its IsSecret reads (core\CompatClient.lua) are at call time.
+core\CompatFarm.lua
 # LOAD-BEARING POSITION: LibKa0s-Sim-1.0's answer seam (H2). Sim:NewSeam wraps every NS.Compat
 # member in place at FILE LOAD, so it must load STRAIGHT after the compat family (core\Compat.lua,
-# core\CompatClient.lua, core\CompatTooltip.lua, core\CompatProgress.lua, core\CompatGain.lua)
-# and before any file
+# core\CompatClient.lua, core\CompatTooltip.lua, core\CompatProgress.lua, core\CompatGain.lua,
+# core\CompatFarm.lua) and before any file
 # that reads a Compat member; a member added below it escapes the wrap (NS.SimSeam:Unwrapped(),
 # asserted empty by tests/test_sim_seam.lua). Publishes NS.SimSeam (or the inert stub without the
 # library) and NS.SimHost; NS.State and NS.Debug are read at call time.
@@ -219,6 +224,9 @@ modules\TimelineModel.lua
 # LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
+# CONVENTIONAL: farm mode's pure session model (#39); binds NS.Constants at load only. The farm
+# runtime and windows (M4.1b on) bind NS.FarmModel at load and go below it.
+modules\FarmModel.lua
 modules\TestData.lua
 # CONVENTIONAL: the toast feeds' pure config, filter and merge (#38); binds NS.Constants at load only.
 modules\ToastModel.lua

@@ -94,6 +94,8 @@ Confidence is `CERTAIN` for every live stamper and `INFERRED` only on the fallba
 | `Item` | — | `CONTAINER` | — |
 | anything else | — | `OTHER` | — |
 
+Two casts come before that table (`Attribution:OnLootOpened`): a fishing window (`IsFishingLoot`, or a Fishing cast inside `FISHING_TTL`) stamps `FISHING`, and a `GameObject` window inside a Herb Gathering or Mining cast's `GATHERING_TTL` (5 s, `Attribution:GatheringArmed`, farm mode #39 ruling F1) stamps `GATHERING`, so herbs and ore read Gathering, not Container. The gathering cast is matched by its localized name against the two seed spells' names (`Attribution:IsGatheringSpell`, memoized per spell id; the `localization-§4` register row). A creature's window after the cast (skinning) is still `KILL`. Each classified window, and each bag container opened and quest turned in, is also told to the farm session while one is live (`NS.Farm._live`; farm spec §5.7), after the stamp.
+
 The unit-kind set lives in `Compat.UNIT_KINDS` (`core/Compat.lua`) as the single source of truth, so KILL detection can't drift from GUID decoding. All slots in one window share a source closely enough that stamping from the first slot is sufficient; the TTL then spans the resulting `CHAT_MSG_LOOT` burst.
 
 ### Instance context enrichment
@@ -161,7 +163,7 @@ The three gate settings are cached as file-local upvalues (`modules/Collector.lu
 
 `Constants.SourceType` (`core/Constants.lua`) is the whole enum and the stable **export contract** — keys are never renamed. Every member now has a live capture path, but they fall into three kinds by *how* they are attributed:
 
-- **Peripheral stamp:** `KILL`, `CONTAINER`, `MPLUS`, `QUEST`, `VENDOR`, `MAIL`, `TRADE`, `AH`, `DISENCHANT`, `MILLING`, `PROSPECTING` — reconstructed from a preceding event and read back via `Consume` (see [The single-slot context](#the-single-slot-context)).
+- **Peripheral stamp:** `KILL`, `CONTAINER`, `MPLUS`, `QUEST`, `VENDOR`, `MAIL`, `TRADE`, `AH`, `DISENCHANT`, `MILLING`, `PROSPECTING`, `FISHING`, `GATHERING` — reconstructed from a preceding event and read back via `Consume` (see [The single-slot context](#the-single-slot-context)).
 - **Self-identifying loot line:** `BONUS_ROLL`, `CRAFT`, `REFUND` — attributed straight from the loot line, no peripheral context (see [Self-identifying loot lines](#self-identifying-loot-lines)).
 - **Two-line stamp:** `ROLL` — the "You won:" line stamps context and the follow-up receive line consumes it (see [Roll wins are a two-line dance](#roll-wins-are-a-two-line-dance)). Distinct from `BONUS_ROLL`, the seal-of-fate bonus-roll reward.
 - **Fallback:** `OTHER` — no fresh context and no self-identifying line.

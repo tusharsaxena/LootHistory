@@ -359,7 +359,10 @@ test("TestData: the seeded sample stores are byte-identical to the pinned build"
     -- with them their sorted order and the order the daily walk reaches each series.
     -- Re-pinned by the FISHING source (2026-11-27; daily was Retail 119843:1100208386, WoW Forever
     -- 95975:732178341): the coverage seed walk carries one more source's row; the holdings did not move.
-    local pin = ({ retail = { "3177:219167296", "119728:2090753730" }, forever = { "2629:796976170", "95970:1042530535" } })[CLIENT]
+    -- Re-pinned by the GATHERING source (farm mode #39, 2026-11-28; daily was Retail 119728:2090753730,
+    -- WoW Forever 95970:1042530535): the coverage seed walk carries one more source's row, which moves
+    -- the rows the daily walk folds in; the holdings did not move.
+    local pin = ({ retail = { "3177:219167296", "119816:639097464" }, forever = { "2629:796976170", "95965:706053146" } })[CLIENT]
     assertEqual(#hs .. ":" .. checksum(hs), pin[1], "holdings")
     assertEqual(#ds .. ":" .. checksum(ds), pin[2], "daily")
   end)

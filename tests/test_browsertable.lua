@@ -1490,9 +1490,9 @@ test("Test mode: SetTestMode traces each act and falls back to a table Refresh",
     assertEqual(table.concat(traced, "\n"), table.concat({
       "test mode refused: the General visibility setting keeps the window hidden.",
       -- WoW Forever's sample lacks the two warband reasons' seed rows and their receiving halves (R1).
-      -- WoW Forever's coverage seed walks its 34 sources (R1, R2; DECONSTRUCT kept, F1), Retail's 40
-      -- (FISHING joined both, 2026-11-27).
-      "test mode on: " .. (T.forever and 299 or 310) .. " sample rows",
+      -- WoW Forever's coverage seed walks its 35 sources (R1, R2; DECONSTRUCT kept, F1), Retail's 41
+      -- (FISHING joined both, 2026-11-27; GATHERING both, farm mode #39, 2026-11-28).
+      "test mode on: " .. (T.forever and 300 or 311) .. " sample rows",
       "test mode off (combat started)",
     }, "\n"))
   end)

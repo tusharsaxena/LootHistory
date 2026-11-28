@@ -9,7 +9,7 @@ local _, NS = ...
 -- value, never a raise.
 --
 -- LOAD-BEARING POSITION: in the compat family (below core/CompatClient.lua, whose IsSecret every
--- member here asks at call time) and straight before core/SimSeam.lua, which wraps every NS.Compat
+-- member here asks at call time) and above core/SimSeam.lua (core/CompatFarm.lua between), which wraps every NS.Compat
 -- member at file load, classes ModifiedLinkClick, PlayMediaSound, SuppressAlertEvents,
 -- RestoreAlertEvents and AlertEventsRegistered PURE and GUARDS ListSkillLines; below the seam these members would escape it.
 

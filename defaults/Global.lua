@@ -35,5 +35,13 @@ NS.defaults.global = {
   -- LibDBIcon's table. GLOBAL by launcher-§3: the minimap button belongs to the installation, and a
   -- profile switch must not move it or hide it.
   minimap = { hide = false },
+  -- Farm sessions (#39, farm spec §4.1): farm[charKey] = { active, sessions, nextId }, recorded data
+  -- like the history, account-wide so an open session on one character survives playing another.
+  -- Additive and backfilled by AceDB, so no migration step is owed.
+  farm = {},
+  -- "Sessions kept per character" (D18; 0 = keep all). ACCOUNT-WIDE, outside every profile, for
+  -- retentionDays' reason (D6): the cap deletes recorded sessions, so a profile switch, copy or reset
+  -- must never move it. The schema row `settings.farm.keep` reads and writes this key (M4.5).
+  farmKeep = 100,
   -- debug is session-only (NS.State.debug), never persisted here.
 }

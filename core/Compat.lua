@@ -11,8 +11,9 @@ local Compat = NS.Compat
 --
 -- THE COMPAT FAMILY (compat, "When to split"): this file, core/CompatClient.lua (the client and
 -- the character), core/CompatTooltip.lua (the holdings tooltip's post calls, id readers, painters
--- and live counts, #34) and core/CompatProgress.lua (the reputation and appearance reads), loaded in
--- that order straight above core/SimSeam.lua.
+-- and live counts, #34), core/CompatProgress.lua (the reputation and appearance reads),
+-- core/CompatGain.lua (the gain feed's reads, #38) and core/CompatFarm.lua (the farm session's reads,
+-- #39), loaded in that order straight above core/SimSeam.lua.
 
 -- Fold U+00A0, the no-break space, to an ordinary space.
 --

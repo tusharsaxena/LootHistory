@@ -32,6 +32,33 @@ test("Constants: every SourceType member this client serves appears in the displ
   end
 end)
 
+test("Constants: GATHERING is a gain source on both clients, never a ledger reason (farm mode #39, F1)", function()
+  -- red under: GATHERING missing from a source table, or listed as a ledger-only reason (it would
+  -- drop out of the mute list and read as a holdings diff).
+  local inOrder = {}
+  for _, s in ipairs(C.SourceOrder) do inOrder[s] = true end
+  assertEqual(C.SourceType.GATHERING, "GATHERING")
+  assertTrue(inOrder.GATHERING, "in SourceOrder")
+  assertEqual(C.SourceLabel.GATHERING, "Gathering")
+  assertTrue(C.SOURCE_IMPLEMENTED.GATHERING, "implemented")
+  assertEqual(C.LEDGER_REASON.GATHERING, nil, "not a ledger reason")
+  assertEqual(C.SOURCE_ABSENT.GATHERING, nil, "on both clients")
+  assertEqual(C.GATHERING_TTL, 5)
+end)
+
+test("Constants: C.FARM carries the spec's numbers, a gain-source set and all seven gain kinds (#39)", function()
+  local F = C.FARM
+  assertEqual(table.concat({ F.STALE_SEC, F.INTENT_TTL, F.IDLE_TICK, F.LOG_CAP, F.LOG_BATCH, F.MOB_RING,
+    F.MIN_RATE_SEC, F.PRICE_DELAY, F.PRICE_BATCH, F.EPIC_FLOOR }, ","), "1800,30,30,2000,100,256,60,1,20,4")
+  local kinds, n = {}, 0
+  for k in pairs(C.GainKind) do kinds[#kinds + 1] = k end
+  for k, v in pairs(F.GAIN_KINDS) do n = n + 1; assertTrue(v == true and C.GainKind[k] == k, k .. " is a GainKind") end
+  assertEqual(n, #kinds, "every C.GainKind is in the farm set")
+  for src in pairs(F.GAIN_SOURCES) do assertTrue(C.SourceType[src] == src, src .. " is a source") end
+  for _, src in ipairs({ "VENDOR", "MAIL", "AH", "TRADE", "CRAFT" }) do assertEqual(F.GAIN_SOURCES[src], nil, src) end
+  for reason in pairs(F.COST_REASONS) do assertTrue(C.LEDGER_REASON[reason] == true, reason .. " is a ledger reason") end
+end)
+
 test("Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever", function()
   -- red under: a WoW Forever build that still declares the warband bank, or still offers its reasons.
   assertEqual(C.FEATURE.warbandBank, not T.forever)

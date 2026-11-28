@@ -122,11 +122,16 @@ primitives and holds no opinion about how they are composed.
 | `Compat.IsUncollectedLook(link)` | `C_TransmogCollection.PlayerHasTransmogByItemInfo` | Retail only (`C.FEATURE.appearances`): true when the look is not collected; nil on WoW Forever or when it cannot say. |
 | `Compat.ModifiedLinkClick(link)` / `PlayMediaSound(key)` | `HandleModifiedItemClick`; LibSharedMedia `Fetch`, `PlaySoundFile` (Master channel) | A toast's shift click (link in chat) or ctrl click (dressing room); a highlight's sound (`""` plays nothing). **Pure**: UI actions, never simulated. |
 | `Compat.SuppressAlertEvents(events, into)` / `RestoreAlertEvents(into)` / `AlertEventsRegistered(events, into)` | `AlertFrame:IsEventRegistered` / `UnregisterEvent` / `RegisterEvent` | Blizzard alert hiding (`modules/ToastBlizz.lua`): unregister each listed name `AlertFrame` has and record it in order; re-register exactly those and wipe the record; the probe's read of which are registered. Presence-gated, so a client without `AlertFrame` or a name suppresses nothing. **Pure**. |
+| **`core/CompatFarm.lua`** (the farm session's reads, #39, farm spec §11.6; its own file for the same size reason) | | |
+| `Compat.LootSourceGUIDs(slot, out)` | `GetLootSourceInfo` (every `guid, qty` pair) | Every source GUID of a loot slot into `out[1..k]` (an AoE slot carries one per corpse), the previous call's tail wiped; answers `k`, 0 without the API. A GUID may be secret: the caller asks `IsSecret` before decoding. |
+| `Compat.IsPlayerAFK()` | `UnitIsAFK("player")` | The AFK flag as a plain boolean; nil when absent, secret or not a boolean (the caller then changes nothing). |
+| `Compat.QuestTitle(questID)` | `C_QuestLog.GetTitleForQuestID` | A plain non-empty title, else nil (both clients carry it). |
+| `Compat.HookLogoutFamily(onIntent, onCancel)` | `Logout`, `Quit`, `ForceQuit` -> `onIntent`; `CancelLogout`, `ReloadUI`, `C_UI.Reload` -> `onCancel` (through `HookSecure` / `HookSecureMember`) | The logout-intent hooks, presence-gated; answers how many were installed. Pure (an installer). Retail routing is cited in the farm spec §5.4; the WoW Forever routing is uncited (D-4, smoke FOREVER-22). |
 | `Compat.IsSecret(v)` | `core/CompatClient.lua`: LibKa0s-Compat-1.0's `IsSecret`, else `issecretvalue` | Whether a value is secret, as one boolean (`false` on a client without the secrets system); the test the tooltip readers ask first. Pure. |
 
 ## Boundary rule
 
-Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
+Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`, `core/CompatFarm.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
 Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `InPartyInstance`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras`/`PlayerClassFile` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md), which forward to `Compat.Zone` / `Compat.PlayerMapID` at call time. See the [module map](module-map.md) for how the pieces load and connect.
 
@@ -142,7 +147,7 @@ and `PlayerClassFile`, and every read-side hook goes in through `HookSecure`/`Ho
 **file-scope** capture of a member (`local x = NS.Compat.Member` binds the function before the seam
 can wrap it; a capture of the table, `local Compat = NS.Compat`, reads the member at call time).
 
-The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`). It sorts every member three
+The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`, `core/CompatFarm.lua`). It sorts every member three
 ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctionHouseMail`,
 `DecodeGUID`, `BindState`, `BestBound`, `CurrencyLinkID`, `AuctionMailKind`, `CurrencySourceName`,
 `InteractionType`, and the library's `BankerKind` and `UnreadyBankContainers`), the tooltip `Show*` / `HideTooltip` family, the holdings tooltip's id readers, guards and painters with `IsSecret` (#34), the hook installers (`HookTooltipType` among them), and the toast feeds' UI actions (`ModifiedLinkClick`, `PlayMediaSound` and the three alert-event members, #38).

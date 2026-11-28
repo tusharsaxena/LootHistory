@@ -57,7 +57,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | SEEDS-LH-1 to 4 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | Removed on 2026-11-25 (IS-LH-01): SEEDS-LH-1 to 3 are superseded by ITEM-SEARCH; SEEDS-LH-4 checks the History item tooltip is back to what it was before Item sources, with no setting row and nothing loading ForeverDB |
-| FOREVER-1 to 21 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18); then reputation and appearances on Forever: no appearance capture, reputation still recorded (FOREVER-19); then the loot toasts on Forever: skill-ups from the profession lines only (FOREVER-20), the alert hiding and its probe (FOREVER-21) |
+| FOREVER-1 to 22 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18); then reputation and appearances on Forever: no appearance capture, reputation still recorded (FOREVER-19); then the loot toasts on Forever: skill-ups from the profession lines only (FOREVER-20), the alert hiding and its probe (FOREVER-21); then farm mode on Forever: the logout routing (FOREVER-22) |
 
 ## Before you start
 
@@ -3272,7 +3272,24 @@ start` → `start.alerts.present` is true and `start.alerts.registered` names th
 AlertFrame has. Run TOAST-15 → a name it has is hidden and restored; one it has not is skipped with no
 error. Fail: a Lua error, or a pop-up hidden after the box goes off. Result:
 
+### Farm mode on WoW Forever (#39)
+
+The logout hooks are cited for Retail only (farm spec §5.4, D-4): no WoW Forever interface source
+was available to cite how `/logout`, `/quit`, the game menu and the Quit and Camp pop-ups reach the
+client there. This check runs once farm mode's runtime is in (M4.1b).
+
+**FOREVER-22. The logout routing (farm spec D-4).** Client: WoW Forever. `/lh debug on`, start a
+farm session and loot one thing. Type `/logout` and wait out the countdown → log back in: the
+session is in the saved list, finished with reason `logout`. Repeat with the game menu's Log Out
+button, then `/quit` (and the Quit pop-up's Exit Now) → the same. Start one more, type `/logout`,
+move to cancel, then `/reload` → it is still running. Fail: a session that comes back running after a
+logout. That is the documented fallback (it is finished as `stale` after 30 minutes away), so record
+which route missed, for the per-client table. A Lua error fails it outright. Result:
+
 ## Pending sign-off
+
+Added by farm mode (#39, M4.1a, 2026-11-28), awaiting the owner: FOREVER-22, new (the WoW Forever
+logout routing, farm spec D-4), runnable once M4.1b lands.
 
 Added by the loot toasts (#38, M3, 2026-11-28), awaiting the owner: TOAST-1 to TOAST-22, FOREVER-20 and
 FOREVER-21, new (TOAST-9, TOAST-11, TOAST-12 and TOAST-22 amended or added by the M3.7 review fixes).

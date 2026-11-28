@@ -296,6 +296,85 @@ test("GainFeed: HoldClaims carries a feed claim through a combat deferral", func
   end)
 end)
 
+-- ── the farm entry (#39, farm spec §2) ───────────────────────────────────────────────────────
+
+-- The rows each observer owns that are registered now.
+local function registered(owner)
+  local n = 0
+  for _, row in ipairs(NS.EVENT_ROWS) do
+    if row.owner == owner and row.registered then n = n + 1 end
+  end
+  return n
+end
+
+local function observersOn()
+  local app = registered("Appearance") > 0
+  return table.concat({ tostring(registered("Reputation") > 0), tostring(app),
+    tostring(registered("ProgressXP") > 0), tostring(registered("ProgressSkill") > 0) }, "/")
+end
+
+--- Run `fn` with every toast feed off, both record switches off, and the three observers stood up
+--- (their Enable's latches, so SyncCapture acts), then put all of it back.
+local function withFarmObservers(fn)
+  local g, s = G(), NS.db.profile.settings
+  local feeds = s.toasts.feeds
+  local savedFeeds = {}
+  for fid, f in pairs(feeds) do savedFeeds[fid] = f.enabled end
+  local saved = { g._farm, copy(g.wants), copy(g.toastWants), g.on, g.__ev, s.recordReputation, s.recordAppearances,
+                  NS.Reputation._settings, NS.Appearance._settings, NS.Progress._up }
+  for _, f in pairs(feeds) do f.enabled = false end
+  s.recordReputation, s.recordAppearances = false, false
+  NS.Reputation._settings, NS.Appearance._settings, NS.Progress._up = {}, {}, true
+  local ok, err = pcall(fn, g)
+  g:SetFarm(nil)                                     -- every observer down again
+  for fid, v in pairs(savedFeeds) do feeds[fid].enabled = v end
+  g._farm, g.on, g.__ev = saved[1], saved[4], saved[5]
+  for k, v in pairs(saved[2]) do g.wants[k] = v end
+  for k, v in pairs(saved[3]) do g.toastWants[k] = v end
+  s.recordReputation, s.recordAppearances = saved[6], saved[7]
+  NS.Reputation._settings, NS.Appearance._settings, NS.Progress._up = saved[8], saved[9], saved[10]
+  NS.Progress._xpOn, NS.Progress._skillOn = nil, nil
+  if not ok then error(err, 0) end
+end
+
+test("GainFeed SetFarm: the farm set alone keeps `on`, every kind wanted and the observers registered", function()
+  local C = NS.Constants
+  withFarmObservers(function(g)
+    g:Recompute()
+    assertFalse(g.on, "no feed and no record switch: nothing wanted")
+    assertEqual(observersOn(), "false/false/false/false")
+    g:SetFarm(C.FARM.GAIN_KINDS)
+    assertTrue(g.on, "a live session turns the feed on")
+    for _, k in ipairs(KINDS) do
+      local want = k ~= "APPEARANCE" or C.FEATURE.appearances == true
+      assertEqual(g.wants[k], want, k .. " wanted (appearances only where a feature)")
+      assertFalse(g.toastWants[k], k .. " is the farm's, not the feeds'")
+    end
+    -- red under: an observer that registers on its record switch or the toasts alone
+    local app = tostring(C.FEATURE.appearances == true)
+    assertEqual(observersOn(), "true/" .. app .. "/true/true", "Reputation, Appearance (Retail) and Progress stay registered")
+    g:Recompute()                                     -- what a `profile` or `toasts` settings change runs
+    assertTrue(g._farm == C.FARM.GAIN_KINDS and g.on, "a Recompute keeps the farm set")
+    assertEqual(observersOn(), "true/" .. app .. "/true/true")
+    g:SetFarm(nil)
+    assertFalse(g.on)
+    assertEqual(observersOn(), "false/false/false/false", "SetFarm(nil) unregisters the observers again")
+  end)
+end)
+
+test("GainFeed SetFarm: Disable drops the farm set and a following SetFarm restores it", function()
+  local C = NS.Constants
+  withFarmObservers(function(g)
+    g:SetFarm(C.FARM.GAIN_KINDS)
+    g:Disable()
+    assertEqual(g._farm, nil, "the stand-down drops the farm set")
+    assertFalse(g.on)
+    g:SetFarm(C.FARM.GAIN_KINDS)                      -- Farm:Enable's Reconcile, after the stand-up
+    assertTrue(g.on and g.wants.ITEM and g.wants.XP, "restored")
+    assertTrue(g._farm == C.FARM.GAIN_KINDS)
+  end)
+end)
+
 -- ── lifecycle ────────────────────────────────────────────────────────────────────────────────
 
 test("GainFeed: Disable drops wants, the farm set, the claims and the listener; ResetState the claims", function()

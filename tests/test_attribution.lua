@@ -433,6 +433,141 @@ test("Attribution: a Fishing cast makes the next sourceless loot window a catch;
   mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot = oNum, oSrc, oFish
 end)
 
+-- Characterization (farm mode #39, M4.1a): what a GameObject window stamps with no gathering cast,
+-- pinned on the code before the GATHERING branch (F1) went in, and kept after it.
+local function window(guid, n)
+  local oNum, oSrc, oFish = mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot
+  mocks.GetNumLootItems = function() return n or 1 end
+  mocks.GetLootSourceInfo = function() return guid end
+  mocks.IsFishingLoot = function() return false end
+  local ok, err = pcall(NS.Attribution.OnLootOpened, NS.Attribution)
+  mocks.GetNumLootItems, mocks.GetLootSourceInfo, mocks.IsFishingLoot = oNum, oSrc, oFish
+  if not ok then error(err, 0) end
+end
+local NODE = "GameObject-0-3767-2552-11111-414321-0000ABCDEF"     -- a herb or ore node
+local CORPSE = "Creature-0-3767-2552-11111-219000-0000ABCDEF"
+
+test("Attribution characterization: with no gathering cast a GameObject window stamps CONTAINER", function()
+  resetContext()
+  NS.State.gatheringUntil = nil
+  window(NODE)
+  assertEqual(NS.Attribution:Consume(), "CONTAINER")
+  resetContext()
+  window(CORPSE)
+  assertEqual(NS.Attribution:Consume(), "KILL")
+end)
+
+-- Gathering (farm mode #39, ruling F1): a Herb Gathering or Mining cast arms GATHERING_TTL, and the
+-- next GameObject window is a node.
+local function withSpellNames(names, fn)
+  local A, C = NS.Attribution, NS.Compat
+  local orig, cache = C.GetSpellName, A._gatherCache
+  C.GetSpellName = function(id) return names[id] end
+  A._gatherCache = nil
+  local ok, err = pcall(fn, A)
+  C.GetSpellName, A._gatherCache = orig, cache
+  NS.State.gatheringUntil = nil
+  if not ok then error(err, 0) end
+end
+local SEED_NAMES = { [2366] = "Herb Gathering", [2575] = "Mining", [423341] = "Herb Gathering",
+                     [423338] = "Mining", [133] = "Fireball" }
+
+test("Attribution: a gathering cast then a GameObject window stamps GATHERING; no cast is CONTAINER", function()
+  withSpellNames(SEED_NAMES, function(A)
+    resetContext()
+    A:OnSpellSucceeded(nil, "player", "c", 423341)     -- a Khaz Algar herb cast: no id, the name matches
+    assertTrue(NS.State.gatheringUntil ~= nil, "the cast armed the window")
+    window(NODE)
+    -- red under: CONTAINER, the GameObject GUID's own source
+    assertEqual(A:Consume(), "GATHERING")
+    assertEqual(NS.State.gatheringUntil, nil, "one node per cast")
+    resetContext()
+    window(NODE)
+    assertEqual(A:Consume(), "CONTAINER", "no cast: a chest stays a container")
+    resetContext()
+    A:OnSpellSucceeded(nil, "player", "c", 423338)
+    window(CORPSE)
+    assertEqual(A:Consume(), "KILL", "a creature window after the cast (skinning) is a kill (F11)")
+    resetContext()
+    A:OnSpellSucceeded(nil, "player", "c", 2575)
+    mocks.__now = NS.Constants.GATHERING_TTL + 1
+    window(NODE)
+    assertEqual(A:Consume(), "CONTAINER", "past GATHERING_TTL the cast is spent")
+    resetContext()
+    A:OnSpellSucceeded(nil, "player", "c", 2366)
+    window(nil)
+    assertEqual(A:Consume(), "OTHER", "a window with no source is never a node")
+    assertEqual(NS.Constants.SourceLabel.GATHERING, "Gathering")
+  end)
+end)
+
+test("Attribution IsGatheringSpell: seed ids hit; a name match is conclusive only once the seeds are cached; memoized", function()
+  withSpellNames({}, function(A)
+    assertEqual(table.concat({ tostring(A:IsGatheringSpell(2366)) }, ""), "true")
+    local hit, conclusive = A:IsGatheringSpell(423341)
+    assertEqual(tostring(hit) .. "/" .. tostring(conclusive), "false/false", "no seed name yet: inconclusive")
+  end)
+  withSpellNames({ [2366] = "Herb Gathering", [423341] = "Herb\194\160Gathering", [133] = "Fireball" }, function(A)
+    local hit, conclusive = A:IsGatheringSpell(423341)
+    assertEqual(tostring(hit) .. "/" .. tostring(conclusive), "true/true", "a no-break space folds")
+    hit, conclusive = A:IsGatheringSpell(133)
+    assertEqual(tostring(hit) .. "/" .. tostring(conclusive), "false/false", "Mining's name not cached yet")
+  end)
+  withSpellNames(SEED_NAMES, function(A)
+    local hit, conclusive = A:IsGatheringSpell(133)
+    assertEqual(tostring(hit) .. "/" .. tostring(conclusive), "false/true", "both seeds cached: a conclusive miss")
+    local asked, orig = 0, A.IsGatheringSpell
+    A.IsGatheringSpell = function(self, id) asked = asked + 1; return orig(self, id) end
+    A:OnSpellSucceeded(nil, "player", "c", 423338)
+    A:OnSpellSucceeded(nil, "player", "c", 423338)
+    A:OnSpellSucceeded(nil, "player", "c", 133)
+    A:OnSpellSucceeded(nil, "player", "c", 133)
+    A.IsGatheringSpell = orig
+    assertTrue(A._gatherCache[423338] == true and A._gatherCache[133] == false, "hit and conclusive miss memoized")
+    assertEqual(asked, 2, "a memoized cast is one table lookup, never re-resolved")
+  end)
+end)
+
+test("Attribution: ResetContexts clears a gathering cast's window", function()
+  NS.State.gatheringUntil = 99
+  NS.Attribution:ResetContexts()
+  assertEqual(NS.State.gatheringUntil, nil)
+end)
+
+-- The three farm notifications (§5.7) fire only while a session is live (NS.Farm._live).
+test("Attribution: the farm notifications fire only with NS.Farm._live", function()
+  local saved = NS.Farm
+  local calls = {}
+  NS.Farm = {
+    OnLootWindow = function(_, source, n) calls[#calls + 1] = "window:" .. source .. ":" .. n end,
+    OnContainerOpened = function() calls[#calls + 1] = "container" end,
+    OnQuestTurnedIn = function(_, id) calls[#calls + 1] = "quest:" .. tostring(id) end,
+  }
+  local ok, err = pcall(function()
+    local A = NS.Attribution
+    local oLoot, oTarget = NS.Compat.ContainerItemHasLoot, NS.Compat.IsSpellTargeting
+    NS.Compat.ContainerItemHasLoot = function() return true end
+    NS.Compat.IsSpellTargeting = function() return false end
+    resetContext()
+    window(CORPSE, 3); A:OnContainerItemUse(0, 1); A:OnQuestTurnedIn(nil, 82000)
+    assertEqual(#calls, 0, "no live session: nothing is told")
+    NS.Farm._live = true
+    resetContext()
+    window(CORPSE, 3); window(NODE, 2); A:OnContainerItemUse(0, 1); A:OnQuestTurnedIn(nil, 82000)
+    window(nil, 2)                                   -- a window with no source GUID: not classified
+    NS.Compat.ContainerItemHasLoot, NS.Compat.IsSpellTargeting = oLoot, oTarget
+    assertEqual(table.concat(calls, ","), "window:KILL:3,window:CONTAINER:2,container,quest:82000")
+    calls = {}
+    resetContext()
+    A:OnSpellSucceeded(nil, "player", "c", 13262)    -- Disenchant: its mat window is not told
+    window("Item-3725-0-40000009EFF76790", 1)
+    assertEqual(#calls, 0, "a deconstruct mat window is not a farm window")
+  end)
+  NS.Farm = saved
+  resetContext()
+  if not ok then error(err, 0) end
+end)
+
 test("OnLootOpened logs ONE coalesced summary, not one line per slot", function()
   resetContext()
   local oNum, oSrc = mocks.GetNumLootItems, mocks.GetLootSourceInfo

@@ -66,6 +66,8 @@ read_globals = {
   -- core/CompatGain.lua's gain-feed reads only (#38, toast spec §3; tests/test_compat_routing.lua)
   "UnitXP", "UnitXPMax", "UnitLevel", "IsXPUserDisabled", "GetMaxPlayerLevel", "GetProfessions", "GetProfessionInfo",
   "C_SkillInfo", "C_MountJournal", "HandleModifiedItemClick", "AlertFrame", "PlaySoundFile",
+  -- core/CompatFarm.lua's farm-session reads only (#39, farm spec §11.6; tests/test_compat_routing.lua)
+  "UnitIsAFK", "C_QuestLog", "C_UI",
 }
 globals = {
   "LootHistoryDB",     -- the SavedVariables write target

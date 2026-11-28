@@ -49,6 +49,8 @@ local CLASSIFIED = {
   PlayerXP = "wrapped", ProfessionSkills = "wrapped", CurrencyCap = "wrapped", ItemEquipInfo = "wrapped",
   ItemLevelOf = "wrapped", EquippedLink = "wrapped", IsMountItem = "wrapped", IsUncollectedLook = "wrapped",
   CurrencyLink = "wrapped", CurrencyIcon = "wrapped", ItemIcon = "wrapped",
+  -- the farm session's reads (#39, farm spec §11.6): the hook installer is pure, the reads wrapped
+  HookLogoutFamily = "pure", LootSourceGUIDs = "wrapped", IsPlayerAFK = "wrapped", QuestTitle = "wrapped",
   -- wrapped: answered live until a provider is set
   GetActiveKeystoneLevel = "wrapped", InPartyInstance = "wrapped", NumLootItems = "wrapped", IsFishingLoot = "wrapped", IsAmmo = "wrapped",
   LootSourceGUID = "wrapped", Zone = "wrapped", PlayerMapID = "wrapped", InInstance = "wrapped",

@@ -46,6 +46,9 @@ local BANNED = {
   { pat = "%f[%w_]HandleModifiedItemClick%f[^%w_]", use = "Compat.ModifiedLinkClick(link)" },
   { pat = "%f[%w_]PlaySoundFile%f[^%w_]",         use = "Compat.PlayMediaSound(key)" },
   { pat = "%f[%w_]AlertFrame%f[^%w_]",            use = "Compat.SuppressAlertEvents / RestoreAlertEvents" },
+  -- The farm session's reads (#39, farm spec §11.6): the AFK flag and a quest's title.
+  { pat = "%f[%w_]UnitIsAFK%f[^%w_]",             use = "Compat.IsPlayerAFK()" },
+  { pat = "%f[%w_]C_QuestLog%.GetTitleForQuestID", use = "Compat.QuestTitle(questID)" },
 }
 
 local function shippedFiles(prefix)
@@ -134,7 +137,7 @@ test("Compat routing: only core/CompatClient.lua reads the client's project cons
   assertEqual(#hits, 0, "client reads outside the compat family:\n  " .. table.concat(hits, "\n  "))
 end)
 
-test("Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, straight above the Sim seam", function()
+test("Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, CompatFarm, straight above the Sim seam", function()
   -- red under: CompatClient below core/SimSeam.lua, where its members escape the wrap; or above
   -- core/Compat.lua, which publishes the NS.Compat it adds to.
   local order = {}
@@ -147,5 +150,7 @@ test("Compat routing: the compat family loads Compat, CompatClient, CompatToolti
   assertEqual(order["core/CompatProgress.lua"], order["core/CompatTooltip.lua"] + 1, "the family stays contiguous")
   assertTrue(order["core/CompatGain.lua"] ~= nil, "the TOC lists core/CompatGain.lua")
   assertEqual(order["core/CompatGain.lua"], order["core/CompatProgress.lua"] + 1, "the family stays contiguous")
-  assertEqual(order["core/SimSeam.lua"], order["core/CompatGain.lua"] + 1, "straight before core/SimSeam.lua")
+  assertTrue(order["core/CompatFarm.lua"] ~= nil, "the TOC lists core/CompatFarm.lua")
+  assertEqual(order["core/CompatFarm.lua"], order["core/CompatGain.lua"] + 1, "the family stays contiguous")
+  assertEqual(order["core/SimSeam.lua"], order["core/CompatFarm.lua"] + 1, "straight before core/SimSeam.lua")
 end)

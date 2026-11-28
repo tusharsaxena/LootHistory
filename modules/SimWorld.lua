@@ -17,7 +17,7 @@ local _, NS = ...
 --   owned[i]           { itemID, link, quantity, status = "active" | "sold" }
 --   loot               { guid, n } or nil (the open loot window)
 --   instance           { party, keystone, zone, subzone, mapID }
---   combat, targeting  booleans     trade { target }, quest { id }, transfer { currencyID,
+--   combat, targeting  booleans     trade { target }, quest { id, title }, transfer { currencyID,
 --                                   quantity, toKey }, each nil when absent
 --   factions[id]       { name, repType, rank, standing, threshold, accountWide, label }, walked in
 --                      factionOrder (rep-appearance spec §3.8)
@@ -571,6 +571,15 @@ local function lootSourceGUID(w, slot)
   return nil
 end
 
+-- Every GUID of one slot (core/CompatFarm.lua): the world's window has one source per slot.
+local function lootSourceGUIDs(w, slot, out)
+  local guid = lootSourceGUID(w, slot)
+  local k = guid and 1 or 0
+  if guid then out[1] = guid end
+  for i = #out, k + 1, -1 do out[i] = nil end
+  return k
+end
+
 local function itemLocationID(w, loc)
   if type(loc) ~= "table" then return nil end
   local e = containerSlot(w, loc.bagID, loc.slotIndex)
@@ -683,6 +692,11 @@ local PROVIDERS = {
   { "ProfessionSkills", fillSkills },
   { "ListSkillLines", fillSkills },
   { "CurrencyCap", currencyCap },
+  -- The farm session's reads (#39, farm spec §11.6): the window's GUIDs, an AFK flag the world never
+  -- sets, and the open quest's title when the world gives it one.
+  { "LootSourceGUIDs", lootSourceGUIDs },
+  { "IsPlayerAFK", function() return false end },
+  { "QuestTitle", function(w, id) return w.quest and w.quest.id == id and w.quest.title or nil end },
 }
 if NS.Constants.FEATURE.appearances then
   PROVIDERS[#PROVIDERS + 1] = { "AppearanceSource", appearanceSource }

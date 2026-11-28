@@ -83,6 +83,10 @@ C.SourceType = {
   -- APPENDED 2026-11-27 (the owner: "This was caught by fishing, any way to capture that?"): a loot
   -- window the client marks as fishing loot (IsFishingLoot), on both clients.
   FISHING = "FISHING",
+  -- APPENDED 2026-11-28 (farm mode #39, ruling F1): a GameObject loot window opened within
+  -- GATHERING_TTL of a Herb Gathering or Mining cast (modules/Attribution.lua's noteGathering), on
+  -- both clients. Herbs and ore read Gathering instead of Container, and farm mode counts the nodes.
+  GATHERING = "GATHERING",
 }
 
 -- Display order for grouping/analytics (most to least "interesting").
@@ -95,7 +99,7 @@ C.SourceOrder = {
   "DESTROY", "CONSUME", "CRAFT_REAGENT", "DECONSTRUCT", "GUILD_DEPOSIT", "GUILD_WITHDRAW",
   "TRAINING", "TRAVEL", "TRANSFER", "UNTRACKED",
   "WARBAND_DEPOSIT", "WARBAND_WITHDRAW", "ALT_MAIL", "ALT_TRADE", "CURRENCY_TRANSFER",
-  "FISHING",
+  "FISHING", "GATHERING",
 }
 
 -- Short human labels for the UI.
@@ -112,7 +116,7 @@ C.SourceLabel = {
   TRAVEL = "Travel", TRANSFER = "Transfer", UNTRACKED = "Untracked",
   WARBAND_DEPOSIT = "Warband Deposit", WARBAND_WITHDRAW = "Warband Withdraw", ALT_MAIL = "Alt Mail",
   ALT_TRADE = "Alt Trade", CURRENCY_TRANSFER = "Currency Transfer",
-  FISHING = "Fishing",
+  FISHING = "Fishing", GATHERING = "Gathering",
 }
 
 -- Sources with a live capture path today — every enum member now has one, so all are offered in the
@@ -129,7 +133,7 @@ C.SOURCE_IMPLEMENTED = {
   DECONSTRUCT = true, GUILD_DEPOSIT = true, GUILD_WITHDRAW = true, TRAINING = true, TRAVEL = true,
   TRANSFER = true, UNTRACKED = true,
   WARBAND_DEPOSIT = true, WARBAND_WITHDRAW = true, ALT_MAIL = true, ALT_TRADE = true, CURRENCY_TRANSFER = true,
-  FISHING = true,
+  FISHING = true, GATHERING = true,
 }
 
 -- The reasons only the LEDGER writes (holdings diffs, timeline-ledger spec §5.4). They have live
@@ -298,6 +302,29 @@ C.TOAST_BG_TYPE_OPTIONS = { { value = "none", text = "None" }, { value = "solid"
 -- carries the money alert too (its typeIdentifier "money").
 C.BLIZZ_ALERT_EVENTS = { "SHOW_LOOT_TOAST", "SHOW_LOOT_TOAST_UPGRADE", "SHOW_LOOT_TOAST_LEGENDARY_LOOTED" }
 
+-- ── Farm mode (#39, farm spec docs/superpowers/specs/2026-11-27-39-farm-mode-design.md §4.4) ──
+-- The session engine's constants (modules/FarmModel.lua pure, modules/Farm.lua runtime). Seconds
+-- unless named otherwise. STALE_SEC (F5): an open session last seen longer ago than this is finished
+-- as stale on load. INTENT_TTL: how long a logout intent stamp holds (the 20 s logout countdown, with
+-- room). LOG_CAP/LOG_BATCH: the packed log keeps LOG_CAP lines, trimmed in LOG_BATCH steps while open.
+-- MOB_RING: the corpse GUIDs remembered across a reload. MIN_RATE_SEC: no per-hour rate below it.
+C.FARM = {
+  STALE_SEC = 1800, INTENT_TTL = 30, IDLE_TICK = 30,
+  LOG_CAP = 2000, LOG_BATCH = 100, MOB_RING = 256, MIN_RATE_SEC = 60,
+  PRICE_DELAY = 1, PRICE_BATCH = 20,
+  -- The OUT gold reasons a session counts as its costs (D19, §5.6).
+  COST_REASONS = { REPAIR = true, BUY = true, AH_POST_FEE = true },
+  -- The item, money and currency gain sources a session counts (F4, §5.5). OTHER counts only from a
+  -- chat line (FarmModel.ApplyGain); every ledger reason, vendor, mail, AH and trade never does.
+  GAIN_SOURCES = { KILL = true, CONTAINER = true, MPLUS = true, GATHERING = true, FISHING = true,
+                   QUEST = true, BONUS_ROLL = true, ROLL = true, OTHER = true },
+  EPIC_FLOOR = 4,               -- the panel's "Epic+ drops" line
+  -- The set Farm hands GainFeed:SetFarm while a session is live (§2): every C.GainKind. One table,
+  -- never mutated; Recompute masks APPEARANCE by C.FEATURE.appearances itself.
+  GAIN_KINDS = { ITEM = true, GOLD = true, CURRENCY = true, REPUTATION = true, APPEARANCE = true,
+                 XP = true, SKILL = true },
+}
+
 -- The holdings tally's cache bound (#34, modules/HoldingsTally.lua): past this many cached things,
 -- items and currencies together, both maps are wiped before the next insert, so a long AH browse
 -- keeps memory bounded.
@@ -369,6 +396,9 @@ C.LOOT_LINE_GRACE = 5
 -- channel's 21 s and the click on the bobber, with room.
 C.FISHING_TTL = 30
 C.LOOT_WINDOW_MAX = 120
+-- Seconds a Herb Gathering or Mining cast keeps the next GameObject loot window a node (farm spec F1,
+-- modules/Attribution.lua's noteGathering): the cast completes as the window opens, so a short one.
+C.GATHERING_TTL = 5
 -- A container opened from the bags delivers in waves with no window (a clam's meat after its pearl).
 C.CONTAINER_TTL = 4
 

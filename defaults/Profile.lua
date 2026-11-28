@@ -120,6 +120,17 @@ NS.defaults.profile = {
     appearance       = { source = "ka0s", skin = NS.DEFAULT_SKIN or "ka0s", ignorePanel = true, ignoreFonts = false,
                          font = "", texture = "", outline = "hud", pickerSeen = false },
     window           = {},     -- persisted position/size
+    -- Farm mode (#39, farm spec §9.1). New keys with defaults, so AceDB merges them into every
+    -- existing profile and no migration is owed. The rows that write them are M4.5's. `panel` and
+    -- `details` are named non-setting state (the farm windows' geometry, §4.5), like `window`.
+    farm = {
+      headlineBasis = "gross", headlineValue = "ah", pauseOnAFK = true, idleMinutes = 5,
+      showPanelOnStart = true, hideZero = false,
+      activity = { mobs = true, items = true, nodes = true, fish = true, quests = true,
+                   questRewards = true, containers = true, quality = true, rep = true, xp = true,
+                   skill = true, looks = true, currency = false, deaths = false },
+      panel = {}, details = {},
+    },
     auction = {                -- AH-price cascade (see modules/AuctionPrice.lua)
       enabled = true,
       capture = {   -- which price keys to gather (set of tags)

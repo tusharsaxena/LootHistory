@@ -256,18 +256,36 @@ end
 -- Not invoked headlessly: Enable() is called from the addon OnEnable, so file-load in the
 -- test harness never touches WoW event/hook APIs.
 
+-- Farm mode's notification (#39, farm spec §5.7): a classified window, told to the farm session only
+-- while one is live (NS.Farm._live, one nil test). NS.Farm loads below this file and is reached at
+-- call time; until modules/Farm.lua exists (M4.1b) it is nil and this does nothing.
+local function notifyFarmWindow(source, n)
+  local F = NS.Farm
+  if F and F._live then F:OnLootWindow(source, n) end
+end
+
+-- Stamp a classified window, open its line coverage and tell the farm session.
+local function classify(self, n, source, detail)
+  self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
+  self:OpenLootWindow(n, source, detail, Constants.Confidence.CERTAIN)
+  notifyFarmWindow(source, n)
+end
+
 -- LOOT_OPENED: stamp from the first slot's source GUID (all slots in one window share a source
 -- closely enough; TTL spans the resulting CHAT_MSG_LOOT burst).
-function Attribution:OnLootOpened()
-  -- A deconstruct (disenchant/mill/prospect) delivers its materials through a loot window whose
-  -- Item source GUID would resolve to CONTAINER. Keep the more specific deconstruct context the
-  -- spell just stamped rather than overwriting it with this, its own, mat window.
+-- A deconstruct (disenchant/mill/prospect) delivers its materials through a loot window whose Item
+-- source GUID would resolve to CONTAINER. Keep the more specific deconstruct context the spell just
+-- stamped rather than overwriting it with this, its own, mat window. Answers whether it kept it.
+local function keepDeconstruct(self)
   local c = State.lootContext
-  if c and c.expires >= GetTime() and DECONSTRUCT_SOURCE[c.source] then
-    self:OpenLootWindow(NS.Compat.NumLootItems(), c.source, c.detail, c.confidence)
-    if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
-    return
-  end
+  if not (c and c.expires >= GetTime() and DECONSTRUCT_SOURCE[c.source]) then return false end
+  self:OpenLootWindow(NS.Compat.NumLootItems(), c.source, c.detail, c.confidence)
+  if NS.State.debug and NS.Debug then NS.Debug("Open", "LOOT_OPENED kept %s (deconstruct mat window)", c.source) end
+  return true
+end
+
+function Attribution:OnLootOpened()
+  if keepDeconstruct(self) then return end
   -- Through Compat, so the Sim-1.0 answer seam can play a loot window (LootHistory#37).
   local n = NS.Compat.NumLootItems()
   -- Fishing loot (the owner, 2026-11-27): the client says so (IsFishingLoot), or a Fishing cast armed
@@ -275,8 +293,14 @@ function Attribution:OnLootOpened()
   -- or an item's window is never a catch, however soon after a cast.
   if NS.Compat.IsFishingLoot() or self:FishingArmed() then
     State.fishingUntil = nil
-    self:Stamp(Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN, "LOOT_OPENED")
-    self:OpenLootWindow(n, Constants.SourceType.FISHING, nil, Constants.Confidence.CERTAIN)
+    classify(self, n, Constants.SourceType.FISHING, nil)
+    return
+  end
+  -- A node (farm mode #39, ruling F1): a GameObject window inside a Herb Gathering or Mining cast's
+  -- GATHERING_TTL (noteGathering). One window per cast; a creature's window (skinning) stays a kill.
+  if self:GatheringArmed() then
+    State.gatheringUntil = nil
+    classify(self, n, Constants.SourceType.GATHERING, nil)
     return
   end
   for slot = 1, n do
@@ -287,8 +311,7 @@ function Attribution:OnLootOpened()
         NS.Debug("Open", "LOOT_OPENED %s slots -> %s%s", tostring(n), tostring(source),
           detailStr(detail))
       end
-      self:Stamp(source, detail, Constants.Confidence.CERTAIN, "LOOT_OPENED")
-      self:OpenLootWindow(n, source, detail, Constants.Confidence.CERTAIN)
+      classify(self, n, source, detail)
       return
     end
   end
@@ -305,6 +328,16 @@ function Attribution:FishingArmed()
   local guid = NS.Compat.NumLootItems() > 0 and NS.Compat.LootSourceGUID(1) or nil
   if not guid then return true end
   return (NS.Compat.DecodeGUID(guid)) == "GameObject"
+end
+
+--- Whether a Herb Gathering or Mining cast armed the loot window open now (farm mode #39, F1): within
+--- GATHERING_TTL of the cast, and its first slot's source is a GameObject (the node). A window with no
+--- source is never a node: on WoW Forever that is the fishing shape, and the node always has one.
+function Attribution:GatheringArmed()
+  local untilT = State.gatheringUntil
+  if not (untilT and untilT >= GetTime()) then return false end
+  local guid = NS.Compat.NumLootItems() > 0 and NS.Compat.LootSourceGUID(1) or nil
+  return guid ~= nil and (NS.Compat.DecodeGUID(guid)) == "GameObject"
 end
 
 function Attribution:OpenLootWindow(slots, source, detail, confidence)
@@ -435,6 +468,8 @@ function Attribution:OnContainerItemUse(bag, slot)
   end
   self:Stamp(Constants.SourceType.CONTAINER, nil, Constants.Confidence.CERTAIN, "container-open",
     Constants.CONTAINER_TTL)
+  local F = NS.Farm
+  if F and F._live then F:OnContainerOpened() end      -- farm mode's tally (#39, §5.7)
 end
 
 -- Deconstruct abilities turn an item into materials that arrive right when the cast SUCCEEDS (so the
@@ -448,8 +483,9 @@ end
 -- Fishing by its cast (the owner, 2026-11-27: on WoW Forever a catch's loot window carries no source
 -- GUID and IsFishingLoot does not answer, so its rows read Other). The Fishing spell is every rank's
 -- and every client's: an id below, or a cast whose localized name is Fishing's (spell 7620's name, as
--- the deconstruct seeds match theirs). A cast arms FISHING_TTL; the next loot window with no source,
--- or the bobber's GameObject, is a catch. Memoized per spellID like the deconstruct answer.
+-- the deconstruct seeds match theirs; a localization-§4 departure, registered in docs/ARCHITECTURE.md
+-- -> Documented deviations). A cast arms FISHING_TTL; the next loot window with no source, or the
+-- bobber's GameObject, is a catch. Memoized per spellID like the deconstruct answer.
 local FISHING_IDS = { [7620] = true, [7731] = true, [7732] = true, [18248] = true, [33095] = true,
   [51294] = true, [88868] = true, [131474] = true }
 local FISHING_SEED = 7620
@@ -481,9 +517,54 @@ local function noteFishing(self, spellID)
   if NS.State.debug and NS.Debug then NS.Debug("Cast", "fishing cast %s: the next catch is FISHING", tostring(spellID)) end
 end
 
+-- Gathering by its cast (farm mode #39, ruling F1): a Herb Gathering or Mining cast arms GATHERING_TTL,
+-- and the next GameObject loot window is a node (OnLootOpened). Every expansion's gathering spells
+-- carry other ids, so there is no id table: the cast's localized name is matched against the two
+-- vanilla seeds' names, Herb Gathering 2366 and Mining 2575 (present on both clients), the
+-- deconstruct and fishing seed-name shape (a localization-§4 departure, registered in
+-- docs/ARCHITECTURE.md -> Documented deviations). Memoized per spellID like the fishing answer.
+local GATHERING_SEEDS = { 2366, 2575 }
+
+local function spellName(id)
+  local name = NS.Compat.GetSpellName(id)
+  return (name and name ~= "") and name or nil
+end
+
+-- Answers hit, conclusive. A seed's own id is a hit. The seed names are read first: while neither has
+-- been cached, the cast's name is never asked for (an inconclusive miss, retried on the next cast); a
+-- miss is conclusive only once every seed name has resolved.
+function Attribution:IsGatheringSpell(spellID)
+  local s1, s2 = GATHERING_SEEDS[1], GATHERING_SEEDS[2]
+  if spellID == s1 or spellID == s2 then return true, true end
+  local n1, n2 = spellName(s1), spellName(s2)
+  if not (n1 or n2) then return false, false end
+  local name = spellName(spellID)
+  if not name then return false, false end
+  local fold = NS.Compat.FoldNBSP
+  local cast = fold(name):lower()
+  if (n1 and cast == fold(n1):lower()) or (n2 and cast == fold(n2):lower()) then return true, true end
+  return false, (n1 ~= nil and n2 ~= nil)
+end
+
+local function noteGathering(self, spellID)
+  local cache = self._gatherCache
+  if not cache then cache = {}; self._gatherCache = cache end
+  local hit = cache[spellID]
+  if hit == nil then
+    local conclusive
+    hit, conclusive = self:IsGatheringSpell(spellID)
+    if conclusive then cache[spellID] = hit end
+  end
+  if not hit then return end
+  if NS.IsStoodDown and NS.IsStoodDown() then return end
+  State.gatheringUntil = GetTime() + Constants.GATHERING_TTL
+  if NS.State.debug and NS.Debug then NS.Debug("Cast", "gathering cast %s: the next node is GATHERING", tostring(spellID)) end
+end
+
 local function spellCast(self, unit, spellID)
   if unit ~= "player" then return end
   noteFishing(self, spellID)
+  noteGathering(self, spellID)
   local cache = self._deconCache
   if not cache then cache = {}; self._deconCache = cache end
   local memo = cache[spellID]
@@ -539,6 +620,8 @@ end
 function Attribution:OnQuestTurnedIn(_, questID)
   self:Stamp(Constants.SourceType.QUEST, questID and { questID = questID } or nil,
     Constants.Confidence.CERTAIN, "QUEST_TURNED_IN")
+  local F = NS.Farm
+  if F and F._live then F:OnQuestTurnedIn(questID) end  -- farm mode's tally (#39, §5.7)
 end
 
 -- Quest reward taken. Stamped from the GetQuestReward hook (client call, runs before the server
@@ -640,14 +723,14 @@ end
 
 --- Every short-lived attribution context, inbound and outbound, cleared WITHOUT unregistering
 --- (LootHistory#37, req-lh-sim §3.4): the loot stamp, the instance context, the outbound slot, the
---- staged and taken mail, the trade partner, the craft window, the open interaction scopes and the
---- posted-auction tally. `scopes` and `pendingPost` are emptied in place, since other modules hold
+--- staged and taken mail, the trade partner, the craft window, a gathering cast's window (#39), the
+--- open interaction scopes and the posted-auction tally. `scopes` and `pendingPost` are emptied in place, since other modules hold
 --- the tables. Both Disables call it; the simulator calls it at start and stop.
 function Attribution:ResetContexts()
   local S = NS.State
   S.lootContext, S.lootWindow, S.encounter, S.keystone = nil, nil, nil, nil
   S.outContext, S.pendingMail, S.soldMail, S.tradeTarget, S.craftUntil = nil, nil, nil, nil, nil
-  S.mailTaken = nil
+  S.mailTaken, S.gatheringUntil = nil, nil
   for k in pairs(S.scopes) do S.scopes[k] = nil end
   for k in pairs(S.pendingPost) do S.pendingPost[k] = nil end
 end

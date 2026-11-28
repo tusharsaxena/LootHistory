@@ -6,6 +6,7 @@ local State = NS.State
 -- Shape: { source, detail, confidence, expires }
 State.lootContext = nil
 State.fishingUntil = nil   -- GetTime() a Fishing cast keeps the next loot window a catch until
+State.gatheringUntil = nil -- GetTime() a Herb Gathering or Mining cast keeps the next GameObject window a node until (#39)
 -- The loot window whose lines are still to land: { source, detail, confidence, left, expires }.
 State.lootWindow = nil
 
@@ -22,15 +23,19 @@ State.testRecords = nil     -- session-only synthetic dataset published by /lh t
                             -- queries (table + Insights) resolve against it instead of the live history
 State.testHoldings = nil    -- its Holdings / Timeline half (modules/TestData.lua): db.global.holdings' and
 State.testDaily = nil       -- db.global.daily's shapes, read through Holdings/Rollup:ActiveStore, never written
+State.testFarm = nil        -- and db.global.farm's (#39, farm spec §12.3), read through Farm:ActiveStore only
+-- The logout intent (farm spec §5.4): a GetTime() stamp set by the logout-family hooks and events and
+-- cleared by their cancels; PLAYER_LOGOUT reads it within C.FARM.INTENT_TTL. Session-only.
+State.farmLogoutIntent = nil
 
 -- The simulator's session-only capture stores (req-lh-sim §4, LootHistory#37). A HOST table, never a
 -- field on the Sim-1.0 instance (OWNER_SCOPE C.4). Each field is nil while live; a simulation swaps a
 -- fresh table in and puts nil back at stop. Every capture-path accessor reads it first:
 --   history  -> core/Database.lua historyStore() (Add, Amend, History, Count, Delete, ActiveHistory)
---   holdings -> Holdings:Store()      daily -> Rollup:Store()
+--   holdings -> Holdings:Store()      daily -> Rollup:Store()      farm -> Farm:Store() (#39)
 -- The live-only paths (Purge, PruneOld, StorageStats, CountOlderThan, RepairBoundStates, the
 -- migrations, Rollup:SeedOnce / Prune) keep reading NS.db.global, so saved data stays untouched.
-NS.SimStores = NS.SimStores or { history = nil, holdings = nil, daily = nil }
+NS.SimStores = NS.SimStores or { history = nil, holdings = nil, daily = nil, farm = nil }
 
 -- Outbound (loss-side) context for the ledger (timeline-ledger spec §5.4). A SECOND single slot
 -- beside lootContext, same TTL engine: one BuyMerchantItem must stamp an inbound VENDOR for the

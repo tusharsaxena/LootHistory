@@ -26,6 +26,8 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 >   below is superseded by this.
 > - **D-3:** the launcher column edit to `standards/ADDONS.md` is done in WowAddonStandards in task M4.0.
 > - **D-4:** cite the Forever interface source for the logout-hook routing before M4 merges (M4.1).
+>   M4.1a (2026-11-28): no Forever interface source is available locally, so it is recorded as a
+>   per-client fallback (§12.1) and smoke row FOREVER-22 rather than a citation (§5.4, §14).
 > - F1 (GATHERING source), F2, F5, F6 rulings stand.
 > - Chat-line hiding is out of scope (D25); nothing in farm mode depends on it.
 
@@ -299,6 +301,7 @@ db.global.farmKeep = 100             -- D18 cap; 0 = keep all. Row: settings.far
   resumeOnLoad = nil, wasRunning = nil,  -- set by Suspend at PLAYER_LOGOUT without logout intent
   -- zones
   zone = "Isle of Dorn", zoneSince = 1795000000, zoneSec = { ["Isle of Dorn"] = 0 },
+  zoneOrder = { "Isle of Dorn" },  -- zones in first-seen order: primaryZone's tie rule (M4.1a)
   primaryZone = nil,           -- set at Finish: argmax zoneSec, ties to the first seen
   -- lines
   items = { [itemID] = { link = "|cff...|r", q = 3, qty = 63, vu = 176, au = 21000,
@@ -343,8 +346,8 @@ fields are joined with `|`, and any `|` inside a free-text field is replaced wit
 | `u` | (none) | `Resumed` |
 
 `FarmModel.Pack(t, k, ...)` / `FarmModel.Unpack(line)` round-trip every kind. Trimming: when
-`#log > C.FARM.LOG_CAP + C.FARM.LOG_BATCH` (2000 + 100), drop the oldest `LOG_BATCH` with
-`table.move` and add that to `logDropped`. At Finish, trim to exactly `LOG_CAP`. Totals never come
+`#log > C.FARM.LOG_CAP + C.FARM.LOG_BATCH` (2000 + 100), drop the oldest `LOG_BATCH` in place (a
+shift loop: the client's Lua 5.1 has no `table.move`) and add that to `logDropped`. At Finish, trim to exactly `LOG_CAP`. Totals never come
 from the log, so trimming changes no total (`mockups.html:685`).
 
 ### 4.4 Constants (`core/Constants.lua`)
@@ -502,8 +505,16 @@ prices, `Reconcile`, send `FARM_CHANGED("finish")`. When `reason == "manual"`, o
   (`Blizzard_GameMenu/Shared/GameMenuFrame.lua:57-68, 215-216`). QUIT popup → `ForceQuit` /
   `CancelLogout` (`Blizzard_StaticPopup_Game/GameDialogDefs.lua:1422-1437`). CAMP Cancel →
   `CancelLogout` (`.../Mainline/GameDialogDefs.lua:407-420`). Forever: all six symbols are in the
-  kit's Forever export (`tests/_kit/client_globals_forever.lua`, not in `removed`). Their routing
-  must be cited from the Forever interface source before M4.1b merges (§14, D-4).
+  kit's Forever export (`tests/_kit/client_globals_forever.lua`, Ketho/BlizzardInterfaceResources
+  `forever` @ `e230342a`, 2026-11-14: inherited from the live base, none in `removed`), and so are
+  `UnitIsAFK`, `C_QuestLog.GetTitleForQuestID` and `GetLootSourceInfo`. That export lists names
+  only. No Forever FrameXML source is checked out locally (M4.1a looked in the kit and the sibling
+  checkouts), so the routing of `/logout`, `/quit`, the game menu and the QUIT/CAMP popups through
+  these globals is **not cited** (§14, D-4). Per-client fallback (§12.1): the intent has a second
+  path that does not depend on that routing, the `PLAYER_CAMPING` and `PLAYER_QUITING` events. With
+  neither, `PLAYER_LOGOUT` suspends the session as for a reload, and the restore rules close it: a
+  return after `STALE_SEC` finishes it as `stale` (F5), a return within it resumes it. Smoke row
+  FOREVER-22 checks the routing in game.
 
 **PLAYER_LOGOUT** (on `Farm.__ev`, registered while a session is open). It acts on
 `Farm:LiveStore()` only, and the sim store is never persisted.
@@ -1141,7 +1152,7 @@ routing scan (`tests/test_compat_routing.lua`) covers the new file.
 | Gathering detection | seed-name match on Herb Gathering 2366 / Mining 2575 casts | same seeds (vanilla ids). Smoke row confirms the node cast names |
 | Fishing count | IsFishingLoot or the cast | cast-armed (Forever windows carry no GUID, `FishingArmed`, `modules/Attribution.lua:302-308`) |
 | Zones | `ZONE_CHANGED_NEW_AREA` row (Farm's own; Attribution's is Retail-only, `modules/Attribution.lua:575-578`) | same row |
-| Logout hooks | cited at wow-ui-source@ab5cb850 | symbols present (kit). Routing to be cited (D-4) |
+| Logout hooks | cited at wow-ui-source@ab5cb850 | symbols present (kit, `forever` @ `e230342a`); routing not cited, no local Forever source (D-4). Fallback: `PLAYER_CAMPING`/`PLAYER_QUITING` stamp the intent; with neither, the session suspends and the stale rule (F5) closes it. Smoke FOREVER-22 |
 | Warband costs | a repair paid from the warband bank has holder `§warband` and does not count | n/a |
 
 There is no new `C.FEATURE_CLIENTS` entry: farm mode is on both clients. ARCHITECTURE's per-client
@@ -1219,7 +1230,8 @@ green on the current code. Before touching `NS.RunVerb`, run `test_keybinding`/`
 Each needs the owner's call before its task merges. The choice is a register row in
 `docs/ARCHITECTURE.md` `## Documented deviations`, or an upstream change to the standard. Status on
 2026-11-28: D-1 and D-3 are **resolved upstream** (M4.0), and D-2 is **ruled** (D27: widen the row,
-done in M4.1a). D-4 is still open (cite before M4.1b merges). The D-1 text below is history. Its
+done in M4.1a). D-4 is **recorded** (M4.1a: no local Forever source; a per-client fallback and smoke
+row FOREVER-22 instead). The D-1 text below is history. Its
 "builds the panel at `WINDOW`" and its interim register row are superseded (§11.3).
 
 - **D-1 `frame-layering-§1` (resolved: standard v2.122.0 `WINDOW_PERSISTENT`).** T4 puts a persistent window at `MEDIUM` and an on-demand one at
@@ -1239,11 +1251,14 @@ done in M4.1a). D-4 is still open (cite before M4.1b merges). The D-1 text below
 - **D-3 `launcher-§2` (done upstream in M4.0, WowAddonStandards v2.122.1).** The extra entry must be listed in `standards/ADDONS.md`'s LootHistory
   launcher column. That file is upstream, so it is an upstream edit, not a deviation, and it is due
   with M4.5.
-- **D-4 `events-frames-taint-§9` (open; M4.1b).** The logout-family hooks are cited for Retail at
-  wow-ui-source@ab5cb850 (§5.4). Forever's routing of `/logout`, `/quit`, the game menu and the
-  QUIT/CAMP popups through the same globals must be cited from its interface source before M4.1b
-  merges. If Forever routes elsewhere, its logout falls back to the stale rule, and that needs a
-  per-client row.
+- **D-4 `events-frames-taint-§9` (recorded in M4.1a; verified in game by FOREVER-22).** The
+  logout-family hooks are cited for Retail at wow-ui-source@ab5cb850 (§5.4). For Forever, the kit's
+  export (`forever` @ `e230342a`) shows all six globals present, but no Forever interface source is
+  available locally to cite their routing. Not a deviation and not a blocker: the hooks are
+  presence-gated, and the per-client row in §12.1 records the fallback (the `PLAYER_CAMPING` /
+  `PLAYER_QUITING` intent events, then the stale rule). If FOREVER-22 shows `/logout` reaching no
+  hook and no event, the Forever logout is a stale finish, and ARCHITECTURE's per-client table says
+  so (M4.6).
 - **Not deviations, recorded so a reviewer does not re-raise them:**
   - Details and Summary carry the settings mark, and the panel's marks read `– 🔓 ⚙ ✕`. Both differ
     from the mockup (`:511, :578, :597`) to meet standalone-windows.

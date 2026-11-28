@@ -6,8 +6,8 @@ local _, NS = ...
 -- ── THE SEAM ─────────────────────────────────────────────────────────────────────────────────
 --
 -- At file load, straight after the compat family (core/Compat.lua, core/CompatClient.lua,
--- core/CompatTooltip.lua, core/CompatProgress.lua, core/CompatGain.lua) and before any other file
--- can read a member,
+-- core/CompatTooltip.lua, core/CompatProgress.lua, core/CompatGain.lua, core/CompatFarm.lua) and before
+-- any other file can read a member,
 -- Sim:NewSeam wraps every NS.Compat function but the PURE ones in place, once. While a simulation
 -- runs (modules/Sim.lua's NS.Sim) a wrapped member answers through its provider (registered by the
 -- simulator's world module with NS.SimSeam:SetProvider); with no provider, or with no simulation
@@ -77,6 +77,9 @@ local PURE = {
   -- answer for nobody, and a simulation must never replay them.
   ModifiedLinkClick = true, PlayMediaSound = true, SuppressAlertEvents = true, RestoreAlertEvents = true,
   AlertEventsRegistered = true,
+  -- The farm session's logout-family installer (#39, farm spec §11.6): it runs once at stand-up and
+  -- installs hooks, so a simulation never replays it.
+  HookLogoutFamily = true,
 }
 
 -- The safe answers while a session is active (req-lh-sim §2.4). A provider, when one is set, gets

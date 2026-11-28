@@ -8,10 +8,12 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (47)
+### test_constants.lua (49)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
+- Constants: GATHERING is a gain source on both clients, never a ledger reason (farm mode #39, F1)
+- Constants: C.FARM carries the spec's numbers, a gain-source set and all seven gain kinds (#39)
 - Constants: the warband bank is Retail-only (R1), its two reasons absent on WoW Forever
 - Constants: Mythic+, bonus roll, Milling and Prospecting are Retail-only (R2)
 - Constants: the DECONSTRUCT reason serves both clients, labeled Disenchanted on WoW Forever (F1)
@@ -305,7 +307,7 @@ Total.
 - Compat routing: modules/ makes no bare simulator-relevant client read
 - Compat routing: no file-scope capture of a Compat member outside core/Compat.lua
 - Compat routing: only core/CompatClient.lua reads the client's project constants or regional names
-- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, straight above the Sim seam
+- Compat routing: the compat family loads Compat, CompatClient, CompatTooltip, CompatProgress, CompatGain, CompatFarm, straight above the Sim seam
 
 ### test_compat_client.lua (10)
 
@@ -360,6 +362,13 @@ Total.
 - Compat progress: AppearanceSource reads the source's item, link, name, quality, visual and subtype
 - Compat progress: AppearanceSource guards a secret name or link
 - Compat progress: IsNewLook is true only when no other source of the visual is collected
+
+### test_compat_farm.lua (4)
+
+- CompatFarm LootSourceGUIDs: every pair's GUID in order, the tail wiped, 0 without the API
+- CompatFarm IsPlayerAFK: a boolean, nil for a secret, a non-boolean or no API
+- CompatFarm QuestTitle: a plain non-empty title, else nil
+- CompatFarm HookLogoutFamily: intent on Logout/Quit/ForceQuit, cancel on CancelLogout/ReloadUI/C_UI.Reload
 
 ### test_tooltip_place.lua (9)
 
@@ -461,7 +470,7 @@ Total.
 - Rollup: SeedOnce and Prune stay on the live stores while a session is set
 - Rollup: the suite restores the shared state it changed
 
-### test_attribution.lua (53)
+### test_attribution.lua (58)
 
 - Attribution: Consume returns stamped context within TTL
 - Attribution: Stamp defaults confidence to CERTAIN
@@ -491,6 +500,11 @@ Total.
 - Attribution: deconstruct's own loot window does not clobber its source
 - Attribution: a fishing loot window stamps FISHING, whatever its slots say (the owner, 2026-11-27)
 - Attribution: a Fishing cast makes the next sourceless loot window a catch; a creature's never (2026-11-27)
+- Attribution characterization: with no gathering cast a GameObject window stamps CONTAINER
+- Attribution: a gathering cast then a GameObject window stamps GATHERING; no cast is CONTAINER
+- Attribution IsGatheringSpell: seed ids hit; a name match is conclusive only once the seeds are cached; memoized
+- Attribution: ResetContexts clears a gathering cast's window
+- Attribution: the farm notifications fire only with NS.Farm._live
 - OnLootOpened logs ONE coalesced summary, not one line per slot
 - OnLootOpened reads the loot source through Compat
 - Attribution: an unrelated player spell does not stamp a source
@@ -694,7 +708,7 @@ Total.
 - Appearance rows: Blacklist item is an item row's only, and Show in Timeline is off
 - Appearance gain feed: a collected source sends APPEARANCE (new look, gated by the switch); a removal never sends
 
-### test_gain_feed.lua (15)
+### test_gain_feed.lua (17)
 
 - GainFeed: no shipped file but modules/GainFeed.lua sends NS.MSG.GAIN
 - GainFeed: Begin answers the one scratch table with every field cleared, kind and dir set
@@ -710,6 +724,8 @@ Total.
 - GainFeed: the row writer's tap skips other holders, moves, forced passes and losses
 - GainFeed: gainSend notes the parent each sender ran inside (performance-§3)
 - GainFeed: HoldClaims carries a feed claim through a combat deferral
+- GainFeed SetFarm: the farm set alone keeps `on`, every kind wanted and the observers registered
+- GainFeed SetFarm: Disable drops the farm set and a following SetFarm restores it
 - GainFeed: Disable drops wants, the farm set, the claims and the listener; ResetState the claims
 
 ### test_progress.lua (15)
@@ -790,6 +806,29 @@ Total.
 - ToastContent: the highlight is the first switched-on one of mount, legendary, upgrade, appearance
 - ToastContent: an appearance, and an item with a new look, carry the sub line
 - ToastContent: a raising client read leaves its line empty and never raises
+
+### test_farm_model.lua (20)
+
+- FarmModel New: a running v1 session with empty lines and its first zone
+- FarmModel clock: Elapsed, Bank, Pause and Resume bank only running seconds
+- FarmModel IdleAt: banks to the last gain, to the clock's start with none, off at 0
+- FarmModel zones: banked only while running, an empty or unchanged zone ignored
+- FarmModel PrimaryZone: the most active seconds, a tie to the zone seen first
+- FarmModel Close: an empty log is discarded (F6); otherwise stamped, named, totaled, trimmed
+- FarmModel Pack/Unpack: every kind round-trips, `|` in free text becomes `/`
+- FarmModel TrimLog: batches of 100 past 2100 while open (2101 -> 2001), exactly 2000 at Finish
+- FarmModel TrimCap: drops the oldest past keep; keep 0 keeps all
+- FarmModel Totals: money, vendor, AH with the vendor fallback (F8), costs
+- FarmModel goldens: the mockup's headline, sub-line and gold-per-hour table
+- FarmModel Value and PerHour: three measures, gross or net; no rate under 60 s
+- FarmModel ApplyGain: the source rule (F4): farm sources count, VENDOR/MAIL/AH and diff OTHER never
+- FarmModel ApplyGain: items tally quantity, sources, quality and the price need
+- FarmModel ApplyGain: money keyed by source (id is nil), currencies, and questRewards for QUEST
+- FarmModel ApplyGain: reputation sums signed (dir OUT subtracts), XP, skill from/to, newLook only
+- FarmModel costs: copper by reason and currency spent, each logged; nothing for no amount
+- FarmModel NoteMob: each corpse once, the ring evicts the oldest at 257, MobSet rebuilds
+- FarmModel BestPerZone: the best gross rate per zone, 60 s eligible, a tie to the earlier
+- FarmModel formatters: clock, h:mm, grouped and signed counts, copper text, day label
 
 ### test_reconciler.lua (20)
 
@@ -2927,7 +2966,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 47 |
+| test_constants.lua | 49 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2940,22 +2979,24 @@ Total.
 | test_compat_client.lua | 10 |
 | test_compat_tooltip.lua | 22 |
 | test_compat_progress.lua | 13 |
+| test_compat_farm.lua | 4 |
 | test_tooltip_place.lua | 9 |
 | test_scanner.lua | 5 |
 | test_holdings.lua | 13 |
 | test_holdings_tally.lua | 32 |
 | test_rollup.lua | 25 |
-| test_attribution.lua | 53 |
+| test_attribution.lua | 58 |
 | test_attribution_out.lua | 14 |
 | test_filters.lua | 19 |
 | test_auctionprice.lua | 27 |
 | test_collector.lua | 53 |
 | test_reputation.lua | 29 |
 | test_appearance.lua | 17 |
-| test_gain_feed.lua | 15 |
+| test_gain_feed.lua | 17 |
 | test_progress.lua | 15 |
 | test_toast_model.lua | 34 |
 | test_toast_content.lua | 21 |
+| test_farm_model.lua | 20 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -3042,4 +3083,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2571** |
+| **Total** | **2604** |

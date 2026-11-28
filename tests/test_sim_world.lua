@@ -30,6 +30,8 @@ local REQ_KEYS = {
   "FactionSnapshot", "ListFactions",
   -- The gain feed's progress reads (#38, toast spec §12).
   "PlayerXP", "ProfessionSkills", "ListSkillLines", "CurrencyCap",
+  -- The farm session's reads (#39, farm spec §11.6).
+  "LootSourceGUIDs", "IsPlayerAFK", "QuestTitle",
 }
 if NS.Constants.FEATURE.appearances then
   REQ_KEYS[#REQ_KEYS + 1] = "AppearanceSource"
@@ -201,6 +203,7 @@ local ARGS = {
   GetMailHeader = { 1 }, ItemLocationID = { { bagID = 0, slotIndex = 1 } }, ContainerItemHasLoot = { 0, 1 },
   LootSourceGUID = { 1 }, FactionSnapshot = { 72 }, AppearanceSource = { 900001 }, IsNewLook = { 800001, 900001 },
   ProfessionSkills = { {} }, ListSkillLines = { {} }, CurrencyCap = { 3008 },
+  LootSourceGUIDs = { 1, { "stale", "tail" } }, QuestTitle = { 4242 },
 }
 
 local function shapeWorld(w)
@@ -215,7 +218,7 @@ local function shapeWorld(w)
   w.sendMail = { items = { [210796] = 4 }, money = 99 }
   w.owned = { { itemID = 210930, link = "L3", quantity = 3, status = "active" },
               { itemID = 210796, link = "L1", quantity = 1, status = "sold" } }
-  w.targeting, w.combat, w.quest = true, true, { id = 4242 }
+  w.targeting, w.combat, w.quest = true, true, { id = 4242, title = "Q" }
   w.instance = { party = true, keystone = 12, zone = "Z", subzone = "S", mapID = 77 }
   w.trade = { target = ALT }
   w.transfer = { currencyID = 3008, quantity = 1, toKey = ALT }
@@ -254,6 +257,7 @@ local WORLD_ANSWERS = {
   ProfessionSkills = '{1={186={max=75,name="Mining",rank=7}},n=1}',
   ListSkillLines = '{1={186={max=75,name="Mining",rank=7}},n=1}',
   CurrencyCap = "{1=5,2=100,4=false,n=4}",
+  LootSourceGUIDs = "{1=1,n=1}", IsPlayerAFK = "{1=false,n=1}", QuestTitle = '{1="Q",n=1}',
 }
 
 local function answers()
