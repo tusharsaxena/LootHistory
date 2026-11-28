@@ -177,6 +177,26 @@ a toast feed wants them, and every one goes down with the latch.
 | `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` | `modules/ToastFeed.lua` (rows on `Toasts.__rows`) | Once per combat edge, three feeds: lock, click-through and hold on the way in; click-through off and release on the way out. |
 | The Feed's clock | `LibKa0s-Feed-1.0` (an unparented frame, the library's) | Armed only while a row needs a tick (enter, hold, fade, pulse, countdown bar, smooth moves) and disarmed when every row rests; `Stats().awake` is false on an idle feed and after `Clear()` (`tests/test_toast_feed.lua`). Not a host bracket: its cost is the library's. |
 
+## Farm session registrations (#39)
+
+Added by farm mode (`docs/superpowers/specs/2026-11-27-39-farm-mode-design.md`, [farm.md](farm.md)).
+**With no farm session open, none of this is registered**: `Farm:Reconcile` brings every row, event,
+message, hook and timer below up at Start and takes it down at Finish, and the stand-down takes it
+down too (`tests/test_farm.lua`, `tests/test_disabled.lua`).
+
+| Event or path | Registered at | Work done per fire |
+|---|---|---|
+| `Ka0s_LootHistory_Gain` | `modules/Farm.lua` (`Farm.__ev`, a bus message) | **Runs in combat**, inside `gainSend`. Bucket `farmGain` (`within = "gainSend"`). The pure `FarmModel.ApplyGain`: table bumps and one packed log line per tallied gain (a string by design; `tests/perf.lua` records `farmGain`), the totals cache dirtied and one `FARM_CHANGED("gain")`, which every receiver coalesces. A gain with no price queues the price pass; nothing is priced here. Dropped at once on a manual or stand-down pause. |
+| Attribution's loot-window, container and quest notifications | not a registration: a call at the end of `Attribution:OnLootOpened`'s classified branches, `OnContainerItemUse` and `OnQuestTurnedIn`, behind `NS.Farm._live` | Bucket `farmWindow` (top level). A kill window walks each slot's `Compat.LootSourceGUIDs` into one reused table and checks each GUID against the corpse set (a ring of 256); a fishing, gathering or container window is one counter. Out of combat for the most part, and a loot window is not a hot path. |
+| `Database:OnWrite` hook | `modules/Farm.lua` (`Database:OnWrite(onWrite)`) | On every history write while a session is open: a direction, holder and reason check, and on a cost one table add and one log line. The write itself is the cost here, not the hook. |
+| `ZONE_CHANGED_NEW_AREA`, `PLAYER_DEAD` | `modules/Farm.lua` (rows, owner `Farm`, target `farm`) | One zone read and a bank, or one counter and one log line. Rare, never a combat loop. |
+| `PLAYER_FLAGS_CHANGED` | `modules/Farm.lua` (row, target `farmUnit`, unit-filtered to `player`) | One `Compat.IsPlayerAFK` read, at most one pause or resume. |
+| `PLAYER_LOGOUT`, `PLAYER_CAMPING`, `PLAYER_QUITING`, `LOGOUT_CANCEL` | `modules/Farm.lua` (`Farm.__ev`, not rows) | One stamp or clear, or at `PLAYER_LOGOUT` one finish or suspend. Out of combat by construction. |
+| `NS.After(C.FARM.IDLE_TICK, …)` | `modules/Farm.lua`, `armTick` | The idle ticker, every 30 s while a session is open: one `lastSeen` stamp and the idle check. Re-arms itself one at a time, only where `C_Timer.NewTimer` exists; cancelable. |
+| `NS.After(C.FARM.PRICE_DELAY, …)` | `modules/Farm.lua`, `armPrice` | The coalesced price pass, armed once per batch of unpriced items: up to 20 items priced from `Compat.GetItemExtras` and the AH cascade, **never in combat** (it re-arms instead). Cancelable. |
+| The panel's `OnUpdate` | `modules/FarmPanel.lua` | Only while the panel is shown **and** the session runs; repaints the numbers once a second (an accumulator check every frame). Cleared on pause, on hide and at stand-down. |
+| `NS.Coalesce` (0.25 s) repaints | `modules/FarmPanel.lua`, `modules/FarmDetails.lua`, `modules/FarmTab.lua` (each a `FARM_CHANGED` receiver) | One coalesced repaint per quarter second while the surface is shown; the Farm tab repaints only on finish, rename, delete and store, never on a gain. |
+
 ## Hooks and post calls
 
 No `RegisterEvent` grep finds these, because they are not events. Each runs on a client action, and

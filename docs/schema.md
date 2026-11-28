@@ -33,6 +33,8 @@ db.global = {
   ledgerSince = <ts|nil>,      -- when ledger capture began (v11 step; the reset popup rewrites it)
   resetPrompt = <nil|"reset"|"kept">,  -- the one-time reset recommendation's recorded answer
   probe = <table|nil>,         -- the probe verbs' record (/lh debug probe, modules/Probe.lua; undeclared, see below)
+  farm = {},                   -- farm sessions per character (#39; see The farm store)
+  farmKeep = 100,              -- "Sessions kept per character" (row settings.farm.keep); 0 == keep all. Account-wide, reset-exempt
 }
 ```
 
@@ -71,6 +73,12 @@ db.profile = {
       hideAlerts = false,      --   hide Blizzard's loot and money alert toasts (page-wide)
       feeds = { main = {...}, progress = {...}, extra = {...} },  -- one table per feed, the same leaves
     },                         --   in each; main ships enabled, the other two off (see The Toasts rows)
+    farm             = {       -- the farm session (#39; the Farm page, settings/SchemaFarm.lua; see The Farm rows)
+      headlineBasis = "gross", headlineValue = "ah", pauseOnAFK = true, idleMinutes = 5,
+      showPanelOnStart = true, hideZero = false,
+      activity = {...},        --   the 14 activity lines' switches (currency and deaths ship off)
+      panel = {}, details = {},  -- the panel's and the Details window's geometry (named non-setting state)
+    },
     window           = {},     -- persisted position/size (named non-setting state, see below)
     auction = {
       enabled = true,          -- master AH-pricing switch (Schema row)
@@ -316,7 +324,7 @@ The deep-copy (the library's, on every stored write) matters for the two table-v
 
 ### The rows
 
-A row's `page` is the canvas subcategory it is edited on, its `group` is the tab within that page (options-ui-§13), its optional `subgroup` is a subsection heading inside a tab (options-ui-§7), and its `path` is where the value is stored: four independent facts. The forty rows below are on the General page, and the sixth tab, Filters, holds none; the Toasts page's rows are under [The Toasts rows](#the-toasts-rows). How the pages draw them is in [settings-panel.md](settings-panel.md).
+A row's `page` is the canvas subcategory it is edited on, its `group` is the tab within that page (options-ui-§13), its optional `subgroup` is a subsection heading inside a tab (options-ui-§7), and its `path` is where the value is stored: four independent facts. The forty rows below are on the General page, and the sixth tab, Filters, holds none; the Toasts page's rows are under [The Toasts rows](#the-toasts-rows) and the Farm page's under [The Farm rows](#the-farm-rows). How the pages draw them is in [settings-panel.md](settings-panel.md).
 
 | Path | Page > Tab | Widget | Default | Notes |
 |---|---|---|---|---|
@@ -381,6 +389,26 @@ On WoW Forever the registry drops each feed's three appearance rows (`kinds.appe
 
 The kind colors are not Feed style: `NS.ToastContent` reads `colors.<kind>` (or the owner token `lh.toast.<kind>` while its `FromSkin` is on) into the row's title color.
 
+### The Farm rows
+
+The **Farm** page (#39, farm spec §9) holds 21 rows, General 6 and Activity 15, built by
+`settings/SchemaFarm.lua` (`NS.SchemaFarm.Rows()`, appended by `settings/Schema.lua` after the Toasts
+rows). Every row's `onChange` calls `Farm:OnSettingChanged(leaf, v)` first (the idle ticker re-arms,
+and **Pause when AFK** off resumes an AFK pause), then sends `SettingsChanged("farm")`.
+
+| Path | Tab | Widget | Default | Notes |
+|---|---|---|---|---|
+| `settings.farm.headlineBasis` | General | Dropdown | `"gross"` | **Headline**: `gross` or `net` (net subtracts costs). |
+| `settings.farm.headlineValue` | General | Dropdown | `"ah"` | **Headline value**: `money`, `vendor` or `ah` (money plus items at that value; AH falls back to vendor per item, F8). The Farm tab's Measure follows it until the player cycles it. |
+| `settings.farm.pauseOnAFK` | General | CheckBox | `true` | **Pause when AFK** (F3). |
+| `settings.farm.idleMinutes` | General | Slider (0-30, step 1) | `5` | **Pause after idle**; 0 is off (F2, D16). |
+| `settings.farm.showPanelOnStart` | General | CheckBox | `true` | **Show the panel when a session starts**. |
+| `settings.farm.keep` | General | Slider (0-500, step 10) | `100` | **Sessions kept per character**, 0 keeps all (D18). **Account-wide**: its `get`/`set` read and write `db.global.farmKeep`, and `NS.Schema.RESET_EXEMPT` maps it there, so the profile reset and the Farm page's Defaults leave it (`/lh reset settings.farm.keep` still reaches it). Lowering it below what a character holds asks first (`KA0S_LOOTHISTORY_FARM_TRIM`); Cancel restores the last confirmed value. |
+| `settings.farm.activity.<line>` | Activity | CheckBox | on, but `currency` and `deaths` off | One per activity line (`mobs`, `items`, `nodes`, `fish`, `quests`, `questRewards`, `containers`, `quality`, `rep`, `xp`, `skill`, `looks`, `currency`, `deaths`): which lines the panel and the summary draw. A switch only hides a line; the session counts every kind regardless. `looks` (**New appearances**) is Retail only (`clients = C.FEATURE_CLIENTS.appearances`), so WoW Forever has 13. |
+| `settings.farm.hideZero` | Activity | CheckBox | `false` | **Hide lines that read 0** on the panel and the summary. |
+
+`tests/test_schema.lua`'s `PARTITION` pins the per-tab totals (Farm General 6, Activity 15).
+
 ### State outside the rows
 
 Several pieces of persisted state, in both scopes, are not schema rows, so nothing writes them through `Schema:Set`, and only one of them is a carve-out. `architecture-§5` sorts the rest into **named non-setting state**, which no control chooses and no row addresses, and a **structural registry**. Neither needs a register row once its owner and writers are named, and [*Named non-setting state*](#named-non-setting-state-owners-and-writers) and [*The id filter sets*](#the-id-filter-sets-a-structural-registry) below name them (for the window, so does the NOTE above `SaveWindow`, `modules/Browser.lua`):
@@ -399,10 +427,10 @@ Note `settings.windowScale` **is** a Schema row (a General > Interface > *Histor
 
 ### Named non-setting state: owners and writers
 
-Four more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
+Five more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
 values and no row addresses them, so they are written outside the helper with no register row. The
 first three have one owner, `NS.Browser` (`modules/Browser.lua`, whose per-tab view layer, with the saved views'
-writers, is `modules/BrowserViews.lua`), the fourth `NS.FarmPanel`, and every writer is listed with the act that reaches it.
+writers, is `modules/BrowserViews.lua`), the fourth `NS.FarmPanel` and the fifth `NS.FarmDetails`, and every writer is listed with the act that reaches it.
 
 - **`NS.db.profile.settings.window`**, the window geometry `{ point, x, y, w, h }`. The local
   `SaveWindow` writes it when a title-bar drag stops (the title bar's `OnDragStop` in `EnsureFrame`) and when a resize ends
@@ -518,6 +546,47 @@ db.global.resetPromptPending = nil | true      -- armed by the v11 step when his
 - **`meta.completeAt`** is stamped once, by `Holdings`, the first time a holder's gate container is read (the bank for a character, the tabs for the Warband; on WoW Forever the account holder has no gate container and is never partial), at the moment `meta.partial` flips to false. The Timeline draws a holder's line dashed from its genesis to that moment and solid after; a holder that completed before the field existed has none and draws solid.
 - **`rollupRetentionDays`** (global, `0` = Always) is read only by `Rollup:Prune`, from the login deferral. A shorter window drops every day before the cutoff and folds each thing's last close onto the cutoff day first, so a line still starts at its last known value. `settings.rollupRetentionDays` is reset-exempt for the reason `retentionDays` is, and sits in `S.RESET_EXEMPT` as the third entry.
 - **`rollupSeeded` is deliberately not declared** in `defaults/Global.lua`, for the reason `ledgerSince` is not: AceDB strips a value equal to its default. It is the timestamp of `Rollup:SeedOnce`, which writes today's close for everything held, once per account, so a thing that never changes again still has a cell to draw from.
+### The farm store
+
+Farm mode (#39, farm spec §4) keeps its sessions in `db.global.farm`, **recorded data** outside every
+profile: no settings reset reaches it, and `/lh purge` does not either (it purges the history). The
+runtime is [farm.md](farm.md).
+
+```lua
+db.global.farm[charKey] = {          -- NS.Util.PlayerKey()
+  active   = <session>|nil,          -- at most one open session per character
+  sessions = { <session>, ... },     -- finished, oldest first, trimmed to farmKeep at each finish
+  nextId   = 1,                      -- ids are unique within a character
+}
+-- a session
+{
+  v = 1,                             -- the session's own shape stamp; a reshape migrates by `v`
+  id, name, char, classFile,         -- name: the primary zone at finish ("" while open), renamable (48 bytes)
+  startedAt, endedAt, endReason,     -- endReason "manual" | "logout" | "stale"
+  activeSec, runningSince, pauseReason,   -- the clock: banked seconds, epoch while running, the pause's reason
+  lastGainAt, lastSeen, resumeOnLoad, wasRunning,
+  zone, zoneSince, zoneSec = { [zone] = sec }, zoneOrder = { zone, ... }, primaryZone,
+  items = { [itemID] = { link, q, qty, vu, au, src = { [SOURCE] = qty } } },   -- vu/au copper per unit or nil
+  money = { [SOURCE] = copper }, currencies = { [currencyID] = { qty, src } },
+  costs = { [REASON] = copper }, costCurrencies = { [currencyID] = qty },
+  activity = { mobs, items, nodes, fish, quests, questRewards, containers, quality = { [q] = n },
+               rep = { [factionID] = { name, delta } }, xp, skill = { [lineID] = { name, from, to } },
+               looks, currency, deaths },
+  log = { "<t>|<k>|<fields>", ... }, logDropped,   -- packed lines, oldest first, at most 2,000 once finished
+  totals = { money, vendor, ah, costs },           -- written once at finish
+  mobRing = { guid, ... }, mobPos,                 -- the open session only
+}
+```
+
+- **No migration.** `farm = {}` and `farmKeep = 100` are declared in `defaults/Global.lua`, additive and
+  backfilled by AceDB, so `schemaVersion` did not move for them (the v11 precedent).
+- **Writers.** `NS.Farm` (`modules/Farm.lua`) alone: start, the tallies, the edges, finish, the cap
+  trim, and `Farm:Rename` / `Farm:Delete` (the Farm tab's and the sessions list's row menu, through
+  their popups). A simulation writes `NS.SimStores.farm` instead and never the saved store; test
+  mode's sample (`NS.State.testFarm`) is never written.
+- **`farmKeep`** (global, `0` = keep all) is read by `Farm:Keep()` at each finish and written only by
+  the `settings.farm.keep` row.
+
 ### Reset semantics
 
 The reset surfaces write these tables. Since profiles arrived, the global reset is ONE act behind three controls, and its blast radius is the active profile (`options-ui-§12`):
@@ -529,6 +598,7 @@ The reset surfaces write these tables. Since profiles arrived, the global reset 
 | **Position only** | **Reset position** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — | — | — |
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — | if named | if named |
 | **Toasts page** | the Toasts page's **Defaults** (`O.RestoreDefaults("Toasts")`) | the Toasts rows of all three feeds and `settings.toasts.hideAlerts` | — | — | — | — | — | — |
+| **Farm page** | the Farm page's **Defaults** (`O.RestoreDefaults("Farm")`) | the Farm rows but `settings.farm.keep` (reset-exempt, `db.global.farmKeep`) | — | — | — | — | — | — |
 | **One feed** | **Reset feed…** on a feed's General tab → confirm (`KA0S_LOOTHISTORY_RESET_FEED`) | that feed's 75 rows, one bulk bracket | — | — | — | — | — | — |
 | **Purge** | `/lh purge` · **Purge history…** → confirm | — | — | — | — | ✓ | — | — |
 

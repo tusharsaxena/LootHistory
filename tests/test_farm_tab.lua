@@ -411,6 +411,41 @@ test("FarmTab: TD.Publish publishes the farm sample and clears it, and says so o
   end)
 end)
 
+test("FarmTab: test mode publishes the sample, and combat start ends it and clears the sample", function()
+  -- farm spec §12.3: test mode ends at combat start (modules/Browser.lua's PLAYER_REGEN_DISABLED edge
+  -- calls BrowserTable:EndTestModeForCombat), and the farm sample goes with it, so no sample session
+  -- stays on the Farm tab or the sessions list in a fight.
+  world(function()
+    chat(function()
+      assertTrue(NS.BrowserTable:SetTestMode(true))
+      assertTrue(NS.State.testFarm ~= nil, "test mode publishes the farm sample")
+      assertEqual(FT.StoreKind(), "test")
+      NS.BrowserTable:EndTestModeForCombat()
+    end)
+    assertEqual(NS.State.testFarm, nil, "combat start cleared the farm sample")
+    assertEqual(FT.StoreKind(), "live")
+  end)
+  if NS.BrowserTable.testMode then NS.BrowserTable:SetTestMode(false) end
+end)
+
+test("FarmPanel: test mode's sample never reaches the panel, which shows the live session", function()
+  -- farm spec §12.3: the panel reads Store(), never ActiveStore(), so even a sample entry under this
+  -- character (the real sample's are the History sample's characters) cannot show on it.
+  -- red under: the panel's session read moved to F:ActiveStore().
+  world(function()
+    local sample = FM.New(T0 - 600, 9, me(), "MAGE", "Hallowfall")
+    NS.State.testFarm = { [me()] = { active = sample, sessions = {}, nextId = 10 } }
+    FP:Show()
+    assertEqual(FP:Window().view, "none", "no live session: the panel says so, sample or not")
+    local s = F:Start()
+    s.zone = "Isle of Dorn"
+    FP:Refresh()
+    assertEqual(FP:Window().view, "full")
+    assertTrue(F:Active() == s, "the panel's session is the live one")
+    assertEqual(FP:Window().zone:GetText(), "Isle of Dorn")
+  end)
+end)
+
 -- ── the sessions list ────────────────────────────────────────────────────────────────────────
 
 test("FarmPanel sessions: a companion with close alone, docked, and one tooltip group with the panel", function()

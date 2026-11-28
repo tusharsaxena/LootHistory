@@ -2312,7 +2312,7 @@ Total.
 - slash-commands-§7: the stand-down drops the reputation baseline and its pending seed
 - slash-commands-§7: the stand-down clears every toast feed, and the stand-up keeps the instances
 - slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
-- slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook and ticker only while up; stood down it pauses, tallies nothing, and the stand-up resumes it
+- slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook, ticker, price pass and panel tick only while up; stood down it pauses, tallies nothing, and the stand-up resumes it
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
@@ -2554,7 +2554,7 @@ Total.
 - FarmDetails: Disable drops the bus target, Enable brings it back, Hide takes both windows down
 - FarmDetails: Resolve reads without writing and answers nil for a missing session
 
-### test_farm_tab.lua (20)
+### test_farm_tab.lua (22)
 
 - FarmTab: registered at order 50, after Timeline and Holdings
 - FarmTab: honors Search, Character and Zone; every other control is grayed
@@ -2573,6 +2573,8 @@ Total.
 - FarmTab: a simulation's row edits the simulation's store; a live reference is refused there
 - FarmTab: SessionName trims, cuts on a character boundary and falls back
 - FarmTab: TD.Publish publishes the farm sample and clears it, and says so on the bus
+- FarmTab: test mode publishes the sample, and combat start ends it and clears the sample
+- FarmPanel: test mode's sample never reaches the panel, which shows the live session
 - FarmPanel sessions: a companion with close alone, docked, and one tooltip group with the panel
 - FarmPanel sessions: this character's saved sessions, newest first, at the headline value
 - FarmPanel sessions: rows route like the tab's
@@ -2766,7 +2768,7 @@ Total.
 - SimStore: ah: the saved history, holdings, daily and farm are byte-identical before start and after stop
 - SimStore: bank: the saved history, holdings, daily and farm are byte-identical before start and after stop
 - SimStore: social: the saved history, holdings, daily and farm are byte-identical before start and after stop
-- SimStore: a farm session opened during a simulation tallies into SimStores.farm only, released at stop
+- SimStore: a sim farm session tallies exactly the scenario's gains into SimStores.farm only, released at stop
 
 ### test_sim_panel.lua (30)
 
@@ -3200,7 +3202,7 @@ Total.
 | test_farm.lua | 30 |
 | test_farm_panel.lua | 27 |
 | test_farm_details.lua | 22 |
-| test_farm_tab.lua | 20 |
+| test_farm_tab.lua | 22 |
 | test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
@@ -3228,4 +3230,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2733** |
+| **Total** | **2735** |

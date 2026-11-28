@@ -353,13 +353,15 @@ test("slash-commands-§7 step 3: a row written while stood down tallies NO daily
   setEnabled(true)
 end)
 
-test("slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook "
-  .. "and ticker only while up; stood down it pauses, tallies nothing, and the stand-up resumes it", function()
+test("slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook, "
+  .. "ticker, price pass and panel tick only while up; stood down it pauses, tallies nothing, and the stand-up "
+  .. "resumes it", function()
   -- The farm session (#39, farm spec §11.1) registers nothing with no session open, so step 1's
   -- baseline cannot see it; this case opens one. The write hook is a Database:OnWrite function, so
   -- that half of the proof is behavioral, as for the rollup above.
   -- red under: drop method("Farm", "Disable") from NS.StandDown -- the rows, events, message, the
-  -- idle ticker and the farm set survive, and the stood-down REPAIR row is counted as a cost.
+  -- idle ticker, the price pass and the farm set survive, and the stood-down REPAIR row is counted
+  -- as a cost; or drop method("FarmPanel", "Hide") -- the panel and its 1 Hz OnUpdate stay up.
   bringUp()
   local F, g, cf = NS.Farm, NS.db.global, M.DEFAULT_CHAT_FRAME
   local savedFarm, savedAdd, h = g.farm, cf.AddMessage, g.history
@@ -379,10 +381,21 @@ test("slash-commands-§7 step 3: an open farm session holds its rows, lifecycle 
     local tick = F._tick
     assertTrue(armed(tick), "the idle ticker is armed")
     assertTrue(NS.GainFeed._farm ~= nil, "the gain feed holds the farm set")
+    -- An item gain with no row carries no price, so it queues the deferred price pass.
+    F:OnGain({ kind = "ITEM", dir = "IN", id = 2589, qty = 1, quality = 1, source = "KILL", origin = "chat",
+      link = "|Hitem:2589|h[Linen Cloth]|h" })
+    local price = F._price
+    assertTrue(armed(price), "the price pass is armed")
+    local panel = NS.FarmPanel:Window()
+    assertTrue(panel ~= nil and panel:GetScript("OnUpdate") ~= nil, "the shown, running panel ticks")
     setEnabled(false)
     assertEqual(table.concat(liveOn(targets), ", "), "", "a farm registration survived the stand-down")
     assertEqual(F._tick, nil, "the idle ticker survived")
     assertFalse(armed(tick), "the idle ticker's timer was canceled")
+    assertEqual(F._price, nil, "the price pass survived")
+    assertFalse(armed(price), "the price pass's timer was canceled")
+    assertEqual(panel:GetScript("OnUpdate"), nil, "the panel's OnUpdate survived the stand-down")
+    assertFalse(panel:IsShown(), "the panel stayed up")
     assertEqual(NS.GainFeed._farm, nil, "the farm set survived")
     assertEqual(s.pauseReason, "standDown", "the running session paused standDown")
     NS.Database:Add({ ts = os.time(), dir = "OUT", kind = "GOLD", holder = NS.Util.PlayerKey(),

@@ -75,7 +75,7 @@ than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero byte
 | `reconcileCleanBags` (3) | 124000 | 1 | 118120.0 |
 | `repUnchanged` (6) | 0 | 0 | 0.0 (2026-11-28) |
 
-Four scenarios are **recorded, not gated** (`RECORDED_ONLY`): the holdings tally cold and warm and the tooltip block's replay (4, 5, #34), and `toastMerge200` (7, #38), the same item gain pushed 200 times into the Main feed with merging on. Every push after the first merges into one live row and repaints it, and the repaint builds the row's strings, so it carries no byte ceiling; the merge's own zero allocation is pinned by `tests/test_toast_model.lua`.
+Five scenarios are **recorded, not gated** (`RECORDED_ONLY`): the holdings tally cold and warm and the tooltip block's replay (4, 5, #34), and `toastMerge200` (7, #38), the same item gain pushed 200 times into the Main feed with merging on. Every push after the first merges into one live row and repaints it, and the repaint builds the row's strings, so it carries no byte ceiling; the merge's own zero allocation is pinned by `tests/test_toast_model.lua`. `farmGain` (8, #39) is one kill's item gain, with its row's vendor price, through `Farm:OnGain` into an open session on a scratch farm store, 1000 times. Each tallied gain appends one packed log line, a string by design (about 224 bytes per gain on 2026-11-28), so it carries no ceiling either; the tally rules are pinned by `tests/test_farm_model.lua` and the bucket's `gainSend` nesting by `tests/test_perf.lua`.
 
 The ceilings are pinned numbers in `tests/perf.lua`, with the reason beside them. Scenario 3 is the
 one that does real work: an unchanged pass over 216 occupied slots, behind the debounce and never

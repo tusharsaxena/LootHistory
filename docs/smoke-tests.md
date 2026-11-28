@@ -54,6 +54,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
 | TOAST-1 to 22 | [Loot toasts](#loot-toasts) | both | The toast feeds (#38): a gain at its slot, every kind on each client, read before the capture filters, merge and pulse, the nine slots and the nudge, unlock and drag, pin on hover, combat hold, click-through and lock, the clicks, the detail lines, upgrades, highlights and sounds, every style override and Reset style to skin under three skins, motion, hiding Blizzard's alerts, test mode, the feed acts, the simulator's strip, disabled, no Feed major, Retail skill-ups on an expansion line, the level-ups |
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
+| FARM-1 to 20 | [Farm mode](#farm-mode) | both | The farm session (#39): start, pause, resume and finish, AFK and idle pauses, `/reload`, `/logout`, a canceled `/camp`, Alt-F4 and a disconnect, gathering, fishing, AoE loot of three corpses, chests and bag containers, a repair cost and the ledger-off note, the panel's minimize, lock and visibility, where the farm windows' tooltips open, Details resize and the Log, the two key bindings, the launcher entry and the History mark, the Farm tab and the sessions list, test mode and the simulator's strips |
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | SEEDS-LH-1 to 4 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | Removed on 2026-11-25 (IS-LH-01): SEEDS-LH-1 to 3 are superseded by ITEM-SEARCH; SEEDS-LH-4 checks the History item tooltip is back to what it was before Item sources, with no setting row and nothing loading ForeverDB |
@@ -117,6 +118,10 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
   LibKa0s factory, a `libs/LibKa0s/Skin*.lua` refresh): SKIN, then HIST-43, HIST-44, INS-23, TL-18,
   LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
 - The loot toasts (`core/CompatGain.lua`, `core/FeedSetup.lua`, `modules/GainFeed.lua`, `Progress.lua`, the `modules/Toast*.lua` files, `settings/SchemaToasts.lua`, `settings/PanelToasts.lua`, a `libs/LibKa0s/Feed*.lua` refresh): TOAST, then FOREVER-20 and FOREVER-21 on WoW Forever, CAP-1 to CAP-3 (the chat taps), REP (the reputation and appearance taps), SIM-1 and DEGRADED-1. A change to the capture taps also runs LED-P2 (the diff tap and the feed claims).
+- Farm mode (`core/CompatFarm.lua`, the `modules/Farm*.lua` files, `settings/SchemaFarm.lua`,
+  `settings/PanelFarm.lua`, the farm bindings in `Bindings.xml` and `core/LauncherSetup.lua`, Attribution's
+  gathering and farm notifications): FARM, then FOREVER-22 on WoW Forever, CAP-1 to CAP-3, LAUNCH and
+  SIM-1.
 - Client routing or a per-client table (`core/CompatClient.lua`, `C.FEATURE`, `C.SOURCE_CLIENTS`,
   `NS.Compat.ContainerGroups()`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
   pick): FOREVER-1 to FOREVER-13 and FOREVER-19 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
@@ -2447,6 +2452,124 @@ level from the top, ding the top level → its XP card shows. With a sim session
 the session stops and the XP card still shows. Fail: no card for the ding to the top, a merged card
 that lost *Level N*, or a gain counted twice. Result:
 
+## Farm mode
+
+The farm session (#39, spec `docs/superpowers/specs/2026-11-27-39-farm-mode-design.md`, runtime
+[farm.md](farm.md)): the companion panel, the sessions list, the Details window and summary, the
+History window's Farm tab, the verbs, bindings and launcher entry, and the clock across a reload, a
+logout and a crash. Start from the Farm page's **Defaults** (Settings › AddOns › Ka0s Loot History ›
+**Farm**) and with ledger capture on (General › Capture: **Track holdings and losses** and **Record
+gold**). Turn `/lh debug on` for the checks that read `[Farm]` lines. A check fails on any Lua error.
+
+**FARM-1. Start, pause, resume, finish.** Client: both. `/lh farm start` → `farm session started.`, and
+the panel opens with the zone, a green *Running* chip, a headline at 0 and the elapsed clock counting.
+Kill and loot a mob → the headline, the numbers and *Mobs looted* / *Items looted* move. `/lh farm
+pause` → *Paused: manual*, the headline dims, the clock stops, and a loot now changes nothing.
+`/lh farm resume` → the clock runs on from where it stopped. `/lh farm finish` → `farm session
+finished: <zone>, <value> in <time>.` and the summary opens, its numbers matching the panel's last
+ones. Fail: a gain counted while paused, a clock that counted the pause, or no summary. Result:
+
+**FARM-2. AFK pauses and resumes.** Client: both. With a session running, type `/afk` → *Paused: AFK*
+at once. `/afk` again → it runs. Turn **Pause when AFK** off and go AFK → the clock keeps running.
+Fail: no pause with the box on, or a pause with it off. Result:
+
+**FARM-3. Idle for a minute.** Client: both. Set **Pause after idle** to 1, start a session, loot once,
+then stand still for about 90 seconds → *Paused: idle 1 min*, and the elapsed clock reads about the
+time of that loot, not the minute after it. Loot again → the clock runs again on its own. Fail: idle
+seconds left on the clock, or a manual Resume needed. Result:
+
+**FARM-4. `/reload` keeps the session.** Client: both. With a session running and some loot in it,
+`/reload` → the panel comes back with the same numbers, running, and the elapsed clock does not
+count the loading screen. Repeat paused → it comes back paused. Fail: a finished or lost session, or
+the reload's seconds on the clock. Result:
+
+**FARM-5. `/logout` finishes it.** Client: Retail (WoW Forever is FOREVER-22). With a session running
+and some loot, `/logout` and wait out the countdown, then log back in → no open session; the Farm tab
+and the sessions list show it, finished. The game menu's Log Out → the same. Fail: a session that
+comes back running. Result:
+
+**FARM-6. A canceled `/camp` keeps it.** Client: both. With a session running, `/camp`, then move to
+cancel the countdown, then `/reload` → the session is still open and running. Fail: a session
+finished by the canceled logout. Result:
+
+**FARM-7. Alt-F4 and a disconnect resume within 30 minutes.** Client: both. With a session running and
+some loot, close the client with Alt-F4 and log back in within a few minutes → the session is open
+and running again, and the minutes away are not on the clock. Repeat with a disconnect (pull the
+network) → the same. Repeat Alt-F4 and stay away more than 30 minutes → at login the chat says
+`farm session from <day> was left open; it has been finished and saved.`, and it is in the saved
+list ending when you left. Fail: a session resumed after 30 minutes, or one lost. Result:
+
+**FARM-8. Gathering herbs and ore.** Client: both. With a session running, gather an herb and mine an
+ore node → *Nodes gathered* rises by one per node (a node that takes several taps counts each tap),
+and History records the herbs and ore with the source **Gathering**, not Container. Skin a corpse you
+looted → *Mobs looted* does not rise. On WoW Forever, also confirm the Herb Gathering and Mining casts
+are recognized (the source reads Gathering). Fail: Container on a node, or a skinned corpse counted
+again. Result:
+
+**FARM-9. Fishing.** Client: both. With a session running, catch three fish → *Fish caught* reads 3 and
+the catches count as items. Fail: a catch not counted, or counted twice. Result:
+
+**FARM-10. AoE loot of three corpses.** Client: Retail. With a session running and AoE looting on,
+kill three mobs together and loot one of them (the window holds all three corpses' loot) → *Mobs
+looted* rises by 3. Fail: 1, or more than 3. Result:
+
+**FARM-11. Chests and bag containers.** Client: both. With a session running, open a chest in the world
+and then a lootable bag item (a lockbox or a satchel) → *Containers opened* rises by one each, never
+two for the bag item. Fail: a container missed or counted twice. Result:
+
+**FARM-12. A repair is a cost.** Client: both. With a session running and gear damaged, repair at a
+vendor → the panel's *Costs* line shows the repair, and the net headline (Farm › General › Headline:
+Net) falls by it. On Retail, a repair paid from the warband bank is not counted. Fail: no cost, the
+cost counted twice, or a warband repair counted. Result:
+
+**FARM-13. Costs need ledger capture.** Client: both. Turn **Track holdings and losses** off and start a
+session → the *Costs* line reads `n/a (needs ledger capture)`, dimmed, and net equals gross. Turn it
+back on. Fail: a cost of 0 shown as if counted. Result:
+
+**FARM-14. Panel minimize, lock and visibility.** Client: both. Click the panel's minimize mark → it
+shrinks to the headline, the elapsed line and its buttons; click again (or double-click the title)
+→ full, and the choice survives `/reload`. Tick **Lock frame** (Master controls) → the panel's lock
+mark shows locked and its title will not drag. Set General visibility to *Out of combat* and pull a
+mob → the panel hides, and comes back when combat ends. Fail: a lost minimize, a drag while locked,
+or a panel left up in combat. Result:
+
+**FARM-15. Where the farm windows' tooltips open.** Client: both. Hover a panel button, a sessions-list
+row (open the list with the panel's Sessions button), a Details tab and a Farm tab row → each tooltip
+opens beside its own window, and the panel's and the docked list's tooltips open outside the pair,
+never over the other half or at the pointer. Fail: a tooltip at the pointer or covering the list.
+Result:
+
+**FARM-16. Details resize and the Log.** Client: both. Click the panel's **Details** → six tabs: Items,
+Money, Currencies, Costs, Activity, Log. Drag the corner grip → the lists relayout as it moves and the
+size survives `/reload`. On a session past 2,000 log lines the Log tab reads *Showing the most recent
+2,000 lines.* Fail: a tab missing, a size lost, or a stutter while dragging. Result:
+
+**FARM-17. The key bindings.** Client: both. Options › Keybindings › Ka0s Loot History shows **Show
+window**, **Toggle farm session** and **Start or finish farm session**. Bind the last two → the first
+shows and hides the panel; the second starts a session, and pressed again finishes it and opens the
+summary. While the addon is disabled each prints the disabled line and does nothing. Fail: a missing
+row, or a binding that runs twice. Result:
+
+**FARM-18. The launcher entry and the History mark.** Client: both. Right-click the minimap button →
+the menu has **Farm session** after the built-ins, checked while the panel shows; it toggles the panel.
+The History window's title bar has the map-marker mark first; hover it → `Farm session: shows or
+hides the panel.`, and clicking it toggles the panel. Fail: a missing entry or mark. Result:
+
+**FARM-19. The Farm tab and the sessions list.** Client: both. Finish two sessions in the same zone →
+the History window's **Farm** tab lists them newest first, with a star on the better one per hour.
+Click the Measure button beside the tab's title to cycle Money, Vendor and AH → the Total and
+Gross/h columns follow. Click a row → its summary; double-click → its Details. Right-click → Rename and Delete, each through its pop-up; a rename shows in the sessions
+list too. Fail: a missing star, a lost rename, or a delete with no confirm. Result:
+
+**FARM-20. Test mode and the simulator's strips.** Client: both. `/lh test` → the Farm tab lists six
+sample sessions over the sample characters with an amber strip on the History window; Rename on one
+prints `test mode shows sample sessions; nothing to rename or delete.`; the panel still shows your
+own session (or none). Pull a mob → test mode ends and the sample is gone. `/lh sim start loot`, then
+`/lh farm start` → the panel wears the cyan *Sim mode* strip (the minimized panel a title badge), and
+the session tallies the simulated loot. `/lh sim stop` → that session is gone, and your real session
+(if one was open) is untouched. Fail: a sample session on the panel, or a sim session left behind.
+Result:
+
 ## Simulator
 
 `/lh sim` runs the real capture engine against an invented world (LootHistory#37). It records into
@@ -3287,6 +3410,9 @@ logout. That is the documented fallback (it is finished as `stale` after 30 minu
 which route missed, for the per-client table. A Lua error fails it outright. Result:
 
 ## Pending sign-off
+
+Added by farm mode's docs pass (#39, M4.6, LH-FARM, 2026-11-28), awaiting the owner: FARM-1 to FARM-20,
+new. FOREVER-22 is now runnable (the runtime landed in M4.1b).
 
 Added by farm mode (#39, M4.1a, 2026-11-28), awaiting the owner: FOREVER-22, new (the WoW Forever
 logout routing, farm spec D-4), runnable once M4.1b lands.

@@ -296,6 +296,30 @@ Character on the Timeline and Holdings lists holders rather than loot characters
 - **Show in Timeline** is on a History row's right-click menu and on a Holdings thing's. It sets the Timeline's thing (`B:ShowTimeline(key)`) and switches to the tab. `BrowserTable:RowMenuItems(record)` builds the History menu as data and `BrowserTable:ShowMenu(anchor, items)` is the shared popup, so the Holdings tab reuses it through `HoldingsTab.RowActions(line)`.
 - **Forget this character** is on a Holdings **holder** line. It confirms through `KA0S_LOOTHISTORY_FORGET_HOLDER` (`settings/Slash.lua`, the holder key passed as the popup's data), then `Reconciler:ForgetHolder` drops that character's holdings and rollup cells. History rows stay. It is grayed on the logged-in character (its next scan would put it straight back) and on the Warband.
 
+## Farm tab
+
+`modules/FarmTab.lua` registers the fifth tab (`{ name = "Farm", order = 50 }`, #39, farm spec §7.5): the
+**saved** farm sessions of every character, read through `Farm:ActiveStore()` (test mode's sample while
+it is on, a simulation's store during one, the saved store otherwise). The open session is never
+listed; it lives on the companion panel ([farm.md](farm.md)).
+
+**Columns** (`FT.COLUMNS`): Date · Character (class-colored) · Zone · Active · Total · Gross/h · and a
+star on each zone's best session per hour (`FarmModel.BestPerZone`, marked per listed entry because
+session ids are unique only within a character). A header click sorts; an unknown saved column falls
+back to Date, newest first. The **Measure** button beside the title cycles Money, Vendor value and AH
+value for the Total and Gross/h columns; until the player cycles it, it follows the Farm page's
+**Headline value**. The sort and the measure are part of the tab's saved view (`sortKey`, `sortAsc`,
+`farmMeasure`).
+
+**Filters.** Search (name or zone), Character and Zone, with both option sources `"farm"`
+(`Farm:Characters()` and `Farm:Zones()`); every other filter is grayed here.
+
+**Rows.** A click opens the session's summary, a double-click its Details window, and a right-click
+the row menu, **Rename…** and **Delete…**, each through its popup (`FT.RowActions`, shared with the
+panel's sessions list). A test-mode row refuses both with one chat line. The tab repaints, and its
+filter options are rebuilt, only on `FARM_CHANGED` for finish, rename, delete or store and on
+`SettingsChanged`, never on a gain.
+
 ## Menus: two mechanisms, on purpose
 
 This addon draws **two** kinds of menu and neither is a Blizzard `UIDropDownMenu` — both avoid that

@@ -23,8 +23,11 @@ local SCANS_PER_ITER = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBa
 -- the holdings tally over a 200-holder store, cold (a cache miss per call) and warm, and the
 -- tooltip block's replay path. They carry no ceiling; the headless suite pins the replay's zero
 -- (tests/test_holdings_tip.lua), and these rows are the orientation numbers beside it.
+-- farmGain (#39, farm spec §11.2) is recorded the same way: each tallied gain appends one packed log
+-- line, a string by design, so its bytes are the log's growth and not a leak; the suite pins the
+-- tally rules (tests/test_farm_model.lua) and the bucket's nesting (tests/test_perf.lua).
 local RECORDED_ONLY = { tallyItemCold = true, tallyItemWarm = true, tooltipBlockReplay = true,
-                        toastMerge200 = true }
+                        toastMerge200 = true, farmGain = true }
 
 local USAGE = "usage: lua tests/perf.lua [--out <path>] [--label <text>]\n"
 
@@ -179,6 +182,22 @@ measure("toastMerge200", 200, function() NS.Toasts:OnGain(TOAST_GAIN) end)
 for _, fid in ipairs(NS.Constants.TOAST_FEEDS) do
   local f = NS.Toasts:Feed(fid)
   if f then f:Clear() end
+end
+
+-- Scenario 8 — one farm gain (#39, farm spec §11.2, bucket farmGain): an item gain from a kill with
+-- its row's prices, through Farm:OnGain into an open session on a scratch farm store, the path the
+-- GAIN receiver runs inside gainSend. Recorded, not gated (see RECORDED_ONLY).
+local FARM_GAIN = { kind = "ITEM", dir = "IN", id = 2589, qty = 1, quality = 1, source = "KILL", origin = "chat",
+                    link = "|cffffffff|Hitem:2589::::::::80:::::|h[Linen Cloth]|h|r",
+                    record = { vendorPrice = 13 } }
+do
+  local g = NS.db.global
+  local savedFarm = g.farm
+  g.farm = {}
+  NS.Farm:Start()
+  measure("farmGain", 1000, function() NS.Farm:OnGain(FARM_GAIN) end)
+  if NS.Farm:Active() then NS.Farm:Finish("manual", os.time()) end
+  g.farm = savedFarm
 end
 
 local function gate(r)
