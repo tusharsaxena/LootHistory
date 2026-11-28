@@ -430,6 +430,11 @@ writers, is `modules/BrowserViews.lua`), the fourth `NS.FarmPanel`, and every wr
   point, and `FP:ToggleMinimized` (the header's minimize mark and a title-bar double-click) flips
   `minimized`. A profile reset brings it back with the rest of the profile, and every profile event
   re-reads it (`FP:AdoptProfile`, fanned out from `B:AdoptProfile`).
+- **`NS.db.profile.settings.farm.details`**, the farm Details window's `{ point, x, y, w, h }` (#39,
+  farm spec §4.5). `modules/FarmDetails.lua` is its only writer: the title bar's `OnDragStop` and
+  the resize grip's release (`onResizeStop`) store it, never a size tick. A profile reset brings it
+  back with the rest of the profile, and `FD:AdoptProfile` (fanned out from `B:AdoptProfile`)
+  re-reads it.
 
 ### The id filter sets: a structural registry
 

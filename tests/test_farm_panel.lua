@@ -161,7 +161,7 @@ test("FarmPanel: the running view draws the mockup's numbers (gross, AH value)",
       assertEqual(texts(f.grid[1]), "|Money|Vendor|AH")
       assertEqual(texts(f.grid[2]), "Gross|216g|270g|1,083g")
       assertEqual(texts(f.grid[3]), "Net|196g|250g|1,063g")
-      assertEqual(table.concat(f.shownButtons, ","), "pause,finish", "Details and Sessions wait for their windows")
+      assertEqual(table.concat(f.shownButtons, ","), "pause,finish,details", "Sessions waits for its list (M4.4)")
     end)
   end)
 end)

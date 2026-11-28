@@ -99,6 +99,26 @@ test("Layers: the farm panel is the persistent window tier, toplevel and clamped
   I.NS.FarmPanel:Hide()
 end)
 
+test("Layers: the farm Details and summary windows are the on-demand window tier (#39)", function()
+  local I = instance()
+  local s = I.NS.FarmModel.New(1795000000, 1, I.NS.Util.PlayerKey(), "MAGE", "Isle of Dorn")
+  I.NS.FarmModel.Log(s, 1795000010, "x", 100)
+  I.NS.FarmModel.Close(s, "manual", 1795000600)
+  local store = I.NS.Farm:LiveStore()
+  store[s.char] = { sessions = { s }, nextId = 2 }
+  local ref = { store = "live", char = s.char, id = 1 }
+  I.NS.FarmDetails:Open(ref)
+  I.NS.FarmDetails:OpenSummary(ref)
+  for _, f in ipairs({ I.NS.FarmDetails:DetailsWindow(), I.NS.FarmDetails:SummaryWindow() }) do
+    local L = I.M.__layers(f)
+    assertEqual(L.strata, "HIGH", "WINDOW: a window opened to read, the History window's peer")
+    assertTrue(L.toplevel, "a click raises it among its peers")
+    assertTrue(L.clamped, "it stays on screen")
+  end
+  I.NS.FarmDetails:Hide()
+  store[s.char] = nil
+end)
+
 test("Layers: the Export modal is the modal tier, toplevel and clamped", function()
   local I = instance()
   I.NS.Export:Open({})

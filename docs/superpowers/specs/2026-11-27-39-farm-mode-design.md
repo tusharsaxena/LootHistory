@@ -94,6 +94,31 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 > - §13 `test_layers`: the panel case is added; the sessions list, Details and Summary cases come with
 >   those frames (M4.3, M4.4).
 
+> **Built in M4.3 (2026-11-28; small calls inside the spec, no owner decision changed).**
+> - §7.3 footer none: the Costs ledger-off note and the Log's `Showing the most recent 2,000 lines.`
+>   are one note line under the list, and the resize grip sits on the window's own corner.
+> - §7.3 Costs and Activity are fixed-order lists, not header-sortable: the copper costs largest
+>   first, then the currency spent; the enabled lines in §6 order (zero lines included, so
+>   `hideZero` is the panel's and the summary's only), then the quality, faction, skill and currency
+>   breakdowns, each a heading and its indented lines. `Open(ref)` keeps the selected tab.
+> - §7.3 a Details window on the open session follows it into the saved list when it finishes (the
+>   title becomes `Session details: <name>`); either window closes when its session is gone
+>   (discarded, deleted, a released simulation store). A saved session's window repaints only on
+>   `finish`, `rename`, `delete` and `store`, not on gain traffic.
+> - §7.4 top earners draw `x<qty>` only past one, as the mockup does (`Stormcharged Bracers`). The
+>   ranked lists (top earners, by source, the costs parenthesis) read whole gold, rounded; the
+>   percents are largest-remainder, so they sum to 100 (the mockup's 49 / 46 / 5). Under the money
+>   measure, which values no item, the ranked lists value items at AH. The meta line names the
+>   character without its realm. The summary opens centered and keeps no position.
+> - §7.4 only the manual Finish (`Farm:FinishVerb`: the verb, the panel's button, the key binding
+>   from M4.5) opens the summary; a logout or stale finish does not.
+> - §7 visibility: both windows only ever hide at a visibility edge or a settings change (the
+>   History window's rule; F9's re-show is the panel's). `B:OnSettingsChanged`, both combat edges
+>   and `B:AdoptProfile` fan out to `NS.FarmDetails`. A refused show prints
+>   `the farm windows are hidden by the General visibility setting.`
+> - §7 strips: `modules/Browser.lua` publishes `B.MakeTestModeStrip` beside `B.MakeSimStrip`, so a
+>   test-mode sample session (M4.4) shows the History window's amber band.
+
 ## 1. Goal
 
 A player starts a farm session, farms, and finishes it. While it runs, a companion panel shows the

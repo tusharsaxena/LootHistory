@@ -1352,12 +1352,13 @@ Total.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_layers.lua (9)
+### test_layers.lua (10)
 
 - Layers: NS.Constants.LAYERS names its strata by the standard's tier keys
 - Layers: no strata literal and no absolute level in the addon's own code
 - Layers: the History window is the on-demand window tier, toplevel and clamped
 - Layers: the farm panel is the persistent window tier, toplevel and clamped (#39)
+- Layers: the farm Details and summary windows are the on-demand window tier (#39)
 - Layers: the Export modal is the modal tier, toplevel and clamped
 - Layers: the row menu is a clamped popup with no full-screen catcher
 - Layers: an outside press dismisses the row menu through GLOBAL_MOUSE_DOWN
@@ -2507,6 +2508,31 @@ Total.
 - FarmList: a 2000-row list binds only the visible slice onto pooled rows
 - FarmList: the empty line, and the row click routes
 
+### test_farm_details.lua (22)
+
+- FarmDetails: settings and close, not a companion; on WINDOW; the title names the session
+- FarmDetails: six tabs in order, Items first, each tab its own list
+- FarmDetails: Items reads both prices per unit and in total, AH desc, n/a with no AH price
+- FarmDetails: Money shares, Costs by reason then currency, Currencies by quantity
+- FarmDetails: Costs carries the ledger-off note while capture cannot see costs
+- FarmDetails: Activity lists every enabled line, then the breakdowns indented
+- FarmDetails: the Log reads newest first and decodes each kind
+- FarmDetails: the Log binds only the visible slice of 2000 lines and notes the dropped ones
+- FarmDetails: a header click sorts Items; the Log is not re-sortable
+- FarmDetails: resizable from 480x300; a size tick relays only, the release rebinds once and saves
+- FarmDetails: the saved geometry comes back on the next build's restore
+- FarmDetails: the open session refreshes live, coalesced, and follows its finish into the saved list
+- FarmDetails: a window whose session is gone closes; a saved session ignores gain traffic
+- FarmDetails: Open refuses with no session, while stood down and while visibility hides
+- FarmDetails: a visibility edge hides both windows; the panel's Details button opens the open session
+- FarmDetails: a simulation's session shows the sim strip, a saved one none
+- FarmDetails: the summary reads the mockup's golden text
+- FarmDetails: the summary's costs read n/a with ledger capture off
+- FarmDetails: the manual Finish opens the summary; its Details button opens the record
+- FarmDetails: a discarded finish opens no summary; the summary refuses an open session
+- FarmDetails: Disable drops the bus target, Enable brings it back, Hide takes both windows down
+- FarmDetails: Resolve reads without writing and answers nil for a missing session
+
 ### test_toast_feed.lua (46)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
@@ -3080,7 +3106,7 @@ Total.
 | test_browsertable.lua | 89 |
 | test_export.lua | 41 |
 | test_debuglog.lua | 21 |
-| test_layers.lua | 9 |
+| test_layers.lua | 10 |
 | test_launcher.lua | 22 |
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
@@ -3129,6 +3155,7 @@ Total.
 | test_dispatch.lua | 11 |
 | test_farm.lua | 29 |
 | test_farm_panel.lua | 27 |
+| test_farm_details.lua | 22 |
 | test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
@@ -3156,4 +3183,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2669** |
+| **Total** | **2692** |

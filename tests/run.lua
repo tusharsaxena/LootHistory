@@ -174,6 +174,9 @@ local SUITES = {
   -- visibility, ticker and strip, and the list widget. After test_farm, with the addon brought up;
   -- every case closes its session and hides the panel.
   "test_farm_panel",
+  -- modules/FarmDetails.lua (#39): the Details window's six tabs, resize and Log, and the summary's
+  -- golden text. After test_farm_panel, with the addon brought up; every case hides both windows.
+  "test_farm_details",
   -- modules/ToastFeed.lua (#38): the three LibKa0s-Feed-1.0 feeds, the GAIN routing, clicks, combat,
   -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
   -- every case clears what it showed and leaves the addon up.

@@ -484,6 +484,7 @@ function B:AdoptProfile()
   -- The farm panel (#39) first, built or not: it re-reads its geometry, minimized state, lock mark,
   -- chrome and visibility from the new profile (it answers at once when it was never built).
   if NS.FarmPanel and NS.FarmPanel.AdoptProfile then NS.FarmPanel:AdoptProfile() end
+  if NS.FarmDetails and NS.FarmDetails.AdoptProfile then NS.FarmDetails:AdoptProfile() end
   if not frame then return end
   frame:ClearAllPoints()
   RestoreWindow()
@@ -573,6 +574,11 @@ end
 --- nil on a degraded install. B.SIM_MARK is its badge's word and color for the same window.
 function B.MakeSimStrip(win, onOffset) return buildModeStrip(SIM_MARK, simTip, win, onOffset) end
 B.SIM_MARK = SIM_MARK
+
+--- The test-mode strip for another window of this addon (the farm Details and summary windows, #39,
+--- showing a test-mode sample session): the History window's amber band, words and tooltip, docked
+--- under `win.titleBar`. nil on a degraded install.
+function B.MakeTestModeStrip(win, onOffset) return buildModeStrip(TEST_MARK, testTip, win, onOffset) end
 
 local function EnsureFrame()
   if frame then return frame end
@@ -930,6 +936,8 @@ function B:OnSettingsChanged()
   -- The farm panel (#39) follows the same master rows: its chrome, its lock mark and visibility (F9).
   local FP = NS.FarmPanel
   if FP and FP.OnChromeChanged then FP:OnChromeChanged() end
+  local FD = NS.FarmDetails
+  if FD and FD.OnChromeChanged then FD:OnChromeChanged() end
   -- The MINIMAP BUTTON is deliberately not re-applied here any more. It is the Master controls
   -- "Minimap button" row, and that row's set drives NS.Launcher:SetShown through this addon's
   -- single write seam (settings/Schema.lua) the instant it is flipped -- so re-asserting it on
@@ -987,6 +995,7 @@ function B:Enable()
     NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_DISABLED", function()
       B:ApplyVisibility(true)
       if NS.FarmPanel and NS.FarmPanel.ApplyVisibility then NS.FarmPanel:ApplyVisibility(true) end
+      if NS.FarmDetails and NS.FarmDetails.ApplyVisibility then NS.FarmDetails:ApplyVisibility(true) end
       if NS.BrowserTable and NS.BrowserTable.EndTestModeForCombat then
         NS.BrowserTable:EndTestModeForCombat()
       end
@@ -994,6 +1003,7 @@ function B:Enable()
     NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_ENABLED", function()
       B:ApplyVisibility(false)
       if NS.FarmPanel and NS.FarmPanel.ApplyVisibility then NS.FarmPanel:ApplyVisibility(false) end
+      if NS.FarmDetails and NS.FarmDetails.ApplyVisibility then NS.FarmDetails:ApplyVisibility(false) end
     end, NS.RejectedEvents)
   end
 end

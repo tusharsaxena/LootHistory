@@ -535,14 +535,20 @@ function Farm:ResumeVerb()
   say("farm session resumed.")
 end
 
+--- The manual finish (the verb, the panel's button, the key binding from M4.5): the chat line, then
+--- the summary window on the saved session (modules/FarmDetails.lua, farm spec §7.4).
 function Farm:FinishVerb()
   if not self:Active() then return noSession() end
   local at = time()
+  local kind = (NS.SimStores and NS.SimStores.farm) and "sim" or "live"
   local mine = self:Mine()
   local s = finishMine(self, mine, "manual", at)
   if not s then return say("farm session discarded: nothing was gained.") end
   say("farm session finished: %s, %s in %s.", s.name, FarmModel.CopperText(headline(s)),
     FarmModel.Clock(s.activeSec))
+  if NS.FarmDetails and NS.FarmDetails.OpenSummary then
+    NS.FarmDetails:OpenSummary({ store = kind, char = s.char, id = s.id })
+  end
 end
 
 local function stateWords(s)
