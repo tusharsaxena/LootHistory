@@ -2507,7 +2507,7 @@ Total.
 - Farm: StorageStats estimates every saved and open session; Database:StorageStats carries it
 - Farm: Pause after idle re-arms the ticker; Pause when AFK off resumes an AFK pause
 
-### test_farm_panel.lua (27)
+### test_farm_panel.lua (29)
 
 - FarmPanel: the header reads minimize · lock · settings · close, and it is not a companion
 - FarmPanel: minimize swaps the mark's art and tip, persists, and a title double-click flips it
@@ -2530,6 +2530,8 @@ Total.
 - FarmPanel: the OnUpdate runs only while shown and running, at 1 Hz, and goes on hide
 - FarmPanel: the elapsed clock moves on the tick
 - FarmPanel: stood down, Show refuses silently; the Disable and Hide steps take it all down
+- FarmPanel: a drag saves the top-left corner, so a height change grows and recedes downward
+- FarmPanel: the action row is a body row with room above and below, and no footer rule
 - FarmPanel: the panel sits on WINDOW_PERSISTENT, toplevel and clamped
 - FarmList: SetData sorts by the opening sort and binds the slice
 - FarmList: a header click sorts, a second flips the direction, ties keep the data's order
@@ -3208,7 +3210,7 @@ Total.
 | test_debug_coverage.lua | 25 |
 | test_dispatch.lua | 11 |
 | test_farm.lua | 36 |
-| test_farm_panel.lua | 27 |
+| test_farm_panel.lua | 29 |
 | test_farm_details.lua | 22 |
 | test_farm_tab.lua | 22 |
 | test_toast_feed.lua | 46 |
@@ -3238,4 +3240,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2743** |
+| **Total** | **2745** |

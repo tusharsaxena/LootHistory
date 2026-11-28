@@ -2526,9 +2526,12 @@ cost counted twice, or a warband repair counted. Result:
 session → the *Costs* line reads `n/a (needs ledger capture)`, dimmed, and net equals gross. Turn it
 back on. Fail: a cost of 0 shown as if counted. Result:
 
-**FARM-14. Panel minimize, lock and visibility.** Client: both. Click the panel's minimize mark → it
-shrinks to the headline, the elapsed line and its buttons; click again (or double-click the title)
-→ full, and the choice survives `/reload`. Tick **Lock frame** (Master controls) → the panel's lock
+**FARM-14. Panel minimize, lock and visibility.** Client: both. The title reads the stopwatch, then
+**Farm session**. Click the panel's minimize mark (the shrink arrows) → it shrinks to the headline,
+the elapsed line and its buttons, its title bar staying put while the bottom edge moves up, and the
+mark turns to the enlarge arrows; click again (or double-click the title) → full, growing downward,
+and the choice survives `/reload`. No rule is drawn above the action buttons, and they have room
+above and below. Tick **Lock frame** (Master controls) → the panel's lock
 mark shows locked and its title will not drag. Set General visibility to *Out of combat* and pull a
 mob → the panel hides, and comes back when combat ends. Fail: a lost minimize, a drag while locked,
 or a panel left up in combat. Result:
@@ -2552,7 +2555,7 @@ row, or a binding that runs twice. Result:
 
 **FARM-18. The launcher entry and the History mark.** Client: both. Right-click the minimap button →
 the menu has **Farm session** after the built-ins, checked while the panel shows; it toggles the panel.
-The History window's title bar has the map-marker mark first; hover it → `Farm session: shows or
+The History window's title bar has the stopwatch mark first; hover it → `Farm session: shows or
 hides the panel.`, and clicking it toggles the panel. Fail: a missing entry or mark. Result:
 
 **FARM-19. The Farm tab and the sessions list.** Client: both. Finish two sessions in the same zone →

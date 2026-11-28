@@ -131,11 +131,11 @@ test("FarmPanel: minimize swaps the mark's art and tip, persists, and a title do
     assertEqual(mark.__tip, "Minimize the panel")
     FP:ToggleMinimized()
     assertEqual(NS.db.profile.settings.farm.panel.minimized, true, "the state persists in the profile")
-    assertEqual(path, NS.Icon("add")); assertEqual(mark.__tip, "Expand the panel")
+    assertEqual(path, NS.Icon("fullscreen-enter")); assertEqual(mark.__tip, "Expand the panel")
     assertEqual(f.view, "min")
     FP:ToggleMinimized()
     assertEqual(NS.db.profile.settings.farm.panel.minimized, nil)
-    assertEqual(path, NS.Icon("minimise")); assertEqual(mark.__tip, "Minimize the panel")
+    assertEqual(path, NS.Icon("fullscreen-exit")); assertEqual(mark.__tip, "Minimize the panel")
     -- Two presses within the window are one double-click; two far apart are not.
     M.__now = 100
     f.titleBar:__fire("OnMouseDown", "LeftButton")
@@ -516,6 +516,39 @@ test("FarmPanel: stood down, Show refuses silently; the Disable and Hide steps t
     assertEqual(FP.__ev, nil, "Disable drops the bus target")
     FP:Enable()
     assertTrue(FP.__ev ~= nil, "Enable brings it back")
+  end)
+end)
+
+test("FarmPanel: a drag saves the top-left corner, so a height change grows and recedes downward", function()
+  world(function()
+    mockSession()
+    local f = win()
+    local scr = dofile("tests/_kit/mock_screen.lua")(M, { width = 1920, height = 1080 })
+    local ok, err = pcall(function()
+      rawset(f, "GetLeft", function() return 1500 end)
+      rawset(f, "GetTop", function() return 700 end)
+      rawset(f, "GetEffectiveScale", function() return 1 end)
+      local pts = {}
+      rawset(f, "SetPoint", function(_, p, rel, rp, x, y) pts[#pts + 1] = { p, rel, rp, x, y } end)
+      f.titleBar:__fire("OnDragStop")
+      local p = NS.db.profile.settings.farm.panel
+      assertEqual(p.point, "TOPLEFT", "the corner the panel is held by")
+      assertEqual(p.x, 1500); assertEqual(p.y, 700 - 1080)
+      local last = pts[#pts]
+      assertEqual(last[1], "TOPLEFT"); assertEqual(last[3], "TOPLEFT")
+    end)
+    scr.restore()
+    if not ok then error(err, 0) end
+  end)
+end)
+
+test("FarmPanel: the action row is a body row with room above and below, and no footer rule", function()
+  world(function()
+    mockSession()
+    local f = win()
+    FP:Layout()
+    assertEqual(f.footer.line, nil, "no hairline: the panel has no window footer")
+    assertTrue(f.titleIcon ~= nil, "the stopwatch before the title")
   end)
 end)
 

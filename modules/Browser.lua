@@ -146,12 +146,12 @@ function B.OpenFarmSettings()
   if O and O.OpenOptionsPanel then O.OpenOptionsPanel("Farm") end
 end
 
--- The History window's farm session mark (#39, farm spec §8, D21): the catalog's `map-marker`, left of
+-- The History window's farm session mark (#39, farm spec §8, D21): the Phosphor `ph:timer` stopwatch (owner, 2026-11-28), left of
 -- the lock. A click runs the bare `/lh farm` verb through NS.RunVerb, so the feature-verb gate and the
 -- companion panel's toggle are the verb's own. The icon and the tip never change, so the host never
 -- repaints it.
 local function farmExtra()
-  return { key = "farm", icon = "map-marker", tip = NS.L["Farm session: shows or hides the panel."],
+  return { key = "farm", icon = "ph:timer", tip = NS.L["Farm session: shows or hides the panel."],
     onClick = function() if NS.RunVerb then NS.RunVerb("farm") end end }
 end
 

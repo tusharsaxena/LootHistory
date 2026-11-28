@@ -45,6 +45,7 @@ local TICK = 1                 -- the OnUpdate's repaint period, seconds
 local COALESCE = 0.25          -- FARM_CHANGED / SETTINGS_CHANGED repaint window
 local DOUBLE_CLICK = 0.35      -- two title-bar presses this close toggle minimized
 local BTN_W, BTN_H, BTN_GAP = 64, 20, 6
+local ACT_TOP, ACT_BOTTOM = 12, 12   -- the action row's gap above and below (owner, 2026-11-28)
 local DEFAULT_POINT = { point = "RIGHT", x = -40, y = 80 }
 
 local MEASURE_LABEL = { money = "Money", vendor = "Vendor value", ah = "AH value" }
@@ -155,8 +156,9 @@ local function makeText(parent, template, justify)
 end
 
 local function minimizeFace()
-  if panelState().minimized then return "add", "+", L["Expand the panel"] end
-  return "minimise", "-", L["Minimize the panel"]
+  -- Drop Watcher's layout pair (owner, 2026-11-28): enlarge while minimized, shrink while expanded.
+  if panelState().minimized then return "fullscreen-enter", "<>", L["Expand the panel"] end
+  return "fullscreen-exit", "><", L["Minimize the panel"]
 end
 
 local function minimizeExtra()
@@ -165,10 +167,39 @@ local function minimizeExtra()
     onClick = function() FP:ToggleMinimized() end }
 end
 
+-- The panel is held by its TOP-LEFT corner (owner, 2026-11-28), so a height change (minimize,
+-- expand, a view with more rows) grows and recedes downward from the title bar, never about the
+-- center. The client re-anchors a dragged frame however it likes, so the corner is measured, in
+-- UIParent's units; a client (or the headless mock) with no numeric geometry keeps the point as is.
+local function topLeftOf(f)
+  local left, top = f:GetLeft(), f:GetTop()
+  local fs, us = f:GetEffectiveScale(), UIParent:GetEffectiveScale()
+  local uh = UIParent:GetHeight()
+  if type(left) ~= "number" or type(top) ~= "number" or type(fs) ~= "number"
+    or type(us) ~= "number" or us == 0 or type(uh) ~= "number" then
+    return nil
+  end
+  local k = fs / us
+  return left * k, top * k - uh
+end
+
+local function anchorTopLeft()
+  local x, y = topLeftOf(frame)
+  if not x then return false end
+  frame:ClearAllPoints()
+  frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x, y)
+  return true, x, y
+end
+
 local function savePosition()
-  local point, _, _, x, y = frame:GetPoint(1)
+  local ok, x, y = anchorTopLeft()
   local p = panelState()
-  p.point, p.x, p.y = point, x, y
+  if ok then
+    p.point, p.x, p.y = "TOPLEFT", x, y
+    return
+  end
+  local point, _, _, px, py = frame:GetPoint(1)
+  p.point, p.x, p.y = point, px, py
 end
 
 local function restorePosition()
@@ -176,6 +207,8 @@ local function restorePosition()
   local at = p.point and p or DEFAULT_POINT
   frame:ClearAllPoints()
   frame:SetPoint(at.point, UIParent, at.point, at.x or 0, at.y or 0)
+  -- An older save or the default names another point: re-hold it by the top-left corner, in place.
+  if at.point ~= "TOPLEFT" then anchorTopLeft() end
 end
 
 local function titleBar(f)
@@ -207,9 +240,17 @@ local function titleBar(f)
   end)
   f.titleBar = bar
   local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  title:SetPoint("CENTER")
+  title:SetPoint("CENTER", 9, 0)
   title:SetText(L["Farm session"])
   f.title = title
+  -- The farm mark before the title (owner, 2026-11-28): the same stopwatch as the History window's
+  -- farm mark, in the title's color.
+  local icon = bar:CreateTexture(nil, "OVERLAY")
+  icon:SetSize(14, 14)
+  icon:SetPoint("RIGHT", title, "LEFT", -4, 0)
+  icon:SetTexture(NS.Icon("ph:timer"))
+  icon:SetVertexColor(title:GetTextColor())
+  f.titleIcon = icon
   -- The mode badge beside the title: the simulation's word, shown while one runs and its strip is
   -- not drawn (minimized, or a degraded install with no strip) -- preview-mode's header-word rule.
   local mark = NS.Browser.SIM_MARK
@@ -254,9 +295,14 @@ local function bodyTexts(f)
   f.actPool = NS.Pool.New()
 end
 
--- The footer's action buttons, one of each; a paint shows the view's subset, laid left to right.
+-- The action row, one button of each; a paint shows the view's subset, laid left to right. A body
+-- row, not a window footer (owner, 2026-11-28: no rule above the buttons, more room around them):
+-- the panel has no footer, so standalone-windows' *The footer* (hairline, 24 px) has nothing to bind.
 local function footerButtons(f)
-  f.footer = NS.MakeFooter(f)
+  f.footer = CreateFrame("Frame", nil, f)
+  f.footer:SetHeight(BTN_H)
+  f.footer:SetPoint("LEFT", f, "LEFT", 0, 0)
+  f.footer:SetPoint("RIGHT", f, "RIGHT", 0, 0)
   local B = NS.Browser
   local acts = {
     start = { "Start", function() NS.Farm:Start() end },
@@ -445,7 +491,10 @@ function FP:Layout()
       y = y + 18
     end
   end
-  f:SetHeight(y + 8 + NS.FooterHeight())
+  f.footer:ClearAllPoints()
+  f.footer:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(y + ACT_TOP))
+  f.footer:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, -(y + ACT_TOP))
+  f:SetHeight(y + ACT_TOP + BTN_H + ACT_BOTTOM)
 end
 
 local function paintCosts(f, n)
@@ -557,14 +606,14 @@ function FP:PaintLockMark()
   if frame then NS.Browser:PaintLockMarkOn(frame.lockButton) end
 end
 
---- Repaint the minimize mark: `minimise` / "Minimize the panel", or `add` / "Expand the panel".
+--- Repaint the minimize mark: `fullscreen-exit` / "Minimize the panel", or `fullscreen-enter` / "Expand the panel".
 function FP:PaintMinimizeMark()
   if not (frame and frame.minimizeButton) then return end
   local icon, _, tip = minimizeFace()
   NS.Browser:PaintMark(frame.minimizeButton, icon, tip)
 end
 
---- Flip minimized (the `-` / `+` mark and a title-bar double-click); the state persists (§4.5).
+--- Flip minimized (the shrink / enlarge mark and a title-bar double-click); the state persists (§4.5).
 function FP:ToggleMinimized()
   local p = panelState()
   p.minimized = (not p.minimized) or nil

@@ -4,7 +4,7 @@
 ![CurseForge Version](https://img.shields.io/curseforge/v/1607560)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 ![Standard](https://img.shields.io/badge/Ka0s-WoW_Addon_Standard-yellow)
-![Tests](https://img.shields.io/badge/Tests-2743%2F2743_passing-green)
+![Tests](https://img.shields.io/badge/Tests-2745%2F2745_passing-green)
 
 Supports Retail and WoW Forever. Loot History is a passive loot tracker for World of Warcraft. It records every item you pick up and works out where it came from: a kill, a chest, the mailbox, the auction house. Open the window whenever you like to read back your loot. The **Insights** tab shows the same log broken down by source, value, quality and more. And as you play, loot toasts pop up on screen for what you just picked up, and farm mode times a farming run and tells you what it earned per hour.
 
@@ -161,10 +161,13 @@ Bugs and feature requests are tracked at [github.com/tusharsaxena/LootHistory/is
 
 The addon's own icons come from [Open Iconic](https://github.com/iconic/open-iconic) by Waybury
 (MIT): the row menus, column sort arrows and group chevrons in the History and Holdings tables, the
-Bound lock, the History window's lock and unlock marks and its farm session mark, the farm panel's minimize, expand, running and paused marks, the farm session lists' best-per-zone star, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
+Bound lock, the History window's lock and unlock marks, the farm panel's minimize, expand, running and paused marks, the farm session lists' best-per-zone star, the dropdown chevron and checkbox tick, the Export to CSV icon, the settings page's tick,
 info and drag-handle marks, the window close buttons and settings gears, the skin picker's eye and gear, the debug console's copy and clear
 buttons, and the small marks LibKa0s draws beside skinned controls. Only the icons the addon draws are shipped, with their license text beside them.
 
 Container icons in the tooltip come from [Game-icons.net](https://game-icons.net)
 (CC BY 3.0): bank and chest-armor by Delapouite; envelope, gavel, knapsack and locked-chest by
 Lorc. Changed from the originals: rasterized, background removed and recolored white.
+
+The farm session stopwatch, on the History window's title bar and the farm panel's, is `timer` from
+[Phosphor](https://phosphoricons.com) by Phosphor Icons (MIT).
