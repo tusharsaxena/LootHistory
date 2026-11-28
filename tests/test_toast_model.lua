@@ -321,7 +321,7 @@ test("ToastContent: money, experience and reputation take the kind art and their
   assertEqual(spec.title, "+" .. NS.Compat.FormatCount(1500) .. " XP")
   spec = content({ kind = "REPUTATION", id = 72, qty = 250, name = "Stormwind" })
   assertEqual(spec.icon, C.TOAST_KIND_ICON.REPUTATION)
-  assertEqual(spec.title, "Stormwind")
+  assertTrue(spec.title:find("Stormwind", 1, true) ~= nil, "the faction's name, after its delta (§7.4)")
   assertEqual(spec.tint, nil, "reputation carries no quality")
 end)
 
@@ -330,4 +330,62 @@ test("ToastContent: a payload of no known kind is skipped", function()
   assertEqual(res, false)
   local _, res2 = content(nil)
   assertEqual(res2, false)
+end)
+
+-- ── the appearance absorb (§7.3) ─────────────────────────────────────────────────────────────
+
+--- A live feed, held (a push waits, so Get answers it with no clock to step), whose Repaint and
+--- Dismiss are recorded on the way through.
+local function heldFeed()
+  local f = NS.FeedLib:New({ content = function() end })
+  f:Hold()
+  local calls = { repaint = {}, dismiss = {} }
+  local repaint, dismiss = f.Repaint, f.Dismiss
+  f.Repaint = function(self, key) calls.repaint[#calls.repaint + 1] = key; return repaint(self, key) end
+  f.Dismiss = function(self, key) calls.dismiss[#calls.dismiss + 1] = key; return dismiss(self, key) end
+  return f, calls
+end
+
+test("ToastModel: Absorb folds a new appearance into its item already on the feed", function()
+  local f, calls = heldFeed()
+  local p = M().NewPayload(gain({ kind = "ITEM", id = 7, quality = 3 }))
+  assertEqual(f:Push("i:7", p), "queued")
+  local used = M().Absorb(f, gain({ kind = "APPEARANCE", id = 900, itemID = 7 }))
+  assertTrue(used, "the appearance is consumed")
+  assertTrue(p.newLook, "the item's payload gains the look")
+  assertEqual(p.highlight, "appearance")
+  assertEqual(table.concat(calls.repaint, ","), "i:7", "and the item's toast is repainted")
+  assertFalse(M().Absorb(f, gain({ kind = "APPEARANCE", id = 901, itemID = 8 })), "no toast for item 8")
+  assertFalse(M().Absorb(f, gain({ kind = "APPEARANCE", id = 902 })), "no item named")
+  f:Clear()
+end)
+
+test("ToastModel: Absorb lets an item take over a one-look appearance toast for it", function()
+  local f, calls = heldFeed()
+  assertEqual(f:Push("a", M().NewPayload(gain({ kind = "APPEARANCE", id = 900, itemID = 7 }))), "queued")
+  local used, look = M().Absorb(f, gain({ kind = "ITEM", id = 8 }))
+  assertFalse(used); assertEqual(look, nil, "another item leaves the appearance alone")
+  assertEqual(#calls.dismiss, 0)
+  used, look = M().Absorb(f, gain({ kind = "ITEM", id = 7 }))
+  assertFalse(used, "the item itself still pushes")
+  assertTrue(look, "with the look marked")
+  assertEqual(table.concat(calls.dismiss, ","), "a", "and the appearance toast is dismissed")
+  assertEqual(f:Get("a"), nil)
+  f:Clear()
+  -- A burst of looks under the one key is not one item's.
+  local g, calls2 = heldFeed()
+  local a = M().NewPayload(gain({ kind = "APPEARANCE", id = 900, itemID = 7, qty = 2 }))
+  g:Push("a", a)
+  local _, look2 = M().Absorb(g, gain({ kind = "ITEM", id = 7 }))
+  assertEqual(look2, nil, "two looks are not absorbed")
+  assertEqual(#calls2.dismiss, 0)
+  g:Clear()
+end)
+
+test("ToastModel: Absorb ignores every other kind and a missing feed", function()
+  local f = heldFeed()
+  assertFalse(M().Absorb(f, gain({ kind = "GOLD", qty = 5 })))
+  assertFalse(M().Absorb(nil, gain({ kind = "APPEARANCE", itemID = 7 })))
+  assertFalse(M().Absorb(NS.FeedStub, gain({ kind = "APPEARANCE", itemID = 7 })), "the stub answers no payload")
+  f:Clear()
 end)

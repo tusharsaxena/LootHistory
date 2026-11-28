@@ -70,6 +70,7 @@ NS.Perf = lib:New({
     { key = "repEvent" },       -- Reputation:OnStandingChanged (every kill that moves a standing, in combat)
     { key = "appearanceEvent" }, -- Appearance:OnSourceAdded / OnSourceRemoved (Retail; bursts on an ensemble)
     { key = "gainSend" },       -- GainFeed:Send (#38): the GAIN fan-out, every receiver inside it
+    { key = "toastPaint" },     -- the toast feeds' content call (#38, modules/ToastFeed.lua): present, merge, repaint, settle
     { key = "xpEvent" },        -- Progress:OnXP (every kill and quest that grants experience)
     { key = "skillScan" },      -- Progress's coalesced profession scan
   },

@@ -88,6 +88,7 @@ at once.
 | `Currency` | `Collector:OnChatMsgCurrency` | a currency recorded |
 | `Rep` | `modules/Reputation.lua`, `repEvent` | a reputation row written: `<faction> <+\|-><amount> (<standing label>) src=<source>`. A change that grows the faction's last row (coalesced) writes no line |
 | `Gain` | `modules/GainFeed.lua`, `Send` | one line per gain sent to the toast feeds (#38): `<kind> <dir> x<qty> src=<source> origin=<chat\|diff\|event> rec=<true\|false> gated=<reason\|nil>` |
+| `Feed` | `modules/ToastContent.lua`, `TC.Content` (the toast feeds' `content` call, #38); LibKa0s-Feed-1.0 through each feed's `debug` sink | a secondary part of a toast row whose client read raised, which leaves that part empty: `content <kind> part=<line1\|price\|badge\|upgrade\|sub> failed: <error>`; and the library's own feed lines |
 | `Appearance` | `modules/Appearance.lua`, `appearanceEvent` (Retail) | an appearance row written: `<+\|-> <item name> src=<source> new=<true\|false>` |
 | `Money` | `Collector:OnChatMsgMoney` | a looted-gold `GOLD` row recorded (copper and source) |
 | `Attr` | `modules/Attribution.lua`; `modules/AttributionOut.lua` | a context stamp and its trigger; each consume, or `OTHER (INFERRED)` with no fresh context; encounter start and end; keystone start, completion, clear and re-arm; a hook's stamp `ignored: stood down`; for the ledger's loss side, an outbound stamp and its trigger (`stamp-out <reason> via <trigger>`, or `stamp-out <reason> ignored: stood down`) and an interaction frame opening or closing (`scope <name> open` or `closed`) |

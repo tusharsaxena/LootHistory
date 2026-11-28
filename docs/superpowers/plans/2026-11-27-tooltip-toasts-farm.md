@@ -89,7 +89,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M3.1 | Gain feed: one pre-gate tap (loot, currency, money, rep, appearance, XP, skill-ups) with a single bus message | done | `M3.1: Add the pre-gate gain feed, its taps and the progress observer` |
 | M3.2 | Feed host alignment: host is LibKa0s-Feed-1.0 (D24); spec aligned | done | `M3.2: Align the toast spec to LibKa0s-Feed-1.0` |
 | M3.3 | Feed seam + wiring: `core/FeedSetup.lua` (ten adopted majors), 3 Feed instances, slots + nudge, grow, alignment + icon side, merge, stack, pin on hover, clicks, combat, unlock (all through LibKa0s-Feed-1.0) | done: the GAIN subscription, held for the Feed's first-paint font fix (LibKa0s 6b586ddc, re-vendored in `M3.3: Re-vendor the Feed's first-paint font fix (LibKa0s 6b586ddc)`), landed in M3.3b with the live-paint tests (Push, Preview, Release drain, both clients) | `M3.3: Wire the toast feeds on LibKa0s-Feed-1.0, GAIN subscription held for a Feed fix`; `M3.3b: Subscribe the toast feeds to the gain feed` |
-| M3.4 | Row content: counts icons, price mode, ilvl badge, upgrade line, highlights + sounds, cap coloring, per-kind rows | todo | |
+| M3.4 | Row content: counts icons, price mode, ilvl badge, upgrade line, highlights + sounds, cap coloring, per-kind rows | done | `M3.4: Fill the toast rows: counts, prices, badge, upgrade, highlights and sounds` |
 | M3.5 | Styling overrides (skin by default) + motion (enter, fade, pulse, timer bar, smooth reposition), mapped onto the Feed's style and motion keys | todo | |
 | M3.6 | Settings (Toasts page, per-feed tabs), test toasts, Blizzard alert hiding (D25), disabled-state, perf, sim | todo | |
 | M3.7 | Docs + review pass + fixes; push M3 | todo | |

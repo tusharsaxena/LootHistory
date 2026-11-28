@@ -227,6 +227,97 @@ test("Toasts: a merged push the content then skips is not handed back twice", fu
   end)
 end)
 
+-- ── the highlight sounds (§8.3) ──────────────────────────────────────────────────────────────
+
+--- Run `fn(played, setNow)` with Compat.PlayMediaSound recorded, the mock clock (M.__now) under the case's control and
+--- the feeds' last-sound clock emptied before and after.
+local function withSounds(fn)
+  local Compat, played = NS.Compat, {}
+  local savedPlay, savedNow = Compat.PlayMediaSound, M.__now
+  local last = Toasts._lastSound
+  for k in pairs(last) do last[k] = nil end
+  Compat.PlayMediaSound = function(key) played[#played + 1] = key; return true end
+  M.__now = 100
+  local ok, err = pcall(fn, played, function(t) M.__now = t end)
+  Compat.PlayMediaSound, M.__now = savedPlay, savedNow
+  for k in pairs(last) do last[k] = nil end
+  if not ok then error(err, 0) end
+end
+
+local function mountSound(key)
+  local hl = NS.Util.DeepCopy(feedRow("main").hl)
+  hl.mountSound = key
+  return { main = { hl = hl } }
+end
+
+test("Toasts: a new highlighted toast plays its sound, at most once per C.TOAST_SOUND_GAP", function()
+  withFeeds(mountSound("Ka0s Chime"), function()
+    withSounds(function(played, setNow)
+      local f = fakeFeed("new", function(p) p.highlight = "mount" end)
+      withFake(f, function()
+        Toasts:OnGain(item(7))
+        assertEqual(table.concat(played, ","), "Ka0s Chime", "the content's highlight names the sound row")
+        setNow(100 + C.TOAST_SOUND_GAP)
+        Toasts:OnGain(item(8))
+        assertEqual(#played, 1, "a second one inside the gap is quiet")
+        setNow(100 + C.TOAST_SOUND_GAP + 0.01)
+        Toasts:OnGain(item(9))
+        assertEqual(#played, 2, "past the gap it plays again")
+      end)
+    end)
+  end)
+end)
+
+test("Toasts: a merged, queued or plain toast plays no sound, nor one whose sound row is None", function()
+  withFeeds(mountSound("Ka0s Chime"), function()
+    withSounds(function(played)
+      for _, res in ipairs({ "merged", "queued" }) do
+        withFake(fakeFeed(res, function(p) p.highlight = "mount" end), function() Toasts:OnGain(item(7)) end)
+      end
+      withFake(fakeFeed("new"), function() Toasts:OnGain(item(7)) end)
+      assertEqual(#played, 0)
+    end)
+  end)
+  withFeeds(mountSound(""), function()
+    withSounds(function(played)
+      withFake(fakeFeed("new", function(p) p.highlight = "mount" end), function() Toasts:OnGain(item(7)) end)
+      assertEqual(#played, 0, "the default None")
+    end)
+  end)
+end)
+
+test("Toasts: an appearance folds into its item's toast instead of a toast of its own", function()
+  withFeeds(nil, function()
+    if not C.FEATURE.appearances then return end
+    Toasts:OnGain(item(7, 1, 3))
+    local p = feed("main"):Get("i:7")
+    Toasts:OnGain({ kind = "APPEARANCE", dir = "IN", id = 900, itemID = 7, qty = 1, name = "Look" })
+    assertEqual(feed("main"):Get("a"), nil, "no appearance toast")
+    assertTrue(p.newLook, "the item's toast took the look")
+    assertEqual(feed("main"):Stats().waiting, 1)
+  end)
+end)
+
+test("Toasts: the descriptor's motion getter passes the counts settle through", function()
+  local d = Toasts._descriptor("main")
+  assertEqual(d.motion().settle, C.TOAST_COUNT_SETTLE)
+end)
+
+test("Toasts: the content closure is the toastPaint bracket around ToastContent", function()
+  local P, notes = NS.Perf, {}
+  local savedOn, savedNote = P.on, P.Note
+  P.on = true
+  P.Note = function(key) notes[#notes + 1] = key end
+  local ok, err = pcall(function()
+    local spec = { lines = { {}, {}, {} } }
+    Toasts._descriptor("main").content(spec, gold(500), "g")
+    assertEqual(spec.title, NS.Util.FormatMoney(500))
+  end)
+  P.on, P.Note = savedOn, savedNote
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(notes, ","), "toastPaint")
+end)
+
 -- ── clicks (§8.5) ────────────────────────────────────────────────────────────────────────────
 
 local function withClickSpies(fn)

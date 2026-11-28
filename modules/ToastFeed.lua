@@ -2,9 +2,11 @@ local _, NS = ...
 NS.Toasts = NS.Toasts or {}
 local Toasts = NS.Toasts
 local C = NS.Constants
--- Load-time upvalues: modules/ToastModel.lua and modules/ToastContent.lua load above (LootHistory.toc).
+-- Load-time upvalues: modules/ToastModel.lua and modules/ToastContent.lua load above, and
+-- core/PerfSetup.lua far above (LootHistory.toc; performance-§2).
 local M = NS.ToastModel
 local TC = NS.ToastContent
+local Perf = NS.Perf
 
 -- The toast feeds (#38, toast spec docs/superpowers/specs/2026-11-27-38-loot-toasts-design.md §8). The
 -- three feeds are LibKa0s-Feed-1.0 instances built through the seam (NS.NewFeed, core/FeedSetup.lua),
@@ -12,7 +14,9 @@ local TC = NS.ToastContent
 --
 --   * the GAIN receiver (Toasts:OnGain): each feed whose filter accepts a gain gets its own payload
 --     copy, pushed under the gain's merge key (the Feed does the merge, the queue and the drop),
---     subscribed to NS.MSG.GAIN on its private target `__gain`;
+--     subscribed to NS.MSG.GAIN on its private target `__gain`; an appearance and its item fold into
+--     one toast first (M.Absorb), and a new highlighted toast plays its sound (C.TOAST_SOUND_GAP);
+--   * the content closure, bracketed as the perf bucket `toastPaint` (performance-§2);
 --   * the click actions behind the Feed's onClick (shift/ctrl link, plain click opens History);
 --   * the combat rows "Toasts" (registered while any feed is enabled): lock, click-through, hold;
 --   * unlock and drag (session state, NS.State.toastUnlocked), the drag's nudge written through
@@ -27,10 +31,19 @@ Toasts._feeds = feeds      -- tests only
 
 local function prefix(fid) return "settings.toasts.feeds." .. fid .. "." end
 
+-- The Feed's content call for feed `fid`, Shape-A bracketed `toastPaint`: the Feed calls it on present,
+-- merge, repaint and the settle re-read, never per frame; the lazy price and extras reads sit inside.
+local function paint(fid, spec, p, key)
+  local t0 = Perf.on and debugprofilestop()
+  local res = TC.Content(fid, spec, p, key)
+  if t0 then Perf.Note("toastPaint", debugprofilestop() - t0) end
+  return res
+end
+
 local function descriptor(fid)
   return {
     name    = "LootHistoryToastFeed_" .. fid,
-    content = function(spec, p, key) return TC.Content(fid, spec, p, key) end,
+    content = function(spec, p, key) return paint(fid, spec, p, key) end,
     merge   = M.Merge,
     layout  = function() return M.LayoutFor(fid) end,
     motion  = function() return M.MotionFor(fid) end,
@@ -50,23 +63,46 @@ function Toasts.Feed(_, fid) return feeds[fid] end
 
 -- ── The receiver (§8.3) ──────────────────────────────────────────────────────────────────────
 
--- One push of `g` into feed `fid`. A refused push hands its payload back to the spare list, unless
--- the merge reducer already did (a merged payload whose content skipped it): a freed payload is
--- wiped, so it has no kind left.
-local function pushInto(feed, g)
+local lastSound = {}        -- fid -> GetTime() of its last highlight sound
+Toasts._lastSound = lastSound   -- tests only
+
+-- A new toast's highlight sound (§8.3): the highlight the content found (p.highlight), its sound row
+-- set, and the feed's last sound more than C.TOAST_SOUND_GAP ago.
+local function playHighlight(fid, cfg, p)
+  local name = p.highlight
+  local key = name and type(cfg.hl) == "table" and cfg.hl[name .. "Sound"]
+  if type(key) ~= "string" or key == "" then return false end
+  local now, last = GetTime(), lastSound[fid]
+  if last and now - last <= C.TOAST_SOUND_GAP then return false end
+  if not NS.Compat.PlayMediaSound(key) then return false end
+  lastSound[fid] = now
+  return true
+end
+
+-- One push of `g` into feed `fid`, after the appearance absorb. A refused push hands its payload back
+-- to the spare list, unless the merge reducer already did (a merged payload whose content skipped
+-- it): a freed payload is wiped, so it has no kind left.
+local function pushInto(fid, feed, cfg, g)
+  local absorbed, look = M.Absorb(feed, g)
+  if absorbed then return "absorbed" end
   local key = M.Key(g)
   if not key then return nil end
   local p = M.NewPayload(g)
+  if look then p.newLook, p.highlight = true, "appearance" end
   local res = feed:Push(key, p)
-  if res == false and p.kind ~= nil then M.FreePayload(p) end
+  if res == "new" then
+    playHighlight(fid, cfg, p)
+  elseif res == false and p.kind ~= nil then
+    M.FreePayload(p)
+  end
   return res
 end
 
 --- The GAIN handler: every feed that accepts `g`, in feed order.
 function Toasts.OnGain(_, g)
   for _, fid in ipairs(C.TOAST_FEEDS) do
-    local feed = feeds[fid]
-    if feed and M.Accepts(M.Config(fid), g) then pushInto(feed, g) end
+    local feed, cfg = feeds[fid], M.Config(fid)
+    if feed and M.Accepts(cfg, g) then pushInto(fid, feed, cfg, g) end
   end
 end
 

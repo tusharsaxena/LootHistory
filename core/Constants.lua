@@ -238,6 +238,24 @@ C.TOAST_SLOTS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTT
 C.TOAST_NUDGE_MAX = 600     -- = LibKa0s-Feed-1.0 NUDGE_MAX; the nudge sliders' range, either way
 C.TOAST_SHOWN_MAX = 10      -- = Feed SHOWN_MAX; the "Shown at once" slider's top
 C.TOAST_COUNT_SETTLE = 0.5  -- motion.settle: one more content call this long after the paint (client-quirks-§3)
+C.TOAST_SOUND_GAP = 1       -- s: at most one highlight sound per feed in this long (toast spec §8.3)
+-- The upgrade rule's slots (toast spec §7.4, T13): an equip location's inventory slots. A two-slot
+-- location compares against the lower equipped item level. The ranged locations sit in slot 18 on
+-- WoW Forever (its ranged slot) and in the main hand on Retail, which has no slot 18 item.
+C.EQUIP_LOC_SLOTS = { INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CLOAK = { 15 },
+  INVTYPE_CHEST = { 5 }, INVTYPE_ROBE = { 5 }, INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 }, INVTYPE_WAIST = { 6 },
+  INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 }, INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 },
+  INVTYPE_WEAPON = { 16, 17 }, INVTYPE_2HWEAPON = { 16 }, INVTYPE_WEAPONMAINHAND = { 16 },
+  INVTYPE_WEAPONOFFHAND = { 17 }, INVTYPE_SHIELD = { 17 }, INVTYPE_HOLDABLE = { 17 } }
+do
+  local ranged = NS.Compat.ClientKey() == "forever" and 18 or 16
+  C.EQUIP_LOC_SLOTS.INVTYPE_RANGED, C.EQUIP_LOC_SLOTS.INVTYPE_RANGEDRIGHT = { ranged }, { ranged }
+end
+-- The armor subclass each class wears on Retail (1 cloth, 2 leather, 3 mail, 4 plate), the upgrade
+-- rule's armor gate. WoW Forever classes change armor type at level 40, so there the equipped
+-- piece's subclass is the reference instead (T13).
+C.CLASS_ARMOR = { WARRIOR = 4, PALADIN = 4, DEATHKNIGHT = 4, HUNTER = 3, SHAMAN = 3, EVOKER = 3, ROGUE = 2,
+                  DRUID = 2, MONK = 2, DEMONHUNTER = 2, PRIEST = 1, MAGE = 1, WARLOCK = 1 }
 -- The icon of a kind that has no item or currency icon of its own (game art, toast spec §7.4).
 C.TOAST_KIND_ICON = {
   GOLD       = "Interface\\Icons\\INV_Misc_Coin_01",

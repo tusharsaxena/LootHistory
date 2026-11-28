@@ -726,7 +726,7 @@ Total.
 - CompatGain: alert suppression records and restores exactly the registered events, in order
 - Progress: each owner's rows are registered only while the gain feed wants its kind
 
-### test_toast_model.lua (24)
+### test_toast_model.lua (27)
 
 - ToastModel: C.TOAST_SLOTS, TOAST_NUDGE_MAX and TOAST_SHOWN_MAX equal the Feed's own
 - ToastModel: Config flattens a feed's settings, kinds keyed by GainKind
@@ -752,6 +752,31 @@ Total.
 - ToastContent: an item with no icon falls back to the client, then the question mark
 - ToastContent: money, experience and reputation take the kind art and their own titles
 - ToastContent: a payload of no known kind is skipped
+- ToastModel: Absorb folds a new appearance into its item already on the feed
+- ToastModel: Absorb lets an item take over a one-look appearance toast for it
+- ToastModel: Absorb ignores every other kind and a missing feed
+
+### test_toast_content.lua (19)
+
+- ToastContent: an item's badge is its level, read once and only while the feed shows it
+- ToastContent: reputation draws its delta, its standing as the prefix and its progress
+- ToastContent: experience draws its level, the percent through it, and a level-up
+- ToastContent: a skill-up draws its name, the new rank and the rise
+- ToastContent: a kind color is the skin's owner token while FromSkin, else the swatch
+- ToastContent: an item's counts come from the tally while the ledger is on, as marks
+- ToastContent: with the ledger off, an item's counts are the client's live ones
+- ToastContent: money reads the purse, and the warband's stored money where there is one
+- ToastContent: a currency's cap turns warn at 70% and bad at 90%
+- ToastContent: a cap on total earned reads earned; no cap reads the quantity
+- ToastContent: the five price modes, with and without an AH price
+- ToastContent: prices are cached on the payload, and a recorded gain reuses its row's price
+- ToastContent: Upgrade compares a worn armor type against the equipped item level
+- ToastContent: Upgrade matches a weapon's subclass and a two-slot item takes the lower level
+- ToastContent: Upgrade refuses Poor over better and Common over above-Common
+- ToastContent: an upgrade draws its line and the upgrade highlight
+- ToastContent: the highlight is the first switched-on one of mount, legendary, upgrade, appearance
+- ToastContent: an appearance, and an item with a new look, carry the sub line
+- ToastContent: a raising client read leaves its line empty and never raises
 
 ### test_reconciler.lua (20)
 
@@ -2360,7 +2385,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_toast_feed.lua (29)
+### test_toast_feed.lua (34)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
 - Toasts: an idle feed is asleep
@@ -2370,6 +2395,11 @@ Total.
 - Toasts: the minimum quality and hidden sources are the feed's own
 - Toasts: a refused push hands its payload back to the spare list
 - Toasts: a merged push the content then skips is not handed back twice
+- Toasts: a new highlighted toast plays its sound, at most once per C.TOAST_SOUND_GAP
+- Toasts: a merged, queued or plain toast plays no sound, nor one whose sound row is None
+- Toasts: an appearance folds into its item's toast instead of a toast of its own
+- Toasts: the descriptor's motion getter passes the counts settle through
+- Toasts: the content closure is the toastPaint bracket around ToastContent
 - Toasts: shift- and ctrl-click hand the link to the client; a currency builds its link
 - Toasts: a plain left click opens History on the gain; other buttons do nothing
 - Toasts: the combat rows are registered while any feed is enabled
@@ -2866,7 +2896,8 @@ Total.
 | test_appearance.lua | 17 |
 | test_gain_feed.lua | 14 |
 | test_progress.lua | 12 |
-| test_toast_model.lua | 24 |
+| test_toast_model.lua | 27 |
+| test_toast_content.lua | 19 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -2926,7 +2957,7 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
-| test_toast_feed.lua | 29 |
+| test_toast_feed.lua | 34 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
@@ -2951,4 +2982,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2492** |
+| **Total** | **2519** |

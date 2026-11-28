@@ -65,7 +65,7 @@ end
 
 test("perf: the buckets are declared in report order", function()
   assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent,appearanceEvent,"
-    .. "gainSend,xpEvent,skillScan")
+    .. "gainSend,toastPaint,xpEvent,skillScan")
 end)
 
 test("perf: every declared bucket is reached by a real bracket", function()

@@ -17,6 +17,7 @@ local C = NS.Constants
 --   M.NewPayload(g)      a copy of the reused GAIN scratch (the Feed stores a payload untouched)
 --   M.FreePayload(p)     wiped back onto the spare list
 --   M.Merge(old, new)    the descriptor's `d.merge` reducer: sums into `old`, frees `new`
+--   M.Absorb(feed, g)    a new appearance folded into its item's toast, either order
 --
 -- Binds NS.Constants at load only; everything else (the profile, GainFeed.FIELDS) at call time.
 
@@ -235,4 +236,35 @@ function M.Merge(old, new)
   old.highlight = old.highlight or new.highlight
   M.FreePayload(new)
   return old
+end
+
+-- ── Absorbing an appearance into its item (§7.3) ─────────────────────────────────────────────
+
+local function itemKey(id) return "i:" .. tostring(id) end
+
+--- Fold an appearance and the item that taught it into one toast on `feed`. An APPEARANCE gain whose
+--- item is already on the feed marks that item's payload (a new look, the appearance highlight) and
+--- repaints it: answers true, the gain is consumed. An ITEM gain arriving while the feed's appearance
+--- toast names that item, one look only, dismisses the appearance toast: answers false, true (push
+--- the item with the look marked). Anything else answers false. `Repaint` carries no pulse (Feed
+--- doc), so an absorb shows as the glow and the extra line.
+function M.Absorb(feed, g)
+  if not (feed and type(g) == "table") then return false end
+  if g.kind == C.GainKind.APPEARANCE then
+    if g.itemID == nil then return false end
+    local key = itemKey(g.itemID)
+    local p = feed:Get(key)
+    if type(p) ~= "table" then return false end
+    p.newLook, p.highlight = true, "appearance"
+    feed:Repaint(key)
+    return true
+  end
+  if g.kind == C.GainKind.ITEM and g.id ~= nil then
+    local a = feed:Get("a")
+    if type(a) == "table" and a.itemID == g.id and tonumber(a.qty) == 1 then
+      feed:Dismiss("a")
+      return false, true
+    end
+  end
+  return false
 end
