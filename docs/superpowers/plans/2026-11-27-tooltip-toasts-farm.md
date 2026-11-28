@@ -92,7 +92,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M3.4 | Row content: counts icons, price mode, ilvl badge, upgrade line, highlights + sounds, cap coloring, per-kind rows | done | `M3.4: Fill the toast rows: counts, prices, badge, upgrade, highlights and sounds` |
 | M3.5 | Styling overrides (skin by default) + motion (enter, fade, pulse, timer bar, smooth reposition), mapped onto the Feed's style and motion keys | done | `M3.5: Map the toast style and motion onto the Feed, register the kind tokens` |
 | M3.6 | Settings (Toasts page, per-feed tabs), test toasts, Blizzard alert hiding (D25), disabled-state, perf, sim | done | `M3.6: Add the Toasts settings page, test toasts and Blizzard alert hiding` |
-| M3.7 | Docs + review pass + fixes; push M3 | done (push by lead) | `M3.7: Document the loot toasts across the docs and smoke checks`, `M3.7: Review fixes` |
+| M3.7 | Docs + review pass + fixes; push M3 | done (pushed) | `M3.7: Document the loot toasts across the docs and smoke checks`, `M3.7: Review fixes` |
 | M4.0 | Standards upstream: `WINDOW_PERSISTENT` T4 key (frame-layering-§1, v2.122.0) + Loot History launcher column `Farm session` (ADDONS.md, v2.122.1) | done | WowAddonStandards `feat/2026-11-27-lh-farm-standard` (`e171172`, `ed98e68`), pushed |
 | M4.1 | Farm session model: start/pause/resume/finish, clock, AFK + idle, logout finishes, reload keeps, tallies, costs, activity, log cap, storage + cap | todo | |
 | M4.2 | Companion panel (headline, numbers, activity, buttons, minimize, paused view) | todo | |
