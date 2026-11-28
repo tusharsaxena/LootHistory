@@ -67,6 +67,10 @@ db.profile = {
                          font = "", texture = "",                     -- its Font and texture: "" = the skin's own
                          outline = "hud",                             -- its Font outline: "all", "hud" or "off"
                          pickerSeen = false },                        -- the first-run skin picker was closed
+    toasts           = {       -- the loot toast feeds (#38; the Toasts page, settings/SchemaToasts.lua)
+      hideAlerts = false,      --   hide Blizzard's loot and money alert toasts (page-wide)
+      feeds = { main = {...}, progress = {...}, extra = {...} },  -- one table per feed, the same leaves
+    },                         --   in each; main ships enabled, the other two off (see The Toasts rows)
     window           = {},     -- persisted position/size (named non-setting state, see below)
     auction = {
       enabled = true,          -- master AH-pricing switch (Schema row)
@@ -312,7 +316,7 @@ The deep-copy (the library's, on every stored write) matters for the two table-v
 
 ### The rows
 
-A row's `page` is the canvas subcategory it is edited on, its `group` is the tab within that page (options-ui-§13), its optional `subgroup` is a subsection heading inside a tab (options-ui-§7), and its `path` is where the value is stored: four independent facts. Every row today is on the General page, and the sixth tab, Filters, holds none. How the page draws them is in [settings-panel.md](settings-panel.md).
+A row's `page` is the canvas subcategory it is edited on, its `group` is the tab within that page (options-ui-§13), its optional `subgroup` is a subsection heading inside a tab (options-ui-§7), and its `path` is where the value is stored: four independent facts. The forty rows below are on the General page, and the sixth tab, Filters, holds none; the Toasts page's rows are under [The Toasts rows](#the-toasts-rows). How the pages draw them is in [settings-panel.md](settings-panel.md).
 
 | Path | Page > Tab | Widget | Default | Notes |
 |---|---|---|---|---|
@@ -352,6 +356,30 @@ A row's `page` is the canvas subcategory it is edited on, its `group` is the tab
 | `settings.appearance.texture` | General > Skin | (the library's Skin tab, Font and texture; `skipRender`) | `""` | **Texture**: a LibSharedMedia status bar key for every bar of data (`NS.SkinBar`), or `""` for the skin's own bar texture. Its `onChange` calls `NS.ApplySkinOverride(nil, value)`, live. |
 | `settings.appearance.outline` | General > Skin | (the library's Skin tab, Font outline; `skipRender`) | `"hud"` | **Font outline** (LibKa0s v1.82.0, Skin minor 9, ruling D-06; the default moved from `"all"` in v1.83.0, a stored mode stays): where the skin outlines this addon's text, `"all"` text, `"hud"` text only, or `"off"`; `/lh set` refuses any other value. Written by the tab and by another addon's copy through the write seam's `media.outline`; its `onChange` calls `NS.ApplySkinOutline(value)` (`Skin:SetOutline`), live, and the stored mode is applied with the skin at login and on every profile event. **Ignore fonts** wins over it. |
 | `settings.appearance.pickerSeen` | General > Skin | (drawn by nothing; `skipRender`) | `false` | The first-run skin picker was closed on this profile (`core/SkinSetup.lua` `NS.MaybeShowSkinPicker`). Written `true` by the picker's `onClose`: Apply, the gear, the close control or Escape, or another Ka0s addon's **Apply to all Ka0s addons** dismissing it while it was queued; a new or reset profile starts `false`, so it shows the picker once. |
+
+### The Toasts rows
+
+The **Toasts** page (#38, toast spec §9) holds 226 rows: 75 for each of the three feeds and one page-wide. `settings/SchemaToasts.lua` builds them from **one per-feed builder** (`ST.FeedRows`), so every feed emits the same leaves in the same order; `NS.SchemaToasts.Rows()` answers `main`, `progress` and `extra` in that order, then the page-wide row, and `settings/Schema.lua` appends that array to its own before the runtime is built. Each feed row has `path = "settings.toasts.feeds.<fid>.<leaf>"`, `page = "Toasts"`, **`feed = <fid>`** (the stamp the page's banner filters on: the descriptor's `rowsForPage` keeps the rows whose `feed` is the banner's pick, plus the unstamped page-wide row) and a default read from `defaults/Profile.lua`'s `settings.toasts.feeds[fid]`. Every `onChange` sends `SettingsChanged("toasts")`, the composer rows' too, and the Screen slot row also sets `grow` to the slot's direction and clears the nudge. The slash CLI reaches every row as an ordinary path, for example `/lh set settings.toasts.feeds.progress.enabled true`.
+
+| Tab | Rows per feed | What |
+|---|---|---|
+| General | 7 | `enabled`; *Placement*: `slot` (nine slots, `C.TOAST_SLOTS`), the nudge `x` / `y` (±`C.TOAST_NUDGE_MAX`, 600, the Feed's `NUDGE_MAX`), `grow`, `align`, `iconSide` |
+| Content | 21 | *Kinds on this feed*: `kinds.item`, `.money`, `.currency`, `.reputation`, `.appearance` (Retail), `.xp`, `.skill`; *Details*: `price` (none, vendor, ah, both, highest), `ilvl`, `counts`, `source`, `minQuality`, `hideSources` (a set, host-drawn); *Highlights and sounds*: `hl.mount`, `hl.legendary`, `hl.upgrade`, `hl.appearance` (Retail), each with its `…Sound` (a LibSharedMedia sound, `""` for none) |
+| Style | 35 | *Background*: `bgColor` with `bgColorFromSkin` and `useClassColorBgColor`, `bgType`, `bgColor2` with `useClassColorBgColor2`, `bgTexture`; *Border*: the `O.BorderGroup` rows and `borderByQuality`; *Text*: the `O.FontGroup` rows and `fontSize2`; *Size*: `width`, `rowHeight`, `iconSize`, `padding`, `gap`; *Kind colors*: `colors.xp`, `.rep`, `.skill`, each with its `…FromSkin` |
+| Motion | 7 | `enter` (the Feed's own words: `none`, `fade`, `left`, `right`, `up`, `down`), `enterTime`, `hold`, `fade`, `pulse`, `timerBar`, `smooth` |
+| Behavior | 5 | `shown` (up to `C.TOAST_SHOWN_MAX`, 10), `merge`, `showInCombat`, `clickThrough`, `pin`; then the page-wide `settings.toasts.hideAlerts` under *Hide Blizzard alerts (all feeds)*, drawn on every feed's tab |
+
+On WoW Forever the registry drops each feed's three appearance rows (`kinds.appearance`, `hl.appearance` and its sound; `clients = C.FEATURE_CLIENTS.appearances`). The defaults: Main is enabled at Bottom Right, nudged (-220, 180), growing up, with every kind; Progress (reputation, experience and skill-ups) sits at Top Center growing down, and the Third feed (every kind) at Top Left; both ship off. Every `FromSkin` companion defaults true, so a new feed wears the skin. These are new keys with defaults, so AceDB merges them into every profile and no migration is owed. `tests/test_panel_toasts.lua` pins the leaves per feed (equal across feeds, each with a default equal to the row's), and `tests/test_schema.lua`'s `PARTITION` pins the per-tab totals.
+
+**The leaves the Feed reads.** `NS.ToastModel`'s three getters turn a feed's leaves into the Feed descriptor's tables, one reused table per feed, read by the Feed only when it builds and on `Refresh()`:
+
+| Getter | Feed key ← profile leaf |
+|---|---|
+| `M.LayoutFor` | `slot`, `x`, `y`, `shown`, `width`, `rowHeight`, `iconSize`, `padding`, `gap`, `align`, `iconSide` ← the same leaves; `grow` ← `"DOWN"` when the leaf is `"down"`, else `"UP"` |
+| `M.MotionFor` | `enter` ← `enter` (a word outside the six is left out, so the Feed's default applies); `enterTime`, `hold`, `pulse`, `timerBar`, `smooth`, `pin` ← the same leaves; `fadeTime` ← `fade`; `mergeWindow` ← `merge`; `rightDismiss` ← `true` (not a setting, D14); `settle` ← `C.TOAST_COUNT_SETTLE` |
+| `M.StyleFor` | the background, border and font leaves under their own names (`bgColorFromSkin`, `bgType`, `bgColor`, `bgColor2`, `bgTexture`, `borderStyleFromSkin`, `borderStyle`, `borderSize`, `borderColorFromSkin`, `borderColor`, `fontFromSkin`, `font` (left out when `""`), `fontSize`, `fontSize2`, `fontFlags`, `fontShadowFromSkin`, `fontShadow`, `fontColorFromSkin`, `fontColor`); `borderTint` ← `borderByQuality`; `borderClass` ← `useClassColorBorder`; `fontClass` ← `useClassColorFont`; `fontSizeFromSkin` ← `false`, so the stored sizes draw. The Feed has no class fill, so the getter resolves `useClassColorBgColor` (and `useClassColorBgColor2` for the gradient end) itself: a resolved class color is passed as `bgColor` with `bgColorFromSkin` off. The countdown bar and glow keys are left out, so the Feed draws them from the skin |
+
+The kind colors are not Feed style: `NS.ToastContent` reads `colors.<kind>` (or the owner token `lh.toast.<kind>` while its `FromSkin` is on) into the row's title color.
 
 ### State outside the rows
 
@@ -490,6 +518,8 @@ The reset surfaces write these tables. Since profiles arrived, the global reset 
 | **Profiles → Reset Profile** | AceDBOptions' own button on the Profiles page | ✓ | ✓ | ✓ | ✓ | — | — | — |
 | **Position only** | **Reset position** (Master controls) | — | — | — | ✓ (`Browser:ResetWindow`) | — | — | — |
 | **Single** | `/lh reset <path>` (`Sl:CliReset`) | one row | — | — | — | — | if named | if named |
+| **Toasts page** | the Toasts page's **Defaults** (`O.RestoreDefaults("Toasts")`) | the Toasts rows of all three feeds and `settings.toasts.hideAlerts` | — | — | — | — | — | — |
+| **One feed** | **Reset feed…** on a feed's General tab → confirm (`KA0S_LOOTHISTORY_RESET_FEED`) | that feed's 75 rows, one bulk bracket | — | — | — | — | — | — |
 | **Purge** | `/lh purge` · **Purge history…** → confirm | — | — | — | — | ✓ | — | — |
 
 **The global reset is `db:ResetProfile()`, never a walk of the schema** (`options-ui-§12`). `Sl:CliResetAll` (`settings/Slash.lua`) calls the library's `O.RestoreAllDefaults`, over an Options descriptor that supplies `resetProfile` (`settings/OptionsSetup.lua`): the session-only rows (the debug console and test mode, whose storage is their own `set()`) are restored row by row, then `S.ResetProfile` (`settings/Schema.lua`) runs `db:ResetProfile()` inside the Schema runtime's `ResetCounted`, and every panel re-renders. AceDB empties the active profile in place and merges `defaults/Profile.lua` back, so every setting, the three id lists, the AH cascade, the saved views and the window geometry come back as a fresh profile has them, and `OnProfileReset` reaches the adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`), which re-applies them all. No other profile and not the profile list is touched. The veto the row walk honors is named once, `S.VetoedFromResetAll` (`settings/Schema.lua`): every stored row (the profile reset takes it) and anything on the Profiles page.

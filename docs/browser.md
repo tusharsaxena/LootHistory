@@ -343,6 +343,12 @@ The same switch fills the **Holdings** and **Timeline** tabs (timeline-ledger P6
 
 Test mode is session-only: it resets on `/reload` and is never persisted (Standard debug-logging-§5, same rule as the debug flag). It stays on until something turns it off (the box, `/lh test`, combat, **Reset all settings** or `/lh resetall`) and does not depend on Lock frame; closing the window leaves it on.
 
+The same switch reaches the **toast feeds** (#38): once `SetTestMode` has switched, it calls `NS.Toasts:SetTestMode(on)`. On, each enabled feed shows one sticky sample toast per kind it takes, through the same present and paint path a real gain takes, under the Feed's test strip, which reads *Test mode* (a running simulation's *Sim mode* strip wins over it); off, or at the start of combat, the samples and the strip go. Real gains still toast during test mode.
+
+## Opened from a toast (`B:ShowGain`)
+
+A plain left click on a toast (#38, ruling T12) calls `B:ShowGain(payload)` (`modules/BrowserViews.lua`): it shows the window, selects the History tab and puts the gain's name in Search (`Gold` for money), whether or not the gain wrote a row. The tab's other filters are left as they are, and the table has no scroll-to-row, so the search is the whole of the jump. It does nothing for an experience or skill-up toast, which has no row, and `B:Show`'s own refusals hold: nothing opens while the addon is stood down or the visibility setting forbids the window. A shift click on a toast links the item (or the currency) in chat and a ctrl click opens the dressing room; neither opens this window.
+
 ## Simulation marker (`/lh sim`)
 
 While the in-game simulator runs (LootHistory#37, [ARCHITECTURE.md § The simulator](ARCHITECTURE.md#the-simulator)), the window reads the session stores, and it wears the preview-mode marker in the simulation's own color so a simulated row is never mistaken for a real one. `B:UpdateTestStrip` marks each preview with its own strip, picking it and the badge's words and color by which one is on (`TEST_MARK` / `SIM_MARK`, `modules/Browser.lua`):

@@ -2,22 +2,23 @@
 
 All inter-module communication uses `AceEvent`-style messages with a fixed name set. The bus is `NS.bus` — the AceEvent-embedded addon object created in [`core/LootHistory.lua`](../core/LootHistory.lua). New entries belong here, in the module headers, and in the [module map](module-map.md). **Don't invent new messages without a reason** — the closed list is what keeps cross-module coupling auditable.
 
-## The four messages
+## The five messages
 
 | Message | Sender | Payload | Listeners |
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` | `Database:Add` **and** `Database:Amend` ([`core/Database.lua`](../core/Database.lua)) | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (coalesced repaint; never counted: the rollup's tallies come from the `Database:OnWrite` hook, because this message is re-sent on every amend) — Browser, Analytics and Timeline repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, one pass per 0.2s burst |
 | `Ka0s_LootHistory_HistoryChanged` | `Database` — `Delete` / `PruneOld` / `Purge` and the public `FireHistoryChanged` (called by `NS.Filters` on a blacklist/whitelist edit, to refresh the Filters settings tab's list UI) via `fireHistoryChanged`, plus `RepairBoundStates` sending directly on a productive pass ([`core/Database.lua`](../core/Database.lua)) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons), HoldingsTally (wipes its cache on `"ledger"` and `"profile"`), HoldingsTip (re-reads its hot-path settings cache on `"tooltip"`, `"ledger"` and `"profile"`), HoldingsAPI (fires `HoldingsChanged` with a nil holder when `"ledger"` or `"profile"` flips its availability), Reputation and Appearance (re-read their upvalues; register or drop their rows on `"reputation"` / `"appearance"` and `"profile"`) |
+| `Ka0s_LootHistory_SettingsChanged` | `Schema` — a row's `onChange`, or `S:AdoptProfile` on a profile event ([`settings/Schema.lua`](../settings/Schema.lua)) | `reason` string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (re-registers or drops its capture events on the `"ledger"` and `"profile"` reasons), HoldingsTally (wipes its cache on `"ledger"` and `"profile"`), HoldingsTip (re-reads its hot-path settings cache on `"tooltip"`, `"ledger"` and `"profile"`), HoldingsAPI (fires `HoldingsChanged` with a nil holder when `"ledger"` or `"profile"` flips its availability), Reputation and Appearance (re-read their upvalues; re-sync their rows on `"reputation"` / `"appearance"` and `"profile"`), GainFeed and Toasts (#38, on `"toasts"`, `"profile"` and `"enabled"`: GainFeed recomputes what the feeds want; Toasts drops its config snapshot and refreshes each feed) |
+| `Ka0s_LootHistory_Gain` | `GainFeed:Send` only ([`modules/GainFeed.lua`](../modules/GainFeed.lua), #38). Collector, Reputation, Appearance, Progress and the Reconciler's diff fill its payload and hand it over; none of them sends | `gain`, the one reused scratch table | Toasts (`OnGain`, on `Toasts.__gain`) |
 | `Ka0s_LootHistory_HoldingsChanged` | the Reconciler only (`modules/Reconciler.lua`): `Reconciler:Flush`, once per holder whose holdings moved in a flush, `Reconciler:ForgetHolder`, once for a forgotten character, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops (`modules/Sim.lua`) | `holder` key (`NS.Util.PlayerKey()` or `"§warband"`) | HoldingsTab (repaints while its pane is on screen), Timeline (the same coalesced repaint as above, only while its pane is visible), HoldingsTally (wipes its per-thing cache), HoldingsAPI (relays it to other addons as `HoldingsChanged`, except during a simulation) |
 
-Exactly one sender is allowed per message — the table is sender-authoritative. `HoldingsChanged` keeps its one sender, the Reconciler, even for "Forget this character": `Holdings:ForgetHolder` and `Rollup:ForgetHolder` do the dropping, and `Reconciler:ForgetHolder` announces it.
+Exactly one sender is allowed per message — the table is sender-authoritative. `Gain` keeps its one sender the same way `HistoryChanged` does: the observers call `GainFeed:Begin` and `GainFeed:Send` (or the `SendChat` / `SendEvent` helpers over it), just as `NS.Filters` calls `Database:FireHistoryChanged`, and `tests/test_gain_feed.lua` scans `modules/` for any other `SendMessage(NS.MSG.GAIN`. `HoldingsChanged` keeps its one sender, the Reconciler, even for "Forget this character": `Holdings:ForgetHolder` and `Rollup:ForgetHolder` do the dropping, and `Reconciler:ForgetHolder` announces it.
 
 **The daily rollup is not a bus receiver.** `modules/Rollup.lua` takes its closes from `NS.Holdings`' write methods and its gained/lost tallies from `NS.Database:OnWrite`, a synchronous hook, so it holds no message registration and no event, and the disabled-state survey has nothing of it to find (see [data-flow.md](data-flow.md#daily-rollup)).
 
 ## Declared once, as `NS.MSG`
 
-Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua) (this addon has no `core/Bus.lua`), and every `SendMessage` / `RegisterMessage` in the addon names the constant — `NS.MSG.RECORD_ADDED`, `NS.MSG.HISTORY_CHANGED`, `NS.MSG.SETTINGS_CHANGED`, `NS.MSG.HOLDINGS_CHANGED` — never the literal (`architecture-§4`). The table is passed through **`LibKa0s-Bus-1.0`'s `Catalog`**, which checks the names at load and answers a strict copy: reading an undeclared key raises, so a mistyped constant fails at the call site for a sender as well as a receiver. Only `Catalog` is used. The receivers stay untracked on `NS.NewBusTarget()` (below), so the major's stand-down record (`New`) is not adopted. With the library absent, `core/Constants.lua` falls back to a stub `Catalog` that returns the plain table: the names are the same and only the strictness is lost. `tests/test_constants.lua` pins each wire string by driving its real sender, and it scans every TOC file for a stray literal.
+Each name is declared **once**, in [`core/Constants.lua`](../core/Constants.lua) (this addon has no `core/Bus.lua`), and every `SendMessage` / `RegisterMessage` in the addon names the constant — `NS.MSG.RECORD_ADDED`, `NS.MSG.HISTORY_CHANGED`, `NS.MSG.SETTINGS_CHANGED`, `NS.MSG.HOLDINGS_CHANGED`, `NS.MSG.GAIN` — never the literal (`architecture-§4`). The table is passed through **`LibKa0s-Bus-1.0`'s `Catalog`**, which checks the names at load and answers a strict copy: reading an undeclared key raises, so a mistyped constant fails at the call site for a sender as well as a receiver. Only `Catalog` is used. The receivers stay untracked on `NS.NewBusTarget()` (below), so the major's stand-down record (`New`) is not adopted. With the library absent, `core/Constants.lua` falls back to a stub `Catalog` that returns the plain table: the names are the same and only the strictness is lost. `tests/test_constants.lua` pins each wire string by driving its real sender, and it scans every TOC file for a stray literal.
 
 ## `Ka0s_LootHistory_RecordAdded` payload
 
@@ -52,6 +53,20 @@ Four receivers, each on its own private target:
 
 The payload is a hint, not a patch: a receiver re-reads `NS.Holdings`.
 
+## `Ka0s_LootHistory_Gain` payload
+
+Fired once per gain the addon observes (#38 D6), **before** the capture filters and the minimum quality: an item, money or currency loot line whether or not it wrote a row, a reputation change, an appearance collected (Retail), experience and a profession skill-up, and a gain the holdings diff found with no chat line. Toasts, which are not records, are its only receiver today; the farm session (#39) enters through `GainFeed:SetFarm`.
+
+The payload is **one scratch table**, reused for every send: `GainFeed:Begin(kind)` sets every field in `GainFeed.FIELDS` to nil (a loop, no allocation), then `kind`, `dir = "IN"` and `sim` (`NS.Sim:IsActive()`). It is valid only during the synchronous send, so a receiver copies what it keeps (`ToastModel.NewPayload`). The fields:
+
+- `kind`: `ITEM`, `GOLD`, `CURRENCY`, `REPUTATION`, `APPEARANCE`, `XP` or `SKILL` (`C.GainKind`; the first five equal the `C.Kind` strings, and `XP` and `SKILL` are never record kinds). `dir` is `"OUT"` only for a reputation loss.
+- `id` (item, currency, faction, appearance source or skill line; none for money or experience), `qty` (always positive: the count, copper, the reputation amount, the experience or the ranks risen), `link`, `name`, `quality`, `icon`, `classID`.
+- `source`, `sourceDetail`, `confidence`, as attribution answered them; `origin` is `"chat"`, `"diff"` or `"event"`.
+- `recorded` (the capture path wrote a History row for it), `record` (that row), `gated` (the drop reason when it did not: `quality`, `blacklist`, `recordCurrency-off`, ...).
+- Per kind: `label`, `rank`, `standing`, `threshold`, `repType`, `accountWide` (reputation); `itemID`, `newLook` (appearance); `level`, `levelUp`, `cur`, `max` (experience); `old`, `new`, `max` (skill-up).
+
+**The observers never send.** Each tap is `if GainFeed.on and GainFeed.wants.K then ... end` over a load-time upvalue of `NS.GainFeed`, so while no enabled feed takes a kind its tap costs one field test (events-frames-taint-§7). A chat gain that wrote no row posts a **feed claim** through `GainFeed:SendChat` while the ledger is on, and the holdings diff's `GainFeed:FromDiff` consumes it, so the same gain does not reach the feeds twice ([data-flow.md](data-flow.md#the-gain-feeds-taps-38)).
+
 ## `Ka0s_LootHistory_SettingsChanged` payload
 
 Sent from nineteen schema-row `onChange` handlers in [`settings/Schema.lua`](../settings/Schema.lua) (eighteen on WoW Forever, where the registry drops the Record appearances row), carrying twelve distinct `reason` strings between them:
@@ -63,7 +78,9 @@ Sent from nineteen schema-row `onChange` handlers in [`settings/Schema.lua`](../
 - `"chrome"` (`settings.scale`, `settings.alpha` and `settings.locked`, so the Browser re-applies the addon-wide chrome to both of its frames);
 - `"tooltip"` (the five `settings.tooltip.*` rows, #34).
 
-A thirteenth, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The reason lets a subscriber branch; the Collector and the Browser re-read everything on any reason, the Reputation and Appearance owners re-read their upvalues on any reason and toggle their rows only on theirs, and the other four consumers act only on theirs:
+Every row on the **Toasts** page (`settings/SchemaToasts.lua`, #38) sends a thirteenth, `"toasts"`, whichever feed or setting it is.
+
+A fourteenth, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The reason lets a subscriber branch; the Collector and the Browser re-read everything on any reason, the Reputation and Appearance owners re-read their upvalues on any reason and toggle their rows only on theirs, and the other six consumers act only on theirs:
 
 - **Collector** (`modules/Collector.lua`) calls `RefreshUpvalues()`, re-caching `qualityThreshold` / `excludeQuestItems` / `recordCurrency` / `excludedSources` (and the id lists) off the settings table so the `CHAT_MSG_LOOT` and `CHAT_MSG_CURRENCY` hot paths never touch the DB.
 - **Browser** (`modules/Browser.lua`) calls `OnSettingsChanged()` to reflect the change in the open window. On a profile event the adopt path has already called `B:AdoptProfile` directly, for what the window reads from the profile outside the chrome (geometry, saved view, row height).
@@ -72,6 +89,8 @@ A thirteenth, `"profile"`, comes from the same module but not from a row: `S:Ado
 - **HoldingsTally** (`modules/HoldingsTally.lua`) wipes its cache on `"ledger"` and `"profile"`.
 - **HoldingsTip** (`modules/HoldingsTip.lua`) re-reads the five tooltip rows and `trackLedger` into its hot-path cache on `"tooltip"`, `"ledger"` and `"profile"`, which also invalidates every replay memo.
 - **HoldingsAPI** (`modules/HoldingsAPI.lua`) re-checks its availability on `"ledger"` and `"profile"` and, when it flipped, fires `HoldingsChanged` with a nil holder.
+- **GainFeed** (`modules/GainFeed.lua`, #38, its `__ev` target) runs `Recompute` on `"toasts"`, `"profile"` and `"enabled"`: which kinds an enabled feed takes, then each observer's `SyncCapture` (Reputation, Appearance and Progress register or drop their rows) and `ToastBlizz.Apply`.
+- **Toasts** (`modules/ToastFeed.lua`, #38, its `__ev` target) runs `RefreshConfig` on the same three: the config snapshot is dropped, each feed's `Refresh()` re-reads its layout, motion and style getters, and the combat rows follow the enabled set.
 
 ### What does NOT broadcast
 
@@ -99,10 +118,12 @@ Because multiple consumers subscribe to the same messages — `HistoryChanged` h
 - Analytics — `self.__ev = NS.NewBusTarget()` (`modules/Analytics.lua`, `Analytics:Enable`).
 - Reconciler — **two** targets: `self._settings` hears `SettingsChanged("ledger" | "profile")` for as long as the addon is up, so ticking `trackLedger` back on can re-register; `self.__ev` carries the capture events and exists only while the setting is on (`modules/Reconciler.lua`).
 
-The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector), on `Attribution.__outEv` (AttributionOut) and on the Reconciler's `__ev`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
+The capture **game events** are not on this list: they are rows of `NS.EVENT_ROWS` (`core/Dispatch.lua`), registered through `NS.RegisterRows` on the bus (Attribution, Collector, Reputation, Appearance, Progress), on `Attribution.__outEv` (AttributionOut), on the Reconciler's `__ev` and on `Toasts.__rows`; see [ARCHITECTURE.md](ARCHITECTURE.md#event-subscriptions). Messages never go through the row table.
 - HoldingsTab — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` (`modules/HoldingsTab.lua`).
 - Timeline — `self.__ev = NS.NewBusTarget()`, for `HoldingsChanged` and `RecordAdded` (`modules/Timeline.lua`).
 - HoldingsTally, HoldingsTip and HoldingsAPI — one `self.__ev = NS.NewBusTarget()` each, in their `Enable` (`modules/HoldingsTally.lua`, `modules/HoldingsTip.lua`, `modules/HoldingsAPI.lua`, #34).
+- GainFeed — `self.__ev = NS.NewBusTarget()`, for `SettingsChanged` (`modules/GainFeed.lua`, `GainFeed:Enable`, #38).
+- Toasts — **two** message targets: `self.__gain` for `Gain` and `self.__ev` for `SettingsChanged` (`modules/ToastFeed.lua`, `Toasts:Enable`, #38). A third, `self.__rows`, carries only its two combat event rows, kept off the AceAddon target because Progress holds `PLAYER_REGEN_ENABLED` there.
 - Panel — `local ev = NS.NewBusTarget()`, **twice**: the History tab's storage readout (`settings/Panel.lua`, `renderHistory`) and the Filters tab's id-lists (`settings/Panel.lua`, `buildFiltersTab`), each on its own target.
 
 Only the *senders* use `NS.bus` directly (`NS.bus:SendMessage(...)`); every *receiver* goes through its private target.

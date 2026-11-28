@@ -160,6 +160,23 @@ drops them on a stand-down and `Reputation:ResetState` cancels them by handle:
 | `NS.After(2, …)` | `modules/Reputation.lua`, `Reputation:EnableCapture` | The first seed of the baseline (`Reputation:Seed`, one `Compat.ListFactions` walk), once each time the capture comes up. Cancelable. |
 | `NS.After(C.REP_SEED_RETRY, …)` | `modules/Reputation.lua`, `Reputation:Seed` | Only when a seed comes due in combat: the walk expands the Reputation panel's headers, which is UI state, so it re-arms once per 5 s until combat ends, one at a time (the earlier handle is canceled first). **Not a ticker.** Cancelable. |
 
+## Toast feed registrations (#38)
+
+Added by the loot toasts (`docs/superpowers/specs/2026-11-27-38-loot-toasts-design.md`), after the
+sweeps above. The event rows are `NS.EVENT_ROWS` rows registered through `NS.RegisterRows` only while
+a toast feed wants them, and every one goes down with the latch.
+
+| Event or path | Registered at | Work done per fire |
+|---|---|---|
+| The GAIN tap in each observer (the three chat lines, the reputation and appearance handlers, the holdings diff) | not a registration: a field test inside a handler already listed | **One upvalue read, one field read and one test** while no enabled feed takes the kind (`if GainFeed.on and GainFeed.wants.K`). With a feed on: `Begin` clears the one reused scratch table (no allocation), the fields are filled and `Send` (bucket `gainSend`) broadcasts it. A gated chat gain with the ledger on posts one feed claim, the only allocation on the path. |
+| `Ka0s_LootHistory_Gain` | `modules/ToastFeed.lua` (`Toasts.__gain`, a bus message, not an event) | Inside `gainSend`. Per feed: the filter (`M.Accepts`, table reads), the appearance absorb check, then a payload copy and `Push`. **A merge allocates nothing**: the reducer hands the spare payload back (`tests/test_toast_model.lua`). A new toast takes one payload table from the spare list or makes one; Feed-1.0 has no close callback, so that table is collected rather than pooled. The highlight sound plays at most once per feed per `C.TOAST_SOUND_GAP`. |
+| The toast's `content` call | `modules/ToastFeed.lua` (the Feed calls it) | Bucket `toastPaint`. On present, merge, repaint and the settle re-read, never per frame. The price gather and the item-extras read run once per payload and are cached on it. |
+| `PLAYER_XP_UPDATE`, `PLAYER_LEVEL_UP` | `modules/Progress.lua` (rows, owner `ProgressXP`) | **Fires in combat** on every kill that grants experience. Bucket `xpEvent`: one `Compat.PlayerXP` (the experience, level and cap reads, answered as values), the pure `XPDelta` over reused tables, at most one send. |
+| `SKILL_LINES_CHANGED`, `CHAT_MSG_SKILL` | `modules/Progress.lua` (rows, owner `ProgressSkill`) | Arms one 0.5 s coalescer (`NS.Coalesce`, through `NS.After`). The scan (bucket `skillScan`) fills reused tables; on WoW Forever it waits for combat to end. |
+| `PLAYER_REGEN_ENABLED` | `modules/Progress.lua` (row, owner `ProgressRegen`) | Out of combat by construction: the XP reseed after a secret read, the owed Forever scan. |
+| `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` | `modules/ToastFeed.lua` (rows on `Toasts.__rows`) | Once per combat edge, three feeds: lock, click-through and hold on the way in; click-through off and release on the way out. |
+| The Feed's clock | `LibKa0s-Feed-1.0` (an unparented frame, the library's) | Armed only while a row needs a tick (enter, hold, fade, pulse, countdown bar, smooth moves) and disarmed when every row rests; `Stats().awake` is false on an idle feed and after `Clear()` (`tests/test_toast_feed.lua`). Not a host bracket: its cost is the library's. |
+
 ## Hooks and post calls
 
 No `RegisterEvent` grep finds these, because they are not events. Each runs on a client action, and

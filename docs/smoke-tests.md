@@ -52,11 +52,12 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 | TIP-1 to 9 | [Holdings tooltip](#holdings-tooltip) | both | The holdings block on item and currency tooltips: holders, class colors, container marks and counts, the Total rule, currencies, live counts at a banker, the stale age, the five settings rows, off with the ledger or the addon, every tooltip once and never on a comparison tooltip, the bank count after a reload (TIP-9, Retail) |
 | API-1 to 3 | [Holdings tooltip](#holdings-tooltip) | both | `LootHistory.API.v1`: counts that match the tooltip, the `HoldingsChanged` callback, the empty answers while disabled |
 | TL-1 to 19 | [Timeline](#timeline) | both | The Timeline tab: lines, line cap, hover, picker, ranges, dashed partial and marker, Warband and colors, per-tab filter graying, Show in Timeline, Forget this character, rollup retention, load, the WoW API facts to verify, the line toggles, the strip tooltips, smoother lines, the legend tooltip and spacing, the Timeline on the skin and where its tooltips open |
+| TOAST-1 to 21 | [Loot toasts](#loot-toasts) | both | The toast feeds (#38): a gain at its slot, every kind on each client, read before the capture filters, merge and pulse, the nine slots and the nudge, unlock and drag, pin on hover, combat hold, click-through and lock, the clicks, the detail lines, upgrades, highlights and sounds, every style override and Reset style to skin under three skins, motion, hiding Blizzard's alerts, test mode, the feed acts, the simulator's strip, disabled, no Feed major, Retail skill-ups on an expansion line |
 | SKIN-1 to 56 | [Skins](#skins) | both | The skinning run's checks (CT-01's SK rows): Ka0s Default unchanged but for its face and bar texture, the Skin tab, each skin live, other addons stock, WoW Forever and High Contrast, fonts, the tool windows, EllesmereUI on and off and the reload, copy to every addon, profiles, combat, the minimap button, tooltips and popups, the AH table, other Ka0s addons unchanged; the font and texture overrides and the first-run skin picker (LibKa0s#63, #64), and the picker's preview, Apply, Apply to all, one window across Ka0s addons and combat (LibKa0s PK-02), a queued picker in combat, every skin's bar texture; the v1.82.0 faces' width parity with the outline on, text outlined from the skin with no font setting of its own, no box where a character should be, no line under any window title, the round 4 third re-cut unchanged here, the round 5 re-cut, every header on the title band, the round 6 re-cut, the picker's test-mode preview, the ledger reset prompt's headings and an open row menu following a switch |
 | SIM-1 to 16 | [Simulator](#simulator) | both | `/lh sim`: start and stop, the refusals, each scenario end to end, a real loot stopping it, saved data untouched after `/reload`, the panel, the destructive surfaces refused, starting opens the window, the step delay, the picker's dropdown, a started simulation playing on its own, the cyan simulation strip, the Master controls Sim mode checkbox, the box following the sim window, the alt and stranger as sample characters, every start showing the step panel |
 | LOC-1 to 5 | [Non-English client](#non-english-client) | Retail | Bind lines, AH mail, deconstruct names on deDE or frFR |
 | SEEDS-LH-1 to 4 | [Item sources (ForeverDB)](#item-sources-foreverdb) | both | Removed on 2026-11-25 (IS-LH-01): SEEDS-LH-1 to 3 are superseded by ITEM-SEARCH; SEEDS-LH-4 checks the History item tooltip is back to what it was before Item sources, with no setting row and nothing loading ForeverDB |
-| FOREVER-1 to 19 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18); then reputation and appearances on Forever: no appearance capture, reputation still recorded (FOREVER-19) |
+| FOREVER-1 to 21 | [WoW Forever](#wow-forever) | both | The Forever port on WoW Forever: the install and its listing (FOREVER-1), no Warband (FOREVER-2), no Mythic+, Bonus Roll, Milling or Prospecting (FOREVER-3), no keystone Insights, diagnostics line or `key` scenario (FOREVER-4), two-word names (FOREVER-5), the bank and the keyring (FOREVER-6), a group roll won (FOREVER-7), coin glyphs (FOREVER-8), the Wowhead link (FOREVER-9), test mode (FOREVER-10), the simulator (FOREVER-11), the probe session (FOREVER-12, both clients), running the `both` checks on Forever (FOREVER-13); then the Retail regression checks (ruling R8): the bank at a banker and a warband-only banker (FOREVER-14), money text and the roll-won line (FOREVER-15), everything Forever lacks still there on Retail (FOREVER-16); then the holdings tooltip on Forever: the item block and `GetItemCount` (FOREVER-17), the currency block or its documented absence (FOREVER-18); then reputation and appearances on Forever: no appearance capture, reputation still recorded (FOREVER-19); then the loot toasts on Forever: skill-ups from the profession lines only (FOREVER-20), the alert hiding and its probe (FOREVER-21) |
 
 ## Before you start
 
@@ -115,6 +116,7 @@ each with its safe default, are [`forever-probes.md`](forever-probes.md).
 - Skins (`core/SkinSetup.lua`, a `NS.Skin` / `NS.SkinColor` call site, an `owner` passed to a
   LibKa0s factory, a `libs/LibKa0s/Skin*.lua` refresh): SKIN, then HIST-43, HIST-44, INS-23, TL-18,
   LED-13, PANEL-22 to PANEL-24 and DEGRADED-1.
+- The loot toasts (`core/CompatGain.lua`, `core/FeedSetup.lua`, `modules/GainFeed.lua`, `Progress.lua`, the `modules/Toast*.lua` files, `settings/SchemaToasts.lua`, `settings/PanelToasts.lua`, a `libs/LibKa0s/Feed*.lua` refresh): TOAST, then FOREVER-20 and FOREVER-21 on WoW Forever, CAP-1 to CAP-3 (the chat taps), REP (the reputation and appearance taps), SIM-1 and DEGRADED-1. A change to the capture taps also runs LED-P2 (the diff tap and the feed claims).
 - Client routing or a per-client table (`core/CompatClient.lua`, `C.FEATURE`, `C.SOURCE_CLIENTS`,
   `NS.Compat.ContainerGroups()`, `C.ACCOUNT`, `C.WOWHEAD_ITEM_BASE`, `NS.DEFAULT_SKIN`, any `ClientKey()`
   pick): FOREVER-1 to FOREVER-13 and FOREVER-19 on WoW Forever and FOREVER-14 to FOREVER-16 on Retail.
@@ -2300,6 +2302,138 @@ hover. Hover **Total only** → its tooltip is **centered above the button**. Dr
 screen's right edge → the plot, strip and legend tooltips open outside its left edge. Fail: a tooltip
 at the cursor, one over the chart, or the toggle's hanging below its button. Result:
 
+## Loot toasts
+
+The on-screen toast feeds (#38, spec `docs/superpowers/specs/2026-11-27-38-loot-toasts-design.md`),
+drawn by `LibKa0s-Feed-1.0`. The settings are on Settings › AddOns › Ka0s Loot History › **Toasts**:
+the **Feed** bar at the top picks which feed the five tabs edit. Start from the shipped defaults
+(press the Toasts page's **Defaults** first): only the Main feed is on, at Bottom Right. A check
+fails on any Lua error.
+
+**TOAST-1. A gain toasts at the slot, newest nearest it.** Client: both. Loot two different items a
+second or two apart → two cards at the bottom right, the newer one at the bottom and the older one
+moved up, each with its icon, its name in its quality color and `x<count>`. Each holds for about five
+seconds, then fades out. Fail: no card, the newer card above the older, or a card that vanishes
+without fading. Result:
+
+**TOAST-2. Every kind on Retail.** Client: Retail. Loot an item, money and a currency, gain and lose
+reputation, collect a new appearance, earn experience and raise a profession a rank → one card each:
+the item and currency with counts, money in coins, reputation as `+<amount> <faction>` (a loss in red)
+with the standing and its progress, the appearance with *Appearance collected*, experience as `+N XP`
+with the percent through the level, the skill-up with its name, new rank and `+N`. Fail: a kind with
+no card, or reputation with no amount. Result:
+
+**TOAST-3. Every kind on WoW Forever.** Client: WoW Forever. The same as TOAST-2 without the
+appearance (its kind and its highlight rows are not on the Content tab) → item, money, currency,
+reputation, experience and a profession skill-up each toast. Fail: an Appearances row on the page, or
+a kind with no card. Result:
+
+**TOAST-4. Toasts are read before the capture filters.** Client: both. Set Capture's **Minimum
+quality** to Uncommon and loot a Common item → it toasts and writes no History row. Turn **Record
+currency** off and loot a currency → it toasts and writes no row. On the Toasts page set the Main
+feed's **Minimum quality** to Rare → the Common item no longer toasts. Fail: the capture switch
+hiding the toast, or the feed's own floor not applied. Result:
+
+**TOAST-5. A repeat merges in place and pulses.** Client: both. Loot the same item twice within three
+seconds → one card whose count rises to `x2`, which pulses and does not slide in again. Loot it again
+after the card faded → a new card. Set **Merge repeats within** to 0 → each loot is its own card.
+Fail: two cards inside the window, or the entry animation replayed on a merge. Result:
+
+**TOAST-6. The nine slots and the nudge.** Client: both. On General, step **Screen slot** through all
+nine → the feed moves to each, Grow follows (down at the top and middle, up at the bottom) and the
+nudge resets to 0. Move **Nudge X** and **Nudge Y** to each end (±600) → the feed moves that far and
+stays on screen. Set **Text alignment** and **Icon side** to Right → each line and the icon flip.
+Fail: a slot that puts the feed off screen, or a nudge that does not move it. Result:
+
+**TOAST-7. Unlock, drag and lock.** Client: both. Press **Unlock** on General → the feed shows a drag
+handle naming it and sample cards while it is empty. Drag it, press **Lock** → the handle and samples
+go, the feed stays where it was dropped, and the nudge sliders show the new place. `/reload` → it is
+still there. Fail: the place not kept, or a handle left behind. Result:
+
+**TOAST-8. Pin on hover.** Client: both. With three cards showing, hover one → no card fades or
+moves while the pointer is on the feed, and a gain looted meanwhile appears only after you move away.
+Turn **Pin a row while hovered** off → only the hovered card stops fading. Fail: a card moving or
+fading under the pointer with pin on. Result:
+
+**TOAST-9. Combat: hold, click-through and the lock.** Client: both. Turn **Show in combat** off,
+fight two creatures and loot the first while the second is still on you → nothing shows until combat
+ends, then the card shows. Turn **Click-through in combat** on → in combat you can click
+through the feed onto the world; out of combat the cards take clicks again. Unlock a feed, then pull
+→ it locks again by itself. Fail: a card during combat with Show in combat off, or an unlocked feed
+in combat. Result:
+
+**TOAST-10. Clicks.** Client: both. Shift-click an item card → the link goes into the chat box;
+shift-click a currency card → the currency link. Ctrl-click a gear card → the dressing room opens.
+Right-click a card → it goes. Plain-click an item card → the History window opens on the History tab
+with the item's name in Search; on a money card Search reads Gold. Plain-click an experience or
+skill-up card → nothing. Fail: any of these doing something else. Result:
+
+**TOAST-11. The detail lines.** Client: both. On an item card: the bag, bank and (Retail) warband
+bank marks with counts, the source tag on the right, the item level badge on gear, and the value line:
+step **Prices** through None, Vendor, AH, Vendor + AH and Highest (AH needs a pricing addon). Loot a
+currency near its cap → its count reads `have / max` in the skin's warning color from 70% and its bad color from 90%. Turn
+**Counts**, **Source tag** and **Item level badge** off → each part goes. Fail: a price on None, or a
+part that stays after its switch goes off. Result:
+
+**TOAST-12. Upgrades, highlights and sounds.** Client: both. Loot a piece of your armor type above
+what you wear in its slot → a green arrow line `+N over equipped` and a glow. A mount, a legendary and
+(Retail) an uncollected look glow too. Pick a **Sound** for Upgrades → the next upgrade plays it once.
+Fail: an upgrade line for armor you cannot wear, a glow with the switch off, or a sound played twice for
+one card. Result:
+
+**TOAST-13. Every style override, and Reset style to skin, under three skins.** Client: both. Under
+Ka0s Default, WoW Forever and High Contrast in turn: the feed first wears the skin. Then on Style turn
+each **Use the skin's** box off and change the background (solid, gradient, texture), the border
+(style, size, color, **Use the quality color**), the font, its sizes, outline, shadow and color, the
+size rows, and the three kind colors → each card shows each change. Press **Reset style to skin** →
+every card wears the skin again and the picks stay stored. Switch the skin with cards showing → they
+repaint at once. Fail: an override not drawn, a skin switch not repainting, or Reset changing a pick.
+Result:
+
+**TOAST-14. Motion.** Client: both. Step **Enter** through None, Fade and the four slides, with
+**Enter time**, **Hold** and **Then fade over** changed → each card enters, holds and fades as set.
+Turn **Countdown timer bar** on → a bar runs down each card's hold. Turn **Slide rows smoothly when
+they move** off → cards jump to their new place. Fail: a setting with no effect. Result:
+
+**TOAST-15. Hiding Blizzard's alerts.** Client: both. With the Main feed on, take a reward the game
+shows its own loot pop-up for (a dungeon's end reward, a bonus roll, a world quest's money) → the
+pop-up shows (the hiding is off by default). Tick **Loot and money alert toasts** on Behavior → the
+next such reward shows no Blizzard pop-up, only the feed. Untick it → Blizzard's pop-up is back. Tick it
+again, then `/lh disable` → Blizzard's pop-up is back while disabled; `/lh enable` → hidden again. On
+WoW Forever, record `/lh debug probe` FOREVER-T1 first. Fail: a pop-up hidden with the box off or the
+addon disabled. Result:
+
+**TOAST-16. Test mode.** Client: both. Tick **Test mode** on Master controls → each enabled feed shows
+one sample card per kind it takes, under a *Test mode* strip. Real loot still toasts. Untick it, or
+pull a dummy → the samples and the strip go. Fail: samples on a disabled feed, or samples left after
+test mode ends. Result:
+
+**TOAST-17. The feed acts.** Client: both. Pick the Third feed in the Feed bar with it off and press
+**Test** → one sample card per kind shows, then fades. Press **Add feed** → the next feed that is off
+turns on and is picked; with all three on it prints *All three feeds are on.* Change a few of a feed's
+rows and press **Reset feed…**, then confirm → only that feed's rows are back to their defaults. Fail:
+Test refused on a disabled feed, or Reset feed touching another feed. Result:
+
+**TOAST-18. The simulator's strip.** Client: both. `/lh sim start loot` → each enabled feed wears a
+*Sim mode* strip, and the simulated loot toasts through the same cards; its quest step's turn-in toasts
+its reputation and experience. With test mode on as well, the Sim strip wins. `/lh sim stop` →
+the strip goes and the simulated cards fade out on their own. Fail: no card for a simulated gain, or a
+strip left after the stop. Result:
+
+**TOAST-19. Disabled means no toasts.** Client: both. `/lh disable`, then loot → no card, and the
+Toasts page draws its disabled notice above the rows. `/lh enable` → the next loot toasts. Fail: a card
+while disabled. Result:
+
+**TOAST-20. Without the Feed major.** Client: both. Remove the four `Feed*.lua` lines from
+`libs/LibKa0s/LibKa0s.xml` and `/reload`; put them back and `/reload` when done → no Lua error, no card
+for any gain, History still records, and the Toasts page still reads and writes its settings. Fail: a
+Lua error or a recording change. Result:
+
+**TOAST-21. Retail skill-ups on an expansion line.** Client: Retail. Raise a current expansion's
+profession a rank → a skill-up card with the right rank. Run `/lh debug probe start` and read
+`start.skills.professions` for that profession's line. Fail: no card, or a rank that is not the
+profession's. Result:
+
 ## Simulator
 
 `/lh sim` runs the real capture engine against an invented world (LootHistory#37). It records into
@@ -3109,7 +3243,26 @@ or a kill that gives some) → a **Reputation** row with the faction's name and 
 Fail: the box or the Type value present, a Lua error, or no Reputation row when the reputation bar
 moved (then read P13's `rejected`). Result:
 
+### Loot toasts on WoW Forever (#38)
+
+Run TOAST-3 first. WoW Forever lists weapon skills and every profession twice, so the skill-up
+toasts read only the vanilla profession lines (`C.PROFESSION_SKILL_LINES`).
+
+**FOREVER-20. Skill-ups from the profession lines only (FOREVER-T3).** Client: WoW Forever. Raise a
+profession a rank out of combat → one skill-up card with its name and new rank, not two. Raise a
+weapon skill → no card. Run
+`/lh debug probe start` and read `start.skills.skillLines` against the profession list. Fail: a
+weapon skill card, a doubled card, or no card. Result:
+
+**FOREVER-21. The alert hiding and its probe (FOREVER-T1).** Client: WoW Forever. `/lh debug probe
+start` → `start.alerts.present` is true and `start.alerts.registered` names the loot toast events
+AlertFrame has. Run TOAST-15 → a name it has is hidden and restored; one it has not is skipped with no
+error. Fail: a Lua error, or a pop-up hidden after the box goes off. Result:
+
 ## Pending sign-off
+
+Added by the loot toasts (#38, M3, 2026-11-28), awaiting the owner: TOAST-1 to TOAST-21, FOREVER-20 and
+FOREVER-21, new.
 
 Added or amended by the LibKa0s v1.105.0 adoption (wave A, 2026-11-17), awaiting the owner: HIST-45 and
 HIST-46, new (AD-88-LH, the mode strip docked directly under the title bar; AD-89-LH, the History

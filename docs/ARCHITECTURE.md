@@ -13,7 +13,9 @@ quality threshold, attributes each drop to a **source** (kill / container / M+ /
 roll / quest / trade / mail / AH / vendor / deconstruct / craft / refund / other), records
 reputation gains and losses and, on Retail, transmog appearances collected and removed as rows of
 their own kind, stores it all account-wide, and presents it in a standalone browser window with a filter/sort/group table plus
-an Insights analytics view.
+an Insights analytics view. Up to three on-screen **toast feeds** (#38) show each gain as it lands (items,
+money, currencies, reputation, appearances on Retail, experience and profession skill-ups), read
+**before** the capture filters by a pre-gate gain feed and drawn by `LibKa0s-Feed-1.0`.
 
 It ships on Retail and WoW Forever from one codebase; what one client lacks (the warband bank,
 Mythic+, and the sources WoW Forever has no content for) is absent there, never hidden, and the
@@ -33,9 +35,9 @@ LibSharedMedia-3.0, LibDataBroker-1.1, LibDBIcon-1.0 and
 chat printer, the art and monospace face, the debug console, the slash-command interface, the
 settings canvas with its tab strip and Master-controls composer, the settings schema runtime, the
 bus message catalog, the spell-name compat reader, the shared drag-to-reorder list,
-the flat dropdowns, the Timeline's line chart and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
+the flat dropdowns, the Timeline's line chart, the toast feeds and the skin engine (vendored at the tag the `CLAUDE.md` provenance line names). All libraries
 are **vendored** in `libs/` and committed (Ka0s Standard v2.0.0 — externals forbidden); LibKa0s is
-vendored **whole-folder**, because twenty of its twenty-one majors resolve `LibKa0s-Core-1.0` before
+vendored **whole-folder**, because twenty-six of its twenty-seven majors resolve `LibKa0s-Core-1.0` before
 registering and a per-file copy is how cross-major skew gets manufactured.
 
 ---
@@ -53,7 +55,13 @@ its tabs, and every setting in one `settings/Schema.lua` row. The in-game simula
 ([§ The simulator](#the-simulator)). The skin this addon wears is `core/SkinSetup.lua`'s, the
 `LibKa0s-Skin-1.0` seam: it registers the owner `"LootHistory"` at file load, publishes `NS.Skin` (the
 owner's facade every surface paints through) and applies the profile's choice right after AceDB
-exists and first on every profile event. A handful of TOC positions are
+exists and first on every profile event. The loot toasts (#38) are `modules/GainFeed.lua` (the
+pre-gate gain feed, the one sender of `Ka0s_LootHistory_Gain`), `modules/Progress.lua` (the experience
+and skill-up observer), `core/CompatGain.lua` (their client reads), the pure `modules/ToastModel.lua`
+(config, filter, keys, merge) and `modules/ToastContent.lua` (row content), `modules/ToastFeed.lua` (the
+three feeds, built through the `LibKa0s-Feed-1.0` seam `core/FeedSetup.lua`), `modules/ToastSample.lua`
+(the sample toasts) and `modules/ToastBlizz.lua` (Blizzard alert hiding), with their settings page in
+`settings/SchemaToasts.lua` and `settings/PanelToasts.lua`. A handful of TOC positions are
 load-bearing, each carrying a `LOAD-BEARING` comment in the TOC (toc-file-§5; count them with
 `grep -c LOAD-BEARING LootHistory.toc`); every other position is conventional, and the TOC says so.
 
@@ -116,6 +124,18 @@ flag is ruled as data (`tools/seeds/<flavor>_rulings.json`), and each run is a f
 | Money text: `C_CurrencyInfo.GetCoinTextureString`, then `GetMoneyString`, then `Ng Ns Nc` text (R8; WoW Forever has no bare `GetCoinTextureString`) | `both` | `core/Util.lua` (`FormatMoney`) |
 | The roll-won line: the parser takes the global's `%s` capture, so WoW Forever's `\|HlootHistory:%d\|h` prefix is skipped; the simulator fills each `%d` and `%s` in the global's order | `both` | `core/Util.lua` (`ParseRollWon`), `modules/SimDrivers.lua` (`D.RollWonText`) |
 | The probe verbs, `/lh debug probe start\|stop\|status\|clear` (R4): session-only facts into the capped `db.global.probe`, stamped with the client and build | `both` | `modules/Probe.lua`, `settings/Schema.lua` (the `debug` row), `core/CompatClient.lua` (`ClientBuild`) |
+| The toast feeds' appearances (#38, `appearances`): the Appearances kind and the New appearances highlight and sound rows on each feed, the gain feed's APPEARANCE kind, an appearance folded into its item's toast, the uncollected-look check and the sample appearance toast | `retail` | `settings/SchemaToasts.lua` (row `clients`), `modules/ToastModel.lua` (the config's kind set, which `modules/ToastSample.lua` reads too), `modules/GainFeed.lua` (`Recompute`), `core/CompatGain.lua` (`IsUncollectedLook`) |
+| The toast counts' warband-bank part and the gold toast's warband money (`warbandBank`) | `retail` | `modules/ToastContent.lua` (the counts line) |
+| Skill-up toasts: the professions `GetProfessions` names, read with `GetProfessionInfo` (no UI state), on every `SKILL_LINES_CHANGED` and `CHAT_MSG_SKILL` | `retail` | `core/CompatGain.lua` (`ProfessionSkills`), `modules/Progress.lua` (the scan) |
+| Skill-up toasts: the `C_SkillInfo` walk, GUARDED under the simulator, out of combat only (a scan in combat waits for `PLAYER_REGEN_ENABLED`), kept to the vanilla profession lines in `C.PROFESSION_SKILL_LINES` with each pair folded onto its parent line (T14), so weapon skills never toast | `forever` | `core/CompatGain.lua` (`ListSkillLines`), `core/Constants.lua` (`C.PROFESSION_SKILL_LINES`), `modules/Progress.lua` |
+| The toast upgrade line: armor matches the class's armor type (`C.CLASS_ARMOR`), and a ranged weapon is compared with the main-hand slot (16) | `retail` | `modules/ToastContent.lua` (`TC.Upgrade`), `core/Constants.lua` (`C.CLASS_ARMOR`, `C.EQUIP_LOC_SLOTS`) |
+| The toast upgrade line: armor matches the equipped piece's subclass (classes change armor type at level 40), and a ranged weapon is compared with the ranged slot (18) | `forever` | the same |
+
+The rest of the toasts serve both clients in one shape, so they take no row: experience reads
+`UnitXP`, `UnitXPMax` and `UnitLevel` on both (`Compat.PlayerXP`, secrets guarded), a currency's cap
+is `maxQuantity` (with `useTotalEarnedForMaxQty`) wherever the client answers it, and the alert hiding
+calls the same presence-gated members on both, with each client's `AlertFrame` source cited under
+[§ Taint notes](#taint-notes) and WoW Forever's registered set read by probe FOREVER-T1.
 
 ---
 
@@ -155,7 +175,8 @@ Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Sk
 The **Toasts** page (#38, between General and Profiles) holds the rest: one row per toast feed and
 setting (General, Content, Style, Motion and Behavior tabs; the same leaves on each of the three
 feeds, built by `settings/SchemaToasts.lua` and stamped `feed`) plus one page-wide row,
-`settings.toasts.hideAlerts`. Its banner picks the feed the tabs edit (session state), and the
+`settings.toasts.hideAlerts`: 75 rows per feed (General 7, Content 21, Style 35, Motion 7, Behavior 5)
+and 226 in all, of which the registry drops each feed's three appearance rows on WoW Forever. Its banner picks the feed the tabs edit (session state), and the
 descriptor's `rowsForPage` keeps only that feed's rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
@@ -170,7 +191,7 @@ every writer, with the row table, the reset scopes and the bulk-reset log line, 
 
 ## Message bus
 
-Closed `Ka0s_LootHistory_*` bus (AceEvent) of four messages, exactly one sender per message. No cross-module
+Closed `Ka0s_LootHistory_*` bus (AceEvent) of five messages, exactly one sender per message. No cross-module
 table reach.
 
 Each name is declared once, as `NS.MSG.<KEY>` in `core/Constants.lua`, and every `SendMessage` /
@@ -187,7 +208,8 @@ CallbackHandler keys callbacks by `(message, target)`, so two consumers sharing 
 |---|---|---|---|
 | `Ka0s_LootHistory_RecordAdded` (`RECORD_ADDED`) | `Database:Add` | `(record, index)` | Browser (refresh History), Analytics (live recompute), Panel (live stats), Timeline (never counted: the rollup tallies from `Database:OnWrite`). Browser, Analytics and Timeline run their repaint through `NS.Coalesce(…, Constants.RECORD_ADDED_COALESCE)`, so a multi-drop kill costs **one** pass rather than one per row; `HistoryChanged` still repaints immediately. |
 | `Ka0s_LootHistory_HistoryChanged` (`HISTORY_CHANGED`) | `Database` (`Delete`/`PruneOld`/`Purge`, the public `FireHistoryChanged` that `NS.Filters` calls on a blacklist/whitelist edit, and `RepairBoundStates` on a pass that actually fixed rows) | — | Browser, Analytics, Panel (History stats + the Filters tab) |
-| `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — nineteen `onChange` handlers (eighteen on WoW Forever), twelve reasons (`enabled`, `quality`, `questfilter`, `ammofilter`, `currency`, `reputation`, `appearance` (Retail only), `excludes`, `ledger` from Track holdings and losses and Record gold, `view` from Show transfers by default, `chrome` from the Master controls tab's `scale` / `alpha` / `locked`, and `tooltip` from the five Holdings in tooltips rows), and `S:AdoptProfile` with the thirteenth, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (`ledger` / `profile`: re-registers or drops its capture events), HoldingsTally (`ledger` / `profile`: wipes its cache), HoldingsTip (`tooltip` / `ledger` / `profile`: re-reads its hot-path settings cache), HoldingsAPI (`ledger` / `profile`: fires `HoldingsChanged` with a nil holder when availability flips), Reputation and Appearance (any reason re-reads their upvalues; `reputation` / `appearance` / `profile` registers or drops their rows) |
+| `Ka0s_LootHistory_SettingsChanged` (`SETTINGS_CHANGED`) | `Schema` — nineteen General-page `onChange` handlers (eighteen on WoW Forever), twelve reasons (`enabled`, `quality`, `questfilter`, `ammofilter`, `currency`, `reputation`, `appearance` (Retail only), `excludes`, `ledger` from Track holdings and losses and Record gold, `view` from Show transfers by default, `chrome` from the Master controls tab's `scale` / `alpha` / `locked`, and `tooltip` from the five Holdings in tooltips rows), every Toasts-page row (`settings/SchemaToasts.lua`, #38) with a thirteenth, `toasts`, and `S:AdoptProfile` with the fourteenth, `profile`, once per profile switch, copy or reset | reason string | Collector (`RefreshUpvalues`), Browser (`OnSettingsChanged`), Reconciler (`ledger` / `profile`: re-registers or drops its capture events), HoldingsTally (`ledger` / `profile`: wipes its cache), HoldingsTip (`tooltip` / `ledger` / `profile`: re-reads its hot-path settings cache), HoldingsAPI (`ledger` / `profile`: fires `HoldingsChanged` with a nil holder when availability flips), Reputation and Appearance (any reason re-reads their upvalues; `reputation` / `appearance` / `profile` re-syncs their rows), GainFeed and Toasts (`toasts` / `profile` / `enabled`: GainFeed recomputes what the feeds want and re-syncs the observers' rows and the alert hiding; Toasts drops its config snapshot and runs each feed's `Refresh()`) |
+| `Ka0s_LootHistory_Gain` (`GAIN`, #38) | `GainFeed:Send` only (`modules/GainFeed.lua`). The observers (Collector's three chat lines, Reputation, Appearance, Progress and the Reconciler's diff) fill its scratch payload through `GainFeed:Begin` and hand it back, as `NS.Filters` hands its edits to `Database:FireHistoryChanged` | `(gain)`, one reused scratch table valid only during the synchronous send: every gain the addon observes, **before** the capture filters, with `recorded` and `gated` saying what the capture path did with it | Toasts (`OnGain` on its private `__gain` target: each feed whose filter accepts the gain gets its own payload copy) |
 | `Ka0s_LootHistory_HoldingsChanged` (`HOLDINGS_CHANGED`) | the Reconciler only: `Reconciler:Flush`, once per holder whose holdings moved, `Reconciler:ForgetHolder`, and `Reconciler:AnnounceHolders`, once per holder of a simulation's session store when the simulation stops | `holder` key (`PlayerKey()` or `"§warband"`) | HoldingsTab and Timeline (repaint while their pane is shown), HoldingsTally (wipes its cache), HoldingsAPI (relays it as `HoldingsChanged` through its own CallbackHandler registry, silent during a simulation; it never sends on the bus) |
 
 A blacklist/whitelist edit re-caches the Collector by a direct call and broadcasts through
@@ -345,7 +367,7 @@ The payload is `(event, holder)`, with `event = "HoldingsChanged"`.
 `LibKa0s-Lifecycle-1.0` seam: one latch, stood down while any named hold is taken, and every route to
 the switch arrives at `NS.Lifecycle:Set("disabled", …)`. Standing down unregisters every event, bus
 subscription and unit frame, cancels every deferral `NS.After` armed and hides the windows at the
-source (`B:VisibilityAllows`). A hook that cannot be undone gates its own body instead, through one of three funnels: the `hooksecurefunc` capture hooks into `Attribution:Stamp`, the ledger's loss-side hooks into `AttributionOut`, and the holdings tooltip's post calls (`TooltipDataProcessor.AddTooltipPostCall` and the tooltips' `OnHide` / `OnTooltipCleared` `HookScript`s, #34) into `NS.HoldingsTip.OnTooltip`, whose first rung is `NS.IsStoodDown()`. `HoldingsTally`, `HoldingsTip` and `HoldingsAPI` each stand down directly after `Rollup:Disable` and up after `Timeline:Enable`, each dropping its own bus target; `_G.LootHistory` survives as setup and its answers go empty. The slash surface, the
+source (`B:VisibilityAllows`). A hook that cannot be undone gates its own body instead, through one of three funnels: the `hooksecurefunc` capture hooks into `Attribution:Stamp`, the ledger's loss-side hooks into `AttributionOut`, and the holdings tooltip's post calls (`TooltipDataProcessor.AddTooltipPostCall` and the tooltips' `OnHide` / `OnTooltipCleared` `HookScript`s, #34) into `NS.HoldingsTip.OnTooltip`, whose first rung is `NS.IsStoodDown()`. `HoldingsTally`, `HoldingsTip` and `HoldingsAPI` each stand down directly after `Rollup:Disable` and up after `Timeline:Enable`, each dropping its own bus target; `_G.LootHistory` survives as setup and its answers go empty. The toasts (#38) go down in four steps: `ToastBlizz:Disable` first after `SimStop`, so Blizzard's alert events are re-registered while everything else is still up; `Progress:Disable` after Appearance's; then, after `Rollup:Disable`, `Toasts:Disable` (its GAIN and settings targets and its combat rows dropped, and every feed `Clear()`ed, click-through off and released, so no row is shown and no feed's clock is armed) and `GainFeed:Disable` (nothing wanted, the feed claims wiped). Stand-up runs `GainFeed:Enable` before the Collector, so `wants` is known before any observer registers. The slash surface, the
 settings panel, AceDB and the launcher registration survive as setup, and `tests/test_disabled.lua`
 is the conformance suite. The working-state wipes are callable apart from the stand-down, for the
 simulator's start and stop (LootHistory#37): `Reconciler:ResetState()`, `Attribution:ResetContexts()`,
@@ -360,11 +382,11 @@ The 20-second login deferral sets `NS.State.loginSettled`. The full account is i
 **One event table and one hook table** (`core/Dispatch.lua`, LootHistory#37). Every capture event
 below that is not the lifecycle's own `PLAYER_ENTERING_WORLD` or the window's `PLAYER_REGEN_*` pair
 is a row of `NS.EVENT_ROWS` (`{ event, owner, target, fn, unit? }`), and every `hooksecurefunc`
-row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The six capture modules append
-their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (ten
+row a row of `NS.HOOK_ROWS` (`{ name, owner, fn, tbl?, install? }`). The seven capture modules and the
+toast feeds append their rows at file load, so row order is TOC order and equals the stand-up order: Attribution (ten
 `bus` rows, six on WoW Forever, which has no keystone, the player-only `spell` row, five hooks), AttributionOut (six `out` rows, thirteen
 hooks), Collector (three `bus` rows), Reputation (one `bus` row), Appearance (two `bus` rows, Retail
-only: on WoW Forever it declares none), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever). Each module's Enable and
+only: on WoW Forever it declares none), Progress (five `bus` rows under three owners, #38: `ProgressXP` has `PLAYER_XP_UPDATE` and `PLAYER_LEVEL_UP`, `ProgressSkill` has `SKILL_LINES_CHANGED` and `CHAT_MSG_SKILL`, and `ProgressRegen` has `PLAYER_REGEN_ENABLED`), Reconciler (sixteen `ledger` rows, fourteen on WoW Forever), Toasts (two `toasts` rows, the combat edges, on the private `Toasts.__rows` target, #38). Each module's Enable and
 Disable call `NS.RegisterRows(owner, targetObj, targetKey)` / `NS.UnregisterRows(owner)` instead of a
 hand-written list, and `row.registered` is true only while a registration is live; hooks go in once
 per session through `NS.InstallHookRows(owner)` under the module's latch. Every live handler is
@@ -380,7 +402,7 @@ two hook rows (`StampVendor`, then `StampOut("BUY")`). `tests/test_dispatch.lua`
 [disabled-state.md](disabled-state.md). The `hooksecurefunc` rows are the one exception the
 standard sanctions, because that API has no un-hook; they gate their bodies on the latch (`Attribution:Stamp` for the Phase 1 hooks, `StampOut` and the `On*` bodies of `modules/AttributionOut.lua` for the ledger's).
 
-The Reputation and Appearance rows register only while their capture switch is on (`settings.recordReputation`, `settings.recordAppearances`): each module keeps a private `_settings` listener for as long as the addon is up and registers or unregisters its rows to match, the same two-target shape as the Reconciler's. Turning a switch off unregisters; it is not a draw gate.
+The Reputation and Appearance rows register only while their capture switch is on (`settings.recordReputation`, `settings.recordAppearances`) **or** an enabled toast feed takes their kind (`GainFeed.wants`, #38): each module keeps a private `_settings` listener for as long as the addon is up and its `SyncCapture` registers or unregisters its rows to match, the same two-target shape as the Reconciler's. With the feed keeping the rows live, the switch gates only the History row (`[Drop] reason=record-off`). Turning both off unregisters; it is not a draw gate. Progress's rows follow the same rule with no switch of their own: each owner is registered only while a feed takes experience (`ProgressXP`) or skill-ups (`ProgressSkill`), and `ProgressRegen` while either is wanted. The Toasts rows are registered while any feed is enabled (`Toasts:SyncRows`); they live on their own target because Progress already holds `PLAYER_REGEN_ENABLED` on the AceAddon target, and AceEvent keeps one handler per event per target.
 
 The Reconciler's rows register only while `settings.trackLedger` is on, one event at a time through `NS.RegisterRows` (and so `NS.SafeRegisterEvent`) on a private target (sixteen names, fourteen on WoW Forever; the combat edge is the same `PLAYER_REGEN_ENABLED` the visibility row uses, on a different target). In combat a handler sets a dirty bit and nothing else.
 
@@ -430,6 +452,10 @@ The Reconciler's rows register only while `settings.trackLedger` is on, one even
 | `MAIL_INBOX_UPDATE` | marks `mail` while the mailbox is open; arms the fuse (the column is read by `modules/Escrow.lua`'s scan step) | `modules/Reconciler.lua` |
 | `OWNED_AUCTIONS_UPDATED` | while the auction house is open, makes the owned-auctions list readable and marks `auctions`; arms the fuse | `modules/Reconciler.lua` |
 | `PLAYER_REGEN_ENABLED` | runs a login reconcile deferred by combat, else replays a deferred flush | `modules/Reconciler.lua` |
+| `PLAYER_XP_UPDATE` / `PLAYER_LEVEL_UP` | `OnXP` (`xpEvent`): `Compat.PlayerXP` against the in-memory baseline, the pure `Progress.XPDelta`, one `XP` gain (a secret or absent read keeps the baseline and reseeds at the regen edge). Registered only while a feed takes experience | `modules/Progress.lua` |
+| `SKILL_LINES_CHANGED` / `CHAT_MSG_SKILL` | `RequestScan`, a 0.5 s coalesced scan (`skillScan`) of the profession lines; one `SKILL` gain per rank risen, the first scan after a seed only seeding. `CHAT_MSG_SKILL` is a trigger only, its text never read. Registered only while a feed takes skill-ups | `modules/Progress.lua` |
+| `PLAYER_REGEN_ENABLED` (Progress's row) | `OnRegen`: the XP reseed after a secret read, and on WoW Forever the skill scan combat put off | `modules/Progress.lua` |
+| `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` (the `toasts` target) | `OnCombatStart` locks every feed again (an unlocked one is locked through `SetUnlocked`), turns click-through on where the feed's **Click-through in combat** is on and holds new gains where its **Show in combat** is off; `OnCombatEnd` turns click-through off and releases the held gains. Registered while any feed is enabled | `modules/ToastFeed.lua` |
 
 All flavor-varying or deprecated calls behind these handlers are routed through
 `core/Compat.lua` (the compat firewall) — no inline `WOW_PROJECT_ID` branching in feature code. So is
@@ -511,7 +537,10 @@ the History window, toplevel and clamped, every pane inside it inherited), `MODA
 Export modal, toplevel and clamped) and `POPUP` (FULLSCREEN_DIALOG: the row context menu, clamped,
 dismissed by `GLOBAL_MOUSE_DOWN` with no click catcher, closed by the window's `OnHide` and the
 disable ladder). It writes no frame level; the library's grip (+10) is the only explicit band in a
-window. `tests/test_layers.lua` pins all of it through the kit's layer recorder.
+window. `tests/test_layers.lua` pins all of it through the kit's layer recorder. The toast feeds'
+containers (#38) are `LibKa0s-Feed-1.0`'s and take its `STRATA`, HIGH, with its own levels and row
+bands: the addon sets no strata and no level on a toast frame, and the layers table's header comment
+carries one pointer line for them.
 
 ## Tooltip placement
 
@@ -724,6 +753,14 @@ Outside the gate's reach, also on purpose:
   `d9c22e32`: the same `AlertFrames.xml:18`, and `AlertFrames.lua:481`, `:482` and `:494`. Every member
   is presence-gated, so a client where a name does not resolve suppresses nothing (FOREVER-T1 in
   `docs/forever-probes.md`; `/lh debug probe` records which ones AlertFrame has registered).
+- The **toast feeds** (#38) are `LibKa0s-Feed-1.0` frames with no secure template, and everything the
+  library calls on them is legal in combat; it refuses an unlock in combat itself. A toast's shift and
+  ctrl click run `HandleModifiedItemClick` from a click script (`Compat.ModifiedLinkClick`), the normal
+  insecure path.
+- **Secrets on the gain paths** (#38). Every chat handler drops a secret payload first, with `[Drop]
+  <line> line reason=secret` (T11); the experience and skill reads and every other `core/CompatGain.lua`
+  read go through `Compat.IsSecret` and answer nil for a secret. A secret is never a table key: the
+  feeds' merge keys are built from ids already checked, and the Feed never reads into a payload.
 - No secure templates, no protected action buttons, no `SetAttribute` — the addon is purely
   observational, so it cannot taint the loot/combat path.
 
@@ -954,6 +991,12 @@ and is 988 lines (`FU-LH-BROWSER`). On 2026-10-31 `modules/BrowserTable.lua` she
 - **The live bank and warband-bank counts depend on the client holding that bank's data.** The tooltip and the API read the logged-in character's bank, and on Retail the warband bank, live from `C_Item.GetItemCount` diffs. Away from a banker, a live 0 over a stored count above 0 reads the store (the zero-suspect rule), so the store wins until the next banker visit.
 - **WoW Forever's tooltip post-call types and `GetItemCount` arity are assumed** from the interface files until smoke FOREVER-17 and FOREVER-18 pass ([forever-quirks.md](forever-quirks.md)).
 - **`trackLedger` is per profile, the ledger account-wide.** A character on a profile with Track holdings and losses off sees no holdings block, and the public API answers empty for it.
+- **Toasts for gains with no chat line wait for the ledger** (#38). Mail, vendor, auction-house and quest gains with no loot line, and all gold that is not looted, reach the toast feeds only through the holdings diff: they show only while **Track holdings and losses** is on, and a gain in combat shows after combat ends, when the diff runs.
+- **An experience jump of more than one level in one event reads short.** `Progress.XPDelta` adds what was left of the old level to the new level's progress, so a second level skipped in the same event is not counted.
+- **A chat line that lands after its diff has committed toasts twice.** The feed claim a gated chat gain posts is consumed by the diff; a line that arrives after the diff already waited its 1.5 s claim hold and wrote the change finds nothing to claim against. The Reconciler has the same exposure.
+- **A toast's plain click searches History by name.** It opens the History tab with the gain's name in Search (Gold for money) and leaves the tab's other filters alone, so the character, date, direction or minimum-quality filter can still hide the row. Experience and skill-up toasts have no row and do nothing on a plain click.
+- **Retail skill-ups on an expansion's profession line depend on what `GetProfessionInfo` reports** for that line (probe `skills`, smoke TOAST-21).
+- **No toast without the addon or without the Feed major.** With the addon disabled nothing reaches the feeds; without `LibKa0s-Feed-1.0` every feed is `NS.FeedStub` and no toast draws, while the settings and the gain feed keep working.
 - **No upgrade-scoring addon interop** (Pawn/Loot Appraiser). Auction-house price interop
   (Auctionator/TSM/OribosExchange) shipped in Rev-2 — see the AH-price cascade above and
   [schema.md](schema.md).

@@ -11,7 +11,7 @@ combat. That was the exemption's re-check trigger, and the row is retired (see
 
 ## The buckets
 
-Eight, in report order. Each is a handler that runs **in combat**:
+Twelve, in report order. Each is a handler that runs **in combat**:
 
 | Bucket | Handler | What it covers |
 |---|---|---|
@@ -23,8 +23,12 @@ Eight, in report order. Each is a handler that runs **in combat**:
 | `tooltipBlock` | `HoldingsTip.OnTooltip` | Every item and currency tooltip build (#34), about five a second while one is hovered, in combat too: the guard ladder, then either a replay of the memoized lines (no tally compose, no icon markup) or a rebuild from the tally, and the append. The bracket closes on every call, including one the ladder refuses |
 | `repEvent` | `Reputation:OnStandingChanged` | Every `FACTION_STANDING_CHANGED`, which fires on kills in combat: one `Compat.FactionSnapshot` (four to six C API reads, answered as values), the pure delta and at most one `Database:Add` or `Amend`. Nothing is allocated when the standing did not move (`repUnchanged` below) |
 | `appearanceEvent` | `Appearance:OnSourceAdded` / `OnSourceRemoved` | Retail only. Every appearance source collected or removed, which bursts on an ensemble: the duplicate guard, three or four client reads behind `Compat.AppearanceSource` and, on a gain, `Compat.IsNewLook`, the context `Peek` and one `Database:Add` |
+| `gainSend` | `GainFeed:Send` | Every gain sent to the toast feeds (#38): the bus fan-out with every receiver's work inside it, so each feed's filter, payload copy and `Push`. Nothing is sent, and nothing bracketed, while no enabled feed takes the kind: each observer's tap is one field test |
+| `toastPaint` | the toast feeds' `content` closure around `ToastContent.Content` (`modules/ToastFeed.lua`) | A toast row's content: the first line, counts, cap, price and upgrade lines. The Feed calls it when a row presents, merges, repaints or settles, never per frame; the lazy price gather and item-extras read sit inside, once per payload |
+| `xpEvent` | `Progress:OnXP` | Every experience event while a feed takes experience (kills and quests, so in combat): one `Compat.PlayerXP`, the pure delta, at most one send |
+| `skillScan` | Progress's coalesced scan | The profession read after `SKILL_LINES_CHANGED` or `CHAT_MSG_SKILL`, 0.5 s after the burst: `GetProfessionInfo` per profession on Retail; on WoW Forever the walk waits for combat to end |
 
-None declares `within`: none runs inside another.
+None declares `within`. `toastPaint` runs inside `gainSend` on a push and outside it on a repaint or a settle, so it has no one parent to name. The Feed's own clock (enter, hold, fade, the pulse, the countdown bar, smooth moves) is the library's: one unparented frame, armed only while a row needs a tick (`Stats().awake`), and it is not bracketed here; `tests/test_toast_feed.lua` pins an idle and a cleared feed asleep.
 
 **`Reconciler:Flush` is not a bucket.** The reconcile (scan, plan, hold or commit) defers to
 `PLAYER_REGEN_ENABLED` in combat (`Compat.InCombatLockdown()` at the top of `R:Flush`), so in a
@@ -68,6 +72,8 @@ than the bare body. Scenario 2 pins an in-combat `BAG_UPDATE` storm at zero byte
 | `combatBagUpdate` (2) | 0 | 0 | 0.0 |
 | `reconcileCleanBags` (3) | 124000 | 1 | 118120.0 |
 | `repUnchanged` (6) | 0 | 0 | 0.0 (2026-11-28) |
+
+Four scenarios are **recorded, not gated** (`RECORDED_ONLY`): the holdings tally cold and warm and the tooltip block's replay (4, 5, #34), and `toastMerge200` (7, #38), the same item gain pushed 200 times into the Main feed with merging on. Every push after the first merges into one live row and repaints it, and the repaint builds the row's strings, so it carries no byte ceiling; the merge's own zero allocation is pinned by `tests/test_toast_model.lua`.
 
 The ceilings are pinned numbers in `tests/perf.lua`, with the reason beside them. Scenario 3 is the
 one that does real work: an unchanged pass over 216 occupied slots, behind the debounce and never

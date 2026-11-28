@@ -113,11 +113,20 @@ primitives and holds no opinion about how they are composed.
 | `Compat.ListFactions()` | `C_Reputation.GetNumFactions` / `GetFactionDataByIndex` / `ExpandFactionHeader` / `CollapseFactionHeader` / `AreLegacyReputationsShown` / `SetLegacyReputationsShown`, then `FactionSnapshot` | Every faction of the Reputation list as `{id, name, repType, rank, standing, threshold, paragon, accountWide, label}`, the reputation capture's in-memory baseline seed. A collapsed header is expanded for the forward walk and collapsed again after, last to first, as `ListCurrencies` does; Retail's "Show Legacy Reputations" filter, when the player hides them, is shown for the walk and hidden again after, so a legacy faction is seeded too; a header with no bar of its own is skipped; `{}` when the API is absent. **Guarded** under the simulator. |
 | `Compat.AppearanceSource(sourceID)` | `C_TransmogCollection.GetSourceInfo` / `GetAppearanceSourceInfo` (a table's `.itemLink`, or the sixth return), `C_Item.GetItemInfoInstant` (3rd return) | `itemID, itemLink, name, quality, visualID, itemSubType` for one appearance source; the link and name plain-string guarded, `""` read as nil, no async retry. All nil when unreadable. |
 | `Compat.IsNewLook(visualID, sourceID)` | `C_TransmogCollection.GetAllAppearanceSources`, `PlayerKnowsSource` (else `GetSourceInfo(id).isCollected`) | `true` when no source of the visual other than `sourceID` is collected (the row's `newLook`); `false` when the API is missing. |
+| **`core/CompatGain.lua`** (the gain feed's and the toast feeds' reads, #38, toast spec §3; its own file so every member of the family stays under the size trigger) | | |
+| `Compat.PlayerXP()` | `UnitXP` / `UnitXPMax` / `UnitLevel`, `IsXPUserDisabled`, `GetMaxPlayerLevel` | `cur, max, level, capped`; nil when a read is absent, secret or not a number (WoW Forever's `UnitStat` family can answer secrets). `capped` when experience is switched off or the level is the client's top. |
+| `Compat.ProfessionSkills(out)` | `GetProfessions` / `GetProfessionInfo` (the seventh return is the skill line) | Retail's professions into `out[line] = { name, rank, max }`, each entry made once; no UI state touched. nil when absent. |
+| `Compat.ListSkillLines(out)` | `C_SkillInfo.GetNumSkillLines` / `GetSkillLineInfo` / `ExpandSkillHeader` / `CollapseSkillHeader` | WoW Forever's skill list walked with collapsed headers opened and shut again, kept to `C.PROFESSION_SKILL_LINES` and folded onto the parent line (the larger rank of a pair), into `out`. **Guarded**: the walk is UI state. |
+| `Compat.CurrencyCap(id)` / `CurrencyIcon(id)` / `CurrencyLink(id)` | `C_CurrencyInfo.GetCurrencyInfo` (`quantity`, `maxQuantity`, `totalEarned`, `useTotalEarnedForMaxQty`, `iconFileID`), `GetCurrencyLink` | A currency's quantity, cap (0 answers nil), earned total and whether the cap counts it; its icon; its link for a toast's shift click. |
+| `Compat.ItemEquipInfo(linkOrID)` / `ItemLevelOf(link)` / `EquippedLink(slot)` / `ItemIcon(itemID)` / `IsMountItem(itemID)` | `C_Item.GetItemInfoInstant`, `C_Item.GetDetailedItemLevelInfo` (else the global), `GetInventoryItemLink`, `C_Item.GetItemIconByID`, `C_MountJournal.GetMountFromItem` | The upgrade rule's reads (equip location, class, subclass, item level, the equipped link), an item's icon and whether it teaches a mount. Plain values, nil for a secret or an empty slot. |
+| `Compat.IsUncollectedLook(link)` | `C_TransmogCollection.PlayerHasTransmogByItemInfo` | Retail only (`C.FEATURE.appearances`): true when the look is not collected; nil on WoW Forever or when it cannot say. |
+| `Compat.ModifiedLinkClick(link)` / `PlayMediaSound(key)` | `HandleModifiedItemClick`; LibSharedMedia `Fetch`, `PlaySoundFile` (Master channel) | A toast's shift click (link in chat) or ctrl click (dressing room); a highlight's sound (`""` plays nothing). **Pure**: UI actions, never simulated. |
+| `Compat.SuppressAlertEvents(events, into)` / `RestoreAlertEvents(into)` / `AlertEventsRegistered(events, into)` | `AlertFrame:IsEventRegistered` / `UnregisterEvent` / `RegisterEvent` | Blizzard alert hiding (`modules/ToastBlizz.lua`): unregister each listed name `AlertFrame` has and record it in order; re-register exactly those and wipe the record; the probe's read of which are registered. Presence-gated, so a client without `AlertFrame` or a name suppresses nothing. **Pure**. |
 | `Compat.IsSecret(v)` | `core/CompatClient.lua`: LibKa0s-Compat-1.0's `IsSecret`, else `issecretvalue` | Whether a value is secret, as one boolean (`false` on a client without the secrets system); the test the tooltip readers ask first. Pure. |
 
 ## Boundary rule
 
-Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
+Modules call into `Compat.*` for every varying/deprecated API. **A direct `C_*`, `_G` API call outside the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`), or any `WOW_PROJECT_ID` read outside `core/CompatClient.lua`, is a smell** — the compat firewall exists so flavor/version drift is fixed in exactly one file (see [common-tasks.md](common-tasks.md)).
 
 Attribution stamping consumes most of this surface — the hooks (`HookUseContainerItem`, `HookGetQuestReward`) and probes (`ContainerItemHasLoot`, `IsSpellTargeting`, `InPartyInstance`, `CurrentQuestID`, `GetMailHeader`, `IsAuctionHouseMail`, `DecodeGUID`) feed the source-resolution engine described in [data-flow.md](data-flow.md). The collector consumes `GetItemInfo`/`GetItemExtras`/`PlayerClassFile` to build each record, and takes the where-am-I stamp from `NS.Zone` / `NS.PlayerMapID` in [`core/EnvSetup.lua`](module-map.md), which forward to `Compat.Zone` / `Compat.PlayerMapID` at call time. See the [module map](module-map.md) for how the pieces load and connect.
 
@@ -133,19 +142,20 @@ and `PlayerClassFile`, and every read-side hook goes in through `HookSecure`/`Ho
 **file-scope** capture of a member (`local x = NS.Compat.Member` binds the function before the seam
 can wrap it; a capture of the table, `local Compat = NS.Compat`, reads the member at call time).
 
-The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`). It sorts every member three
+The seam is `core/SimSeam.lua`, loaded straight after the compat family (`core/Compat.lua`, `core/CompatClient.lua`, `core/CompatTooltip.lua`, `core/CompatProgress.lua`, `core/CompatGain.lua`). It sorts every member three
 ways. **Pure**, never wrapped: the text and parse helpers (`FoldNBSP`, `IsAuctionHouseMail`,
 `DecodeGUID`, `BindState`, `BestBound`, `CurrencyLinkID`, `AuctionMailKind`, `CurrencySourceName`,
-`InteractionType`, and the library's `BankerKind` and `UnreadyBankContainers`), the tooltip `Show*` / `HideTooltip` family, the holdings tooltip's id readers, guards and painters with `IsSecret` (#34), and the hook installers (`HookTooltipType` among them).
-**Guarded**: `ListCurrencies` and `ListFactions`, the two members that change client state (they open
-and shut the Currency tab's and the Reputation panel's headers to walk their lists), which answer only
+`InteractionType`, and the library's `BankerKind` and `UnreadyBankContainers`), the tooltip `Show*` / `HideTooltip` family, the holdings tooltip's id readers, guards and painters with `IsSecret` (#34), the hook installers (`HookTooltipType` among them), and the toast feeds' UI actions (`ModifiedLinkClick`, `PlayMediaSound` and the three alert-event members, #38).
+**Guarded**: `ListCurrencies`, `ListFactions` and `ListSkillLines`, the three members that change client state (they open
+and shut the Currency tab's, the Reputation panel's and WoW Forever's skill list's headers to walk their lists), which answer only
 the simulated world's list while a simulation runs. **Wrapped**: everything else, answered live until the simulator sets a provider.
 `modules/SimWorld.lua` sets one, at file load, for exactly the world reads (`GetContainerNumSlots`,
 `GetContainerSlot`, `GetInventoryItem`, `GetMoney`, `GetWarbandMoney`, `ListCurrencies`, `ScanInbox`,
 `GetMailHeader`, `ReadSendMail`, `ScanOwnedAuctions`, `ItemLocationID`, `ContainerItemHasLoot`,
 `IsSpellTargeting`, `CurrentQuestID`, `GetActiveKeystoneLevel`, `InPartyInstance`, `InCombatLockdown`,
 `TradeTargetKey`, `LatestCurrencyTransfer`, `NumLootItems`, `LootSourceGUID`, `Zone`, `PlayerMapID`,
-`CanViewCharacterBank`, `NumPurchasedBankTabs`, `ContainerGroups`); the
+`CanViewCharacterBank`, `NumPurchasedBankTabs`, `ContainerGroups`, and for the gain feed, #38, `PlayerXP`,
+`ProfessionSkills`, `ListSkillLines` and `CurrencyCap`); the
 item, spell and currency reads and `PlayerClassFile` keep answering live, because the simulated player
 is the real player, and `InInstance`, `InGroup` and `PlayerInCombat` are read only through `Live`.
 `tests/test_sim_seam.lua` pins the classification member by member, so a new member fails until it

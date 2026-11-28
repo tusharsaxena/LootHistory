@@ -69,7 +69,11 @@ and `tests/test_perf.lua` drives the `perf` hold through the harness.
 
 | Goes down | Where |
 |---|---|
-| The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's three chat events, the Reputation owner's one (`FACTION_STANDING_CHANGED`), the Appearance owner's two (`TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED`, Retail only) and Attribution's ten (six on WoW Forever) | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
+| The AceAddon target's own registrations — `PLAYER_ENTERING_WORLD`, the Collector's three chat events, the Reputation owner's one (`FACTION_STANDING_CHANGED`), the Appearance owner's two (`TRANSMOG_COLLECTION_SOURCE_ADDED` / `_REMOVED`, Retail only), Progress's five (`PLAYER_XP_UPDATE`, `PLAYER_LEVEL_UP`, `SKILL_LINES_CHANGED`, `CHAT_MSG_SKILL`, `PLAYER_REGEN_ENABLED`, #38) and Attribution's ten (six on WoW Forever) | `NS.addon:UnregisterAllEvents()` in `NS.StandDown` |
+| Blizzard's loot and money alert toasts, when **Hide Blizzard alerts** had taken them (#38): `AlertFrame` gets back exactly the events this addon unregistered, in the order it took them | `ToastBlizz:Disable`, the step straight after `SimStop`, so the restore runs while everything else is still up |
+| Progress's state (#38): its three row owners (`ProgressXP`, `ProgressSkill`, `ProgressRegen`), the experience and skill baselines, the owed Forever scan | `Progress:Disable`, after `Appearance:Disable` |
+| The toast feeds (#38): the `__gain` (`Gain`) and `__ev` (`SettingsChanged`) bus targets, the two combat rows on `__rows`, and every feed `Clear()`ed (rows released and hidden, the waiting list emptied, the clock disarmed, locked again), then click-through off and `Release()`, because `Clear` keeps a combat hold and a stand-down in combat must not come back up holding every gain. The feed instances themselves stay, reused at the next stand-up | `Toasts:Disable`, after `Rollup:Disable` |
+| The gain feed (#38): every `wants` and `toastWants` false, `on` false, the farm set and the feed claims dropped, its `__ev` target gone. It calls no observer's `SyncCapture`: the stand-down disables them itself | `GainFeed:Disable`, straight after `Toasts:Disable` |
 | The three private bus targets — `SettingsChanged`, `HistoryChanged`, `RecordAdded`, `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED` | `Collector:Disable` / `Browser:Disable` / `Analytics:Disable` |
 | The Reconciler's two private bus targets (the `SettingsChanged` listener and the sixteen capture events, fourteen on WoW Forever) and its held flush state | `Reconciler:Disable`, from `NS.StandDown` |
 | The Holdings tab's private bus target (`HOLDINGS_CHANGED`) | `HoldingsTab:Disable`, from `NS.StandDown` |
@@ -95,6 +99,8 @@ through `NS.UnregisterRows` and its capture state is cleared, while its `_settin
 to hear the switch come back. It is not a draw gate: the handler is never reached while the switch is
 off. `tests/test_dispatch.lua` pins the reputation row leaving and returning with the switch.
 
+**A toast feed off unregisters too** (#38). A feed's Enable box off takes its kinds out of `GainFeed.wants`; when no enabled feed is left that takes a kind, the observer's rows for it go (Progress's owners, and Reputation's or Appearance's rows when their record switch is off too), the combat rows go when no feed is enabled, and the alert hiding restores Blizzard's alerts. With every feed off, the gain feed's taps cost one field test each and Progress registers nothing. `tests/test_disabled.lua` pins the stand-down: no Progress or Toasts row registered, every feed's `Stats()` empty and asleep, `GainFeed.on` false, and the same instances back after a stand-up.
+
 **Hidden AT THE SOURCE, not imperatively.** The first rung of `B:VisibilityAllows` answers `false`
 while the latch is down, so every route into the window — the verb, the minimap click, the tab
 restore, the visibility dropdown — asks one question. An imperative hide alone would come back on
@@ -119,7 +125,7 @@ inside those five seconds got the write anyway, from a game event, while it was 
 
 ## The reset steps, apart from the stand-down
 
-Five of the stand-down's steps are also callable on their own, without unregistering anything,
+Seven of the stand-down's steps are also callable on their own, without unregistering anything,
 because the in-game simulator (`/lh sim`, LootHistory#37) has to wipe working state at its start
 and stop while the addon stays up:
 
@@ -137,6 +143,7 @@ and stop while the addon stays up:
   (`Reputation:SuspendBaseline`), clears the duplicate maps and seeds a fresh baseline from the world
   (`Reputation:Seed(true)`); its stop puts the real baseline back (`Reputation:RestoreBaseline`, no
   faction walk) and clears the duplicate maps again.
+- **`GainFeed:ResetState()`** wipes the feed claims, and **`Progress:ResetState()`** wipes the experience and skill baselines and the owed scan (#38). The simulator's start reseeds Progress from the world (`Progress:Seed(true)`), and its stop from the live client (`Progress:Seed()`); the toast feeds are not cleared at the stop, so simulated toasts fade out on their own.
 - **`NS.CancelDeferral(h)`** cancels and forgets one `NS.After` handle and leaves every other armed,
   so canceling the Reconciler's two fuses never takes the login deferrals down.
   `NS.CancelDeferrals()` still drops them all on a stand-down.
