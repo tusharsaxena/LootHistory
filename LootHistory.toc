@@ -233,9 +233,9 @@ modules\FarmModel.lua
 # above. Appends its three EVENT_ROWS at file load (core\Dispatch.lua above). Calls
 # NS.GainFeed:SetFarm and subscribes to NS.MSG.GAIN at call time only.
 modules\Farm.lua
-# LOAD-BEARING POSITION: the farm windows' list widget (#39); modules\FarmDetails.lua binds NS.FarmList
-# as a file-scope upvalue at load, so it must be above it. It binds nothing at load itself (NS.Pool,
-# NS.Skin and the FauxScrollFrame globals at call time).
+# LOAD-BEARING POSITION: the farm windows' list widget (#39); modules\FarmDetails.lua and
+# modules\FarmTab.lua bind NS.FarmList as a file-scope upvalue at load, so it must be above them. It
+# binds nothing at load itself (NS.Pool, NS.Skin and the FauxScrollFrame globals at call time).
 modules\FarmList.lua
 # LOAD-BEARING POSITION: binds NS.FarmModel as a file-scope upvalue at load; modules\FarmModel.lua must
 # be above. Reaches NS.Farm, NS.Browser and NS.Pool at call time only (it builds its frame lazily).
@@ -244,6 +244,13 @@ modules\FarmPanel.lua
 # be above. Reaches NS.Farm, NS.FarmPanel (SubLine), NS.Browser and NS.MakeResizable at call time only
 # (it builds both windows lazily).
 modules\FarmDetails.lua
+# LOAD-BEARING POSITION: binds NS.FarmModel and NS.FarmList as file-scope upvalues and calls
+# NS.Browser:RegisterTab at file load; all three must be above. Reaches NS.Farm, NS.FarmDetails and
+# NS.BrowserTable (the row menu) at call time only.
+modules\FarmTab.lua
+# CONVENTIONAL: the farm test-mode sample (#39); read at call time by modules\TestData.lua's TD.Publish
+# and kept beside the farm files. Binds nothing at load.
+modules\FarmTestData.lua
 modules\TestData.lua
 # CONVENTIONAL: the toast feeds' pure config, filter and merge (#38); binds NS.Constants at load only.
 modules\ToastModel.lua

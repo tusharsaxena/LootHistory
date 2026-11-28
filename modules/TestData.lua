@@ -258,13 +258,18 @@ function TD.Build(records, now)
 end
 
 --- Publish the sample stores beside test mode's `records` (BrowserTable:SetTestMode), or clear them
---- with nil. Session-only, like the records: nothing here is ever written to SavedVariables.
+--- with nil. Session-only, like the records: nothing here is ever written to SavedVariables. The farm
+--- sample (#39, modules/FarmTestData.lua) rides with them; FARM_CHANGED("store") then repaints the
+--- session lists, and a farm window on a sample session closes once the sample is gone.
 function TD.Publish(records)
   if records then
-    NS.State.testHoldings, NS.State.testDaily = TD.Build(records, time())
+    local now = time()
+    NS.State.testHoldings, NS.State.testDaily = TD.Build(records, now)
+    NS.State.testFarm = NS.FarmTestData and NS.FarmTestData.Build(now) or nil
   else
-    NS.State.testHoldings, NS.State.testDaily = nil, nil
+    NS.State.testHoldings, NS.State.testDaily, NS.State.testFarm = nil, nil, nil
   end
+  if NS.Farm and NS.Farm.Changed then NS.Farm:Changed("store") end
 end
 
 -- Sample item key -> how many days hold it (a day counts once however many holders hold it there).

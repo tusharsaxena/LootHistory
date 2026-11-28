@@ -115,7 +115,7 @@ test("Browser: a holders tab lists holders, with the warband as Warband", functi
     NS.Holdings:ApplyMoney(W, 5, 1)
     NS.Holdings:ApplyMoney("Alt-Realm", 5, 1)
     local labels = {}
-    for _, o in ipairs(NS.Browser._options.char(true)) do labels[o.value] = o.label end
+    for _, o in ipairs(NS.Browser._options.char("holders")) do labels[o.value] = o.label end
     assertTrue(labels[W] ~= nil and labels[W]:find(NS.Constants.ACCOUNT.holder, 1, true) ~= nil)
     assertTrue(labels["Alt-Realm"] ~= nil)
     assertTrue(labels["current"] ~= nil, "the Current preset stays")
@@ -459,7 +459,7 @@ test("Browser: Character Current shows the character's half of a warband move, W
   withFixture(rows, function()
     -- The list offers the Warband, under the name a player reads.
     local labels = {}
-    for _, o in ipairs(NS.Browser._options.char(false)) do labels[o.value] = o.label end
+    for _, o in ipairs(NS.Browser._options.char(nil)) do labels[o.value] = o.label end
     assertEqual(labels[W], NS.Constants.ACCOUNT.holder)
     assertTrue(labels[me] ~= nil)
     -- "Character: Current" is the set { [me] = true }.

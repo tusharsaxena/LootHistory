@@ -26,6 +26,14 @@ local L = NS.L
 -- Details and Sessions are drawn only once their windows exist (modules/FarmDetails.lua, M4.3; the
 -- sessions list, M4.4), so no button here is ever dead.
 --
+-- THE SESSIONS LIST (`LootHistoryFarmSessions`, §7.2) is the panel's COMPANION: only its Sessions
+-- button opens it, so its header is close alone (B:MakeTitleMarks' companion form). It is docked to
+-- the panel's right edge and moves with it (its title bar drags the panel), closes with it, and sits
+-- on C.LAYERS.STRATA.WINDOW (HIGH, the owner's call, §11.3) beside it. The pair is one tooltip group
+-- (LibKa0s-Tooltip-1.0 SetGroup), so a row's tooltip opens outside both. It lists this character's
+-- saved sessions in Farm:ActiveStore(), newest first, through FarmList, at the headline value, gross;
+-- the row half (columns, clicks, the menu and the popups) is modules/FarmTab.lua's, read at call time.
+--
 -- Refresh: a full paint on FARM_CHANGED and SETTINGS_CHANGED, coalesced (0.25 s) on the panel's own
 -- bus target; a 1 Hz OnUpdate repaints the clock and the rates, set on show only while the session
 -- runs and cleared on hide. Visibility (F9): General visibility hides the panel at a combat edge or
@@ -48,6 +56,7 @@ local PLAY_FALLBACK = "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up"
 local PAUSE_FALLBACK = "Interface\\RaidFrame\\ReadyCheck-Waiting"
 
 local frame
+local sessions   -- the docked sessions list, built on its first show
 
 local function debug(fmt, ...)
   if NS.State.debug and NS.Debug then NS.Debug("UI", fmt, ...) end
@@ -286,6 +295,7 @@ local function ensureFrame()
   f:HookScript("OnHide", function()
     NS.CloseMenu()
     f:SetScript("OnUpdate", nil)
+    if sessions then sessions:Hide() end
     debug("farm panel hidden")
   end)
   NS.Browser:ApplySkin(f, nil, { noTopBar = true })
@@ -570,6 +580,7 @@ end
 local function takeDown()
   frame:Hide()
   frame:SetScript("OnUpdate", nil)
+  if sessions then sessions:Hide() end
 end
 
 local function reveal()
@@ -626,6 +637,7 @@ end
 --- The master rows moved (B:OnSettingsChanged): chrome, the lock mark, visibility.
 function FP:OnChromeChanged()
   if frame then NS.Browser:ApplyChrome(frame) end
+  if sessions then NS.Browser:ApplyChrome(sessions) end
   self:PaintLockMark()
   self:ApplyVisibility()
 end
@@ -636,6 +648,7 @@ function FP:AdoptProfile()
   if not frame then return end
   restorePosition()
   NS.Browser:ApplyChrome(frame)
+  if sessions then NS.Browser:ApplyChrome(sessions) end
   self:PaintLockMark()
   self:PaintMinimizeMark()
   if frame:IsShown() then self:Refresh() end
@@ -652,16 +665,147 @@ function FP:OpenDetails()
   if NS.FarmDetails and NS.FarmDetails.Open then NS.FarmDetails:Open(nil) end
 end
 
+-- ── the sessions list (§7.2, M4.4) ───────────────────────────────────────────────────────────
+
+local SESSIONS_W, SESSIONS_H = 360, 320
+local SESSION_KEYS = { "date", "zone", "active", "total", "rate", "star" }
+local SESSION_WIDTHS = { 52, nil, 44, 72, 64, 22 }
+
+local function sessionsBar(f)
+  local bar = CreateFrame("Frame", nil, f)
+  bar:SetPoint("TOPLEFT", 1, -1)
+  bar:SetPoint("TOPRIGHT", -1, -1)
+  bar:SetHeight(TITLE_H)
+  bar:EnableMouse(true)
+  bar:RegisterForDrag("LeftButton")
+  -- Docked: a drag on its title moves the panel it hangs from, under the same lock.
+  bar:SetScript("OnDragStart", function()
+    if NS.Browser:IsLocked() then return end
+    frame:StartMoving()
+  end)
+  bar:SetScript("OnDragStop", function()
+    frame:StopMovingOrSizing()
+    savePosition()
+  end)
+  f.titleBar = bar
+  local title = bar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  title:SetPoint("CENTER")
+  title:SetText(L["Farm sessions"])
+  f.title = title
+  NS.Skin.TitleBar(bar)
+  -- A companion: close alone.
+  local marks = NS.Browser:MakeTitleMarks(bar, f, function() FP:HideSessions() end, true, nil)
+  NS.Skin.Header(f, { title = title, right = marks, bars = { bar } })
+end
+
+--- Place the list under the title (and a mode strip, while one shows).
+function FP:LayoutSessions()
+  local f = sessions
+  if not f then return end
+  local top = TITLE_H + 4
+  for _, strip in ipairs({ f.simStrip, f.testStrip }) do
+    if strip and strip:IsShown() and strip.BodyOffset then top = top + (strip:BodyOffset() or 0) end
+  end
+  f.host:ClearAllPoints()
+  f.host:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -top)
+  f.host:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 8)
+  if f.list then f.list:Relayout() end
+end
+
+local function tooltipGroup()
+  local Tip = LibStub and LibStub("LibKa0s-Tooltip-1.0", true)
+  if Tip and Tip.SetGroup then Tip.SetGroup(frame, function() return { sessions } end) end
+end
+
+local function ensureSessions()
+  if sessions then return sessions end
+  local FT = NS.FarmTab
+  -- Parented to UIParent, not the panel, so the master scale applies once (B:ApplyChrome on each).
+  local f = CreateFrame("Frame", "LootHistoryFarmSessions", UIParent, "BackdropTemplate")
+  sessions = f
+  f:SetSize(SESSIONS_W, SESSIONS_H)
+  -- The read tier (frame-layering-§1 T4 WINDOW, HIGH), one above the panel it docks to (§11.3).
+  f:SetFrameStrata(C.LAYERS.STRATA.WINDOW)
+  f:SetToplevel(true)
+  f:EnableMouse(true)
+  f:SetClampedToScreen(true)
+  f:SetPoint("TOPLEFT", frame, "TOPRIGHT", 2, 0)
+  sessionsBar(f)
+  f.simStrip = NS.Browser.MakeSimStrip(f, function() FP:LayoutSessions() end)
+  f.testStrip = NS.Browser.MakeTestModeStrip and NS.Browser.MakeTestModeStrip(f, function() FP:LayoutSessions() end)
+  f.host = CreateFrame("Frame", nil, f)
+  f:HookScript("OnHide", function() debug("farm sessions hidden") end)
+  NS.Browser:ApplySkin(f, nil, { noTopBar = true })
+  NS.Browser:ApplyChrome(f)
+  FP:LayoutSessions()
+  f.list = NS.FarmList.New(f.host, {
+    columns = FT.Columns(SESSION_KEYS, SESSION_WIDTHS, { rate = "/h" }),
+    sortKey = "date", sortAsc = false,
+    empty = L["No saved farm sessions yet."],
+    onClick = FT.RowClick, onDoubleClick = FT.RowDoubleClick, onEnter = FT.RowEnter,
+  })
+  f:Hide()
+  tooltipGroup()
+  return f
+end
+
+--- This character's saved sessions in Farm:ActiveStore(), as list entries at the headline value.
+function FP.SessionEntries()
+  local FT = NS.FarmTab
+  local kind, char = FT.StoreKind(), NS.Util.PlayerKey()
+  local mine = NS.Farm:ActiveStore()[char]
+  local measure = farmSettings().headlineValue or "ah"
+  local out = {}
+  for _, s in ipairs(mine and mine.sessions or {}) do out[#out + 1] = FT.Entry(s, kind, char, measure) end
+  return FT.MarkBest(out, measure)
+end
+
+--- Repaint the sessions list: its strips and its rows.
+function FP:RefreshSessions()
+  local f = sessions
+  if not f then return end
+  local kind = NS.FarmTab.StoreKind()
+  if f.simStrip then f.simStrip:SetShown(kind == "sim") end
+  if f.testStrip then f.testStrip:SetShown(kind == "test") end
+  self:LayoutSessions()
+  f.list:SetData(FP.SessionEntries())
+end
+
+--- Show the sessions list beside the panel (the panel must be up; it closes with it).
+function FP:ShowSessions()
+  if not self:IsShown() then return end
+  ensureSessions():Show()
+  self:RefreshSessions()
+  debug("farm sessions shown")
+end
+
+function FP:HideSessions()
+  if sessions then sessions:Hide() end
+end
+
+function FP:SessionsShown() return sessions ~= nil and sessions:IsShown() end
+
+--- The panel's Sessions button.
+function FP:ToggleSessions()
+  if self:SessionsShown() then return self:HideSessions() end
+  return self:ShowSessions()
+end
+
+--- The sessions list frame (a test seam), nil before its first show.
+function FP:SessionsWindow() return sessions end
+
 -- ── the bus (lifecycle steps, core/LifecycleSetup.lua) ───────────────────────────────────────
 
 local function onChanged()
   if frame and frame:IsShown() and FP._refresh then FP._refresh() end
+  if sessions and sessions:IsShown() and FP._refreshSessions then FP._refreshSessions() end
 end
 
 --- Stand-up: the panel's own bus target, FARM_CHANGED and SETTINGS_CHANGED, both coalesced.
 function FP:Enable()
   if self.__ev or not NS.bus then return end
   self._refresh = NS.Coalesce(function() FP:Refresh() end, COALESCE)
+  self._refreshSessions = NS.Coalesce(function() FP:RefreshSessions() end, COALESCE)
   self.__ev = NS.NewBusTarget()
   self.__ev:RegisterMessage(NS.MSG.FARM_CHANGED, onChanged)
   self.__ev:RegisterMessage(NS.MSG.SETTINGS_CHANGED, onChanged)
@@ -672,5 +816,5 @@ function FP:Disable()
   if not self.__ev then return end
   self.__ev:UnregisterAllMessages()
   self.__ev = nil
-  self._refresh = nil
+  self._refresh, self._refreshSessions = nil, nil
 end

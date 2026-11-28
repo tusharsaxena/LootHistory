@@ -1352,13 +1352,14 @@ Total.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_layers.lua (10)
+### test_layers.lua (11)
 
 - Layers: NS.Constants.LAYERS names its strata by the standard's tier keys
 - Layers: no strata literal and no absolute level in the addon's own code
 - Layers: the History window is the on-demand window tier, toplevel and clamped
 - Layers: the farm panel is the persistent window tier, toplevel and clamped (#39)
 - Layers: the farm Details and summary windows are the on-demand window tier (#39)
+- Layers: the farm sessions list is the on-demand window tier beside the persistent panel (#39)
 - Layers: the Export modal is the modal tier, toplevel and clamped
 - Layers: the row menu is a clamped popup with no full-screen catcher
 - Layers: an outside press dismisses the row menu through GLOBAL_MOUSE_DOWN
@@ -1680,7 +1681,7 @@ Total.
 - HoldingsTab: expanding a thing adds one line per holder
 - HoldingsTab: character filter narrows holders
 - HoldingsTab: container and age formatting
-- HoldingsTab: tab is registered after History and Insights
+- HoldingsTab: tab is registered after History, Insights and Timeline, before Farm
 - HoldingsTab: attach builds rows and recycles them on refresh
 - HoldingsTab: HOLDINGS_CHANGED does not rebuild the pane once the window is closed
 - Holdings row actions: a thing line offers Show in Timeline
@@ -2533,6 +2534,29 @@ Total.
 - FarmDetails: Disable drops the bus target, Enable brings it back, Hide takes both windows down
 - FarmDetails: Resolve reads without writing and answers nil for a missing session
 
+### test_farm_tab.lua (20)
+
+- FarmTab: registered at order 50, after Timeline and Holdings
+- FarmTab: honors Search, Character and Zone; every other control is grayed
+- FarmTab: the farm option sources list the characters and zones with saved sessions
+- FarmTab: selecting the tab reads its option sources; leaving it prunes a pick History lacks
+- FarmTab: rows filter by Character, Zone and Search (name or zone); the open session is not listed
+- FarmTab: the test sample reproduces the mockup's rows, one star per zone
+- FarmTab: the sample is deterministic
+- FarmTab: the Total and Gross/h columns follow the measure
+- FarmTab: the tab lists the sessions newest first under its header band
+- FarmTab: the Measure cycle is part of the tab's saved view
+- FarmTab: click opens the summary, double-click Details, right-click the menu
+- FarmTab: Rename asks with the name, renames, and an empty answer restores the zone
+- FarmTab: Delete confirms with the name and date, and deletes
+- FarmTab: a test-mode sample row refuses Rename and Delete with the line
+- FarmTab: a simulation's row edits the simulation's store; a live reference is refused there
+- FarmTab: SessionName trims, cuts on a character boundary and falls back
+- FarmTab: TD.Publish publishes the farm sample and clears it, and says so on the bus
+- FarmPanel sessions: a companion with close alone, docked, and one tooltip group with the panel
+- FarmPanel sessions: this character's saved sessions, newest first, at the headline value
+- FarmPanel sessions: rows route like the tab's
+
 ### test_toast_feed.lua (46)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
@@ -3106,7 +3130,7 @@ Total.
 | test_browsertable.lua | 89 |
 | test_export.lua | 41 |
 | test_debuglog.lua | 21 |
-| test_layers.lua | 10 |
+| test_layers.lua | 11 |
 | test_launcher.lua | 22 |
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
@@ -3156,6 +3180,7 @@ Total.
 | test_farm.lua | 29 |
 | test_farm_panel.lua | 27 |
 | test_farm_details.lua | 22 |
+| test_farm_tab.lua | 20 |
 | test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
@@ -3183,4 +3208,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2692** |
+| **Total** | **2713** |

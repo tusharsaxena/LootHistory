@@ -449,7 +449,7 @@ test("Widgets: history Character options pin value, label and tint over every br
     { ts = 4, char = "Nomad-Other", source = "AH" },                                  -- no class
     { ts = 5, char = "Alt-Realm", holder = "Alt-Realm", classFile = "WARRIOR", source = "KILL" },
   }
-  local ok, got = pcall(function() return charOptionLines(B._options.char(false)) end)
+  local ok, got = pcall(function() return charOptionLines(B._options.char(nil)) end)
   NS.State.testRecords = saved
   if not ok then error(got, 0) end
   assertEqual(got, table.concat({
@@ -471,7 +471,7 @@ test("Widgets: holders Character options pin value, label and tint over every br
     ["Nometa-Realm"] = {},
     [W] = { meta = {} },
   }
-  local ok, got = pcall(function() return charOptionLines(B._options.char(true)) end)
+  local ok, got = pcall(function() return charOptionLines(B._options.char("holders")) end)
   NS.db.global.holdings = saved
   if not ok then error(got, 0) end
   assertEqual(got, table.concat({

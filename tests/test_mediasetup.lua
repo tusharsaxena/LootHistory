@@ -61,6 +61,9 @@ local DRAWN = {
   -- while expanded and `add` while minimized (named through minimizeFace, a local), and the status
   -- chip's `media-play` / `media-pause`.
   "add", "minimise", "media-pause", "media-play",
+  -- the saved-session lists' best-per-zone mark (#39, modules/FarmTab.lua's star column, which the
+  -- panel's sessions list shares)
+  "star",
 }
 
 -- ---------------------------------------------------------------------------
@@ -178,7 +181,10 @@ test("MediaSetup: the source names no icon the DRAWN list above has forgotten", 
                           -- Price table's tick and info marks through the catalog. It was the one
                           -- shipped file drawing art that this sweep could not see. Those marks
                           -- moved to settings/PanelAuction.lua with the table, so both are swept.
-                          "settings/Panel.lua", "settings/PanelAuction.lua" }) do
+                          "settings/Panel.lua", "settings/PanelAuction.lua",
+                          -- The farm panel's chip marks and the saved-session lists' star and
+                          -- row-menu mark (#39).
+                          "modules/FarmPanel.lua", "modules/FarmTab.lua" }) do
     local src = Loader.readFile(file)
     for name in src:gmatch('NS%.Icon%("([a-z%-]+)"%)') do
       if not drawn[name] then unlisted[#unlisted + 1] = file .. ": " .. name end

@@ -415,14 +415,16 @@ function B:RefreshFilterOptions()
   dd.source:SetOptions(sourceOptions())
   dd.type:SetOptions(typeOptions())
   dd.subtype:SetOptions(subtypeOptions())
+  -- The tab spec's option sources: `charSource` nil (History rows), "holders" (Timeline, Holdings)
+  -- or "farm" (the Farm tab's saved sessions), and `zoneSource` nil or "farm" (farm spec §7.5).
   local spec = tabSpecs[lastTab]
-  local holders = spec ~= nil and spec.charSource == "holders"
-  local charOpts = charOptions(holders)
+  local mode = spec and spec.charSource or "history"
+  local charOpts = charOptions(spec and spec.charSource)
   dd.char:SetOptions(charOpts)
-  -- One Character control, two option sources: on a source switch, drop picks the new list lacks.
-  if self._charHolders ~= nil and self._charHolders ~= holders then self:PruneCharSet(charOpts) end
-  self._charHolders = holders
-  dd.zone:SetOptions(zoneOptions())
+  -- One Character control, three option sources: on a source switch, drop picks the new list lacks.
+  if self._charMode ~= nil and self._charMode ~= mode then self:PruneCharSet(charOpts) end
+  self._charMode = mode
+  dd.zone:SetOptions(zoneOptions(spec and spec.zoneSource))
 end
 
 -- The two marks' words, colors and strip flavors: test mode's bright red badge and amber strip, and

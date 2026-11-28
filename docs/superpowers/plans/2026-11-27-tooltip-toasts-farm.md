@@ -98,7 +98,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M4.1 | Farm session model, in two commits. **M4.1a**: constants (GATHERING, `C.FARM` + `GAIN_KINDS`), `core/CompatFarm.lua`, defaults + State fields, `modules/FarmModel.lua` (pure) + tests, the GainFeed `SetFarm` contract tests, Attribution gathering + Farm notifications, the D27 register row. **M4.1b**: `modules/Farm.lua` runtime: store routing, clock, idle/AFK, logout hooks + suspend/restore, gains, costs, cap trim, lifecycle steps, perf buckets, `FARM_CHANGED`, a minimal `/lh farm` verb (spec §17) | done | `M4.1a: Add the farm session model, its Compat reads and the gathering source`; `M4.1b: Add the farm session runtime, its verb and lifecycle steps` |
 | M4.2 | Companion panel (headline, numbers, activity, buttons, minimize, paused view) | done | `M4.2: Add the farm companion panel, its list widget and the persistent window tier` |
 | M4.3 | Details window (6 tabs) + summary at Finish | done | `M4.3: Add the farm Details window, its six tabs and the session summary` |
-| M4.4 | Farm tab in the History window + panel sessions list (rename, delete, best per zone) | todo | |
+| M4.4 | Farm tab in the History window + panel sessions list (rename, delete, best per zone) | done | `M4.4: Add the Farm tab, the sessions list and the farm test sample` |
 | M4.5 | Ingress: title-bar button, 2 key bindings, slash verb, launcher entry; settings (Farm tab) | todo | |
 | M4.6 | Test mode / sim, disabled-state, docs + review pass + fixes; push M4 | todo | |
 | M5.1 | Whole-run review, doc sync, release notes; report to owner; wait for merge go-ahead | todo | |

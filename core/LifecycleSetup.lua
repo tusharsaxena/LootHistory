@@ -188,9 +188,9 @@ local STAND_DOWN_STEPS = {
   method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"),
-  -- The farm panel's and the farm reading windows' bus targets (#39); the frames go in the Hide
-  -- steps below.
-  method("FarmPanel", "Disable"), method("FarmDetails", "Disable"),
+  -- The farm panel's, the farm reading windows' and the Farm tab's bus targets (#39); the frames go
+  -- in the Hide steps below.
+  method("FarmPanel", "Disable"), method("FarmDetails", "Disable"), method("FarmTab", "Disable"),
   method("Rollup", "Disable"),
   -- The farm session (#39): a running session paused `standDown`, its rows, lifecycle events, GAIN
   -- receiver, write hook and deferrals down, and the farm set dropped -- after every gain observer and
@@ -233,9 +233,9 @@ local STAND_UP_STEPS = {
   method("Farm", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
   method("Timeline", "Enable"),
-  -- The farm panel's and the farm reading windows' bus targets (#39): FARM_CHANGED and
-  -- SETTINGS_CHANGED, coalesced.
-  method("FarmPanel", "Enable"), method("FarmDetails", "Enable"),
+  -- The farm panel's, the farm reading windows' and the Farm tab's bus targets (#39): FARM_CHANGED
+  -- and SETTINGS_CHANGED, coalesced.
+  method("FarmPanel", "Enable"), method("FarmDetails", "Enable"), method("FarmTab", "Enable"),
   -- The toast feeds (#38): built once through NS.NewFeed, the GAIN receiver, the combat rows.
   method("Toasts", "Enable"),
   -- Blizzard's alert toasts hidden, when the switch is on and a feed is enabled (#38).

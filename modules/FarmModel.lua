@@ -244,6 +244,18 @@ function M.TrimCap(sessions, keep)
   return n
 end
 
+M.NAME_MAX = 48
+
+--- A saved session's name from the Rename popup's text (§7.6): trimmed, a `|` made `/` (no escape
+--- sequence reaches a list cell), cut to NAME_MAX bytes on a character boundary; empty answers
+--- `fallback` (the session's primary zone).
+function M.SessionName(text, fallback)
+  local t = tostring(text or ""):gsub("|", "/"):match("^%s*(.-)%s*$")
+  t = cutUTF8(t, M.NAME_MAX):match("^(.-)%s*$")
+  if t == "" then return fallback or "" end
+  return t
+end
+
 -- ── totals and rates (§5.3) ──────────────────────────────────────────────────────────────────
 
 --- { money, vendor, ah, costs } in copper. AH counts the vendor price for an item with no AH price

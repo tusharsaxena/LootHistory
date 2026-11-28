@@ -48,9 +48,10 @@ test("HoldingsTab: container and age formatting", function()
   assertEqual(NS.HoldingsTab.FormatAge(1000, 1000 + 2 * 86400), "2 d")
 end)
 
-test("HoldingsTab: tab is registered after History and Insights", function()
+test("HoldingsTab: tab is registered after History, Insights and Timeline, before Farm", function()
   local names = NS.Browser:Tabs()
-  assertEqual(names[#names], "Holdings")
+  assertEqual(names[4], "Holdings")
+  assertEqual(names[5], "Farm", "the Farm tab (order 50, #39) is the one tab after it")
 end)
 
 test("HoldingsTab: attach builds rows and recycles them on refresh", function()

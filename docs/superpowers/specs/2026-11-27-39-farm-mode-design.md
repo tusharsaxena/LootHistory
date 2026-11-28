@@ -119,6 +119,34 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 > - §7 strips: `modules/Browser.lua` publishes `B.MakeTestModeStrip` beside `B.MakeSimStrip`, so a
 >   test-mode sample session (M4.4) shows the History window's amber band.
 
+> **Built in M4.4 (2026-11-28; small calls inside the spec, no owner decision changed).**
+> - §5.9 a session id is unique only within its character, and the Farm tab lists every character,
+>   so `FarmModel.BestPerZone`'s id set would star every session sharing a best one's id.
+>   `FT.MarkBest` hands the model one proxy per listed entry, its id the entry's index; the model's
+>   API is unchanged.
+> - §7.5 `charOptions(mode)` takes `nil`, `"holders"` or `"farm"` (the old boolean is gone; its test
+>   callers pass the word), `zoneOptions(mode)` `nil` or `"farm"`, from `Farm:Characters()` and
+>   `Farm:Zones()`. `B:RefreshFilterOptions` prunes the Character picks on a source change
+>   (`_charMode`). The tab repaints, options included, on `finish`, `rename`, `delete` and `store`
+>   and on `SETTINGS_CHANGED`, never on gain traffic: it lists saved sessions only. Its measure is
+>   nil until cycled (the headline value setting), saved as `farmMeasure` beside `sortKey` and
+>   `sortAsc`.
+> - §7.2 the sessions list is titled `Farm sessions`, its title-bar drag moves the panel it docks
+>   to, it is parented to `UIParent` (so the master scale applies once) and it shows only while the
+>   panel does. Its `/h` column and the tab's `Gross/h` are one column spec. A row's hover names the
+>   session and says what a click does, which is what the tooltip group places outside the pair.
+>   In test mode it reads the sample like the tab, so it lists this character's sample sessions,
+>   which is none: the sample's characters are the History sample's.
+> - §7.6 the row half (columns, click routes, the menu and both popups) is `modules/FarmTab.lua`'s;
+>   the sessions list reads it at call time. The menu's items stay enabled on a test row and the ask
+>   refuses with the line (the spec's refusal), as `Farm:Rename` / `Farm:Delete` do. A name is
+>   `FarmModel.SessionName`: trimmed, a `|` made `/`, cut to `NAME_MAX` (48) bytes on a character
+>   boundary, empty giving the zone. The popups' buttons are `Rename` / `Cancel` and `Yes` / `No`.
+> - §12.3 the sample's characters are `TestSample.charKey` over the History sample's four classes,
+>   so the mockup's hunter row is the warrior's. The zone names are the spec's on both clients.
+>   `TD.Publish` also sends `FARM_CHANGED("store")`, so the lists repaint and a window on a sample
+>   session closes when test mode ends.
+
 ## 1. Goal
 
 A player starts a farm session, farms, and finishes it. While it runs, a companion panel shows the

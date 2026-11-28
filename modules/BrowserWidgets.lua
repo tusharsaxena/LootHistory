@@ -130,8 +130,21 @@ local function holderCharItems()
   return items
 end
 
-local function charOptions(holdersMode)
-  local items = holdersMode and holderCharItems() or historyCharItems()
+-- The Character list for the Farm tab (#39, farm spec §7.5): every character with a saved session in
+-- the farm store the session lists read (NS.Farm:Characters, the test sample in test mode), each with
+-- the class of its latest session.
+local function farmCharItems()
+  local items = {}
+  for _, c in ipairs(NS.Farm and NS.Farm:Characters() or {}) do items[#items + 1] = charItem(c.key, c.classFile) end
+  return items
+end
+
+local CHAR_SOURCES = { holders = holderCharItems, farm = farmCharItems }
+
+-- `mode` is the active tab's `charSource`: nil (History rows), "holders" (Timeline, Holdings) or
+-- "farm" (the Farm tab).
+local function charOptions(mode)
+  local items = (CHAR_SOURCES[mode] or historyCharItems)()
   -- Sorted on the character name, not on the icon-prefixed label -- see withAll's `sortText`.
   local opts = withAll("Character: All", items, function(o) return o.value end)
   -- "Character: Current" is a one-click preset (see dd.char.presets below), not a real char value —
@@ -178,10 +191,18 @@ end
 -- filtering only part of the zone. The name is also what the Zone column, group-by-zone and the
 -- Insights "Top Zones" list already key on, so all four now agree. Records with no captured name
 -- share one "Unknown" bucket (the empty string, which is what QueryList matches them on).
-local function zoneOptions()
+-- `mode` is the active tab's `zoneSource`: nil (History rows) or "farm" (the saved sessions' primary
+-- zones, NS.Farm:Zones; farm spec §7.5).
+local function zoneNames(mode)
+  if mode == "farm" then return NS.Farm and NS.Farm:Zones() or {} end
+  local out = {}
+  for i, r in ipairs(dataset()) do out[i] = r.zone or "" end
+  return out
+end
+
+local function zoneOptions(mode)
   local seen, items = {}, {}
-  for _, r in ipairs(dataset()) do
-    local z = r.zone or ""
+  for _, z in ipairs(zoneNames(mode)) do
     if not seen[z] then
       seen[z] = true
       items[#items + 1] = { value = z, label = (z ~= "" and z) or "Unknown" }

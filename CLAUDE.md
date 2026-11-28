@@ -58,7 +58,7 @@ cases, [docs/validate-seeds.md](docs/validate-seeds.md)'s `## Gate`; `python3 -m
 ## Vendored LibKa0s
 
 Bundles [LibKa0s](https://github.com/tusharsaxena/LibKa0s) v1.119.0 (unreleased, branch feat/2026-11-27-feed) (MIT).
-LibKa0s icons: add, ban, chat, chevron-down, chevron-right, chevron-up, circle-check, clear, close, confirm, copy, eye, graph, info, lock, media-pause, media-play, minimise, move, reset, segment, settings, sort-down, sort-up, spreadsheet, unlock, volume-high, gi:bank, gi:chest-armor, gi:envelope, gi:gavel, gi:knapsack, gi:locked-chest.
+LibKa0s icons: add, ban, chat, chevron-down, chevron-right, chevron-up, circle-check, clear, close, confirm, copy, eye, graph, info, lock, media-pause, media-play, minimise, move, reset, segment, settings, sort-down, sort-up, spreadsheet, star, unlock, volume-high, gi:bank, gi:chest-armor, gi:envelope, gi:gavel, gi:knapsack, gi:locked-chest.
 
 That is the Ka0s-owned shared library behind the chat printer, the debug console, the
 slash-command interface, the settings panel and the filter-bar dropdowns, vendored whole-folder
@@ -67,7 +67,7 @@ only the icons the declaration line above names. That line is what the tag's `to
 and the vendor gate read. A mark the library draws for this addon (`close`, `copy`, `clear`,
 `info`, the scroll bar's `chevron-up` and `chevron-down`, the skin picker's `eye`, `settings` and `reset`,
 the reorder list's `move`, the sound row's `volume-high`) or one this addon passes in (the History
-window's header `lock` and `unlock`, the farm panel's `minimise`, `add`, `media-play` and `media-pause`, the holdings tooltip's six container marks, among others) that is missing from the line resolves to a path, draws blank,
+window's header `lock` and `unlock`, the farm panel's `minimise`, `add`, `media-play` and `media-pause`, the farm session lists' `star`, the holdings tooltip's six container marks, among others) that is missing from the line resolves to a path, draws blank,
 and leaves every suite green.
 
 The provenance line is not decoration. `tests/test_vendor_sync.lua` greps this file for it, resolves the tag

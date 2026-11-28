@@ -119,6 +119,17 @@ test("Layers: the farm Details and summary windows are the on-demand window tier
   store[s.char] = nil
 end)
 
+test("Layers: the farm sessions list is the on-demand window tier beside the persistent panel (#39)", function()
+  local I = instance()
+  I.NS.FarmPanel:Show()
+  I.NS.FarmPanel:ShowSessions()
+  local L = I.M.__layers(I.NS.FarmPanel:SessionsWindow())
+  assertEqual(L.strata, "HIGH", "WINDOW: one tier above the panel it docks to (farm spec §11.3)")
+  assertTrue(L.toplevel, "a click raises it among its peers")
+  assertTrue(L.clamped, "it stays on screen")
+  I.NS.FarmPanel:Hide()
+end)
+
 test("Layers: the Export modal is the modal tier, toplevel and clamped", function()
   local I = instance()
   I.NS.Export:Open({})

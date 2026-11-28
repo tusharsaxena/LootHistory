@@ -151,7 +151,7 @@ local function featureTargets()
                  NS.Reputation._settings, NS.Appearance._settings,
                  NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
                  NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev,
-                 NS.Toasts.__ev, NS.Toasts.__rows, NS.FarmPanel.__ev, NS.FarmDetails.__ev }
+                 NS.Toasts.__ev, NS.Toasts.__rows, NS.FarmPanel.__ev, NS.FarmDetails.__ev, NS.FarmTab.__ev }
   for i = 1, table.maxn(list) do
     if list[i] then t[list[i]] = true end
   end
@@ -951,7 +951,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "Farm", "FarmPanel", "FarmDetails", "Toasts", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "Farm", "FarmPanel", "FarmDetails", "FarmTab", "Toasts", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -980,7 +980,7 @@ local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
   for _, k in ipairs({ "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
-                        "HoldingsTip", "HoldingsAPI", "Toasts", "Farm", "FarmPanel", "FarmDetails" }) do
+                        "HoldingsTip", "HoldingsAPI", "Toasts", "Farm", "FarmPanel", "FarmDetails", "FarmTab" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
@@ -1009,7 +1009,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reputation:Disable", "Appearance:Disable", "Progress:Disable", "Reconciler:Disable",
       "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
-      "HoldingsTab:Disable", "Timeline:Disable", "FarmPanel:Disable", "FarmDetails:Disable", "Rollup:Disable", "Farm:Disable", "Toasts:Disable",
+      "HoldingsTab:Disable", "Timeline:Disable", "FarmPanel:Disable", "FarmDetails:Disable", "FarmTab:Disable", "Rollup:Disable", "Farm:Disable", "Toasts:Disable",
       "GainFeed:Disable",
       "HoldingsTally:Disable", "HoldingsTip:Disable", "HoldingsAPI:Disable",
       "Attribution:DisableOut",
@@ -1029,7 +1029,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
       "GainFeed:Enable", "Collector:Enable", "Reputation:Enable", "Appearance:Enable", "Progress:Enable", "Reconciler:Enable", "Rollup:Enable", "Farm:Enable", "Browser:Enable", "Analytics:Enable",
-      "HoldingsTab:Enable", "Timeline:Enable", "FarmPanel:Enable", "FarmDetails:Enable", "Toasts:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
+      "HoldingsTab:Enable", "Timeline:Enable", "FarmPanel:Enable", "FarmDetails:Enable", "FarmTab:Enable", "Toasts:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "HoldingsAPI:Enable",
       "Debug:State:stand-up: capture registered",
       "DebugAtEnable:State",

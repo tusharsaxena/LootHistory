@@ -607,6 +607,73 @@ function Farm:OnKeepChanged(keep)
   return n
 end
 
+-- ── the saved sessions' readers and edits (§7.5, §7.6; M4.4) ─────────────────────────────────
+
+--- Every character in ActiveStore() with at least one saved session, as { key, classFile }, keyed
+--- order. The Farm tab's Character options (modules/BrowserWidgets.lua, mode "farm").
+function Farm:Characters()
+  local out = {}
+  for key, mine in pairs(self:ActiveStore()) do
+    local list = mine.sessions
+    if list and #list > 0 then out[#out + 1] = { key = key, classFile = list[#list].classFile } end
+  end
+  table.sort(out, function(a, b) return a.key < b.key end)
+  return out
+end
+
+--- The distinct primary zones of every saved session in ActiveStore() (the Zone options, "farm").
+function Farm:Zones()
+  local seen, out = {}, {}
+  for _, mine in pairs(self:ActiveStore()) do
+    for _, s in ipairs(mine.sessions or {}) do
+      local z = s.primaryZone or ""
+      if not seen[z] then seen[z] = true; out[#out + 1] = z end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+Farm.TEST_REFUSAL = "test mode shows sample sessions; nothing to rename or delete."
+
+-- The saved session `ref` ({ store, char, id }) names in Store(), with its index and its character's
+-- entry; nil for a test-sample row (refused with the line), a reference to a store that is not the
+-- one writes go to now, or a session that is gone.
+local function savedRef(self, ref)
+  if type(ref) ~= "table" or ref.id == nil then return nil end
+  if ref.store == "test" then
+    say(Farm.TEST_REFUSAL)
+    return nil
+  end
+  local kind = (NS.SimStores and NS.SimStores.farm) and "sim" or "live"
+  if ref.store and ref.store ~= kind then return nil end
+  local mine = self:Store()[ref.char]
+  for i, s in ipairs(mine and mine.sessions or {}) do
+    if s.id == ref.id then return s, i, mine end
+  end
+  return nil
+end
+
+--- Rename a saved session (FarmModel.SessionName: an empty name restores the zone). Answers true.
+function Farm:Rename(ref, name)
+  local s = savedRef(self, ref)
+  if not s then return false end
+  s.name = FarmModel.SessionName(name, s.primaryZone)
+  debug("rename #%s", tostring(s.id))
+  self:Changed("rename")
+  return true
+end
+
+--- Delete a saved session from Store(). Answers true.
+function Farm:Delete(ref)
+  local s, i, mine = savedRef(self, ref)
+  if not s then return false end
+  table.remove(mine.sessions, i)
+  debug("delete #%s", tostring(s.id))
+  self:Changed("delete")
+  return true
+end
+
 -- ── suspend and restore (§5.4) ───────────────────────────────────────────────────────────────
 
 --- PLAYER_LOGOUT. Live store only (the sim store is never persisted, and during a simulation the live

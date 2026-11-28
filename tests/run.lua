@@ -177,6 +177,10 @@ local SUITES = {
   -- modules/FarmDetails.lua (#39): the Details window's six tabs, resize and Log, and the summary's
   -- golden text. After test_farm_panel, with the addon brought up; every case hides both windows.
   "test_farm_details",
+  -- modules/FarmTab.lua and the panel's sessions list (#39): the Farm tab's filters, rows, view and
+  -- routes, the Rename and Delete popups, the test sample. After test_farm_details, with the addon
+  -- brought up; every case closes the windows it opened.
+  "test_farm_tab",
   -- modules/ToastFeed.lua (#38): the three LibKa0s-Feed-1.0 feeds, the GAIN routing, clicks, combat,
   -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
   -- every case clears what it showed and leaves the addon up.
