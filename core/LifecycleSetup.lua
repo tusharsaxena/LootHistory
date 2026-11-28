@@ -175,6 +175,8 @@ local STAND_DOWN_STEPS = {
   -- state, so its stop steps reset the Reconciler and release the session stores before the
   -- modules below take themselves down. modules/Sim.lua's NS.SimStop, reason `standDown`.
   call("SimStop"),
+  -- Blizzard's alert toasts back (#38, toast spec §10.2) while everything else is still up.
+  method("ToastBlizz", "Disable"),
   -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the Collector's three,
   -- the Reputation owner's one, the Appearance owner's two (Retail), Progress's five and
   -- Attribution's ten (six on WoW Forever) that register through it (Toasts' two combat rows sit on
@@ -219,6 +221,8 @@ local STAND_UP_STEPS = {
   method("Timeline", "Enable"),
   -- The toast feeds (#38): built once through NS.NewFeed, the GAIN receiver, the combat rows.
   method("Toasts", "Enable"),
+  -- Blizzard's alert toasts hidden, when the switch is on and a feed is enabled (#38).
+  method("ToastBlizz", "Enable"),
   method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
   method("HoldingsAPI", "Enable"),
   standUpLogStep,

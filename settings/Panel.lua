@@ -100,6 +100,10 @@ local function makeMultiCheck(ctx, row, scroll)
 end
 
 
+-- The Toasts page draws each feed's Hide sources with the same picker (settings/PanelToasts.lua
+-- binds it at its file load).
+P._makeMultiCheck = makeMultiCheck
+
 -- ── The History tab's body: live DB stats and Purge ────────────────────────────
 --
 -- Drawn from RenderTabbedSchema's `afterGroup` hook, keyed to the History group, rather than
@@ -783,9 +787,9 @@ function P:Register()
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- TWO sub-pages: General, then Profiles. Filters and AH price were sub-pages of their own until R6
-  -- folded them into General's strip; their bodies are unchanged and their two registrations are
-  -- gone.
+  -- THREE sub-pages: General, Toasts, then Profiles. Filters and AH price were sub-pages of their own
+  -- until R6 folded them into General's strip; their bodies are unchanged and their two registrations
+  -- are gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
     -- The Defaults button IS options-ui-§12's global reset (P:RestoreDefaults -> CliResetAll), so
     -- its tooltip is Reset all settings' own, read from the descriptor by O.ResetAllTooltip exactly
@@ -802,6 +806,11 @@ function P:Register()
     O.SetRenderer(ctx, renderGeneral)
     Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "General")
   end)
+  -- Toasts between General and Profiles (#38, D23). Its builder is settings/PanelToasts.lua's; the
+  -- page is the three toast feeds, picked in its banner.
+  if NS.ToastsPage then
+    O.RegisterOptionsPage("Toasts", "Toasts", NS.ToastsPage.Build)
+  end
   -- Profiles LAST in the Settings tree (options-ui-§3), registered here rather than at its own file
   -- load so the order is this function's and not the TOC's. The builder answers nil -- the page
   -- opts out -- when AceDBOptions or AceConfig is missing.

@@ -44,6 +44,7 @@ local CLASSIFIED = {
   -- the gain feed's reads (#38, toast spec §3.2): the UI actions are pure, the Forever skill walk is
   -- guarded (it expands and collapses skill headers), every other read is wrapped
   ModifiedLinkClick = "pure", PlayMediaSound = "pure", SuppressAlertEvents = "pure", RestoreAlertEvents = "pure",
+  AlertEventsRegistered = "pure",
   ListSkillLines = "guarded",
   PlayerXP = "wrapped", ProfessionSkills = "wrapped", CurrencyCap = "wrapped", ItemEquipInfo = "wrapped",
   ItemLevelOf = "wrapped", EquippedLink = "wrapped", IsMountItem = "wrapped", IsUncollectedLook = "wrapped",

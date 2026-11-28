@@ -207,7 +207,7 @@ Ka0s Loot History (AceAddon: NS promoted in place)
 │                          widget makers, flow engine and the schema COMPOSERS. Loads
 │                          BEFORE Schema.lua, which composes its Master controls tab at
 │                          file load. Where every declined surface is written down.
-│   ├── Schema.lua       — 40 rows, one per setting, all on the ONE General page
+│   ├── Schema.lua       — 40 rows, one per setting, on the General page
 │                          (tab: Master controls 9 - composed - / Capture 9 /
 │                          AH price 2 / Interface 10 / History 2 / Appearance 8);
 │                          S:Set single write seam; boot validation; NS.COMMANDS

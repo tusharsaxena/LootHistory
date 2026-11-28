@@ -21,6 +21,8 @@ local Perf = NS.Perf
 --   * the combat rows "Toasts" (registered while any feed is enabled): lock, click-through, hold;
 --   * unlock and drag (session state, NS.State.toastUnlocked), the drag's nudge written through
 --     the Schema seam, the sample preview while an unlocked feed is empty;
+--   * test mode (the samples and the test strip on each enabled feed), the per-feed Test act and
+--     the sim strip, which wins over the test strip while a session runs;
 --   * the settings listener (`__ev`): the config snapshot dropped and every feed Refresh()ed.
 --
 -- Nothing here draws, ticks or sets a strata: the containers are the Feed's (STRATA HIGH).
@@ -128,17 +130,75 @@ end
 --- Unlock (`on`) or lock feed `fid`. Answers whether it is unlocked now: the Feed refuses an unlock in
 --- combat and without LibKa0s-Widgets-1.0. An unlocked, empty feed previews its samples; a lock
 --- clears them.
-function Toasts.SetUnlocked(_, fid, on)
+function Toasts:SetUnlocked(fid, on)
   local feed = feeds[fid]
   if not feed then return false end
   local unlocked = not feed:SetLocked(not on)
   NS.State.toastUnlocked[fid] = unlocked or nil
-  if unlocked then
-    if feed:Stats().live == 0 and NS.ToastSample then feed:Preview(NS.ToastSample.ForFeed(fid)) end
+  if unlocked and feed:Stats().live ~= 0 then return unlocked end
+  self:SyncPreview(fid)
+  return unlocked
+end
+
+-- ── Test mode, the Test act and the strips (§8.7) ────────────────────────────────────────────
+
+--- Whether feed `fid` shows the sticky samples now: test mode on an enabled feed, or an unlocked one.
+local function previewWanted(fid)
+  if Toasts._testMode and M.Config(fid).enabled then return true end
+  return NS.State.toastUnlocked[fid] == true
+end
+
+--- The samples shown, or cleared, as `previewWanted` says (preview-mode: the same present and paint
+--- path as a live toast).
+function Toasts.SyncPreview(_, fid)
+  local feed = feeds[fid]
+  if not feed then return end
+  if previewWanted(fid) and NS.ToastSample then
+    feed:Preview(NS.ToastSample.ForFeed(fid))
   else
     feed:ClearPreview()
   end
-  return unlocked
+end
+
+--- The strip an enabled feed carries: the sim's while a session runs (it wins), else test mode's.
+local function stripFor(fid)
+  if not M.Config(fid).enabled then return nil end
+  if NS.Sim and NS.Sim.IsActive and NS.Sim:IsActive() then return "sim", L["Sim mode"] end
+  if Toasts._testMode then return "test", L["Test mode"] end
+  return nil
+end
+
+--- Every feed's strip set from the state it reflects; a feed with none hides it.
+function Toasts.SyncStrips()
+  for _, fid in ipairs(C.TOAST_FEEDS) do
+    local feed = feeds[fid]
+    if feed then feed:SetStrip(stripFor(fid)) end
+  end
+end
+
+--- Test mode (BrowserTable:SetTestMode calls this after its own switch succeeded): each enabled feed
+--- shows one sticky sample per kind under the test strip; off clears both. Live gains still push.
+function Toasts:SetTestMode(on)
+  self._testMode = on and true or nil
+  if not self._up then return end
+  for _, fid in ipairs(C.TOAST_FEEDS) do self:SyncPreview(fid) end
+  self:SyncStrips()
+end
+
+--- The per-feed Test act: each sample this feed shows pushed once with no key (never merging, the
+--- normal lifecycle, not sticky), even while the feed is off. Refused in combat. Answers how many.
+function Toasts.Test(_, fid)
+  local feed = feeds[fid]
+  if not (feed and NS.ToastSample) then return 0 end
+  if NS.Compat.PlayerInCombat() then
+    NS.Print(L["Test toasts cannot show in combat."])
+    return 0
+  end
+  local n = 0
+  for _, pair in ipairs(NS.ToastSample.ForFeed(fid)) do
+    if feed:Push(nil, M.NewPayload(pair[2])) then n = n + 1 end
+  end
+  return n
 end
 
 --- The Feed's onMoved: the clamped nudge for the current slot, written through the single write seam.
@@ -205,13 +265,18 @@ end
 -- ── Settings and lifecycle (§10.1) ───────────────────────────────────────────────────────────
 
 --- A settings write or a profile switch: the snapshot dropped, every feed re-reads its getters, and
---- the combat rows follow the enabled set.
+--- the combat rows follow the enabled set. A feed turned on or off in test mode gains or loses its
+--- samples and its strip.
 function Toasts:RefreshConfig()
   M.Rebuild()
   for _, fid in ipairs(C.TOAST_FEEDS) do
     if feeds[fid] then feeds[fid]:Refresh() end
   end
   self:SyncRows()
+  if self._testMode then
+    for _, fid in ipairs(C.TOAST_FEEDS) do self:SyncPreview(fid) end
+  end
+  self.SyncStrips()
 end
 
 --- Stand-up (core/LifecycleSetup.lua, after the Timeline): the three feeds built once (later Enables
@@ -235,6 +300,16 @@ function Toasts:Enable()
     end)
   end
   self:SyncRows()
+  -- The sim strip follows a session's start and end. modules/Sim.lua loads below this file, so the
+  -- listener is added here, once; it fires on every step too, and SetStrip of the same strip is cheap.
+  if not self._simListen and NS.Sim and NS.Sim.AddListener then
+    self._simListen = true
+    NS.Sim:AddListener(function() if Toasts._up then Toasts.SyncStrips() end end)
+  end
+  if self._testMode then
+    for _, fid in ipairs(C.TOAST_FEEDS) do self:SyncPreview(fid) end
+  end
+  self.SyncStrips()
 end
 
 --- Stand-down (slash-commands-§7): the GAIN receiver, the listener and the combat rows gone, and every feed Clear()ed

@@ -134,6 +134,36 @@ local STYLE_SAME = {
   "fontColorFromSkin", "fontColor",
 }
 
+local bgClass, bgClass2 = {}, {}   -- fid -> the reused class color of its fill (one per feed: alphas differ)
+
+--- `stored` in the player's class color, its own alpha kept (options-ui-§17), in feed `fid`'s reused
+--- table of `cache`; nil when the class does not resolve, so the caller falls through to the skin,
+--- then the swatch.
+local function classColor(stored, cache, fid)
+  local into = cache[fid]
+  if not into then into = {}; cache[fid] = into end
+  local r, g, b = NS.Compat.ClassColor(NS.Compat.PlayerClassFile())
+  if not r then return nil end
+  into.r, into.g, into.b = r, g, b
+  into.a = type(stored) == "table" and tonumber(stored.a) or 1
+  return into
+end
+
+--- The background's two Use class color companions (options-ui-§17): the Feed's style has no class
+--- fill, so the host resolves it. Class comes first, before the skin: a resolved class color turns the
+--- fill's FromSkin off and draws as the swatch would. The gradient end takes its own companion while
+--- the fill is not the skin's.
+local function classFill(t, f, fid)
+  if f.useClassColorBgColor == true then
+    local c = classColor(f.bgColor, bgClass, fid)
+    if c then t.bgColor, t.bgColorFromSkin = c, false end
+  end
+  if f.useClassColorBgColor2 == true and t.bgColorFromSkin == false then
+    local c = classColor(f.bgColor2, bgClass2, fid)
+    if c then t.bgColor2 = c end
+  end
+end
+
 --- The Feed's `style` for feed `fid` (Feed doc *Style over the skin*): the stored leaves passed
 --- through, the three renamed toggles mapped, and the stored font sizes always drawn (Options' cause
 --- L11). An empty `font` (the profile's "the skin's own", as settings.appearance.font stores it) is
@@ -150,6 +180,7 @@ function M.StyleFor(fid)
   t.borderTint, t.borderClass, t.fontClass = f.borderByQuality == true, f.useClassColorBorder == true,
     f.useClassColorFont == true
   t.fontSizeFromSkin = false
+  classFill(t, f, fid)
   return t
 end
 

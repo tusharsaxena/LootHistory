@@ -10,8 +10,8 @@ local _, NS = ...
 --
 -- LOAD-BEARING POSITION: in the compat family (below core/CompatClient.lua, whose IsSecret every
 -- member here asks at call time) and straight before core/SimSeam.lua, which wraps every NS.Compat
--- member at file load, classes ModifiedLinkClick, PlayMediaSound, SuppressAlertEvents and
--- RestoreAlertEvents PURE and GUARDS ListSkillLines; below the seam these members would escape it.
+-- member at file load, classes ModifiedLinkClick, PlayMediaSound, SuppressAlertEvents,
+-- RestoreAlertEvents and AlertEventsRegistered PURE and GUARDS ListSkillLines; below the seam these members would escape it.
 
 NS.Compat = NS.Compat or {}
 local Compat = NS.Compat
@@ -231,6 +231,15 @@ function Compat.SuppressAlertEvents(events, into)
     end
   end
   return n
+end
+
+--- Which names in `events` AlertFrame has registered now, as { [name] = bool }, filled into `into`;
+--- nil without AlertFrame. A read for the probe (FOREVER-T1): nothing is changed.
+function Compat.AlertEventsRegistered(events, into)
+  local AF = AlertFrame
+  if not (AF and AF.IsEventRegistered) then return nil end
+  for _, name in ipairs(events) do into[name] = AF:IsEventRegistered(name) == true end
+  return into
 end
 
 --- Re-registers exactly the names `into` recorded, in the same order, and wipes it. Answers how many.

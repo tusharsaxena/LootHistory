@@ -23,7 +23,8 @@ local SCANS_PER_ITER = { lootDroppedBracketed = 0, lootDroppedBare = 0, combatBa
 -- the holdings tally over a 200-holder store, cold (a cache miss per call) and warm, and the
 -- tooltip block's replay path. They carry no ceiling; the headless suite pins the replay's zero
 -- (tests/test_holdings_tip.lua), and these rows are the orientation numbers beside it.
-local RECORDED_ONLY = { tallyItemCold = true, tallyItemWarm = true, tooltipBlockReplay = true }
+local RECORDED_ONLY = { tallyItemCold = true, tallyItemWarm = true, tooltipBlockReplay = true,
+                        toastMerge200 = true }
 
 local USAGE = "usage: lua tests/perf.lua [--out <path>] [--label <text>]\n"
 
@@ -166,6 +167,19 @@ NS.Reputation:OnStandingChanged(nil, 72)
 measure("repUnchanged", 2000, function() NS.Reputation:OnStandingChanged(nil, 72) end)
 mocks.C_Reputation = savedRep
 NS.Reputation:ResetState()
+
+-- Scenario 7 — the toast feed's merge path (#38, toast spec §10.3): the same item gain pushed 200 times
+-- into the Main feed with merging on, so every push after the first merges into one live row and
+-- repaints it. Recorded, not gated: the repaint builds the row's strings, and the claim the suite
+-- pins is the merge's own zero allocation (tests/test_toast_model.lua), not the paint's.
+local TOAST_GAIN = { kind = "ITEM", dir = "IN", id = 6948, qty = 1, quality = 1, name = "Hearthstone",
+                     link = "|cffffffff|Hitem:6948::::::::80:::::|h[Hearthstone]|h|r" }
+NS.Toasts:RefreshConfig()
+measure("toastMerge200", 200, function() NS.Toasts:OnGain(TOAST_GAIN) end)
+for _, fid in ipairs(NS.Constants.TOAST_FEEDS) do
+  local f = NS.Toasts:Feed(fid)
+  if f then f:Clear() end
+end
 
 local function gate(r)
   local ceiling, want = BYTE_CEILING[r.name], SCANS_PER_ITER[r.name]

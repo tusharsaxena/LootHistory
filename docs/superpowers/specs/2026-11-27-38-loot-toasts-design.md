@@ -1259,6 +1259,24 @@ pin) is the library's suite's, so host cases assert only what the host decides a
   - `M.StyleFor` leaves out an empty `font` (the profile's "the skin's own"), so the Feed resolves the face itself.
   - No `TOAST-STYLE` skin_values rows: `defaults/` and `core/SkinSetup.lua` are outside the kit's scan (8.4).
 
+- **Choices made at M3.6** (settings, test toasts, alert hiding):
+  - The background keeps its Use class color companion (`useClassColorBgColor`, default off), and the
+    gradient end is its own `O.ColorPair` with `useClassColorBgColor2`: options-ui-§17 gives every
+    swatch a class companion and exempts only a palette. The Feed has no class fill, so `M.StyleFor`
+    resolves it (class first, then the skin, then the swatch; a resolved class turns `bgColorFromSkin`
+    off). The kind colors are the palette exemption, and no swatch carries `disabledIf` (anti-pattern
+    #74), so the kind swatches are not `disabledIf` their companions as 9.3 said.
+  - The Content tab's middle subsection is **Details**, not "Content": a subgroup heading must not
+    repeat its tab (options-ui-§7, `tests/test_panel.lua`). Hide sources closes Details.
+  - Media rows (sounds, font, border, background texture) carry `widget = "MediaPicker"`.
+  - Unlock refused (combat, no Widgets) prints its line and redraws nothing.
+  - `Compat.AlertEventsRegistered` (PURE) is added for the probe's `alerts` part; modules/ may not
+    read `AlertFrame` (the routing ban).
+  - The perf scenario `toastMerge200` is recorded, not gated: the repaint builds strings; the merge's
+    zero allocation is the model suite's.
+  - The schema count claims and the per-tab breakdown gates count the General page; the Toasts rows
+    (75 per feed, three feeds, plus `hideAlerts`) are pinned per feed by `tests/test_panel_toasts.lua`.
+
 ### 15.3 Known limitations (to record in ARCHITECTURE)
 
 - Gains that come only through the diff (mail, vendor, AH, quest rewards with no chat line, every non-loot gold)

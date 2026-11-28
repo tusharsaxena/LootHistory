@@ -17,7 +17,7 @@ local function feed(over)
     price = "both", ilvl = true, counts = true, source = true, minQuality = 0, hideSources = {},
     hl = { mount = true, mountSound = "", legendary = true, legendarySound = "",
            upgrade = true, upgradeSound = "", appearance = true, appearanceSound = "" },
-    bgColorFromSkin = true, bgType = "solid",
+    bgColorFromSkin = true, bgType = "solid", useClassColorBgColor = false, useClassColorBgColor2 = false,
     bgColor = { r = 0.07, g = 0.08, b = 0.1, a = 0.92 }, bgColor2 = { r = 0.12, g = 0.13, b = 0.16, a = 0.92 },
     bgTexture = "Solid",
     borderStyle = "None", borderSize = 1, borderColor = { r = 0.23, g = 0.24, b = 0.28, a = 1 },

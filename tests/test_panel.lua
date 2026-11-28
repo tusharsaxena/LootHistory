@@ -28,7 +28,7 @@ local tabAt         = S.tabAt
 
 -- ── registration ─────────────────────────────────────────────────────────────────────────────
 
-test("Panel: the parent category and its ONE sub-page are registered", function()
+test("Panel: the parent category and its two sub-pages are registered", function()
   -- R6: Filters and AH price were canvas sub-pages of their own until this pass and are tabs on
   -- General's strip now. Asserted as an exact set — a leftover registration is a page nobody draws
   -- and a presence check could never see one.
@@ -36,7 +36,8 @@ test("Panel: the parent category and its ONE sub-page are registered", function(
   local names = {}
   for name in pairs(mocks.__subcategories) do names[#names + 1] = name end
   table.sort(names)
-  assertEqual(table.concat(names, " | "), "General",
+  -- The Toasts page (#38) is the second: the three toast feeds, picked in its banner.
+  assertEqual(table.concat(names, " | "), "General | Toasts",
     "Filters and AH price must NOT still be subcategories of their own")
 end)
 

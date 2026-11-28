@@ -1505,7 +1505,7 @@ Total.
 - Schema: no tab holds fewer than two controls
 - Schema: a tab name never repeats the page it sits on
 - Schema: every row carries a group, so no page can render strip-less
-- Schema: no color row exists, so the class-color companion rule has nothing to bind to
+- Schema: every color row has its class-color companion beside it, and none is disabled
 - Schema: every slider declares a step it can actually be dragged to
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
@@ -1836,7 +1836,7 @@ Total.
 
 ### test_panel.lua (48)
 
-- Panel: the parent category and its ONE sub-page are registered
+- Panel: the parent category and its two sub-pages are registered
 - Panel: registration is idempotent
 - Panel: the sub-page carries the addon's name for the Blizzard left tree
 - Panel: the General page draws the whole strip, in order, opening on Master controls
@@ -2392,7 +2392,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_toast_feed.lua (36)
+### test_toast_feed.lua (42)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
 - Toasts: an idle feed is asleep
@@ -2418,7 +2418,7 @@ Total.
 - Toasts: the live Feed refuses an unlock in combat
 - Toasts: combat re-locks an unlocked feed and clears its preview
 - Toasts: a drag's nudge is written through the Schema seam as one batch
-- Toasts: NS.Schema:SetMany refuses a path no row owns and stores nothing
+- Toasts: NS.Schema:SetMany refuses a batch holding a path no row owns, and stores nothing
 - Toasts: SETTINGS_CHANGED (toasts, profile, enabled) re-snapshots and refreshes every feed
 - Toasts: a settings write reaches the next gain without a reload
 - Toasts: Disable clears every feed and ends its hold; Enable reuses the instances
@@ -2430,6 +2430,44 @@ Total.
 - Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises
 - B:ShowGain opens History on the History tab with the gain's name in Search
 - B:ShowGain on the real window opens History and searches it
+- Toasts: test mode previews each enabled feed's samples under the test strip; off clears both
+- Toasts: test mode leaves a disabled feed alone
+- Toasts: BrowserTable's test mode switch drives the feeds, and combat start ends both
+- Toasts: the Test act pushes each sample once with no key, works on a disabled feed, refused in combat
+- Toasts: a Test push is a copy, never the shared sample
+- Toasts: the sim strip wins over the test strip while a session runs
+
+### test_toast_blizz.lua (7)
+
+- ToastBlizz: the switch on hides exactly the alert events AlertFrame has, and off restores them in order
+- ToastBlizz: off by default
+- ToastBlizz: the switch written through the Schema seam applies at once
+- ToastBlizz: the gain feed off (no feed enabled) restores the alerts
+- ToastBlizz: the addon stood down restores the alerts, and stood up hides them again
+- ToastBlizz: no AlertFrame suppresses nothing and raises nothing
+- ToastBlizz: the alert event list is the three loot toasts AlertFrameMixin registers
+
+### test_panel_toasts.lua (19)
+
+- Toasts page: registered as its own settings page, between General and Profiles
+- Toasts page: the banner lists the three feeds, in order, and picks Main first
+- Toasts page: the strip is General, Content, Style, Motion, Behavior
+- Toasts page: picking a feed keeps the tab and filters the rows to that feed
+- Toasts rows: every feed emits the same leaves in the same order, stamped with its feed
+- Toasts rows: every path has a shipped default equal to the row's, and every FromSkin defaults true
+- Toasts rows: the nudge sliders span the Feed's clamp, and the enter values are the Feed's words
+- Toasts rows: every color has its class companion beside it, but the kind palette, and none is disabled
+- Toasts rows: the appearance rows are Retail's
+- Toasts rows: a slot pick sets its growth and clears the nudge
+- Toasts rows: a drag's nudge now lands through the Schema seam
+- Toasts page: the General tab carries Test, Unlock and Reset feed; Style carries Reset style to skin
+- Toasts page: the Content tab draws Hide sources with the set picker
+- Toasts page: Add feed turns on the next feed that is off and picks it; none left says so
+- Toasts page: Reset style to skin turns on exactly the feed's Style companions
+- Toasts page: Reset feed resets only that feed
+- Toasts page: the Defaults restore all three feeds and the alert row
+- Toasts page: the Unlock act unlocks the feed, and a refused unlock says so
+- Toasts page: drawn under the disabled notice while the addon is off
 
 ### test_sim_seam.lua (11)
 
@@ -2966,7 +3004,9 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
-| test_toast_feed.lua | 36 |
+| test_toast_feed.lua | 42 |
+| test_toast_blizz.lua | 7 |
+| test_panel_toasts.lua | 19 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
@@ -2991,4 +3031,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2528** |
+| **Total** | **2560** |

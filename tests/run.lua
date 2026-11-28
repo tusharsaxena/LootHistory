@@ -171,6 +171,10 @@ local SUITES = {
   -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
   -- every case clears what it showed and leaves the addon up.
   "test_toast_feed",
+  -- modules/ToastBlizz.lua and the Toasts page (#38): the alert hiding and its restore, then the
+  -- page's banner, rows and acts. After test_toast_feed, with the addon brought up; every case puts
+  -- back what it wrote and leaves the addon up.
+  "test_toast_blizz", "test_panel_toasts",
   -- core/SimSeam.lua, LibKa0s-Sim-1.0's answer seam over NS.Compat (LootHistory#37). After
   -- test_dispatch, with the whole addon loaded and brought up: its Unwrapped()-empty case then also
   -- catches a suite before it that swapped a Compat member and never put the wrapper back.

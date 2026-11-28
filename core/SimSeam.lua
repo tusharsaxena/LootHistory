@@ -76,6 +76,7 @@ local PURE = {
   -- The gain feed's UI actions (#38, toast spec §3.2): a click, a sound and the alert suppression
   -- answer for nobody, and a simulation must never replay them.
   ModifiedLinkClick = true, PlayMediaSound = true, SuppressAlertEvents = true, RestoreAlertEvents = true,
+  AlertEventsRegistered = true,
 }
 
 -- The safe answers while a session is active (req-lh-sim §2.4). A provider, when one is set, gets

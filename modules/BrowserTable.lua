@@ -434,6 +434,8 @@ function BrowserTable:SetTestMode(on, why)
   if NS.TestData then NS.TestData.Publish(NS.State.testRecords) end
   traceTestMode(on, why)
   showTestDataset(self, on)
+  -- The toast feeds' half (#38, toast spec §8.7): each enabled feed's samples and test strip.
+  if NS.Toasts and NS.Toasts.SetTestMode then NS.Toasts:SetTestMode(on) end
   refreshPanel()
   return true
 end

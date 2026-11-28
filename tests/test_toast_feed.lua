@@ -494,13 +494,15 @@ test("Toasts: a drag's nudge is written through the Schema seam as one batch", f
   if not ok then error(err, 0) end
 end)
 
-test("Toasts: NS.Schema:SetMany refuses a path no row owns and stores nothing", function()
-  -- The Toasts rows arrive with the settings page (M3.6); until then the batch is refused whole.
+test("Toasts: NS.Schema:SetMany refuses a batch holding a path no row owns, and stores nothing", function()
+  -- The Toasts rows exist since the settings page (M3.6): the nudge is a row, so a batch with one
+  -- unknown path is still refused whole, by that entry's index, before anything is stored.
   local before = feedRow("main").x
-  local ok, _, _, index = NS.Schema:SetMany({ { path = "settings.toasts.feeds.main.x", value = 1 } })
+  local ok, _, _, index = NS.Schema:SetMany({ { path = "settings.toasts.feeds.main.x", value = 1 },
+                                              { path = "settings.toasts.feeds.main.nosuch", value = 1 } })
   assertFalse(ok == true)
-  assertEqual(index, 1)
-  assertEqual(feedRow("main").x, before)
+  assertEqual(index, 2)
+  assertEqual(feedRow("main").x, before, "the valid entry is not stored either")
 end)
 
 -- ── settings and lifecycle (§10.1) ───────────────────────────────────────────────────────────
@@ -790,5 +792,119 @@ test("B:ShowGain on the real window opens History and searches it", function()
   end)
   if B.SetSearchText then B:SetSearchText("") end
   B:Hide()
+  if not ok then error(err, 0) end
+end)
+
+-- ── test mode, the Test act and the strips (§8.7, M3.6) ──────────────────────────────────────
+
+--- A stand-in on the stub's surface that records Preview, ClearPreview, SetStrip and Push.
+local function stripFake()
+  local f, log = {}, {}
+  for k, v in pairs(NS.FeedStub) do f[k] = v end
+  f.Preview = function(_, list) log[#log + 1] = "Preview:" .. #list; return #list end
+  f.ClearPreview = function() log[#log + 1] = "ClearPreview" end
+  f.SetStrip = function(_, kind, text) log[#log + 1] = "Strip:" .. tostring(kind) .. ":" .. tostring(text) end
+  f.Push = function(_, key, p) log[#log + 1] = "Push:" .. tostring(key) .. ":" .. tostring(p and p.kind); return "new" end
+  return f, log
+end
+
+local function has(log, entry)
+  for _, e in ipairs(log) do if e == entry then return true end end
+  return false
+end
+
+test("Toasts: test mode previews each enabled feed's samples under the test strip; off clears both", function()
+  local f, log = stripFake()
+  withFake(f, function()
+    Toasts:SetTestMode(true)
+    local n = #NS.ToastSample.ForFeed("main")
+    assertTrue(has(log, "Preview:" .. n), "one sticky sample per kind the feed shows")
+    assertTrue(has(log, "Strip:test:Test mode"), "the test strip")
+    for i = #log, 1, -1 do log[i] = nil end
+    Toasts:SetTestMode(false)
+    assertTrue(has(log, "ClearPreview")); assertTrue(has(log, "Strip:nil:nil"), "the strip hidden")
+  end)
+  assertEqual(Toasts._testMode, nil)
+end)
+
+test("Toasts: test mode leaves a disabled feed alone", function()
+  withFeeds({ extra = { enabled = false } }, function()
+    Toasts:SetTestMode(true)
+    local ok, err = pcall(function()
+      assertEqual(feed("extra"):Stats().live, 0, "no samples on a feed that is off")
+      assertTrue(feed("main"):Stats().live > 0, "the enabled Main feed shows them")
+    end)
+    Toasts:SetTestMode(false)
+    assertEqual(feed("main"):Stats().live, 0, "test mode off clears the samples")
+    if not ok then error(err, 0) end
+  end)
+end)
+
+test("Toasts: BrowserTable's test mode switch drives the feeds, and combat start ends both", function()
+  local seen, saved = {}, Toasts.SetTestMode
+  Toasts.SetTestMode = function(self, on) seen[#seen + 1] = tostring(on); return saved(self, on) end
+  local ok, err = pcall(function()
+    assertTrue(NS.BrowserTable:SetTestMode(true))
+    assertTrue(Toasts._testMode == true)
+    NS.BrowserTable:EndTestModeForCombat()
+    assertEqual(Toasts._testMode, nil, "the existing end of test mode reaches the feeds")
+  end)
+  Toasts.SetTestMode = saved
+  if NS.BrowserTable.testMode then NS.BrowserTable:SetTestMode(false) end
+  clearAll()
+  if not ok then error(err, 0) end
+  assertEqual(table.concat(seen, ","), "true,false")
+end)
+
+test("Toasts: the Test act pushes each sample once with no key, works on a disabled feed, refused in combat", function()
+  local f, log = stripFake()
+  local saved = NS.db.profile.settings.toasts.feeds.main.enabled
+  NS.db.profile.settings.toasts.feeds.main.enabled = false
+  NS.ToastModel.Rebuild()
+  local ok, err = pcall(withFake, f, function()
+    local n = Toasts:Test("main")
+    assertEqual(n, #NS.ToastSample.ForFeed("main"), "every sample pushed")
+    assertTrue(has(log, "Push:nil:ITEM"), "with no key, so it never merges")
+    for i = #log, 1, -1 do log[i] = nil end
+    local lines, savedPrint = {}, NS.Print
+    NS.Print = function(l) lines[#lines + 1] = l end
+    local savedCombat = rawget(M, "UnitAffectingCombat")
+    M.UnitAffectingCombat = function() return true end
+    local refused = Toasts:Test("main")
+    M.UnitAffectingCombat = savedCombat
+    NS.Print = savedPrint
+    assertEqual(refused, 0); assertEqual(#log, 0, "nothing pushed in combat")
+    assertEqual(lines[1], "Test toasts cannot show in combat.")
+  end)
+  NS.db.profile.settings.toasts.feeds.main.enabled = saved
+  NS.ToastModel.Rebuild()
+  if not ok then error(err, 0) end
+end)
+
+test("Toasts: a Test push is a copy, never the shared sample", function()
+  local pushed
+  local f = stripFake()
+  f.Push = function(_, _, p) pushed = pushed or p; return "new" end
+  withFake(f, function() Toasts:Test("main") end)
+  local sample = NS.ToastSample.ForFeed("main")[1][2]
+  assertTrue(pushed ~= nil and pushed ~= sample, "the Feed gets its own payload")
+  assertEqual(pushed.kind, sample.kind)
+end)
+
+test("Toasts: the sim strip wins over the test strip while a session runs", function()
+  local f, log = stripFake()
+  local savedSim = NS.Sim.IsActive
+  local ok, err = pcall(withFake, f, function()
+    Toasts:SetTestMode(true)
+    NS.Sim.IsActive = function() return true end
+    Toasts.SyncStrips()
+    assertEqual(log[#log], "Strip:sim:Sim mode")
+    NS.Sim.IsActive = savedSim
+    Toasts.SyncStrips()
+    assertEqual(log[#log], "Strip:test:Test mode", "the test strip back when the session ends")
+    Toasts:SetTestMode(false)
+  end)
+  NS.Sim.IsActive = savedSim
+  Toasts._testMode = nil
   if not ok then error(err, 0) end
 end)

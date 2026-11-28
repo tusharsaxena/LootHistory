@@ -32,9 +32,10 @@ local GD = NS.defaults.global
 -- `settings.rollupRetentionDays` (`global.rollupRetentionDays`, the Timeline's rollup, same reason).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
--- `page`  names the canvas SUBCATEGORY the row is edited on. There is exactly ONE now — "General"
---         — because R6 deprecated the Filters and AH price sub-pages into it. It is what the
---         descriptor's `rowsForPage` matches on (settings/OptionsSetup.lua).
+-- `page`  names the canvas SUBCATEGORY the row is edited on. There are TWO: "General" (R6
+--         deprecated the Filters and AH price sub-pages into it) and "Toasts" (#38, its rows built
+--         per feed in settings/SchemaToasts.lua and stamped `feed`). It is what the descriptor's
+--         `rowsForPage` matches on (settings/OptionsSetup.lua), with the Toasts banner's feed.
 -- `group` names the TAB within that page. settings/Panel.lua partitions the page's rows by group
 --         IN DECLARATION ORDER, so the order of this array is the order of the strip and a group's
 --         rows MUST be contiguous — a row filed under a group the page has already left would draw
@@ -98,7 +99,7 @@ local MASTER_ROWS, MASTER_AFTER_GROUP = O.MasterControls{
   -- fills. It replaced a host `tooltip` stamped over the composed one, which is the drift XC-04
   -- names.
   notes = {
-    testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline.",
+    testMode = "It fills every tab of the History window: History, Insights, Holdings and Timeline, and shows sample toasts on every enabled toast feed.",
     simMode  = "Ticked while the sim panel is open or a simulation runs. Ticking it is a bare /lh sim: the status line and the sim panel, where you pick a scenario; unticking it stops a running simulation and closes the panel.",
   },
   -- THE MINIMAP BUTTON (launcher-§3, LibKa0s compose minor 7). VERBATIM and unprefixed, like the
@@ -662,6 +663,9 @@ local ROWS = {
 S.Schema = {}
 for _, row in ipairs(MASTER_ROWS) do S.Schema[#S.Schema + 1] = row end
 for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
+-- The Toasts page (#38, settings/SchemaToasts.lua, loaded above this file): one row per feed and
+-- setting plus the page-wide alert row, after General's, so General's strip order is untouched.
+for _, row in ipairs(NS.SchemaToasts.Rows()) do S.Schema[#S.Schema + 1] = row end
 
 -- NOTE: `settings.auction.priority` (the ordered cascade selection list) is a carve-out array —
 -- NOT a schema row — managed directly by the settings panel UI (R6). See docs/schema.md.

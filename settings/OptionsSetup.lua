@@ -252,15 +252,22 @@ NS.Options = lib:New({
   bulkBegin = function(act, scope) NS.Schema.BulkBegin(act, scope) end,
   bulkEnd   = function(...) NS.Schema.BulkEnd(...) end,
 
-  -- This addon has no per-unit or per-page filter, so `filter` is ignored. `pageKey` matches the
+  -- `pageKey` matches the
   -- row's `page` — the canvas subcategory — and NOT its `group`, which is now the TAB within that
   -- page (options-ui-§13). It matched `group` while every page held exactly one section and the
   -- two were the same string; General spans three tabs now, and matching on group would hand
   -- RenderTabbedSchema one tab's rows and let it conclude the page has one section.
-  rowsForPage = function(pageKey)
+  --
+  -- `unit` is the page ctx's filter, and only the Toasts page sets one: its banner's feed
+  -- (settings/PanelToasts.lua). A row stamped with another `feed` is left out; a row with none (the
+  -- page-wide alert row, every General row) always stays. The page's Defaults asks with no filter
+  -- (O.RestoreDefaults), so it reaches all three feeds.
+  rowsForPage = function(pageKey, unit)
     local out = {}
     for _, row in ipairs(NS.Schema.Schema) do
-      if row.page == pageKey then out[#out + 1] = row end
+      if row.page == pageKey and (unit == nil or row.feed == nil or row.feed == unit) then
+        out[#out + 1] = row
+      end
     end
     return out
   end,

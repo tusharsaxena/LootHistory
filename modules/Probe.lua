@@ -272,11 +272,34 @@ local function socketFacts()
   return out
 end
 
+-- The toast feeds' client reads (#38, toast spec §12): whether AlertFrame is there and which of the
+-- alert events toast hiding takes it has registered (FOREVER-T1), and the skill lines the skill-up
+-- observer reads, Retail's GetProfessionInfo lines and Forever's skill list (FOREVER-T3).
+local function alertFacts()
+  local registered = Compat.AlertEventsRegistered(NS.Constants.BLIZZ_ALERT_EVENTS, {})
+  return { present = registered ~= nil, registered = registered }
+end
+
+local function skillFacts()
+  local out = {}
+  local function copyLines(lines)
+    if type(lines) ~= "table" then return nil end
+    local rows = {}
+    for line, e in pairs(lines) do
+      rows[#rows + 1] = { line = plain(line), name = plain(e.name), rank = plain(e.rank), max = plain(e.max) }
+    end
+    return rows
+  end
+  out.professions = copyLines(Compat.ProfessionSkills({}))
+  out.skillLines = copyLines(Compat.ListSkillLines({}))
+  return out
+end
+
 --- The `start` entry's facts. Each part is read under its own pcall, so one raise costs one part.
 local START_PARTS = {
   { "money", moneyFacts }, { "strings", stringFacts }, { "identity", identityFacts },
   { "instance", instanceFacts }, { "keyring", keyringFacts }, { "currencies", currencyFacts },
-  { "transfer", transferFacts },
+  { "transfer", transferFacts }, { "alerts", alertFacts }, { "skills", skillFacts },
 }
 function P.StartFacts()
   local store = P.Store(true)

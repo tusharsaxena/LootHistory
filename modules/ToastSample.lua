@@ -8,7 +8,8 @@ local C = NS.Constants
 -- empty (preview-mode, the same present and paint path). A sample never goes through GAIN, so no
 -- receiver (the farm tally, #39) ever counts one. Reached from NS.Toasts at call time only.
 --
--- M3.3 ships the set the unlocked preview needs; test mode and the per-feed Test act (M3.6) reuse it.
+-- The unlocked preview and test mode show these payloads as they are; the per-feed Test act pushes a
+-- copy of each (ToastModel.NewPayload), so a pushed sample is never a shared table.
 
 local L = NS.L
 

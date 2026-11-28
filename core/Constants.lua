@@ -269,6 +269,34 @@ C.TOAST_KIND_ICON = {
   SKILL      = "Interface\\Icons\\INV_Misc_Book_09",
 }
 C.TOAST_ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
+-- The Toasts page's value lists (toast spec §9.3), each the array form { { value, text } } in the
+-- order the dropdown draws. Stored values are the Feed's own words (slots, sides, enter) or this
+-- addon's (grow, price, background type); no getter maps them but grow (M.LayoutFor).
+C.TOAST_SLOT_LABEL = { TOPLEFT = "Top left", TOP = "Top center", TOPRIGHT = "Top right", LEFT = "Middle left",
+  CENTER = "Center", RIGHT = "Middle right", BOTTOMLEFT = "Bottom left", BOTTOM = "Bottom center",
+  BOTTOMRIGHT = "Bottom right" }
+C.TOAST_SLOT_OPTIONS = {}
+for _, slot in ipairs(C.TOAST_SLOTS) do
+  C.TOAST_SLOT_OPTIONS[#C.TOAST_SLOT_OPTIONS + 1] = { value = slot, text = C.TOAST_SLOT_LABEL[slot] }
+end
+-- The growth direction a slot pick sets (a top slot grows down, every other one up).
+C.TOAST_SLOT_GROW = { TOPLEFT = "down", TOP = "down", TOPRIGHT = "down", LEFT = "up", CENTER = "up",
+  RIGHT = "up", BOTTOMLEFT = "up", BOTTOM = "up", BOTTOMRIGHT = "up" }
+C.TOAST_GROW_OPTIONS = { { value = "up", text = "Up" }, { value = "down", text = "Down" } }
+C.TOAST_SIDE_OPTIONS = { { value = "left", text = "Left" }, { value = "right", text = "Right" } }
+C.TOAST_PRICE_OPTIONS = { { value = "none", text = "None" }, { value = "vendor", text = "Vendor" },
+  { value = "ah", text = "AH" }, { value = "both", text = "Vendor and AH" }, { value = "highest", text = "Highest" } }
+-- The Feed's enter vocabulary (LibKa0s-Feed-1.0 motion.enter), in the order the dropdown draws.
+C.TOAST_ENTER_OPTIONS = { { value = "none", text = "None" }, { value = "fade", text = "Fade" },
+  { value = "right", text = "Slide from the right" }, { value = "left", text = "Slide from the left" },
+  { value = "up", text = "Slide up" }, { value = "down", text = "Slide down" } }
+C.TOAST_BG_TYPE_OPTIONS = { { value = "none", text = "None" }, { value = "solid", text = "Solid" },
+  { value = "gradient", text = "Gradient" }, { value = "texture", text = "Texture" } }
+-- The Blizzard alert events toast hiding unregisters from AlertFrame (toast spec §10.2). Each is
+-- registered in AlertFrameMixin:OnLoad on both clients (docs/ARCHITECTURE.md Taint notes cites the
+-- lines); one AlertFrame has not registered is skipped by Compat.SuppressAlertEvents. SHOW_LOOT_TOAST
+-- carries the money alert too (its typeIdentifier "money").
+C.BLIZZ_ALERT_EVENTS = { "SHOW_LOOT_TOAST", "SHOW_LOOT_TOAST_UPGRADE", "SHOW_LOOT_TOAST_LEGENDARY_LOOTED" }
 
 -- The holdings tally's cache bound (#34, modules/HoldingsTally.lua): past this many cached things,
 -- items and currencies together, both maps are wiped before the next insert, so a long AH browse

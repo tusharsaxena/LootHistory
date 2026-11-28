@@ -146,7 +146,7 @@ test("Schema: the fourth line is [Minimap button] [Test mode], composed and in t
     -- The composer's words, then this addon's note through MasterControls `notes` (item 020,
     -- LOO-L19): a host never replaces a composed tooltip (XC-04).
     assertTrue(type(row.tooltip) == "string" and row.tooltip:find("History, Insights, Holdings and "
-      .. "Timeline.", 1, true) ~= nil, "the composed tooltip carries the host's note: " .. tostring(row.tooltip))
+      .. "Timeline, and shows sample toasts on every enabled toast feed.", 1, true) ~= nil, "the composed tooltip carries the host's note: " .. tostring(row.tooltip))
   end)
 
 test("Schema: Test mode is never written to the store, and ships no stored default", function()
@@ -336,7 +336,8 @@ test("Schema: every row's default matches its declared type", function()
   -- The declared type is LibKa0s's vocabulary rather than Lua's: both majors dispatch on "bool",
   -- and "table" is this addon's own set-valued type that neither of them knows (it is rendered
   -- through the Slash descriptor's `format` hook and drawn by a host-owned MultiCheck).
-  local LUA_TYPE = { bool = "boolean", number = "number", table = "table", string = "string" }
+  -- "color" is the Options major's swatch type ({ r, g, b, a }), the Toasts page's (#38).
+  local LUA_TYPE = { bool = "boolean", number = "number", table = "table", string = "string", color = "table" }
   for _, row in ipairs(S.Schema) do
     local want = LUA_TYPE[row.type]
     assertTrue(want ~= nil,
@@ -427,7 +428,7 @@ test("Schema: the shipped default equals the schema's declared default", functio
         row.path .. " is account-wide and must not be declared per profile")
     elseif not row.sessionOnly then
       local shipped = NS.SchemaLib.Read(NS.defaults.profile, row.path)
-      if row.type == "table" then
+      if row.type == "table" or row.type == "color" then
         assertTrue(deepEqual(shipped, row.default),
           row.path .. " disagrees with defaults/Profile.lua")
       else
@@ -650,7 +651,7 @@ test("Schema: every setting round-trips through Set then Get", function()
         assertEqual(S:Get(row.path), probe, row.path .. " did not round-trip")
       end
       S:Set(row.path, before)
-      if row.type ~= "table" then   -- table values are stored as deep copies, so compare by value
+      if row.type ~= "table" and row.type ~= "color" then   -- tables are stored as deep copies
         assertEqual(S:Get(row.path), before, row.path .. " did not restore")
       end
     end
@@ -701,6 +702,11 @@ end)
 -- still rows, still writable from `/lh set`, and still counted here — the panel-side truth is
 -- tests/test_panel.lua's business.
 local PARTITION = {
+  -- The Toasts page (#38): one row per feed and setting, three feeds (General 7, Content 21, Style
+  -- 35, Motion 7, Behavior 5 each), plus the page-wide alert row under Behavior.
+  ["Toasts"] = {
+    { "General", 21 }, { "Content", 63 }, { "Style", 105 }, { "Motion", 21 }, { "Behavior", 16 },
+  },
   ["General"] = {
     { "Master controls", 9 }, { "Capture", 9 }, { "AH price", 2 },
     -- Show transfers by default moved from History to Interface (item 020, LOO-L02).
@@ -723,8 +729,8 @@ test("Schema: every page's tabs are the designed ones, in order, at the designed
   for _, row in ipairs(S.Schema) do
     if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
   end
-  assertEqual(#pages, 1,
-    "ONE schema-backed page: R6 deprecated the Filters and AH price sub-pages into General")
+  assertEqual(table.concat(pages, " | "), "General | Toasts",
+    "TWO schema-backed pages: R6 deprecated the Filters and AH price sub-pages into General, and #38 added Toasts")
 
   for _, page in ipairs(pages) do
     assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
@@ -755,9 +761,11 @@ test("Schema: a group's rows are contiguous, so no tab is drawn twice", function
   -- The half the partition table cannot state: RenderTabbedSchema walks the rows IN ORDER and
   -- opens a tab the first time it sees a group. A row filed under a group the page has already
   -- left gets its own second tab with the same name.
+  -- A Toasts row is keyed by its feed as well (#38): each feed's rows are the whole strip, and the
+  -- banner shows one feed at a time, so a feed's groups are contiguous within that feed.
   local closed, current = {}, nil
   for _, row in ipairs(S.Schema) do
-    local key = row.page .. "\1" .. row.group
+    local key = row.page .. "\1" .. tostring(row.feed) .. "\1" .. row.group
     if key ~= current then
       assertFalse(closed[key], row.path .. " reopens " .. row.page .. " / " .. row.group ..
         " after the page has left it")
@@ -804,20 +812,25 @@ test("Schema: every row carries a group, so no page can render strip-less", func
   end
 end)
 
-test("Schema: no color row exists, so the class-color companion rule has nothing to bind to",
+-- The palette swatches options-ui-§17 exempts (a color that identifies a kind, not a player): the
+-- toast feeds' kind colors, one per kind (#38). Named by path, so a new exemption is argued here.
+local function paletteSwatch(row)
+  return row.path:match("^settings%.toasts%.feeds%.%w+%.colors%.") ~= nil
+end
+
+test("Schema: every color row has its class-color companion beside it, and none is disabled",
   function()
-    -- options-ui-§17 in the shape it takes here: this addon paints no user-chosen color at all —
-    -- the item-quality and status hues are the client's and the addon's own palettes, neither of
-    -- which is a picker. The loop is written anyway, so that the DAY a swatch is added it must
-    -- arrive with its companion beside it and without `disabledIf`, rather than this rule being
-    -- rediscovered.
+    -- options-ui-§17. Until #38 this addon painted no user-chosen color, and the loop was written
+    -- so the DAY a swatch arrived it came with its companion beside it and without `disabledIf`.
+    -- The Toasts page's swatches are that day: the background, its gradient end, the border and
+    -- the text each carry Use class color; the kind colors are a palette, exempt by name above.
     -- red under: adding a `type = "color"` row without a `useClassColor*` bool immediately after
-    -- it, or putting `disabledIf` on one.
+    -- it (a palette swatch aside), or putting `disabledIf` on one.
     local colors = 0
     for i, row in ipairs(S.Schema) do
       assertTrue(row.disabledIf == nil or row.type ~= "color",
         row.path .. ": a color row must never be disabled (anti-pattern #74)")
-      if row.type == "color" then
+      if row.type == "color" and not paletteSwatch(row) then
         colors = colors + 1
         local nxt = S.Schema[i + 1]
         assertTrue(nxt ~= nil and nxt.type == "bool" and nxt.label == "Use class color",
@@ -829,7 +842,7 @@ test("Schema: no color row exists, so the class-color companion rule has nothing
           row.path .. ": both halves must declare the same classColorSource")
       end
     end
-    assertEqual(colors, 0, "this addon ships no color rows; if that changed, say so here")
+    assertEqual(colors, 12, "four class-colored swatches per toast feed (#38); if that changed, say so here")
   end)
 
 test("Schema: every slider declares a step it can actually be dragged to", function()
@@ -867,7 +880,7 @@ local NUMBER_WORD = {
 }
 
 local COUNT_CLAIMS = {
-  { "docs/ARCHITECTURE.md",   "\n([%a%-]+) rows ship today, on %*%*one%*%* schema%-backed page" },
+  { "docs/ARCHITECTURE.md",   "\n([%a%-]+) rows ship today on the %*%*General%*%* page" },
   { "docs/settings-panel.md", "%*%*([%a%-]+) rows ship today%*%*" },
   { "docs/module-map.md",     "Schema%.lua%s+— (%d+) rows, one per setting" },
   { "docs/module-map.md",     "`NS%.Schema` %(alias `S`%): %*%*([%a%-]+)%*%* rows, one per setting" },
@@ -876,7 +889,10 @@ local COUNT_CLAIMS = {
 test("Schema: every doc that counts the rows counts the same number the schema ships", function()
   -- red under: adding or removing a schema row without touching the docs, and equally under
   -- rewriting one of these four numbers to something the schema does not ship.
-  local want = #S.Schema
+  -- The claims count the General page's rows; the Toasts page's (#38) are per feed and pinned by
+  -- tests/test_panel_toasts.lua.
+  local want = 0
+  for _, row in ipairs(S.Schema) do if row.page == "General" then want = want + 1 end end
   assertTrue(want > 0, "the schema is empty")
   for _, claim in ipairs(COUNT_CLAIMS) do
     local path, pattern = claim[1], claim[2]
@@ -895,8 +911,10 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   -- red under: moving a row between tabs, or editing the module-map sentence away from the schema.
   local live, order = {}, {}
   for _, row in ipairs(S.Schema) do
-    if not live[row.group] then live[row.group] = 0; order[#order + 1] = row.group end
-    live[row.group] = live[row.group] + 1
+    if row.page == "General" then   -- the Toasts page's rows (#38) are counted per feed elsewhere
+      if not live[row.group] then live[row.group] = 0; order[#order + 1] = row.group end
+      live[row.group] = live[row.group] + 1
+    end
   end
   local src = T.Loader.readFile("docs/module-map.md")
   -- A breakdown is one run of "<Tab> <n>" pairs; each is pulled out whole first, so a number that

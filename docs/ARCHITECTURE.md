@@ -146,12 +146,17 @@ write `db.global` through their own `get`/`set` instead: `minimap.shown` (launch
 decision D6; see [profiles.md](profiles.md)). The runtime behind the
 seam is **`LibKa0s-Schema-1.0`** (`NS.SchemaRuntime`): every host name is a one-line delegate to it,
 and a write-completing, log-silent stub in the same file stands in when the library is absent.
-Forty rows ship today, on **one** schema-backed page: the General subcategory, whose eight tabs are
+Forty rows ship today on the **General** page, the General subcategory, whose eight tabs are
 Master controls, Capture, Filters, AH price, Interface, History, Skin and Keybindings; Filters and
 Keybindings hold no rows (Keybindings is the library's, options-ui-§20). The Skin tab (key
 `Appearance`) holds eight: `settings.appearance.source` and `.skin`, the Scope's `.ignorePanel` and
 `.ignoreFonts`, the Font and texture overrides `.font` and `.texture`, and the Font outline `.outline`
 (LibKa0s v1.82.0: `all`, `hud` or `off`) are drawn by the library's own Skin tab (skinning-§3), and `.pickerSeen`, the first-run skin picker's memory, is drawn by nothing.
+The **Toasts** page (#38, between General and Profiles) holds the rest: one row per toast feed and
+setting (General, Content, Style, Motion and Behavior tabs; the same leaves on each of the three
+feeds, built by `settings/SchemaToasts.lua` and stamped `feed`) plus one page-wide row,
+`settings.toasts.hideAlerts`. Its banner picks the feed the tabs edit (session state), and the
+descriptor's `rowsForPage` keeps only that feed's rows.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -706,6 +711,19 @@ Outside the gate's reach, also on purpose:
 - Attribution uses `hooksecurefunc` (post-hooks only) on `BuyMerchantItem` / `TakeInboxItem` /
   `AutoLootMailItem` — these observe, never replace, and carry no taint.
 - The **holdings tooltip block** (#34) observes through `TooltipDataProcessor.AddTooltipPostCall` for the Item and Currency data types (each resolved by name, client-quirks-§5 Q18) and never replaces a Blizzard function. It reads only `data.id` and `data.hyperlink`, each through `Compat.IsSecret` first (Q17); a line's text is never read, compared or concatenated. Appending lines and calling `Show` on `GameTooltip` is what Blizzard's own post calls do, and the tooltip is not a protected frame, so it runs in combat. Comparison tooltips and forbidden tooltips are skipped.
+- **Blizzard alert hiding** (#38, `modules/ToastBlizz.lua`, off by default) calls only
+  `AlertFrame:UnregisterEvent` / `RegisterEvent` / `IsEventRegistered`, through
+  `Compat.SuppressAlertEvents`, `RestoreAlertEvents` and `AlertEventsRegistered` (`core/CompatGain.lua`).
+  Frame method calls store no addon value on the frame, no Blizzard function is replaced and no Blizzard
+  table is written, and the restore re-registers exactly the names it took, in order. The symbols, checked
+  against Gethe/wow-ui-source (events-frames-taint-§9): **Retail** `live` `ab5cb850`:
+  `Interface/AddOns/Blizzard_FrameXML/Mainline/AlertFrames.xml:18` declares `AlertFrame`
+  (`AlertFrameMixin`), and `AlertFrames.lua:474`, `:475` and `:487` in `AlertFrameMixin:OnLoad` register
+  `SHOW_LOOT_TOAST`, `SHOW_LOOT_TOAST_UPGRADE` and `SHOW_LOOT_TOAST_LEGENDARY_LOOTED`; `:594-605` show
+  that `SHOW_LOOT_TOAST` carries the item, money and currency alerts. **WoW Forever** `forever`
+  `d9c22e32`: the same `AlertFrames.xml:18`, and `AlertFrames.lua:481`, `:482` and `:494`. Every member
+  is presence-gated, so a client where a name does not resolve suppresses nothing (FOREVER-T1 in
+  `docs/forever-probes.md`; `/lh debug probe` records which ones AlertFrame has registered).
 - No secure templates, no protected action buttons, no `SetAttribute` — the addon is purely
   observational, so it cannot taint the loot/combat path.
 

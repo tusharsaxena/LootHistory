@@ -412,10 +412,12 @@ state.testMode | bool | false | nil | nil | nil
 ]]
 
 test("Schema: the stored settings (path, type, default, range) are the pinned set", function()
+  -- The General page's rows. The Toasts page's (#38) are pinned per feed by tests/test_panel_toasts.lua:
+  -- the same leaves in the same order on every feed, each default equal to defaults/Profile.lua's.
   local lines = {}
   for _, row in ipairs(NS.Schema.Schema) do
-    lines[#lines + 1] = table.concat({ row.path, tostring(row.type), serialize(row.default),
-      tostring(row.min), tostring(row.max), tostring(row.step) }, " | ")
+    if row.page ~= "Toasts" then lines[#lines + 1] = table.concat({ row.path, tostring(row.type), serialize(row.default),
+      tostring(row.min), tostring(row.max), tostring(row.step) }, " | ") end
   end
   table.sort(lines)
   local got = table.concat(lines, "\n") .. "\n"
@@ -498,5 +500,5 @@ test("Schema: Test mode keeps the composed tooltip and appends the host's note (
   local tip = NS.Schema:FindRow("state.testMode").tooltip
   assertEqual(tip, "Show placeholder content, so the display can be seen and placed without waiting "
     .. "for the real thing. It fills every tab of the History window: History, Insights, Holdings and "
-    .. "Timeline.")
+    .. "Timeline, and shows sample toasts on every enabled toast feed.")
 end)

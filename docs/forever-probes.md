@@ -41,7 +41,7 @@ parts again on Retail.
 
 | `kind` | When | What it holds | Probes |
 |---|---|---|---|
-| `start` | At start | `money` (which money-text functions exist and what each answers for 123456 copper, plus the addon's own text), `strings` (`LOOT_ROLL_YOU_WON`, `LOOT_ITEM_BONUS_ROLL_SELF`, the name of spell 13262), `identity` (`UnitName("player")`'s two answers, regional names, the character key, realm key and holder key), `instance`, `keyring`, `currencies` (the visible list rows with their account flags), `transfer` (the newest currency transfer) | P3, P5, P8, P9, P11 |
+| `start` | At start | `money` (which money-text functions exist and what each answers for 123456 copper, plus the addon's own text), `strings` (`LOOT_ROLL_YOU_WON`, `LOOT_ITEM_BONUS_ROLL_SELF`, the name of spell 13262), `identity` (`UnitName("player")`'s two answers, regional names, the character key, realm key and holder key), `instance`, `keyring`, `currencies` (the visible list rows with their account flags), `transfer` (the newest currency transfer), `alerts` (#38: whether `AlertFrame` is there and which of `C.BLIZZ_ALERT_EVENTS` it has registered), `skills` (#38: the profession lines `GetProfessionInfo` answers on Retail, `professions`, and the counted skill list on Forever, `skillLines`) | P3, P5, P8, P9, P11, FOREVER-T1, FOREVER-T3 |
 | `interaction` | Every `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` | The interaction type, and the banker name when it is `Banker`, `CharacterBanker` or `AccountBanker` | P1 |
 | `bank` | At a banker's open, then +1 s and +3 s | `phase`, `via` (what opened the visit), `slots` (every container id -3..30 that answers a slot count, and every bank id even at 0), `model` (`CanViewBank(0)` and `(2)`, `FetchNumPurchasedBankTabs(0)` and `(2)`, `FetchMaxNumBankTabs(0)`, `ShouldUsePlayerBagsInBank()`, `FetchDepositedMoney(2)`, the addon's `CanViewCharacterBank`); at open also `sockets` (the -2 reads through an `ItemLocation` and through `GetContainerItemInfo`, slots 1..9) | P1, P2, P10 |
 | `cue` | A bank event within 10 s of the open: `BANKFRAME_OPENED`, `BANKFRAME_CLOSED`, `BAG_CONTAINER_UPDATE`, `BANK_TABS_CHANGED`, `PLAYERBANKSLOTS_CHANGED`, `BAG_UPDATE_DELAYED`, the interaction hide (`PLAYER_INTERACTION_MANAGER_FRAME_HIDE`) | The event, its arguments and `dt`, the seconds after the open | P1 |
@@ -164,6 +164,20 @@ with no login gating. A Forever `rejected` naming `FACTION_STANDING_CHANGED`, or
 appearance events, is a finding: the follow-ups are designed in the spec (a Forever-only
 `UPDATE_FACTION` row through the same delta; gating the appearance rows on `NS.State.loginSettled`).
 Result:
+
+## The toast feeds' questions (#38)
+
+The `start` entry records the first two; the third needs an XP gain in combat.
+
+- **FOREVER-T1, the alert events.** `start.alerts.present` and `start.alerts.registered`: which of
+  `SHOW_LOOT_TOAST`, `SHOW_LOOT_TOAST_UPGRADE` and `SHOW_LOOT_TOAST_LEGENDARY_LOOTED` AlertFrame has
+  registered on WoW Forever (the source cites all three, docs/ARCHITECTURE.md Taint notes). A name it
+  has not is skipped by the hiding. Result:
+- **FOREVER-T3, the skill lines.** `start.skills.skillLines` against `C.PROFESSION_SKILL_LINES`: each
+  profession the character has appears once, under its vanilla line, and no weapon skill does.
+  Result:
+- **FOREVER-T4, XP in combat.** A `progress` entry for `PLAYER_XP_UPDATE` during a fight, then a
+  toast with the XP gain: the reads are plain in combat (no secret). Result:
 
 ## The smaller questions the port left open
 
