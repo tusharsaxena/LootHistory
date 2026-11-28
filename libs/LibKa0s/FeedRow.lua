@@ -220,8 +220,12 @@ local function alphaEdges(list, a)
   for i = 1, 4 do list[i]:SetAlpha(a) end
 end
 
+--- A row string. BUILT FROM A TEMPLATE, and it must be: a FontString created bare has no font, and
+--- the client answers `FontString:SetText(): Font not set` on the first SetText, which Row.Paint
+--- makes before Row.Restyle sets the drawn font. The template is only a floor that the paint
+--- overwrites (the WidgetsDropdown glyph precedent).
 local function text(owner)
-  local fs = owner:CreateFontString(nil, "OVERLAY")
+  local fs = owner:CreateFontString(nil, "OVERLAY", FONT_SMALL)
   fs:SetWordWrap(false)
   return fs
 end
