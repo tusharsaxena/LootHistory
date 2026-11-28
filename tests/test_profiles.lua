@@ -440,8 +440,8 @@ test("profile verb: a COMMANDS row after resetall, and the whole verb order pinn
   local order = {}
   for i, c in ipairs(NS.COMMANDS) do order[i] = c[1] end
   assertEqual(table.concat(order, " "), "show hide toggle config skin lock unlock enable disable version get set "
-    .. "list reset resetall profile holdings debug diagnostics perf test sim purge help")
-  assertEqual(#NS.COMMANDS, 24, "twenty-four verbs")
+    .. "list reset resetall profile holdings farm debug diagnostics perf test sim purge help")
+  assertEqual(#NS.COMMANDS, 25, "twenty-five verbs")
   assertEqual(NS.COMMANDS[16][2], "List profiles, or switch to one: profile <name>")
 end)
 

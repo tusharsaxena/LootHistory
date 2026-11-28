@@ -8,7 +8,7 @@ Total.
 
 **Generated — do not hand-edit.** Regenerate with `lua tests/run.lua --list > docs/test-cases.md`.
 
-### test_constants.lua (49)
+### test_constants.lua (50)
 
 - Constants: every SourceType value equals its key (the stable stored form)
 - Constants: every SourceType member this client serves appears in the display order
@@ -48,7 +48,8 @@ Total.
 - bus: Database:FireHistoryChanged sends HistoryChanged with no payload
 - bus: a settings write sends SettingsChanged with its reason
 - bus: Reconciler:Flush sends HoldingsChanged once per holder that moved
-- bus: NS.MSG declares exactly the five wire names
+- bus: NS.MSG declares exactly the six wire names
+- bus: a farm session's start and finish send Ka0s_LootHistory_FarmChanged with their reason
 - bus: GainFeed:Send fires Ka0s_LootHistory_Gain with the scratch payload
 - bus: NS.MSG is the library's strict catalog, so a mistyped key raises
 - bus: no addon file but core/Constants.lua types a Ka0s_LootHistory_ literal
@@ -807,11 +808,12 @@ Total.
 - ToastContent: an appearance, and an item with a new look, carry the sub line
 - ToastContent: a raising client read leaves its line empty and never raises
 
-### test_farm_model.lua (20)
+### test_farm_model.lua (21)
 
 - FarmModel New: a running v1 session with empty lines and its first zone
 - FarmModel clock: Elapsed, Bank, Pause and Resume bank only running seconds
 - FarmModel IdleAt: banks to the last gain, to the clock's start with none, off at 0
+- FarmModel IdleAt: a resume restarts the idle span, so an old gain does not pause at once
 - FarmModel zones: banked only while running, an empty or unchanged zone ignored
 - FarmModel PrimaryZone: the most active seconds, a tie to the zone seen first
 - FarmModel Close: an empty log is discarded (F6); otherwise stamped, named, totaled, trimmed
@@ -2279,13 +2281,14 @@ Total.
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
 
-### test_disabled.lua (27)
+### test_disabled.lua (28)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
 - slash-commands-§7: the stand-down drops the reputation baseline and its pending seed
 - slash-commands-§7: the stand-down clears every toast feed, and the stand-up keeps the instances
 - slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
+- slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook and ticker only while up; stood down it pauses, tallies nothing, and the stand-up resumes it
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
 - slash-commands-§7 step 4: every deferral the addon armed is CANCELED, not left to find a flag
@@ -2397,7 +2400,7 @@ Total.
 - probe: a reputation or appearance event is kept with its arguments (P13)
 - probe: P.EVENTS ends with the five P13 events and the gain feed's four, and docs/forever-probes.md names every probe event
 
-### test_debug_coverage.lua (24)
+### test_debug_coverage.lua (25)
 
 - coverage: each latch edge is the library's one [Lifecycle] line plus the host's one [State] line
 - coverage: a stand-up with logging off holds its dependency line, and `debug on` writes it after [Init]
@@ -2423,11 +2426,13 @@ Total.
 - coverage: a console Clear re-arms the change gates, so the next pass logs over an empty console
 - coverage: test mode's start, combat stop and refusal are one [Table] line each
 - coverage: a refused simulation start is one [Sim] line with logging on, and none with it off
+- coverage: the farm session logs one [Farm] line per edge and none per gain
 
-### test_dispatch.lua (10)
+### test_dispatch.lua (11)
 
 - Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
 - Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler, Toasts
+- Dispatch: the farm session's three rows register on its own targets while a session is open, and go at finish
 - Dispatch: registered follows Enable/Disable, including trackLedger off
 - Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
 - Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
@@ -2436,6 +2441,38 @@ Total.
 - Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
+
+### test_farm.lua (29)
+
+- Farm: with no session nothing is registered; Start registers all of it, Finish takes it all down
+- Farm: Start while a session is open refuses on one line
+- Farm: Active reads without creating an entry; Store and ActiveStore follow the sim and test stores
+- Farm: gains tally through the feed's real senders, with a row's own prices
+- Farm: a diff OTHER gain is skipped and a chat OTHER gain counted (F4)
+- Farm: a manual pause drops gains and keeps costs; an idle pause resumes on the next gain
+- Farm: the idle ticker re-arms itself and stamps lastSeen
+- Farm: an OUT GOLD REPAIR row and its amend add each delta once; other holders and reasons do not
+- Farm: a logout intent then PLAYER_LOGOUT finishes the session as logout
+- Farm: no intent suspends at PLAYER_LOGOUT; the restore resumes with the reload seconds off the clock
+- Farm: an intent older than 30 s suspends; CancelLogout and LOGOUT_CANCEL clear the intent
+- Farm: Enable installs the logout family once and its bodies drive the intent
+- Farm: a crash restores within the stale window and is finished as stale beyond it
+- Farm: a paused session left stale is finished; a standDown pause within the window resumes
+- Farm: sessions are per character: another character's open session is neither read nor restored
+- Farm: during a simulation PLAYER_LOGOUT never writes the live session
+- Farm: a KILL window counts each corpse once, AoE included; a skinning window adds nothing
+- Farm: the corpse ring evicts the oldest at 257
+- Farm: fishing, gathering, chest and item windows count; the hook stamp and its window count once
+- Farm: Attribution's notifications reach the session only while it is live
+- Farm: a quest turned in counts and logs its title, or `Quest <id>` without one
+- Farm: the zone and death rows bank zones and count deaths; manual pauses still count deaths
+- Farm: AFK is a unit row on player; it pauses and resumes, a nil answer and pauseOnAFK off do nothing
+- Farm: an unpriced item waits for the deferred pass, which re-arms in combat; Finish fills the rest
+- Farm: a session with nothing logged is discarded on one line (F6)
+- Farm: the finish names the session, its value and its clock, then trims to the cap
+- Farm: the verbs answer each state and the bare verb prints the status
+- Farm: an idle pause made manual by the verb stays closed to gains
+- Farm: StorageStats estimates every saved and open session; Database:StorageStats carries it
 
 ### test_toast_feed.lua (46)
 
@@ -2618,14 +2655,15 @@ Total.
 - SimScenario: the gate is closed by a pending flush, a settle hold and an out-of-combat deferral
 - SimScenario: with gains and losses off the ledger scenarios refuse, and loot and key run on the Collector
 
-### test_sim_store.lua (6)
+### test_sim_store.lua (7)
 
-- SimStore: loot: the saved history, holdings and daily are byte-identical before start and after stop
-- SimStore: key: the saved history, holdings and daily are byte-identical before start and after stop
-- SimStore: vendor: the saved history, holdings and daily are byte-identical before start and after stop
-- SimStore: ah: the saved history, holdings and daily are byte-identical before start and after stop
-- SimStore: bank: the saved history, holdings and daily are byte-identical before start and after stop
-- SimStore: social: the saved history, holdings and daily are byte-identical before start and after stop
+- SimStore: loot: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: key: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: vendor: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: ah: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: bank: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: social: the saved history, holdings, daily and farm are byte-identical before start and after stop
+- SimStore: a farm session opened during a simulation tallies into SimStores.farm only, released at stop
 
 ### test_sim_panel.lua (30)
 
@@ -2966,7 +3004,7 @@ Total.
 
 | Suite | Cases |
 |-------|------:|
-| test_constants.lua | 49 |
+| test_constants.lua | 50 |
 | test_mediasetup.lua | 11 |
 | test_envsetup.lua | 11 |
 | test_poolsetup.lua | 3 |
@@ -2996,7 +3034,7 @@ Total.
 | test_progress.lua | 15 |
 | test_toast_model.lua | 34 |
 | test_toast_content.lua | 21 |
-| test_farm_model.lua | 20 |
+| test_farm_model.lua | 21 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -3049,13 +3087,14 @@ Total.
 | test_libka0s.lua | 30 |
 | test_libka0s_releases.lua | 29 |
 | test_surface_parity.lua | 22 |
-| test_disabled.lua | 27 |
+| test_disabled.lua | 28 |
 | test_holdings_api.lua | 26 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 19 |
-| test_debug_coverage.lua | 24 |
-| test_dispatch.lua | 10 |
+| test_debug_coverage.lua | 25 |
+| test_dispatch.lua | 11 |
+| test_farm.lua | 29 |
 | test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
@@ -3064,7 +3103,7 @@ Total.
 | test_sim_world.lua | 11 |
 | test_sim_drivers.lua | 14 |
 | test_sim_e2e.lua | 17 |
-| test_sim_store.lua | 6 |
+| test_sim_store.lua | 7 |
 | test_sim_panel.lua | 30 |
 | test_sim_slash.lua | 10 |
 | test_sim_checkbox.lua | 10 |
@@ -3083,4 +3122,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2604** |
+| **Total** | **2639** |

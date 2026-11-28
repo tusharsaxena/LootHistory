@@ -1333,8 +1333,9 @@ local function estimateRecordBytes(r)
 end
 
 -- Storage summary for the settings panel: record count, span in days since the earliest
--- record, and an ESTIMATED SavedVariables byte size (see estimateRecordBytes). `now` is
--- injectable for tests; it defaults to time().
+-- record, and an ESTIMATED SavedVariables byte size (see estimateRecordBytes), plus the farm
+-- sessions' count and estimate (#39, NS.Farm:StorageStats; the saved store, never a simulation's).
+-- `now` is injectable for tests; it defaults to time().
 function Database:StorageStats(now)
   local history = NS.db.global.history
   local firstTs, bytes = nil, 0
@@ -1347,7 +1348,9 @@ function Database:StorageStats(now)
     now = now or time()
     days = math.max(1, math.ceil((now - firstTs) / 86400))
   end
-  return { count = #history, days = days, bytes = bytes }
+  local farm = NS.Farm and NS.Farm.StorageStats and NS.Farm:StorageStats()
+  return { count = #history, days = days, bytes = bytes,
+           farmSessions = farm and farm.sessions or 0, farmBytes = farm and farm.bytes or 0 }
 end
 
 -- How many records a retention of `days` would drop, WITHOUT dropping them: what the

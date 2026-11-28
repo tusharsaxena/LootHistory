@@ -224,9 +224,15 @@ modules\TimelineModel.lua
 # LOAD-BEARING POSITION: reads NS.TimelineModel's TOTAL and calls NS.Browser:RegisterTab at file
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
-# CONVENTIONAL: farm mode's pure session model (#39); binds NS.Constants at load only. The farm
-# runtime and windows (M4.1b on) bind NS.FarmModel at load and go below it.
+# LOAD-BEARING POSITION: farm mode's pure session model (#39); binds NS.Constants at load only.
+# modules\Farm.lua (and the farm windows, M4.2 on) bind NS.FarmModel as a file-scope upvalue at load,
+# so it must be above them.
 modules\FarmModel.lua
+# LOAD-BEARING POSITION: binds NS.FarmModel and NS.Perf as file-scope upvalues at load (the gain feed
+# and loot-window hot paths, performance-§2); modules\FarmModel.lua and core\PerfSetup.lua must be
+# above. Appends its three EVENT_ROWS at file load (core\Dispatch.lua above). Calls
+# NS.GainFeed:SetFarm and subscribes to NS.MSG.GAIN at call time only.
+modules\Farm.lua
 modules\TestData.lua
 # CONVENTIONAL: the toast feeds' pure config, filter and merge (#38); binds NS.Constants at load only.
 modules\ToastModel.lua

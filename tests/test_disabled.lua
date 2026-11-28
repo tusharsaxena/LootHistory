@@ -353,6 +353,54 @@ test("slash-commands-§7 step 3: a row written while stood down tallies NO daily
   setEnabled(true)
 end)
 
+test("slash-commands-§7 step 3: an open farm session holds its rows, lifecycle events, GAIN receiver, hook "
+  .. "and ticker only while up; stood down it pauses, tallies nothing, and the stand-up resumes it", function()
+  -- The farm session (#39, farm spec §11.1) registers nothing with no session open, so step 1's
+  -- baseline cannot see it; this case opens one. The write hook is a Database:OnWrite function, so
+  -- that half of the proof is behavioral, as for the rollup above.
+  -- red under: drop method("Farm", "Disable") from NS.StandDown -- the rows, events, message, the
+  -- idle ticker and the farm set survive, and the stood-down REPAIR row is counted as a cost.
+  bringUp()
+  local F, g, cf = NS.Farm, NS.db.global, M.DEFAULT_CHAT_FRAME
+  local savedFarm, savedAdd, h = g.farm, cf.AddMessage, g.history
+  g.farm, cf.AddMessage = {}, function() end
+  local n = #h
+  local ok, err = pcall(function()
+    local s = F:Start()
+    local targets = { [F.__ev] = true, [F.__unitFrame] = true }
+    assertEqual(table.concat(liveOn(targets), ", "), table.concat({
+      "event:LOGOUT_CANCEL:nil", "event:PLAYER_CAMPING:nil", "event:PLAYER_DEAD:nil", "event:PLAYER_LOGOUT:nil",
+      "event:PLAYER_QUITING:nil", "event:ZONE_CHANGED_NEW_AREA:nil", "message:Ka0s_LootHistory_Gain:nil",
+      "unit:PLAYER_FLAGS_CHANGED:player" }, ", "), "an open session's registrations")
+    local function armed(handle)
+      for _, x in ipairs(M.__timers()) do if handle and x == handle.timer then return true end end
+      return false
+    end
+    local tick = F._tick
+    assertTrue(armed(tick), "the idle ticker is armed")
+    assertTrue(NS.GainFeed._farm ~= nil, "the gain feed holds the farm set")
+    setEnabled(false)
+    assertEqual(table.concat(liveOn(targets), ", "), "", "a farm registration survived the stand-down")
+    assertEqual(F._tick, nil, "the idle ticker survived")
+    assertFalse(armed(tick), "the idle ticker's timer was canceled")
+    assertEqual(NS.GainFeed._farm, nil, "the farm set survived")
+    assertEqual(s.pauseReason, "standDown", "the running session paused standDown")
+    NS.Database:Add({ ts = os.time(), dir = "OUT", kind = "GOLD", holder = NS.Util.PlayerKey(),
+      quantity = 5000, source = "REPAIR" })
+    assertEqual(next(s.costs), nil, "a REPAIR row written while stood down was counted")
+    setEnabled(true)
+    assertEqual(s.pauseReason, nil, "the stand-up resumed the standDown pause")
+    assertTrue(s.runningSince ~= nil, "and the clock runs again")
+    assertTrue(NS.GainFeed._farm ~= nil, "the stand-up handed the gain feed the farm set again")
+    assertEqual(#liveOn(targets), 8, "the registrations are back")
+  end)
+  for i = #h, n + 1, -1 do h[i] = nil end
+  if F:Active() then F:Finish("manual", os.time()) end
+  g.farm, cf.AddMessage = savedFarm, savedAdd
+  setEnabled(true)
+  if not ok then error(err, 0) end
+end)
+
 test("slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after", function()
   -- red under: drop the NS.DropLedgerResetOffer call from NS.StandDown -- the one-shot
   -- PLAYER_REGEN_ENABLED target survives and the popup appears from a game event while off.
@@ -548,7 +596,7 @@ local HOST_LIVE = { "profile" }
 
 --- The addon's own FEATURE verbs — the ones §2's SHOULD refuses. This addon takes that SHOULD, so
 --- the suite pins the choice and it cannot drift silently.
-local FEATURE = { "show", "hide", "toggle", "test", "purge" }
+local FEATURE = { "show", "hide", "toggle", "test", "purge", "farm" }
 
 local function capture(fn)
   local cf = M.DEFAULT_CHAT_FRAME
@@ -903,7 +951,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "Toasts", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "Farm", "Toasts", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -932,7 +980,7 @@ local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
   for _, k in ipairs({ "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
-                        "HoldingsTip", "HoldingsAPI", "Toasts" }) do
+                        "HoldingsTip", "HoldingsAPI", "Toasts", "Farm" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
@@ -961,7 +1009,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reputation:Disable", "Appearance:Disable", "Progress:Disable", "Reconciler:Disable",
       "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
-      "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable", "Toasts:Disable", "GainFeed:Disable",
+      "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable", "Farm:Disable", "Toasts:Disable", "GainFeed:Disable",
       "HoldingsTally:Disable", "HoldingsTip:Disable", "HoldingsAPI:Disable",
       "Attribution:DisableOut",
       "DropLedgerResetOffer",
@@ -979,7 +1027,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
     assertEqual(table.concat(log, "\n"), table.concat({
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
-      "GainFeed:Enable", "Collector:Enable", "Reputation:Enable", "Appearance:Enable", "Progress:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
+      "GainFeed:Enable", "Collector:Enable", "Reputation:Enable", "Appearance:Enable", "Progress:Enable", "Reconciler:Enable", "Rollup:Enable", "Farm:Enable", "Browser:Enable", "Analytics:Enable",
       "HoldingsTab:Enable", "Timeline:Enable", "Toasts:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "HoldingsAPI:Enable",
       "Debug:State:stand-up: capture registered",

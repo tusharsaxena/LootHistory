@@ -52,6 +52,11 @@ if T.forever then
   for i = #SNAPSHOT, 1, -1 do if retailOnly[SNAPSHOT[i]] then table.remove(SNAPSHOT, i) end end
 end
 
+-- The farm session's three rows (#39, farm spec §5.8), on its own two targets: registered only while
+-- a session is open, so they are not in SNAPSHOT (no session is open here) and have their own case.
+-- Both clients: Farm's ZONE_CHANGED_NEW_AREA is its own row, not Attribution's Retail-only one.
+local FARM_ROWS = { "farm:PLAYER_DEAD", "farm:ZONE_CHANGED_NEW_AREA", "farmUnit:PLAYER_FLAGS_CHANGED:player" }
+
 -- The shared bus also carries the lifecycle's own PLAYER_ENTERING_WORLD (core/LifecycleSetup.lua),
 -- which is not a capture event and has never been one of the four modules' registrations.
 local NOT_CAPTURE = { ["bus:PLAYER_ENTERING_WORLD"] = true }
@@ -142,22 +147,64 @@ test("Dispatch: every capture registration comes from NS.EVENT_ROWS and the (tar
     "the capture registration set moved: the refactor must keep every (target, event) pair")
   assertEqual(table.concat(fromRows(), ","), live,
     "a live capture registration did not come out of NS.EVENT_ROWS (or a row claims one that is not live)")
-  assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT, "one row per (target, event) registration")
+  assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT + #FARM_ROWS,
+    "one row per (target, event) registration, the farm session's three included")
 end)
 
 test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler, Toasts", function()
   -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS). WoW Forever
   -- declares no Appearance rows (C.FEATURE.appearances), so the owner is not in its list. Progress
   -- (#38) owns three row owners, one per thing the gain feed can want. The toast feeds' combat rows
-  -- (#38) come last: modules/ToastFeed.lua loads after the Reconciler.
+  -- (#38) come last: modules/ToastFeed.lua loads after the Reconciler, and the farm session's (#39,
+  -- modules/Farm.lua) between them.
   local progress = "ProgressXP,ProgressSkill,ProgressRegen,"
-  assertEqual(ownersInOrder(), T.forever and ("Attribution,AttributionOut,Collector,Reputation," .. progress .. "Reconciler,Toasts")
-    or ("Attribution,AttributionOut,Collector,Reputation,Appearance," .. progress .. "Reconciler,Toasts"))
+  assertEqual(ownersInOrder(), T.forever and ("Attribution,AttributionOut,Collector,Reputation," .. progress .. "Reconciler,Farm,Toasts")
+    or ("Attribution,AttributionOut,Collector,Reputation,Appearance," .. progress .. "Reconciler,Farm,Toasts"))
   local hooks, seen = {}, {}
   for _, row in ipairs(NS.HOOK_ROWS or {}) do
     if not seen[row.owner] then seen[row.owner] = true; hooks[#hooks + 1] = row.owner end
   end
   assertEqual(table.concat(hooks, ","), "Attribution,AttributionOut")
+end)
+
+test("Dispatch: the farm session's three rows register on its own targets while a session is open, and go at finish", function()
+  -- red under: a farm row on the shared bus (the toast feeds' and Attribution's own registrations
+  -- would be clobbered), or one left registered after the session closed (farm spec §5.1: with no
+  -- session open, farm holds no registration at all).
+  local F, g, cf = NS.Farm, NS.db.global, M.DEFAULT_CHAT_FRAME
+  local saved, savedAdd = g.farm, cf.AddMessage
+  g.farm, cf.AddMessage = {}, function() end
+  local function farmLive()
+    local keys, out = { [F.__ev or false] = "farm", [F.__unitFrame or false] = "farmUnit" }, {}
+    for _, r in ipairs(M.__registrations()) do
+      local k = keys[r.target]
+      if k and r.kind ~= "message" then
+        out[#out + 1] = k .. ":" .. tostring(r.event) .. (r.unit and (":" .. tostring(r.unit)) or "")
+      end
+    end
+    table.sort(out)
+    return table.concat(out, ",")
+  end
+  local ok, err = pcall(function()
+    assertEqual(farmLive(), "", "no session: no farm registration")
+    F:Start()
+    local rows = {}
+    for _, row in ipairs(NS.EVENT_ROWS) do
+      if row.owner == "Farm" and row.registered then
+        rows[#rows + 1] = row.target .. ":" .. row.event .. (row.unit and (":" .. row.unit) or "")
+      end
+    end
+    table.sort(rows)
+    assertEqual(table.concat(rows, ","), table.concat(FARM_ROWS, ","), "every farm row registered")
+    assertEqual(farmLive(), "farm:LOGOUT_CANCEL,farm:PLAYER_CAMPING,farm:PLAYER_DEAD,farm:PLAYER_LOGOUT,"
+      .. "farm:PLAYER_QUITING,farm:ZONE_CHANGED_NEW_AREA,farmUnit:PLAYER_FLAGS_CHANGED:player",
+      "the rows plus the four lifecycle events, on the farm targets")
+    F:FinishVerb()
+    assertEqual(farmLive(), "", "the finish took every farm registration down")
+  end)
+  if F:Active() then F:Finish("manual", os.time()) end
+  g.farm, cf.AddMessage = saved, savedAdd
+  if not ok then error(err, 0) end
 end)
 
 local function registeredBy(owner)

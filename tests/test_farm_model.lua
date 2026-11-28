@@ -74,6 +74,17 @@ test("FarmModel IdleAt: banks to the last gain, to the clock's start with none, 
   assertEqual(afk.activeSec, 42, "an AFK pause banks to the moment AFK set (F3)")
 end)
 
+test("FarmModel IdleAt: a resume restarts the idle span, so an old gain does not pause at once", function()
+  -- red under: IdleAt reading `lastGainAt or runningSince`, where a gain from before an idle pause
+  -- and a later Resume answered idle on the very next tick and banked zero seconds.
+  local s = new()
+  s.lastGainAt = T0 + 60
+  FM().Pause(s, "idle", FM().IdleAt(s, T0 + 360, 5))
+  FM().Resume(s, T0 + 2000)
+  assertEqual(FM().IdleAt(s, T0 + 2030, 5), nil, "30 s after the resume is not idle")
+  assertEqual(FM().IdleAt(s, T0 + 2300, 5), T0 + 2000, "idle again 5 min after the resume")
+end)
+
 test("FarmModel zones: banked only while running, an empty or unchanged zone ignored", function()
   local s = new()
   assertFalse(FM().SetZone(s, "", T0 + 10), "empty is no change")

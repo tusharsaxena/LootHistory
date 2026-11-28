@@ -274,7 +274,10 @@ function Host.Prepare(_, def, opts, ready)
   Host.world = World and World.New(def and def.fixture, opts and opts.seed) or {}
   Host.counts = { hooks = 0 }
   local S = NS.SimStores
-  S.history, S.holdings, S.daily = {}, {}, {}
+  S.history, S.holdings, S.daily, S.farm = {}, {}, {}, {}
+  -- The farm session's store too (#39, farm spec §12.2): a live session goes quiet (Reconcile sees no
+  -- session in the session store), and `/lh farm start` opens a simulated one.
+  if NS.Farm and NS.Farm.OnStoreSwapped then NS.Farm:OnStoreSwapped() end
   Host.alt = seedAlt()
   NS.Reconciler:ResetState()
   NS.Attribution:ResetContexts()
@@ -414,7 +417,9 @@ local function releaseStores(s)
   local holders = {}
   for holder in pairs(S.holdings or {}) do holders[#holders + 1] = holder end
   s.lhHolders, s.lhRows = holders, S.history and #S.history or 0
-  S.history, S.holdings, S.daily = nil, nil, nil
+  S.history, S.holdings, S.daily, S.farm = nil, nil, nil, nil
+  -- A simulated farm session goes with its store, never persisted; a live one comes back up.
+  if NS.Farm and NS.Farm.OnStoreSwapped then NS.Farm:OnStoreSwapped() end
 end
 
 local function announce(s)

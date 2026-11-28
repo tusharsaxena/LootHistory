@@ -188,6 +188,10 @@ local STAND_DOWN_STEPS = {
   method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"), method("Rollup", "Disable"),
+  -- The farm session (#39): a running session paused `standDown`, its rows, lifecycle events, GAIN
+  -- receiver, write hook and deferrals down, and the farm set dropped -- after every gain observer and
+  -- before the gain feed.
+  method("Farm", "Disable"),
   -- The toast feeds (#38): every feed Clear()ed (rows hidden, clock disarmed, locked) and its two
   -- listeners and combat rows gone; then the gain feed, after every observer that taps it: nothing
   -- is wanted any more.
@@ -217,6 +221,9 @@ local STAND_UP_STEPS = {
   method("Collector", "Enable"), method("Reputation", "Enable"), method("Appearance", "Enable"),
   method("Progress", "Enable"),
   method("Reconciler", "Enable"), method("Rollup", "Enable"),
+  -- The farm session (#39), after the gain feed and every observer: the logout hooks once, the
+  -- restore once, a stand-down pause resumed, and the farm set handed to the gain feed again.
+  method("Farm", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
   method("Timeline", "Enable"),
   -- The toast feeds (#38): built once through NS.NewFeed, the GAIN receiver, the combat rows.

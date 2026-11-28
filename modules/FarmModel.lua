@@ -93,12 +93,13 @@ function M.Resume(s, now)
 end
 
 --- Whether the idle rule pauses a running session at `now` with `idleMinutes` (0 = off): answers the
---- time to bank back to (the last gain, or the clock's start with none, F2/D16), else nil.
+--- time to bank back to (the last gain, or the clock's start with none, F2/D16), else nil. The span
+--- runs from the later of the two, so a gain from before a pause does not idle a fresh resume.
 function M.IdleAt(s, now, idleMinutes)
   if not s.runningSince or not idleMinutes or idleMinutes <= 0 then return nil end
-  local last = s.lastGainAt or s.runningSince
+  local last = max(s.lastGainAt or s.runningSince, s.runningSince)
   if now - last < idleMinutes * 60 then return nil end
-  return max(s.runningSince, last)
+  return last
 end
 
 --- Enter `zone` at `now`: the old zone banked, the new one remembered and logged (`z`). An empty or

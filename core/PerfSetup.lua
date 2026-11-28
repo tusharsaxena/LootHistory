@@ -78,5 +78,9 @@ NS.Perf = lib:New({
     { key = "toastPaint", within = "gainSend" },
     { key = "xpEvent" },        -- Progress:OnXP (every kill and quest that grants experience)
     { key = "skillScan" },      -- Progress's coalesced profession scan
+    -- The farm session (#39, farm spec §11.2): its GAIN receiver runs only inside gainSend, and its
+    -- loot-window tally (Attribution's notification) at top level.
+    { key = "farmGain", within = "gainSend" },
+    { key = "farmWindow" },
   },
 })

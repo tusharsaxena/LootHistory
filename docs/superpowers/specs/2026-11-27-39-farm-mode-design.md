@@ -55,6 +55,19 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 > - §17: M4.1 is split into M4.1a (pure model and contracts) and M4.1b (runtime).
 > - Stale line citations are refreshed throughout.
 
+> **Built in M4.1b (2026-11-28; small calls inside the spec, no owner decision changed).**
+> - §5.4 Finish: the last price fill runs **before** `FarmModel.Close`, so the totals snapshot includes
+>   the late prices (the order above filled them after the snapshot, which the snapshot would miss).
+> - §5.1 `Farm:Active()` reads without creating the character's entry; only the writers (`Mine`) create
+>   it, so a read on the saved store (Reconcile, diagnostics, a sim stop) never changes saved data.
+> - §5.2 idle: `FarmModel.IdleAt` measures from the later of `lastGainAt` and `runningSince`. Measured
+>   from `lastGainAt` alone, a gain from before an idle pause made the next tick after a resume pause
+>   again at once, with zero seconds banked.
+> - §5.4/§12.2 `PLAYER_LOGOUT` does nothing while a simulation holds `SimStores.farm`: during a sim the
+>   live session is never written, and the next load closes or resumes it through restore rule 2.
+> - §8 the minimal verb: bare `/lh farm` prints the session's status until M4.2 makes it toggle the
+>   panel. The keep-cap confirm stays with M4.5; M4.1b ships `Farm:CountOverCap` and `OnKeepChanged`.
+
 ## 1. Goal
 
 A player starts a farm session, farms, and finishes it. While it runs, a companion panel shows the

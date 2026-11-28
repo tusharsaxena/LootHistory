@@ -12,8 +12,9 @@ local _, NS = ...
 -- Reputation, Appearance (Retail only), Progress, Reconciler.
 --
 --   NS.EVENT_ROWS  ordered { event, owner, target, fn, unit? }. `target` is "bus" (NS.addon),
---                  "out" (Attribution.__outEv), "ledger" (Reconciler.__ev) or "spell" (the
---                  RegisterUnitEvent frame, `unit` its filter). fn(event, ...) gets the client's
+--                  "out" (Attribution.__outEv), "ledger" (Reconciler.__ev), "spell" (the
+--                  RegisterUnitEvent frame, `unit` its filter), "toasts" (Toasts.__rows), "farm"
+--                  (Farm.__ev) or "farmUnit" (Farm.__unitFrame, a RegisterUnitEvent frame; #39). fn(event, ...) gets the client's
 --                  full payload. `registered` is true only while the registration is live.
 --   NS.HOOK_ROWS   ordered { name, owner, fn, tbl?, install? }. A plain row hooks the global
 --                  `name` through Compat.HookSecure; `tbl` (a function answering the table, read at

@@ -57,6 +57,21 @@ local function exercise()
     NS.GainFeed:Send(NS.GainFeed:Begin("GOLD"))
     NS.Progress:OnXP("player")
     NS.Progress._scan()
+    -- The farm session (#39): one gain through the feed and one loot window, on a scratch store.
+    local g = NS.db.global
+    local savedFarm = g.farm
+    g.farm = {}
+    local fok, ferr = pcall(function()
+      NS.Farm:Start()
+      local gain = NS.GainFeed:Begin("GOLD")
+      gain.qty, gain.source = 5, "KILL"
+      NS.GainFeed:SendChat(gain)
+      NS.Farm:OnLootWindow("FISHING", 1)
+    end)
+    if NS.Farm:Active() then NS.Farm:Finish("manual", os.time()) end
+    NS.GainFeed:ResetState()
+    g.farm = savedFarm
+    if not fok then error(ferr, 0) end
   end)
   NS.db.global.history = savedH
   R.claims, R.recent, R.dirty = savedClaims, savedRecent, savedDirty
@@ -65,7 +80,7 @@ end
 
 test("perf: the buckets are declared in report order", function()
   assertEqual(table.concat(NS.Perf.BUCKET_ORDER, ","), "lootLine,currencyLine,moneyLine,spellCast,ledgerEvent,tooltipBlock,repEvent,appearanceEvent,"
-    .. "gainSend,toastPaint,xpEvent,skillScan")
+    .. "gainSend,toastPaint,xpEvent,skillScan,farmGain,farmWindow")
 end)
 
 test("perf: every declared bucket is reached by a real bracket", function()

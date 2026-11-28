@@ -550,3 +550,41 @@ test("coverage: a refused simulation start is one [Sim] line with logging on, an
   assertEqual(#tags, 0, "a [Sim] line reached the sink with logging off: " .. table.concat(tags, ", "))
 end)
 
+test("coverage: the farm session logs one [Farm] line per edge and none per gain", function()
+  -- debug-logging-§8/§9 (farm spec §11.4): start, pause (reason), resume, finish (reason, lines,
+  -- value), discard and a refusal each once; a tallied gain is the per-gain stream and logs nothing.
+  local F, g = NS.Farm, NS.db.global
+  local saved = g.farm
+  g.farm = {}
+  local lines
+  local ok, err = pcall(function()
+    quietChat(function()
+      lines = capture(function()
+        F:Start()
+        F:Start()
+        local gain = NS.GainFeed:Begin("GOLD")
+        gain.qty, gain.source = 100, "KILL"
+        NS.GainFeed:SendChat(gain)
+        F:PauseVerb()
+        F:ResumeVerb()
+        F:FinishVerb()
+        F:Start()
+        F:FinishVerb()
+        F:PauseVerb()
+      end)
+    end)
+  end)
+  if F:Active() then F:Finish("manual", os.time()) end
+  NS.GainFeed:ResetState()
+  g.farm = saved
+  if not ok then error(err, 0) end
+  local all = table.concat(lines, "\n")
+  assertEqual(count(lines, "[Farm] start #1"), 1, all)
+  assertEqual(count(lines, "[Farm] refused start: session #1 is open"), 1, all)
+  assertEqual(count(lines, "[Farm] pause #1 (manual)"), 1, all)
+  assertEqual(count(lines, "[Farm] resume #1"), 1, all)
+  assertEqual(count(lines, "[Farm] finish #1 (manual): "), 1, all)
+  assertEqual(count(lines, "[Farm] discard #2 (manual)"), 1, all)
+  assertEqual(count(lines, "[Farm] refused: no session is open"), 1, all)
+  assertEqual(count(lines, "[Farm]"), 8, "and nothing else, not one line for the gain: " .. all)
+end)

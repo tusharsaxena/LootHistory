@@ -96,7 +96,7 @@ test("diagnostics: every DX-LH section writes its own lead line, in the report's
   local want = {
     "identity:", "patterns:", "lifecycle:", "capture:", "settings:", "auction:", "filters:",
     "attribution:", "history:", "tail:", "bound repair:", "browser:", "launcher:", "pools:",
-    "sim:",
+    "farm:", "sim:",
   }
   local last = 0
   for _, lead in ipairs(want) do
@@ -464,7 +464,7 @@ test("diagnostics: the sim section while idle, with no stop on record", function
   assertEqual(runSim(fakeSim({ active = false, pos = 0, total = 0 }), { GUARDED_KEYS = { "ListCurrencies" } },
     {}, fakeSeam(3)), table.concat({
     "sim: active=no scenario=- step 0/0 events=0 hooks=0",
-    "sim: session rows=- holders=-; last stop none",
+    "sim: session rows=- holders=- farm=-; last stop none",
     "sim: seam wraps 3 keys; guarded ListCurrencies",
   }, "\n"))
 end)
@@ -472,11 +472,12 @@ end)
 test("diagnostics: the sim section while a session runs, with its stores and the last stop", function()
   local host = { counts = { hooks = 4 }, GUARDED_KEYS = { "ListCurrencies" },
     lastStop = { reason = "world", events = 12, hooks = 2, rows = 5 } }
-  local stores = { history = { {}, {}, {} }, holdings = { ["Mock-Realm"] = {}, ["\194\167warband"] = {} } }
+  local stores = { history = { {}, {}, {} }, holdings = { ["Mock-Realm"] = {}, ["\194\167warband"] = {} },
+    farm = { ["Mock-Realm"] = {} } }
   assertEqual(runSim(fakeSim({ active = true, scenario = "vendor", pos = 2, total = 7, events = 30 }), host,
     stores, fakeSeam(40)), table.concat({
     "sim: active=yes scenario=vendor step 2/7 events=30 hooks=4",
-    "sim: session rows=3 holders=2; last stop world (12 events, 2 hooks, 5 rows)",
+    "sim: session rows=3 holders=2 farm=1; last stop world (12 events, 2 hooks, 5 rows)",
     "sim: seam wraps 40 keys; guarded ListCurrencies",
   }, "\n"))
 end)

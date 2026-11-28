@@ -555,6 +555,10 @@ local MSG = {
   -- only during the synchronous send; a receiver copies what it keeps. Fired for every gain the addon
   -- observes, BEFORE the capture filters (#38 D6). Receivers: NS.Toasts (#38), NS.Farm (#39).
   GAIN             = "Ka0s_LootHistory_Gain",
+  -- Sender: modules/Farm.lua `Farm:Changed`, ONLY: every farm session edge and each tally (#39, farm
+  -- spec §4.4). Payload: (reason) -- "start"|"pause"|"resume"|"finish"|"gain"|"cost"|"store"|
+  -- "rename"|"delete". Receivers coalesce: one is sent per tallied gain.
+  FARM_CHANGED     = "Ka0s_LootHistory_FarmChanged",
 }
 
 -- ── Container id groups (LibKa0s-Compat-1.0 minor 6, LibKa0s#101; K101-LH-02) ──────────────────

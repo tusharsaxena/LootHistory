@@ -167,6 +167,9 @@ local SUITES = {
   -- core/Dispatch.lua's row tables (LootHistory#37). After test_debug_coverage, which leaves the
   -- addon brought up: its cases read the live registration set and leave the addon up again.
   "test_dispatch",
+  -- modules/Farm.lua (#39): the farm session's runtime. After test_dispatch, with the addon brought
+  -- up; every case runs on scratch stores and leaves no session open and nothing registered.
+  "test_farm",
   -- modules/ToastFeed.lua (#38): the three LibKa0s-Feed-1.0 feeds, the GAIN routing, clicks, combat,
   -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
   -- every case clears what it showed and leaves the addon up.

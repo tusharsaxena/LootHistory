@@ -357,13 +357,19 @@ local function simSession(out)
     st.pos or 0, st.total or 0, st.events or 0, counts.hooks or 0)
 end
 
+-- A session store's key count, or "-" while there is none.
+local function keysOrDash(t)
+  if not t then return "-" end
+  local n = 0
+  for _ in pairs(t) do n = n + 1 end
+  return n
+end
+
 local function simStores(out)
   local stores, Host = NS.SimStores or {}, NS.SimHost or {}
-  local holders = 0
-  for _ in pairs(stores.holdings or {}) do holders = holders + 1 end
   local last = Host.lastStop
-  out:add(TAG, "sim: session rows=%s holders=%s; last stop %s", stores.history and #stores.history or "-",
-    stores.holdings and holders or "-", last and ("%s (%s events, %s hooks, %s rows)"):format(last.reason,
+  out:add(TAG, "sim: session rows=%s holders=%s farm=%s; last stop %s", stores.history and #stores.history or "-",
+    keysOrDash(stores.holdings), keysOrDash(stores.farm), last and ("%s (%s events, %s hooks, %s rows)"):format(last.reason,
       last.events, last.hooks, last.rows) or "none")
 end
 
@@ -379,6 +385,18 @@ local function sim(out)
   simSeam(out)
 end
 
+-- The farm session (#39, farm spec §11.5): whether it is registered, this character's open session
+-- and its state, the saved sessions here and across characters, the open log's length, the saved
+-- store's estimate and whether a logout intent is pending. NS.Farm:DiagnosticsInfo creates nothing.
+local function farm(out)
+  local F = NS.Farm
+  if not (F and F.DiagnosticsInfo) then return out:add(TAG, "farm: not loaded") end
+  local d = F:DiagnosticsInfo()
+  out:add(TAG, "farm: live=%s active=%s state=%s sessions(this char)=%d chars=%d log=%d est=%s intent=%s",
+    yn(d.live), yn(d.active), d.state, d.sessions, d.chars, d.log, NS.Util.FormatBytes and
+      NS.Util.FormatBytes(d.bytes) or tostring(d.bytes), yn(d.intent))
+end
+
 -- The sections in report order (STD-10: identity, then settings, then domain state, then the
 -- error record, which here is the rejected-event list inside `capture`).
 local SECTIONS = {
@@ -386,7 +404,7 @@ local SECTIONS = {
   { "capture", capture }, { "settings", settings }, { "auction", auction },
   { "filters", filters }, { "attribution", attribution }, { "history", history },
   { "tail", tail }, { "bound repair", boundRepair }, { "browser", browser },
-  { "launcher", launcher }, { "pools", pools }, { "sim", sim },
+  { "launcher", launcher }, { "pools", pools }, { "farm", farm }, { "sim", sim },
 }
 
 --- The descriptor's `diagnostics` hook (core/DebugLogSetup.lua) answers this, at run time.

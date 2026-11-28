@@ -418,20 +418,47 @@ test("bus: Reconciler:Flush sends HoldingsChanged once per holder that moved", f
   assertEqual(sent[1].a, NS.Util.PlayerKey())
 end)
 
-test("bus: NS.MSG declares exactly the five wire names", function()
+test("bus: NS.MSG declares exactly the six wire names", function()
   local want = {
     RECORD_ADDED     = "Ka0s_LootHistory_RecordAdded",
     HISTORY_CHANGED  = "Ka0s_LootHistory_HistoryChanged",
     SETTINGS_CHANGED = "Ka0s_LootHistory_SettingsChanged",
     HOLDINGS_CHANGED = "Ka0s_LootHistory_HoldingsChanged",
     GAIN             = "Ka0s_LootHistory_Gain",
+    FARM_CHANGED     = "Ka0s_LootHistory_FarmChanged",
   }
   local n = 0
   for k, v in pairs(NS.MSG) do
     n = n + 1
     assertEqual(v, want[k], "NS.MSG." .. tostring(k))
   end
-  assertEqual(n, 5, "no sixth key")
+  assertEqual(n, 6, "no seventh key")
+end)
+
+test("bus: a farm session's start and finish send Ka0s_LootHistory_FarmChanged with their reason", function()
+  -- Through the real sender (modules/Farm.lua's Farm:Changed, reached by Start and FinishVerb), on a
+  -- scratch farm store put back before asserting. The session logs nothing, so the finish discards it.
+  -- The gain feed is not enabled this early: SetFarm's Recompute would leave it wanting what the
+  -- toast feeds want, so its three tables are put back too.
+  local g, cf, GF = NS.db.global, T.mocks.DEFAULT_CHAT_FRAME, NS.GainFeed
+  local saved, savedAdd = g.farm, cf.AddMessage
+  local function copy(t) local o = {}; for k, v in pairs(t) do o[k] = v end; return o end
+  local wants, toastWants, on = copy(GF.wants), copy(GF.toastWants), GF.on
+  g.farm, cf.AddMessage = {}, function() end
+  local sent = busSends(function()
+    NS.Farm:Start()
+    NS.Farm:FinishVerb()
+  end)
+  g.farm, cf.AddMessage = saved, savedAdd
+  for k, v in pairs(wants) do GF.wants[k] = v end
+  for k, v in pairs(toastWants) do GF.toastWants[k] = v end
+  GF.on = on
+  local farm = {}
+  for _, s in ipairs(sent) do
+    if s.msg == "Ka0s_LootHistory_FarmChanged" then farm[#farm + 1] = s.a end
+  end
+  assertEqual(table.concat(farm, ","), "start,finish")
+  assertEqual(NS.Farm._live, nil, "the discarded session left nothing registered")
 end)
 
 test("bus: GainFeed:Send fires Ka0s_LootHistory_Gain with the scratch payload", function()
