@@ -661,7 +661,7 @@ descriptor's `content` (8.2), and it reads `cfg = M.Config(fid)`. Spec fields:
 | `icon` | ITEM: `payload.icon`, else `Compat.ItemIcon(id)` (WRAPPED, 3.1), else the `?` icon. CURRENCY: `Compat.CurrencyIcon(id)`. GOLD: `Interface\\Icons\\INV_Misc_Coin_01` (game art). REPUTATION, XP, SKILL, APPEARANCE: `C.TOAST_KIND_ICON[kind]` (game art) |
 | `tint` | the quality colour (meaning, skinning-§6) for ITEM, CURRENCY, APPEARANCE; nil otherwise. The Feed draws it on the icon edge, and on the row border when `style.borderTint` (`borderByQuality`) is on |
 | `badge` | `cfg.ilvl` and ITEM weapons/armour: the 1st return of `Compat.GetItemExtras(link)` |
-| `title`, `titleColor` | ITEM, CURRENCY, APPEARANCE: `name` in the quality colour. REPUTATION: `name` in kind colour `rep`. XP: `"+%s XP"` in kind colour `xp`. SKILL: `name` in kind colour `skill`, then the new rank, then `"+N"` in `sem.good` (inline colour codes). GOLD: `Util.FormatMoney(qty)` (coloured coins). A kind colour is `S.Token("toast.<kind>")` while `cfg.colors.<kind>FromSkin`, else the stored swatch |
+| `title`, `titleColor` | ITEM, CURRENCY, APPEARANCE: `name` in the quality colour. REPUTATION: `name` in kind colour `rep`. XP: `"+%s XP"` in kind colour `xp`. SKILL: `name` in kind colour `skill`, then the new rank, then `"+N"` in `sem.good` (inline colour codes). GOLD: `Util.FormatMoney(qty)` (coloured coins). A kind colour is `S.Color(C.TOAST_TOKENS[<kind>])` (`lh.toast.<kind>`) while `cfg.colors.<kind>FromSkin`, else the stored swatch |
 | `count` | `"x"..qty` for ITEM and CURRENCY; nil otherwise. `countColor` is left nil, so the Feed draws the count in the glow colour while the row pulses |
 | `prefix`, `prefixColor` | REPUTATION `"‹"..label.."›"`, XP `"‹"..level.."›"`; colour nil (the Feed's label colour) |
 | `lines[1]` | left: the counts (`cfg.counts`) or the cap or the progress (below); right: the source tag (`cfg.source`, `C.SourceLabel[source]`) for ITEM, CURRENCY, GOLD, APPEARANCE and REPUTATION |
@@ -789,22 +789,22 @@ drop of the oldest past `shown`) is `Push`'s contract.
 ### 8.4 Kind colours (owner tokens)
 
 `core/SkinSetup.lua` registers owner tokens on `Skin:RegisterOwner(addonName, { ..., tokens = TOAST_TOKENS })`.
-The names follow the owner-token rule in `LibKa0s/docs/api/Skin/` (`SkinOwnerTokens.lua` minor 1); check the
-spelling at M3.5.
+The names follow the owner-token rule in `LibKa0s/docs/api/Skin/` (`SkinOwnerTokens.lua` minor 1): they carry
+this owner's namespace, `lh.`, never a library token family (M3.5; the names live in `C.TOAST_TOKENS`).
 
 | Token | Default (Ka0s Default) | Role |
 |---|---|---|
-| `toast.xp` | the mockup's `#e58cff` as `{0.898, 0.549, 1, 1}` | XP title |
-| `toast.rep` | `sem.info`'s value | reputation name (M2 ruling A9's colour) |
-| `toast.skill` | `#7aa7ff` as `{0.478, 0.655, 1, 1}` | skill name |
+| `lh.toast.xp` | the mockup's `#e58cff` as `{0.898, 0.549, 1, 1}`, no `follow` | XP title |
+| `lh.toast.rep` | `sem.info`'s value `{0.3, 0.8, 1, 1}`, `follow = "sem.info"` | reputation name (M2 ruling A9's colour) |
+| `lh.toast.skill` | `#7aa7ff` as `{0.478, 0.655, 1, 1}`, no `follow` | skill name |
 
 Each feed's `colors.xp`, `colors.rep` and `colors.skill` rows (section 9) carry `<key>FromSkin` companions, true by
 default, that read these tokens; `ToastContent` resolves them into the spec's `titleColor` (the Feed takes the
 spec's colour first, meaning first). The literal defaults sit in `core/SkinSetup.lua` as the owner's token
-defaults, the named skinning-§1 home for an owner colour. The swatch defaults in `defaults/Profile.lua` get
-`Kit.skinValues.rows` entries (cause `TOAST-STYLE`, why: "a player's override swatch, drawn only while its FromSkin
-companion is off"), and so do the Feed style swatches the profile stores (`bgColor`, `bgColor2`, `borderColor`,
-`fontColor`).
+defaults, the named skinning-§1 home for an owner colour. The swatch defaults in `defaults/Profile.lua` (the kind
+swatches and the Feed style swatches `bgColor`, `bgColor2`, `borderColor`, `fontColor`) need no `Kit.skinValues.rows`
+entry: the kit's scanner leaves `defaults/` out by path (its `defaults swatch` rule, the companion-off look) and
+`core/SkinSetup.lua` out as the seam, so a `TOAST-STYLE` row would match nothing and fail as stale (M3.5).
 
 ### 8.5 Clicks and combat
 
@@ -1183,7 +1183,7 @@ pin) is the library's suite's, so host cases assert only what the host decides a
 - `test_reputation.lua` / `test_appearance.lua` (M2): the SyncCapture matrix (switch × feed); the feed sees a rep
   loss with the ledger off and a muted source; appearance OUT never sends.
 - `test_sim.lua`: D.XP/D.Skill, INTERFERENCE, Prepare/stop reseed.
-- `test_skin_values.lua` (kit): the `TOAST-STYLE` allow rows. The rows are library-drawn, so no host
+- `test_skin_values.lua` (kit): no new row (8.4: the kit's path rules cover the defaults and the seam). The rows are library-drawn, so no host
   `test_skin_switch` surface is declared for them; the skin switch is the Feed's (`OnLooksChanged` → `RepaintAll`).
 - `test_schema.lua`: `COUNT_CLAIMS` for the doc row counts.
 - `test_client_shape.lua`: as section 11.
@@ -1232,8 +1232,8 @@ pin) is the library's suite's, so host cases assert only what the host decides a
   feed's Behavior tab, under a heading that says "all feeds" (`mockups.html:438`).
 - **The glow (T6).** It is the Feed's ADD-blend edge in the skin's glow colour, not `LibKa0s-Glow-1.0` (which
   needs `LibCustomGlow-1.0`); the Feed doc's *Style over the skin* records the same choice.
-- **skinning-§9 typed defaults.** The swatch defaults carry `TOAST-STYLE` allow rows. The kind colours are owner
-  tokens.
+- **skinning-§9 typed defaults.** The swatch defaults sit in `defaults/`, which the kit's skin_values scanner
+  leaves out by path (`defaults swatch`), so they carry no allow row. The kind colours are owner tokens.
 - **The M2 amendment (5.4)** and **T10's attribution reorder**: design changes pinned by tests, not deviations.
 - **events-frames-taint-§9.** The Blizzard alert symbols are verified at M3.6 (3.3) and gated by presence until then.
 - **Alignment choices made at M3.2** (each the smallest choice inside the standard and the Feed contract):
@@ -1251,6 +1251,13 @@ pin) is the library's suite's, so host cases assert only what the host decides a
   - An appearance absorbed into its item repaints without a pulse (`Repaint` has none).
   - A new toast's payload is collected, not pooled: Feed-1.0 has no close callback (LIBKA0S, a capability gap
     the Feed doc lists under *What is not here*; re-check when a close-reason callback ships).
+- **Choices made at M3.5** (style and motion):
+  - The kind tokens are `lh.toast.xp`, `lh.toast.rep` and `lh.toast.skill` (the owner's namespace; `toast.` would be
+    no owner's and could become a library family). Experience and skill keep the mockup's hue under every skin;
+    reputation follows `sem.info`. The degraded facade has no owner tokens, so it draws the stored swatch.
+  - `M.MotionFor` leaves out an `enter` word outside the Feed's six, so the Feed's own default applies.
+  - `M.StyleFor` leaves out an empty `font` (the profile's "the skin's own"), so the Feed resolves the face itself.
+  - No `TOAST-STYLE` skin_values rows: `defaults/` and `core/SkinSetup.lua` are outside the kit's scan (8.4).
 
 ### 15.3 Known limitations (to record in ARCHITECTURE)
 
@@ -1276,7 +1283,7 @@ repaired after each commit (plan `## Gate`).
 | **M3.2** Host alignment | Done: the host is LibKa0s-Feed-1.0 (D24); this spec aligned to its API. No code |
 | **M3.3** Feed seam + wiring | `core/FeedSetup.lua` (8.1: `NS.FeedLib`, `NS.NewFeed`, `NS.FeedStub`) and its TOC line; `test_libka0s` "nine" → "ten adopted majors" with the Feed asserts and the silent-flag path; the `test_surface_parity` instance pair; `modules/ToastModel.lua` (7.1 `Config`, `LayoutFor`, `MotionFor` (and a pass-through `StyleFor` of the stored leaves), 7.2 `Accepts`, 7.3 `Key`, `NewPayload`/`FreePayload`, `Merge`); a minimal `modules/ToastContent.lua` (`icon`, `tint`, `title`, `count`); `modules/ToastFeed.lua` (8.2 the three `NS.NewFeed` descriptors, 8.3 `OnGain` → `Push`, 8.5 `onClick` → `_Click` and the combat rows → `SetLocked(true)`/`SetClickThrough`/`Hold`/`Release`, 8.6 `SetLocked`/`onMoved`/`Preview` while unlocked, `Refresh` on SETTINGS_CHANGED, `Clear` on Disable); `B:ShowGain`; the lifecycle steps; the frame-layering pointer comment; the TOC lines. Tests: `test_toast_model` (filters, keys, payload, merge reducer, getters, constants vs `NS.FeedLib`), `test_toast_feed` (routing, clicks, combat, unlock, refresh, Disable, the stub path), `test_disabled`, `test_browser*`, docs/test-cases regen |
 | **M3.4** Row content | `modules/ToastContent.lua` in full (7.4): the spec's `badge`, `prefix`, `lines[1..3]`, `sub`, `highlight`; counts icons, cap colouring, price modes with lazy GatherAll cached on the payload, the upgrade rule, the per-kind lines (rep, XP, skill, appearance, money); `M.Absorb` through `Get`/`Repaint`/`Dismiss`; the highlight sounds on `Push == "new"` with `C.TOAST_SOUND_GAP`; `motion.settle = C.TOAST_COUNT_SETTLE` for the counts re-read; the `toastPaint` bracket around the `content` closure. Tests: `test_toast_content`, `test_toast_model` (absorb), `test_toast_feed` (sound gap, settle passes through `MotionFor`) |
-| **M3.5** Style + motion mapping | `M.StyleFor` complete (7.1: the background, border, font and text-colour keys, `borderTint` ← `borderByQuality`, `borderClass`, `fontClass`, `fontSizeFromSkin = false`) and `M.MotionFor` complete (enter vocabulary, `fadeTime`, `mergeWindow`, `pulse`, `timerBar`, `smooth`, `pin`, `rightDismiss`); the kind-colour owner tokens in `core/SkinSetup.lua` (8.4) and their use in `ToastContent`; the `TOAST-STYLE` skin_values rows. Nothing is drawn by the host: style application, the skin repaint, enter/fade/slide, hold/fade, pulse, the timer bar, smooth reposition and the glow are the Feed's. Tests: `test_toast_model` (every style/motion key from a fixture, FromSkin on and off), `test_toast_content` (kind colours), the kit `test_skin_values` |
+| **M3.5** Style + motion mapping | `M.StyleFor` complete (7.1: the background, border, font and text-colour keys, `borderTint` ← `borderByQuality`, `borderClass`, `fontClass`, `fontSizeFromSkin = false`) and `M.MotionFor` complete (enter vocabulary, `fadeTime`, `mergeWindow`, `pulse`, `timerBar`, `smooth`, `pin`, `rightDismiss`); the kind-colour owner tokens in `core/SkinSetup.lua` (8.4) and their use in `ToastContent`; no skin_values row (8.4). Nothing is drawn by the host: style application, the skin repaint, enter/fade/slide, hold/fade, pulse, the timer bar, smooth reposition and the glow are the Feed's. Tests: `test_toast_model` (every style/motion key from a fixture, FromSkin on and off), `test_toast_content` (kind colours), the kit `test_skin_values` |
 | **M3.6** Settings, test, Blizzard | `settings/SchemaToasts.lua` (9.3, leaves per 9.2, names read off the composers' emitted rows and fed back into 7.1's map), `settings/PanelToasts.lua`, the Schema.lua append, `P._makeMultiCheck`, page registration, the acts (Test → `Push(nil, p)`, Unlock → `SetUnlocked`, Reset feed, Reset style to skin, Add feed), test mode through `BrowserTable:SetTestMode` → `Preview`/`SetStrip("test")`, `ToastSample`, the sim strip → `SetStrip("sim")`, `modules/ToastBlizz.lua` (alerts only, 10.2), the 3.3 verification with citations in Taint notes, the perf scenario. Tests: `test_panel_toasts`, `test_toast_blizz`, `test_toast_feed` (test mode, Test act, sim strip), `test_schema`, `test_client_shape`, `test_perf` (scenario) |
 | **M3.7** Docs + review + push | Section 14 in full, the smoke rows, the test-cases regen, the README. A review-pass workflow and its fixes. Push M3. Do not merge |
 

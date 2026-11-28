@@ -239,6 +239,10 @@ C.TOAST_NUDGE_MAX = 600     -- = LibKa0s-Feed-1.0 NUDGE_MAX; the nudge sliders' 
 C.TOAST_SHOWN_MAX = 10      -- = Feed SHOWN_MAX; the "Shown at once" slider's top
 C.TOAST_COUNT_SETTLE = 0.5  -- motion.settle: one more content call this long after the paint (client-quirks-§3)
 C.TOAST_SOUND_GAP = 1       -- s: at most one highlight sound per feed in this long (toast spec §8.3)
+-- The kind colors' owner tokens (toast spec §8.4), keyed by the feed's `colors.<key>` leaf. The
+-- names carry this owner's namespace, `lh.`, never a library token family (LibKa0s-Skin-1.0's owner
+-- token rule). Their Ka0s Default values are registered in core/SkinSetup.lua.
+C.TOAST_TOKENS = { xp = "lh.toast.xp", rep = "lh.toast.rep", skill = "lh.toast.skill" }
 -- The upgrade rule's slots (toast spec §7.4, T13): an equip location's inventory slots. A two-slot
 -- location compares against the lower equipped item level. The ranged locations sit in slot 18 on
 -- WoW Forever (its ranged slot) and in the main hand on Retail, which has no slot 18 item.

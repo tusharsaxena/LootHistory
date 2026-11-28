@@ -109,12 +109,17 @@ function M.LayoutFor(fid)
   return t
 end
 
+-- The Feed's enter words (Feed doc *motion keys*), which the profile stores as is.
+local ENTER = { none = true, fade = true, left = true, right = true, up = true, down = true }
+
 --- The Feed's `motion` for feed `fid` (Feed doc *motion keys*). `enter` is stored in the Feed's own
---- vocabulary; right-click dismiss is not a setting (D14); `settle` re-reads the counts (§7.4).
+--- vocabulary, and a word outside it (a hand-edited profile) is left out, so the Feed's default
+--- applies; right-click dismiss is not a setting (D14); `settle` re-reads the counts (§7.4).
 function M.MotionFor(fid)
   local t, f = reused(motions, fid), feedSettings(fid)
   if not f then return t end
-  t.enter, t.enterTime, t.hold, t.fadeTime, t.mergeWindow = f.enter, f.enterTime, f.hold, f.fade, f.merge
+  t.enter = ENTER[f.enter] and f.enter or nil
+  t.enterTime, t.hold, t.fadeTime, t.mergeWindow = f.enterTime, f.hold, f.fade, f.merge
   t.pulse, t.timerBar, t.smooth, t.pin = f.pulse ~= false, f.timerBar == true, f.smooth ~= false, f.pin ~= false
   t.rightDismiss = true
   t.settle = C.TOAST_COUNT_SETTLE
@@ -131,7 +136,9 @@ local STYLE_SAME = {
 
 --- The Feed's `style` for feed `fid` (Feed doc *Style over the skin*): the stored leaves passed
 --- through, the three renamed toggles mapped, and the stored font sizes always drawn (Options' cause
---- L11). The bar and glow keys are left out, so the Feed's skin defaults apply.
+--- L11). An empty `font` (the profile's "the skin's own", as settings.appearance.font stores it) is
+--- left out, so the Feed's own resolution applies. The bar and glow keys are left out, so the
+--- Feed's skin defaults apply.
 function M.StyleFor(fid)
   local t, f = reused(styles, fid), feedSettings(fid)
   if not f then return t end
@@ -139,6 +146,7 @@ function M.StyleFor(fid)
     local k = STYLE_SAME[i]
     t[k] = f[k]
   end
+  if t.font == "" then t.font = nil end
   t.borderTint, t.borderClass, t.fontClass = f.borderByQuality == true, f.useClassColorBorder == true,
     f.useClassColorFont == true
   t.fontSizeFromSkin = false

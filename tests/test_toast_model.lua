@@ -271,6 +271,83 @@ test("ToastModel: StyleFor passes the stored leaves through and maps the three t
   end)
 end)
 
+-- Every style key the Feed reads from the profile, with the value the fixture stores (§7.1).
+local STYLE_FIXTURE = {
+  bgType = "texture", bgColor = { r = 0.1, g = 0.2, b = 0.3, a = 0.4 }, bgColor2 = { r = 0.5, g = 0.6, b = 0.7, a = 0.8 },
+  bgTexture = "Blizzard Tooltip", borderStyle = "Blizzard Tooltip", borderSize = 3,
+  borderColor = { r = 0.9, g = 0.8, b = 0.7, a = 1 }, font = "Friz Quadrata TT", fontSize = 16, fontSize2 = 12,
+  fontFlags = "OUTLINE", fontShadow = false, fontColor = { r = 0.25, g = 0.5, b = 0.75, a = 1 },
+}
+local STYLE_COMPANIONS = { "bgColorFromSkin", "borderStyleFromSkin", "borderColorFromSkin", "fontFromSkin",
+                           "fontShadowFromSkin", "fontColorFromSkin" }
+
+local function styleFixture(fromSkin, toggles)
+  local over = {}
+  for k, v in pairs(STYLE_FIXTURE) do over[k] = v end
+  for _, k in ipairs(STYLE_COMPANIONS) do over[k] = fromSkin end
+  over.borderByQuality, over.useClassColorBorder, over.useClassColorFont = toggles, toggles, toggles
+  return over
+end
+
+test("ToastModel: StyleFor maps every style key from a fixture, FromSkin off (every override)", function()
+  withFeed("main", styleFixture(false, true), function(f)
+    local t = M().StyleFor("main")
+    for k, v in pairs(STYLE_FIXTURE) do assertTrue(t[k] == v, k .. " handed over as stored") end
+    for _, k in ipairs(STYLE_COMPANIONS) do assertEqual(t[k], false, k) end
+    assertTrue(t.borderTint); assertTrue(t.borderClass); assertTrue(t.fontClass)
+    assertFalse(t.fontSizeFromSkin)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    local want = 0
+    for _ in pairs(STYLE_FIXTURE) do want = want + 1 end
+    assertEqual(n, want + #STYLE_COMPANIONS + 4, "no key beyond the mapped ones")
+    assertTrue(t.fontColor == f.fontColor)
+  end)
+end)
+
+test("ToastModel: StyleFor with every FromSkin on keeps the overrides stored but drawn from the skin", function()
+  withFeed("main", styleFixture(true, false), function()
+    local t = M().StyleFor("main")
+    for _, k in ipairs(STYLE_COMPANIONS) do assertEqual(t[k], true, k) end
+    assertFalse(t.borderTint); assertFalse(t.borderClass); assertFalse(t.fontClass)
+    assertFalse(t.fontSizeFromSkin, "font size is a stored value under the skin too (cause L11)")
+    assertEqual(t.fontSize, 16, "the stored size still draws")
+  end)
+end)
+
+test("ToastModel: the default style draws the skin, an empty font is left to the Feed", function()
+  local t = M().StyleFor("main")
+  for _, k in ipairs(STYLE_COMPANIONS) do assertEqual(t[k], true, k .. " on by default (skin by default, D12)") end
+  assertFalse(t.borderTint); assertFalse(t.borderClass); assertFalse(t.fontClass)
+  assertEqual(feedRow("main").font, "", "the profile stores the skin's own as an empty name")
+  assertEqual(t.font, nil, "and the Feed sees no font name")
+  assertEqual(t.fontSize, 13); assertEqual(t.fontSize2, 11)
+end)
+
+test("ToastModel: MotionFor maps the defaults and every enter word, and leaves an unknown one out", function()
+  local t = M().MotionFor("main")
+  assertEqual(t.enter, "right"); assertEqual(t.enterTime, 0.3); assertEqual(t.hold, 5)
+  assertEqual(t.fadeTime, 1); assertEqual(t.mergeWindow, 3)
+  assertTrue(t.pulse); assertFalse(t.timerBar); assertTrue(t.smooth); assertTrue(t.pin)
+  for _, word in ipairs({ "none", "fade", "left", "right", "up", "down" }) do
+    withFeed("main", { enter = word }, function() assertEqual(M().MotionFor("main").enter, word) end)
+  end
+  withFeed("main", { enter = "slideRight" }, function()
+    assertEqual(M().MotionFor("main").enter, nil, "a word the Feed does not know: its default applies")
+  end)
+end)
+
+test("ToastModel: each feed's getters answer its own table from its own leaves", function()
+  withFeed("extra", { bgColorFromSkin = false, fontSize = 18, enter = "up", hold = 9 }, function()
+    assertEqual(M().StyleFor("extra").bgColorFromSkin, false)
+    assertEqual(M().StyleFor("main").bgColorFromSkin, true, "Main keeps the skin")
+    assertEqual(M().StyleFor("extra").fontSize, 18)
+    assertEqual(M().MotionFor("extra").enter, "up"); assertEqual(M().MotionFor("extra").hold, 9)
+    assertTrue(M().StyleFor("extra") ~= M().StyleFor("main"), "one table per feed")
+    assertTrue(M().MotionFor("extra") ~= M().MotionFor("main"))
+  end)
+end)
+
 test("ToastModel: a getter for a feed with no stored settings answers an empty table", function()
   assertEqual(next(M().LayoutFor("nope")), nil)
   assertEqual(next(M().MotionFor("nope")), nil)

@@ -152,7 +152,7 @@ end)
 test("ToastContent: a kind color is the skin's owner token while FromSkin, else the swatch", function()
   local Skin = NS.Skin
   with(Skin, { Color = function(name)
-    if name == "toast.xp" then return 0.9, 0.5, 1, 1 end
+    if name == C.TOAST_TOKENS.xp then return 0.9, 0.5, 1, 1 end
     return nil
   end }, function()
     withMain(nil, function()
@@ -168,6 +168,64 @@ test("ToastContent: a kind color is the skin's owner token while FromSkin, else 
       local c = content({ kind = "XP", dir = "IN", qty = 10 }).titleColor
       assertEqual(c.r, NS.db.profile.settings.toasts.feeds.main.colors.xp.r, "a skin with no token: the swatch")
     end)
+  end)
+end)
+
+--- The skin's color `name` as { r, g, b }, or nil.
+local function skinRGB(name)
+  local r, g, b = NS.Skin.Color(name)
+  if type(r) ~= "number" then return nil end
+  return { r, g, b }
+end
+
+local function near(a, b) return math.abs(a - b) < 1e-6 end
+
+test("ToastContent: the three kind tokens are this owner's, namespaced, and resolve under the skin", function()
+  for key, name in pairs(C.TOAST_TOKENS) do
+    assertTrue(name:find("^lh%.") ~= nil, key .. ": the owner's namespace, never a library family")
+  end
+  local xp, rep, skill = skinRGB(C.TOAST_TOKENS.xp), skinRGB(C.TOAST_TOKENS.rep), skinRGB(C.TOAST_TOKENS.skill)
+  assertTrue(xp ~= nil and rep ~= nil and skill ~= nil, "every kind token is registered")
+  if NS.SkinChoice and select(2, NS.SkinChoice()) == "ka0s" then
+    assertTrue(near(xp[1], 0.898) and near(xp[2], 0.549) and near(xp[3], 1), "Ka0s Default: the mockup's XP violet")
+    assertTrue(near(skill[1], 0.478) and near(skill[2], 0.655) and near(skill[3], 1), "Ka0s Default: the skill blue")
+  end
+  local info = skinRGB("sem.info")
+  assertTrue(near(rep[1], info[1]) and near(rep[2], info[2]) and near(rep[3], info[3]),
+    "reputation follows sem.info (M2 ruling A9)")
+end)
+
+test("ToastContent: each kind's title draws its owner token while FromSkin, its swatch while off", function()
+  quiet(nil, function()
+    local cases = {
+      { key = "xp", g = { kind = "XP", dir = "IN", qty = 10 } },
+      { key = "rep", g = { kind = "REPUTATION", dir = "IN", id = 72, qty = 5, name = "Stormwind" } },
+      { key = "skill", g = { kind = "SKILL", dir = "IN", id = 185, qty = 1, name = "Cooking", old = 1, new = 2 } },
+    }
+    for _, cs in ipairs(cases) do
+      withMain(nil, function()
+        local want = skinRGB(C.TOAST_TOKENS[cs.key])
+        local spec = content(cs.g)
+        if cs.key == "skill" then
+          local hex = ("|cff%02x%02x%02x"):format(math.floor(want[1] * 255 + 0.5), math.floor(want[2] * 255 + 0.5),
+            math.floor(want[3] * 255 + 0.5))
+          assertTrue(spec.title:find(hex, 1, true) ~= nil, "skill: the name in the token, inline: " .. spec.title)
+        else
+          assertTrue(near(spec.titleColor.r, want[1]) and near(spec.titleColor.g, want[2]), cs.key .. ": the token")
+        end
+      end)
+      local colors = { xpFromSkin = true, repFromSkin = true, skillFromSkin = true }
+      colors[cs.key .. "FromSkin"] = false
+      colors[cs.key] = { r = 0.125, g = 0.25, b = 0.375, a = 1 }
+      withMain({ colors = colors }, function()
+        local spec = content(cs.g)
+        if cs.key == "skill" then
+          assertTrue(spec.title:find("|cff204060", 1, true) ~= nil, "skill: the swatch, inline: " .. spec.title)
+        else
+          assertEqual(spec.titleColor.r, 0.125, cs.key .. ": the swatch")
+        end
+      end)
+    end
   end)
 end)
 

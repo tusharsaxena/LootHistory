@@ -726,7 +726,7 @@ Total.
 - CompatGain: alert suppression records and restores exactly the registered events, in order
 - Progress: each owner's rows are registered only while the gain feed wants its kind
 
-### test_toast_model.lua (27)
+### test_toast_model.lua (32)
 
 - ToastModel: C.TOAST_SLOTS, TOAST_NUDGE_MAX and TOAST_SHOWN_MAX equal the Feed's own
 - ToastModel: Config flattens a feed's settings, kinds keyed by GainKind
@@ -747,6 +747,11 @@ Total.
 - ToastModel: the Main feed's default layout is Bottom Right, growing up, nudged clear of the bars
 - ToastModel: MotionFor renames fade and merge, fixes right-click dismiss and the settle
 - ToastModel: StyleFor passes the stored leaves through and maps the three toggles
+- ToastModel: StyleFor maps every style key from a fixture, FromSkin off (every override)
+- ToastModel: StyleFor with every FromSkin on keeps the overrides stored but drawn from the skin
+- ToastModel: the default style draws the skin, an empty font is left to the Feed
+- ToastModel: MotionFor maps the defaults and every enter word, and leaves an unknown one out
+- ToastModel: each feed's getters answer its own table from its own leaves
 - ToastModel: a getter for a feed with no stored settings answers an empty table
 - ToastContent: an item fills its icon, quality tint, title and count
 - ToastContent: an item with no icon falls back to the client, then the question mark
@@ -756,13 +761,15 @@ Total.
 - ToastModel: Absorb lets an item take over a one-look appearance toast for it
 - ToastModel: Absorb ignores every other kind and a missing feed
 
-### test_toast_content.lua (19)
+### test_toast_content.lua (21)
 
 - ToastContent: an item's badge is its level, read once and only while the feed shows it
 - ToastContent: reputation draws its delta, its standing as the prefix and its progress
 - ToastContent: experience draws its level, the percent through it, and a level-up
 - ToastContent: a skill-up draws its name, the new rank and the rise
 - ToastContent: a kind color is the skin's owner token while FromSkin, else the swatch
+- ToastContent: the three kind tokens are this owner's, namespaced, and resolve under the skin
+- ToastContent: each kind's title draws its owner token while FromSkin, its swatch while off
 - ToastContent: an item's counts come from the tally while the ledger is on, as marks
 - ToastContent: with the ledger off, an item's counts are the client's live ones
 - ToastContent: money reads the purse, and the warband's stored money where there is one
@@ -2385,7 +2392,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_toast_feed.lua (34)
+### test_toast_feed.lua (36)
 
 - Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
 - Toasts: an idle feed is asleep
@@ -2418,6 +2425,8 @@ Total.
 - Toasts: a bus GAIN presents a row on the live Feed and paints its title
 - Toasts: the unlock Preview paints a sample row per kind the feed shows, up to its cap
 - Toasts: a Release drains the held gains onto painted rows
+- Toasts: a feed's style override reaches its painted row, and a Refresh re-reads it
+- Toasts: a feed whose text color is from the skin draws the skin's HUD text color
 - Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises
 - B:ShowGain opens History on the History tab with the gain's name in Search
 - B:ShowGain on the real window opens History and searches it
@@ -2896,8 +2905,8 @@ Total.
 | test_appearance.lua | 17 |
 | test_gain_feed.lua | 14 |
 | test_progress.lua | 12 |
-| test_toast_model.lua | 27 |
-| test_toast_content.lua | 19 |
+| test_toast_model.lua | 32 |
+| test_toast_content.lua | 21 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -2957,7 +2966,7 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
-| test_toast_feed.lua | 34 |
+| test_toast_feed.lua | 36 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
@@ -2982,4 +2991,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2519** |
+| **Total** | **2528** |

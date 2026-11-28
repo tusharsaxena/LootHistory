@@ -798,11 +798,22 @@ end
 
 -- ── the live seam ────────────────────────────────────────────────────────────────────────────
 
+-- The loot toasts' kind colors (#38, toast spec §8.4), this owner's tokens. Experience and
+-- skill-ups keep the mockup's hues under every skin (no `follow`); reputation is `sem.info`, M2's
+-- reputation color (ruling A9), in each skin's own palette. A feed's `colors.<key>FromSkin` reads
+-- these; its stored swatch draws while the companion is off (modules/ToastContent.lua).
+local TOAST_TOKENS = {
+  [NS.Constants.TOAST_TOKENS.xp]    = { default = { 0.898, 0.549, 1, 1 } },
+  [NS.Constants.TOAST_TOKENS.rep]   = { default = { 0.3, 0.8, 1, 1 }, follow = "sem.info" },
+  [NS.Constants.TOAST_TOKENS.skill] = { default = { 0.478, 0.655, 1, 1 } },
+}
+
 NS.Skin = Skin:For(addonName)
 Skin:RegisterOwner(addonName, {
   label = NS.BRAND,
   get = NS.SkinChoice,
   set = NS.WriteSkinChoice,
+  tokens = TOAST_TOKENS,
 })
 
 -- The one line a reload request earns on the path that has no popup of its own (a profile event

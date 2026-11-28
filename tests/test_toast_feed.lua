@@ -658,6 +658,68 @@ test("Toasts: a Release drains the held gains onto painted rows", function()
   end)
 end)
 
+--- The first collected string that shows `text`.
+local function stringOf(strings, text)
+  for _, fs in ipairs(strings) do
+    if fs:GetText() == text then return fs end
+  end
+  return nil
+end
+
+local function near(a, b) return math.abs((tonumber(a) or -1) - b) < 0.002 end
+
+--- A string's font size, through its font object when it draws from one (the Feed's HUD fonts).
+local function sizeOf(fs)
+  local font, size = fs:GetFont()
+  if type(font) == "string" and type(_G[font]) == "table" then font = _G[font] end
+  if type(font) == "table" and font.GetFont then size = select(2, font:GetFont()) end
+  return size
+end
+
+test("Toasts: a feed's style override reaches its painted row, and a Refresh re-reads it", function()
+  local FACE = "Fonts\\FRIZQT__.TTF"
+  local over = { fontColorFromSkin = false, fontColor = { r = 0.25, g = 0.5, b = 0.75, a = 1 }, fontSize = 17,
+                 fontFromSkin = false, font = FACE }
+  withFeeds({ main = over }, function()
+    clearAll()
+    withPaintedFeed("main", function(f, strings, errors)
+      NS.bus:SendMessage(NS.MSG.GAIN, gold(500))
+      local fs = stringOf(strings, NS.Util.FormatMoney(500))
+      assertTrue(fs ~= nil, "the money row painted")
+      local r, g, b = fs:GetTextColor()
+      assertTrue(near(r, 0.25) and near(g, 0.5) and near(b, 0.75),
+        ("the stored font color draws while its FromSkin is off: %s %s %s"):format(tostring(r), tostring(g), tostring(b)))
+      assertEqual(sizeOf(fs), 17, "the stored title size draws")
+      local face = fs:GetFont()
+      if type(face) == "table" then face = face:GetFont() end
+      assertEqual(face, FACE, "the stored face draws while fontFromSkin is off")
+      local row = feedRow("main")
+      row.fontColor = { r = 0.5, g = 0.25, b = 0.125, a = 1 }
+      row.fontSize = 19
+      f:Refresh()
+      r = fs:GetTextColor()
+      assertTrue(near(r, 0.5), "Refresh re-read the style getter: " .. tostring(r))
+      assertEqual(sizeOf(fs), 19, "and the new title size")
+      assertEqual(#errors, 0, table.concat(errors, "; "))
+    end)
+  end)
+end)
+
+test("Toasts: a feed whose text color is from the skin draws the skin's HUD text color", function()
+  withFeeds({ main = { fontColorFromSkin = true, fontColor = { r = 0.25, g = 0.5, b = 0.75, a = 1 } } }, function()
+    clearAll()
+    withPaintedFeed("main", function(f, strings, errors)
+      NS.bus:SendMessage(NS.MSG.GAIN, gold(500))
+      local fs = stringOf(strings, NS.Util.FormatMoney(500))
+      assertTrue(fs ~= nil, "the money row painted")
+      local r = fs:GetTextColor()
+      assertFalse(near(r, 0.25), "the stored swatch does not draw while FromSkin is on")
+      assertTrue(f:Stats().live == 1)
+      assertEqual(#errors, 0, table.concat(errors, "; "))
+    end)
+  end)
+end)
+
 -- ── the degraded install (§8.1) ──────────────────────────────────────────────────────────────
 
 test("Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises", function()

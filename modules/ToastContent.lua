@@ -73,13 +73,14 @@ end
 local KIND_COLOR = { [K.XP] = "xp", [K.REPUTATION] = "rep", [K.SKILL] = "skill" }
 local swatches = {}
 
---- A kind's color (§8.4): the owner token `toast.<key>` while its FromSkin companion is on, else (or
---- while the skin has no such token) the feed's stored swatch.
+--- A kind's color (§8.4): the owner token C.TOAST_TOKENS[key] (`lh.toast.<key>`, core/SkinSetup.lua)
+--- while its FromSkin companion is on, else (or while the skin has no such token, the degraded
+--- facade) the feed's stored swatch.
 local function kindColor(cfg, kind)
   local key = KIND_COLOR[kind]
   local colors = type(cfg.colors) == "table" and cfg.colors or {}
   if colors[key .. "FromSkin"] ~= false then
-    local c = token("toast." .. key)
+    local c = token(C.TOAST_TOKENS[key])
     if c then return c end
   end
   local sw = colors[key]
