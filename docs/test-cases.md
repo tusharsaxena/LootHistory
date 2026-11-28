@@ -808,13 +808,15 @@ Total.
 - ToastContent: an appearance, and an item with a new look, carry the sub line
 - ToastContent: a raising client read leaves its line empty and never raises
 
-### test_farm_model.lua (23)
+### test_farm_model.lua (25)
 
 - FarmModel New: a running v1 session with empty lines and its first zone
 - FarmModel clock: Elapsed, Bank, Pause and Resume bank only running seconds
 - FarmModel IdleAt: banks to the last gain, to the clock's start with none, off at 0
 - FarmModel IdleAt: a resume restarts the idle span, so an old gain does not pause at once
 - FarmModel zones: banked only while running, an empty or unchanged zone ignored
+- FarmModel zones: an idle back-bank across a zone change takes the idle span back from the old zone
+- FarmModel zones: a back-bank across several zone changes trims each stretch, newest first
 - FarmModel PrimaryZone: the most active seconds, a tie to the zone seen first
 - FarmModel Close: an empty log is discarded (F6); otherwise stamped, named, totaled, trimmed
 - FarmModel Pack/Unpack: every kind round-trips, `|` in free text becomes `/`
@@ -2466,7 +2468,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_farm.lua (30)
+### test_farm.lua (36)
 
 - Farm: with no session nothing is registered; Start registers all of it, Finish takes it all down
 - Farm: Start while a session is open refuses on one line
@@ -2492,6 +2494,12 @@ Total.
 - Farm: the zone and death rows bank zones and count deaths; manual pauses still count deaths
 - Farm: AFK is a unit row on player; it pauses and resumes, a nil answer and pauseOnAFK off do nothing
 - Farm: an unpriced item waits for the deferred pass, which re-arms in combat; Finish fills the rest
+- Farm: the restore after a reload rebuilds the price queue from every unpriced item
+- Farm: Finish tries every unpriced item, queued or not, before the totals snapshot
+- Farm: an item whose vendor price never resolves is dropped after PRICE_TRIES attempts
+- Farm: the stand-up and a sim swap that keeps the module live re-arm a pending price pass
+- Farm: an AFK flag landing past the idle limit banks back to the last gain (D16)
+- Farm: during a perf capture pause, resume and finish refuse and leave the standDown pause
 - Farm: a session with nothing logged is discarded on one line (F6)
 - Farm: the finish names the session, its value and its clock, then trims to the cap
 - Farm: the verbs answer each state, the bare verb toggles the panel, the status line reads the session
@@ -3139,7 +3147,7 @@ Total.
 | test_progress.lua | 15 |
 | test_toast_model.lua | 34 |
 | test_toast_content.lua | 21 |
-| test_farm_model.lua | 23 |
+| test_farm_model.lua | 25 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -3199,7 +3207,7 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 25 |
 | test_dispatch.lua | 11 |
-| test_farm.lua | 30 |
+| test_farm.lua | 36 |
 | test_farm_panel.lua | 27 |
 | test_farm_details.lua | 22 |
 | test_farm_tab.lua | 22 |
@@ -3230,4 +3238,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2735** |
+| **Total** | **2743** |

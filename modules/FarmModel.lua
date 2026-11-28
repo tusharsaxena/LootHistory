@@ -71,13 +71,49 @@ function M.BankZone(s, at)
   s.zoneSince = at
 end
 
+-- Take back `over` seconds banked past `at` from the zone stretches that ended last, newest first.
+-- The stretches are read from the `z` lines (each opens its zone's stretch, the next one closes it);
+-- the start zone, before the first `z`, takes what is left. Each take is bounded by the stretch's
+-- span past `at` and by the zone's seconds, so no zone goes below 0.
+local function takeBack(s, at, over)
+  local to
+  for i = #s.log, 1, -1 do
+    if over <= 0 then return end
+    local t, k, zone = M.Unpack(s.log[i])
+    if k == "z" then
+      t = s.startedAt + t
+      if to and s.zoneSec[zone] then
+        local take = min(over, max(0, to - max(t, at)), s.zoneSec[zone])
+        s.zoneSec[zone], over = s.zoneSec[zone] - take, over - take
+      end
+      if t <= at then return end
+      to = t
+    end
+  end
+  local first = s.zoneOrder and s.zoneOrder[1]
+  if to and over > 0 and first and s.zoneSec[first] then
+    s.zoneSec[first] = s.zoneSec[first] - min(over, max(0, to - at), s.zoneSec[first])
+  end
+end
+
+-- After a back-bank to `at` from before the current zone's stretch began (the idle rule banking back
+-- to a gain made in an earlier zone): the earlier zones already hold the seconds past `at`, so the
+-- sum of zoneSec is clamped back to activeSec.
+local function unbankZones(s, at)
+  local over = -s.activeSec
+  for _, sec in pairs(s.zoneSec) do over = over + sec end
+  if over > 0 then takeBack(s, at, over) end
+end
+
 --- Stop the clock at `at` (never before it started), banking the stretch. A paused session is left.
 function M.Bank(s, at)
   if not s.runningSince then return end
   at = max(at, s.runningSince)
+  local crossed = s.zoneSince ~= nil and at < s.zoneSince
   M.BankZone(s, at)
   s.activeSec = s.activeSec + (at - s.runningSince)
   s.runningSince = nil
+  if crossed then unbankZones(s, at) end
 end
 
 --- Pause for `reason` ("manual"|"idle"|"afk"|"standDown"), the clock banked at `at`; logs `p`.

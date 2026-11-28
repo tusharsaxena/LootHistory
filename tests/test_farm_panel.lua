@@ -93,8 +93,20 @@ end
 
 -- ── the header ───────────────────────────────────────────────────────────────────────────────
 
+--- The page key the settings mark `btn` opens (NS.Options.OpenOptionsPanel stubbed for the click).
+local function gearPage(btn)
+  local O, opened = NS.Options, {}
+  local real = O.OpenOptionsPanel
+  O.OpenOptionsPanel = function(page) opened[#opened + 1] = page or "<landing>" end
+  local ok, err = pcall(function() btn:__fire("OnClick") end)
+  O.OpenOptionsPanel = real
+  if not ok then error(err, 0) end
+  return table.concat(opened, ",")
+end
+
 test("FarmPanel: the header reads minimize · lock · settings · close, and it is not a companion", function()
-  -- red under: the panel built as a companion (close alone), or the extras in the wrong order.
+  -- red under: the panel built as a companion (close alone), or the extras in the wrong order; or
+  -- B:MakeTitleMarks dropping the `settings` opener, so the gear opens the landing page.
   world(function()
     FP:Show()
     local f = win()
@@ -103,6 +115,7 @@ test("FarmPanel: the header reads minimize · lock · settings · close, and it 
     assertEqual(table.concat(hb.order, ","), "minimize,lock,settings,close")
     assertEqual(hb.companion, nil, "a primary window, not a companion")
     assertTrue(f.settingsButton ~= nil, "the settings mark")
+    assertEqual(gearPage(f.settingsButton), "Farm", "the gear opens the Farm page, not the landing page")
     assertTrue(f.lockButton ~= nil and f.lockButton == hb.extras.lock, "the lock extra")
     assertTrue(f.minimizeButton ~= nil and f.minimizeButton == hb.extras.minimize, "the minimize extra")
     assertEqual(f.title:GetText(), "Farm session")

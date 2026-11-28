@@ -574,6 +574,146 @@ test("Farm: an unpriced item waits for the deferred pass, which re-arms in comba
   end)
 end)
 
+--- A deep copy of a session table: a fresh key, so the runtime-only price queue keyed by the old
+--- one does not reach it (what a /reload leaves).
+local function reloaded(t)
+  if type(t) ~= "table" then return t end
+  local out = {}
+  for k, v in pairs(t) do out[k] = reloaded(v) end
+  return out
+end
+
+--- Run `fn` with C_Item.GetItemInfo answering sell price `price` (nil: never), counting calls.
+local function withSellPrice(price, fn)
+  local info, calls = M.C_Item.GetItemInfo, { n = 0 }
+  M.C_Item.GetItemInfo = function(link)
+    calls.n = calls.n + 1
+    return "Thing", link, 2, 1, nil, "Tradegoods", "Herb", nil, nil, nil, price
+  end
+  local ok, err = pcall(fn, calls)
+  M.C_Item.GetItemInfo = info
+  if not ok then error(err, 0) end
+end
+
+--- Fire the armed price pass by hand (out of the kit's live set after, as a run timer is).
+local function firePrice()
+  local h = F._price
+  assertTrue(h ~= nil and h.timer ~= nil, "the price pass is armed")
+  h.timer.fn()
+  h.timer.Cancel()
+end
+
+test("Farm: the restore after a reload rebuilds the price queue from every unpriced item", function()
+  -- red under: Restore rebuilding only the corpse set, so the queue keyed by the old table is gone
+  -- and the item keeps vu nil (0 vendor and AH value) for good.
+  world(function(g)
+    local s = F:Start()
+    withSellPrice(nil, function() sendItem(4101, 3, "GATHERING") end)
+    clock.t = T0 + 30
+    M.__fire("PLAYER_LOGOUT")
+    F:Disable()
+    local copy = reloaded(s)
+    g.farm[me()].active = copy
+    assertEqual(copy.items[4101].vu, nil, "unpriced across the reload")
+    clock.t = T0 + 60
+    withSellPrice(40, function()
+      assertEqual(F:Restore(clock.t), 1, "rule 1")
+      F:Reconcile()
+      firePrice()
+    end)
+    assertEqual(copy.items[4101].vu, 40, "priced by the rebuilt queue")
+  end)
+end)
+
+test("Farm: Finish tries every unpriced item, queued or not, before the totals snapshot", function()
+  -- red under: finishMine's last fill reading only the runtime queue.
+  world(function(g)
+    local s = F:Start()
+    withSellPrice(nil, function() sendItem(4102, 2, "GATHERING") end)
+    local copy = reloaded(s)
+    g.farm[me()].active = copy
+    withSellPrice(25, function() F:Finish("manual", T0 + 120) end)
+    assertEqual(copy.items[4102].vu, 25, "priced at the finish")
+    assertEqual(copy.totals.vendor, 50, "in the snapshot")
+  end)
+end)
+
+test("Farm: an item whose vendor price never resolves is dropped after PRICE_TRIES attempts", function()
+  -- red under: fillPrices keeping a nil-price item queued for good, so the pass re-arms at 1 Hz for
+  -- the life of the session.
+  world(function()
+    local s = F:Start()
+    withSellPrice(nil, function(calls)
+      sendItem(4103, 1, "GATHERING")
+      calls.n = 0
+      for _ = 1, NS.Constants.FARM.PRICE_TRIES do firePrice() end
+      assertEqual(F._price, nil, "the pass stopped re-arming")
+      assertEqual(calls.n, NS.Constants.FARM.PRICE_TRIES, "one sell-price read per attempt")
+    end)
+    assertEqual(s.items[4103].vu, nil, "left unknown (Totals reads it as 0)")
+  end)
+end)
+
+test("Farm: the stand-up and a sim swap that keeps the module live re-arm a pending price pass", function()
+  -- red under: goLive arming only the idle ticker, or OnStoreSwapped leaving the canceled pass.
+  world(function()
+    local s = F:Start()
+    withSellPrice(nil, function() sendItem(4104, 1, "GATHERING") end)
+    F:Disable()
+    assertEqual(F._price, nil, "the stand-down canceled the pass")
+    F:Enable()
+    assertTrue(F._price ~= nil, "the stand-up re-armed it")
+    NS.CancelDeferral(F._price)
+    F._price = nil
+    F:OnStoreSwapped()
+    assertTrue(F._price ~= nil, "the swap re-armed it")
+    withSellPrice(12, function() firePrice() end)
+    assertEqual(s.items[4104].vu, 12)
+  end)
+end)
+
+test("Farm: an AFK flag landing past the idle limit banks back to the last gain (D16)", function()
+  -- red under: the AFK pause banking to the moment AFK set while the idle ticker had not yet run, so
+  -- the idle minutes stay on the clock.
+  world(function()
+    local s = F:Start()
+    with(M, { UnitIsAFK = function() return true end }, function()
+      clock.t = T0 + 10
+      sendGold(100, "KILL")
+      clock.t = T0 + 10 + 300
+      NS.DeliverAll("PLAYER_FLAGS_CHANGED", "player")
+    end)
+    assertEqual(s.pauseReason, "afk", "still the AFK reason")
+    assertEqual(s.activeSec, 10, "banked back to the last gain, not to the AFK moment")
+  end)
+end)
+
+test("Farm: during a perf capture pause, resume and finish refuse and leave the standDown pause", function()
+  -- red under: the session-edge verbs skipping NS.RefusalLine, so resume runs the clock while nothing
+  -- is tallied and pause turns standDown into manual.
+  world(function()
+    local s = F:Start()
+    sendGold(100, "KILL")
+    local lines
+    local ok, err = pcall(function()
+      NS.Lifecycle:Hold(NS.HOLD_PERF)
+      assertEqual(s.pauseReason, "standDown")
+      lines = chat(function()
+        F:RunVerb("resume")
+        F:RunVerb("pause")
+        F:RunVerb("finish")
+      end)
+    end)
+    NS.Lifecycle:Release(NS.HOLD_PERF)
+    if not ok then error(err, 0) end
+    local refusal = NS.L["Not available during a performance capture."]
+    assertEqual(table.concat(lines, "|"), refusal .. "|" .. refusal .. "|" .. refusal)
+    assertTrue(F:Active() == s, "finish refused: still open")
+    assertEqual(s.pauseReason, nil, "the stand-up resumed the standDown pause")
+    assertTrue(s.runningSince ~= nil)
+  end)
+end)
+
 -- ── finishing, the cap and the verbs ─────────────────────────────────────────────────────────
 
 test("Farm: a session with nothing logged is discarded on one line (F6)", function()

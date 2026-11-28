@@ -49,7 +49,7 @@ end)
 test("Constants: C.FARM carries the spec's numbers, a gain-source set and all seven gain kinds (#39)", function()
   local F = C.FARM
   assertEqual(table.concat({ F.STALE_SEC, F.INTENT_TTL, F.IDLE_TICK, F.LOG_CAP, F.LOG_BATCH, F.MOB_RING,
-    F.MIN_RATE_SEC, F.PRICE_DELAY, F.PRICE_BATCH, F.EPIC_FLOOR }, ","), "1800,30,30,2000,100,256,60,1,20,4")
+    F.MIN_RATE_SEC, F.PRICE_DELAY, F.PRICE_BATCH, F.PRICE_TRIES, F.EPIC_FLOOR }, ","), "1800,30,30,2000,100,256,60,1,20,5,4")
   local kinds, n = {}, 0
   for k in pairs(C.GainKind) do kinds[#kinds + 1] = k end
   for k, v in pairs(F.GAIN_KINDS) do n = n + 1; assertTrue(v == true and C.GainKind[k] == k, k .. " is a GainKind") end

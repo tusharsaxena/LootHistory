@@ -221,7 +221,7 @@ local function titleBar(f)
   f.simBadge = badge
   NS.Skin.TitleBar(bar)
   local marks = NS.Browser:MakeTitleMarks(bar, f, function() FP:Hide() end, nil,
-    { minimizeExtra(), NS.Browser.LockExtra() })
+    { minimizeExtra(), NS.Browser.LockExtra() }, NS.Browser.OpenFarmSettings)
   f.minimizeButton = f.headerButtons and f.headerButtons.extras and f.headerButtons.extras.minimize
   NS.Skin.Header(f, { title = title, right = marks, bars = { bar } })
 end

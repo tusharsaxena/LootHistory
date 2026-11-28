@@ -406,6 +406,7 @@ test("slash-commands-§7 step 3: an open farm session holds its rows, lifecycle 
     assertTrue(s.runningSince ~= nil, "and the clock runs again")
     assertTrue(NS.GainFeed._farm ~= nil, "the stand-up handed the gain feed the farm set again")
     assertEqual(#liveOn(targets), 8, "the registrations are back")
+    assertTrue(armed(F._price), "the stand-up re-armed the pending price pass")
   end)
   for i = #h, n + 1, -1 do h[i] = nil end
   if F:Active() then F:Finish("manual", os.time()) end

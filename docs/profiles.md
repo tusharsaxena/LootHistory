@@ -11,7 +11,7 @@ changes, and how the old account-wide settings got into a profile. The stored sh
 | Scope | Where | What |
 |---|---|---|
 | **Profile** (`db.profile`) | `defaults/Profile.lua` | Every schema row under `settings.*` except `settings.retentionDays` and `settings.rollupRetentionDays` (the Master controls, Capture, AH price, Interface and Skin tabs; the skin, its exceptions, its font and texture and its Font outline follow the profile, applied first on every switch, copy or reset by `core/SkinSetup.lua`, and `settings.appearance.pickerSeen` is per profile, so a new or reset profile shows the first-run skin picker again), the AH price cascade (`settings.auction.priority`), the three id filter lists (`blacklist`, `whitelist`, `currencyBlacklist`), the saved views, one per browser tab (`savedViews[tab]`, schema v14; the Timeline's can also be created by it remembering its thing, as a copy of its stock view; see [schema.md](schema.md#state-outside-the-rows)) and the History window's geometry (`settings.window`) |
-| **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it; **Keep history for** (`retentionDays`, the row `settings.retentionDays`), the setting that governs what the prune deletes from that history; the Timeline's daily rollup (`daily`, with its bookkeeping `rollupSeeded`) and **Keep Timeline history for** (`rollupRetentionDays`, the row `settings.rollupRetentionDays`), which governs it the same way; LibDBIcon's `minimap` table (whether the button is shown, and where), the `schemaVersion` stamp |
+| **Account-wide** (`db.global`) | `defaults/Global.lua` | The recorded loot history (`history`) and the warbound repair's bookkeeping beside it; **Keep history for** (`retentionDays`, the row `settings.retentionDays`), the setting that governs what the prune deletes from that history; the Timeline's daily rollup (`daily`, with its bookkeeping `rollupSeeded`) and **Keep Timeline history for** (`rollupRetentionDays`, the row `settings.rollupRetentionDays`), which governs it the same way; LibDBIcon's `minimap` table (whether the button is shown, and where); the saved farm sessions per character (`farm`, #39) and **Sessions kept per character** (`farmKeep`, the row `settings.farm.keep`, D18), the cap over them; the `schemaVersion` stamp |
 | **Session only** | `NS.State`, the modules | Test mode, the debug console window, the debug logging flag, each browser tab's live filter state and character scope (P11) |
 
 The split is the owner's decision D5 (2026-09-29): **settings only**. Loot is collected across every
@@ -85,8 +85,9 @@ reset and `/lh resetall` over records a short retention would drop leave every r
 settings** are one act, `Sl:CliResetAll` (`settings/Slash.lua`), and it is `db:ResetProfile()`
 (`options-ui-§12`): the session-only rows are restored first (test mode ends, the debug console
 closes), then the active profile goes back to its defaults, whole. Other profiles and the profile
-list are untouched, and so are the history, the retention and the minimap button (both rows are in
-`NS.Schema.RESET_EXEMPT`). Reset all settings confirms first,
+list are untouched, and so are the history, both retentions, the minimap button, the saved farm
+sessions and their cap (the four rows, `minimap.shown`, `settings.retentionDays`,
+`settings.rollupRetentionDays` and `settings.farm.keep`, are in `NS.Schema.RESET_EXEMPT`). Reset all settings confirms first,
 in the collection's profile wording. Clearing the history is `/lh purge`, a separate act with its own
 confirm. The scope matrix is in [schema.md](schema.md#reset-semantics).
 

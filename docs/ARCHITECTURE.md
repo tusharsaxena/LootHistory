@@ -939,8 +939,8 @@ terminal state it sits in. Vendored code (`libs/`, `tests/_kit/`) is outside the
 kit's `tests/_kit/test_layout_cap.lua`.
 
 Nothing is over the cap today. The largest authored file is `tests/test_browsertable.lua` at 1499 lines,
-then `core/Database.lua` at 1395, `settings/Schema.lua` at 1361, `tests/test_browser.lua` at 1348
-and `tests/test_database.lua` at 1284; `core/Compat.lua` is 1106 after the peel below (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-28).
+then `core/Database.lua` at 1398, `settings/Schema.lua` at 1389, `tests/test_browser.lua` at 1373
+and `tests/test_database.lua` at 1284; `core/Compat.lua` is 1107 after the peel below (`git ls-files '*.lua' | grep -v '^libs/' | grep -v '^tests/_kit/' | xargs wc -l`, 2026-11-28).
 `tests/test_browsertable.lua` sits one line under the cap, so its next case needs a peel first (the
 M2 reputation and appearance read-side cases into a suite of their own is the seam).
 On 2026-11-28 (M2.5) `core/Compat.lua` (1318 lines, past its 1200 re-check again) shed the reputation

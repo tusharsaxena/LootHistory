@@ -102,6 +102,34 @@ test("FarmModel zones: banked only while running, an empty or unchanged zone ign
   assertTrue(kinds(s):find("z", 1, true) ~= nil, "a zone change is logged")
 end)
 
+test("FarmModel zones: an idle back-bank across a zone change takes the idle span back from the old zone", function()
+  -- red under: Bank banking the new zone max(0, at - zoneSince) = 0 and leaving the old zone the
+  -- seconds from the last gain to the zone change, so sum(zoneSec) exceeds activeSec.
+  local s = new()
+  s.lastGainAt = T0 + 100
+  FM().SetZone(s, "Ringing Deeps", T0 + 200)
+  FM().Pause(s, "idle", FM().IdleAt(s, T0 + 500, 5))
+  assertEqual(s.activeSec, 100, "banked back to the last gain")
+  assertEqual(s.zoneSec["Isle of Dorn"], 100, "the old zone keeps only its seconds up to the gain")
+  assertEqual(s.zoneSec["Ringing Deeps"], 0, "the idle stretch in the new zone is no zone's")
+end)
+
+test("FarmModel zones: a back-bank across several zone changes trims each stretch, newest first", function()
+  local s = new()
+  FM().SetZone(s, "Ringing Deeps", T0 + 100)
+  FM().SetZone(s, "Isle of Dorn", T0 + 150)
+  FM().SetZone(s, "Hallowfall", T0 + 200)
+  s.lastGainAt = T0 + 120
+  FM().Pause(s, "idle", FM().IdleAt(s, T0 + 600, 5))
+  assertEqual(s.activeSec, 120)
+  assertEqual(s.zoneSec["Isle of Dorn"], 100, "Dorn's second stretch (150-200) came off whole")
+  assertEqual(s.zoneSec["Ringing Deeps"], 20, "Deeps keeps 100-120")
+  assertEqual(s.zoneSec.Hallowfall, 0)
+  local sum = 0
+  for _, sec in pairs(s.zoneSec) do sum = sum + sec end
+  assertEqual(sum, s.activeSec, "the zones sum to the active seconds")
+end)
+
 test("FarmModel PrimaryZone: the most active seconds, a tie to the zone seen first", function()
   local s = new()
   s.zoneSec = { ["Isle of Dorn"] = 50, ["Ringing Deeps"] = 80, Hallowfall = 80 }

@@ -66,10 +66,18 @@ never counts, and a finished session's paused seconds are `(endedAt - startedAt)
   through).
 - **AFK** (F3): `PLAYER_FLAGS_CHANGED` for `player` reads `Compat.IsPlayerAFK()`. AFK pauses a running
   session at that moment when **Pause when AFK** is on; clearing the flag resumes an AFK pause. A nil
-  answer (secret or unknown) changes nothing.
+  answer (secret or unknown) changes nothing. When the idle rule would already pause at that moment
+  (the client's auto-AFK and the idle limit both sit near 5 minutes, and the ticker checks only every
+  30 s), the AFK pause banks back to the idle rule's moment instead, so the dead minutes leave the
+  clock whichever lands first (D16).
 - **An idle or AFK pause resumes on the next gain**, which is tallied first. A manual pause does not.
 - **Stand-down**: `Farm:Disable` pauses a running session `standDown`, and the stand-up resumes it. A
-  session already paused keeps its reason.
+  session already paused keeps its reason. `/lh farm pause`, `resume` and `finish` ask
+  `NS.RefusalLine` first, as `start` does, so during a perf capture they print the one refusal line
+  and leave the `standDown` pause alone.
+- **A back-bank across a zone change** (the idle rule banking back to a gain made in an earlier zone)
+  takes the idle span back from the zone stretches that already banked it, newest first (read from the
+  `z` log lines), so the zones' seconds never sum past `activeSec`.
 - Rates are per active hour and read `—` under `C.FARM.MIN_RATE_SEC` (60 s).
 
 ## Ending a session: finish, logout, reload, crash (F5, F6)
@@ -141,8 +149,12 @@ or currency gain also adds a quest reward.
 
 **The price pass** (F7, F8): an item whose gain carried no price is queued. One coalesced
 `NS.After(C.FARM.PRICE_DELAY)` pass prices up to `C.FARM.PRICE_BATCH` (20) queued items from
-`Compat.GetItemExtras` and the AH cascade, re-arms instead in combat, keeps the first known price, and
-runs once more at Finish. AH value falls back to the vendor price for an item with no AH price.
+`Compat.GetItemSellPrice` (by itemID, no tooltip scan) and the AH cascade, re-arms instead in combat,
+and keeps the first known price. An item whose vendor price never resolves is dropped after
+`C.FARM.PRICE_TRIES` (5) attempts with its price unknown (it counts 0). The queue is runtime-only, so
+the restore after a reload rebuilds it from every item with no vendor price, the stand-up and a sim
+swap re-arm the pass when items are still queued, and Finish tries every unpriced item once more
+before the totals snapshot. AH value falls back to the vendor price for an item with no AH price.
 
 **Activity from loot windows, containers and quests.** Attribution owns `LOOT_OPENED` and
 `QUEST_TURNED_IN`, so it tells the farm session directly, after it classifies the window and only

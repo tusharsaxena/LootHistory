@@ -24,12 +24,13 @@ local PD = NS.defaults.profile
 local GD = NS.defaults.global
 
 -- One row per setting. Drives AceDB defaults, panel widgets, and slash get/set/list/reset.
--- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Three stored rows live outside it, in
+-- Paths resolve against the ACTIVE PROFILE, NS.db.profile. Four stored rows live outside it, in
 -- the global store, and each owns its storage through its own get/set: the Master controls'
 -- `minimap.shown` (the LibDBIcon table, launcher-§3) and the History tab's `settings.retentionDays`
 -- (`global.retentionDays`, owner decision D6: the setting that governs recorded data stays
--- account-wide, so no profile event can change what the prune deletes) and
--- `settings.rollupRetentionDays` (`global.rollupRetentionDays`, the Timeline's rollup, same reason).
+-- account-wide, so no profile event can change what the prune deletes),
+-- `settings.rollupRetentionDays` (`global.rollupRetentionDays`, the Timeline's rollup, same reason)
+-- and the Farm page's `settings.farm.keep` (`global.farmKeep`, D18, settings/SchemaFarm.lua).
 --
 -- ── page, group, path: three different questions (options-ui-§13) ──────────────────────────────
 -- `page`  names the canvas SUBCATEGORY the row is edited on. There are TWO: "General" (R6
@@ -1027,8 +1028,9 @@ end
 --- `resetProfile` (settings/OptionsSetup.lua) and the library-less `/lh resetall`
 --- (settings/Slash.lua) both call it. Counted through the runtime's ResetCounted, so the profile
 --- event's one `[Set]` line carries N: the stored rows off their default just before the reset.
---- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3) and the two
---- retentions (D6) -- because their storage is global and the reset cannot move them.
+--- The RESET_EXEMPT rows are not counted -- the Minimap button (launcher-§3), the two
+--- retentions (D6) and Sessions kept per character (D18) -- because their storage is global and
+--- the reset cannot move them.
 function S.ResetProfile()
   local db = NS.db
   if not (db and db.ResetProfile) then return end

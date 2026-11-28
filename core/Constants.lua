@@ -308,10 +308,11 @@ C.BLIZZ_ALERT_EVENTS = { "SHOW_LOOT_TOAST", "SHOW_LOOT_TOAST_UPGRADE", "SHOW_LOO
 -- as stale on load. INTENT_TTL: how long a logout intent stamp holds (the 20 s logout countdown, with
 -- room). LOG_CAP/LOG_BATCH: the packed log keeps LOG_CAP lines, trimmed in LOG_BATCH steps while open.
 -- MOB_RING: the corpse GUIDs remembered across a reload. MIN_RATE_SEC: no per-hour rate below it.
+-- PRICE_TRIES: the price pass tries an item whose vendor price never resolves this many times.
 C.FARM = {
   STALE_SEC = 1800, INTENT_TTL = 30, IDLE_TICK = 30,
   LOG_CAP = 2000, LOG_BATCH = 100, MOB_RING = 256, MIN_RATE_SEC = 60,
-  PRICE_DELAY = 1, PRICE_BATCH = 20,
+  PRICE_DELAY = 1, PRICE_BATCH = 20, PRICE_TRIES = 5,
   -- The OUT gold reasons a session counts as its costs (D19, §5.6).
   COST_REASONS = { REPAIR = true, BUY = true, AH_POST_FEE = true },
   -- The item, money and currency gain sources a session counts (F4, §5.5). OTHER counts only from a

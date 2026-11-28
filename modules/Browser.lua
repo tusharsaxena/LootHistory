@@ -97,9 +97,12 @@ end
 -- (AF-HDR-LH). On a degraded install (no HeaderButtons) the close alone, 6 px in from the bar's
 -- right, as before. Sets `win.closeButton`, `win.settingsButton` (nil on a companion),
 -- `win.lockButton` (the `lock` extra, if any), `win.farmButton` (the `farm` extra, if any) and answers the S.Header `right` list (outermost first).
-function B:MakeTitleMarks(bar, win, onClose, companion, extras)
+-- `settings`, optional, is the gear's own opener for a window whose settings are its own page (the
+-- farm windows open the Farm page, standalone-windows *Settings is on every window but a companion*);
+-- nil keeps the launcher's registered opener (the History window).
+function B:MakeTitleMarks(bar, win, onClose, companion, extras, settings)
   local hb = NS.MakeHeaderButtons and NS.MakeHeaderButtons(bar, {
-    close = onClose, frame = win, companion = companion == true or nil, extras = extras,
+    close = onClose, frame = win, companion = companion == true or nil, extras = extras, settings = settings,
     makeClose = function(parent, onClick) return B:MakeCloseButton(parent, onClick) end,
   })
   if hb then
@@ -135,6 +138,13 @@ end
 --- A fresh `lock` extra for another window of this addon that owes the mark (the farm panel, #39):
 --- the same art, tooltip and verbs as the History window's, so every lock mark is one path.
 function B.LockExtra() return lockExtra() end
+
+--- The farm windows' settings mark (the panel, Details and Summary, #39): the Farm page, every row
+--- those windows read (OptionsRegistry minor 4 opens a page by its key, settings/Panel.lua).
+function B.OpenFarmSettings()
+  local O = NS.Options
+  if O and O.OpenOptionsPanel then O.OpenOptionsPanel("Farm") end
+end
 
 -- The History window's farm session mark (#39, farm spec §8, D21): the catalog's `map-marker`, left of
 -- the lock. A click runs the bare `/lh farm` verb through NS.RunVerb, so the feature-verb gate and the

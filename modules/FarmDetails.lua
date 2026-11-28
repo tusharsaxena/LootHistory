@@ -459,8 +459,8 @@ local function titleBar(f, onMoved, onClose)
   title:SetPoint("CENTER")
   f.title = title
   NS.Skin.TitleBar(bar)
-  -- A secondary window: settings and close (not a companion; standalone-windows).
-  local marks = NS.Browser:MakeTitleMarks(bar, f, onClose, nil, nil)
+  -- A secondary window: settings (the Farm page) and close (not a companion; standalone-windows).
+  local marks = NS.Browser:MakeTitleMarks(bar, f, onClose, nil, nil, NS.Browser.OpenFarmSettings)
   NS.Skin.Header(f, { title = title, right = marks, bars = { bar } })
 end
 

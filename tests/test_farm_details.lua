@@ -147,6 +147,13 @@ test("FarmDetails: settings and close, not a companion; on WINDOW; the title nam
     assertEqual(table.concat(hb.order, ","), "settings,close")
     assertEqual(hb.companion, nil, "a secondary window, not a companion")
     assertTrue(f.settingsButton ~= nil and f.closeButton ~= nil)
+    local O, opened = NS.Options, {}
+    local real = O.OpenOptionsPanel
+    O.OpenOptionsPanel = function(page) opened[#opened + 1] = page or "<landing>" end
+    local ok, err = pcall(function() f.settingsButton:__fire("OnClick") end)
+    O.OpenOptionsPanel = real
+    if not ok then error(err, 0) end
+    assertEqual(table.concat(opened, ","), "Farm", "the gear opens the Farm page, not the landing page")
     assertEqual(f.title:GetText(), "Session details: Isle of Dorn")
     assertEqual(f:GetName() or f.__name, "LootHistoryFarmDetails")
     F:Start()

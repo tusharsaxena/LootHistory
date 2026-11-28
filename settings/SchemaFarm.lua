@@ -50,7 +50,8 @@ local function generalRows(out)
     out[#out + 1] = row("General", leaf, spec)
   end
   r("headlineBasis", { type = "string", widget = "Dropdown", values = SF.BASIS_OPTIONS, label = "Headline",
-    tooltip = "Whether the headline and the per-hour rate subtract costs." })
+    tooltip = "Whether the headline and the per-hour rate subtract costs. Net needs Track holdings and "
+      .. "losses and Record gold (the General page > Capture)." })
   r("headlineValue", { type = "string", widget = "Dropdown", values = SF.VALUE_OPTIONS, label = "Headline value",
     tooltip = "What the headline counts: money alone, or money plus items at vendor or AH value. AH value "
       .. "uses the vendor price for an item with no AH price." })

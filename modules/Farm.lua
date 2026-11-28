@@ -29,7 +29,7 @@ local C = NS.Constants
 local floor = math.floor
 
 -- Runtime-only state, keyed by the session table and never written into it (§4.2): the corpse set,
--- the items still waiting for a price, and the open session's totals.
+-- the items still waiting for a price (itemID -> attempts so far), and the open session's totals.
 local mobSets = setmetatable({}, { __mode = "k" })
 local priceQueue = setmetatable({}, { __mode = "k" })
 local totalsCache = setmetatable({}, { __mode = "k" })
@@ -173,19 +173,22 @@ end
 
 -- ── the price pass (§5.5, F7) ────────────────────────────────────────────────────────────────
 
+-- The vendor price by itemID through Compat.GetItemSellPrice (no tooltip scan: only the sell price is
+-- needed), the AH price through the picker.
 local function priceOf(link, itemID)
-  local vu = select(3, NS.Compat.GetItemExtras(link))
+  local vu = NS.Compat.GetItemSellPrice(itemID)
   local AP, au = NS.AuctionPrice, nil
   if AP and AP.GatherAll then au = (AP:Pick(AP:GatherAll(link, itemID))) end
   return vu, au
 end
 
 --- Price up to `limit` queued items of `s` (all with nil). An item whose vendor price is still
---- unknown stays queued. Answers whether any price was filled and whether any item is left.
+--- unknown stays queued for PRICE_TRIES attempts, then is dropped with vu nil (Totals reads it as 0;
+--- Finish tries it once more). Answers whether any price was filled and whether any item is left.
 local function fillPrices(s, limit)
   local queue, filled, n = priceQueue[s], false, 0
   if not queue then return false, false end
-  for itemID in pairs(queue) do
+  for itemID, tries in pairs(queue) do
     if limit and n >= limit then break end
     n = n + 1
     local it = s.items[itemID]
@@ -193,9 +196,32 @@ local function fillPrices(s, limit)
       local vu, au = priceOf(it.link, itemID)
       if FarmModel.SetPrices(s, itemID, vu, au) then filled = true end
     end
-    if not it or it.vu ~= nil then queue[itemID] = nil end
+    if not it or it.vu ~= nil or tries + 1 >= C.FARM.PRICE_TRIES then
+      queue[itemID] = nil
+    else
+      queue[itemID] = tries + 1
+    end
   end
   return filled, next(queue) ~= nil
+end
+
+-- Queue `itemID` of `s` for the pass (a fresh queue entry starts at 0 attempts; a queued one keeps its
+-- count).
+local function enqueue(s, itemID)
+  local queue = priceQueue[s]
+  if not queue then
+    queue = {}
+    priceQueue[s] = queue
+  end
+  if queue[itemID] == nil then queue[itemID] = 0 end
+end
+
+-- Queue every item of `s` still lacking a vendor price. The queue is runtime-only, so a restore after
+-- /reload and the finish's last fill rebuild it from the session itself.
+local function enqueueUnpriced(s)
+  for itemID, it in pairs(s.items) do
+    if it.vu == nil then enqueue(s, itemID) end
+  end
 end
 
 local function armPrice(self)
@@ -222,13 +248,15 @@ function Farm:PricePass()
 end
 
 local function queuePrice(self, s, itemID)
-  local queue = priceQueue[s]
-  if not queue then
-    queue = {}
-    priceQueue[s] = queue
-  end
-  queue[itemID] = true
+  enqueue(s, itemID)
   armPrice(self)
+end
+
+-- Arm the pass when the open session still has queued items (goLive after a stand-down, a sim swap).
+local function armQueued(self)
+  local s = self:Active()
+  local queue = s and priceQueue[s]
+  if queue and next(queue) ~= nil then armPrice(self) end
 end
 
 -- ── gains (§5.5) ─────────────────────────────────────────────────────────────────────────────
@@ -399,16 +427,20 @@ function Farm:OnDeath()
 end
 
 --- PLAYER_FLAGS_CHANGED for `player`: an AFK flag pauses a running session at that moment (F3), and
---- clearing it resumes an AFK pause. A nil answer (secret or unknown) changes nothing.
+--- clearing it resumes an AFK pause. A nil answer (secret or unknown) changes nothing. When the idle
+--- rule would already pause (the client's auto-AFK and the idle limit both sit near 5 minutes, and the
+--- idle ticker checks every 30 s), the AFK pause banks back to the idle rule's moment instead, so the
+--- dead minutes come off the clock whichever lands first (D16).
 function Farm:OnFlags(unit)
   if unit ~= nil and unit ~= "player" then return end
   local s = self:Active()
   local afk = s and NS.Compat.IsPlayerAFK()
   if afk == nil then return end
+  local now = time()
   if afk and s.runningSince and farmOpt("pauseOnAFK") ~= false then
-    pause(self, s, "afk", time())
+    pause(self, s, "afk", FarmModel.IdleAt(s, now, farmOpt("idleMinutes")) or now)
   elseif not afk and s.pauseReason == "afk" then
-    resume(self, s, time())
+    resume(self, s, now)
   end
 end
 
@@ -448,6 +480,7 @@ end
 -- list and the cap (or discarded, F6). Answers the saved session, or nil when it was discarded.
 local function finishMine(self, mine, reason, at)
   local s = mine.active
+  enqueueUnpriced(s)
   fillPrices(s)
   local kept = FarmModel.Close(s, reason, at)
   mine.active = nil
@@ -511,7 +544,12 @@ local function noSession()
   say("no farm session is running.")
 end
 
+-- The session-edge verbs ask the refusal line first, as Start does: the slash gate keys on the stored
+-- switch only, and during a perf-capture stand-down the session is paused `standDown` with nothing
+-- tallied, so a resume would run the clock over an untallied span and a pause would keep the stand-up
+-- from resuming it.
 function Farm:PauseVerb()
+  if refused() then return end
   local s = self:Active()
   if not s then return noSession() end
   if s.pauseReason == "manual" then return say("the farm session is already paused.") end
@@ -528,6 +566,7 @@ function Farm:PauseVerb()
 end
 
 function Farm:ResumeVerb()
+  if refused() then return end
   local s = self:Active()
   if not s then return noSession() end
   if s.runningSince then return say("the farm session is not paused.") end
@@ -538,6 +577,7 @@ end
 --- The manual finish (the verb, the panel's button, the key binding from M4.5): the chat line, then
 --- the summary window on the saved session (modules/FarmDetails.lua, farm spec §7.4).
 function Farm:FinishVerb()
+  if refused() then return end
   if not self:Active() then return noSession() end
   local at = time()
   local kind = (NS.SimStores and NS.SimStores.farm) and "sim" or "live"
@@ -756,6 +796,7 @@ function Farm:Restore(now)
   RESUME[rule](self, s, now)
   s.wasRunning = nil
   mobSets[s] = FarmModel.MobSet(s)
+  enqueueUnpriced(s)   -- the price queue is runtime-only: rebuild it; goLive arms the pass
   debug("restore #%s: rule %d", tostring(s.id), rule)
   return rule
 end
@@ -781,6 +822,7 @@ local function goLive(self)
   NS.GainFeed:SetFarm(C.FARM.GAIN_KINDS)
   self._live = true
   armTick(self)
+  armQueued(self)
 end
 
 local function goDown(self)
@@ -812,6 +854,7 @@ end
 --- The simulator swapped NS.SimStores.farm in or out (modules/Sim.lua).
 function Farm:OnStoreSwapped()
   self:Reconcile()
+  if self._live then armQueued(self) end   -- a swap that kept the module live re-arms the pass
   self:Changed("store")
 end
 
