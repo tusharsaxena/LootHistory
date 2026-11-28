@@ -302,6 +302,20 @@ function B:ShowTimeline(key)
   if B:ActiveTab() == "Timeline" and d and d.name then self:SetSearchText(d.name) end
 end
 
+-- A toast's plain click (#38 T12): History opened on the History tab with the gain's name in Search,
+-- whether or not the gain wrote a row; the tab's other filters are left alone. Experience and
+-- skill-ups have no rows, so they open nothing. Show refuses while stood down or hidden by the
+-- visibility setting.
+function B:ShowGain(p)
+  if type(p) ~= "table" or p.kind == "XP" or p.kind == "SKILL" then return false end
+  self:Show()
+  self:SelectTab("History")
+  if B:ActiveTab() ~= "History" then return false end
+  local text = p.kind == "GOLD" and "Gold" or p.name
+  if text then self:SetSearchText(text) end
+  return true
+end
+
 -- The table's dataset changed (entering/leaving test mode): rebuild the dropdowns from the new
 -- dataset. In test mode show everything (stock view, all players, since test chars differ);
 -- leaving it, return to the saved view + current player. Every tab's parked state is forgotten, so

@@ -252,6 +252,33 @@ test("parity: the Pool stub carries the LibKa0s-Pool-1.0 surface this addon call
   })
 end)
 
+-- ── Feed ───────────────────────────────────────────────────────────────────────────────────────
+
+-- A live feed instance's public members: what `Feed:New(d)` hands back, minus its internal test seam
+-- (`__Step`, LibKa0s docs/api/Feed/version-1.1.1.1-docs.md, *Instance members*), which no stub mirrors.
+local function publicFeedMembers(inst)
+  local out = {}
+  for k, v in pairs(inst) do
+    if type(k) ~= "string" or k:sub(1, 2) ~= "__" then out[k] = v end
+  end
+  return out
+end
+
+test("parity: the Feed stub carries every member of a live feed instance, and nothing more", function()
+  -- core/FeedSetup.lua's NS.FeedStub is the Feed doc's *The degradation stub*: an INSTANCE stub, since
+  -- an instance is what modules/ToastFeed.lua calls. The live half is a fresh instance off the
+  -- vendored major (nothing is built until its first Push), compared both ways.
+  local Feed = T.mocks.LibStub("LibKa0s-Feed-1.0", true)
+  assertTrue(Feed ~= nil, "LibKa0s-Feed-1.0 did not register")
+  local live = publicFeedMembers(Feed:New({ content = function() end }))
+  assertTrue(type(live.Push) == "function" and type(live.Stats) == "function",
+    "a live feed carries no Push/Stats: the instance changed shape and this case asserts nothing")
+  T.assertSurfaceParity(live, NS.FeedStub, "Feed instance")
+  T.assertSurfaceParity(NS.FeedStub, live, "Feed instance (reverse)")
+  assertTrue(degradedNS.FeedStub ~= nil and degradedNS.NewFeed({}) == degradedNS.FeedStub,
+    "without the major, NS.NewFeed answers the stub")
+end)
+
 -- ── Lifecycle ──────────────────────────────────────────────────────────────────────────────────
 
 test("parity: the Lifecycle stand-in carries every member of the live latch", function()

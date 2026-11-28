@@ -726,6 +726,33 @@ Total.
 - CompatGain: alert suppression records and restores exactly the registered events, in order
 - Progress: each owner's rows are registered only while the gain feed wants its kind
 
+### test_toast_model.lua (24)
+
+- ToastModel: C.TOAST_SLOTS, TOAST_NUDGE_MAX and TOAST_SHOWN_MAX equal the Feed's own
+- ToastModel: Config flattens a feed's settings, kinds keyed by GainKind
+- ToastModel: Rebuild makes the next Config re-read the profile
+- ToastModel: a feed with no stored settings is disabled and takes no kind
+- ToastModel: Accepts takes an enabled feed's kinds and refuses the rest
+- ToastModel: Accepts gates only items on the minimum quality
+- ToastModel: Accepts drops a hidden source and every loss but a reputation one
+- ToastModel: Key per kind
+- ToastModel: NewPayload copies every GAIN field and never aliases the scratch
+- ToastModel: FreePayload wipes a payload onto the spare list, and NewPayload reuses it
+- ToastModel: Merge sums qty into old, frees new and answers old
+- ToastModel: Merge sums a cached price only when both sides carry one
+- ToastModel: Merge refreshes the moving fields and keeps a skill-up's first rank
+- ToastModel: Merge shows an appearance burst's latest look and carries a highlight forward
+- ToastModel: Merge with a non-table side answers the newer payload untouched
+- ToastModel: LayoutFor maps the placement and size leaves, grow upper-cased
+- ToastModel: the Main feed's default layout is Bottom Right, growing up, nudged clear of the bars
+- ToastModel: MotionFor renames fade and merge, fixes right-click dismiss and the settle
+- ToastModel: StyleFor passes the stored leaves through and maps the three toggles
+- ToastModel: a getter for a feed with no stored settings answers an empty table
+- ToastContent: an item fills its icon, quality tint, title and count
+- ToastContent: an item with no icon falls back to the client, then the question mark
+- ToastContent: money, experience and reputation take the kind art and their own titles
+- ToastContent: a payload of no known kind is skipped
+
 ### test_reconciler.lua (20)
 
 - Reconciler: BAG_UPDATE only marks dirty; BAG_UPDATE_DELAYED flushes
@@ -2108,7 +2135,7 @@ Total.
 - no rendered LibKa0s string in this addon is an unresolved SCREAMING_SNAKE key
 - every file of LibKa0s.xml is vendored and loads
 - the vendored copy carries the library's MIT license
-- the nine adopted majors all resolved, and the seams are wired to them
+- the ten adopted majors all resolved, and the seams are wired to them
 - every seam file resolves its major with the silent flag
 - the Options page registry built every page this addon declares
 - the Options descriptor passes addonName, the FOLDER name, to the library
@@ -2150,7 +2177,7 @@ Total.
 - v1.118.0: the vendored minors and the kit revision match the release
 - v1.119.0 (unreleased): the vendored minors and the kit revision match the branch
 
-### test_surface_parity.lua (21)
+### test_surface_parity.lua (22)
 
 - parity: the Core seam publishes the same NS members on both paths
 - parity: the Widgets seam publishes the same NS members on both paths
@@ -2163,6 +2190,7 @@ Total.
 - parity: the Schema stub library carries the major's lib-level surface
 - parity: the Item stub carries the whole LibKa0s-Item-1.0 surface
 - parity: the Pool stub carries the LibKa0s-Pool-1.0 surface this addon calls
+- parity: the Feed stub carries every member of a live feed instance, and nothing more
 - parity: the Lifecycle stand-in carries every member of the live latch
 - parity: the Env seam publishes the same NS members on both paths
 - parity: the Media seam publishes the same NS members on both paths
@@ -2174,11 +2202,12 @@ Total.
 - parity: the degraded facade's FontFlags and HudFontSize answer what SetFont accepts
 - parity: the degraded facade draws today's edge, and the file-load markup still builds
 
-### test_disabled.lua (26)
+### test_disabled.lua (27)
 
 - slash-commands-§7 step 1: enabled, the addon registers a NON-EMPTY set and draws
 - slash-commands-§7 step 3: disabling UNREGISTERS every event, unit-event and message the addon owns
 - slash-commands-§7: the stand-down drops the reputation baseline and its pending seed
+- slash-commands-§7: the stand-down clears every toast feed, and the stand-up keeps the instances
 - slash-commands-§7 step 3: a row written while stood down tallies NO daily rollup cell
 - slash-commands-§7 step 3: a held ledger-reset offer is dropped by NS.StandDown, never shown after
 - slash-commands-§7 step 3: an "Export first" re-ask does not pop the reset prompt during NS.StandDown
@@ -2321,7 +2350,7 @@ Total.
 ### test_dispatch.lua (10)
 
 - Dispatch: every capture registration comes from NS.EVENT_ROWS and the (target, event) set equals the pre-refactor snapshot
-- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler
+- Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler, Toasts
 - Dispatch: registered follows Enable/Disable, including trackLedger off
 - Dispatch: DeliverAll calls exactly the registered rows in order and isolates a raising row
 - Dispatch: a real event goes through NS.Deliver, and RealEventFilter answering true consumes it
@@ -2330,6 +2359,35 @@ Total.
 - Dispatch: Record reputation off unregisters bus:FACTION_STANDING_CHANGED and on restores it
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
+
+### test_toast_feed.lua (26)
+
+- Toasts: the stand-up builds the three feeds through NS.NewFeed with the host's descriptor
+- Toasts: an idle feed is asleep
+- Toasts: the receiver is not subscribed to GAIN yet (the Feed's first paint raises)
+- Toasts: a gain reaches only the feeds that accept it
+- Toasts: each feed keeps its own payload copy, and a repeat merges into it
+- Toasts: the minimum quality and hidden sources are the feed's own
+- Toasts: a refused push hands its payload back to the spare list
+- Toasts: a merged push the content then skips is not handed back twice
+- Toasts: shift- and ctrl-click hand the link to the client; a currency builds its link
+- Toasts: a plain left click opens History on the gain; other buttons do nothing
+- Toasts: the combat rows are registered while any feed is enabled
+- Toasts: combat locks every feed, and click-through and the hold follow each feed's settings
+- Toasts: the combat rows deliver to the handlers
+- Toasts: an unlocked, empty feed previews its samples; a lock clears them
+- Toasts: an unlock over live rows previews nothing
+- Toasts: a refused unlock reads as locked and previews nothing
+- Toasts: the live Feed refuses an unlock in combat
+- Toasts: combat re-locks an unlocked feed and clears its preview
+- Toasts: a drag's nudge is written through the Schema seam as one batch
+- Toasts: NS.Schema:SetMany refuses a path no row owns and stores nothing
+- Toasts: SETTINGS_CHANGED (toasts, profile, enabled) re-snapshots and refreshes every feed
+- Toasts: a settings write reaches the next gain without a reload
+- Toasts: Disable clears every feed and ends its hold; Enable reuses the instances
+- Toasts: with NS.NewFeed answering the stub, every path runs and nothing raises
+- B:ShowGain opens History on the History tab with the gain's name in Search
+- B:ShowGain on the real window opens History and searches it
 
 ### test_sim_seam.lua (11)
 
@@ -2805,6 +2863,7 @@ Total.
 | test_appearance.lua | 17 |
 | test_gain_feed.lua | 14 |
 | test_progress.lua | 12 |
+| test_toast_model.lua | 24 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -2856,14 +2915,15 @@ Total.
 | test_harness.lua | 11 |
 | test_libka0s.lua | 30 |
 | test_libka0s_releases.lua | 29 |
-| test_surface_parity.lua | 21 |
-| test_disabled.lua | 26 |
+| test_surface_parity.lua | 22 |
+| test_disabled.lua | 27 |
 | test_holdings_api.lua | 26 |
 | test_perf.lua | 7 |
 | test_diagnostics.lua | 24 |
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 24 |
 | test_dispatch.lua | 10 |
+| test_toast_feed.lua | 26 |
 | test_sim_seam.lua | 11 |
 | test_sim_session.lua | 31 |
 | test_sim_world.lua | 11 |
@@ -2888,4 +2948,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2437** |
+| **Total** | **2489** |

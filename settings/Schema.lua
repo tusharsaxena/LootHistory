@@ -985,6 +985,14 @@ local function traceRefusal(path, ...)
   return ...
 end
 function S:Set(path, value) return traceRefusal(path, R.Set(path, value)) end
+--- The all-or-nothing batch through the same seam (Schema minor 2's SetMany): `entries` is
+--- `{ { path =, value = }, ... }`. A refusal leaves its [Set] line under the first refused path.
+function S:SetMany(entries, opts)
+  local ok, err, extra, index = R.SetMany(entries, opts)
+  local e = type(entries) == "table" and index and entries[index]
+  traceRefusal(type(e) == "table" and e.path or "batch", ok, err)
+  return ok, err, extra, index
+end
 --- The descriptor's `applyDefault(row)` for BOTH majors. The sweep veto is the runtime's, reading
 --- S.RESET_EXEMPT through `resetExempt`, so the two reset walks share one policy.
 function S:ApplyDefault(row) return R.ApplyDefault(row) end

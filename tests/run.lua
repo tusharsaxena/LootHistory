@@ -76,7 +76,7 @@ local SUITES = {
   "test_ledger",
   "test_ledgerformat",
   "test_compat", "test_compat_routing", "test_compat_client", "test_compat_tooltip", "test_compat_progress", "test_tooltip_place", "test_scanner", "test_holdings", "test_holdings_tally", "test_rollup", "test_attribution", "test_attribution_out",
-  "test_filters", "test_auctionprice", "test_collector", "test_reputation", "test_appearance", "test_gain_feed", "test_progress", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
+  "test_filters", "test_auctionprice", "test_collector", "test_reputation", "test_appearance", "test_gain_feed", "test_progress", "test_toast_model", "test_reconciler", "test_reconciler_rows", "test_escrow", "test_database", "test_stats",
   "test_browser", "test_browser_filterbar", "test_teststrip", "test_browser_footer", "test_browsertable", "test_export", "test_debuglog",
   -- Frame layering (frame-layering, item 030): the LAYERS table and where each own frame sits.
   -- Builds its own layer-recording instance, so its slot is free.
@@ -167,6 +167,10 @@ local SUITES = {
   -- core/Dispatch.lua's row tables (LootHistory#37). After test_debug_coverage, which leaves the
   -- addon brought up: its cases read the live registration set and leave the addon up again.
   "test_dispatch",
+  -- modules/ToastFeed.lua (#38): the three LibKa0s-Feed-1.0 feeds, the GAIN routing, clicks, combat,
+  -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
+  -- every case clears what it showed and leaves the addon up.
+  "test_toast_feed",
   -- core/SimSeam.lua, LibKa0s-Sim-1.0's answer seam over NS.Compat (LootHistory#37). After
   -- test_dispatch, with the whole addon loaded and brought up: its Unwrapped()-empty case then also
   -- catches a suite before it that swapped a Compat member and never put the wrapper back.

@@ -19,7 +19,8 @@ local PM = dofile("tests/mock_progress.lua")
 -- Reputation owner's bus:FACTION_STANDING_CHANGED (rep/appearance spec §3.1, M2.2); the Appearance
 -- owner's bus:TRANSMOG_COLLECTION_SOURCE_ADDED and _REMOVED (§3.1, M2.3; Retail only); the
 -- Progress owners' five (toast spec §5.5, #38 M3.1), live while the default Main feed wants
--- experience and skill-ups.
+-- experience and skill-ups; the toast feeds' two combat rows on their own `toasts` target (toast spec
+-- §8.5, #38 M3.3), live while any feed is enabled.
 local SNAPSHOT = {
   "bus:CHALLENGE_MODE_COMPLETED", "bus:CHALLENGE_MODE_RESET", "bus:CHALLENGE_MODE_START",
   "bus:CHAT_MSG_CURRENCY", "bus:CHAT_MSG_LOOT", "bus:CHAT_MSG_MONEY", "bus:CHAT_MSG_SKILL", "bus:ENCOUNTER_END",
@@ -39,6 +40,7 @@ local SNAPSHOT = {
   "out:PLAYER_INTERACTION_MANAGER_FRAME_HIDE", "out:PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
   "out:TRADE_ACCEPT_UPDATE",
   "spell:UNIT_SPELLCAST_SUCCEEDED:player",
+  "toasts:PLAYER_REGEN_DISABLED", "toasts:PLAYER_REGEN_ENABLED",
 }
 -- The warband bank's two rows are Retail-only (R1, clients-§4), and so are the keystone's four (R2):
 -- WoW Forever registers none of them, nor the appearances' two (rep/appearance spec, D7).
@@ -60,6 +62,7 @@ local function targetKeys()
   if A.__outEv then t[A.__outEv] = "out" end
   if A.__spellFrame then t[A.__spellFrame] = "spell" end
   if R.__ev then t[R.__ev] = "ledger" end
+  if NS.Toasts and NS.Toasts.__rows then t[NS.Toasts.__rows] = "toasts" end
   return t
 end
 
@@ -103,10 +106,13 @@ end
 local PROGRESS_ROWS = { ["bus:CHAT_MSG_SKILL"] = true, ["bus:PLAYER_LEVEL_UP"] = true,
   ["bus:PLAYER_REGEN_ENABLED"] = true, ["bus:PLAYER_XP_UPDATE"] = true, ["bus:SKILL_LINES_CHANGED"] = true }
 
---- SNAPSHOT with no toast feed enabled: the Progress rows are down.
+-- The toast feeds' combat rows, live only while some feed is enabled.
+local TOAST_ROWS = { ["toasts:PLAYER_REGEN_DISABLED"] = true, ["toasts:PLAYER_REGEN_ENABLED"] = true }
+
+--- SNAPSHOT with no toast feed enabled: the Progress rows and the toast combat rows are down.
 local function feedOffSnapshot()
   local out = {}
-  for _, k in ipairs(SNAPSHOT) do if not PROGRESS_ROWS[k] then out[#out + 1] = k end end
+  for _, k in ipairs(SNAPSHOT) do if not (PROGRESS_ROWS[k] or TOAST_ROWS[k]) then out[#out + 1] = k end end
   return table.concat(out, ",")
 end
 
@@ -139,13 +145,14 @@ test("Dispatch: every capture registration comes from NS.EVENT_ROWS and the (tar
   assertEqual(#(NS.EVENT_ROWS or {}), #SNAPSHOT, "one row per (target, event) registration")
 end)
 
-test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler", function()
+test("Dispatch: row order is Attribution, AttributionOut, Collector, Reputation, Appearance, Progress, Reconciler, Toasts", function()
   -- TOC order, which is the stand-up order (core/LifecycleSetup.lua's STAND_UP_STEPS). WoW Forever
   -- declares no Appearance rows (C.FEATURE.appearances), so the owner is not in its list. Progress
-  -- (#38) owns three row owners, one per thing the gain feed can want.
+  -- (#38) owns three row owners, one per thing the gain feed can want. The toast feeds' combat rows
+  -- (#38) come last: modules/ToastFeed.lua loads after the Reconciler.
   local progress = "ProgressXP,ProgressSkill,ProgressRegen,"
-  assertEqual(ownersInOrder(), T.forever and ("Attribution,AttributionOut,Collector,Reputation," .. progress .. "Reconciler")
-    or ("Attribution,AttributionOut,Collector,Reputation,Appearance," .. progress .. "Reconciler"))
+  assertEqual(ownersInOrder(), T.forever and ("Attribution,AttributionOut,Collector,Reputation," .. progress .. "Reconciler,Toasts")
+    or ("Attribution,AttributionOut,Collector,Reputation,Appearance," .. progress .. "Reconciler,Toasts"))
   local hooks, seen = {}, {}
   for _, row in ipairs(NS.HOOK_ROWS or {}) do
     if not seen[row.owner] then seen[row.owner] = true; hooks[#hooks + 1] = row.owner end
@@ -167,7 +174,7 @@ end
 test("Dispatch: registered follows Enable/Disable, including trackLedger off", function()
   restoring(function()
     local owners = { "Attribution", "AttributionOut", "Collector", "Reputation", "ProgressXP", "ProgressSkill",
-      "ProgressRegen", "Reconciler" }
+      "ProgressRegen", "Reconciler", "Toasts" }
     if not T.forever then table.insert(owners, 5, "Appearance") end
     for _, owner in ipairs(owners) do
       local n, total = registeredBy(owner)

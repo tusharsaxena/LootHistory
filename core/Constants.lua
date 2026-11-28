@@ -230,6 +230,24 @@ C.TOAST_KIND_KEYS = { item = "ITEM", money = "GOLD", currency = "CURRENCY", repu
 C.PROFESSION_SKILL_LINES = { [129] = 1, [164] = 1, [165] = 1, [171] = 1, [182] = 1, [185] = 1, [186] = 1,
                              [197] = 1, [202] = 1, [333] = 1, [356] = 1, [393] = 1 }
 
+-- The toast feeds' host constants (#38, toast spec §4.3, §8). The schema loads before any feed exists
+-- and must load without LibKa0s-Feed-1.0, so it reads these, never the major; tests/test_toast_model.lua
+-- pins SLOTS, NUDGE_MAX and SHOWN_MAX equal to NS.FeedLib's.
+C.TOAST_FEED_LABEL = { main = "Main feed", progress = "Progress feed", extra = "Third feed" }
+C.TOAST_SLOTS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" }
+C.TOAST_NUDGE_MAX = 600     -- = LibKa0s-Feed-1.0 NUDGE_MAX; the nudge sliders' range, either way
+C.TOAST_SHOWN_MAX = 10      -- = Feed SHOWN_MAX; the "Shown at once" slider's top
+C.TOAST_COUNT_SETTLE = 0.5  -- motion.settle: one more content call this long after the paint (client-quirks-§3)
+-- The icon of a kind that has no item or currency icon of its own (game art, toast spec §7.4).
+C.TOAST_KIND_ICON = {
+  GOLD       = "Interface\\Icons\\INV_Misc_Coin_01",
+  REPUTATION = "Interface\\Icons\\Achievement_Reputation_01",
+  APPEARANCE = "Interface\\Icons\\INV_Chest_Cloth_17",
+  XP         = "Interface\\Icons\\Spell_Holy_SurgeOfLight",
+  SKILL      = "Interface\\Icons\\INV_Misc_Book_09",
+}
+C.TOAST_ICON_UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
+
 -- The holdings tally's cache bound (#34, modules/HoldingsTally.lua): past this many cached things,
 -- items and currencies together, both maps are wiped before the next insert, so a long AH browse
 -- keeps memory bounded.
@@ -530,6 +548,8 @@ C.TIMELINE = {
 --                      toplevel, so the last one clicked is on top. Peer: the library's first-run
 --                      skin picker (OptionsSkinPicker), HIGH and toplevel too, which the eye's
 --                      History window would cover; core/SkinSetup.lua raises it after the eye.
+--   HIGH               the toast feed containers (#38), LibKa0s-Feed-1.0's STRATA (T5, not toplevel,
+--                      clamped, library-owned); the addon sets no strata or level on a toast frame.
 --   DIALOG   MODAL     the Export modal, toplevel and clamped. Peers by the library's and Blizzard's
 --                      choice: the debug console, perf panel and sim panel (toplevel from LibKa0s
 --                      v1.77.0) and the StaticPopup confirmations.

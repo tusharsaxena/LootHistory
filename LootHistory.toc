@@ -112,6 +112,10 @@ core\DebugLogSetup.lua
 # The LibKa0s-Pool seam. CONVENTIONAL: nothing resolves at load; every NS.Pool.New call is inside
 # a function (modules/AnalyticsLedger.lua:157).
 core\PoolSetup.lua
+# The LibKa0s-Feed seam (#38). CONVENTIONAL: it resolves the major (libs\LibKa0s\LibKa0s.xml, above)
+# and publishes NS.FeedLib / NS.NewFeed / NS.FeedStub; nothing calls NS.NewFeed at load
+# (modules\ToastFeed.lua builds its feeds from Toasts:Enable). Kept beside the other LibKa0s seams.
+core\FeedSetup.lua
 core\LootHistory.lua
 core\Database.lua
 # The LibKa0s-Launcher seam: the minimap button and the broker plugin as ONE object
@@ -214,6 +218,17 @@ modules\TimelineModel.lua
 # load; modules\TimelineModel.lua and modules\Browser.lua must be above.
 modules\Timeline.lua
 modules\TestData.lua
+# CONVENTIONAL: the toast feeds' pure config, filter and merge (#38); binds NS.Constants at load only.
+modules\ToastModel.lua
+# CONVENTIONAL: the toast row content (#38); binds NS.Constants at load only, every other read at
+# call time.
+modules\ToastContent.lua
+# LOAD-BEARING POSITION: binds NS.ToastModel and NS.ToastContent as file-scope locals at load and
+# appends its two combat rows to NS.EVENT_ROWS at file load; modules\ToastModel.lua and
+# modules\ToastContent.lua must be above. NS.NewFeed (core\FeedSetup.lua) is read at call time.
+modules\ToastFeed.lua
+# CONVENTIONAL: the sample toasts (#38); reached from NS.Toasts at call time only.
+modules\ToastSample.lua
 # LOAD-BEARING POSITION: the simulator's world. Registers its providers on NS.SimSeam at file load,
 # so core\SimSeam.lua must be above; publishes NS.SimHost.World, which modules\SimDrivers.lua binds
 # at load and modules\Sim.lua's prepare reads at call time.

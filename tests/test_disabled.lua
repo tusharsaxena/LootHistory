@@ -150,7 +150,8 @@ local function featureTargets()
                  NS.Attribution.__spellFrame, NS.Attribution.__outEv, NS.Reconciler.__ev, NS.Reconciler._settings,
                  NS.Reputation._settings, NS.Appearance._settings,
                  NS.HoldingsTab.__ev, NS.Timeline.__ev, NS.HoldingsTally.__ev,
-                 NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev }
+                 NS.HoldingsTip.__ev, NS.HoldingsAPI.__ev,
+                 NS.Toasts.__ev, NS.Toasts.__rows }
   for i = 1, table.maxn(list) do
     if list[i] then t[list[i]] = true end
   end
@@ -288,6 +289,33 @@ test("slash-commands-§7: the stand-down drops the reputation baseline and its p
   setEnabled(true)
   NS.Reputation:ResetState()
   h.uninstall()
+  if not ok then error(err, 0) end
+end)
+
+test("slash-commands-§7: the stand-down clears every toast feed, and the stand-up keeps the instances", function()
+  -- red under: Toasts:Disable without its Clear() (an entry left waiting, the Feed's clock armed) or
+  -- without its Release() (a stand-down in combat coming back up still holding every gain). The
+  -- entry waits on a held feed, so no row is painted (modules/ToastFeed.lua, Toasts:Enable).
+  local ok, err = pcall(function()
+    bringUp()
+    local main = NS.Toasts:Feed("main")
+    assertTrue(main ~= nil, "precondition: the stand-up built the Main feed")
+    main:Hold()
+    NS.Toasts:OnGain({ kind = "GOLD", dir = "IN", qty = 500 })
+    assertEqual(main:Stats().waiting, 1, "precondition: a gain waits on the held Main feed")
+    setEnabled(false)
+    for _, fid in ipairs(NS.Constants.TOAST_FEEDS) do
+      local s = NS.Toasts:Feed(fid):Stats()
+      assertEqual(s.live + s.waiting + s.dropping, 0, fid .. ": an entry survived the stand-down")
+      assertFalse(s.awake, fid .. ": the Feed's clock is still armed")
+      assertTrue(s.locked, fid .. ": the feed is not locked again")
+      assertFalse(s.held, fid .. ": the stand-down left the feed holding")
+    end
+    setEnabled(true)
+    assertTrue(NS.Toasts:Feed("main") == main, "the stand-up reuses the feed instance")
+  end)
+  setEnabled(true)
+  if NS.Toasts:Feed("main") then NS.Toasts:Feed("main"):Clear(); NS.Toasts:Feed("main"):Release() end
   if not ok then error(err, 0) end
 end)
 
@@ -875,7 +903,7 @@ test("slash-commands-§7: the latch persists NOTHING, and the stored switch is t
 -- of its surfaces built stands down and up without error). Every surface is swapped for a recorder,
 -- so they call the two callbacks directly; nothing here reaches the real modules.
 local SURFACES = { "addon", "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Attribution", "Browser", "Analytics", "HoldingsTab",
-  "Timeline", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
+  "Timeline", "Toasts", "HoldingsTally", "HoldingsTip", "HoldingsAPI", "Rollup", "Export", "DebugLog", "SimStop", "DropLedgerResetOffer", "CancelDeferrals", "CloseMenu",
   "BrowserTable", "SafeRegisterEvent", "DebugAtEnable", "Debug" }
 
 local function withSurfaces(fill, body)
@@ -904,7 +932,7 @@ local function fillAll(log)
   NS.State.debug = true
   NS.addon = recorder(log, "addon", { "UnregisterAllEvents", "RegisterEvent" })
   for _, k in ipairs({ "GainFeed", "Collector", "Reputation", "Appearance", "Progress", "Reconciler", "Browser", "Analytics", "HoldingsTab", "Timeline", "Rollup", "HoldingsTally",
-                        "HoldingsTip", "HoldingsAPI" }) do
+                        "HoldingsTip", "HoldingsAPI", "Toasts" }) do
     NS[k] = recorder(log, k, { "Disable", "Enable", "Hide" })
   end
   NS.Attribution = recorder(log, "Attribution", { "Disable", "Enable", "DisableOut", "EnableOut" })
@@ -933,7 +961,7 @@ test("lifecycle: NS.StandDown reaches every surface exactly once, in order", fun
       "addon:UnregisterAllEvents",
       "Collector:Disable", "Reputation:Disable", "Appearance:Disable", "Progress:Disable", "Reconciler:Disable",
       "Attribution:Disable", "Browser:Disable", "Analytics:Disable",
-      "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable", "GainFeed:Disable",
+      "HoldingsTab:Disable", "Timeline:Disable", "Rollup:Disable", "Toasts:Disable", "GainFeed:Disable",
       "HoldingsTally:Disable", "HoldingsTip:Disable", "HoldingsAPI:Disable",
       "Attribution:DisableOut",
       "DropLedgerResetOffer",
@@ -952,7 +980,7 @@ test("lifecycle: NS.StandUp reaches every surface exactly once, in order", funct
       "SafeRegisterEvent:PLAYER_ENTERING_WORLD:OnEnterWorld",
       "Attribution:Enable", "Attribution:EnableOut",
       "GainFeed:Enable", "Collector:Enable", "Reputation:Enable", "Appearance:Enable", "Progress:Enable", "Reconciler:Enable", "Rollup:Enable", "Browser:Enable", "Analytics:Enable",
-      "HoldingsTab:Enable", "Timeline:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
+      "HoldingsTab:Enable", "Timeline:Enable", "Toasts:Enable", "HoldingsTally:Enable", "HoldingsTip:Enable",
       "HoldingsAPI:Enable",
       "Debug:State:stand-up: capture registered",
       "DebugAtEnable:State",

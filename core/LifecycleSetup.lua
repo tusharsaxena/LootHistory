@@ -177,7 +177,8 @@ local STAND_DOWN_STEPS = {
   call("SimStop"),
   -- The AceAddon target's OWN registrations -- PLAYER_ENTERING_WORLD plus the Collector's three,
   -- the Reputation owner's one, the Appearance owner's two (Retail), Progress's five and
-  -- Attribution's ten (six on WoW Forever) that register through it. UnregisterAllEvents reaches every one; it does not touch messages, and this target
+  -- Attribution's ten (six on WoW Forever) that register through it (Toasts' two combat rows sit on
+  -- their own target, which Toasts:Disable unregisters). UnregisterAllEvents reaches every one; it does not touch messages, and this target
   -- subscribes to none.
   method("addon", "UnregisterAllEvents"),
   method("Collector", "Disable"), method("Reputation", "Disable"), method("Appearance", "Disable"),
@@ -185,7 +186,10 @@ local STAND_DOWN_STEPS = {
   method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
   method("Timeline", "Disable"), method("Rollup", "Disable"),
-  -- The gain feed after every observer that taps it (#38): nothing is wanted any more.
+  -- The toast feeds (#38): every feed Clear()ed (rows hidden, clock disarmed, locked) and its two
+  -- listeners and combat rows gone; then the gain feed, after every observer that taps it: nothing
+  -- is wanted any more.
+  method("Toasts", "Disable"),
   method("GainFeed", "Disable"),
   method("HoldingsTally", "Disable"), method("HoldingsTip", "Disable"), method("HoldingsAPI", "Disable"),
   method("Attribution", "DisableOut"),
@@ -212,7 +216,10 @@ local STAND_UP_STEPS = {
   method("Progress", "Enable"),
   method("Reconciler", "Enable"), method("Rollup", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
-  method("Timeline", "Enable"), method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
+  method("Timeline", "Enable"),
+  -- The toast feeds (#38): built once through NS.NewFeed, the GAIN receiver, the combat rows.
+  method("Toasts", "Enable"),
+  method("HoldingsTally", "Enable"), method("HoldingsTip", "Enable"),
   method("HoldingsAPI", "Enable"),
   standUpLogStep,
 }

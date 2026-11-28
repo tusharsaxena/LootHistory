@@ -44,3 +44,6 @@ State.craftUntil = nil     -- GetTime() until which item losses read as CRAFT_RE
 State.soldMail = nil       -- { itemName, expires } from taking an "Auction successful" mail's money
 State.mailTaken = nil      -- { own, expires } from any mail money take: was the sender an own holder
 State.tradeTarget = nil    -- holder key of the last completed trade's partner
+-- The toast feeds unlocked for dragging (#38, modules/ToastFeed.lua): [fid] = true. Session state,
+-- never stored; combat and the stand-down lock every feed again and clear it.
+State.toastUnlocked = {}
