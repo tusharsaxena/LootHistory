@@ -415,13 +415,15 @@ test("Schema: the shipped default equals the schema's declared default", functio
   -- senses, so the pair is still checked -- flip either side alone and this goes red exactly as it
   -- would for any other row (launcher-§3). No `shown` default is shipped (anti-pattern #81).
   --
-  -- `settings.retentionDays` and `settings.rollupRetentionDays` are compared against their stored
-  -- keys in defaults/Global.lua, and are absent from defaults/Profile.lua: both are account-wide (D6).
+  -- `settings.retentionDays`, `settings.rollupRetentionDays` and `settings.farm.keep` (#39, D18) are
+  -- compared against their stored keys in defaults/Global.lua, and are absent from
+  -- defaults/Profile.lua: all three are account-wide (D6).
   for _, row in ipairs(S.Schema) do
     if row.path == "minimap.shown" then
       assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), not row.default,
         "minimap.shown: the shipped `hide` must be the inverse of the row's SHOWN default")
-    elseif row.path == "settings.retentionDays" or row.path == "settings.rollupRetentionDays" then
+    elseif row.path == "settings.retentionDays" or row.path == "settings.rollupRetentionDays"
+        or row.path == "settings.farm.keep" then
       assertEqual(NS.SchemaLib.Read(NS.defaults.global, S.RESET_EXEMPT[row.path]), row.default,
         row.path .. " disagrees with defaults/Global.lua")
       assertEqual(NS.SchemaLib.Read(NS.defaults.profile, row.path), nil,
@@ -543,7 +545,7 @@ end)
 --- for the same reason: it governs recorded data every profile shares.
 local STORED_ROWS_WITH_ACCESSORS = {
   ["minimap.shown"] = true, ["settings.retentionDays"] = true,
-  ["settings.rollupRetentionDays"] = true,
+  ["settings.rollupRetentionDays"] = true, ["settings.farm.keep"] = true,
 }
 
 test("Schema: only the session-only rows carry their own get/set", function()
@@ -702,6 +704,9 @@ end)
 -- still rows, still writable from `/lh set`, and still counted here — the panel-side truth is
 -- tests/test_panel.lua's business.
 local PARTITION = {
+  -- The Farm page (#39, D23): the session's six settings, then the fourteen activity lines and
+  -- Hide lines that read 0.
+  ["Farm"] = { { "General", 6 }, { "Activity", 15 } },
   -- The Toasts page (#38): one row per feed and setting, three feeds (General 7, Content 21, Style
   -- 35, Motion 7, Behavior 5 each), plus the page-wide alert row under Behavior.
   ["Toasts"] = {
@@ -729,8 +734,9 @@ test("Schema: every page's tabs are the designed ones, in order, at the designed
   for _, row in ipairs(S.Schema) do
     if not seenPage[row.page] then seenPage[row.page] = true; pages[#pages + 1] = row.page end
   end
-  assertEqual(table.concat(pages, " | "), "General | Toasts",
-    "TWO schema-backed pages: R6 deprecated the Filters and AH price sub-pages into General, and #38 added Toasts")
+  assertEqual(table.concat(pages, " | "), "General | Toasts | Farm",
+    "THREE schema-backed pages: R6 deprecated the Filters and AH price sub-pages into General, #38 "
+      .. "added Toasts and #39 Farm")
 
   for _, page in ipairs(pages) do
     assertTrue(PARTITION[page] ~= nil, page .. " is a page the partition table does not describe")
@@ -938,4 +944,128 @@ test("Schema: the docs' per-tab breakdown is the schema's own partition", functi
   end
   assertTrue(found >= 2, "docs/module-map.md must still state the per-tab breakdown in both its "
     .. "source tree and its per-file entry (found " .. found .. ")")
+end)
+
+
+-- ── The Farm page (#39, farm spec §9.2; settings/SchemaFarm.lua) ───────────────────────────────
+
+local SF = NS.SchemaFarm
+
+test("Schema: the Farm rows send SETTINGS_CHANGED farm, and Sessions kept is account-wide and reset-exempt",
+  function()
+    -- red under: a Farm row that repaints nothing, a keep row stored per profile (a profile switch
+    -- would move a cap that deletes shared sessions), or the reset veto missing it.
+    assertEqual(S.RESET_EXEMPT["settings.farm.keep"], "farmKeep")
+    local keep = S:FindRow("settings.farm.keep")
+    assertEqual(keep.default, NS.defaults.global.farmKeep)
+    assertEqual(keep.page .. "/" .. keep.group, "Farm/General")
+    local g = NS.db.global
+    local before = g.farmKeep
+    S:Set("settings.farm.keep", 0)
+    assertEqual(g.farmKeep, 0, "the row writes global.farmKeep")
+    assertEqual(NS.db.profile.settings.farm.keep, nil, "and nothing per profile")
+    S:Set("settings.farm.keep", before)
+    local reasons = {}
+    local ev = NS.NewBusTarget()
+    ev:RegisterMessage(NS.MSG.SETTINGS_CHANGED, function(_, r) reasons[#reasons + 1] = r end)
+    local n = 0
+    for _, row in ipairs(S.Schema) do
+      if row.page == "Farm" and row.type == "bool" then
+        local v = S:Get(row.path)
+        S:Set(row.path, not v); S:Set(row.path, v)
+        n = n + 2
+      end
+    end
+    ev:UnregisterAllMessages()
+    assertEqual(#reasons, n, "one message per write")
+    for _, r in ipairs(reasons) do assertEqual(r, "farm") end
+  end)
+
+test("Schema: the Farm Activity rows are §6's fourteen, then Hide lines that read 0; looks is Retail's", function()
+  local got = {}
+  for _, row in ipairs(S.Schema) do
+    if row.page == "Farm" and row.group == "Activity" then got[#got + 1] = row.label end
+  end
+  assertEqual(table.concat(got, " | "), "Mobs looted | Items looted | Nodes gathered | Fish caught | "
+    .. "Quests turned in | Quest rewards | Containers opened | Drops by quality | Reputation gained | "
+    .. "Experience gained | Skill-ups | New appearances | Currencies gained | Deaths | Hide lines that read 0")
+  local looks = S:FindRow("settings.farm.activity.looks")
+  assertEqual(table.concat(looks.clients or {}, ","), "retail", "New appearances is Retail's only")
+  assertEqual(S:FindRow("settings.farm.activity.deaths").tooltip, "Your own deaths.")
+  assertTrue(S:FindRow("settings.farm.activity.mobs").tooltip:find("no reliable kill count", 1, true) ~= nil)
+end)
+
+--- Run `fn(shown, lines)` with db.global.farm holding two characters' saved sessions (5 and 3), the
+--- cap at 10 and confirmed, StaticPopup_Show recorded, and chat captured; everything put back.
+local function withSavedSessions(fn)
+  local M, g = T.mocks, NS.db.global
+  local saved = { g.farm, g.farmKeep, SF._confirmed, M.StaticPopup_Show }
+  local function list(n)
+    local out = {}
+    for i = 1, n do out[i] = { id = i, startedAt = i, log = {}, items = {} } end
+    return out
+  end
+  g.farm = { ["A-R"] = { sessions = list(5), nextId = 6 }, ["B-R"] = { sessions = list(3), nextId = 4 } }
+  g.farmKeep, SF._confirmed = 10, 10
+  local shown, lines = {}, {}
+  M.StaticPopup_Show = function(which, a, b, data) shown[#shown + 1] = { which, a, b, data } end
+  local cf = M.DEFAULT_CHAT_FRAME
+  local oldAdd = cf.AddMessage
+  cf.AddMessage = function(_, line) lines[#lines + 1] = tostring(line) end
+  local ok, err = pcall(fn, shown, lines, g)
+  cf.AddMessage = oldAdd
+  g.farm, g.farmKeep, SF._confirmed, M.StaticPopup_Show = saved[1], saved[2], saved[3], saved[4]
+  if not ok then error(err, 0) end
+end
+
+test("Schema: lowering Sessions kept asks first; accept trims every character", function()
+  -- red under: a cap that deletes on the write, a confirm that names the wrong count, or an accept
+  -- that trims only this character.
+  withSavedSessions(function(shown, _, g)
+    S:Set("settings.farm.keep", 4)
+    assertEqual(#shown, 1, "the confirm is raised")
+    assertEqual(shown[1][1] .. "|" .. shown[1][2] .. "|" .. shown[1][3], "KA0S_LOOTHISTORY_FARM_TRIM|4|1")
+    assertEqual(#g.farm["A-R"].sessions, 5, "nothing deleted before the answer")
+    local d = T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_FARM_TRIM"]
+    assertEqual(d.text, "Keep %d sessions per character? This deletes %d saved sessions.")
+    assertEqual(d.button1 .. "|" .. d.button2, "Delete|Cancel")
+    d.OnAccept(nil, shown[1][4])
+    assertEqual(#g.farm["A-R"].sessions, 4, "trimmed to the cap")
+    assertEqual(g.farm["A-R"].sessions[1].id, 2, "the oldest went")
+    assertEqual(#g.farm["B-R"].sessions, 3, "under the cap: untouched")
+    assertEqual(g.farmKeep, 4); assertEqual(SF._confirmed, 4, "the confirmed cap moved")
+  end)
+end)
+
+test("Schema: cancel restores the last confirmed cap and says so; a raise that deletes nothing asks nothing",
+  function()
+    withSavedSessions(function(shown, lines, g)
+      S:Set("settings.farm.keep", 2)
+      local d = T.mocks.StaticPopupDialogs["KA0S_LOOTHISTORY_FARM_TRIM"]
+      d.OnCancel(nil, shown[1][4], "override")
+      assertEqual(g.farmKeep, 2, "an override is not the player's Cancel")
+      d.OnCancel(nil, shown[1][4], "clicked")
+      assertEqual(g.farmKeep, 10, "Cancel wrote the confirmed cap back")
+      assertEqual(#g.farm["A-R"].sessions, 5, "and deleted nothing")
+      assertTrue(lines[#lines]:find("sessions kept at 10; no sessions were deleted.", 1, true) ~= nil,
+        "the one line: " .. tostring(lines[#lines]))
+      assertEqual(#shown, 1, "the quiet write-back raised no second confirm")
+      S:Set("settings.farm.keep", 50)
+      S:Set("settings.farm.keep", 0)
+      assertEqual(#shown, 1, "a cap that deletes nothing asks nothing")
+      assertEqual(SF._confirmed, 0, "and is confirmed at once")
+    end)
+  end)
+
+test("Schema: a simulation refuses a trim and writes the cap back", function()
+  withSavedSessions(function(shown, _, g)
+    local realBlocks = NS.SimBlocks
+    NS.SimBlocks = function() return true end
+    local ok, err = pcall(function() S:Set("settings.farm.keep", 3) end)
+    NS.SimBlocks = realBlocks
+    if not ok then error(err, 0) end
+    assertEqual(#shown, 0, "no confirm during a simulation")
+    assertEqual(g.farmKeep, 10, "the cap is back")
+    assertEqual(#g.farm["A-R"].sessions, 5, "nothing deleted")
+  end)
 end)

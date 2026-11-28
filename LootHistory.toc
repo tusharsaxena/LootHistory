@@ -302,6 +302,10 @@ settings\OptionsSetup.lua
 # (O.ColorPair / BorderGroup / FontGroup) and reads defaults\Profile.lua at load, so
 # settings\OptionsSetup.lua and defaults\ must be above.
 settings\SchemaToasts.lua
+# LOAD-BEARING POSITION: settings\Schema.lua appends NS.SchemaFarm.Rows() to its row array at file
+# load, beside the Toasts rows and before the Schema runtime is built, so this must be above it.
+# Like settings\SchemaToasts.lua, it reads both defaults tables at load (defaults\ must be above).
+settings\SchemaFarm.lua
 settings\Schema.lua
 # LOAD-BEARING POSITION: the dispatcher is built at file load with commands = NS.COMMANDS, assigned
 # by settings\Schema.lua; above Schema, LibKa0s-Slash lib:New raises (libs\LibKa0s\Slash.lua,
@@ -316,6 +320,8 @@ settings\PanelAuction.lua
 # LOAD-BEARING POSITION: binds settings\Panel.lua's P._makeMultiCheck as a file-scope local at load;
 # settings\Panel.lua must be above. Its builder is registered from P:Register at call time.
 settings\PanelToasts.lua
+# CONVENTIONAL: the Farm page's builder, registered from P:Register (settings\Panel.lua) at call time.
+settings\PanelFarm.lua
 # CONVENTIONAL: the Profiles page's builder is registered from P:Register (settings\Panel.lua) at
 # addon:OnInitialize, after General's, so nothing here resolves at load.
 settings\Profiles.lua

@@ -64,6 +64,8 @@ local DRAWN = {
   -- the saved-session lists' best-per-zone mark (#39, modules/FarmTab.lua's star column, which the
   -- panel's sessions list shares)
   "star",
+  -- the History window's farm session mark (#39, modules/Browser.lua's farmExtra, farm spec §8)
+  "map-marker",
 }
 
 -- ---------------------------------------------------------------------------

@@ -27,6 +27,14 @@ NS.L = setmetatable(NS.L or {}, { __index = function(_, k) return k end })
 --   "Lock the window" / "Unlock the window"       the lock mark's tooltip, unlocked / locked
 --   "Lock the window in place"                    /lh lock's help row
 --   "Unlock the window so it can be dragged"      /lh unlock's help row
+-- and the farm session's ingress (#39, farm spec §8: core/LauncherSetup.lua, modules/Browser.lua,
+-- settings/SchemaFarm.lua) --
+--   "Toggle farm session" / "Start or finish farm session"   the two farm bindings' rows
+--   "Shows or hides the farm session panel."                  their tooltips in the Keybindings tab
+--   "Starts a farm session, or finishes the running one and shows its summary."
+--   "Farm session"                                            the launcher menu's extra entry
+--   "Farm session: shows or hides the panel."                 the History window's farm mark
+--   "Delete" / "Cancel"                                       the Sessions kept confirm's buttons
 -- and NS.RefusalLine's answer under the perf hold --
 --   "Not available during a performance capture."
 -- and the skin seam's one reload line (core/SkinSetup.lua, a profile event leaving an EllesmereUI

@@ -99,7 +99,7 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M4.2 | Companion panel (headline, numbers, activity, buttons, minimize, paused view) | done | `M4.2: Add the farm companion panel, its list widget and the persistent window tier` |
 | M4.3 | Details window (6 tabs) + summary at Finish | done | `M4.3: Add the farm Details window, its six tabs and the session summary` |
 | M4.4 | Farm tab in the History window + panel sessions list (rename, delete, best per zone) | done | `M4.4: Add the Farm tab, the sessions list and the farm test sample` |
-| M4.5 | Ingress: title-bar button, 2 key bindings, slash verb, launcher entry; settings (Farm tab) | todo | |
+| M4.5 | Ingress: title-bar button, 2 key bindings, slash verb, launcher entry; settings (Farm tab) | done | `M4.5: Add the farm ingress, its key bindings and the Farm settings page` |
 | M4.6 | Test mode / sim, disabled-state, docs + review pass + fixes; push M4 | todo | |
 | M5.1 | Whole-run review, doc sync, release notes; report to owner; wait for merge go-ahead | todo | |
 | M5.2 | After merge: delete the run's branches (local + origin), stashes, worktrees | todo | |

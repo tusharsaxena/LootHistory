@@ -666,6 +666,9 @@ for _, row in ipairs(ROWS)        do S.Schema[#S.Schema + 1] = row end
 -- The Toasts page (#38, settings/SchemaToasts.lua, loaded above this file): one row per feed and
 -- setting plus the page-wide alert row, after General's, so General's strip order is untouched.
 for _, row in ipairs(NS.SchemaToasts.Rows()) do S.Schema[#S.Schema + 1] = row end
+-- The Farm page (#39, settings/SchemaFarm.lua, loaded above this file): General then Activity, after
+-- the Toasts rows, so neither earlier page's strip order moves.
+for _, row in ipairs(NS.SchemaFarm.Rows()) do S.Schema[#S.Schema + 1] = row end
 
 -- NOTE: `settings.auction.priority` (the ordered cascade selection list) is a carve-out array —
 -- NOT a schema row — managed directly by the settings panel UI (R6). See docs/schema.md.
@@ -721,10 +724,16 @@ for _, row in ipairs(NS.SchemaToasts.Rows()) do S.Schema[#S.Schema + 1] = row en
 --- settings.retentionDays` still resets it, through the same confirm as any change.
 ---
 --- `settings.rollupRetentionDays` is the third, for the same reason as the second.
+---
+--- `settings.farm.keep` is the fourth (#39, D18): the saved farm sessions' cap, stored at
+--- `global.farmKeep`, outside every profile, because lowering it deletes sessions every profile
+--- shares. Neither the profile reset nor the Farm page's Defaults moves it; `/lh reset
+--- settings.farm.keep` still does, through its confirm (settings/SchemaFarm.lua).
 S.RESET_EXEMPT = {
   ["minimap.shown"]               = "minimap.hide",
   ["settings.retentionDays"]       = "retentionDays",
   ["settings.rollupRetentionDays"] = "rollupRetentionDays",
+  ["settings.farm.keep"]           = "farmKeep",
 }
 
 -- ── The degradation stub ───────────────────────────────────────────────────────────────────────

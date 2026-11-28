@@ -581,7 +581,23 @@ function Farm:RunVerb(rest)
   say("usage: /lh farm [start|pause|resume|finish]")
 end
 
--- ── the saved-sessions cap (D18; the confirm is M4.5's) ──────────────────────────────────────
+-- ── the Farm page's rows (§9.2; settings/SchemaFarm.lua) ─────────────────────────────────────
+
+--- A Farm row was written (`leaf` under settings.farm, value `v`): the two the open session reacts to.
+--- `idleMinutes` re-arms the idle ticker, so the new limit is read from a fresh interval; `pauseOnAFK`
+--- turned off resumes an AFK pause, which nothing would otherwise end while the flag stands.
+function Farm:OnSettingChanged(leaf, v)
+  if leaf == "idleMinutes" and self._live then
+    NS.CancelDeferral(self._tick)
+    self._tick = nil
+    armTick(self)
+  elseif leaf == "pauseOnAFK" and v == false then
+    local s = self:Active()
+    if s and s.pauseReason == "afk" then resume(self, s, time()) end
+  end
+end
+
+-- ── the saved-sessions cap (D18; the confirm is settings/SchemaFarm.lua's) ───────────────────
 
 --- How many saved sessions, over every character in the saved store, a cap of `keep` would drop.
 function Farm:CountOverCap(keep)

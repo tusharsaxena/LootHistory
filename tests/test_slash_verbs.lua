@@ -475,3 +475,95 @@ test("/lh lock and /lh unlock are feature verbs: refused while disabled, writing
       "the confirmation is the set line: " .. tostring(out[1]))
     NS.Schema:Set("settings.locked", before)
   end)
+
+-- ── /lh farm (#39, farm spec §8, D21) ───────────────────────────────────────────────────────────
+
+--- Run `fn()` on a scratch db.global.farm, the farm windows closed again after, every session closed.
+local function farmWorld(fn)
+  local g, F = NS.db.global, NS.Farm
+  local saved = g.farm
+  g.farm = {}
+  local ok, err = pcall(fn)
+  if F:Active() then F:Finish("manual", time()) end
+  F:Reconcile()
+  NS.FarmDetails:HideSummary(); NS.FarmDetails:Hide(); NS.FarmPanel:Hide()
+  g.farm = saved
+  if not ok then error(err, 0) end
+end
+
+--- The one line `/lh <msg>` printed, its tag stripped.
+local function lineOf(msg)
+  local out = capture(function() Sl:OnSlash(msg) end)
+  assertEqual(#out, 1, "/lh " .. msg .. " answers on one line, got: " .. table.concat(out, " | "))
+  return (out[1]:gsub("^" .. NS.PREFIX:gsub("%p", "%%%0") .. " ", ""))
+end
+
+test("/lh farm: each word runs its verb and answers its own line, refusals included", function()
+  -- red under: a word that does nothing, a refusal line that changed, or a usage line that is not the
+  -- grammar's.
+  NS.Schema:Set("settings.enabled", true)
+  farmWorld(function()
+    assertEqual(lineOf("farm pause"), "no farm session is running.")
+    assertEqual(lineOf("farm resume"), "no farm session is running.")
+    assertEqual(lineOf("farm finish"), "no farm session is running.")
+    assertEqual(lineOf("farm start"), "farm session started.")
+    assertTrue(NS.Farm:Active() ~= nil, "a session is open")
+    assertEqual(lineOf("farm start"), "a farm session is already running.")
+    assertEqual(lineOf("farm resume"), "the farm session is not paused.")
+    assertEqual(lineOf("farm PAUSE"), "farm session paused.", "the word is case-blind")
+    assertEqual(lineOf("farm pause"), "the farm session is already paused.")
+    assertEqual(lineOf("farm resume"), "farm session resumed.")
+    assertEqual(lineOf("farm loot"), "usage: /lh farm [start|pause|resume|finish]")
+    assertTrue(lineOf("farm finish"):find("^farm session finished: ") ~= nil, "the finish line")
+    assertTrue(NS.Farm:Active() == nil, "finish closed it")
+  end)
+end)
+
+test("/lh farm: the bare verb toggles the companion panel", function()
+  NS.Schema:Set("settings.enabled", true)
+  farmWorld(function()
+    local before = NS.FarmPanel:IsShown()
+    capture(function() Sl:OnSlash("farm") end)
+    assertEqual(NS.FarmPanel:IsShown(), not before, "the bare verb flipped the panel")
+    capture(function() Sl:OnSlash("farm") end)
+    assertEqual(NS.FarmPanel:IsShown(), before, "and back")
+  end)
+end)
+
+test("/lh farm is a feature verb: refused while disabled on the one line, opening nothing", function()
+  -- red under: a farm verb outside the gate (a session started on a disabled addon).
+  farmWorld(function()
+    whileDisabled(function()
+      for _, msg in ipairs({ "farm", "farm start", "farm finish" }) do
+        local out = capture(function() Sl:OnSlash(msg) end)
+        assertEqual(#out, 1, "/lh " .. msg .. " answers on one line")
+        assertEqual(out[1], refusalFor(), "the refusal is the collection's one line")
+      end
+      assertTrue(NS.Farm:Active() == nil, "no session was started")
+      assertEqual(NS.FarmPanel:IsShown(), false, "no panel was shown")
+    end)
+  end)
+end)
+
+test("/lh list headings are page-aware: a General, a Toasts and a Farm row list under three headings",
+  function()
+    -- farm spec §9.4: the Toasts and Farm strips both have a General tab, and a page-blind heading
+    -- would merge them. red under: groupKey falling back to row.group alone.
+    local lines = Sl:BuildListLines()
+    local heading, under = nil, {}
+    for _, l in ipairs(lines) do
+      local h = l:match("^  |cff3399ff%[(.+)%]|r$")
+      if h then heading = h
+      else
+        for _, path in ipairs({ "settings.trackLedger", "settings.toasts.feeds.main.enabled",
+                                "settings.farm.headlineBasis" }) do
+          if l:find(path, 1, true) then
+            under[path] = under[path] or heading
+          end
+        end
+      end
+    end
+    assertEqual(under["settings.trackLedger"], "Capture", "a General-page row: its tab alone")
+    assertEqual(under["settings.toasts.feeds.main.enabled"], "Toasts > General")
+    assertEqual(under["settings.farm.headlineBasis"], "Farm > General")
+  end)

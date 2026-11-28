@@ -28,7 +28,7 @@ local tabAt         = S.tabAt
 
 -- ── registration ─────────────────────────────────────────────────────────────────────────────
 
-test("Panel: the parent category and its two sub-pages are registered", function()
+test("Panel: the parent category and its three sub-pages are registered", function()
   -- R6: Filters and AH price were canvas sub-pages of their own until this pass and are tabs on
   -- General's strip now. Asserted as an exact set — a leftover registration is a page nobody draws
   -- and a presence check could never see one.
@@ -36,8 +36,9 @@ test("Panel: the parent category and its two sub-pages are registered", function
   local names = {}
   for name in pairs(mocks.__subcategories) do names[#names + 1] = name end
   table.sort(names)
-  -- The Toasts page (#38) is the second: the three toast feeds, picked in its banner.
-  assertEqual(table.concat(names, " | "), "General | Toasts",
+  -- The Toasts page (#38) is the second: the three toast feeds, picked in its banner. The Farm page
+  -- (#39, D23) the third. Sorted, because the mock's registry is keyed by name.
+  assertEqual(table.concat(names, " | "), "Farm | General | Toasts",
     "Filters and AH price must NOT still be subcategories of their own")
 end)
 
@@ -294,6 +295,78 @@ test("Panel: HistoryChanged still repaints the readout immediately", function()
 
   NS.Database.StorageStats = real
   homeTab(ctx)
+end)
+
+test("Panel: the readout carries the farm line, and FarmChanged repaints it only when a count moves (#39)",
+  function()
+    -- farm spec §4.6: `Farm sessions: N (~X)` under the history line, from NS.Farm:StorageStats.
+    -- red under: no farm line, an approximately-equal sign the skin faces cannot draw, or a repaint on every gain.
+    local ctx = NS.Panel.general
+    local panel = mocks.__subcategories["General"]
+    local created = clickTab(panel, ctx, tabAt("History"))
+    local stats
+    for _, w in ipairs(created) do
+      if w.type == "Label" and type(w.text) == "string" and w.text:find("Database size", 1, true) then
+        stats = w
+      end
+    end
+    assertTrue(stats ~= nil, "the live storage readout must be drawn")
+    local farm = NS.Farm:StorageStats()
+    assertTrue(stats.text:find("\nFarm sessions: " .. farm.sessions .. " (~"
+      .. NS.Util.FormatBytes(farm.bytes) .. ")", 1, true) ~= nil, "the farm line: " .. stats.text)
+    T.mocks.__fireTimers()
+    local ran, real = 0, NS.Database.StorageStats
+    NS.Database.StorageStats = function(self, now) ran = ran + 1; return real(self, now) end
+    NS.bus:SendMessage(NS.MSG.FARM_CHANGED, "gain")
+    NS.bus:SendMessage(NS.MSG.FARM_CHANGED, "pause")
+    assertEqual(ran, 0, "a gain or a pause moves no count")
+    NS.bus:SendMessage(NS.MSG.FARM_CHANGED, "finish")
+    assertEqual(ran, 1, "a saved session repaints at once")
+    NS.Database.StorageStats = real
+    homeTab(ctx)
+  end)
+
+-- ── the Farm page (#39, farm spec §9.3; settings/PanelFarm.lua) ──────────────────────────────
+
+local function farmPanel() return mocks.__subcategories["Farm"] end
+
+test("Farm page: the strip is General then Activity, each drawing its rows", function()
+  -- red under: a ninth-tab budget broken, Activity first (options-ui-§14), or a tab drawing the
+  -- other's rows.
+  local panel = farmPanel()
+  assertTrue(panel ~= nil, "the Farm page is registered")
+  local created = show(panel)
+  local ctx = NS.FarmPage.ctx
+  assertEqual(#ctx.__tabLayout.buttons, 2, "two tabs")
+  assertEqual(table.concat(NS.SchemaFarm.TABS, ","), "General,Activity")
+  assertEqual(ctx.activeTab, "General", "General first")
+  assertTrue(findByLabel(created, "Headline") ~= nil, "General draws Headline")
+  assertTrue(findByLabel(created, "Sessions kept per character (0 = all)") ~= nil, "and the cap")
+  assertTrue(findByLabel(created, "Mobs looted") == nil, "but no activity line")
+  local act = clickTab(panel, ctx, 2)
+  assertEqual(ctx.activeTab, "Activity")
+  assertTrue(findByLabel(act, "Mobs looted") ~= nil, "Activity draws the lines")
+  assertTrue(findByLabel(act, "Hide lines that read 0") ~= nil, "and Hide lines that read 0")
+  homeTab(ctx)
+  panel:Hide()
+end)
+
+test("Farm page: Defaults restores every Farm row and leaves Sessions kept per character", function()
+  -- farm spec §9.3: page-wide (options-ui-§13), and the account-wide cap is reset-exempt (D18).
+  local f, g = NS.db.profile.settings.farm, NS.db.global
+  local savedKeep = g.farmKeep
+  show(farmPanel())
+  NS.Schema:Set("settings.farm.headlineBasis", "net")
+  NS.Schema:Set("settings.farm.activity.deaths", true)
+  NS.Schema:Set("settings.farm.keep", 250)
+  NS.FarmPage.ctx.panel.defaultsOnClick()
+  assertEqual(f.headlineBasis, "gross", "a General row back to its default")
+  assertEqual(f.activity.deaths, false, "an Activity row too")
+  assertEqual(g.farmKeep, 250, "the cap stays as it is")
+  assertEqual(NS.FarmPage.DEFAULTS_TOOLTIP, "Restores every setting on the Farm page to its default. "
+    .. "Sessions kept per character is account-wide and stays as it is.")
+  NS.Schema:Set("settings.farm.keep", savedKeep)
+  farmPanel():Hide()
 end)
 
 test("Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider",

@@ -658,3 +658,32 @@ test("Farm: StorageStats estimates every saved and open session; Database:Storag
     g.farm["Other-Realm"] = nil
   end)
 end)
+
+-- ── the Farm page's rows (§9.2, M4.5; settings/SchemaFarm.lua) ───────────────────────────────
+
+test("Farm: Pause after idle re-arms the ticker; Pause when AFK off resumes an AFK pause", function()
+  -- red under: an idle change that waits out the old interval, or an AFK pause that outlives the
+  -- setting that made it.
+  world(function()
+    local p = NS.db.profile.settings.farm
+    local savedIdle, savedAfk = p.idleMinutes, p.pauseOnAFK
+    local ok, err = pcall(function()
+      local s = F:Start()
+      local h = F._tick
+      assertTrue(h ~= nil, "the idle ticker is armed")
+      NS.Schema:Set("settings.farm.idleMinutes", 10)
+      assertTrue(F._tick ~= nil and F._tick ~= h, "a fresh ticker")
+      assertTrue(h.canceled == true, "the old one canceled")
+      clock.t = T0 + 30
+      with(NS.Compat, { IsPlayerAFK = function() return true end }, function() F:OnFlags("player") end)
+      assertEqual(s.pauseReason, "afk", "AFK paused it")
+      clock.t = T0 + 90
+      NS.Schema:Set("settings.farm.pauseOnAFK", false)
+      assertTrue(s.runningSince == T0 + 90 and s.pauseReason == nil, "Pause when AFK off resumed it")
+      NS.Schema:Set("settings.farm.pauseOnAFK", true)
+      assertTrue(s.runningSince == T0 + 90, "turning it back on pauses nothing")
+    end)
+    p.idleMinutes, p.pauseOnAFK = savedIdle, savedAfk
+    if not ok then error(err, 0) end
+  end)
+end)

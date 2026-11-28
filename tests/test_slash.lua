@@ -60,10 +60,12 @@ test("list emits azure [group] headers in the declared order", function()
   -- field, so the CLI's section order is the strip's order by construction. Asserted over the
   -- schema's own declared order rather than a second hand-written list, which is how the two
   -- would drift the next time a tab is renamed.
+  -- Page-aware (#39, farm spec §9.4): a row off the General page lists under `<page> > <tab>`.
   local lines = Sl:BuildListLines()
   local want, seen = {}, {}
   for _, row in ipairs(NS.Schema.Schema) do
-    if not seen[row.group] then seen[row.group] = true; want[#want + 1] = row.group end
+    local key = row.page == "General" and row.group or (row.page .. " > " .. row.group)
+    if not seen[key] then seen[key] = true; want[#want + 1] = key end
   end
   assertTrue(#want >= 2, "there must be several groups, or the ordering below is vacuous")
 

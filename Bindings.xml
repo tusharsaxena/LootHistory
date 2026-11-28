@@ -1,3 +1,5 @@
 <Bindings>
   <Binding name="CLICK LootHistoryToggleWindow:LeftButton" category="BINDING_HEADER_LOOTHISTORY"/>
+  <Binding name="CLICK LootHistoryToggleFarm:LeftButton" category="BINDING_HEADER_LOOTHISTORY"/>
+  <Binding name="CLICK LootHistoryFarmStartFinish:LeftButton" category="BINDING_HEADER_LOOTHISTORY"/>
 </Bindings>

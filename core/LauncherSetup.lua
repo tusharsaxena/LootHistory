@@ -57,10 +57,12 @@ NS.LAUNCHER_ICON =
 --- feature-verb gate settings/Schema.lua wraps round `toggle` and `test`, the confirmation line
 --- `enable` prints and the refusal `test` speaks all come along. So does the Show window key
 --- binding below, which is why this sits above the degraded exit. Looked up at CALL time, because
---- NS.COMMANDS is built by settings/Schema.lua, which loads after this file.
-local function runVerb(verb)
+--- NS.COMMANDS is built by settings/Schema.lua, which loads after this file. `rest` is the rest of
+--- the line the verb is handed, `""` when omitted, so the one-word callers are unchanged and the
+--- farm Start or finish binding can name its word (#39, farm spec §8).
+local function runVerb(verb, rest)
   for _, entry in ipairs(NS.COMMANDS or {}) do
-    if entry[1] == verb then return entry[3]("") end
+    if entry[1] == verb then return entry[3](rest or "") end
   end
 end
 -- Published for the History window's lock mark (AF-HDR-LH), which runs `/lh lock` / `/lh unlock`
@@ -92,6 +94,29 @@ toggleButton:SetScript("OnClick", function()
   local line = NS.RefusalLine()
   if line then return NS.Print(line) end
   runVerb("toggle")
+end)
+
+-- ── THE TWO FARM KEY BINDINGS (#39, farm spec §8, D21) ──────────────────────────────────────
+--
+-- The same shape as the Show window button above, for the same reasons: plain, hidden, NON-SECURE,
+-- named (THE NAMES ARE PERMANENT: a player's key is stored against the binding string), registered
+-- for AnyDown, created above the degraded exit, and asked for a refusal by hold first. Each press is
+-- the `/lh farm` verb itself, so the feature-verb gate, the refusal lines and the summary at Finish
+-- are the verb's own; the Start or finish button only picks the word. NS.Farm is read at press time.
+local function farmButton(name, word)
+  local b = CreateFrame("Button", name, UIParent)
+  b:Hide()
+  b:RegisterForClicks("AnyDown")
+  b:SetScript("OnClick", function()
+    local line = NS.RefusalLine()
+    if line then return NS.Print(line) end
+    runVerb("farm", word())
+  end)
+  return b
+end
+farmButton("LootHistoryToggleFarm", function() return "" end)
+farmButton("LootHistoryFarmStartFinish", function()
+  return (NS.Farm and NS.Farm:Active()) and "finish" or "start"
 end)
 
 -- ── THE SIM PAIR (launcher Sim mode entry and the Master controls Sim mode box) ───────────────
@@ -162,12 +187,18 @@ end
 -- shared ADDONS category unbound nobody's key.
 BINDING_HEADER_LOOTHISTORY = NS.BRAND
 rawset(_G, "BINDING_NAME_CLICK LootHistoryToggleWindow:LeftButton", NS.L["Toggle history browser"])
+-- The farm pair (#39): verb phrases, the mockup's "Start / finish" made one with "or" (launcher-§6).
+rawset(_G, "BINDING_NAME_CLICK LootHistoryToggleFarm:LeftButton", NS.L["Toggle farm session"])
+rawset(_G, "BINDING_NAME_CLICK LootHistoryFarmStartFinish:LeftButton", NS.L["Start or finish farm session"])
 
 -- The ONE bindings table (launcher-§6): Bindings.xml order, Show window first. The General page's
 -- Keybindings tab (settings/Panel.lua, O.KeybindingsTab; options-ui-§20) draws one row per entry, and
 -- tests/test_keybinding.lua checks it against Bindings.xml through Kit.assertBindingsXml.
 NS.BINDINGS = {
   { command = "CLICK LootHistoryToggleWindow:LeftButton", tooltip = NS.L["Shows or hides the history browser."] },
+  { command = "CLICK LootHistoryToggleFarm:LeftButton", tooltip = NS.L["Shows or hides the farm session panel."] },
+  { command = "CLICK LootHistoryFarmStartFinish:LeftButton",
+    tooltip = NS.L["Starts a farm session, or finishes the running one and shows its summary."] },
 }
 
 if not Launcher then
@@ -250,6 +281,16 @@ NS.Launcher = Launcher:New({
     return (f ~= nil and f:IsShown()) and true or false
   end,
   toggleWindow = function() runVerb("toggle") end,
+
+  -- FARM SESSION (#39, farm spec §8; Launcher minor 11's extraEntries, launcher-§2): one row after the
+  -- built-ins, ticked while the companion panel is shown. The toggle is the bare `/lh farm` verb, so
+  -- the panel's own visibility refusal answers as it does for the verb. Gated (the default): grayed
+  -- while the addon is disabled, as the farm verb refuses then.
+  extraEntries = { {
+    label = NS.L["Farm session"],
+    checked = function() return (NS.FarmPanel and NS.FarmPanel:IsShown()) and true or false end,
+    onClick = function() runVerb("farm") end,
+  } },
 
   -- THE STATUS TOOLTIP IS THE LIBRARY'S (Launcher minor 3, LibKa0s v1.57.0; launcher-§1). It draws
   -- on every hover, INCLUDING while the addon is disabled: `<label>  v<version>`, Enabled, Locked,

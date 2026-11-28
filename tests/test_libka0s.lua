@@ -621,7 +621,7 @@ test("every seam file resolves its major with the silent flag", function()
 end)
 
 test("the Options page registry built every page this addon declares", function()
-  -- THREE sub-pages, General, Toasts (#38) and Profiles LAST (options-ui-§3). The Filters and AH price sub-pages
+  -- FOUR sub-pages, General, Toasts (#38), Farm (#39) and Profiles LAST (options-ui-§3). The Filters and AH price sub-pages
   -- are tabs on General's strip since R6, so their registrations are gone rather than failing.
   -- Profiles "builds" headless too: its builder answers nil without AceDBOptions, which the
   -- registry counts as a page that opted out, not one that failed. Asserted as an exact, ordered
@@ -629,7 +629,7 @@ test("the Options page registry built every page this addon declares", function(
   -- the latter.
   local built = {}
   for _, page in ipairs(NS.Options.__pages()) do built[#built + 1] = page.key end
-  assertEqual(table.concat(built, " | "), "General | Toasts | Profiles",
+  assertEqual(table.concat(built, " | "), "General | Toasts | Farm | Profiles",
     "a raising builder is reported and skipped, and a leftover registration is a page nobody drew")
 end)
 

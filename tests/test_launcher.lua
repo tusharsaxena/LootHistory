@@ -245,7 +245,7 @@ end
 local MENU = dofile("tests/mock_menu.lua")(T.mocks)
 MENU.remove()
 
-local SPIED_VERBS = { enable = true, disable = true, test = true, toggle = true }
+local SPIED_VERBS = { enable = true, disable = true, test = true, toggle = true, farm = true }
 
 --- Run `fn(calls)` with the panel opener and the four verbs the menu reaches replaced by counters,
 --- IN NS.COMMANDS ITSELF -- the table `/lh <verb>` dispatches through -- so a case can tell a toggle
@@ -341,8 +341,9 @@ test("launcher: right-click opens the options menu — the brand title, then the
     assertEqual(#menu.titles, 1)
     assertEqual(menu.titles[1], NS.BRAND, "the menu's title is the plain-text label")
     local texts = menu:Texts()
-    local want = { "Enabled", "Locked", "Test mode", "Sim mode", "Show window" }
-    assertEqual(#texts, #want, "the menu lists exactly five entries: " .. table.concat(texts, " / "))
+    -- The five built-ins, then the farm session's extra entry (#39, farm spec §8; launcher-§2).
+    local want = { "Enabled", "Locked", "Test mode", "Sim mode", "Show window", "Farm session" }
+    assertEqual(#texts, #want, "the menu lists exactly six entries: " .. table.concat(texts, " / "))
     for i, w in ipairs(want) do assertEqual(texts[i], w, "menu entry " .. i) end
     for _, e in ipairs(menu.entries) do assertTrue(e.enabled, e.text .. " must be live while enabled") end
     assertEqual(menu:Checked("Enabled"), true)
@@ -400,6 +401,30 @@ test("launcher: each menu entry toggles through the addon's own handler, once", 
   end)
 end)
 
+test("launcher: Farm session is ticked while the farm panel is shown, and runs the bare /lh farm once",
+  function()
+    -- farm spec §8 (D21; launcher-§2's extraEntries): the entry holds no state. Its tick reads
+    -- NS.FarmPanel:IsShown on every open, and its click is the `/lh farm` verb, spied in NS.COMMANDS.
+    -- red under: a cached tick, a click reaching FarmPanel:Toggle past the verb's gate, or a second call.
+    local realShown = NS.FarmPanel.IsShown
+    local panelShown = false
+    NS.FarmPanel.IsShown = function() return panelShown end
+    local ok, err = pcall(function()
+      withSpies(function(calls)
+        withState({ locked = false, test = false, enabled = true }, function()
+          local m = openMenu(false)
+          assertEqual(m:Checked("Farm session"), false, "unticked while the panel is hidden")
+          panelShown = true
+          assertEqual(m:Checked("Farm session"), true, "ticked while the panel is shown")
+          m:Click("Farm session")
+        end)
+        assertEqual(table.concat(calls.verbs, ","), "farm", "the click runs /lh farm, once")
+      end)
+    end)
+    NS.FarmPanel.IsShown = realShown
+    if not ok then error(err, 0) end
+  end)
+
 test("launcher: while disabled, Enabled stays live and the other three are grayed and call nothing",
   function()
     -- launcher-§2 and slash-commands-§7: features refuse while the addon is off, so the menu shows
@@ -413,11 +438,11 @@ test("launcher: while disabled, Enabled stays live and the other three are graye
         local texts = menu:Texts()
         local want = { "Enabled", "Locked (enable the addon first)",
           "Test mode (enable the addon first)", "Sim mode (enable the addon first)",
-          "Show window (enable the addon first)" }
+          "Show window (enable the addon first)", "Farm session (enable the addon first)" }
         for i, w in ipairs(want) do assertEqual(texts[i], w, "disabled menu entry " .. i) end
         assertTrue(menu:Find("Enabled").enabled, "Enabled stays clickable while off")
         local lockedBefore = NS.db.profile.settings.locked
-        for _, prefix in ipairs({ "Locked", "Test mode", "Sim mode", "Show window" }) do
+        for _, prefix in ipairs({ "Locked", "Test mode", "Sim mode", "Show window", "Farm session" }) do
           assertEqual(menu:Find(prefix).enabled, false, prefix .. " must be grayed while off")
           assertTrue(menu:Click(prefix) == nil, "a grayed entry cannot be clicked")
           menu:ForceClick(prefix)

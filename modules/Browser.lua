@@ -96,7 +96,7 @@ end
 -- `extras` are W.HeaderButtons' own, left of the settings mark: the History window passes its lock
 -- (AF-HDR-LH). On a degraded install (no HeaderButtons) the close alone, 6 px in from the bar's
 -- right, as before. Sets `win.closeButton`, `win.settingsButton` (nil on a companion),
--- `win.lockButton` (the `lock` extra, if any) and answers the S.Header `right` list (outermost first).
+-- `win.lockButton` (the `lock` extra, if any), `win.farmButton` (the `farm` extra, if any) and answers the S.Header `right` list (outermost first).
 function B:MakeTitleMarks(bar, win, onClose, companion, extras)
   local hb = NS.MakeHeaderButtons and NS.MakeHeaderButtons(bar, {
     close = onClose, frame = win, companion = companion == true or nil, extras = extras,
@@ -105,6 +105,7 @@ function B:MakeTitleMarks(bar, win, onClose, companion, extras)
   if hb then
     win.closeButton, win.settingsButton = hb.close, hb.settings
     win.lockButton = hb.extras and hb.extras.lock
+    win.farmButton = hb.extras and hb.extras.farm
     return hb.right
   end
   local close = B:MakeCloseButton(bar, onClose)
@@ -134,6 +135,15 @@ end
 --- A fresh `lock` extra for another window of this addon that owes the mark (the farm panel, #39):
 --- the same art, tooltip and verbs as the History window's, so every lock mark is one path.
 function B.LockExtra() return lockExtra() end
+
+-- The History window's farm session mark (#39, farm spec §8, D21): the catalog's `map-marker`, left of
+-- the lock. A click runs the bare `/lh farm` verb through NS.RunVerb, so the feature-verb gate and the
+-- companion panel's toggle are the verb's own. The icon and the tip never change, so the host never
+-- repaints it.
+local function farmExtra()
+  return { key = "farm", icon = "map-marker", tip = NS.L["Farm session: shows or hides the panel."],
+    onClick = function() if NS.RunVerb then NS.RunVerb("farm") end end }
+end
 
 --- Flip the lock through the verbs: `/lh unlock` while locked, `/lh lock` while not.
 function B:ToggleLock()
@@ -657,9 +667,10 @@ local function EnsureFrame()
   divider:SetHeight(1)
   frame.dividerBar = divider
 
-  -- The title-bar marks, lock · settings · close (AD-86-LH, AF-HDR-LH): B:MakeTitleMarks above. The
-  -- History window is HIGH strata, the settings panel's own, so it stays up when settings opens.
-  local marks = B:MakeTitleMarks(titleBar, frame, function() B:Hide() end, nil, { lockExtra() })
+  -- The title-bar marks, farm · lock · settings · close (AD-86-LH, AF-HDR-LH, #39): B:MakeTitleMarks
+  -- above. The History window is HIGH strata, the settings panel's own, so it stays up when settings
+  -- opens.
+  local marks = B:MakeTitleMarks(titleBar, frame, function() B:Hide() end, nil, { farmExtra(), lockExtra() })
 
   -- The header on the window's title band (R5-WIN of Ka0sAddonsCommonTasks
   -- docs/2026-11-03-SMOKE_ROUND5, items 2 and 5): S.Band is the band at Shell's own inset and

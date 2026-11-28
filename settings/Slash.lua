@@ -478,11 +478,16 @@ local Dispatcher = lib:New({
   -- The outermost close also sends the Toasts page's one owed SETTINGS_CHANGED (SchemaToasts).
   bulkEnd      = function(...) NS.Schema.BulkEnd(...); NS.SchemaToasts.FlushChanged() end,
 
-  -- `/lh list` groups by the panel section header. The library's default is `row.page`, which this
-  -- addon has no concept of — it is a single-panel addon, so its schema `group` values ARE the
-  -- headings, and using them keeps the listing in the same order and under the same names the
-  -- settings panel shows.
-  groupKey = function(row) return row.group or "?" end,
+  -- `/lh list` groups by the panel's TAB, named as the settings panel shows it. The library's default
+  -- is `row.page` alone, which would fold a whole page into one heading. A General-page row lists
+  -- under its tab (`Capture`); a row on another page under `<page> > <tab>` (`Toasts > General`,
+  -- `Farm > General`), because the Toasts and Farm strips (#38, #39) both have a General tab, and a
+  -- page-blind key would merge them into one heading.
+  groupKey = function(row)
+    local group = row.group or "?"
+    if row.page and row.page ~= "General" then return row.page .. " > " .. group end
+    return group
+  end,
 
   -- The set-valued rows, per the note on FormatSchemaValue above.
   format = function(row, v) return Sl.FormatSchemaValue(row, v) end,

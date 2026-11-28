@@ -385,6 +385,27 @@ settings.enabled | bool | true | nil | nil | nil
 settings.excludeAmmo | bool | <AMMO> | nil | nil | nil
 settings.excludeQuestItems | bool | true | nil | nil | nil
 settings.excludedSources | table | {} | nil | nil | nil
+settings.farm.activity.containers | bool | true | nil | nil | nil
+settings.farm.activity.currency | bool | false | nil | nil | nil
+settings.farm.activity.deaths | bool | false | nil | nil | nil
+settings.farm.activity.fish | bool | true | nil | nil | nil
+settings.farm.activity.items | bool | true | nil | nil | nil
+settings.farm.activity.looks | bool | true | nil | nil | nil
+settings.farm.activity.mobs | bool | true | nil | nil | nil
+settings.farm.activity.nodes | bool | true | nil | nil | nil
+settings.farm.activity.quality | bool | true | nil | nil | nil
+settings.farm.activity.questRewards | bool | true | nil | nil | nil
+settings.farm.activity.quests | bool | true | nil | nil | nil
+settings.farm.activity.rep | bool | true | nil | nil | nil
+settings.farm.activity.skill | bool | true | nil | nil | nil
+settings.farm.activity.xp | bool | true | nil | nil | nil
+settings.farm.headlineBasis | string | "gross" | nil | nil | nil
+settings.farm.headlineValue | string | "ah" | nil | nil | nil
+settings.farm.hideZero | bool | false | nil | nil | nil
+settings.farm.idleMinutes | number | 5 | 0 | 30 | 1
+settings.farm.keep | number | 100 | 0 | 500 | 10
+settings.farm.pauseOnAFK | bool | true | nil | nil | nil
+settings.farm.showPanelOnStart | bool | true | nil | nil | nil
 settings.locked | bool | false | nil | nil | nil
 settings.qualityThreshold | number | 1 | nil | nil | nil
 settings.recordAppearances | bool | true | nil | nil | nil
@@ -412,7 +433,7 @@ state.testMode | bool | false | nil | nil | nil
 ]]
 
 test("Schema: the stored settings (path, type, default, range) are the pinned set", function()
-  -- The General page's rows. The Toasts page's (#38) are pinned per feed by tests/test_panel_toasts.lua:
+  -- The General and Farm (#39) pages' rows. The Toasts page's (#38) are pinned per feed by tests/test_panel_toasts.lua:
   -- the same leaves in the same order on every feed, each default equal to defaults/Profile.lua's.
   local lines = {}
   for _, row in ipairs(NS.Schema.Schema) do

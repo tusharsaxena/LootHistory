@@ -115,6 +115,10 @@ P._makeMultiCheck = makeMultiCheck
 --
 -- NO O.Section heading any more. Under a strip the tab IS the heading, and a "History" heading
 -- inside a tab called History is the page saying the same thing twice.
+-- The FarmChanged reasons that move the readout's farm line (#39): a saved, started, deleted or
+-- trimmed session, or a swapped store.
+local FARM_STORAGE_REASONS = { start = true, finish = true, delete = true, store = true }
+
 local function renderHistory(ctx)
   local scroll = O.EnsureScroll(ctx)
   if not scroll then return end
@@ -152,8 +156,12 @@ local function renderHistory(ctx)
     end
     -- "~" marks the estimate (real SavedVariables file size can't be read in-game). Not U+2248, which
     -- two skin faces cannot draw (ruling D-19, tests/test_glyphs.lua).
+    -- The saved farm sessions (#39, farm spec §4.6), under the history line: their own count and
+    -- estimate, open sessions included (NS.Farm:StorageStats). "~" for the reason above.
+    local farm = string.format("\nFarm sessions: %d (~%s)", s.farmSessions or 0,
+      NS.Util.FormatBytes(s.farmBytes or 0))
     statsLabel:SetText(line1 .. "\nDatabase size: ~" ..
-      NS.Util.FormatBytes(s.bytes) .. "  (estimated)")
+      NS.Util.FormatBytes(s.bytes) .. "  (estimated)" .. farm)
   end
   ctx.refreshers[#ctx.refreshers + 1] = refreshStats
   refreshStats()
@@ -187,6 +195,11 @@ local function renderHistory(ctx)
       -- once. Only the automatic, bursty message needs collapsing.
       ev:RegisterMessage(NS.MSG.RECORD_ADDED,
         NS.Coalesce(onChange, NS.Constants.RECORD_ADDED_COALESCE))
+      -- The farm line (#39) moves only when a session is saved, started, deleted or trimmed, or the
+      -- store is swapped; a gain or a pause changes no count the readout shows to the byte it rounds.
+      ev:RegisterMessage(NS.MSG.FARM_CHANGED, function(_, reason)
+        if FARM_STORAGE_REASONS[reason] then onChange() end
+      end)
       P.__ev = ev
     end
   end
@@ -787,7 +800,7 @@ function P:Register()
           and Settings.RegisterCanvasLayoutSubcategory) then return end
   registered = true
 
-  -- THREE sub-pages: General, Toasts, then Profiles. Filters and AH price were sub-pages of their own
+  -- FOUR sub-pages: General, Toasts, Farm, then Profiles. Filters and AH price were sub-pages of their own
   -- until R6 folded them into General's strip; their bodies are unchanged and their two registrations
   -- are gone.
   O.RegisterOptionsPage("General", "General", function(mainCategory)
@@ -810,6 +823,11 @@ function P:Register()
   -- page is the three toast feeds, picked in its banner.
   if NS.ToastsPage then
     O.RegisterOptionsPage("Toasts", "Toasts", NS.ToastsPage.Build)
+  end
+  -- Farm after Toasts (#39, D23). Its builder is settings/PanelFarm.lua's; the strip is the Farm
+  -- rows' two tabs, General and Activity.
+  if NS.FarmPage then
+    O.RegisterOptionsPage("Farm", "Farm", NS.FarmPage.Build)
   end
   -- Profiles LAST in the Settings tree (options-ui-§3), registered here rather than at its own file
   -- load so the order is this function's and not the TOC's. The builder answers nil -- the page

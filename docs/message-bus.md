@@ -79,7 +79,7 @@ Sent from nineteen schema-row `onChange` handlers in [`settings/Schema.lua`](../
 - `"chrome"` (`settings.scale`, `settings.alpha` and `settings.locked`, so the Browser re-applies the addon-wide chrome to both of its frames);
 - `"tooltip"` (the five `settings.tooltip.*` rows, #34).
 
-Every row on the **Toasts** page (`settings/SchemaToasts.lua`, #38) sends a thirteenth, `"toasts"`, whichever feed or setting it is.
+Every row on the **Toasts** page (`settings/SchemaToasts.lua`, #38) sends a thirteenth, `"toasts"`, whichever feed or setting it is. Every row on the **Farm** page (`settings/SchemaFarm.lua`, #39) sends `"farm"`, which the farm panel, the Details window and the Farm tab repaint on.
 
 A fourteenth, `"profile"`, comes from the same module but not from a row: `S:AdoptProfile`, which the profile adopt path (`NS.OnProfileEvent`, `core/LootHistory.lua`) runs once per profile switch, copy or reset, because every setting may have changed at once. Keeping it in `settings/Schema.lua` keeps the message at one sending module. The reason lets a subscriber branch; the Collector and the Browser re-read everything on any reason, the Reputation and Appearance owners re-read their upvalues on any reason and toggle their rows only on theirs, and the other six consumers act only on theirs:
 

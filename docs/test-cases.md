@@ -1057,7 +1057,7 @@ Total.
 - Stats: an item-only history answers empty progress aggregates
 - Stats: the ledger's kindIn and kindOut count reputation and appearance rows
 
-### test_browser.lua (87)
+### test_browser.lua (88)
 
 - Browser.MinWidth is wide enough for both the columns and the toolbar
 - Browser: Export reaches the bar's right edge at minimum width, never below its floor
@@ -1136,7 +1136,8 @@ Total.
 - Browser: the History title bar reads settings · close, built by W.HeaderButtons (AD-86-LH)
 - Browser: the History settings mark opens this addon's settings and keeps the window up (AD-86-LH)
 - Browser: a degraded install (no W.HeaderButtons) keeps the close alone, 6 px in (AD-86-LH)
-- Browser: the History title bar reads lock · settings · close (AF-HDR-LH)
+- Browser: the History title bar reads farm · lock · settings · close (AF-HDR-LH, #39)
+- Browser: the farm mark is the `farm` extra, and a click runs the bare /lh farm verb once (#39)
 - Browser: the lock mark shows unlock while unlocked and lock while locked (AF-HDR-LH)
 - Browser: a click on the lock mark runs /lh lock, then /lh unlock, and repaints (AF-HDR-LH)
 - Browser: a click under the cursor rewrites the open tooltip (AF-HDR-LH review)
@@ -1366,7 +1367,7 @@ Total.
 - Layers: the row menu closes when the History window hides
 - Layers: BrowserTable:HideMenu is safe before the menu exists
 
-### test_launcher.lua (22)
+### test_launcher.lua (23)
 
 - launcher: the 128 logo ships, and it is the uncompressed 32-bit file the client can load
 - launcher: the TOC's IconTexture and the LDB object's icon are the SAME file
@@ -1378,6 +1379,7 @@ Total.
 - launcher: right-click with no client menu API degrades to the settings panel
 - launcher: right-click opens the options menu — the brand title, then the four entries in order
 - launcher: each menu entry toggles through the addon's own handler, once
+- launcher: Farm session is ticked while the farm panel is shown, and runs the bare /lh farm once
 - launcher: while disabled, Enabled stays live and the other three are grayed and call nothing
 - launcher: the Minimap button row moves the real button, through the single write seam
 - launcher: Reset all settings leaves LibDBIcon's global table alone, so nothing needs re-pointing
@@ -1396,15 +1398,20 @@ Total.
 - launcher descriptor passes openSkinPicker, which runs the skin verb
 - mode strips pass sim or onEnd, so the right-click menu has something to end (SF-F1)
 
-### test_keybinding.lua (7)
+### test_keybinding.lua (12)
 
-- keybinding: Bindings.xml has the launcher-§6 shape: one CLICK LootHistoryToggleWindow:LeftButton in category BINDING_HEADER_LOOTHISTORY, no header, no default, labeled
+- keybinding: Bindings.xml has the launcher-§6 shape: Show window, then the two farm bindings, in category BINDING_HEADER_LOOTHISTORY, no header, no default, labeled
 - keybinding: NS.BINDINGS is one table, Bindings.xml order, Show window first, each with a tooltip
 - keybinding: Bindings.xml is not listed in LootHistory.toc
 - keybinding: the button exists, is named, is not secure, registers AnyDown
 - keybinding: labels: BINDING_HEADER_LOOTHISTORY == NS.BRAND and the BINDING_NAME global is set
 - keybinding: one press toggles once (open then close) through the toggle verb
 - keybinding: the button exists on a degraded install (no Launcher library)
+- keybinding: the two farm buttons exist, are named, are not secure, register AnyDown
+- keybinding: the farm labels are set and say what each binding does
+- keybinding: one farm toggle press is one bare /lh farm; Start or finish picks the word
+- keybinding: a farm press refuses with the RefusalLine while the addon cannot act
+- keybinding: the farm buttons exist on a degraded install (no Launcher library)
 
 ### test_slash.lua (50)
 
@@ -1459,7 +1466,7 @@ Total.
 - OnSlash dispatches a host verb and lower-cases only the verb
 - an unknown verb says so and then prints the help index
 
-### test_slash_verbs.lua (16)
+### test_slash_verbs.lua (20)
 
 - bare /lh runs the config verb with an empty argument and prints no help
 - whitespace-only /lh is bare too and runs the config verb
@@ -1477,6 +1484,10 @@ Total.
 - /lh holdings caps its report at ten matches
 - /lh holdings with no match answers in chat and writes no report
 - /lh lock and /lh unlock are feature verbs: refused while disabled, writing nothing (AF-HDR-LH)
+- /lh farm: each word runs its verb and answers its own line, refusals included
+- /lh farm: the bare verb toggles the companion panel
+- /lh farm is a feature verb: refused while disabled on the one line, opening nothing
+- /lh list headings are page-aware: a General, a Toasts and a Farm row list under three headings
 
 ### test_slash_degraded.lua (17)
 
@@ -1509,7 +1520,7 @@ Total.
 - Reset prompt: in combat the offer waits for PLAYER_REGEN_ENABLED and stand-down drops it
 - Reset prompt: closing the export window after "Export first" asks again, once
 
-### test_schema.lua (50)
+### test_schema.lua (55)
 
 - Schema: debugConsole row is session-only, on the Master controls tab
 - Schema: Master controls is the FIRST group on the General page
@@ -1561,6 +1572,11 @@ Total.
 - Schema: every slider declares a step it can actually be dragged to
 - Schema: every doc that counts the rows counts the same number the schema ships
 - Schema: the docs' per-tab breakdown is the schema's own partition
+- Schema: the Farm rows send SETTINGS_CHANGED farm, and Sessions kept is account-wide and reset-exempt
+- Schema: the Farm Activity rows are §6's fourteen, then Hide lines that read 0; looks is Retail's
+- Schema: lowering Sessions kept asks first; accept trims every character
+- Schema: cancel restores the last confirmed cap and says so; a raise that deletes nothing asks nothing
+- Schema: a simulation refuses a trim and writes the cap back
 
 ### test_schema_seam.lua (26)
 
@@ -1886,9 +1902,9 @@ Total.
 - Migrate v14->v15: a stored Ka0s Friz Quadrata TT becomes Ka0s Ubuntu in every profile, Blizzard's Friz kept
 - Migrate v15->v16: the removed Item sources switch leaves every stored profile, other settings kept
 
-### test_panel.lua (48)
+### test_panel.lua (51)
 
-- Panel: the parent category and its two sub-pages are registered
+- Panel: the parent category and its three sub-pages are registered
 - Panel: registration is idempotent
 - Panel: the sub-page carries the addon's name for the Blizzard left tree
 - Panel: the General page draws the whole strip, in order, opening on Master controls
@@ -1901,6 +1917,9 @@ Total.
 - Panel: the History tab holds retention, the storage readout and the purge
 - Panel: a burst of RecordAdded collapses to ONE StorageStats pass
 - Panel: HistoryChanged still repaints the readout immediately
+- Panel: the readout carries the farm line, and FarmChanged repaints it only when a count moves (#39)
+- Farm page: the strip is General then Activity, each drawing its rows
+- Farm page: Defaults restores every Farm row and leaves Sessions kept per character
 - Panel: a checkbox row draws a CheckBox, a dropdown row a Dropdown, a slider row a Slider
 - Panel: a key-map dropdown is populated in its declared sorting, not in pairs() order
 - Panel: a dropdown is populated from the row's values, in declared order
@@ -2447,7 +2466,7 @@ Total.
 - Dispatch: Record appearances off unregisters the two TRANSMOG rows and on restores them
 - Dispatch: the reputation row follows Record reputation OR the gain feed, and the Progress rows the feed
 
-### test_farm.lua (29)
+### test_farm.lua (30)
 
 - Farm: with no session nothing is registered; Start registers all of it, Finish takes it all down
 - Farm: Start while a session is open refuses on one line
@@ -2478,6 +2497,7 @@ Total.
 - Farm: the verbs answer each state, the bare verb toggles the panel, the status line reads the session
 - Farm: an idle pause made manual by the verb stays closed to gains
 - Farm: StorageStats estimates every saved and open session; Database:StorageStats carries it
+- Farm: Pause after idle re-arms the ticker; Pause when AFK off resumes an AFK pause
 
 ### test_farm_panel.lua (27)
 
@@ -3123,7 +3143,7 @@ Total.
 | test_escrow.lua | 21 |
 | test_database.lua | 91 |
 | test_stats.lua | 32 |
-| test_browser.lua | 87 |
+| test_browser.lua | 88 |
 | test_browser_filterbar.lua | 24 |
 | test_teststrip.lua | 8 |
 | test_browser_footer.lua | 4 |
@@ -3131,14 +3151,14 @@ Total.
 | test_export.lua | 41 |
 | test_debuglog.lua | 21 |
 | test_layers.lua | 11 |
-| test_launcher.lua | 22 |
+| test_launcher.lua | 23 |
 | test_launcher_skin_entry.lua | 2 |
-| test_keybinding.lua | 7 |
+| test_keybinding.lua | 12 |
 | test_slash.lua | 50 |
-| test_slash_verbs.lua | 16 |
+| test_slash_verbs.lua | 20 |
 | test_slash_degraded.lua | 17 |
 | test_resetprompt.lua | 8 |
-| test_schema.lua | 50 |
+| test_schema.lua | 55 |
 | test_schema_seam.lua | 26 |
 | test_schema_stub.lua | 9 |
 | test_analytics.lua | 52 |
@@ -3150,7 +3170,7 @@ Total.
 | test_autocomplete.lua | 14 |
 | test_testdata.lua | 24 |
 | test_views.lua | 18 |
-| test_panel.lua | 48 |
+| test_panel.lua | 51 |
 | test_panel_filters.lua | 22 |
 | test_panel_auction.lua | 3 |
 | test_panel_keybinds.lua | 8 |
@@ -3177,7 +3197,7 @@ Total.
 | test_probe.lua | 19 |
 | test_debug_coverage.lua | 25 |
 | test_dispatch.lua | 11 |
-| test_farm.lua | 29 |
+| test_farm.lua | 30 |
 | test_farm_panel.lua | 27 |
 | test_farm_details.lua | 22 |
 | test_farm_tab.lua | 20 |
@@ -3208,4 +3228,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2713** |
+| **Total** | **2733** |

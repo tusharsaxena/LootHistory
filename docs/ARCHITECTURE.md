@@ -178,6 +178,11 @@ feeds, built by `settings/SchemaToasts.lua` and stamped `feed`) plus one page-wi
 `settings.toasts.hideAlerts`: 75 rows per feed (General 7, Content 21, Style 35, Motion 7, Behavior 5)
 and 226 in all, of which the registry drops each feed's three appearance rows on WoW Forever. Its banner picks the feed the tabs edit (session state), and the
 descriptor's `rowsForPage` keeps only that feed's rows.
+The **Farm** page (#39, after Toasts and before Profiles) holds the farm session's 21 rows
+(`settings/SchemaFarm.lua`): General 6 and Activity 15, the registry dropping New appearances on WoW
+Forever. Its `settings.farm.keep` is account-wide (`global.farmKeep`, D18) and reset-exempt, like the
+two retentions. `/lh list` names a row off the General page `<page> > <tab>`, because the Toasts and
+Farm strips both have a General tab.
 The `settings.auction.priority` cascade is written outside the helper and carries the
 `architecture-§5` row under Documented deviations. The rest of the store is not a row: the named
 non-setting state (window geometry and the per-tab `savedViews` in the profile; LibDBIcon's `minimap` table, the
@@ -257,6 +262,8 @@ line, and the addon itself is genuinely inert. See [disabled-state.md](disabled-
 ### The Show window key binding
 
 The root `Bindings.xml` (never a TOC line) declares one binding, `CLICK LootHistoryToggleWindow:LeftButton`, in the addon's own category `BINDING_HEADER_LOOTHISTORY` with no `header` and no default key (launcher-§6, anti-pattern #96): the player finds **Toggle history browser** in Options -> Keybindings -> Ka0s Loot History, a section of its own titled with the brand, and on the General page's **Keybindings** tab, which the library draws from `NS.BINDINGS` (`O.KeybindingsTab`, options-ui-§20). `NS.BINDINGS`, the one bindings table, is declared beside the button; `tests/test_keybinding.lua` checks it against `Bindings.xml` through `Kit.assertBindingsXml`. `core/LauncherSetup.lua` creates the plain, hidden, non-secure button of that permanent name **above** its degraded exit, so the key works without the library; its click is the launcher menu's **Show window** handler, the `/lh toggle` verb. A key cannot be grayed, so the click asks `NS.RefusalLine()` (`core/LifecycleSetup.lua`) first and prints its one line while the addon stands down: the disabled line, or *Not available during a performance capture.* under the perf hold alone, which the verb's gate does not see and `B:Show` refuses silently. See [disabled-state.md](disabled-state.md).
+
+**The two farm bindings** (#39, farm spec §8, D21) follow it in `Bindings.xml`, in the same category: `CLICK LootHistoryToggleFarm:LeftButton` (**Toggle farm session**) and `CLICK LootHistoryFarmStartFinish:LeftButton` (**Start or finish farm session**), both in `NS.BINDINGS`, so the Keybindings tab draws three rows. Their buttons are made the same way, above the degraded exit, each asking `NS.RefusalLine()` first; a press runs the `/lh farm` verb through `runVerb(verb, rest)`, bare for the toggle and `start` or `finish` (picked from `NS.Farm:Active()`) for the other, so the verb's gate, lines and summary are its own. The launcher menu adds one extra entry after the built-ins, **Farm session** (`extraEntries`, launcher-§2), ticked while the farm panel is shown and running the bare verb; the History window's title bar carries the matching `map-marker` mark left of the lock.
 
 ---
 

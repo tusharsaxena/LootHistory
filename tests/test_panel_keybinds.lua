@@ -77,6 +77,7 @@ test("Keybindings tab: its rows are NS.BINDINGS in order, labeled with the BINDI
     -- tab whose body is not the library's rows.
     onTab(function(_, rows)
       assertEqual(#rows, #NS.BINDINGS, "one row per binding")
+      assertEqual(#rows, 3, "Show window and the two farm bindings (#39)")
       for i, b in ipairs(NS.BINDINGS) do
         assertEqual(rows[i].command, b.command, "row " .. i .. " is NS.BINDINGS[" .. i .. "]")
         assertEqual(rows[i].label.text, rawget(_G, "BINDING_NAME_" .. b.command),

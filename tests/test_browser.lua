@@ -1042,7 +1042,8 @@ test("Browser: the History title bar reads settings · close, built by W.HeaderB
     local ok, err = pcall(function()
       local hb = f.headerButtons
       assertTrue(hb ~= nil, "the History window's marks are not W.HeaderButtons'")
-      assertEqual(table.concat(hb.order, ","), "lock,settings,close", "left to right lock · settings · close")
+      assertEqual(table.concat(hb.order, ","), "farm,lock,settings,close",
+        "left to right farm · lock · settings · close")
       assertTrue(f.settingsButton ~= nil and f.settingsButton == hb.settings, "the settings mark")
       assertTrue(f.closeButton ~= nil and f.closeButton == hb.close, "the close mark")
       assertEqual(hb.offsets.close, -6, "the close 6 px in from the corner")
@@ -1133,14 +1134,38 @@ local function paintedLock(mark)
   return path, mark.__tip
 end
 
-test("Browser: the History title bar reads lock · settings · close (AF-HDR-LH)", function()
+test("Browser: the History title bar reads farm · lock · settings · close (AF-HDR-LH, #39)", function()
   -- red under: no lock mark, one outside W.HeaderButtons' extras, or one in the wrong place.
   withLockMark(function(f, mark)
     local hb = f.headerButtons
-    assertEqual(table.concat(hb.order, ","), "lock,settings,close", "left to right lock · settings · close")
+    assertEqual(table.concat(hb.order, ","), "farm,lock,settings,close",
+      "left to right farm · lock · settings · close")
     assertTrue(mark ~= nil and mark == hb.extras.lock, "the lock mark is the window's `lock` extra")
     assertEqual(rawget(mark, "__owner"), "LootHistory", "the mark is this addon's")
     assertTrue(mark.icon ~= nil, "the lock mark draws a catalog icon")
+  end)
+end)
+
+test("Browser: the farm mark is the `farm` extra, and a click runs the bare /lh farm verb once (#39)", function()
+  -- farm spec §8 (D21): the History title mark is the verb, so the feature-verb gate and the panel's
+  -- toggle are the verb's own. red under: no farm mark, a mark that calls FarmPanel directly (it skips
+  -- the gate), a click that runs the verb twice or with a word, or a tip that is not the spec's.
+  withLockMark(function(f)
+    local mark = f.farmButton
+    assertTrue(mark ~= nil and mark == f.headerButtons.extras.farm, "win.farmButton is the `farm` extra")
+    assertEqual(rawget(mark, "__owner"), "LootHistory", "the mark is this addon's")
+    assertTrue(mark.icon ~= nil, "the farm mark draws a catalog icon")
+    assertEqual(mark.__tip, "Farm session: shows or hides the panel.", "its tooltip")
+    local entry
+    for _, c in ipairs(NS.COMMANDS) do if c[1] == "farm" then entry = c end end
+    assertTrue(entry ~= nil, "a /lh farm verb exists")
+    local real, calls = entry[3], {}
+    entry[3] = function(rest) calls[#calls + 1] = rest end
+    local ok, err = pcall(function() mark:__fire("OnClick", "LeftButton") end)
+    entry[3] = real
+    if not ok then error(err, 0) end
+    assertEqual(#calls, 1, "one click is one verb call")
+    assertEqual(calls[1], "", "the bare verb: it toggles the panel")
   end)
 end)
 

@@ -147,6 +147,24 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 >   `TD.Publish` also sends `FARM_CHANGED("store")`, so the lists repaint and a window on a sample
 >   session closes when test mode ends.
 
+> **Built in M4.5 (2026-11-28; small calls inside the spec, no owner decision changed).**
+> - §9.2 the trim confirm's buttons are `Delete` and `Cancel`, not `Delete…`: the popup's own button
+>   opens nothing further, and options-ui-§21 keeps the ellipsis for a control that opens a dialog.
+>   The confirm lives in `settings/SchemaFarm.lua` (`SF.OnKeepChanged`, `SF.ConfirmKeep`, popup
+>   `KA0S_LOOTHISTORY_FARM_TRIM`), beside its row, as FarmTab keeps its own popups; `settings/Schema.lua`
+>   gains only the `RESET_EXEMPT` entry. The last confirmed cap is seeded by the row's own `set` from the
+>   value it overwrites, so no init hook is owed. `0` reads `all` in the Cancel line.
+> - §9.2 rows: `showPanelOnStart`, `hideZero` and the twelve unnamed activity rows get tooltips of
+>   their own (the spec gives two). The General tab follows the §9.2 table order (Show the panel before
+>   Sessions kept), not the mockup's. `idleMinutes` and `pauseOnAFK` reach the session through the new
+>   `Farm:OnSettingChanged(leaf, v)`, called by every Farm row before its `SETTINGS_CHANGED "farm"`.
+> - §4.6 the storage readout's farm line is `Farm sessions: N (~X)`: `~`, not `≈` (ruling D-19, two
+>   skin faces cannot draw it). It repaints on `FARM_CHANGED` `start`, `finish`, `delete` and `store`.
+> - §9.4 `tests/test_panel.lua`'s subcategory set reads `Farm | General | Toasts`: the mock's registry
+>   is keyed by name, so the case sorts it, as it did for `General | Toasts`.
+> - §8 the launcher's Farm session entry and both farm key bindings run `runVerb("farm", ...)`; the
+>   History title mark runs `NS.RunVerb("farm")`. The full `/lh farm` grammar was already M4.1b's.
+
 ## 1. Goal
 
 A player starts a farm session, farms, and finishes it. While it runs, a companion panel shows the
