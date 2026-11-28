@@ -187,7 +187,10 @@ local STAND_DOWN_STEPS = {
   method("Progress", "Disable"),
   method("Reconciler", "Disable"), method("Attribution", "Disable"),
   method("Browser", "Disable"), method("Analytics", "Disable"), method("HoldingsTab", "Disable"),
-  method("Timeline", "Disable"), method("Rollup", "Disable"),
+  method("Timeline", "Disable"),
+  -- The farm panel's bus target (#39); the panel itself goes in the Hide steps below.
+  method("FarmPanel", "Disable"),
+  method("Rollup", "Disable"),
   -- The farm session (#39): a running session paused `standDown`, its rows, lifecycle events, GAIN
   -- receiver, write hook and deferrals down, and the farm set dropped -- after every gain observer and
   -- before the gain feed.
@@ -208,6 +211,8 @@ local STAND_DOWN_STEPS = {
   -- coming back, this takes down the one that is already up.
   call("CloseMenu"), method("BrowserTable", "HideMenu"),
   method("Browser", "Hide"), method("Export", "Hide"),
+  -- The farm panel (#39): hidden, and its OnUpdate cleared with it (the frame's OnHide).
+  method("FarmPanel", "Hide"),
   -- The debug console is a diagnostic surface and `/lh debug` keeps answering while the addon is
   -- off (slash-commands-§7), so this hides the window without gating the verb that reopens it.
   method("DebugLog", "Hide"),
@@ -226,6 +231,8 @@ local STAND_UP_STEPS = {
   method("Farm", "Enable"),
   method("Browser", "Enable"), method("Analytics", "Enable"), method("HoldingsTab", "Enable"),
   method("Timeline", "Enable"),
+  -- The farm panel's bus target (#39): FARM_CHANGED and SETTINGS_CHANGED, coalesced.
+  method("FarmPanel", "Enable"),
   -- The toast feeds (#38): built once through NS.NewFeed, the GAIN receiver, the combat rows.
   method("Toasts", "Enable"),
   -- Blizzard's alert toasts hidden, when the switch is on and a feed is enabled (#38).

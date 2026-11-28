@@ -808,7 +808,7 @@ Total.
 - ToastContent: an appearance, and an item with a new look, carry the sub line
 - ToastContent: a raising client read leaves its line empty and never raises
 
-### test_farm_model.lua (21)
+### test_farm_model.lua (23)
 
 - FarmModel New: a running v1 session with empty lines and its first zone
 - FarmModel clock: Elapsed, Bank, Pause and Resume bank only running seconds
@@ -830,6 +830,8 @@ Total.
 - FarmModel costs: copper by reason and currency spent, each logged; nothing for no amount
 - FarmModel NoteMob: each corpse once, the ring evicts the oldest at 257, MobSet rebuilds
 - FarmModel BestPerZone: the best gross rate per zone, 60 s eligible, a tie to the earlier
+- FarmModel activity: the fourteen lines in §6 order, sums for quality, rep and skill
+- FarmModel activity: a line off is skipped, hideZero drops the zeros, nil enabled draws none
 - FarmModel formatters: clock, h:mm, grouped and signed counts, copper text, day label
 
 ### test_reconciler.lua (20)
@@ -1350,11 +1352,12 @@ Total.
 - the copy window's buffer text is the whole buffer, in order
 - InitSummary reports name, version, schema, active profile, and record count
 
-### test_layers.lua (8)
+### test_layers.lua (9)
 
 - Layers: NS.Constants.LAYERS names its strata by the standard's tier keys
 - Layers: no strata literal and no absolute level in the addon's own code
 - Layers: the History window is the on-demand window tier, toplevel and clamped
+- Layers: the farm panel is the persistent window tier, toplevel and clamped (#39)
 - Layers: the Export modal is the modal tier, toplevel and clamped
 - Layers: the row menu is a clamped popup with no full-screen catcher
 - Layers: an outside press dismisses the row menu through GLOBAL_MOUSE_DOWN
@@ -2470,9 +2473,39 @@ Total.
 - Farm: an unpriced item waits for the deferred pass, which re-arms in combat; Finish fills the rest
 - Farm: a session with nothing logged is discarded on one line (F6)
 - Farm: the finish names the session, its value and its clock, then trims to the cap
-- Farm: the verbs answer each state and the bare verb prints the status
+- Farm: the verbs answer each state, the bare verb toggles the panel, the status line reads the session
 - Farm: an idle pause made manual by the verb stays closed to gains
 - Farm: StorageStats estimates every saved and open session; Database:StorageStats carries it
+
+### test_farm_panel.lua (27)
+
+- FarmPanel: the header reads minimize · lock · settings · close, and it is not a companion
+- FarmPanel: minimize swaps the mark's art and tip, persists, and a title double-click flips it
+- FarmPanel: the running view draws the mockup's numbers (gross, AH value)
+- FarmPanel: the headline follows headlineValue and headlineBasis
+- FarmPanel: a rate under a minute reads the dash
+- FarmPanel: Costs read n/a with ledger capture off
+- FarmPanel: the activity lines draw in §6 order, and hideZero drops the zero lines
+- FarmPanel: the paused view dims the headline and hints by the pause's reason
+- FarmPanel: minimized shows the headline, the elapsed line and Pause or Resume with Finish
+- FarmPanel: with no session the panel says so and offers Start
+- FarmPanel: Details and Sessions appear once their windows exist
+- FarmPanel: the footer buttons run the verbs
+- FarmPanel: Start shows the panel when showPanelOnStart is on, and not when it is off
+- FarmPanel: the bare /lh farm toggles the panel
+- FarmPanel: visibility hides it at the combat edge and the next allowing edge shows it again (F9)
+- FarmPanel: the lock mark repaints on SETTINGS_CHANGED through the Browser fan-out
+- FarmPanel: the title drag is refused while locked
+- FarmPanel: a simulation shows its strip while expanded and the title badge while minimized
+- FarmPanel: the OnUpdate runs only while shown and running, at 1 Hz, and goes on hide
+- FarmPanel: the elapsed clock moves on the tick
+- FarmPanel: stood down, Show refuses silently; the Disable and Hide steps take it all down
+- FarmPanel: the panel sits on WINDOW_PERSISTENT, toplevel and clamped
+- FarmList: SetData sorts by the opening sort and binds the slice
+- FarmList: a header click sorts, a second flips the direction, ties keep the data's order
+- FarmList: a fixed-order list ignores the header
+- FarmList: a 2000-row list binds only the visible slice onto pooled rows
+- FarmList: the empty line, and the row click routes
 
 ### test_toast_feed.lua (46)
 
@@ -3034,7 +3067,7 @@ Total.
 | test_progress.lua | 15 |
 | test_toast_model.lua | 34 |
 | test_toast_content.lua | 21 |
-| test_farm_model.lua | 21 |
+| test_farm_model.lua | 23 |
 | test_reconciler.lua | 20 |
 | test_reconciler_rows.lua | 44 |
 | test_escrow.lua | 21 |
@@ -3047,7 +3080,7 @@ Total.
 | test_browsertable.lua | 89 |
 | test_export.lua | 41 |
 | test_debuglog.lua | 21 |
-| test_layers.lua | 8 |
+| test_layers.lua | 9 |
 | test_launcher.lua | 22 |
 | test_launcher_skin_entry.lua | 2 |
 | test_keybinding.lua | 7 |
@@ -3095,6 +3128,7 @@ Total.
 | test_debug_coverage.lua | 25 |
 | test_dispatch.lua | 11 |
 | test_farm.lua | 29 |
+| test_farm_panel.lua | 27 |
 | test_toast_feed.lua | 46 |
 | test_toast_blizz.lua | 7 |
 | test_panel_toasts.lua | 19 |
@@ -3122,4 +3156,4 @@ Total.
 | test_lizard_sighted.lua | 8 |
 | test_widgets.lua | 28 |
 | Skipped | 2 |
-| **Total** | **2639** |
+| **Total** | **2669** |

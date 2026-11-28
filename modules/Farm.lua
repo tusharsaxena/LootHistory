@@ -478,7 +478,7 @@ function Farm:Finish(reason, at)
   return finishMine(self, mine, reason, at or time())
 end
 
--- ── the verbs (§8; the bare verb prints the status until the panel lands, M4.2) ──────────────
+-- ── the verbs (§8; the bare verb toggles the companion panel, M4.2) ──────────────────────────
 
 local function refused()
   local why = NS.RefusalLine and NS.RefusalLine()
@@ -502,6 +502,7 @@ function Farm:Start()
   debug("start #%d in %s", s.id, s.zone ~= "" and s.zone or "?")
   self:Changed("start")
   say("farm session started.")
+  if farmOpt("showPanelOnStart") ~= false and NS.FarmPanel then NS.FarmPanel:Show() end
   return s
 end
 
@@ -561,9 +562,14 @@ end
 local VERBS = { start = "Start", pause = "PauseVerb", resume = "ResumeVerb", finish = "FinishVerb" }
 
 --- `/lh farm [start|pause|resume|finish]`. settings/Schema.lua's row; the feature-verb gate runs first.
+--- Bare toggles the companion panel (modules/FarmPanel.lua); the status line answers only where the
+--- panel module is absent.
 function Farm:RunVerb(rest)
   local w = rest and tostring(rest):lower():match("^%s*(%S*)") or ""
-  if w == "" then return self:PrintStatus() end
+  if w == "" then
+    if NS.FarmPanel then return NS.FarmPanel:Toggle() end
+    return self:PrintStatus()
+  end
   local m = VERBS[w]
   if m then return self[m](self) end
   say("usage: /lh farm [start|pause|resume|finish]")

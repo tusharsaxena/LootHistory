@@ -233,6 +233,12 @@ modules\FarmModel.lua
 # above. Appends its three EVENT_ROWS at file load (core\Dispatch.lua above). Calls
 # NS.GainFeed:SetFarm and subscribes to NS.MSG.GAIN at call time only.
 modules\Farm.lua
+# CONVENTIONAL: the farm windows' list widget (#39); it binds nothing at load (NS.Pool, NS.Skin and the
+# FauxScrollFrame globals at call time). Kept above the farm windows, which reach it.
+modules\FarmList.lua
+# LOAD-BEARING POSITION: binds NS.FarmModel as a file-scope upvalue at load; modules\FarmModel.lua must
+# be above. Reaches NS.Farm, NS.Browser and NS.Pool at call time only (it builds its frame lazily).
+modules\FarmPanel.lua
 modules\TestData.lua
 # CONVENTIONAL: the toast feeds' pure config, filter and merge (#38); binds NS.Constants at load only.
 modules\ToastModel.lua

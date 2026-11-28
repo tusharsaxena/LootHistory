@@ -117,4 +117,6 @@ NS.Sim:AddListener(function()
   if not B then return end
   B:UpdateTestStrip()
   B:UpdateFooter()
+  -- The farm panel's strip and badge follow the same transitions (#39).
+  if NS.FarmPanel and NS.FarmPanel.UpdateStrip then NS.FarmPanel:UpdateStrip() end
 end)

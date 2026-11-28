@@ -57,6 +57,10 @@ local DRAWN = {
   -- data in core/Constants.lua's C.TIP_ICONS and swept below. `gi:locked-chest` is the warband
   -- bank's, drawn on Retail only; the declaration is per repo, not per client.
   "gi:bank", "gi:chest-armor", "gi:envelope", "gi:gavel", "gi:knapsack", "gi:locked-chest",
+  -- the farm panel's marks (#39, modules/FarmPanel.lua): the header's minimize extra, `minimise`
+  -- while expanded and `add` while minimized (named through minimizeFace, a local), and the status
+  -- chip's `media-play` / `media-pause`.
+  "add", "minimise", "media-pause", "media-play",
 }
 
 -- ---------------------------------------------------------------------------

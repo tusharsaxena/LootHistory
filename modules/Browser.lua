@@ -131,17 +131,19 @@ local function lockExtra()
   return { key = "lock", icon = icon, tip = tip, onClick = function() B:ToggleLock() end }
 end
 
+--- A fresh `lock` extra for another window of this addon that owes the mark (the farm panel, #39):
+--- the same art, tooltip and verbs as the History window's, so every lock mark is one path.
+function B.LockExtra() return lockExtra() end
+
 --- Flip the lock through the verbs: `/lh unlock` while locked, `/lh lock` while not.
 function B:ToggleLock()
   if NS.RunVerb then NS.RunVerb(B:IsLocked() and "unlock" or "lock") end
 end
 
---- Repaint the lock mark's art and tooltip for the lock as it stands; a no-op with no mark.
-function B:PaintLockMark()
-  local f = B:GetWindow()
-  local mark = f and f.lockButton
+--- Repaint one header mark's art (catalog `icon`) and tooltip; a no-op with no mark. W.HeaderButtons
+--- evaluates both once, at build, so a mark whose face follows a state is repainted by its host.
+function B:PaintMark(mark, icon, tip)
   if not mark then return end
-  local icon, tip = lockFace()
   local path = NS.Icon and NS.Icon(icon)
   if mark.icon and path then mark.icon:SetTexture(path) end
   mark.__tip = tip
@@ -151,6 +153,18 @@ function B:PaintLockMark()
     local enter = mark:GetScript("OnEnter")
     if enter then enter(mark) end
   end
+end
+
+--- Repaint `mark` (any window's lock extra) for the lock as it stands.
+function B:PaintLockMarkOn(mark)
+  local icon, tip = lockFace()
+  B:PaintMark(mark, icon, tip)
+end
+
+--- Repaint the History window's lock mark for the lock as it stands; a no-op with no mark.
+function B:PaintLockMark()
+  local f = B:GetWindow()
+  B:PaintLockMarkOn(f and f.lockButton)
 end
 
 -- ── Window position/size persistence ──────────────────────────────────────────
@@ -467,6 +481,9 @@ end
 --- window that was never built has nothing to re-read; its first build reads the new profile.
 --- Test mode keeps its stock view: the preview is session state, not the profile's.
 function B:AdoptProfile()
+  -- The farm panel (#39) first, built or not: it re-reads its geometry, minimized state, lock mark,
+  -- chrome and visibility from the new profile (it answers at once when it was never built).
+  if NS.FarmPanel and NS.FarmPanel.AdoptProfile then NS.FarmPanel:AdoptProfile() end
   if not frame then return end
   frame:ClearAllPoints()
   RestoreWindow()
@@ -479,7 +496,6 @@ function B:AdoptProfile()
   B:PaintLockMark()
   B:ApplyVisibility()
 end
-
 -- Attach the virtualized History table to its pane (issue #13: the pane now holds only the table;
 -- the filter bar + footer are shared chrome). The table reads B.activeFilter through
 -- BrowserTable.filter, already set by the shared bar's ApplyView.
@@ -535,9 +551,10 @@ end
 -- One mode strip of `mark`'s kind and text, docked by the library directly under the title bar
 -- (`dock = "title"`, Widgets minor 27; never anchored here), with `tip` on hover; its show and hide
 -- relay the body (`onOffset`). nil on a degraded install (no Widgets library).
-local function buildModeStrip(mark, tip)
-  local dock = { titleBar = frame.titleBar, window = frame, onOffset = function() relayBody() end }
-  local strip = NS.MakeTestStrip(frame, L[mark.strip], mark.kind, dock)
+local function buildModeStrip(mark, tip, win, onOffset)
+  win = win or frame
+  local dock = { titleBar = win.titleBar, window = win, onOffset = onOffset or function() relayBody() end }
+  local strip = NS.MakeTestStrip(win, L[mark.strip], mark.kind, dock)
   if not strip then return nil end
   strip:EnableMouse(true)
   -- The strip is CHROME: its tooltip attached and centered above it (AD-92-LH).
@@ -550,6 +567,12 @@ local function buildModeStrip(mark, tip)
   strip:HookScript("OnLeave", function() GameTooltip:Hide() end)
   return strip
 end
+
+--- The simulation's strip for another window of this addon (the farm panel, #39): the same cyan band,
+--- words and tooltip as the History window's, docked under `win.titleBar`, `onOffset` its relayout.
+--- nil on a degraded install. B.SIM_MARK is its badge's word and color for the same window.
+function B.MakeSimStrip(win, onOffset) return buildModeStrip(SIM_MARK, simTip, win, onOffset) end
+B.SIM_MARK = SIM_MARK
 
 local function EnsureFrame()
   if frame then return frame end
@@ -904,6 +927,9 @@ function B:OnSettingsChanged()
   B:PaintLockMark()
   if NS.Export and NS.Export.ApplyChrome then NS.Export:ApplyChrome() end
   B:ApplyVisibility()
+  -- The farm panel (#39) follows the same master rows: its chrome, its lock mark and visibility (F9).
+  local FP = NS.FarmPanel
+  if FP and FP.OnChromeChanged then FP:OnChromeChanged() end
   -- The MINIMAP BUTTON is deliberately not re-applied here any more. It is the Master controls
   -- "Minimap button" row, and that row's set drives NS.Launcher:SetShown through this addon's
   -- single write seam (settings/Schema.lua) the instant it is flipped -- so re-asserting it on
@@ -960,12 +986,15 @@ function B:Enable()
     -- Per event through Core's helper (events-frames-taint-§1): a refused name costs only itself.
     NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_DISABLED", function()
       B:ApplyVisibility(true)
+      if NS.FarmPanel and NS.FarmPanel.ApplyVisibility then NS.FarmPanel:ApplyVisibility(true) end
       if NS.BrowserTable and NS.BrowserTable.EndTestModeForCombat then
         NS.BrowserTable:EndTestModeForCombat()
       end
     end, NS.RejectedEvents)
-    NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_ENABLED", function() B:ApplyVisibility(false) end,
-      NS.RejectedEvents)
+    NS.SafeRegisterEvent(B.__ev, "PLAYER_REGEN_ENABLED", function()
+      B:ApplyVisibility(false)
+      if NS.FarmPanel and NS.FarmPanel.ApplyVisibility then NS.FarmPanel:ApplyVisibility(false) end
+    end, NS.RejectedEvents)
   end
 end
 

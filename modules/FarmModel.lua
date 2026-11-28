@@ -17,6 +17,7 @@ local C = NS.Constants
 --   M.ApplyGain / SetPrices / ApplyCost / ApplyCurrencyCost      the tallies (§5.5, §5.6, F4)
 --   M.NoteMob / MobSet                          the corpse ring (§5.7)
 --   M.BestPerZone                               the sessions list's star (§5.9)
+--   M.ACTIVITY / ActivityValue / ActivityLines  the activity tally's lines, in display order (§6)
 --   M.Clock / Short / Grouped / Signed / RateText / CopperText / DayLabel        display formatters
 --
 -- Binds NS.Constants at load only (C.FARM, C.SourceType); date() is read at call time.
@@ -460,6 +461,78 @@ function M.BestPerZone(sessions, measure)
   local ids = {}
   for _, b in pairs(best) do ids[b.s.id] = true end
   return ids
+end
+
+-- ── activity lines (§6, D22) ─────────────────────────────────────────────────────────────────
+
+--- The fourteen lines in display order: the `settings.farm.activity` key and the panel's label.
+--- `signed` lines read "+1,240" (a sum that can fall); the rest are plain counts. `looks` is Retail's
+--- only (C.FEATURE.appearances): on WoW Forever the line is never drawn and its tally stays 0.
+M.ACTIVITY = {
+  { key = "mobs", label = "Mobs looted" },
+  { key = "items", label = "Items looted" },
+  { key = "nodes", label = "Nodes gathered" },
+  { key = "fish", label = "Fish caught" },
+  { key = "quests", label = "Quests turned in" },
+  { key = "questRewards", label = "Quest rewards" },
+  { key = "containers", label = "Containers opened" },
+  { key = "quality", label = "Epic+ drops" },
+  { key = "rep", label = "Reputation", signed = true },
+  { key = "xp", label = "Experience", signed = true },
+  { key = "skill", label = "Skill-ups" },
+  { key = "looks", label = "New appearances", feature = "appearances" },
+  { key = "currency", label = "Currencies gained" },
+  { key = "deaths", label = "Deaths" },
+}
+
+local ACTIVITY_SUM = {
+  -- "Epic+ drops": every item of quality EPIC_FLOOR or better.
+  quality = function(q)
+    local n = 0
+    for quality, count in pairs(q or {}) do
+      if quality >= F().EPIC_FLOOR then n = n + count end
+    end
+    return n
+  end,
+  rep = function(rep)
+    local n = 0
+    for _, e in pairs(rep or {}) do n = n + (e.delta or 0) end
+    return n
+  end,
+  skill = function(skill)
+    local n = 0
+    for _, e in pairs(skill or {}) do n = n + max(0, (e.to or 0) - (e.from or 0)) end
+    return n
+  end,
+}
+
+--- One activity line's number from a session's `activity` table.
+function M.ActivityValue(a, key)
+  local sum = ACTIVITY_SUM[key]
+  if sum then return sum(a[key]) end
+  return a[key] or 0
+end
+
+--- The lines to draw for `a`, in order, into `out` (cleared): every line `enabled[key]` turns on and
+--- the client has, without the ones reading 0 when `hideZero`. Each entry is { key, label, value,
+--- text }. A nil `enabled` draws none.
+local function lineOn(line, enabled)
+  if not (enabled and enabled[line.key]) then return false end
+  return not line.feature or C.FEATURE[line.feature] == true
+end
+
+function M.ActivityLines(a, enabled, hideZero, out)
+  out = out or {}
+  for i = #out, 1, -1 do out[i] = nil end
+  for _, line in ipairs(M.ACTIVITY) do
+    local on = lineOn(line, enabled)
+    local v = on and M.ActivityValue(a, line.key) or 0
+    if on and not (hideZero and v == 0) then
+      out[#out + 1] = { key = line.key, label = line.label, value = v,
+        text = line.signed and M.Signed(v) or M.Grouped(v) }
+    end
+  end
+  return out
 end
 
 -- ── display formatters ───────────────────────────────────────────────────────────────────────

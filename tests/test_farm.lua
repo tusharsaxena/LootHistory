@@ -56,6 +56,7 @@ local function world(body)
       NS.SimStores.farm, NS.State.testFarm = nil, nil
       if F:Active() then F:Finish("manual", clock.t) end
       F:Reconcile()
+      NS.FarmPanel:Hide()
     end)
   end)
   NS.GainFeed:ResetState()
@@ -604,9 +605,14 @@ test("Farm: the finish names the session, its value and its clock, then trims to
   end)
 end)
 
-test("Farm: the verbs answer each state and the bare verb prints the status", function()
+test("Farm: the verbs answer each state, the bare verb toggles the panel, the status line reads the session", function()
   world(function()
-    assertEqual(table.concat(chat(function() F:RunVerb("") end)), "no farm session is running.")
+    local toggled = 0
+    with(NS.FarmPanel, { Toggle = function() toggled = toggled + 1 end }, function()
+      assertEqual(table.concat(chat(function() F:RunVerb("") end)), "", "bare: no chat line")
+    end)
+    assertEqual(toggled, 1, "bare toggles the companion panel (M4.2)")
+    assertEqual(table.concat(chat(function() F:PrintStatus() end)), "no farm session is running.")
     assertEqual(table.concat(chat(function() F:RunVerb("pause") end)), "no farm session is running.")
     assertEqual(table.concat(chat(function() F:RunVerb("resume") end)), "no farm session is running.")
     assertEqual(table.concat(chat(function() F:RunVerb("finish") end)), "no farm session is running.")
@@ -614,7 +620,7 @@ test("Farm: the verbs answer each state and the bare verb prints the status", fu
     assertEqual(table.concat(chat(function() F:RunVerb("resume") end)), "the farm session is not paused.")
     assertEqual(table.concat(chat(function() F:RunVerb("PAUSE") end)), "farm session paused.")
     assertEqual(table.concat(chat(function() F:RunVerb("pause") end)), "the farm session is already paused.")
-    local status = table.concat(chat(function() F:RunVerb("") end))
+    local status = table.concat(chat(function() F:PrintStatus() end))
     assertEqual(status, "farm session paused (manual) in Testville: 00:00:00 active, 0c (\226\128\148/h).")
     assertEqual(table.concat(chat(function() F:RunVerb("resume") end)), "farm session resumed.")
     assertEqual(table.concat(chat(function() F:RunVerb("bogus") end)), "usage: /lh farm [start|pause|resume|finish]")

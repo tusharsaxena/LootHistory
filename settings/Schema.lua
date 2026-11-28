@@ -1305,9 +1305,9 @@ NS.COMMANDS = gateFeatureVerbs{
   { "holdings", "Search what your characters and " .. C.ACCOUNT.holder:lower() .. " hold: holdings <query>",
     function(rest) NS.Slash:Holdings(rest) end },
   -- Farm mode (#39, farm spec §8): start, pause, resume and finish a farm session (modules/Farm.lua).
-  -- A feature verb, so the gate above refuses it while the addon is disabled. Bare prints the
-  -- session's status until the companion panel arrives (M4.2), which the bare verb then toggles.
-  { "farm",     NS.L["Farm session: farm [start|pause|resume|finish]; bare prints its status"],
+  -- A feature verb, so the gate above refuses it while the addon is disabled. Bare toggles the
+  -- companion panel (modules/FarmPanel.lua).
+  { "farm",     NS.L["Farm session: farm [start|pause|resume|finish]; bare toggles the panel"],
     function(rest) NS.Farm:RunVerb(rest) end },
   { "debug",    "Toggle window; 'on'/'off' set logging; 'events' lists rejected events; 'probe' records client facts",
     function(rest)

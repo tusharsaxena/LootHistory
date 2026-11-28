@@ -399,10 +399,10 @@ Note `settings.windowScale` **is** a Schema row (a General > Interface > *Histor
 
 ### Named non-setting state: owners and writers
 
-Three more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
-values and no row addresses them, so they are written outside the helper with no register row. Each
-has one owner, `NS.Browser` (`modules/Browser.lua`, whose per-tab view layer, with the saved views'
-writers, is `modules/BrowserViews.lua`), and every writer is listed with the act that reaches it.
+Four more pieces are **named non-setting state** (`architecture-§5`): no control chooses their
+values and no row addresses them, so they are written outside the helper with no register row. The
+first three have one owner, `NS.Browser` (`modules/Browser.lua`, whose per-tab view layer, with the saved views'
+writers, is `modules/BrowserViews.lua`), the fourth `NS.FarmPanel`, and every writer is listed with the act that reaches it.
 
 - **`NS.db.profile.settings.window`**, the window geometry `{ point, x, y, w, h }`. The local
   `SaveWindow` writes it when a title-bar drag stops (the title bar's `OnDragStop` in `EnsureFrame`) and when a resize ends
@@ -425,6 +425,11 @@ writers, is `modules/BrowserViews.lua`), and every writer is listed with the act
   library's `Lock`, `Unlock` or compartment functions, its only other writes into the table. The
   scope is **global** and launcher-§3 fixes it there: a profile switch must not move a player's
   buttons, and no reset reaches it either.
+- **`NS.db.profile.settings.farm.panel`**, the farm panel's `{ point, x, y, minimized }` (#39, farm
+  spec §4.5). `modules/FarmPanel.lua` is its only writer: the title bar's `OnDragStop` stores the
+  point, and `FP:ToggleMinimized` (the header's minimize mark and a title-bar double-click) flips
+  `minimized`. A profile reset brings it back with the rest of the profile, and every profile event
+  re-reads it (`FP:AdoptProfile`, fanned out from `B:AdoptProfile`).
 
 ### The id filter sets: a structural registry
 

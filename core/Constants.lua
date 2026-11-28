@@ -626,6 +626,10 @@ C.TIMELINE = {
 -- the keys are frame-layering-§1's tier keys, so "the window tier" is spelled as in every Ka0s addon.
 --
 -- The whole stack, bottom to top, the tiers this addon borrows included:
+--   MEDIUM   WINDOW_PERSISTENT  the farm session's companion panel (#39, modules/FarmPanel.lua):
+--                      a window kept up while playing (frame-layering-§1 T4, standard v2.122.0),
+--                      toplevel and clamped, below every window opened to read. Its sessions list,
+--                      Details and Summary are on-demand windows and sit on WINDOW (HIGH).
 --   MEDIUM             LibDBIcon minimap button (the library's, fixed).
 --   HIGH     WINDOW    the History window, toplevel and clamped; every pane, table, chart and strip
 --                      in it inherits. Shares HIGH with Blizzard's Settings panel; both are
@@ -650,6 +654,7 @@ C.TIMELINE = {
 -- own content stays at or below + 8 (frame-layering-§3).
 C.LAYERS = {
   STRATA = {
+    WINDOW_PERSISTENT = "MEDIUM",
     WINDOW = "HIGH",
     MODAL  = "DIALOG",
     POPUP  = "FULLSCREEN_DIALOG",

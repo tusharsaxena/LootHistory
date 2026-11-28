@@ -68,6 +68,32 @@ branch). See "Aligned to M3" under the Owner rulings for what moved.
 > - §8 the minimal verb: bare `/lh farm` prints the session's status until M4.2 makes it toggle the
 >   panel. The keep-cap confirm stays with M4.5; M4.1b ships `Farm:CountOverCap` and `OnKeepChanged`.
 
+> **Built in M4.2 (2026-11-28; small calls inside the spec, no owner decision changed).**
+> - §7.1 minimized: the mockup (owner-reviewed) draws rows 1-2, `<elapsed> elapsed` and the footer, so
+>   the minimized panel is sized to that content. The "band height minus twice its inset" line (a
+>   title-only collapse, the Drop Watcher precedent) contradicts the mockup and is not used.
+> - §7.1 footer: `Details` and `Sessions` are drawn only once their windows exist
+>   (`NS.FarmDetails`, M4.3; `FarmPanel:ToggleSessions`, M4.4), so no button is ever dead.
+> - §7.1 mode badge: only the simulation's. Test mode never reaches the panel (§12.3), so it has no
+>   test strip and no test badge.
+> - §6 activity lines live in `modules/FarmModel.lua` (`M.ACTIVITY`, `ActivityValue`,
+>   `ActivityLines`), pure, so the summary and the Details Activity tab (M4.3) reuse one definition.
+> - §3.3 `modules/FarmList.lua` is CONVENTIONAL in the TOC until a window binds it at load (the
+>   panel does not use it); its cases are in `tests/test_farm_panel.lua`.
+> - §7.1 lock and strip: `modules/Browser.lua` publishes `B.LockExtra`, `B:PaintMark`,
+>   `B:PaintLockMarkOn`, `B.MakeSimStrip` and `B.SIM_MARK`, so the panel shares one lock path and
+>   one sim strip with the History window. `B:OnSettingsChanged` calls `FarmPanel:OnChromeChanged`
+>   (chrome, lock mark, visibility); `B:AdoptProfile` calls `FarmPanel:AdoptProfile` before its own
+>   early return. The sim listener in `modules/SimPanel.lua` also calls `FarmPanel:UpdateStrip`.
+> - §7.1 buttons call the Farm verbs directly (`Farm:PauseVerb` ...); `runVerb(verb, rest)` is M4.5's.
+> - F9: a show the visibility setting refuses also marks the panel to come back on the next
+>   allowing edge (it prints `the farm panel is hidden by the General visibility setting.`).
+> - §7.1 double-click: a Frame has no `OnDoubleClick`, so two title-bar presses within 0.35 s are one.
+> - §10: `minimise` is the catalog's file name; `tests/prose_waivers.lua` waives the British spelling
+>   per file (CLAUDE.md, the panel, its suite, `tests/test_mediasetup.lua`).
+> - §13 `test_layers`: the panel case is added; the sessions list, Details and Summary cases come with
+>   those frames (M4.3, M4.4).
+
 ## 1. Goal
 
 A player starts a farm session, farms, and finishes it. While it runs, a companion panel shows the

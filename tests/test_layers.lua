@@ -19,7 +19,7 @@ local test, assertEqual, assertTrue, assertFalse =
   T.test, T.assertEqual, T.assertTrue, T.assertFalse
 
 -- frame-layering-§1's tier keys, the only names a layers table may use.
-local TIER_KEYS = { HUD = true, CHROME = true, HUD_POPUP = true, WINDOW = true, ALERT = true,
+local TIER_KEYS = { HUD = true, CHROME = true, HUD_POPUP = true, WINDOW_PERSISTENT = true, WINDOW = true, ALERT = true,
   SCREEN_ALERT = true, MODAL = true, CHILD = true, POPUP = true, CURSOR = true }
 
 -- One fresh, layer-recording instance: the library, the TOC, InitDB. Built once, on first use.
@@ -62,6 +62,8 @@ test("Layers: NS.Constants.LAYERS names its strata by the standard's tier keys",
   for k in pairs(L.STRATA) do
     assertTrue(TIER_KEYS[k] == true, "LAYERS.STRATA." .. tostring(k) .. " is not a frame-layering-§1 tier key")
   end
+  -- T4's two keys (standard v2.122.0): the window kept up while playing, and the one opened to read.
+  assertEqual(L.STRATA.WINDOW_PERSISTENT, "MEDIUM")
   assertEqual(L.STRATA.WINDOW, "HIGH")
   assertEqual(L.STRATA.MODAL, "DIALOG")
   assertEqual(L.STRATA.POPUP, "FULLSCREEN_DIALOG")
@@ -84,6 +86,17 @@ test("Layers: the History window is the on-demand window tier, toplevel and clam
   assertEqual(L.strata, "HIGH")
   assertTrue(L.toplevel, "a click raises the window over the co-tier Settings panel (LOO-Z03)")
   assertTrue(L.clamped, "the window stays on screen")
+end)
+
+test("Layers: the farm panel is the persistent window tier, toplevel and clamped (#39)", function()
+  local I = instance()
+  I.NS.FarmPanel:Show()
+  local f = I.NS.FarmPanel:Window()
+  local L = I.M.__layers(f)
+  assertEqual(L.strata, "MEDIUM", "WINDOW_PERSISTENT: below every window opened to read")
+  assertTrue(L.toplevel, "a click raises the panel among its peers")
+  assertTrue(L.clamped, "the panel stays on screen")
+  I.NS.FarmPanel:Hide()
 end)
 
 test("Layers: the Export modal is the modal tier, toplevel and clamped", function()

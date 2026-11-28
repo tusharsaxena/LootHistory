@@ -16,5 +16,11 @@ return {
     -- The simulator suites' clock reads the kit mock's timer field `cancelled` (AceTimer's own
     -- name for it, set by tests/_kit/mock_record.lua): a library's field name, not authored prose.
     ["tests/sim_support.lua"] = { cancelled = true },
+    -- `minimise` is a LibKa0s-Media catalog name (the Open Iconic mark's file name, minimise.tga):
+    -- the icon declaration line and its prose name the file, not authored text.
+    ["CLAUDE.md"] = { minimis = true },
+    ["modules/FarmPanel.lua"] = { minimis = true },      -- the panel's minimize mark names that file
+    ["tests/test_farm_panel.lua"] = { minimis = true },  -- ...and its suite asserts the art
+    ["tests/test_mediasetup.lua"] = { minimis = true },  -- ...and the drawn-icon list records it
   },
 }

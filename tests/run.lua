@@ -170,6 +170,10 @@ local SUITES = {
   -- modules/Farm.lua (#39): the farm session's runtime. After test_dispatch, with the addon brought
   -- up; every case runs on scratch stores and leaves no session open and nothing registered.
   "test_farm",
+  -- modules/FarmPanel.lua and modules/FarmList.lua (#39): the companion panel's views, marks,
+  -- visibility, ticker and strip, and the list widget. After test_farm, with the addon brought up;
+  -- every case closes its session and hides the panel.
+  "test_farm_panel",
   -- modules/ToastFeed.lua (#38): the three LibKa0s-Feed-1.0 feeds, the GAIN routing, clicks, combat,
   -- unlock and drag. After test_dispatch, with the addon brought up (Toasts:Enable built the feeds);
   -- every case clears what it showed and leaves the addon up.

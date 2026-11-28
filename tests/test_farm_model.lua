@@ -369,6 +369,40 @@ test("FarmModel BestPerZone: the best gross rate per zone, 60 s eligible, a tie 
   assertEqual(table.concat(got, ","), "2,3,6", "2 out-rates 1; 3 ties 4 and is earlier; 5 is under a minute")
 end)
 
+-- ── activity lines (§6) ─────────────────────────────────────────────────────────────────────
+
+local ALL_ON = { mobs = true, items = true, nodes = true, fish = true, quests = true, questRewards = true,
+  containers = true, quality = true, rep = true, xp = true, skill = true, looks = true, currency = true,
+  deaths = true }
+
+test("FarmModel activity: the fourteen lines in §6 order, sums for quality, rep and skill", function()
+  local s = new()
+  local a = s.activity
+  a.mobs, a.deaths, a.xp, a.currency = 58, 2, 18400, 40
+  a.quality[3], a.quality[4], a.quality[5] = 9, 2, 1
+  a.rep[1] = { name = "A", delta = 1500 }; a.rep[2] = { name = "B", delta = -260 }
+  a.skill[1] = { name = "Mining", from = 10, to = 14 }; a.skill[2] = { name = "Herb", from = 3, to = 4 }
+  local got = {}
+  for i, line in ipairs(FM().ActivityLines(a, ALL_ON, false)) do got[i] = line.key .. "=" .. line.text end
+  local want = { "mobs=58", "items=0", "nodes=0", "fish=0", "quests=0", "questRewards=0", "containers=0",
+    "quality=3", "rep=+1,240", "xp=+18,400", "skill=5" }
+  if NS.Constants.FEATURE.appearances then want[#want + 1] = "looks=0" end
+  want[#want + 1] = "currency=40"; want[#want + 1] = "deaths=2"
+  assertEqual(table.concat(got, ","), table.concat(want, ","), "looks only where the client has appearances")
+  assertEqual(FM().ActivityValue(a, "quality"), 3, "Epic+ is quality 4 and up")
+end)
+
+test("FarmModel activity: a line off is skipped, hideZero drops the zeros, nil enabled draws none", function()
+  local a = new().activity
+  a.mobs, a.items = 3, 0
+  local lines = FM().ActivityLines(a, { mobs = true, items = true, deaths = false }, false)
+  assertEqual(#lines, 2)
+  lines = FM().ActivityLines(a, { mobs = true, items = true }, true, lines)
+  assertEqual(#lines, 1, "the out table is reused and cleared")
+  assertEqual(lines[1].label, "Mobs looted")
+  assertEqual(#FM().ActivityLines(a, nil, false), 0)
+end)
+
 -- ── formatters ───────────────────────────────────────────────────────────────────────────────
 
 test("FarmModel formatters: clock, h:mm, grouped and signed counts, copper text, day label", function()
