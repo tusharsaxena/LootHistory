@@ -6,8 +6,8 @@ lines ~470-690). Builds on M1 (`2026-11-27-34-tooltip-holdings-design.md`), M2
 (`2026-11-27-rep-appearance-capture-design.md`) and M3 (the pre-gate gain feed, M3.1). Branch
 `feat/2026-11-27-39-farm-mode`, based on M3.
 
-Line citations are against the working tree on 2026-11-27. `core/Compat.lua` and several modules
-were being edited by a concurrent workflow while this was written, so Compat line numbers may drift.
+Line citations were refreshed on 2026-11-28 against the tree at `edd81d0` (M3 committed below this
+branch). See "Aligned to M3" under the Owner rulings for what moved.
 
 ---
 
@@ -28,6 +28,30 @@ were being edited by a concurrent workflow while this was written, so Compat lin
 > - **D-4:** cite the Forever interface source for the logout-hook routing before M4 merges (M4.1).
 > - F1 (GATHERING source), F2, F5, F6 rulings stand.
 > - Chat-line hiding is out of scope (D25); nothing in farm mode depends on it.
+
+> **Aligned to M3 (2026-11-28, task M4.0b; no owner decision changed).**
+> - §2: the hypothetical `GainFeed:SetConsumer(name, on)` is gone. M3 shipped `GainFeed:SetFarm(kinds)`
+>   (`modules/GainFeed.lua:186-190`), so Farm passes `C.FARM.GAIN_KINDS` or nil. The payload field list
+>   is now the real `GainFeed.FIELDS` (`:24-29`). Nothing has to be added at the sender. The stand-down
+>   order is now spelled out: `GainFeed:Disable` drops the farm set, and `Farm:Enable` sets it again.
+> - §3.2/§3.3/§9: the Farm schema follows the shipped Toasts precedent. `settings/SchemaFarm.lua` loads
+>   above `settings/Schema.lua`, which appends `NS.SchemaFarm.Rows()` next to its Toasts loop
+>   (`settings/Schema.lua:666-668`). It does not load below Schema through `SchemaRuntime.AddRows`.
+>   `settings/PanelFarm.lua` goes after `settings/PanelToasts.lua`.
+> - §9.4: M3.6 already made `tests/test_panel.lua`'s subcategory set multi-page (`General | Toasts`)
+>   and added the Toasts bullet to `docs/settings-panel.md`. `/lh list`'s `groupKey`
+>   (`settings/Slash.lua:485`) is still page-blind, and it now matters: Toasts and Farm both have a
+>   `General` tab. M4.5 keeps that fix and the stale "one subcategory" doc lines.
+> - §7/§11.3: the panel is built on `C.LAYERS.STRATA.WINDOW_PERSISTENT` (`MEDIUM`). The Details,
+>   Summary and sessions-list windows stay on `WINDOW` (`HIGH`). The old D-1 text in §14 is kept only
+>   as history.
+> - §10: the icons come from the vendored `v1.119.0 (unreleased, branch feat/2026-11-27-feed)` source
+>   through an archive extract and that extract's `tools/prune-icons.lua`, not from `v1.118.0`.
+> - §11.2: `farmGain` declares `within = "gainSend"` and passes it, because it runs only inside a
+>   send. `gainSend` itself declares no `within` (the M3 precedent). `farmWindow` is top-level.
+> - §13: the feed suite is `tests/test_gain_feed.lua`. `test_layers` pins the new key.
+> - §17: M4.1 is split into M4.1a (pure model and contracts) and M4.1b (runtime).
+> - Stale line citations are refreshed throughout.
 
 ## 1. Goal
 
@@ -57,13 +81,13 @@ clock (D16). Gains come from M3's pre-gate feed and costs from recorded `OUT` ro
 
 | # | Ruling | Why |
 |---|---|---|
-| F1 | **Append a `GATHERING` source** (both clients), stamped when a GameObject loot window opens within `C.GATHERING_TTL` (5 s) of a Herb Gathering or Mining cast. History rows for herbs and ore then read *Gathering* instead of *Container* | "Nodes gathered" has no backing source today: a GameObject window resolves to `CONTAINER` (`modules/Attribution.lua:233-239`). The owner-approved mockup already shows *Gathering* as a History row source (`mockups.html:457`, Bismuth) and in the Details, Log and By-source views. The mockup's note that "Nodes gathered ... reuse the sources Attribution already assigns" (`mockups.html:661`) is wrong, and this ruling makes it true. The change is additive, following the FISHING precedent (`core/Constants.lua:74-76`) |
+| F1 | **Append a `GATHERING` source** (both clients), stamped when a GameObject loot window opens within `C.GATHERING_TTL` (5 s) of a Herb Gathering or Mining cast. History rows for herbs and ore then read *Gathering* instead of *Container* | "Nodes gathered" has no backing source today: a GameObject window resolves to `CONTAINER` (`modules/Attribution.lua:244-251`). The owner-approved mockup already shows *Gathering* as a History row source (`mockups.html:457`, Bismuth) and in the Details, Log and By-source views. The mockup's note that "Nodes gathered ... reuse the sources Attribution already assigns" (`mockups.html:661`) is wrong, and this ruling makes it true. The change is additive, following the FISHING precedent (`core/Constants.lua:82-85`) |
 | F2 | **A manual pause stops the clock and the gain and activity tally.** Costs still count. An idle or AFK pause stops only the clock: the next gain is tallied and resumes it | The mockup's paused copy says "Your next gain or Resume starts it again" only for idle (`mockups.html:566-568`). A manual pause means "not farming now", but a repair in town during that pause is the textbook farm cost (D19 names it first) |
 | F3 | An AFK pause banks the clock up to the moment AFK sets, not back to the last gain | A manual `/afk` is instant. With idle on (the default), the idle rule takes the dead minutes off first anyway |
 | F4 | Farm counts item, money and currency gains whose source is in `C.FARM.GAIN_SOURCES` (§5.5). `OTHER` counts only when the gain came from a chat line (`gain.origin == "chat"`). Vendor buys, mail, AH, trade, crafting, deconstruct output and every ledger reason do not count. Reputation, XP, skill-ups and appearances count from any source | The pre-gate feed carries Reconciler diff gains: mail, AH buys and vendor purchases. Counting those as farm income would be wrong |
 | F5 | Stale window `C.FARM.STALE_SEC = 1800` (30 min) | Long enough for a disconnect and a reconnect queue. Short enough that an Alt-F4 session does not reopen the next evening |
 | F6 | A finished session with zero log lines is discarded, with one chat line (`farm session discarded: nothing was gained.`) | Keeps a mis-press of the Start/finish key out of the saved list |
-| F7 | Prices are snapshot once per item per session at its first gain (a row's own prices when the feed carries the record). The read is deferred off the combat path | Point-in-time, the same policy as the record's `vendorPrice`/`auctionPrice` (`modules/Collector.lua:184-192`), with one `GatherAll` per item per session instead of one per gain |
+| F7 | Prices are snapshot once per item per session at its first gain (a row's own prices when the feed carries the record). The read is deferred off the combat path | Point-in-time, the same policy as the record's `vendorPrice`/`auctionPrice` (`modules/Collector.lua:206-217`), with one `GatherAll` per item per session instead of one per gain |
 | F8 | "AH value" uses the per-unit AH price, or the vendor price when there is none (`mockups.html:583`, "n/a" per unit, vendor in the total). It is never `Util.RecordValue`'s max | D15's AH mode. `RecordValue` (`core/Util.lua:104-110`) is the "Highest" rule, which is a different measure |
 | F9 | The farm panel follows General visibility. A panel hidden by visibility comes back on the next allowing edge | `settings.visibility` governs every frame (`modules/Browser.lua:755-763`). A persistent display hidden at the pull should not stay gone for the rest of the session |
 | F10 | Holdings' *Forget holder* does not touch farm sessions. Retention and purge do not either | The record is the session's own copy (`mockups.html:684`) |
@@ -73,18 +97,53 @@ clock (D16). Gains come from M3's pre-gate feed and costs from recorded `OUT` ro
 
 ## 2. Dependencies on M1-M3 (contracts M4 consumes)
 
-**M3.1 gain feed.** M4 assumes `modules/GainFeed.lua` is the sole sender of
-`NS.MSG.GAIN = "Ka0s_LootHistory_Gain"`, with one reused payload table valid only during the send.
-M4 reads these fields: `kind` (`ITEM|GOLD|CURRENCY|REPUTATION|APPEARANCE|XP|SKILL`), `dir`, `id`,
-`qty`, `link`, `name`, `quality`, `source`, `origin` (`chat|diff|event`), `record` (row or nil),
-`sim`, plus the per-kind extras: rep `name`; skill `old`/`new`/`name`; appearance `newLook`/`itemID`.
-M4 also needs a consumer switch, so the feed (and M2's rep/appearance rows, which M3 made register
-on "record switch OR feed wants") is live while a session runs even with toasts and record
-switches off. **M4.1 task (a):** if `NS.GainFeed:SetConsumer(name, on)` does not exist after M3,
-add it to `modules/GainFeed.lua`: `on = any consumer`, recomputed on each call, with
-`SetConsumer("farm", bool)` driven by `Farm:Reconcile` (§5.1). If a field above is missing, M4.1
-adds it at the sender in the same task, with a test in `tests/test_gainfeed.lua`. M4 never reaches
-into Collector, Reconciler, Reputation or Appearance for gain data.
+**M3.1 gain feed (as shipped).** `modules/GainFeed.lua` is the only sender of
+`NS.MSG.GAIN = "Ka0s_LootHistory_Gain"` (`core/Constants.lua:524-527`; its comment already names
+`NS.Farm` as a receiver). The send is `GainFeed.Send(_, g, parent)` (`:73-81`), and it is reached
+through `SendChat` (`:93-100`, origin `chat`), `SendEvent` (`:104-108`, origin `event`) and
+`FromDiff` (`:136-147`, origin `diff`). Every send carries one reused scratch table (`:34`), and it
+is valid only during the synchronous send. A receiver copies what it keeps.
+
+*Payload.* `GainFeed.FIELDS` (`:24-29`) is cleared by `Begin` on every send. These are the fields
+each observer actually fills:
+
+| kind (`C.GainKind`, `core/Constants.lua:219-220`) | Sender | Fields set (besides `kind`, `dir = "IN"`, `sim`, `origin`, `recorded`) |
+|---|---|---|
+| `ITEM`, chat | `modules/Collector.lua:172-179` | `id` (itemID), `link`, `qty`, `name`, `quality`, `classID`, `source`, `sourceDetail`, `confidence`, `record` (row or nil), `gated` (drop reason or nil) |
+| `ITEM` / `CURRENCY` / `GOLD`, diff | `modules/GainFeed.lua:122-147` | `id`, `link` (items), `name`, `quality`, `classID` (items), `qty` (the delta the feed claims did not take), `source` = the diff reason, `confidence`. `record` is nil, and `recorded` is `Reconciler:RowAllowed` |
+| `CURRENCY`, chat | `modules/Collector.lua:307-313` | `id` (currencyID), `name`, `qty`, `quality`, `source`, `sourceDetail`, `confidence`, `record`, `gated` |
+| `GOLD`, chat | `modules/Collector.lua:367-373` | `qty` (copper), `name = "Gold"`, `source`, `sourceDetail`, `confidence`, `record`, `gated`. **`id` is nil** |
+| `REPUTATION` | `modules/Reputation.lua:164-172` | `dir` (`IN`, or `OUT` for a loss), `id` (factionID), `qty` (the **absolute** delta), `name`, `label`, `rank`, `standing`, `threshold`, `repType`, `accountWide`, `source`, `sourceDetail`, `confidence`, `record`, `gated` |
+| `APPEARANCE` (Retail) | `modules/Appearance.lua:82-89` | `id` (sourceID), `itemID`, `link`, `name`, `quality`, `qty = 1`, `newLook` (boolean), `source`, `sourceDetail`, `confidence`, `record`, `gated`. IN only |
+| `XP` | `modules/Progress.lua:76-81` | `qty` (the delta), `level`, `levelUp`, `cur`, `max`, `source`, `sourceDetail`, `confidence` |
+| `SKILL` | `modules/Progress.lua:126-131` | `id` (skill line), `name`, `old`, `new`, `max`, `qty` (= new − old), `source = OTHER`, `confidence` |
+
+`icon` is declared in `FIELDS` but no observer sets it. Every field §5.5 reads is in this table, so
+**M4 adds no payload field**. Within a send, a chat gain that wrote no row posts a feed claim
+(`:93-100`), and the holdings diff consumes that claim (`:139`). So Farm sees each gain once.
+
+*The farm entry.* M3 shipped `GainFeed:SetFarm(kinds)` (`:186-190`). `kinds` is a set keyed by
+`C.GainKind`, or nil. `Recompute` (`:170-184`) ORs that set into `wants[kind]`, still masked by
+`C.FEATURE.appearances`. It keeps `toastWants` as the feeds' share only, sets `on`, and then runs
+`syncObservers` (`:160-166`). That calls each `SyncCapture`: Reputation (`modules/Reputation.lua:308-313`)
+and Appearance (`modules/Appearance.lua:184-189`) register on *record switch OR `wants`*, and Progress
+(`modules/Progress.lua:256-263`) registers on `wants` alone and seeds a kind when it is switched on.
+A profile or toasts `Recompute` keeps `_farm`. `GainFeed:Disable` (`:207-216`) clears `_farm` along
+with everything else. So:
+- `Farm:Reconcile` calls `NS.GainFeed:SetFarm(C.FARM.GAIN_KINDS)` when it goes live and
+  `SetFarm(nil)` when it goes down (§5.1). `C.FARM.GAIN_KINDS` is one constant table with all seven
+  kinds (§4.4). A running session keeps every observer registered even with toasts and record
+  switches off. Activity settings only control display, so they never narrow the set.
+- Stand-up order: `Farm:Enable` runs after `GainFeed:Enable` and after the observers' Enables (§11.1).
+  Its `Reconcile` sets the set again after a stand-down has dropped it. Stand-down order:
+  `Farm:Disable` runs before `GainFeed:Disable`. Its `SetFarm(nil)` is harmless there, because each
+  observer's `SyncCapture` is already a no-op (`_settings`/`_up` cleared).
+- **M4.1a adds nothing to `modules/GainFeed.lua`.** `tests/test_gain_feed.lua` gains Farm-shaped cases.
+  The full set keeps Reputation, Appearance (Retail) and Progress registered with toasts and record
+  switches off. A `profile` Recompute keeps the set. `Disable` drops it, and a following `SetFarm`
+  restores it. The `SetFarm` case already at `tests/test_gain_feed.lua:115-121` stays.
+
+M4 never reaches into Collector, Reconciler, Reputation, Appearance or Progress for gain data.
 
 **M2.** `REPUTATION`/`APPEARANCE` kinds, `C.FEATURE.appearances` (Retail), and `newLook` on rows
 and in the feed.
@@ -92,8 +151,11 @@ and in the feed.
 **M1.** No runtime dependency. The icon declaration line will already carry M1/M3 additions, and
 M4 appends to it (§10).
 
-**M3.6.** If the Toasts page has already made `/lh list` page-aware and `tests/test_panel.lua`'s
-subcategory set multi-page, M4.5 extends those changes. Otherwise M4.5 makes them (§9.4).
+**M3.6 (as shipped).** The Toasts page made `tests/test_panel.lua`'s subcategory set multi-page
+(`"General | Toasts"`, `:33-41`), and `P:Register` registers Toasts between General and Profiles
+(`settings/Panel.lua:809-813`). It did **not** make `/lh list` page-aware: `groupKey` is still
+`row.group or "?"` (`settings/Slash.lua:481-485`). M4.5 extends the first two changes and makes the
+third (§9.4).
 
 ---
 
@@ -111,7 +173,7 @@ subcategory set multi-page, M4.5 extends those changes. Otherwise M4.5 makes the
 | `modules/FarmDetails.lua` | `NS.FarmDetails`. The Details window (`LootHistoryFarmDetails`, 6 tabs) and the summary window (`LootHistoryFarmSummary`) |
 | `modules/FarmTab.lua` | The Farm tab: `NS.Browser:RegisterTab{ name = "Farm", order = 50, ... }` |
 | `modules/FarmTestData.lua` | `NS.FarmTestData.Build(now)`: the session-only test-mode sample |
-| `settings/SchemaFarm.lua` | The Farm page's schema rows (§9.2), appended with `NS.SchemaRuntime.AddRows`, plus the keep-cap confirm |
+| `settings/SchemaFarm.lua` | `NS.SchemaFarm.Rows()`: the Farm page's schema rows (§9.2), which `settings/Schema.lua` appends at file load beside the Toasts loop (the `settings/SchemaToasts.lua` precedent), plus the keep-cap confirm |
 | `settings/PanelFarm.lua` | `NS.FarmPage.Build(mainCategory)`: the Farm settings page |
 | `docs/farm.md` | Addon-specific doc (documentation-§3 Tier 3): session model, storage, logout rules, activity sources |
 | `tests/test_farm_model.lua`, `tests/test_farm.lua`, `tests/test_compat_farm.lua`, `tests/test_farm_panel.lua`, `tests/test_farm_details.lua`, `tests/test_farm_tab.lua` | §13 |
@@ -120,30 +182,30 @@ subcategory set multi-page, M4.5 extends those changes. Otherwise M4.5 makes the
 
 | File | Change |
 |---|---|
-| `core/Compat.lua` | Header names `core/CompatFarm.lua` as a family file (compat: the root's header lists every family file) |
-| `core/Constants.lua` | `GATHERING` in `SourceType`/`SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` (not `LEDGER_REASON`); `C.GATHERING_TTL = 5`; `C.FARM` (§4.4); `MSG.FARM_CHANGED`; LAYERS stack comment (§11.3) |
-| `core/State.lua` | `NS.SimStores` gains `farm`; `State.testFarm`; `State.farmLogoutIntent` |
-| `core/LifecycleSetup.lua` | STAND_DOWN/STAND_UP steps (§11.1) |
+| `core/Compat.lua` | The family header (`:12-14`) names `core/CompatFarm.lua` (compat: the root's header lists every family file). The header also omits M3's `core/CompatGain.lua`, so the same edit adds that file too |
+| `core/Constants.lua` | `GATHERING` in `SourceType`/`SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` (not `LEDGER_REASON`); `C.GATHERING_TTL = 5`; `C.FARM` with `GAIN_KINDS` (§4.4); `MSG.FARM_CHANGED`. M4.2 adds `C.LAYERS.STRATA.WINDOW_PERSISTENT = "MEDIUM"` and the stack-comment lines (§11.3) |
+| `core/State.lua` | `NS.SimStores` (`:33`) gains `farm`; `State.testFarm` beside `testHoldings`/`testDaily` (`:23-24`); `State.farmLogoutIntent` |
+| `core/LifecycleSetup.lua` | STAND_DOWN_STEPS (`:173-209`) and STAND_UP_STEPS (`:212-230`) (§11.1) |
 | `core/LauncherSetup.lua` | `runVerb(verb, rest)`; two binding buttons, labels and `NS.BINDINGS` rows; launcher `extraEntries` (§8) |
-| `core/PerfSetup.lua` | Buckets `farmGain`, `farmWindow` |
+| `core/PerfSetup.lua` | Buckets `{ key = "farmGain", within = "gainSend" }` and `{ key = "farmWindow" }`, appended after `skillScan` (`:63-81`) |
 | `Bindings.xml` | Two `<Binding>` lines after the Show window line |
 | `defaults/Global.lua` | `farm = {}`, `farmKeep = 100` |
 | `defaults/Profile.lua` | `settings.farm = {...}` (§9.1) |
 | `modules/Attribution.lua` | Gathering cast detection plus the `GATHERING` branch in `OnLootOpened`; three Farm notifications (§5.7) |
-| `modules/GainFeed.lua` | `SetConsumer` and missing fields, only if M3 lacks them (§2) |
+| `modules/GainFeed.lua` | No change. Farm uses the shipped `SetFarm(kinds)` (§2). `tests/test_gain_feed.lua` gains the Farm-shaped cases |
 | `modules/Browser.lua` | `farm` title-mark extra; `charSource`/`zoneSource == "farm"` option sources; FarmPanel fan-out in `OnSettingsChanged`, `AdoptProfile` and the combat edges |
 | `modules/BrowserWidgets.lua` | `charOptions(mode)` and `zoneOptions(mode)` take a source mode (§7.5) |
-| `modules/Sim.lua` | Prepare sets `S.farm = {}`; releaseStores sets `S.farm = nil`; both call `NS.Farm:OnStoreSwapped()` |
+| `modules/Sim.lua` | Prepare sets `S.farm = {}` beside `S.history, S.holdings, S.daily` (`:277`); `releaseStores` sets `S.farm = nil` (`:412-417`); both call `NS.Farm:OnStoreSwapped()` |
 | `modules/SimWorld.lua` | Providers for `LootSourceGUIDs` (one GUID per slot, the world's window source), `IsPlayerAFK` (false), `QuestTitle` (fixture title or nil) |
 | `modules/TestData.lua` | `TD.Publish` sets/clears `NS.State.testFarm` through `NS.FarmTestData.Build` |
 | `modules/Diagnostics.lua` | A `farm` section and `farm` in the sim-store line (§11.5) |
 | `core/Database.lua` | `StorageStats` gains `farmBytes`/`farmSessions` from `NS.Farm:StorageStats()` |
-| `settings/Schema.lua` | `S.RESET_EXEMPT["settings.farm.keep"] = "farmKeep"`; `NS.COMMANDS` gains `farm` after `holdings` |
-| `settings/Panel.lua` | `P:Register` registers the Farm page between General (and Toasts) and Profiles; the General > History storage readout adds the farm line |
-| `settings/Slash.lua` | `groupKey` becomes page-aware, unless M3 did it (§9.4) |
+| `settings/Schema.lua` | Appends `NS.SchemaFarm.Rows()` after the Toasts loop (`:666-668`); `S.RESET_EXEMPT["settings.farm.keep"] = "farmKeep"` (`:724-727`); `NS.COMMANDS` (`:1256`) gains `farm` after `holdings` (`:1305`). M4.1b adds a minimal row and M4.5 the full grammar |
+| `settings/Panel.lua` | `P:Register` registers the Farm page after the Toasts block (`:809-813`) and before Profiles, and its "THREE sub-pages" comment (`:790`) becomes four; the General > History storage readout adds the farm line |
+| `settings/Slash.lua` | `groupKey` (`:481-485`) becomes page-aware. M3 did not do this (§9.4) |
 | `LootHistory.toc` | §3.3 |
 | `CLAUDE.md` | `LibKa0s icons:` line (§10); `docs/farm.md` in the docs list |
-| `libs/LibKa0s/media/icons/` | `add`, `map-marker`, `media-pause`, `media-play`, `minimise`, `star` copied from the `v1.118.0` tag |
+| `libs/LibKa0s/media/icons/` | `add`, `map-marker`, `media-pause`, `media-play`, `minimise`, `star`, copied from the vendored `feat/2026-11-27-feed` source (§10) |
 | `.luacheckrc` | Globals the new files read/write (`StaticPopupDialogs` entries already allowed; add `LootHistoryFarm*` frame names, `BINDING_NAME_*` through rawset needs none) |
 
 ### 3.3 TOC placement
@@ -151,11 +213,14 @@ subcategory set multi-page, M4.5 extends those changes. Otherwise M4.5 makes the
 ```
 core\Compat.lua
 core\CompatClient.lua
-# (M1/M2 family files, if any, stay here)
+core\CompatTooltip.lua
+core\CompatProgress.lua
+core\CompatGain.lua
 # LOAD-BEARING POSITION: a compat family file (compat: listed contiguously after the root) and
 # above core\SimSeam.lua, whose Sim:NewSeam wraps every NS.Compat member at file load; a member
 # added below the seam escapes the wrap (NS.SimSeam:Unwrapped(), tests/test_sim_seam.lua).
 core\CompatFarm.lua
+# (SimSeam's own comment, LootHistory.toc:55-61, adds core\CompatFarm.lua to its family list)
 core\SimSeam.lua
 ...
 modules\Timeline.lua
@@ -164,7 +229,8 @@ modules\Timeline.lua
 modules\FarmModel.lua
 # LOAD-BEARING POSITION: binds NS.FarmModel and NS.Perf as file-scope upvalues at load (the gain
 # feed and loot-window hot paths, performance-§2); modules\FarmModel.lua and core\PerfSetup.lua must
-# be above. Below modules\GainFeed.lua (M3), whose NS.MSG.GAIN it subscribes to at call time only.
+# be above. Below modules\GainFeed.lua (LootHistory.toc:147); it calls NS.GainFeed:SetFarm and
+# subscribes to NS.MSG.GAIN at call time only.
 modules\Farm.lua
 # LOAD-BEARING POSITION: modules\FarmPanel.lua, modules\FarmDetails.lua and modules\FarmTab.lua bind
 # NS.FarmList at file load; it must be above them.
@@ -178,16 +244,18 @@ modules\FarmTab.lua
 # CONVENTIONAL: read at call time by modules\TestData.lua's TD.Publish; kept beside the farm files.
 modules\FarmTestData.lua
 modules\TestData.lua
+modules\ToastModel.lua
 ...
-settings\Schema.lua
-# (settings\SchemaToasts.lua from M3, if it exists, stays directly after Schema)
-# LOAD-BEARING POSITION: appends the Farm page's rows with NS.SchemaRuntime.AddRows at file load;
-# settings\Schema.lua must be above (it publishes NS.SchemaRuntime), and settings\Slash.lua and
-# settings\Panel.lua must be below (both walk S.Schema at their own load).
+settings\SchemaToasts.lua
+# LOAD-BEARING POSITION: settings\Schema.lua appends NS.SchemaFarm.Rows() to its row array at file
+# load, beside the Toasts rows and before the Schema runtime is built, so this must be above it.
+# Like settings\SchemaToasts.lua, it reads NS.Options' composers and both defaults tables at load.
 settings\SchemaFarm.lua
+settings\Schema.lua
 settings\Slash.lua
 settings\Panel.lua
 settings\PanelAuction.lua
+settings\PanelToasts.lua
 # CONVENTIONAL: the Farm page's builder, registered from P:Register (settings\Panel.lua) at call time.
 settings\PanelFarm.lua
 settings\Profiles.lua
@@ -204,7 +272,7 @@ settings\Profiles.lua
 
 `db.global.farm` is declared `farm = {}` in `defaults/Global.lua`. That is additive and backfilled by
 AceDB, so there is no MIGRATIONS step and `SCHEMA_VERSION` stays where M2 left it (the v11
-precedent, `core/Database.lua:415-428`, and M2 §2).
+precedent, `core/Database.lua:412-420`; the ladder now ends at v16, `:442-447`; and M2 §2).
 
 ```lua
 db.global.farm[charKey] = {          -- charKey = NS.Util.PlayerKey() (core/Util.lua:10-20)
@@ -221,7 +289,7 @@ db.global.farmKeep = 100             -- D18 cap; 0 = keep all. Row: settings.far
 {
   v = 1,                       -- the session's own shape stamp; a later reshape migrates by `v`
   id = 7, name = "Isle of Dorn",  -- name: primaryZone at Finish, renamable; "" while open
-  char = "Charone-Realm", classFile = "MAGE",   -- NS.Compat.PlayerClassFile() (core/Compat.lua:1126)
+  char = "Charone-Realm", classFile = "MAGE",   -- NS.Compat.PlayerClassFile() (core/Compat.lua:906)
   startedAt = 1795000000, endedAt = nil, endReason = nil, -- "manual"|"logout"|"stale"
   -- clock (all time() epochs; GetTime() resets on reload)
   activeSec = 0,               -- banked running seconds
@@ -291,6 +359,10 @@ C.FARM = {
   GAIN_SOURCES = { KILL = true, CONTAINER = true, MPLUS = true, GATHERING = true, FISHING = true,
                    QUEST = true, BONUS_ROLL = true, ROLL = true, OTHER = true },
   EPIC_FLOOR = 4,               -- the panel's "Epic+ drops" line
+  -- The set Farm hands GainFeed:SetFarm while a session is live (§2): every C.GainKind. One table,
+  -- never mutated; Recompute masks APPEARANCE by C.FEATURE.appearances itself.
+  GAIN_KINDS = { ITEM = true, GOLD = true, CURRENCY = true, REPUTATION = true, APPEARANCE = true,
+                 XP = true, SKILL = true },
 }
 -- MSG: Sender: modules/Farm.lua (every session edge and each tallied gain). Payload: (reason)
 --      "start"|"pause"|"resume"|"finish"|"gain"|"cost"|"store"|"rename"|"delete".
@@ -300,7 +372,7 @@ FARM_CHANGED = "Ka0s_LootHistory_FarmChanged",
 ### 4.5 Named non-setting state (architecture-§5)
 
 `settings.farm.panel = { point, x, y, minimized }` and `settings.farm.details = { point, x, y, w, h }`
-are profile-scoped geometry like `settings.window` (`defaults/Profile.lua:75`). `FarmPanel` and
+are profile-scoped geometry like `settings.window` (`defaults/Profile.lua:122`). `FarmPanel` and
 `FarmDetails` are the only writers. List them in `docs/schema.md#state-outside-the-rows`.
 
 ### 4.6 Size
@@ -325,7 +397,7 @@ function Farm:Active()     return self:Mine(self:Store()).active end
 ```
 
 The panel's live view reads `Store()`, never the test sample (§12.2). The Farm tab and the
-sessions list read `ActiveStore()`. Precedent: `modules/Rollup.lua:29-43`.
+sessions list read `ActiveStore()`. Precedent: `modules/Rollup.lua:29-43` (`Store` and `ActiveStore`).
 
 `Farm:Reconcile()` runs after every edge (start, finish, enable, disable, store swap). With
 `open = not NS.IsStoodDown() and self:Active() ~= nil`:
@@ -333,17 +405,20 @@ sessions list read `ActiveStore()`. Precedent: `modules/Rollup.lua:29-43`.
 - `open` and not `self._live`: `NS.RegisterRows("Farm", self.__ev, "farm")`,
   `NS.RegisterRows("Farm", self.__unitFrame, "farmUnit")`, the four lifecycle events (§5.4) on
   `self.__ev` through `NS.SafeRegisterEvent`, `self.__ev:RegisterMessage(NS.MSG.GAIN, onGain)`,
-  `self._hook = NS.Database:OnWrite(onWrite)`, `NS.GainFeed:SetConsumer("farm", true)`, arm the
-  idle ticker, then `self._live = true`.
+  `self._hook = NS.Database:OnWrite(onWrite)`, `NS.GainFeed:SetFarm(C.FARM.GAIN_KINDS)` (§2), arm the
+  idle ticker, then `self._live = true`. `SetFarm` runs `Recompute`, which registers the observers
+  synchronously, so the session's first gain is already wanted.
 - not `open` and `self._live`: undo each of those (`UnregisterRows("Farm")`,
   `__unitFrame:UnregisterAllEvents()`, `__ev:UnregisterAllEvents()`/`UnregisterAllMessages()`,
-  `RemoveWriteHook`, `SetConsumer("farm", false)`, cancel the ticker and the price pass through
+  `RemoveWriteHook(self._hook)`, `NS.GainFeed:SetFarm(nil)`, cancel the ticker and the price pass through
   `NS.CancelDeferral(h)`), then `self._live = nil`.
 
-So with no session open, farm holds no registration at all. Attribution's notifications test
+`Database:OnWrite(fn)` answers `fn` (`core/Database.lua:650-653`), so `self._hook` is the handle
+`RemoveWriteHook` takes (the Rollup precedent, `modules/Rollup.lua:112-118`). So with no session
+open, farm holds no registration at all. Attribution's notifications test
 `F._live`, which is one nil test on the hot path. `self.__ev = NS.NewBusTarget()` and
 `self.__unitFrame = CreateFrame("Frame")` are created once and reused (the Attribution spell-frame
-precedent, `modules/Attribution.lua:596-601`).
+precedent, `modules/Attribution.lua:607-613`).
 
 ### 5.2 The clock (pure)
 
@@ -365,7 +440,7 @@ BankZone(s, at)  : if running and s.zone ~= "" then zoneSec[zone] += at - max(zo
   `Pause(s, "idle", max(runningSince, lastGainAt or runningSince))`. The idle span leaves the clock
   (D16). The ticker is a self-re-arming `NS.After(IDLE_TICK, ...)` chain whose handle is kept in
   `self._tick`. It re-arms only while `C_Timer and C_Timer.NewTimer` exist, because headless
-  `NS.After` runs straight through (`core/LifecycleSetup.lua:61-74`). `NS.CancelDeferrals` reaches
+  `NS.After` runs straight through (`core/LifecycleSetup.lua:59-72`). `NS.CancelDeferrals` reaches
   it at stand-down.
 - **AFK** (row `PLAYER_FLAGS_CHANGED`, unit `player`): `afk = NS.Compat.IsPlayerAFK()`. A nil
   answer (secret or unknown) changes nothing. With afk true, running, and `pauseOnAFK`:
@@ -415,12 +490,12 @@ prices, `Reconcile`, send `FARM_CHANGED("finish")`. When `reason == "manual"`, o
   `PLAYER_CAMPING`, `PLAYER_QUITING`.
 - Cleared by post-hooks on `CancelLogout`, `ReloadUI`, `C_UI.Reload` and by `LOGOUT_CANCEL`.
 - Hooks: `Compat.HookLogoutFamily(onIntent, onCancel)` in `core/CompatFarm.lua` installs each
-  through `Compat.HookSecure` / `HookSecureMember(C_UI, "Reload")` (`core/Compat.lua:1176-1189`,
+  through `Compat.HookSecure` / `HookSecureMember(C_UI, "Reload")` (`core/Compat.lua:953-968`,
   presence-gated). It is installed once per session (latch `Farm._hooked`) at the first `Enable`.
   Each body starts with `if NS.IsStoodDown() then return end` (the hooksecurefunc carve-out).
 - These are **not** HOOK_ROWS and the four events are **not** EVENT_ROWS. They are session
   lifecycle, not capture, and a real logout must reach them while a simulation runs. Through
-  `NS.Deliver`, the simulator's filter would absorb `PLAYER_LOGOUT` (`modules/Sim.lua:185-194`).
+  `NS.Deliver`, the simulator's filter would absorb `PLAYER_LOGOUT` (`Host.OnRealEvent`, `modules/Sim.lua:190-201`; only `target == "toasts"` rows are exempt).
 - Route evidence (Retail live, wow-ui-source@ab5cb850): `/logout` → `Logout()`, `/quit` → `Quit()`,
   `/reload` → `ReloadUI()` (`Blizzard_ChatFrameBase/Shared/SlashCommands.lua:752-764, 1390-1392`).
   Game menu → `GenerateMenuCallback(Logout/Quit)` rebuilt on every OnShow
@@ -428,7 +503,7 @@ prices, `Reconcile`, send `FARM_CHANGED("finish")`. When `reason == "manual"`, o
   `CancelLogout` (`Blizzard_StaticPopup_Game/GameDialogDefs.lua:1422-1437`). CAMP Cancel →
   `CancelLogout` (`.../Mainline/GameDialogDefs.lua:407-420`). Forever: all six symbols are in the
   kit's Forever export (`tests/_kit/client_globals_forever.lua`, not in `removed`). Their routing
-  must be cited from the Forever interface source before M4.1 merges (§14, D-4).
+  must be cited from the Forever interface source before M4.1b merges (§14, D-4).
 
 **PLAYER_LOGOUT** (on `Farm.__ev`, registered while a session is open). It acts on
 `Farm:LiveStore()` only, and the sim store is never persisted.
@@ -460,25 +535,38 @@ local function onGain(_, g)
   local t0 = Perf.on and debugprofilestop()
   local s = Farm:Active()                       -- Store(): the sim store during a sim
   if s and not (s.pauseReason == "manual" or s.pauseReason == "standDown") then
-    FarmModel.ApplyGain(s, g, time(), Farm:Wants())   -- pure; returns tallied?, itemIDNeedingPrice
+    FarmModel.ApplyGain(s, g, time(), vu, au)   -- pure; returns tallied?, itemIDNeedingPrice
+    -- vu, au: read here from g.record (nil when it has none), never from the client
     -- tallied: lastGainAt = lastSeen = now; idle/afk pause -> Resume; dirty totals; queue price;
     --          FARM_CHANGED("gain") (receivers coalesce)
   end
-  if t0 then Perf.Note("farmGain", debugprofilestop() - t0) end
+  -- GAIN is sent only from inside GainFeed:Send's gainSend bracket, so the parent is always gainSend
+  -- (declared `within = "gainSend"` in core/PerfSetup.lua; performance-§3).
+  if t0 then Perf.Note("farmGain", debugprofilestop() - t0, "gainSend") end
 end
 ```
 
-`FarmModel.ApplyGain(s, g, now)`:
+The receiver is registered on `Farm.__ev`. The toast feeds use a private target of their own
+(`modules/ToastFeed.lua:17`), so Farm's registration does not replace theirs. Copy every value the
+handler keeps: `g` is the reused scratch table (§2).
+
+`FarmModel.ApplyGain(s, g, now, vu, au)`. The fields read are those in the §2 payload table:
 - `ITEM` IN: skip unless `GAIN_SOURCES[g.source]` and (`g.source ~= "OTHER"` or
-  `g.origin == "chat"`) (F4). Then `items[id]` is created with `link`, `q`, and the prices from
-  `g.record` when present (`vendorPrice`, `AuctionPrice:Pick(auctionPrice)`, read by the caller and
-  passed in); `qty += g.qty`; `src[g.source] += g.qty`; `activity.items += g.qty`;
+  `g.origin == "chat"`) (F4). Then `items[g.id]` is created with `link = g.link`, `q = g.quality`,
+  and `vu`/`au` from the caller. Those come from `g.record.vendorPrice` and
+  `NS.AuctionPrice:Pick(g.record.auctionPrice)` when the chat gain wrote a row (`modules/Collector.lua:206-217`).
+  A gated or diff gain has `record == nil`, so its prices come from the price pass. Then `qty += g.qty`; `src[g.source] += g.qty`; `activity.items += g.qty`;
   `quality[q] += g.qty`; `questRewards += 1` when the source is QUEST; log `i`.
-- `GOLD` IN: same source rule. `money[src] += qty`, `questRewards += 1` when QUEST, log `m`.
+- `GOLD` IN: same source rule. `g.id` is nil for money, so it is keyed by source alone.
+  `money[src] += qty`, `questRewards += 1` when QUEST, log `m`.
 - `CURRENCY` IN: same source rule. `currencies[id].qty += qty`, `src`, `activity.currency += qty`,
   `questRewards += 1` when QUEST, log `c`.
-- `REPUTATION`: `rep[id].delta += (dir == "OUT" and -qty or qty)`, `rep[id].name = g.name`, log `r`.
-- `XP`: `xp += qty`, log `x`. `SKILL`: `skill[id]` gets `from` (min) and `to` (max), log `s`.
+- `REPUTATION`: `g.qty` is the absolute delta and `g.dir` its sign (`modules/Reputation.lua:167`), so
+  `rep[id].delta += (dir == "OUT" and -qty or qty)`, `rep[id].name = g.name`, log `r`.
+- `XP`: `xp += qty`, log `x`. `SKILL`: `skill[g.id]` takes `from = min(from, g.old)` and
+  `to = max(to, g.new)`, and `name = g.name`. Log `s` with `g.new`. Progress seeds a kind when the
+  farm set switches it on (`modules/Progress.lua:256-263`), so the first XP or skill event after Start
+  diffs against Start and is not lost.
 - `APPEARANCE` IN with `newLook`: `looks += 1`, log `a`. Any other appearance: skip.
 - Every `OUT` of `ITEM`/`GOLD`/`CURRENCY` is skipped. Costs come from §5.6.
 
@@ -489,7 +577,7 @@ In combat (`NS.Compat.PlayerInCombat()`) the pass re-arms instead of pricing. A 
 queued for the next pass and for Finish. Every price fill dirties totals and sends one
 `FARM_CHANGED("gain")`.
 
-### 5.6 Costs (`onWrite`, a `Database:OnWrite` hook, `core/Database.lua:642-679`)
+### 5.6 Costs (`onWrite`, a `Database:OnWrite` hook, `core/Database.lua:648-683`; `Add` `:665`, `Amend` `:678`)
 
 ```lua
 local function onWrite(row, delta, isNew)
@@ -505,12 +593,12 @@ end
 ```
 
 - The hook adds `delta`, never `row.quantity`, because the Reconciler amends a key's row inside
-  its coalesce window (`modules/Rollup.lua:64-75` comment). Costs accrue paused or running (F2).
+  its coalesce window (`modules/Rollup.lua:64-76` comment). Costs accrue paused or running (F2).
   During a sim, the history writes and `Store()` are both the session stores, so the sim stays
   consistent.
 - Use the row's own currency-id field (the same field `Ledger.RowThingKey` reads).
 - **Costs need ledger capture.** `OUT` rows exist only with `settings.trackLedger` on, and gold rows
-  only with `settings.recordGold` on (`defaults/Profile.lua:46`). When either is off, the panel's
+  only with `settings.recordGold` on (`defaults/Profile.lua:76-77`). When either is off, the panel's
   Costs line and the summary's Costs line read `n/a (needs ledger capture)` in `text.disabled`
   color, and the net figures equal gross. The row tooltip says
   `Costs come from the loss rows History records. Needs Track holdings and losses and Record gold (General > Capture).`
@@ -519,7 +607,7 @@ end
 ### 5.7 Activity from loot windows, containers and quests (Attribution notifications)
 
 Farm does not register its own `LOOT_OPENED` or `QUEST_TURNED_IN`. Attribution owns both on the
-bus (`modules/Attribution.lua:551, 562`), and AceEvent keeps one handler per event per target.
+bus (`modules/Attribution.lua:563, 574`), and AceEvent keeps one handler per event per target.
 The notification also has to run after Attribution has classified the window. So Attribution calls
 Farm directly:
 
@@ -527,10 +615,11 @@ Farm directly:
 local F = NS.Farm; if F and F._live then F:OnLootWindow(source, n) end
 ```
 
-That call goes at the end of each classified branch of `OnLootOpened` (`:249-284`): the fishing
-branch, the new gathering branch, and the slot-loop branch with its resolved `source`. It does not
+That call goes at the end of each classified branch of `OnLootOpened` (`:261-297`): the fishing
+branch (`:276-281`), the new gathering branch, and the slot-loop branch (`:282-294`) with its resolved
+`source`, before that branch's `return` (the loop stops at the first slot with a GUID). It does not
 go in the deconstruct branch or the no-GUID branch. `F:OnContainerOpened()` goes after the stamp in
-`OnContainerItemUse` (`:415-421`), and `F:OnQuestTurnedIn(questID)` in `OnQuestTurnedIn` (`:527`).
+`OnContainerItemUse` (`:427-438`), and `F:OnQuestTurnedIn(questID)` in `OnQuestTurnedIn` (`:539-542`).
 The sim already drives all three paths through Attribution's rows.
 
 `Farm:OnLootWindow(source, n)` (bucket `farmWindow`, skipped on a manual or standDown pause; on an
@@ -555,10 +644,10 @@ idle/afk pause it counts and resumes):
 - `GATHERING_SEEDS = { 2366, 2575 }` (Herb Gathering, Mining, present on both clients).
 - `Attribution:IsGatheringSpell(spellID)` answers `hit, conclusive` by comparing the cast's
   localized name (`FoldNBSP`, lowercased) with each seed's name. The `IsFishingSpell` shape is at
-  `:445-454`. There is no id table: every expansion's gathering ids are different.
+  `:459-467`. There is no id table: every expansion's gathering ids are different.
 - `noteGathering(self, spellID)` is memoized per spellID in `_gatherCache` and sets
   `State.gatheringUntil = GetTime() + C.GATHERING_TTL`. It is called from `spellCast` next to
-  `noteFishing` (`:464-467`).
+  `noteFishing` (`spellCast`, `:484-487`; `noteFishing` itself is `:469-482`).
 - `Attribution:GatheringArmed()` is true when `gatheringUntil` is still in the future and slot 1's
   GUID kind is `GameObject`.
 - In `OnLootOpened`, after the fishing branch: if armed, clear `gatheringUntil`,
@@ -569,13 +658,13 @@ idle/afk pause it counts and resumes):
 
 | Row | Target | Handler |
 |---|---|---|
-| `ZONE_CHANGED_NEW_AREA` | `farm` | `z = NS.Compat.Zone()` (`core/Compat.lua:86-91`). An empty `z` is no change. Otherwise `BankZone(s, now)`, `s.zone = z`, log `z`, `FARM_CHANGED("gain")` |
+| `ZONE_CHANGED_NEW_AREA` | `farm` | `z = NS.Compat.Zone()` (`core/Compat.lua:85-96`). An empty `z` is no change. Otherwise `BankZone(s, now)`, `s.zone = z`, log `z`, `FARM_CHANGED("gain")` |
 | `PLAYER_DEAD` | `farm` | `deaths += 1`, log `d` (counted even on a manual pause; it is not a gain) |
 | `PLAYER_FLAGS_CHANGED` | `farmUnit`, unit `player` | §5.2 AFK |
 
 `core/Dispatch.lua`'s header gains the targets `farm` (`Farm.__ev`) and `farmUnit`
 (`Farm.__unitFrame`, a RegisterUnitEvent frame). Farm's `PLAYER_ENTERING_WORLD` is not a row: the
-addon object owns that event (`modules/Attribution.lua:545-548`). Restore runs from `Enable`
+addon object owns that event (`modules/Attribution.lua:556-561`). Restore runs from `Enable`
 instead, and the zone is read at Start and Restore.
 
 ### 5.9 Best per zone (pure, `FarmModel.BestPerZone(sessions, measure)`)
@@ -615,10 +704,13 @@ per quality, per faction, per skill line and per currency.
 ## 7. UI surfaces (matched to the mockups)
 
 Every frame is `CreateFrame("Frame", <name>, UIParent, "BackdropTemplate")` and follows the
-checklist the Export modal and the History window use (`modules/Export.lua:450-549`,
-`modules/Browser.lua:566-700`):
-- `SetFrameStrata(C.LAYERS.STRATA.WINDOW)`, `SetToplevel(true)`, clamped and movable, with a
-  title-bar drag gated by `B:IsLocked()`.
+checklist the Export modal and the History window use (`modules/Export.lua:473-592`,
+`modules/Browser.lua:554-700`):
+- `SetFrameStrata(...)` from `C.LAYERS.STRATA` (`core/Constants.lua:617-624`): the companion panel
+  uses **`WINDOW_PERSISTENT`** (`MEDIUM`, added in M4.2, frame-layering-§1 T4 since standard v2.122.0).
+  The sessions list, Details and Summary use **`WINDOW`** (`HIGH`), the History window's tier.
+  Every window also gets `SetToplevel(true)` and is clamped and movable, with a title-bar drag
+  gated by `B:IsLocked()`.
 - `NS.Skin.TitleBar`, then `B:MakeTitleMarks` and `NS.Skin.Header`.
 - `B:ApplySkin(f, nil, { noTopBar = true })` and `B:ApplyChrome(f)`.
 - `table.insert(UISpecialFrames, name)`, and an `OnHide` that runs `NS.CloseMenu()` and closes the
@@ -626,7 +718,7 @@ checklist the Export modal and the History window use (`modules/Export.lua:450-5
 - A footer from `NS.MakeFooter(f, ...)` whenever the window has action buttons.
 - `NS.MakeTestStrip` docked under the title bar when the window shows sample or sim data.
 - Body tooltips are `place = "body"` and the action buttons are `"chrome"`
-  (`core/Compat.lua:631-708`).
+  (`core/Compat.lua:636-708`).
 - Every show path refuses through `NS.IsStoodDown()` and `B:VisibilityAllows()`
   (`modules/Browser.lua:800-858`).
 
@@ -673,7 +765,7 @@ set while a session runs. Rows are pooled with `NS.Pool`. Position: `settings.fa
 drag stop. The default is `RIGHT, UIParent, RIGHT, -40, 80`.
 
 **Visibility** (F9): `FarmPanel:ApplyVisibility(inCombat)` runs from Browser's two combat edges
-(`:961-968`) and from `OnSettingsChanged`. Hidden by the setting means `_hiddenByVisibility = true`,
+(`:956-968`) and from `OnSettingsChanged`. Hidden by the setting means `_hiddenByVisibility = true`,
 and the next allowing edge shows the panel again.
 
 ### 7.2 Sessions list (`LootHistoryFarmSessions`, docked to the panel's right edge)
@@ -703,7 +795,7 @@ a saved one. **Resizable** through `NS.MakeResizable`:
 
 It has its own tab strip of 6 tabs: `Items`, `Money`, `Currencies`, `Costs`, `Activity`, `Log`. The
 buttons come from `NS.Skin.Tab` and `NS.Skin.SetTabSelection`, the `LayoutTabButtons` pattern
-(`modules/Browser.lua:290-315`). `B:RegisterTab` is History-only. Each tab is a `FarmList`:
+(`modules/Browser.lua:290-316`). `B:RegisterTab` is History-only. Each tab is a `FarmList`:
 
 | Tab | Columns (default sort) |
 |---|---|
@@ -754,7 +846,7 @@ NS.Browser:RegisterTab{ name = "Farm", order = 50,
 - `B:RefreshFilterOptions` (`modules/Browser.lua:396-412`) reads `spec.charSource` as a mode, prunes
   picks when the mode changes, and passes `spec.zoneSource` to `zoneOptions`.
 - The search text matches name or zone.
-- Header band (Timeline precedent, `modules/Timeline.lua:198-207`): the title `Saved sessions`, then
+- Header band (Timeline precedent, `modules/Timeline.lua:199-214`): the title `Saved sessions`, then
   a `Measure: AH` cycle button (click cycles Money → Vendor → AH, chrome tooltip
   `Which value the Total and Gross/h columns show.`), then the hint `Click a row for its summary.
   Double-click for its full record. Right-click to rename or delete.` The measure is part of the
@@ -775,7 +867,7 @@ tier): `Rename…` and `Delete…`.
   restores the zone name.
 - `KA0S_LOOTHISTORY_FARM_DELETE`: `Delete the farm session "<name>" from <date>? This cannot be undone.`
 - Both refuse on a test-sample row with `test mode shows sample sessions; nothing to rename or delete.`
-  (the HoldingsTab Forget precedent, `modules/HoldingsTab.lua:293`). A sim-store row edits the sim
+  (the HoldingsTab Forget precedent, `modules/HoldingsTab.lua:284-296`). A sim-store row edits the sim
   store.
 - `Farm:Rename(ref, name)` and `Farm:Delete(ref)` write `Store()` and send `FARM_CHANGED`. A Details
   or summary window showing a deleted session closes.
@@ -785,7 +877,7 @@ tier): `Rename…` and `Delete…`.
 ## 8. Ingress (D21)
 
 **Slash** (`settings/Schema.lua` `NS.COMMANDS`, inserted after `holdings`; a feature verb, so the
-disabled gate wraps it, `:1152-1173`):
+disabled gate wraps it, `gateFeatureVerbs`, `:1190-1256`; `holdings` is `:1305`):
 
 ```lua
 { "farm", NS.L["Farm session: farm [start|pause|resume|finish]; bare toggles the panel"], function(rest)
@@ -807,7 +899,7 @@ disabled gate wraps it, `:1152-1173`):
 ```
 
 `core/LauncherSetup.lua`:
-- `runVerb(verb, rest)` passes `rest or ""` (`:61-65`). Existing one-argument callers are unchanged.
+- `runVerb(verb, rest)` passes `rest or ""` (`:61-68`). Existing one-argument callers are unchanged.
 - Two hidden, named, non-secure Buttons are created above the degraded exit, next to
   `LootHistoryToggleWindow` (`:88-94`), each with `RegisterForClicks("AnyDown")` and an
   `NS.RefusalLine()` gate first. `LootHistoryToggleFarm` → `runVerb("farm")`.
@@ -856,7 +948,11 @@ farm = {
 
 ### 9.2 Rows (`settings/SchemaFarm.lua`, `page = "Farm"`)
 
-Each row's `default` reads `PD.farm.*` / `GD.farmKeep` (one declaration site).
+The file follows `settings/SchemaToasts.lua`. It publishes `NS.SchemaFarm` with `PAGE = "Farm"` and
+`Rows()`, which returns a fresh array. It loads above `settings/Schema.lua`, which appends the array
+at file load directly after the Toasts loop (`settings/Schema.lua:666-668`):
+`for _, row in ipairs(NS.SchemaFarm.Rows()) do S.Schema[#S.Schema + 1] = row end`. Each row's
+`default` reads `PD.farm.*` / `GD.farmKeep` (one declaration site).
 
 | Path | Type / widget | Default | Group | Label | Tooltip |
 |---|---|---|---|---|---|
@@ -872,7 +968,7 @@ Each row's `default` reads `PD.farm.*` / `GD.farmKeep` (one declaration site).
 Every `onChange` sends `SETTINGS_CHANGED("farm")`. FarmPanel, FarmDetails and FarmTab repaint on
 that reason. `idleMinutes` also re-arms the ticker, and `pauseOnAFK` off resumes an `afk` pause.
 
-`settings.farm.keep` follows the retention row (`settings/Schema.lua:493-506`): `S.RESET_EXEMPT`
+`settings.farm.keep` follows the retention row (`settings/Schema.lua:557-576`): `S.RESET_EXEMPT`
 maps it to `farmKeep`, so neither the profile reset nor the Farm page's Defaults moves it. Its
 `onChange = function(v) Farm:OnKeepChanged(v) end` counts `n = Σ max(0, #sessions - v)` over every
 character in the live store.
@@ -882,53 +978,73 @@ character in the live store.
   `Keep %d sessions per character? This deletes %d saved sessions.` with buttons `Delete…`/`Cancel`.
 - Accept trims every character. Cancel restores the last confirmed value through a quiet write, plus
   `sessions kept at %s; no sessions were deleted.` This is the `S:OnRetentionChanged` /
-  `ConfirmRetention` shape (`:1008-1045`).
+  `ConfirmRetention` shape (`:1089-1130`).
 
 ### 9.3 Page (`settings/PanelFarm.lua`)
 
 ```lua
 function NS.FarmPage.Build(mainCategory)
-  local ctx = O.CreatePanel(nil, "Farm", { pageKey = "Farm", defaultsButton = true,
-    defaultsTooltip = "Restores every setting on the Farm page to its default. Sessions kept per character is account-wide and stays as it is." })
-  ctx.panel.defaultsOnClick = function() O.RestoreDefaults("Farm", ctx) end   -- page-wide (options-ui-§13)
+  local ctx = O.CreatePanel(nil, "Farm", { pageKey = NS.SchemaFarm.PAGE, defaultsButton = true,
+    defaultsTooltip = "Restores every setting on the Farm page to its default. Sessions kept per character is account-wide and stays as it is."
+      .. " " .. O.KEYBINDS_UNCHANGED })                                            -- options-ui-§20, as Toasts
+  ctx.panel.defaultsOnClick = function() O.RestoreDefaults(NS.SchemaFarm.PAGE, ctx) end   -- page-wide (options-ui-§13)
   O.SetRenderer(ctx, function(c) O.ClearScroll(c); O.RenderTabbedSchema(c, "Farm") end)
-  return Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "Farm")
+  Settings.RegisterCanvasLayoutSubcategory(mainCategory, ctx.panel, "Farm")
 end
 ```
 
-`P:Register` adds `O.RegisterOptionsPage("Farm", "Farm", NS.FarmPage.Build)` after General and
-after Toasts (when M3 registers it), and before Profiles, which stays last (options-ui-§3). The page
+The shape is `NS.ToastsPage.Build`'s (`settings/PanelToasts.lua:182-192`), without the banner.
+`P:Register` adds `if NS.FarmPage then O.RegisterOptionsPage("Farm", "Farm", NS.FarmPage.Build) end`
+directly after the Toasts block (`settings/Panel.lua:809-813`) and before Profiles, which stays last
+(options-ui-§3). The page
 has two tabs, General first (options-ui-§14), well inside the 8-tab budget. The farm key bindings
 appear on General > Keybindings with no change (`O.KeybindingsTab` reads `NS.BINDINGS`). The global
 reset is `db:ResetProfile`, so it restores every farm row except the exempt `keep`.
 
-### 9.4 Multi-page fixes (if M3 did not make them)
+### 9.4 Multi-page fixes (what M3.6 left)
 
-- `settings/Slash.lua` `groupKey` (`:484`): `row.page ~= "General" and (row.page .. " > " .. (row.group or "?")) or (row.group or "?")`,
-  so the Farm `General` tab does not merge with General's groups in `/lh list`.
-- `tests/test_panel.lua`: the subcategory set becomes `{ General, [Toasts,] Farm }`.
-- `docs/settings-panel.md` and the ARCHITECTURE schema paragraph drop "one subcategory".
-- The `settings/Panel.lua` `rowsOfGroup` filter stays `page == "General"` (it serves General only).
+M3.6 already did two things. `tests/test_panel.lua:33-41` asserts the exact set `"General | Toasts"`,
+and `docs/settings-panel.md:8` lists the Toasts subcategory. Still owed, all in M4.5:
+- `settings/Slash.lua` `groupKey` (`:481-485`, still `row.group or "?"`), with its "single-panel
+  addon" comment rewritten: `row.page ~= "General" and (row.page .. " > " .. (row.group or "?")) or (row.group or "?")`.
+  This is needed now, not just tidier, because the Toasts strip (`settings/SchemaToasts.lua:30`) and the
+  Farm strip both have a `General` tab, and `/lh list` would merge them. The change also renames the
+  Toasts rows' `/lh list` headers to `Toasts > <group>`. No suite pins `groupKey` today, so M4.5 adds
+  the case to `tests/test_slash_verbs.lua`: one General row, one Toasts row and one Farm row give
+  three distinct headings.
+- `tests/test_panel.lua`: the exact set becomes `"General | Toasts | Farm"`.
+- `settings/Panel.lua:790`'s "THREE sub-pages" comment becomes four.
+- `docs/settings-panel.md:3` ("**one** subcategory") and `:165` ("there is only one left to draw one",
+  "the landing page, **General**, and **Profiles** last") still describe a single page. Rewrite them
+  with the ARCHITECTURE schema paragraph (`docs/ARCHITECTURE.md:169`).
+- The `settings/Panel.lua` `rowsOfGroup` filter (`:674-679`) stays `page == "General"` (it serves
+  General only).
 
 ---
 
 ## 10. Icons
 
 Append to CLAUDE.md's `LibKa0s icons:` line, keeping it alphabetical: `add`, `map-marker`,
-`media-pause`, `media-play`, `minimise`, `star`. Copy each from the tag
-(`git -C ../LibKa0s show v1.118.0:LibKa0s/media/icons/<name>.tga`) into
-`libs/LibKa0s/media/icons/` in the same commit (M4.2 for minimise/add/media-*, M4.4 for star, M4.5
-for map-marker). The vendor gate diffs the payload against the tag. All six exist in the catalog.
+`media-pause`, `media-play`, `minimise`, `star`. The vendored library is
+`v1.119.0 (unreleased, branch feat/2026-11-27-feed)` (CLAUDE.md provenance line), so the source is
+that branch and not a tag. Extract `git -C ../LibKa0s archive feat/2026-11-27-feed LibKa0s tools testkit`
+into a fresh scratch directory. Copy only the needed `LibKa0s/media/icons/<name>.tga` files into
+`libs/LibKa0s/media/icons/`, then run that extract's `tools/prune-icons.lua` against this repo. Do
+this in the same commit as the declaration edit (M4.2 for minimise/add/media-*, M4.4 for star, M4.5
+for map-marker). `tests/test_vendor_sync.lua` diffs the payload against the branch head in the
+sibling checkout. All six exist on that branch (checked 2026-11-28).
 
 ---
 
 ## 11. Lifecycle, disabled state, perf, taint
 
-### 11.1 Stand-down and stand-up (`core/LifecycleSetup.lua:170-203`)
+### 11.1 Stand-down and stand-up (`core/LifecycleSetup.lua:173-230`)
 
 STAND_DOWN_STEPS:
-- `method("Farm", "Disable")` after `method("Rollup", "Disable")`. It pauses a running session with
-  `standDown`, runs `Reconcile` (all down), and `RemoveWriteHook`.
+- `method("Farm", "Disable")` after `method("Rollup", "Disable")` (`:190`). That is after every gain
+  observer's Disable (`:186-187`) and before `method("GainFeed", "Disable")` (`:195`). It pauses a
+  running session with `standDown`, runs `Reconcile` (all down, `SetFarm(nil)` included), and
+  `RemoveWriteHook`. `GainFeed:Disable` drops the farm set again in any case (§2).
 - `method("FarmPanel", "Disable")`, `method("FarmDetails", "Disable")` and
   `method("FarmTab", "Disable")` after `method("Timeline", "Disable")`. Their bus targets go.
 - `method("FarmPanel", "Hide")` and `method("FarmDetails", "Hide")` after
@@ -937,8 +1053,10 @@ STAND_DOWN_STEPS:
   session.
 
 STAND_UP_STEPS:
-- `method("Farm", "Enable")` after `method("Rollup", "Enable")`. It installs the logout hooks once,
-  runs Restore once, resumes a `standDown` pause, and runs `Reconcile`.
+- `method("Farm", "Enable")` after `method("Rollup", "Enable")` (`:219`). That is after
+  `method("GainFeed", "Enable")` (`:216`) and every observer's Enable (`:217-218`). It installs the
+  logout hooks once, runs Restore once, resumes a `standDown` pause, and runs `Reconcile`. That
+  `Reconcile` sets the farm set again (`SetFarm(C.FARM.GAIN_KINDS)`) after the stand-down dropped it.
 - `method("FarmPanel", "Enable")`, `method("FarmDetails", "Enable")` and `method("FarmTab", "Enable")`
   after `method("Timeline", "Enable")`. These are bus targets for `FARM_CHANGED` and
   `SETTINGS_CHANGED`.
@@ -952,27 +1070,42 @@ because the verb gate already printed the line.
 
 `farmGain` (the GAIN handler) and `farmWindow` (`Farm:OnLootWindow`) are Shape-A brackets.
 `Farm.lua` takes `NS.Perf` as a load-time local (`modules/Attribution.lua:18` precedent). Both
-buckets are declared in `core/PerfSetup.lua:63-69`. Per gain the work is O(1): table bumps and one
+buckets are appended to `core/PerfSetup.lua`'s list (`:63-81`), after `skillScan`:
+- `{ key = "farmGain", within = "gainSend" }`. The handler runs only inside `GainFeed:Send`'s bracket
+  (`modules/GainFeed.lua:73-81`) and passes `"gainSend"` as its observed parent, as `toastPaint` does
+  on a push. `gainSend` keeps no `within`, because it has no one parent (`core/PerfSetup.lua:72-75`).
+  The `docs/performance.md:31` nesting note adds that `farmGain` never sums into `gainSend`.
+- `{ key = "farmWindow" }`, top level. `Attribution:OnLootOpened` is not bracketed, and the
+  container-hook path is not either, so it passes no parent. Per gain the work is O(1): table bumps and one
 packed string, with pricing deferred (§5.5). With no session open, nothing is registered at all, and
 Attribution pays one nil test. `docs/performance.md` and `docs/combat-path-sweep.md` list both
 paths, and `tests/perf.lua` adds a `farmGain` scenario (1000 item gains with a session open).
 
 ### 11.3 Layers (frame-layering-§1/§5)
 
-All four farm windows use `C.LAYERS.STRATA.WINDOW` (`HIGH`). The LAYERS stack comment
-(`core/Constants.lua:454-476`) gains them as HIGH peers of the History window. The sessions list is
-docked and moves with the panel. The rename/delete/trim popups are StaticPopups (DIALOG), and the
-row menu is POPUP. The panel is a persistent window, which frame-layering-§1 puts at `MEDIUM`, but
-the table has a single T4 key (`WINDOW`), and `tests/test_layers.lua` pins `WINDOW == "HIGH"`.
-That deviation is flagged in §14 (D-1). `tests/test_layers.lua` adds cases for the four frames.
+Owner ruling D26, resolved upstream in standard v2.122.0: frame-layering-§1 T4 now has two keys.
+M4.2 adds `WINDOW_PERSISTENT = "MEDIUM"` to `C.LAYERS.STRATA` (`core/Constants.lua:617-624`) beside
+`WINDOW = "HIGH"`.
+- The companion panel (`LootHistoryFarmPanel`) is built on **`WINDOW_PERSISTENT`** (`MEDIUM`),
+  toplevel and clamped. In the stack comment (`core/Constants.lua:590-616`), it gets a new `MEDIUM`
+  line above the LibDBIcon line, as a peer of the minimap button.
+- The sessions list (`LootHistoryFarmSessions`), Details (`LootHistoryFarmDetails`) and Summary
+  (`LootHistoryFarmSummary`) stay on **`WINDOW`** (`HIGH`), as peers of the History window. The
+  sessions list is docked to the panel's right edge and moves with it. It sits one strata above the
+  panel, which is the owner's call, and nothing overlaps because the two are side by side.
+- The rename/delete/trim popups are StaticPopups (DIALOG), and the row menu is POPUP.
+- `tests/test_layers.lua` pins `L.STRATA.WINDOW_PERSISTENT == "MEDIUM"`, adds the key to its
+  `TIER_KEYS` set (`:22`), and keeps `WINDOW == "HIGH"` (`:65`). It adds cases for the four frames:
+  the panel on `WINDOW_PERSISTENT` and the other three on `WINDOW`. This is not a deviation and
+  needs no register row.
 
 ### 11.4 Taint and secrets
 
 - Every hook is `hooksecurefunc` through the Compat installers (post-hook, no taint on the secure
   logout path), latched once per session, with the body self-gated.
 - No Blizzard method is replaced (events-frames-taint-§3).
-- GUIDs, the AFK flag and quest titles pass `NS.Compat.IsSecret` (`core/CompatClient.lua:77-82`)
-  before any compare or table key (events-frames-taint-§8, `docs/midnight-quirks.md:91-108`).
+- GUIDs, the AFK flag and quest titles pass `NS.Compat.IsSecret` (`core/CompatClient.lua:74-83`)
+  before any compare or table key (events-frames-taint-§8, `docs/midnight-quirks.md:93-94`).
 - Logging goes through `NS.Debug` with tag `Farm`, one line per state edge: start, pause (reason),
   resume, finish (reason, lines, value), suspend, restore (rule 1-3), stale, discard, trim (n), and
   each refusal. Nothing logs per gain (debug-logging-§9).
@@ -981,7 +1114,7 @@ That deviation is flagged in §14 (D-1). `tests/test_layers.lua` adds cases for 
 
 A `farm` section:
 `farm: live=%s active=%s state=%s sessions(this char)=%d chars=%d log=%d est=%s intent=%s`.
-`simStores` (`:361-369`) adds `farm=%s` (the sim store's character count, or `-`).
+`simStores` (`:360-370`) adds `farm=%s` (the sim store's character count, or `-`).
 
 ### 11.6 `core/CompatFarm.lua` members
 
@@ -1006,8 +1139,8 @@ routing scan (`tests/test_compat_routing.lua`) covers the new file.
 | charKey | `Name-Realm` | name and surname (`C.CHARACTER_FORM`) |
 | New appearances line | shown | row hidden (`clients = { "retail" }`), tally stays 0 |
 | Gathering detection | seed-name match on Herb Gathering 2366 / Mining 2575 casts | same seeds (vanilla ids). Smoke row confirms the node cast names |
-| Fishing count | IsFishingLoot or the cast | cast-armed (Forever windows carry no GUID, `modules/Attribution.lua:256-259`) |
-| Zones | `ZONE_CHANGED_NEW_AREA` row (Farm's own; Attribution's is Retail-only, `:557-566`) | same row |
+| Fishing count | IsFishingLoot or the cast | cast-armed (Forever windows carry no GUID, `FishingArmed`, `modules/Attribution.lua:302-308`) |
+| Zones | `ZONE_CHANGED_NEW_AREA` row (Farm's own; Attribution's is Retail-only, `modules/Attribution.lua:575-578`) | same row |
 | Logout hooks | cited at wow-ui-source@ab5cb850 | symbols present (kit). Routing to be cited (D-4) |
 | Warband costs | a repair paid from the warband bank has holder `§warband` and does not count | n/a |
 
@@ -1016,8 +1149,8 @@ table gains the `looks` row and the gathering row.
 
 ### 12.2 Simulator (H4)
 
-- `Host.Prepare` sets `S.farm = {}` beside history/holdings/daily (`modules/Sim.lua:266-267`).
-  `releaseStores` sets `S.farm = nil` (`:395`). Both call `NS.Farm:OnStoreSwapped()`, which runs
+- `Host.Prepare` sets `S.farm = {}` beside history/holdings/daily (`modules/Sim.lua:277`).
+  `releaseStores` sets `S.farm = nil` (`:412-417`). Both call `NS.Farm:OnStoreSwapped()`, which runs
   `Reconcile` and sends `FARM_CHANGED("store")`.
 - During a sim, `Store()` is the sim store. A live open session is never written: its wall-clock
   `runningSince` keeps ticking, and its idle ticker is down, because `Reconcile` sees no active
@@ -1027,19 +1160,25 @@ table gains the `looks` row and the gathering row.
   rows) and loot windows (Attribution's rows, driven by the sim) tally into it. The panel shows it
   with the cyan sim strip.
 - `PLAYER_LOGOUT` acts on `LiveStore()` only.
+- Farm's three EVENT_ROWS (§5.8) have target `farm`/`farmUnit`. The simulator absorbs them while a
+  session runs, and only `target == "toasts"` rows are exempt (`modules/Sim.lua:190-201`). So a real
+  zone change, death or AFK during a sim is absorbed, and the simulated world's deliveries reach Farm
+  through `NS.DeliverAll`.
+- The simulator's Prepare and stop already call `GainFeed:ResetState` (the feed claims,
+  `modules/GainFeed.lua:218-221`). The farm set is not session state and stays as `Reconcile` left it.
 - `tests/test_sim_store.lua`'s byte-identical invariant extends to `db.global.farm`
-  (`docs/testing.md:120`).
+  (`docs/testing.md:134`).
 
 ### 12.3 Test mode (preview-mode)
 
 - `TD.Publish` sets `NS.State.testFarm = NS.FarmTestData.Build(time())`: 6 finished sessions over
-  the History sample's characters (`modules/TestData.lua:50-51` keys).
+  the History sample's characters (`modules/TestData.lua:27-28, 51` keys: `TestSample.charKey` over `CLASSES`).
 - Two zones (`Isle of Dorn` x3, `Ringing Deeps` x2, `Hallowfall` x1), one best pair per zone, and
   logs of 40 lines each. Fixed RNG seed. It reproduces the mockup's three rows
   (`mockups.html:675-677`).
 - It is read through `ActiveStore()` and never written. Rename/Delete refuse.
 - The panel ignores it and always shows the live (or sim) session.
-- Test mode ends at combat start (`modules/Browser.lua:961-965`), which clears the sample too.
+- Test mode ends at combat start (`modules/Browser.lua:956-965`), which clears the sample too.
 
 ---
 
@@ -1050,8 +1189,9 @@ green on the current code. Before touching `NS.RunVerb`, run `test_keybinding`/`
 
 | Suite | Cases |
 |---|---|
+| `tests/test_gain_feed.lua` | Farm-shaped `SetFarm` cases (§2): `C.FARM.GAIN_KINDS` with every feed and record switch off keeps `on`, every `wants`, and the Reputation/Appearance(Retail)/Progress rows registered. A `profile` Recompute keeps the set. `Disable` drops it and a following `SetFarm` restores it. `SetFarm(nil)` unregisters the observers again |
 | `tests/test_farm_model.lua` (new, pure) | Elapsed/Bank/Pause/Resume arithmetic. Idle banks to `lastGainAt`, and to `runningSince` when there is no gain. AFK at now. Zone banking only while running, `''` ignored. primaryZone argmax with a tie to the first. Totals with vendor fallback for AH (F8). Gross/net, all three measures. Per-hour nil under 60 s. **Mockup goldens** (§5.2). Pack/Unpack round-trip for all 13 kinds plus `\|` sanitizing. Trim batches (2101 → 2001, logDropped 100) and Finish trim to 2000. TrimCap keep 100 and 0. Source rule (VENDOR/MAIL/AH/diff OTHER skipped, chat OTHER counted). questRewards for QUEST item/money/currency. Rep signed sums. Skill from/to. newLook only. BestPerZone (eligibility, tie). `v == 1` |
-| `tests/test_farm.lua` (new, mock) | With no session, no rows, message, hook or timer are live (`M.__timers()` empty). Start registers all of them, and Finish removes all of them. Start-while-open refusal line. The GAIN payload tallies. A manual pause drops gains and keeps costs. An idle pause resumes on a gain. Costs: `Database:Add` OUT GOLD REPAIR plus an `Amend` adds `delta` twice. Another holder, `WARBAND_DEPOSIT` and `AH_BUY` are ignored. Currency BUY goes to costCurrencies. Logout: intent (Logout hook) → Finish("logout"). No intent → Suspend, then Enable → Resume, with the reload seconds excluded. Intent older than 30 s → Suspend. CancelLogout and LOGOUT_CANCEL clear the intent. Crash path within/beyond stale. Paused-stale. Per-character isolation. Stand-down pauses with `standDown`, a hook body while stood down is a no-op, stand-up resumes. AFK is a unit row on `player`, a secret AFK changes nothing, `pauseOnAFK` off ignores AFK. Loot windows: an AoE slot with 3 GUIDs counts 3. The same corpse in a second (skinning) window adds 0. Ring eviction at 257. Fishing/gathering/chest/Item window counts. The hook stamp followed by an Item window within TTL counts once. Quest turned in plus title. Death. Zone row. Price pass deferred out of combat and filled at Finish. F6 discard. Keep-cap confirm accept/cancel. `/reload` during a sim leaves the live session byte-identical |
+| `tests/test_farm.lua` (new, mock) | With no session, no rows, message, hook or timer are live (`M.__timers()` empty), and `NS.GainFeed._farm` is nil. Start registers all of them and calls `SetFarm(C.FARM.GAIN_KINDS)`, and Finish removes all of them and calls `SetFarm(nil)`. A stand-down/stand-up cycle with an open session leaves `_farm` set again. Start-while-open refusal line. The GAIN payload tallies, driven through the real senders (`GainFeed:SendChat`/`SendEvent`/`FromDiff`) with the §2 fields. A GOLD gain with `id == nil` tallies by source. A REPUTATION `OUT` subtracts. A diff `OTHER` gain is skipped and a chat `OTHER` gain counted. A manual pause drops gains and keeps costs. An idle pause resumes on a gain. Costs: `Database:Add` OUT GOLD REPAIR plus an `Amend` adds `delta` twice. Another holder, `WARBAND_DEPOSIT` and `AH_BUY` are ignored. Currency BUY goes to costCurrencies. Logout: intent (Logout hook) → Finish("logout"). No intent → Suspend, then Enable → Resume, with the reload seconds excluded. Intent older than 30 s → Suspend. CancelLogout and LOGOUT_CANCEL clear the intent. Crash path within/beyond stale. Paused-stale. Per-character isolation. Stand-down pauses with `standDown`, a hook body while stood down is a no-op, stand-up resumes. AFK is a unit row on `player`, a secret AFK changes nothing, `pauseOnAFK` off ignores AFK. Loot windows: an AoE slot with 3 GUIDs counts 3. The same corpse in a second (skinning) window adds 0. Ring eviction at 257. Fishing/gathering/chest/Item window counts. The hook stamp followed by an Item window within TTL counts once. Quest turned in plus title. Death. Zone row. Price pass deferred out of combat and filled at Finish. F6 discard. Keep-cap confirm accept/cancel. `/reload` during a sim leaves the live session byte-identical |
 | `tests/test_compat_farm.lua` (new) | LootSourceGUIDs pairs, tail wipe, absent API. IsPlayerAFK secret/nil. QuestTitle. HookLogoutFamily counts installed members, and an absent `C_UI` installs 5 |
 | `tests/test_attribution.lua` | A gathering cast followed by a GameObject window stamps GATHERING. With no cast, CONTAINER. A creature window after the cast is KILL. The name-seed match is conclusive only once the seed name is cached. Memo. `ResetContexts` clears it. Farm notifications fire only with `_live` |
 | `tests/test_farm_panel.lua` (new) | Header marks are extras (minimize, lock) then settings then close, `companion` nil. Minimize swaps the icon and tip and persists. The headline follows both settings. Activity order and hideZero. The paused and no-session views. Costs n/a with the ledger off. Visibility hide and re-show (F9). Lock repaint on SETTINGS_CHANGED. Sim strip, and the minimized badge. OnUpdate cleared on hide. Stand-down hides everything. The sessions list is a companion (close only) and carries the Tip group |
@@ -1059,46 +1199,49 @@ green on the current code. Before touching `NS.RunVerb`, run `test_keybinding`/`
 | `tests/test_farm_tab.lua` (new) | Order 50, after Holdings and Timeline. Honored filters. charSource/zoneSource farm options. The Measure cycle is part of the saved view. ★ rows. Click, double-click and right-click routes. Rename/Delete popups. Test-mode refusal |
 | `tests/test_keybinding.lua` | `assertBindingsXml` with three labels, Show window first. `#NS.BINDINGS == 3`. Each new button is named, not secure, AnyDown, one press is one verb call, present on a degraded install, and refuses while disabled with the RefusalLine |
 | `tests/test_launcher.lua` | The menu shows the five built-ins plus `Farm session`. checked follows the panel. Grayed while disabled |
-| `tests/test_profiles.lua` | Verb order with `farm` after `holdings` (`:435-440`) |
-| `tests/test_slash_verbs.lua` | Each `/lh farm` word and its refusal lines. The disabled gate prints DisabledLine and does nothing |
-| `tests/test_panel.lua`, `tests/test_schema.lua`, `tests/test_panel_keybinds.lua` | Subcategory set. Farm page tabs `General`, `Activity`. Page-wide Defaults leaves `farmKeep`. RESET_EXEMPT entry. Shipped defaults equal row defaults. `looks` row Retail-only. Keybindings tab draws 3 rows |
+| `tests/test_profiles.lua` | Verb order with `farm` after `holdings` (`:438-444`; the count goes from 24 to 25) |
+| `tests/test_slash_verbs.lua` | Each `/lh farm` word and its refusal lines. The disabled gate prints DisabledLine and does nothing. `/lh list` headings are page-aware (§9.4) |
+| `tests/test_panel.lua`, `tests/test_schema.lua`, `tests/test_panel_keybinds.lua` | Subcategory set `"General | Toasts | Farm"` (`tests/test_panel.lua:40`). Farm page tabs `General`, `Activity`. Page-wide Defaults leaves `farmKeep`. RESET_EXEMPT entry. Shipped defaults equal row defaults. `looks` row Retail-only. Keybindings tab draws 3 rows |
 | `tests/test_disabled.lua` | The survey covers Farm's rows (targets `farm`/`farmUnit`), the four lifecycle events, the GAIN message, the write hook (behavioral: a REPAIR row written while stood down tallies nothing), the ticker and the price pass (`M.__timers()` empty), the panel OnUpdate, and the step order |
 | `tests/test_dispatch.lua` | SNAPSHOT gains the three Farm rows on both clients |
 | `tests/test_sim_store.lua` | Byte-identical `db.global.farm`. A sim farm session writes only `SimStores.farm`, and it is released at stop |
-| `tests/test_layers.lua` | The four frames on WINDOW |
+| `tests/test_layers.lua` | `WINDOW_PERSISTENT == "MEDIUM"` and in `TIER_KEYS`; `WINDOW == "HIGH"` unchanged. The panel on `WINDOW_PERSISTENT`; the sessions list, Details and Summary on `WINDOW` |
 | `tests/test_constants.lua` | `FARM_CHANGED` wire pin through the real sender. GATHERING in the source tables, not in `LEDGER_REASON` |
 | `tests/test_diagnostics.lua`, `tests/test_debug_coverage.lua` | The farm section. `[Farm]` edge lines |
 | `tests/test_browser.lua` | The History title marks are farm, lock, settings, close. The farm mark runs the verb |
 | `tests/test_testdata.lua` or the existing TestData case | `testFarm` is published and cleared, and deterministic |
-| `tests/perf.lua` | `farmGain` baseline |
+| `tests/perf.lua`, `tests/test_perf.lua` | `farmGain` baseline. The bucket list carries `farmGain` (`within = "gainSend"`) and `farmWindow` |
 
 ---
 
 ## 14. Deviations to flag
 
 Each needs the owner's call before its task merges. The choice is a register row in
-`docs/ARCHITECTURE.md` `## Documented deviations`, or an upstream change to the standard.
+`docs/ARCHITECTURE.md` `## Documented deviations`, or an upstream change to the standard. Status on
+2026-11-28: D-1 and D-3 are **resolved upstream** (M4.0), and D-2 is **ruled** (D27: widen the row,
+done in M4.1a). D-4 is still open (cite before M4.1b merges). The D-1 text below is history. Its
+"builds the panel at `WINDOW`" and its interim register row are superseded (§11.3).
 
-- **D-1 `frame-layering-§1`.** T4 puts a persistent window at `MEDIUM` and an on-demand one at
+- **D-1 `frame-layering-§1` (resolved: standard v2.122.0 `WINDOW_PERSISTENT`).** T4 puts a persistent window at `MEDIUM` and an on-demand one at
   `HIGH` under the single key `WINDOW` (`frame-layering.md:19`). The farm panel is persistent, but
-  this addon's `WINDOW` is `HIGH` for the History window (`core/Constants.lua:477-482`), and a table
+  this addon's `WINDOW` is `HIGH` for the History window (`core/Constants.lua:617-624` today), and a table
   key holds one value. The spec builds the panel at `WINDOW` (`HIGH`). The recommended route is a
   **change to the standard**: a second T4 key for a persistent window beside an on-demand one (for
   example `WINDOW_PERSISTENT = "MEDIUM"`). Then the panel moves to it in a one-line change. Until
   then, a register row: `| frame-layering-§1 | The farm panel, a persistent window, sits at HIGH
   with the History window | One T4 key; a second key needs the standard | 2026-11-27 | The standard
   gains a persistent-window key |`.
-- **D-2 `localization-§4`.** Gathering detection (F1) compares the cast's localized name with names
+- **D-2 `localization-§4` (ruled D27; M4.1a widens the row at `docs/ARCHITECTURE.md:851`).** Gathering detection (F1) compares the cast's localized name with names
   derived from seed ids, which is the same shape as the registered deconstruct row. The Fishing
-  seed-name fallback shipped 2026-11-27 (`modules/Attribution.lua:437-454`) is not named in that row
+  seed-name fallback shipped 2026-11-27 (`modules/Attribution.lua:451-482`) is not named in that row
   either. Recommendation: widen the existing row to "deconstruct, fishing and gathering casts". The
   trigger is unchanged.
-- **D-3 `launcher-§2`.** The extra entry must be listed in `standards/ADDONS.md`'s LootHistory
+- **D-3 `launcher-§2` (done upstream in M4.0, WowAddonStandards v2.122.1).** The extra entry must be listed in `standards/ADDONS.md`'s LootHistory
   launcher column. That file is upstream, so it is an upstream edit, not a deviation, and it is due
   with M4.5.
-- **D-4 `events-frames-taint-§9`.** The logout-family hooks are cited for Retail at
+- **D-4 `events-frames-taint-§9` (open; M4.1b).** The logout-family hooks are cited for Retail at
   wow-ui-source@ab5cb850 (§5.4). Forever's routing of `/logout`, `/quit`, the game menu and the
-  QUIT/CAMP popups through the same globals must be cited from its interface source before M4.1
+  QUIT/CAMP popups through the same globals must be cited from its interface source before M4.1b
   merges. If Forever routes elsewhere, its logout falls back to the stale rule, and that needs a
   per-client row.
 - **Not deviations, recorded so a reviewer does not re-raise them:**
@@ -1127,10 +1270,10 @@ verification gates, and each one is a smoke row:
 
 | Doc | Update |
 |---|---|
-| `docs/ARCHITECTURE.md` | Module map (8 new files). Data model (`farm`, `farmKeep`). Message bus (`FARM_CHANGED`). Slash table plus the feature-verb list (`farm`). Key bindings (three). Disabled state. Event subscriptions (Farm rows, lifecycle events, hooks). Frame layering (pointer). Tooltip placement (the panel and sessions-list group). Per-client rows. Documented deviations (D-1, D-2 per the owner). Documentation map (`farm.md`) |
+| `docs/ARCHITECTURE.md` | Module map (the new files of §3.1). Data model (`farm`, `farmKeep`). Message bus (`FARM_CHANGED`). Slash table plus the feature-verb list (`farm`). Key bindings (three). Disabled state. Event subscriptions (Farm rows, lifecycle events, hooks). Frame layering (pointer). Tooltip placement (the panel and sessions-list group). Per-client rows. Documented deviations: the D-2 widening only (D27). D-1 needs no row. Documentation map (`farm.md`) |
 | `docs/farm.md` (new) | Session model, clock rules (F2, F3), logout/reload/stale rules with the hook evidence, activity sources, cost reasons, storage and caps, sim and test-mode behavior |
 | `docs/schema.md` | `db.global.farm` shape, the `v` stamp, `farmKeep` (reset-exempt), `settings.farm.*` rows, and the state-outside-the-rows entries (§4.5) |
-| `docs/module-map.md`, `docs/message-bus.md` | New modules. `FARM_CHANGED` sender and receivers. `GAIN` gains the Farm receiver |
+| `docs/module-map.md`, `docs/message-bus.md` | New modules. `FARM_CHANGED` sender and receivers. `docs/message-bus.md:58` currently says "Toasts ... are its only receiver today; the farm session (#39) enters through `GainFeed:SetFarm`". It now names Farm as the second receiver |
 | `docs/data-flow.md` | GATHERING (cast → window). Attribution → Farm notifications |
 | `docs/settings-panel.md`, `docs/slash-dispatch.md` | The Farm page and multi-page notes. The `farm` verb grammar |
 | `docs/disabled-state.md`, `docs/performance.md`, `docs/combat-path-sweep.md` | Farm steps. `farmGain`/`farmWindow` |
@@ -1145,13 +1288,15 @@ verification gates, and each one is a smoke row:
 ## 17. Task breakdown (plan rows M4.1-M4.6)
 
 Each task ends green on the four-suite gate with one commit, and updates the ledger row in that
-commit. LF→CRLF repair follows each commit.
+commit. LF→CRLF repair follows each commit. M4.1a and M4.1b both write their note under the plan's row M4.1, and M4.1 is marked done only after
+M4.1b.
 
 | Task | Contents |
 |---|---|
-| **M4.1** Session model | (a) §2 GainFeed `SetConsumer` and missing fields, with tests. (b) `core/CompatFarm.lua`, the root header, SimWorld providers, `test_compat_farm`. (c) Constants: GATHERING, `C.GATHERING_TTL`, `C.FARM`, `FARM_CHANGED`; State fields; Global defaults `farm`/`farmKeep`; Profile defaults `settings.farm`. (d) Attribution gathering plus Farm notifications (characterization first). (e) `modules/FarmModel.lua` plus `test_farm_model`. (f) `modules/Farm.lua`: store routing, Reconcile, clock, idle ticker, AFK/zone/death rows, logout intent plus hooks, Suspend/Restore/stale, gains, price pass, costs hook, cap trim, StorageStats, Diagnostics, perf buckets, lifecycle steps, and `test_farm`, `test_dispatch`, `test_disabled`, `test_constants`, `test_sim_store`, `Sim.lua` store swap. (g) A minimal `/lh farm` verb row (start/pause/resume/finish; bare prints status until M4.2) and `test_profiles` order. If (f) grows too large, split it into M4.1a (model and store) and M4.1b (runtime) |
-| **M4.2** Panel | `modules/FarmList.lua` (base list), `modules/FarmPanel.lua` (all views, minimize, lock mark, visibility, OnUpdate, sim strip and badge), Browser fan-out, the bare verb toggling the panel, icons `minimise`/`add`/`media-play`/`media-pause`, `test_farm_panel`, `test_layers` |
-| **M4.3** Details and Summary | `modules/FarmDetails.lua` (6 tabs, resize, Log virtualization, summary), Finish opens the summary, `test_farm_details` |
-| **M4.4** Farm tab and sessions list | `modules/FarmTab.lua`, the BrowserWidgets/Browser option-source modes, the sessions-list companion with its Tip group, BestPerZone ★ (icon `star`), the Rename/Delete popups and menu, `modules/FarmTestData.lua` plus TD.Publish, `test_farm_tab` |
-| **M4.5** Ingress and settings | The History title mark (icon `map-marker`), Bindings.xml plus two buttons, labels, `NS.BINDINGS`, `runVerb(verb, rest)`, the launcher extra entry, `settings/SchemaFarm.lua` plus RESET_EXEMPT plus the keep confirm, `settings/PanelFarm.lua` plus the P:Register order, the §9.4 multi-page fixes, the storage readout line, `test_keybinding`, `test_launcher`, `test_panel`, `test_schema`, `test_slash_verbs`, `test_browser` |
-| **M4.6** Sim, test mode, docs, review | The sim e2e case (a sim session tallies a scenario's gains; the live store stays byte-identical), test-mode checks, `tests/perf.lua` farmGain, the disabled-state survey sweep, every §16 doc, the test-cases regen, then the review-pass workflow, its fixes, and push M4. Do not merge |
+| **M4.1a** Model and contracts (pure, no runtime) | (1) Constants: `GATHERING` in `SourceType`/`SourceOrder`/`SourceLabel`/`SOURCE_IMPLEMENTED` (not `LEDGER_REASON`), `C.GATHERING_TTL`, `C.FARM` with `GAIN_KINDS` (§4.4), and `test_constants` (GATHERING in the source tables, not in `LEDGER_REASON`). `MSG.FARM_CHANGED` waits for M4.1b, because `tests/test_constants.lua:394-405` pins the exact catalog through real senders. (2) `core/CompatFarm.lua` (§11.6), the TOC line after `core\CompatGain.lua`, the `core/Compat.lua:12-14` family header (CompatGain and CompatFarm), the SimSeam TOC comment, SimWorld providers, `test_compat_farm`, `test_sim_seam`, `test_compat_routing`. (3) Defaults: `defaults/Global.lua` `farm = {}` / `farmKeep = 100`, `defaults/Profile.lua` `settings.farm` (§9.1), and the `core/State.lua` fields (`SimStores.farm`, `testFarm`, `farmLogoutIntent`). (4) `modules/FarmModel.lua` and `test_farm_model` (every pure rule in §4.3, §5.2, §5.3, §5.5 `ApplyGain`/`ApplyCost`, §5.9, and the formatters). (5) GainFeed contract: no code change, and the Farm-shaped `SetFarm` cases in `tests/test_gain_feed.lua` (§2, §13). (6) Attribution: gathering detection and the `GATHERING` branch (F1, §5.7), plus the three Farm notifications behind `NS.Farm and NS.Farm._live` (inert until M4.1b). Characterization comes first (`test_attribution` green on the current code). The D27 widening of the `localization-§4` register row (`docs/ARCHITECTURE.md:851`) to deconstruct, fishing and gathering casts goes in the same commit. Gate, and regenerate test-cases |
+| **M4.1b** Runtime | `modules/Farm.lua` (TOC after `modules\FarmModel.lua`): store routing (§5.1), `Reconcile` with `SetFarm(C.FARM.GAIN_KINDS)`/`SetFarm(nil)`, the GAIN receiver on `Farm.__ev` (bucket `farmGain`, parent `gainSend`), the clock and the idle ticker (`NS.After`), AFK/zone/death EVENT_ROWS (targets `farm`/`farmUnit`, the `core/Dispatch.lua` header), the logout intent plus `Compat.HookLogoutFamily` and the four lifecycle events, Suspend/Restore/stale, the price pass, the `Database:OnWrite` cost hook, F6 discard, cap trim and `OnKeepChanged`, `StorageStats` and the `Database:StorageStats` fields, the Diagnostics section. `MSG.FARM_CHANGED` comes with its sender. The perf buckets `farmGain` (`within = "gainSend"`) and `farmWindow` go in `core/PerfSetup.lua`. The lifecycle steps go in `core/LifecycleSetup.lua` (`Farm` Disable after Rollup and before GainFeed; Enable after Rollup, §11.1). The `modules/Sim.lua` store swap (`:277`, `:412-417`) and `OnStoreSwapped`. A minimal `/lh farm` row in `NS.COMMANDS` after `holdings` (start/pause/resume/finish; bare prints status until M4.2). The D-4 Forever citation for the logout routing. Tests: `test_farm`, `test_dispatch`, `test_disabled`, `test_constants` (`FARM_CHANGED` pin), `test_sim_store`, `test_profiles` (25 verbs), `test_diagnostics`, `test_debug_coverage`, `test_perf`. If `modules/Farm.lua` nears 1500 lines or a function nears CCN 15, peel the logout/restore half into `modules/FarmSession.lua` (TOC, routing tests, docs) |
+| **M4.2** Panel | `C.LAYERS.STRATA.WINDOW_PERSISTENT = "MEDIUM"` plus the stack-comment line (§11.3). `modules/FarmList.lua` (base list). `modules/FarmPanel.lua` on `WINDOW_PERSISTENT`, with all its views, minimize, the lock mark, visibility, OnUpdate, and the sim strip and badge. The Browser fan-out. The bare verb toggling the panel. Icons `minimise`/`add`/`media-play`/`media-pause` (§10). `test_farm_panel`, `test_layers` (the new key pinned; panel on it) |
+| **M4.3** Details and Summary | `modules/FarmDetails.lua` (6 tabs, resize, Log virtualization, summary), both on `WINDOW`. Finish opens the summary. `test_farm_details`, plus `test_layers` cases for the two windows |
+| **M4.4** Farm tab and sessions list | `modules/FarmTab.lua` (order 50, after Holdings 40 and Timeline 30). The BrowserWidgets/Browser option-source modes. The sessions-list companion on `WINDOW` with its Tip group. BestPerZone ★ (icon `star`). The Rename/Delete popups and menu. `modules/FarmTestData.lua` plus TD.Publish (`modules/TestData.lua:264-266`). `test_farm_tab`, and the `test_layers` case for the list |
+| **M4.5** Ingress and settings | The History title mark (icon `map-marker`). `Bindings.xml` plus two buttons, labels and `NS.BINDINGS`, and `runVerb(verb, rest)`. The launcher extra entry. The full `/lh farm` grammar. `settings/SchemaFarm.lua` above `settings/Schema.lua` (appended beside the Toasts loop), RESET_EXEMPT and the keep confirm. `settings/PanelFarm.lua` after `settings/PanelToasts.lua`, and the `P:Register` order after the Toasts block. The §9.4 leftovers: page-aware `groupKey`, the `test_panel` exact set `General \| Toasts \| Farm`, the Panel comment, and the settings-panel/ARCHITECTURE single-page lines. The storage readout line. Tests: `test_keybinding`, `test_launcher`, `test_panel`, `test_schema`, `test_slash_verbs`, `test_browser` |
+| **M4.6** Sim, test mode, docs, review | The sim e2e case (a sim session tallies a scenario's gains; the live store stays byte-identical). Test-mode checks. `tests/perf.lua` farmGain. The disabled-state survey sweep. Every §16 doc, including the `docs/message-bus.md:58` receiver line and the `docs/performance.md:31` nesting note. The test-cases regen. Then the review-pass workflow, its fixes, and push M4. Do not merge |

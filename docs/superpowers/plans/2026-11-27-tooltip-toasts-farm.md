@@ -94,7 +94,8 @@ each with `rm <path> && git checkout -- <path>` (CRLF per `.gitattributes`), the
 | M3.6 | Settings (Toasts page, per-feed tabs), test toasts, Blizzard alert hiding (D25), disabled-state, perf, sim | done | `M3.6: Add the Toasts settings page, test toasts and Blizzard alert hiding` |
 | M3.7 | Docs + review pass + fixes; push M3 | done (pushed) | `M3.7: Document the loot toasts across the docs and smoke checks`, `M3.7: Review fixes` |
 | M4.0 | Standards upstream: `WINDOW_PERSISTENT` T4 key (frame-layering-§1, v2.122.0) + Loot History launcher column `Farm session` (ADDONS.md, v2.122.1) | done | WowAddonStandards `feat/2026-11-27-lh-farm-standard` (`e171172`, `ed98e68`), pushed |
-| M4.1 | Farm session model: start/pause/resume/finish, clock, AFK + idle, logout finishes, reload keeps, tallies, costs, activity, log cap, storage + cap | todo | |
+| M4.0b | Farm spec aligned to what M3 shipped (SetFarm contract, real gain payload, Toasts-precedent schema, WINDOW_PERSISTENT, refreshed citations, M4.1 split) | done | `M4.0b: Align the farm spec to the M3 gain feed` |
+| M4.1 | Farm session model, in two commits. **M4.1a**: constants (GATHERING, `C.FARM` + `GAIN_KINDS`), `core/CompatFarm.lua`, defaults + State fields, `modules/FarmModel.lua` (pure) + tests, the GainFeed `SetFarm` contract tests, Attribution gathering + Farm notifications, the D27 register row. **M4.1b**: `modules/Farm.lua` runtime: store routing, clock, idle/AFK, logout hooks + suspend/restore, gains, costs, cap trim, lifecycle steps, perf buckets, `FARM_CHANGED`, a minimal `/lh farm` verb (spec §17) | todo | |
 | M4.2 | Companion panel (headline, numbers, activity, buttons, minimize, paused view) | todo | |
 | M4.3 | Details window (6 tabs) + summary at Finish | todo | |
 | M4.4 | Farm tab in the History window + panel sessions list (rename, delete, best per zone) | todo | |
